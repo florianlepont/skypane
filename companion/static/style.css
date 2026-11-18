@@ -6973,6 +6973,11 @@ button.row-menu__item {
   animation-delay: calc(2 * var(--motion-stagger));
 }
 
+/* The editor table that follows the gaps table enters one step after it. */
+.dashboard-main[data-page-open] > .airlines-table--gaps ~ .airlines-table {
+  animation-delay: calc(3 * var(--motion-stagger));
+}
+
 /* A filter that only hides rows replays a fade of its list, nothing else:
  * opacity alone, so a tall list costs the compositor one layer. The
  * page-opening rules above must not win over it while the page is still

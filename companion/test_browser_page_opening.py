@@ -976,15 +976,16 @@ def test_the_flights_table_columns_do_not_depend_on_the_rows_that_arrive(
         new_context, server, width):
     """the browser paints a streamed table before its last row has been parsed, so the columns
     keep their widths whatever a row brings: adding a row with a long cell, as a late chunk
-    of the page would, moves no column"""
+    of the page would, moves no column (the header row is not drawn, so the first row's cells
+    are what is measured)"""
     context = _admin_context(
         new_context, server, {"width": width, "height": 900}, reduced_motion="reduce")
     try:
         page = context.new_page()
         page.goto(server.base_url() + "/flights")
         page.wait_for_function(_SETTLED_PAGE, timeout=10000)
-        read = ("() => Array.from(document.querySelectorAll("
-                "'table.data-table--flights thead th')).map("
+        read = ("() => Array.from(document.querySelector("
+                "'table.data-table--flights tbody tr[data-flight-row]').cells).map("
                 "(h) => Math.round(h.getBoundingClientRect().width))")
         before = page.evaluate(read)
         assert len(before) == 5 and min(before) > 40, before
