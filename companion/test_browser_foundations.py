@@ -105,8 +105,9 @@ def test_titles_are_on_the_type_scale_in_the_display_face(
         assert read["h1Count"] == 1, (path, "exactly one h1 per page")
         low, high = (30, 34) if viewport["width"] < 960 else (40, 44)
         if path == "/":
-            # Home's title is the frame name in the hero: 28px on a phone, 48px on a desktop.
-            low, high = (28, 28) if viewport["width"] < 960 else (48, 48)
+            # Home's title is the frame's name beside its pencil: 32px on a phone as in the
+            # approved Home mockup, 44px on a desktop like every other page title.
+            low, high = (32, 32) if viewport["width"] < 960 else (44, 44)
         for title in read["pageTitles"]:
             assert _same_stack(title["family"], read["display"]), title
             assert low <= title["size"] <= high, (path, viewport["width"], title)
@@ -130,11 +131,13 @@ def test_no_label_is_tracked_uppercase_and_every_radius_is_a_token(
     try:
         assert page.evaluate(_NO_UPPERCASE) == [], path
         tokens = page.evaluate(
-            """() => ['--radius-control', '--radius-card', '--radius-pill', '--radius-sheet'].map(
+            """() => ['--radius-control', '--radius-card', '--radius-pill', '--radius-sheet',
+                      '--radius-frame-pic'].map(
                 (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim())""")
-        assert tokens == ["14px", "22px", "32px", "28px"]
-        # 9px is the icon chip's own radius (--radius-chip), 28px the sheets' (--radius-sheet).
-        allowed = {"14px", "13px", "22px", "32px", "9px", "28px"}
+        assert tokens == ["14px", "22px", "32px", "28px", "5px"]
+        # 9px is the icon chip's own radius (--radius-chip), 28px the sheets' (--radius-sheet),
+        # 5px the drawn portrait frame's (--radius-frame-pic: a picture, never a capsule).
+        allowed = {"14px", "13px", "22px", "32px", "9px", "28px", "5px"}
         # The vendored Leaflet map controls carry their own radii and are not ours.
         stray = [item for item in page.evaluate(_RADII)
                  if item.split(" ")[0] not in allowed and ".leaflet-" not in item]
