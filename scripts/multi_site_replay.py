@@ -27,6 +27,7 @@ if REPO_ROOT not in sys.path:
 
 from scripts import multi_site_run, multi_site_setup  # noqa: E402
 from server import fleet_cycle, history_db, poll_cycle, zone_fetch  # noqa: E402
+from server.plane import enrich  # noqa: E402
 
 # Records of one fleet cycle are written within a few seconds of each other.
 CYCLE_GAP_S = 10.0
@@ -112,11 +113,14 @@ def replay_session(source, out_root, specs, out=lambda line: None):
     multi_site_setup.create_scratch_fleet(out_root, specs)
     clock_now = {"t": cycles[0]["epoch"]}
     fetcher = _CycleFetcher()
-    real_now, real_iso = poll_cycle.now_s, history_db.utc_now_iso
+    real_now, real_iso, real_vrs = poll_cycle.now_s, history_db.utc_now_iso, enrich.default_vrs_transport
     # The poll cycle times its display queue by now_s() and stamps its rows
     # with utc_now_iso(): drive both with the recorded time, or the queue
     # pacing (90 s, 150 s) is not replayed and the rows carry today's time.
     poll_cycle.now_s = lambda: clock_now["t"]
+    # The recorded cache holds adsbdb answers only: the VRS standing data is
+    # never asked, and every VRS lookup is a miss.
+    enrich.default_vrs_transport = lambda key, timeout=None: (404, None)
     history_db.utc_now_iso = lambda: datetime.fromtimestamp(
         clock_now["t"], timezone.utc).isoformat(timespec="seconds")
     try:
@@ -124,6 +128,7 @@ def replay_session(source, out_root, specs, out=lambda line: None):
             return _run_cycles(out_root, cycles, clock_now, fetcher, routes, out)
     finally:
         poll_cycle.now_s, history_db.utc_now_iso = real_now, real_iso
+        enrich.default_vrs_transport = real_vrs
 
 
 def _run_cycles(out_root, cycles, clock_now, fetcher, routes, out):

@@ -43,6 +43,11 @@ from server.plane import manual_resolutions, name_overrides, runway_config
 
 ADSBDB_URL = "https://api.adsbdb.com/v0/callsign/{callsign}"
 
+# VRS standing data (CC0): one static JSON file per callsign, mirrored by
+# adsb.lol. Asked before adsbdb, see `resolve_route()`.
+VRS_URL = "https://vrs-standing-data.adsb.lol/routes/{prefix}/{callsign}.json"
+VRS_CACHE_PREFIX = "vrs:"
+
 # adsbdb is a free, unauthenticated, crowdsourced service — identify this
 # project honestly, matching detect.py's self-identification convention.
 USER_AGENT = (
@@ -73,7 +78,7 @@ CACHE_HIT_TTL_S = 30 * 86400
 
 # Bounds poll_state.json's enrichment_cache so a long-running server
 # cannot grow the state file without limit.
-CACHE_MAX_ENTRIES = 300
+CACHE_MAX_ENTRIES = 600
 
 # An aggregator-supplied callsign is untrusted input interpolated
 # directly into the outbound adsbdb request URL — constrain it to
@@ -318,6 +323,127 @@ def _route_from_entry(entry):
         "destination_city": entry.get("destination_city"),
         "callsign_iata": entry.get("callsign_iata"),
     }
+
+
+# --- VRS standing-data routes -------------------------------------------------
+#
+# A route file lists the airports of a callsign's usual flights in order
+# (`_airport_codes_iata`, "TLS-NTE-SNR-TLS" for a callsign that serves
+# several legs). VRS keys the callsign as the airline code, the flight
+# number without leading zeros and at most two trailing letters, so
+# "IBE05RR" is the file "IBE5RR". Measured on 2026-11-17 against
+# Flightradar24 (155 flights, four airports): adsbdb alone gave the right
+# route for 80 % of the flights, VRS first then adsbdb for 94 %.
+
+_VRS_KEY_RE = re.compile(r"^([A-Z]{3})0*([0-9][A-Z0-9]*)$")
+_IATA_RE = re.compile(r"^[A-Z]{3}$")
+
+
+def vrs_key(callsign):
+    """The VRS file key of `callsign`, or `None` when it has none."""
+    normalised = normalise_callsign(callsign)
+    if normalised is None:
+        return None
+    match = _VRS_KEY_RE.match(normalised)
+    return match.group(1) + match.group(2) if match else None
+
+
+def default_vrs_transport(key, timeout=DEFAULT_TIMEOUT):
+    """GET the VRS file of `key`, bounded like `default_transport()`.
+    Returns `(status_code, parsed_json_or_None)`."""
+    url = VRS_URL.format(prefix=key[:2], callsign=key)
+    result = http_fetch.bounded_get(
+        url, headers={"User-Agent": USER_AGENT}, timeout=timeout,
+        deadline_s=ADSBDB_DEADLINE_S, max_bytes=ADSBDB_MAX_BYTES,
+    )
+    try:
+        body = json.loads(result.content)
+    except ValueError:
+        body = None
+    return result.status_code, body
+
+
+def _parse_vrs(body):
+    """`[{"iata", "city"}, ...]` for a VRS file, or `None` when it has fewer
+    than two airports or an airport without a three-letter IATA code or a
+    city."""
+    if not isinstance(body, dict):
+        return None
+    codes = body.get("_airport_codes_iata")
+    details = body.get("_airports")
+    if not isinstance(codes, str) or not isinstance(details, list):
+        return None
+    cities = {}
+    for entry in details:
+        if isinstance(entry, dict) and isinstance(entry.get("iata"), str):
+            cities[entry["iata"]] = entry.get("location")
+    airports = []
+    for code in codes.split("-"):
+        city = cities.get(code)
+        if not _IATA_RE.match(code) or not isinstance(city, str) or not city.strip():
+            return None
+        airports.append({"iata": code, "city": to_sentence_case_city(_primary_city_name(city))})
+    return airports if len(airports) >= 2 else None
+
+
+def _vrs_lookup(key, cache, transport, timeout, now):
+    """`(airports_or_None, from_cache)`, cached like `_lookup()`: a 404 or an
+    unusable file for a day, a usable one for a month, a transient failure
+    not at all."""
+    cache_key = VRS_CACHE_PREFIX + key
+    entry = _fresh_entry(cache, cache_key, now)
+    if entry is not None:
+        return (entry.get("airports") if entry.get("found") else None), True
+    try:
+        status_code, body = (transport or default_vrs_transport)(key, timeout)
+    except Exception:
+        return None, False
+    if status_code == 404 or (200 <= status_code < 300 and _parse_vrs(body) is None):
+        cache[cache_key] = {"found": False, "cached_at": now}
+        return None, False
+    if 200 <= status_code < 300:
+        airports = _parse_vrs(body)
+        cache[cache_key] = {"found": True, "airports": airports, "cached_at": now}
+        return airports, False
+    return None, False
+
+
+def route_leg(airports, state, watched):
+    """The `(origin, destination)` airports of the leg that serves the
+    watched airports: the leg ending there for an arrival, starting there for
+    a departure. Without a direction, the only leg touching one of them. `None`
+    when there is no such leg or when it is ambiguous."""
+    if not airports or not watched:
+        return None
+    legs = list(zip(airports, airports[1:]))
+    if state == runway_config.STATE_ARRIVING:
+        found = [leg for leg in legs if leg[1]["iata"] in watched and leg[0]["iata"] not in watched]
+    elif state == runway_config.STATE_DEPARTING:
+        found = [leg for leg in legs if leg[0]["iata"] in watched and leg[1]["iata"] not in watched]
+    else:
+        found = [leg for leg in legs if (leg[0]["iata"] in watched) != (leg[1]["iata"] in watched)]
+        found = found if len(found) == 1 and len(legs) <= 2 else []
+    return found[0] if found else None
+
+
+def _vrs_route(callsign, cache, transport, timeout, now, manual_registry, state, watched):
+    """`(route_or_None, from_cache)` from the VRS file of `callsign`."""
+    key = vrs_key(callsign)
+    if key is None:
+        return None, False
+    airports, from_cache = _vrs_lookup(key, cache, transport, timeout, now)
+    leg = route_leg(airports, state, watched)
+    if leg is None:
+        return None, from_cache
+    airline_name, _ = airline_source_from_callsign(callsign, manual_registry)
+    return {
+        "airline_name": airline_name,
+        "origin_iata": leg[0]["iata"],
+        "origin_city": leg[0]["city"],
+        "destination_iata": leg[1]["iata"],
+        "destination_city": leg[1]["city"],
+        "callsign_iata": None,
+    }, from_cache
 
 
 # --- adsbdb-resolved-name correction seam -----------------------------------
@@ -707,7 +833,7 @@ def airline_only_route(airline_name):
 
 
 def resolve_route(callsign, cache, transport=None, timeout=DEFAULT_TIMEOUT, now=None, manual_registry=None,
-                  name_overrides=None):
+                  name_overrides=None, leg=None, vrs_transport=None):
     """Single resolution seam: classify `callsign`'s enrichment outcome
     into one of five sources and return `(route, source)`.
 
@@ -748,17 +874,28 @@ def resolve_route(callsign, cache, transport=None, timeout=DEFAULT_TIMEOUT, now=
     prefix replaces the resolved route's `airline_name` whatever the
     source (the source itself is unchanged), so a rename reaches the
     stored flight, the panel and every page reading the stored name.
-    `None` means no overrides. Never raises.
+    `None` means no overrides.
+
+    `leg` is `(state, watched_iata_codes)`. When given, the VRS standing data
+    is asked first and its leg at the watched airports is the route when it
+    has one; adsbdb answers otherwise. Without it only adsbdb is asked.
+    `vrs_transport` replaces `default_vrs_transport()`. Never raises.
     """
     if now is None:
         now = time.time()
     route, source = _resolve_route_unrenamed(
-        callsign, cache, transport, timeout, now, manual_registry)
+        callsign, cache, transport, timeout, now, manual_registry, leg, vrs_transport)
     return apply_name_override(callsign, route, name_overrides), source
 
 
-def _resolve_route_unrenamed(callsign, cache, transport, timeout, now, manual_registry):
+def _resolve_route_unrenamed(callsign, cache, transport, timeout, now, manual_registry, leg=None,
+                             vrs_transport=None):
     """`resolve_route()` before the owner's name override is applied."""
+    if leg is not None:
+        route, from_cache = _vrs_route(
+            callsign, cache, vrs_transport, timeout, now, manual_registry, leg[0], leg[1])
+        if route is not None:
+            return route, ("cache_hit" if from_cache else "fresh_hit")
     route, from_cache = _lookup(callsign, cache, transport, timeout, now)
     if route is not None:
         corrected = apply_airline_name_correction(normalise_callsign(callsign), route)

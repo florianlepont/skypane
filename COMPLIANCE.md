@@ -8,7 +8,7 @@ It uses the same per-source shape `server/assets/fonts/VENDOR.md` and
 source, upstream link, the date the terms were checked, what the terms
 require, and a verdict.
 
-Eleven sources are covered, not the three originally scoped by D-14 —
+Twelve sources are covered, not the three originally scoped by D-14 —
 `server/plane/enrich.py` reaches a fourth aggregator in production
 (adsbdb.com) that predates this document, `server/plane/detect.py` gained
 a fifth (adsb.lol, 2026-08-27) as a second default ADS-B source, the
@@ -286,6 +286,38 @@ document.
 - **Status:** not used. Reopen only with a written licence from OpenSky
   Network.
 
+## VRS Standing Data
+
+- **Used in shipped code:** Yes. `server/plane/enrich.py` asks it **before**
+  adsbdb for the route of a callsign (`resolve_route()` with a leg context,
+  called from `server/poll_cycle.py`), through the adsb.lol mirror
+  `https://vrs-standing-data.adsb.lol/routes/{prefix}/{callsign}.json`.
+- **Upstream:** https://github.com/vradarserver/standing-data (the data),
+  https://www.adsb.lol/docs/acknowledgements/open-source/ (the mirror).
+- **Terms checked:** 2026-11-18 (the repository README, read by the research
+  of that day).
+- **What the terms say:** the standing data is published under **CC0**: no
+  attribution is required. The files are static: one file per callsign, with no
+  date and no aircraft. The mirror's older API route is marked deprecated; the
+  static files are what this project reads.
+- **What this repository does about it:** one `GET` per callsign never seen in
+  the last month (a miss is kept for a day, a transient failure is not kept),
+  identified by the project's `User-Agent`, through the same bounded fetch as
+  adsbdb (`server/http_fetch.py`). Its answer is cached in the same
+  `enrichment_cache` as adsbdb's. A VRS route is used only when its leg at the
+  watched airports exists for the observed direction; otherwise adsbdb answers
+  as before. The VRS key removes the leading zero of the flight number
+  (`IBE05RR` is `IBE5RR`).
+- **Why:** measured on 2026-11-17 against Flightradar24 on 155 flights at four
+  airports (`.planning/workstreams/v1-2/phases/65-runway-3-tracking-and-battery-curve-validation/65-ROUTE-SOURCES-MEASURE.md`):
+  adsbdb alone gave the right route for 80 % of the flights, VRS first then
+  adsbdb for 94 %.
+- **Credit by choice:** the standing data is credited in `README.md`'s Data
+  Sources section, as adsb.lol is.
+- **Sustainability caveat:** it is a community file set with no service level.
+  The code degrades to adsbdb alone if the mirror stops answering.
+- **Status:** requirement (CC0) met; known community dependency, no open action.
+
 ## OpenStreetMap tile server
 
 - **Used in shipped code:** the headers are in place; the map code that
@@ -480,6 +512,7 @@ is relaxed.
 | OurAirports | Yes, build-time only | Confirmed (public domain) | None |
 | PRIM / Île-de-France Mobilités | No | Not applicable (unused in v1) | Revisit at v2 planning, when RER-01/02/03 are picked back up |
 | AeroDataBox | No | Not applicable (unused) | None |
+| VRS Standing Data | Yes, asked before adsbdb for routes | Confirmed (CC0, README read 2026-11-18) | None |
 | OpenSky Network | No | Read 2026-11-17: operational REST API use needs a written licence | None — not used; reopen only with a written licence |
 | OpenStreetMap tile server | Browser-side, Location and detection page only | Confirmed (usage policy fetched 2026-11-03) | Map plan implements Referer, attribution and no-prefetch behaviour |
 | Nominatim | Browser-side, Location and detection page only | Confirmed (usage policy fetched 2026-11-03) | Map plan implements user-triggered, rate-limited search with Referer |

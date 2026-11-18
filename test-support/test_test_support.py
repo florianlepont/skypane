@@ -181,6 +181,7 @@ def test_provider_hosts_match_production_urls():
         host = urlsplit(spec["url_template"]).hostname
         hosts_to_names[host] = provider_name
     hosts_to_names[urlsplit(enrich.ADSBDB_URL).hostname] = "adsbdb"
+    hosts_to_names[urlsplit(enrich.VRS_URL).hostname] = "vrs"
 
     assert set(hosts_to_names) == set(sts.PROVIDER_HOSTS)
     assert hosts_to_names == sts.PROVIDER_HOSTS

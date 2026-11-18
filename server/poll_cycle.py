@@ -1288,9 +1288,11 @@ def _enrich_current_flight(ctx):
     # this cycle); "manual" via the operator-writable registry (only
     # when the static table has no entry - it wins on a collision);
     # "miss" resolved nothing.
+    watched = route_sanity.watched_iata_codes(ctx.spec, ctx.tracked_runway_id)
     route, route_source = enrich.resolve_route(
         current_flight.get("callsign"), cache, now=now_s(), manual_registry=ctx.manual_registry,
-        name_overrides=ctx.name_overrides, transport=ctx.route_transport)
+        name_overrides=ctx.name_overrides, transport=ctx.route_transport,
+        leg=(ctx.confirmed_state, watched))
     enrich.trim_cache(cache)
     poll_state["enrichment_cache"] = cache
     # A "miss" is an unrecognized ICAO prefix - recorded so the finding
@@ -1579,14 +1581,14 @@ def _unshown_route(ctx, flight):
     cache = ctx.poll_state.get("enrichment_cache")
     if not isinstance(cache, dict):
         cache = {}
+    watched = route_sanity.watched_iata_codes(ctx.spec, ctx.tracked_runway_id)
     route, source = enrich.resolve_route(
         callsign, cache, now=now_s(), manual_registry=ctx.manual_registry,
-        name_overrides=ctx.name_overrides, transport=ctx.route_transport)
+        name_overrides=ctx.name_overrides, transport=ctx.route_transport, leg=(state, watched))
     enrich.trim_cache(cache)
     ctx.poll_state["enrichment_cache"] = cache
     if source not in ("fresh_hit", "cache_hit"):
         return route, source, state
-    watched = route_sanity.watched_iata_codes(ctx.spec, ctx.tracked_runway_id)
     state = state or route_sanity.direction_from_route(route, watched)
     if watched and (state is None or route_sanity.route_contradicts(route, state, watched)):
         return airline_only + (state,)

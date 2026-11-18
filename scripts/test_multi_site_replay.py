@@ -104,3 +104,20 @@ def test_the_replay_has_the_scratch_marker_and_is_not_the_default_root(tmp_path)
     out = tmp_path / "replayed"
     replay.replay_session(str(_source(tmp_path)), str(out), [setup.parse_device(SPEC)])
     runner_mod.require_scratch_root(str(out))
+
+
+def test_the_replay_never_asks_the_vrs_standing_data(tmp_path, monkeypatch):
+    import server.plane.enrich as enrich
+
+    asked = []
+
+    def record(key, timeout=None):
+        asked.append(key)
+        return 404, None
+
+    monkeypatch.setattr(enrich, "default_vrs_transport", record)
+    out = tmp_path / "replayed"
+    replay.replay_session(str(_source(tmp_path)), str(out), [setup.parse_device(SPEC)])
+    assert asked == []
+    (row,) = [r for r in _events(str(out)) if r["hex"] == "39ceb3"]
+    assert (row["origin"], row["destination"]) == ("NTE", "DSS")
