@@ -39,12 +39,13 @@ unless a measurement row is given. Nothing has been printed.
 | Lid | Support under the frame tabs | none; lid top at 12.5 mm, tabs assumed at 12.6 mm | 4 pads, top at 15.0 mm, 20 mm wide along the side and 8 mm deep (owner asked for wide pads to tolerate frame-to-frame variation) | 7b | 2026-11-18 |
 | Lid | Pad positions along the sides | at the middle of each side | centres, from the rebate centre: top +16.5, bottom -12.5, left -3.5, right -7.5 mm; computed by the assistant from the owner's four readings and a 4 mm tab width | 7c, 7d | 2026-11-18 |
 | Lid | Screw lugs on the edge (new, owner request) | none | 4 lugs 4 x 8 mm, z 12.5 to 22 mm, 2.2 mm horizontal hole at z 18 mm, head recess 4.2 mm; assume a vertical rebate wall between z 14 and 22 mm, not measured | none | 2026-11-18 |
-| Lid | Stand stop walls (new) | hinge knuckles for a folding stand | two stop walls 3 mm thick and 4.5 mm high with side guides: landscape at x 6.9 mm, portrait at y -32 mm | none | 2026-11-18 |
+| Lid | Stand stop walls (new) | hinge knuckles for a folding stand | two stop walls 2.4 mm thick and 4.5 mm high with two 2.4 mm side guides (same thickness, no step), 0.5 mm clearance to the plate: landscape at x 6.9 mm, portrait at y -32 mm | none | 2026-11-18 |
 | Lid | Signature and logo (new, owner request) | none | "SKYPANE" and the SkyPane mark (the S in its tile, from `companion/static/favicon.svg`) engraved 0.4 mm deep on the wall side; the S strokes are 1.9 mm wide, the tile outline 1.0 mm | none | 2026-11-18 |
 | Tray | Antenna position | top left, on a 41 x 21 mm platform with ribs and a 0.6 mm top plate | above the board: 40 x 20 mm footprint at x 12 to 52 mm and y 65 to 85 mm, on a solid block; moved instead of buying an extension | 13 | 2026-11-18 |
 | Tray | Interior layout | scattered stops and ribs, L-shaped bay with filler blocks | one continuous partition, battery pocket with solid walls, service well with 1.2 mm walls and rounded corners, free area under the partition; names and outlines of the components engraved 0.4 mm | none | 2026-11-18 |
+| Shim | Thickness (audit, owner choice) | 0.8 mm, 0.12 mm lower than the screen (0.92 in the model), so the mat would rest on the glass | 1.0 mm (5 layers of 0.2 mm), 0.08 mm higher than the screen, 0.1 mm below the mat; screen and mat thicknesses read with a tape measure, about 0.1 to 0.2 mm uncertain, so the value stays a design value; at the first fit, check with a strip of paper between mat and shim | 2, 6 (tape measure) | 2026-11-18 |
 | Tray | Board standoffs | 5.2 mm diameter, pilot hole 0.6 mm above the floor | 4.0 mm diameter, pilot floor 0.8 mm (no wall under 0.8 mm) | none | 2026-11-18 |
-| Tray | Columns under the stop walls (new) | none | 4 columns of 6 mm diameter from the floor to the lid, to carry the lid where the stand pushes | none | 2026-11-18 |
+| Tray | Columns under the stop walls (new) | none | 4 columns of 6 mm diameter, centred under the 2.4 mm walls, from the floor to the lid, to carry the lid where the stand pushes | none | 2026-11-18 |
 | Stand | Concept and size | folding stand with hinge pin, about 54 x 68 x 3 mm | one loose plate, 30 x 71 x 4 mm (64.7 mm on the small face), leaning on a stop wall, serves landscape and portrait; no hinge, no clip | none | 2026-11-18 |
 | Stand | Frame tilt | not defined | 20 degrees back, chosen by the owner after the assistant's stability estimate | none | 2026-11-18 |
 | Reference model (not printed) | Mat of the IKEA frame | opening 141.8 x 91.8 mm, 1.84 mm thick, behind the screen | opening 140 x 99 mm, 1.0 mm thick, in front of the screen against the glass (position a design value) | 6 | 2026-11-18 |
@@ -112,7 +113,7 @@ in millimetres, each part lying in its printing pose (lowest point at z = 0):
 | `skypane_tray.stl` | 132.0 x 182.0 x 11.0 mm | 7346 |
 | `skypane_lid.stl` | 132.0 x 182.0 x 11.2 mm | 5716 |
 | `skypane_stand.stl` | 71.0 x 30.0 x 4.0 mm | 12 |
-| `skypane_shim.stl` | 132.0 x 182.0 x 0.8 mm | 208 |
+| `skypane_shim.stl` | 132.0 x 182.0 x 1.0 mm | 208 |
 
 The files were checked in Python for size, bounding box and watertightness (every edge is shared by exactly two triangles); 2 triangles in the lid and 10 in the tray have a
 near-zero area (under 1e-6 mm2), which slicers ignore. They have not been opened in a slicer and nothing has been printed.

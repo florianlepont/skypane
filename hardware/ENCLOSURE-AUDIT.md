@@ -41,6 +41,7 @@ to need a change after the first fit; **Low** = precaution; **Info** = checked a
 | F-13 | Low | The design source is a script inside a binary .blend (5.5 MB), so a change cannot be reviewed as text. The script has French names and comments, while the repository convention is English | Repository convention | Export a text copy of the script next to the .blend; rename objects and translate comments in a later pass |
 | F-14 | Info | Wall screw requirement for the hook: head up to 9.5 mm diameter, shank 3.0 to 4.3 mm, head underside 2.1 mm or more from the wall. One screw is a single hanging point | Model | Put it in the hanging instructions |
 | F-15 | Info | The hanging, stand and clearance figures all depend on the IKEA 3D model of the frame (wood edge at 74 mm, outer size 148 x 198 mm, rebate profile). None of it is measured on the real frame | Model | Measure the outer size and the rebate at the four corners with a caliper if one becomes available |
+| F-16 | Medium | The shim was 0.8 mm thick while the screen is 0.92 mm in the model, so the mat (back at 1.1 mm) would rest on the screen glass, not on the shim | Model; owner readings 2 and 6 (tape measure, about 0.1 to 0.2 mm uncertain) | **Applied** (owner approved, 2026-11-18): shim 1.0 mm. Confirm at the first fit with a strip of paper between mat and shim |
 
 ## Values the design rests on and that nobody has measured
 

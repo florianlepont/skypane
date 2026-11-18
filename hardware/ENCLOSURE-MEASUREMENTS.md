@@ -62,7 +62,7 @@ Filled from the owner's reports only.
 
 The checks on the model (closed meshes, no support, no wall under 0.8 mm, no
 slot under 1 mm, centre of gravity on the landscape hook axis) used estimated
-masses: tray about 57 g, lid about 48 g, stand about 11 g, shim about 5 g
+masses: tray about 57 g, lid about 48 g, stand about 11 g, shim about 6 g
 (design values, not measured). The owner reruns them after the measurements.
 
 ## Notes
