@@ -54,10 +54,10 @@ powered over USB.
 
 | Part | Dimensions | Estimated mass |
 |---|---|---|
-| Tray | 132.6 x 182.6 x 11 mm, floor 1.2, walls 1.6 | about 66 g |
-| Lid | 132.6 x 182.6 x 1.5 mm, hooks up to 22.2 mm | about 54 g |
+| Tray | 132.0 x 182.0 x 11 mm, floor 1.2, walls 1.6 | about 66 g |
+| Lid | 132.0 x 182.0 x 1.5 mm, hooks up to 22.2 mm | about 54 g |
 | Stand | 71.0 x 30.0 x 4 mm plate (64.7 mm on the small face) | about 10 g |
-| Shim | 132.6 x 182.6 x 0.8 mm | about 5 g |
+| Shim | 132.0 x 182.0 x 0.8 mm | about 5 g |
 
 **Openings:**
 
@@ -73,7 +73,7 @@ powered over USB.
 
 **Clearances** (usual values, none tested):
 
-- 0.4 mm per side in the rebate.
+- 0.5 mm per side in the rebate (reduced from 0.2 mm after the audit of 2026-11-18).
 - 0.5 mm around the battery, plus 1.8 mm in thickness (foam to stick).
 - 0.5 mm around the screen in the shim.
 - Pilot holes 1.7 mm, through holes 2.4 mm.

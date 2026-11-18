@@ -33,6 +33,8 @@ unless a measurement row is given. Nothing has been printed.
 
 | Part | Dimension | Old design value (design value, not measured) | New value | Measurement row | Date |
 |---|---|---|---|---|---|
+| Tray, lid, shim | Plate size (audit, owner choice) | 132.6 x 182.6 mm, 0.2 mm clearance per side; the model's smallest clearance to the wood was 0.07 mm | 132.0 x 182.0 mm, 0.5 mm per side; smallest clearance in the model 0.37 mm (tray) and 0.44 mm (lid) | 4 (reading 133 x 183, about 1 mm resolution) | 2026-11-18 |
+| Lid | Landscape hook rail centre (audit, owner choice) | y = 0 mm | y = +3 mm, adjustment still +-12 mm around it; the estimated centre of gravity is at y = +0.6 to +5.2 mm | none | 2026-11-18 |
 | Lid | Support under the frame tabs | none; lid top at 12.5 mm, tabs assumed at 12.6 mm | 4 pads, top at 15.0 mm, 20 mm wide along the side and 8 mm deep (owner asked for wide pads to tolerate frame-to-frame variation) | 7b | 2026-11-18 |
 | Lid | Pad positions along the sides | at the middle of each side | centres, from the rebate centre: top +16.5, bottom -12.5, left -3.5, right -7.5 mm; computed by the assistant from the owner's four readings and a 4 mm tab width | 7c, 7d | 2026-11-18 |
 | Lid | Screw lugs on the edge (new, owner request) | none | 4 lugs 4 x 8 mm, z 12.5 to 22 mm, 2.2 mm horizontal hole at z 18 mm, head recess 4.2 mm; assume a vertical rebate wall between z 14 and 22 mm, not measured | none | 2026-11-18 |
@@ -49,8 +51,8 @@ unless a measurement row is given. Nothing has been printed.
 
 Values kept, because the model and the owner's tape readings differ by about
 1 mm or less, which is the tape's resolution (owner instruction, 2026-11-18):
-screen outline 170.2 x 111.2 x 0.91 mm (reading 170 x 111 x 0.9), rebate and
-tray plate 132.6 x 182.6 mm (reading 133 x 183), free depth 22.7 mm (reading 23),
+screen outline 170.2 x 111.2 x 0.91 mm (reading 170 x 111 x 0.9), rebate
+(reading 133 x 183; the tray, lid and shim plates were then reduced from 132.6 x 182.6 to 132.0 x 182.0 mm after the audit, see the rows above), free depth 22.7 mm (reading 23),
 battery bay 50 x 60 x 8 mm (reading 50 x 60 x 8), ribbon slot 4 x 28 mm (reading 24 mm
 ribbon), tab length about 7.8 mm (reading 8).
 
@@ -106,10 +108,10 @@ in millimetres, each part lying in its printing pose (lowest point at z = 0):
 
 | File | Size of the part | Triangles |
 |---|---|---|
-| `skypane_tray.stl` | 132.6 x 182.6 x 11.0 mm | 7346 |
-| `skypane_lid.stl` | 132.6 x 182.6 x 11.2 mm | 5326 |
+| `skypane_tray.stl` | 132.0 x 182.0 x 11.0 mm | 7346 |
+| `skypane_lid.stl` | 132.0 x 182.0 x 11.2 mm | 5326 |
 | `skypane_stand.stl` | 71.0 x 30.0 x 4.0 mm | 12 |
-| `skypane_shim.stl` | 132.6 x 182.6 x 0.8 mm | 208 |
+| `skypane_shim.stl` | 132.0 x 182.0 x 0.8 mm | 208 |
 
-The files were checked in Python for size, bounding box and watertightness (every edge is shared by exactly two triangles); 3 triangles in the lid and 11 in the tray have a
+The files were checked in Python for size, bounding box and watertightness (every edge is shared by exactly two triangles); 2 triangles in the lid and 10 in the tray have a
 near-zero area (under 1e-6 mm2), which slicers ignore. They have not been opened in a slicer and nothing has been printed.
