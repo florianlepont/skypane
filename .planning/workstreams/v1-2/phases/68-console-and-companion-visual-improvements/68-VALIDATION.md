@@ -23,7 +23,7 @@ created: 2026-11-18
 | **Full suite command** | `SKYPANE_REQUIRE_BROWSER=1 ./scripts/run-all-tests.sh` (= `pytest -n auto --cov`) |
 | **Static gates** | `python scripts/check_function_size.py`, `python scripts/check_comment_history.py check`, `ruff check .`, mypy (module list in `pyproject.toml`) |
 | **Must-not-break** | `pytest server/test_golden_render.py server/test_golden_giant_render.py stub-server/test_phase47_freeze.py companion/test_access.py companion/test_access_matrix.py companion/test_co_manager_access.py companion/test_device_scope_owner.py companion/test_admin_personal_scope.py -q` |
-| **Baseline** | `python test-support/companion_render_snapshot.py --write` (one plan per wave end), checked by `pytest companion/test_render_baseline.py -q` |
+| **Baseline** | `python test-support/companion_render_snapshot.py --write` (one plan per wave end; plan 22 for waves 2 and 3; plan 35 for plans 26 and 35), checked by `pytest companion/test_render_baseline.py -q` |
 | **Estimated runtime** | quick run ~68 seconds; full suite several minutes (run per wave) |
 
 ---
@@ -57,9 +57,10 @@ Requirement for every row: CON-01. Threat refs point to the `<threat_model>` of 
 | 68-10-01 | 10 | 1 | — | N/A | M | python assertion on `68-MOCKUP-shell-audit.html` | ❌ W0 | ⬜ pending |
 | 68-11-01 | 11 | 1 | T-68-11-01 | retired screen carries no code or id | M | python assertion on `68-MOCKUP-retired.html` | ❌ W0 | ⬜ pending |
 | 68-12-01 | 12 | 1 | — | N/A | M | python assertion on `68-ROUTE-SOURCES-SIZING.md` and `68-MOCKUP-route-sources.html` | ❌ W0 | ⬜ pending |
-| 68-13-01 | 13 | 2 | T-68-13-01 | read-only aggregates, escaped names | S | `pytest server/test_history_home_stats.py -q` | ❌ W0 | ⬜ pending |
-| 68-13-02 | 13 | 2 | T-68-13-01 | no-script floor, states online/sleeping/offline | B | `SKYPANE_REQUIRE_BROWSER=1 pytest companion/test_browser_home_state_card.py companion/test_browser_home_recent_tiles.py -q` | ✅ rewrite | ⬜ pending |
-| 68-13-03 | 13 | 2 | — | N/A | B | `SKYPANE_REQUIRE_BROWSER=1 pytest companion/test_browser_home_title.py companion/test_browser_home_notice.py companion/test_home_recent_tiles.py -q` | ✅ rewrite | ⬜ pending |
+| 68-33-01 | 33 | 2 | T-68-33-01 | read-only aggregates, scoped to one frame | S | `pytest server/test_history_home_stats.py -q` | ❌ W0 | ⬜ pending |
+| 68-33-02 | 33 | 2 | T-68-33-01 | escaped names, strip fallbacks, no-script stats card | U | `pytest companion/test_home_stats.py companion/test_home_recent_tiles.py -q` | ❌ W0 | ⬜ pending |
+| 68-13-01 | 13 | 3 | T-68-13-01 | no-script floor, states online/sleeping/offline | B | `SKYPANE_REQUIRE_BROWSER=1 pytest companion/test_browser_home_state_card.py companion/test_browser_home_recent_tiles.py -q` | ✅ rewrite | ⬜ pending |
+| 68-13-02 | 13 | 3 | — | N/A | B | `SKYPANE_REQUIRE_BROWSER=1 pytest companion/test_browser_home_title.py companion/test_browser_home_notice.py companion/test_home_state_card.py -q` | ✅ rewrite | ⬜ pending |
 | 68-14-01 | 14 | 2 | T-68-14-01 | no Ignore control, resolve route unchanged | B | `SKYPANE_REQUIRE_BROWSER=1 pytest companion/test_browser_airline_editor.py companion/test_airline_editor.py -q` | ✅ update | ⬜ pending |
 | 68-14-02 | 14 | 2 | T-68-14-01 | filter text escaped | B | `SKYPANE_REQUIRE_BROWSER=1 pytest companion/test_browser_airline_table.py companion/test_airline_manage_routes.py -q` | ✅ update | ⬜ pending |
 | 68-14-03 | 14 | 2 | — | N/A | G | `pytest companion/test_i18n.py companion/test_structure_guards.py companion/test_suite_guards.py -q` | ✅ | ⬜ pending |
@@ -77,40 +78,49 @@ Requirement for every row: CON-01. Threat refs point to the `<threat_model>` of 
 | 68-20-01 | 20 | 2 | — | direction still spoken | B | `SKYPANE_REQUIRE_BROWSER=1 pytest companion/test_browser_flights_cards.py companion/test_flights_cards.py -q` | ✅ update | ⬜ pending |
 | 68-20-02 | 20 | 2 | — | N/A | B | `SKYPANE_REQUIRE_BROWSER=1 pytest companion/test_browser_flights_search_more.py -q` | ✅ update | ⬜ pending |
 | 68-21-01 | 21 | 2 | — | N/A | B | `SKYPANE_REQUIRE_BROWSER=1 pytest companion/test_browser_audit_page.py companion/test_console_audit_page.py -q` | ✅ update | ⬜ pending |
-| 68-22-01 | 22 | 3 | — | N/A | U | `pytest companion/test_render_baseline.py -q` | ✅ regenerated | ⬜ pending |
-| 68-22-02 | 22 | 3 | — | N/A | G | `SKYPANE_REQUIRE_BROWSER=1 ./scripts/run-all-tests.sh` | ✅ | ⬜ pending |
-| 68-23-01 | 23 | 4 | — | read-only rows, no write route | U | `pytest companion/test_airline_known_rows.py server/test_enrich_known_names.py -q` | ❌ W0 | ⬜ pending |
-| 68-23-02 | 23 | 4 | — | N/A | B | `SKYPANE_REQUIRE_BROWSER=1 pytest companion/test_browser_airline_collection.py -q` | ✅ update | ⬜ pending |
-| 68-23-03 | 23 | 4 | — | N/A | U | `pytest companion/test_render_baseline.py -q` | ✅ regenerated | ⬜ pending |
-| 68-24-01 | 24 | 5 | — | N/A | B | `SKYPANE_REQUIRE_BROWSER=1 pytest companion/test_browser_nav_alignment.py companion/test_user_nav.py companion/test_nav_personal_console.py -q` | ✅ update | ⬜ pending |
-| 68-24-02 | 24 | 5 | — | N/A | B | `SKYPANE_REQUIRE_BROWSER=1 pytest companion/test_browser_more_sheet.py companion/test_browser_tab_bar_tablet_cap.py -q` | ✅ update | ⬜ pending |
-| 68-24-03 | 24 | 5 | — | N/A | U | `pytest companion/test_render_baseline.py companion/test_i18n.py -q` | ✅ regenerated | ⬜ pending |
-| 68-25-01 | 25 | 6 | T-68-25-01 | frame id comes from the request scope; e-mail escaped | U | `pytest companion/test_admin_personal_scope.py companion/test_personal_space_parity.py -q` | ✅ update | ⬜ pending |
-| 68-25-02 | 25 | 6 | T-68-25-01 | marker visible, 44 px action, returns to the frame | B | `SKYPANE_REQUIRE_BROWSER=1 pytest companion/test_browser_admin_personal_scope.py companion/test_browser_components_page.py -q` | ✅ update | ⬜ pending |
-| 68-26-01 | 26 | 7 | T-68-26-01 | retired frames only in the list; unknown frame id falls back | U | `pytest companion/test_console_fleet_view.py companion/test_console_fleet_page.py companion/test_frame_switcher.py -q` | ✅ update | ⬜ pending |
-| 68-26-02 | 26 | 7 | — | N/A | B | `SKYPANE_REQUIRE_BROWSER=1 pytest companion/test_browser_fleet_page.py companion/test_browser_fleet_sections.py companion/test_browser_fleet_tabs.py -q` | ✅ update | ⬜ pending |
-| 68-26-03 | 26 | 7 | — | N/A | U | `pytest companion/test_render_baseline.py companion/test_co_managers_page.py -q` | ✅ regenerated | ⬜ pending |
-| 68-27-01 | 27 | 8 | — | refusal does not reveal whether a code exists | U | `pytest companion/test_user_pairing.py companion/test_console_pairing.py companion/test_refused_post_sign_in.py -q` | ✅ update | ⬜ pending |
-| 68-27-02 | 27 | 8 | T-68-27-01 | message names the reset gesture per hardware type | U | `pytest companion/test_console_lifecycle.py companion/test_console_fleet_page.py -q` | ✅ update | ⬜ pending |
-| 68-27-03 | 27 | 8 | — | N/A | B | `SKYPANE_REQUIRE_BROWSER=1 pytest companion/test_browser_user_pairing.py companion/test_browser_fleet_dialogs.py -q` | ✅ update | ⬜ pending |
-| 68-28-01 | 28 | 9 | — | keyboard does not cover the field | B | `SKYPANE_REQUIRE_BROWSER=1 pytest companion/test_browser_users_page.py companion/test_ui_modal.py -q` | ✅ update | ⬜ pending |
-| 68-28-02 | 28 | 9 | T-68-28-01 | local invite stays the gate; no half-created invite; link not stored | U | `pytest companion/test_console_users.py companion/test_auth0_management.py -q` | ✅ update | ⬜ pending |
-| 68-28-03 | 28 | 9 | T-68-28-01 | N/A | B | `SKYPANE_REQUIRE_BROWSER=1 pytest companion/test_browser_users_rows.py companion/test_csrf.py -q` | ✅ update | ⬜ pending |
-| 68-29-01 | 29 | 10 | — | N/A | U | `pytest companion/test_account_page.py -q` | ✅ update | ⬜ pending |
-| 68-29-02 | 29 | 10 | — | credits link for signed-in user and admin | U | `pytest companion/test_sign_in_surfaces.py companion/test_status_pages_04.py -q` | ✅ update | ⬜ pending |
-| 68-29-03 | 29 | 10 | — | N/A | B | `SKYPANE_REQUIRE_BROWSER=1 pytest companion/test_browser_account_frames.py companion/test_browser_auth0.py -q` | ✅ update | ⬜ pending |
-| 68-30-01 | 30 | 11 | — | N/A | B | `SKYPANE_REQUIRE_BROWSER=1 pytest companion/test_browser_style_tab_previews.py companion/test_browser_theme_switch.py -q` | ✅ from plan 01 | ⬜ pending |
-| 68-30-02 | 30 | 11 | — | N/A | B | `SKYPANE_REQUIRE_BROWSER=1 pytest companion/test_browser_style_leave.py companion/test_browser_leave_dialog_pages.py companion/test_browser_contrast_edges.py -q` | ✅ update | ⬜ pending |
-| 68-30-03 | 30 | 11 | — | N/A | U | `pytest companion/test_render_baseline.py -q` | ✅ regenerated | ⬜ pending |
-| 68-31-01 | 31 | 12 | T-68-31-01 | counters hold no personal data; poll cycle unaffected on lookup failure | S | `pytest server/test_route_directory_status.py -q` | ❌ W0 | ⬜ pending |
-| 68-31-02 | 31 | 12 | T-68-31-01 | escaped, no new route | B | `SKYPANE_REQUIRE_BROWSER=1 pytest companion/test_browser_health_route_sources.py -q` | ❌ W0 | ⬜ pending |
-| 68-31-03 | 31 | 12 | — | N/A | U | `pytest companion/test_render_baseline.py server/test_golden_render.py -q` | ✅ regenerated | ⬜ pending |
-| 68-32-01 | 32 | 13 | — | N/A | G | `SKYPANE_REQUIRE_BROWSER=1 ./scripts/run-all-tests.sh` | ✅ | ⬜ pending |
-| 68-32-02 | 32 | 13 | — | N/A | G | `pytest companion/test_components_page.py companion/test_browser_components_page.py -q` | ✅ | ⬜ pending |
-| 68-32-03 | 32 | 13 | — | draft PR only | G | `gh pr view --json isDraft` | ✅ | ⬜ pending |
-| 68-32-04 | 32 | 13 | — | owner validates EN and FR on the deployed companion | manual | owner checkpoint | n/a | ⬜ pending |
+| 68-22-01 | 22 | 4 | — | N/A | U | `pytest companion/test_render_baseline.py -q` | ✅ regenerated | ⬜ pending |
+| 68-22-02 | 22 | 4 | — | N/A | G | `SKYPANE_REQUIRE_BROWSER=1 ./scripts/run-all-tests.sh` | ✅ | ⬜ pending |
+| 68-23-01 | 23 | 5 | — | read-only rows, no write route | U | `pytest companion/test_airline_known_rows.py server/test_enrich_known_names.py -q` | ❌ W0 | ⬜ pending |
+| 68-23-02 | 23 | 5 | — | N/A | B | `SKYPANE_REQUIRE_BROWSER=1 pytest companion/test_browser_airline_collection.py -q` | ✅ update | ⬜ pending |
+| 68-23-03 | 23 | 5 | — | N/A | U | `pytest companion/test_render_baseline.py -q` | ✅ regenerated | ⬜ pending |
+| 68-24-01 | 24 | 6 | — | N/A | B | `SKYPANE_REQUIRE_BROWSER=1 pytest companion/test_browser_nav_alignment.py companion/test_user_nav.py companion/test_nav_personal_console.py -q` | ✅ update | ⬜ pending |
+| 68-24-02 | 24 | 6 | — | N/A | U | `pytest companion/test_render_baseline.py companion/test_i18n.py -q` | ✅ regenerated | ⬜ pending |
+| 68-34-01 | 34 | 7 | T-68-34-01 | N/A | B | `SKYPANE_REQUIRE_BROWSER=1 pytest companion/test_browser_more_sheet.py companion/test_browser_tab_bar_tablet_cap.py -q` | ✅ update | ⬜ pending |
+| 68-34-02 | 34 | 7 | — | N/A | U | `pytest companion/test_render_baseline.py companion/test_i18n.py -q` | ✅ regenerated | ⬜ pending |
+| 68-25-01 | 25 | 8 | T-68-25-01 | frame id comes from the request scope; e-mail escaped | U | `pytest companion/test_admin_personal_scope.py companion/test_personal_space_parity.py -q` | ✅ update | ⬜ pending |
+| 68-25-02 | 25 | 8 | T-68-25-01 | marker visible, 44 px action, returns to the frame | B | `SKYPANE_REQUIRE_BROWSER=1 pytest companion/test_browser_admin_personal_scope.py companion/test_browser_components_page.py -q` | ✅ update | ⬜ pending |
+| 68-26-01 | 26 | 9 | T-68-26-01 | retired frames only in the list; unknown frame id falls back | U | `pytest companion/test_console_fleet_view.py companion/test_console_fleet_page.py companion/test_frame_switcher.py -q` | ✅ update | ⬜ pending |
+| 68-26-02 | 26 | 9 | — | N/A | B | `SKYPANE_REQUIRE_BROWSER=1 pytest companion/test_browser_console_fleet_view.py companion/test_browser_frame_menu.py companion/test_browser_device_selector.py -q` | ✅ update | ⬜ pending |
+| 68-35-01 | 35 | 10 | T-68-35-01 | sections and Access text; escaped e-mails | B | `SKYPANE_REQUIRE_BROWSER=1 pytest companion/test_browser_fleet_page.py companion/test_browser_fleet_sections.py companion/test_browser_fleet_tabs.py -q` | ✅ update | ⬜ pending |
+| 68-35-02 | 35 | 10 | — | N/A | U | `pytest companion/test_render_baseline.py companion/test_co_managers_page.py -q` | ✅ regenerated | ⬜ pending |
+| 68-27-01 | 27 | 11 | — | refusal does not reveal whether a code exists | U | `pytest companion/test_user_pairing.py companion/test_console_pairing.py companion/test_refused_post_sign_in.py -q` | ✅ update | ⬜ pending |
+| 68-27-02 | 27 | 11 | T-68-27-01 | message names the reset gesture per hardware type | U | `pytest companion/test_console_lifecycle.py companion/test_console_fleet_page.py -q` | ✅ update | ⬜ pending |
+| 68-27-03 | 27 | 11 | — | N/A | B | `SKYPANE_REQUIRE_BROWSER=1 pytest companion/test_browser_user_pairing.py companion/test_browser_fleet_dialogs.py -q` | ✅ update | ⬜ pending |
+| 68-28-01 | 28 | 12 | — | keyboard does not cover the field | B | `SKYPANE_REQUIRE_BROWSER=1 pytest companion/test_browser_users_page.py companion/test_ui_modal.py -q` | ✅ update | ⬜ pending |
+| 68-28-02 | 28 | 12 | T-68-28-01 | local invite stays the gate; no half-created invite; link not stored | U | `pytest companion/test_console_users.py companion/test_auth0_management.py -q` | ✅ update | ⬜ pending |
+| 68-28-03 | 28 | 12 | T-68-28-01 | N/A | B | `SKYPANE_REQUIRE_BROWSER=1 pytest companion/test_browser_users_rows.py companion/test_csrf.py -q` | ✅ update | ⬜ pending |
+| 68-29-01 | 29 | 13 | — | N/A | U | `pytest companion/test_account_page.py -q` | ✅ update | ⬜ pending |
+| 68-29-02 | 29 | 13 | — | credits link for signed-in user and admin | U | `pytest companion/test_sign_in_surfaces.py companion/test_status_pages_04.py -q` | ✅ update | ⬜ pending |
+| 68-29-03 | 29 | 13 | — | N/A | B | `SKYPANE_REQUIRE_BROWSER=1 pytest companion/test_browser_account_frames.py companion/test_browser_auth0.py -q` | ✅ update | ⬜ pending |
+| 68-36-01 | 36 | 2 | T-68-36-01 | preview cache headers private; unchanged previews not refetched | B | `SKYPANE_REQUIRE_BROWSER=1 pytest companion/test_browser_style_tab_previews.py companion/test_browser_theme_switch.py companion/test_preview_cache.py -q` | ✅ from plan 01 | ⬜ pending |
+| 68-30-01 | 30 | 14 | T-68-30-01 | N/A | B | `SKYPANE_REQUIRE_BROWSER=1 pytest companion/test_browser_style_leave.py companion/test_browser_leave_dialog_pages.py companion/test_browser_contrast_edges.py -q` | ✅ update | ⬜ pending |
+| 68-30-02 | 30 | 14 | — | N/A | U | `pytest companion/test_render_baseline.py -q` | ✅ regenerated | ⬜ pending |
+| 68-31-01 | 31 | 15 | T-68-31-01 | counters hold no personal data; poll cycle unaffected on lookup failure | S | `pytest server/test_route_directory_status.py -q` | ❌ W0 | ⬜ pending |
+| 68-31-02 | 31 | 15 | T-68-31-01 | escaped, no new route | B | `SKYPANE_REQUIRE_BROWSER=1 pytest companion/test_browser_health_route_sources.py -q` | ❌ W0 | ⬜ pending |
+| 68-31-03 | 31 | 15 | — | N/A | U | `pytest companion/test_render_baseline.py server/test_golden_render.py -q` | ✅ regenerated | ⬜ pending |
+| 68-32-01 | 32 | 16 | — | N/A | G | `SKYPANE_REQUIRE_BROWSER=1 ./scripts/run-all-tests.sh` | ✅ | ⬜ pending |
+| 68-32-02 | 32 | 16 | — | ROADMAP criterion 5 matches the matrix diff | G | `grep -c "unchanged except the owner-requested removal of the Locations routes" .planning/workstreams/v1-2/ROADMAP.md` | ✅ | ⬜ pending |
+| 68-32-03 | 32 | 16 | — | N/A | G | `pytest companion/test_components_page.py companion/test_browser_components_page.py -q` | ✅ | ⬜ pending |
+| 68-32-04 | 32 | 16 | — | draft PR only | G | `gh pr view --json isDraft` | ✅ | ⬜ pending |
+| 68-32-05 | 32 | 16 | — | owner validates EN and FR on the deployed companion | manual | owner checkpoint | n/a | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
+
+---
+
+## Human gates (intentional Nyquist exception)
+
+The `checkpoint:decision` and `checkpoint:human-verify` tasks of plans 02 to 12 and 32 carry `<automated>MISSING — human decision: ...</automated>` verify lines on purpose: the owner's answer is the evidence and there is nothing to run. The automated checks of those plans sit in their preceding and following `auto` tasks (mockup assertions, recorded OWNER-APPROVED blocks).
 
 ---
 
@@ -119,7 +129,7 @@ Requirement for every row: CON-01. Threat refs point to the `<threat_model>` of 
 - [ ] `companion/test_browser_style_tab_previews.py` — request-count harness for the Style tab reload (investigation for the preview fix; becomes the regression test).
 - [ ] Playwright and the Chromium headless shell installed in the executor environment (`pip install -r server/requirements-dev*.txt`, `playwright install --only-shell chromium`); `SKYPANE_REQUIRE_BROWSER=1` makes a missing browser fail.
 - [ ] `origin/main` merged into the phase branch; open pull requests on companion files checked.
-- [ ] New test files named in the map (`server/test_history_home_stats.py`, `companion/test_auth0_management.py`, `companion/test_airline_known_rows.py`, `server/test_enrich_known_names.py`, `companion/test_route_removed_locations.py`, `server/test_route_directory_status.py`, `companion/test_browser_health_route_sources.py`) are created by the task that owns them (test first), not by Wave 0.
+- [ ] New test files named in the map (`server/test_history_home_stats.py`, `companion/test_auth0_management.py`, `companion/test_home_stats.py`, `deploy/tests/test_env_example_mgmt.py`, `companion/test_airline_known_rows.py`, `server/test_enrich_known_names.py`, `companion/test_route_removed_locations.py`, `server/test_route_directory_status.py`, `companion/test_browser_health_route_sources.py`) are created by the task that owns them (test first), not by Wave 0.
 - [ ] A throwaway regeneration helper for `companion/testdata/update_page_one_type_golden.json` is created by plan 16 (no CLI exists) and deleted after use.
 
 ---
