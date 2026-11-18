@@ -1531,22 +1531,21 @@ html.js-early:not(.map-ready) .place-boot .place-boot__fill {
   box-shadow: var(--shadow-control);
 }
 
-/* The way back to the whole of France, a pill over the map. */
+/* The way back to the whole of France, a round 44 px icon button over the map. */
 .place-france {
+  width: 44px;
   min-height: 44px;
-  padding: 0 var(--space-md);
-  border-radius: var(--radius-pill);
+  padding: 0;
+  border-radius: 50%;
   border: 1px solid var(--color-border);
   background: var(--color-dominant);
   color: var(--color-text);
-  font: inherit;
-  font-size: var(--font-caption-size);
-  font-weight: var(--weight-semibold);
   box-shadow: var(--shadow-card-hover);
   cursor: pointer;
   pointer-events: auto;
   --js-gate-display: inline-flex;
   align-items: center;
+  justify-content: center;
   align-self: flex-end;
 }
 
@@ -1769,4 +1768,61 @@ button.place-result.is-active {
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
+}
+/* The dark theme gets a dark map: the one OpenStreetMap tile layer is inverted
+ * and turned back to its hues, so roads, runways and labels stay readable on
+ * a dark ground. The tile ground colour follows (it is what the filter makes
+ * of the light land colour). Light keeps the plain tiles. */
+html[data-ui-theme="dark"] {
+  --color-map-ground: #16140F;
+}
+
+html[data-ui-theme="dark"] .place-map .leaflet-tile-pane {
+  filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.95);
+}
+
+@media (prefers-color-scheme: dark) {
+  html:not([data-ui-theme="light"]) {
+    --color-map-ground: #16140F;
+  }
+
+  html:not([data-ui-theme="light"]) .place-map .leaflet-tile-pane {
+    filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.95);
+  }
+}
+
+/* Over the dark map the app bar keeps the page's own dark colours: the light
+ * palette it takes over the light map would not read. */
+@media (max-width: 959.98px) {
+  html.map-ready[data-ui-theme="dark"] .site-header:has(~ .page-content .place-stage) > .brand,
+  html.map-ready[data-ui-theme="dark"] .site-header:has(~ .page-content .place-stage) .frame-menu__button {
+    --color-text: inherit;
+    --color-accent: inherit;
+    --color-border: inherit;
+    --color-status-ok: inherit;
+    --color-status-warn: inherit;
+    --color-status-error: inherit;
+    --glass-bg: inherit;
+    --glass-border: inherit;
+    --glass-highlight: inherit;
+    --glass-solid: inherit;
+    --shadow-glass: inherit;
+  }
+}
+
+@media (max-width: 959.98px) and (prefers-color-scheme: dark) {
+  html.map-ready:not([data-ui-theme="light"]) .site-header:has(~ .page-content .place-stage) > .brand,
+  html.map-ready:not([data-ui-theme="light"]) .site-header:has(~ .page-content .place-stage) .frame-menu__button {
+    --color-text: inherit;
+    --color-accent: inherit;
+    --color-border: inherit;
+    --color-status-ok: inherit;
+    --color-status-warn: inherit;
+    --color-status-error: inherit;
+    --glass-bg: inherit;
+    --glass-border: inherit;
+    --glass-highlight: inherit;
+    --glass-solid: inherit;
+    --shadow-glass: inherit;
+  }
 }

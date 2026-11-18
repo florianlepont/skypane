@@ -35,7 +35,8 @@ AT_REST = (
     "() => Math.abs(window.scrollY - (parseFloat(getComputedStyle(document.documentElement)"
     ".getPropertyValue('--place-lead')) || 0)) < 1")
 # The ground colour of the tiles, which the page shows behind and below the map.
-GROUND = "rgb(242, 239, 233)"
+# The tile land colour: the dark theme's map is the same tiles inverted, so its ground follows.
+GROUNDS = {"light": "rgb(242, 239, 233)", "dark": "rgb(22, 20, 15)"}
 # The map above and below the page on a phone, in CSS pixels.
 LEAD = 80
 TAIL = 80
@@ -116,7 +117,7 @@ def test_the_phone_map_is_document_content_spanning_the_window(
         assert state["hostBottom"] == state["mapBottom"], state
         assert state["scrollY"] <= 0, state
         assert state["scrollX"] <= 0, state
-        assert state["body"] == GROUND and state["mapColour"] == GROUND, state
+        assert state["body"] == GROUNDS[theme] and state["mapColour"] == GROUNDS[theme], state
         assert state["bodyBottom"] >= state["h"], state
     finally:
         context.close()
@@ -213,8 +214,8 @@ def test_the_phone_loading_state_is_document_content_in_the_ground_colour(
             " left: r.left, right: r.right, w: innerWidth, h: innerHeight,"
             " body: getComputedStyle(document.body).backgroundColor,"
             " scroll: root.scrollHeight - innerHeight}; }")
-        assert state["position"] == "absolute" and state["bg"] == GROUND, state
-        assert state["body"] == GROUND, state
+        assert state["position"] == "absolute" and state["bg"] == GROUNDS[theme], state
+        assert state["body"] == GROUNDS[theme], state
         assert state["top"] <= 0 and state["bottom"] >= state["h"], state
         assert state["left"] <= 0 and state["right"] >= state["w"], state
         assert state["scroll"] <= 0, state
@@ -258,13 +259,13 @@ ABOVE_FIELD = (
     " height: document.querySelector('.place-search__row').getBoundingClientRect().top})")
 
 
-def _assert_one_ground_strip_is_fixed_at_the_top(got):
+def _assert_one_ground_strip_is_fixed_at_the_top(got, theme="light"):
     assert len(got["fixedAtTop"]) == 1, got
     edge = got["fixedAtTop"][0]
     assert edge["name"] == "place-edge" and got["topmost"] == "place-edge", got
     assert edge["top"] == 0 and edge["left"] == 0 and edge["right"] == got["width"], got
     assert 2 <= edge["height"] <= 4, got
-    assert edge["bg"] == GROUND and edge["filter"] == "none" and edge["opacity"] == "1", got
+    assert edge["bg"] == GROUNDS[theme] and edge["filter"] == "none" and edge["opacity"] == "1", got
     return edge
 
 
@@ -319,7 +320,7 @@ def test_the_ground_strip_is_fixed_at_the_top_while_the_map_loads_and_absent_on_
         page.wait_for_function("() => document.readyState === 'complete'", timeout=15000)
         page.wait_for_function("() => document.documentElement.classList.contains('js-early')")
         page.locator(".place-boot").wait_for(state="visible")
-        _assert_one_ground_strip_is_fixed_at_the_top(page.evaluate(TOP_EDGE_CHAIN))
+        _assert_one_ground_strip_is_fixed_at_the_top(page.evaluate(TOP_EDGE_CHAIN), theme)
     finally:
         context.close()
     context, page = _open_ready(new_context, server, VIEWPORT_DESKTOP, color_scheme=theme)
@@ -539,13 +540,12 @@ def _bar_band(page):
     return Image.open(io.BytesIO(page.screenshot(clip=clip))).convert("RGB")
 
 
-def test_the_app_bar_over_the_map_is_drawn_the_same_in_both_themes(
-        new_context, make_app_server):
-    """the tiles are light in both themes, and so is an iPhone's status bar over them, so the app
-    bar is too: in the dark theme its parts (the logo, the wordmark and the frame button) are drawn
-    over the map exactly as in the light theme"""
+def test_the_app_bar_over_the_map_follows_the_map_in_each_theme(new_context, make_app_server):
+    """over the light map the app bar's parts take the light theme's own colours; over the dark
+    map of the dark theme they keep the dark theme's, so the bar is drawn differently and each
+    reads on its map"""
     server = make_app_server(seed=_seed, fake_providers=True)
-    bands = {}
+    inks = {}
     for theme in ("light", "dark"):
         context, page = _open_tab(new_context, server, VIEWPORT_PHONE, color_scheme=theme)
         try:
@@ -554,14 +554,15 @@ def test_the_app_bar_over_the_map_is_drawn_the_same_in_both_themes(
                 # The bar's colours are the light theme's own, not a copy that has drifted.
                 bar, own = page.evaluate(BAR_TOKENS)
                 assert bar == own, (bar, own)
-            bands[theme] = _bar_band(page)
+            inks[theme] = page.evaluate(
+                "() => getComputedStyle(document.querySelector('.site-header .site-title')).color")
+            if theme == "dark":
+                page_text = page.evaluate(
+                    "() => getComputedStyle(document.querySelector('.page-content')).color")
+                assert inks[theme] == page_text, (inks, page_text)
         finally:
             context.close()
-    # The logo's edges are smoothed a little differently from one theme to the other (about 15
-    # pixels of the band, by up to 15 levels); a tint behind the bar would change most of it.
-    diff = ImageChops.difference(bands["light"], bands["dark"]).convert("L")
-    changed = sum(diff.histogram()[3:])
-    assert changed <= diff.width * diff.height // 200, (changed, diff.getbbox(), diff.getextrema())
+    assert inks["light"] != inks["dark"], inks
 
 
 # What sits on the app bar: each part's box in the window and its own colour (the text colour of
