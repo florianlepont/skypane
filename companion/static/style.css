@@ -2451,7 +2451,7 @@ button:not(.value-control__handle):active {
 }
 
 .dirty-bar > .btn {
-  padding: 0 var(--space-lg);
+  padding-inline: var(--space-lg);
 }
 @media (max-width: 959.98px) {
   :root {
@@ -2471,7 +2471,7 @@ button:not(.value-control__handle):active {
   }
 
   .dirty-bar--inline > .btn {
-    padding: 0 var(--space-sm);
+    padding-inline: var(--space-sm);
   }
 
   .dirty-bar--inline .dirty-bar__message {
