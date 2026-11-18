@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en" data-lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SkyPane Health: Route sources (mockup)</title>
+<style>
+/* Mockup for plan 68-12. Tokens follow the companion design system (sketch-findings-skypane), as in the Home mockup. Illustrative figures, not measured. */
+:root{
+  --sky:linear-gradient(#E7EEF7,#F1F3F6 45%,#EDF1F6); --canvas:#F1F3F6; --stage:#E4E9F0;
+  --text:#17191F; --muted:#5B6372; --border:#DAE1EB; --chip:#E9EEF5;
+  --accent:#1F2430; --on-accent:#fff; --glass:rgba(255,255,255,.72); --tab:#fff;
+  --ok:#16A34A; --warn:#D97706; --err:#BE123C;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --sky:linear-gradient(#12151D,#161A24 45%,#1A1F2B); --canvas:#161A24; --stage:#0E1117;
+  --text:#F1F3F6; --muted:#A3ABBB; --border:#2A3040; --chip:#1C222D;
+  --accent:#F2EFE9; --on-accent:#14171F; --glass:rgba(255,255,255,.09); --tab:#1C222D;
+  --ok:#4ADE80; --warn:#FBBF24; --err:#FB7185; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --sky:linear-gradient(#12151D,#161A24 45%,#1A1F2B); --canvas:#161A24; --stage:#0E1117;
+  --text:#F1F3F6; --muted:#A3ABBB; --border:#2A3040; --chip:#1C222D;
+  --accent:#F2EFE9; --on-accent:#14171F; --glass:rgba(255,255,255,.09); --tab:#1C222D;
+  --ok:#4ADE80; --warn:#FBBF24; --err:#FB7185; color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--stage);color:var(--text);font:16px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;padding:32px 16px 64px}
+.num{font-variant-numeric:tabular-nums}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.top{max-width:1320px;margin:0 auto 24px;display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between;align-items:flex-end}
+.top h1{margin:0 0 8px;font-size:30px;letter-spacing:-.03em}
+.top p{margin:0;color:var(--muted);max-width:70ch;font-size:15px}
+.ctl{display:flex;gap:12px;flex-wrap:wrap}
+.seg{display:inline-flex;background:var(--chip);border-radius:32px;padding:4px;gap:4px}
+.seg button{border:0;background:none;min-height:44px;padding:0 16px;border-radius:32px;cursor:pointer;font-size:15px}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent)}
+.board{max-width:1320px;margin:0 auto;display:flex;flex-wrap:wrap;gap:32px;align-items:flex-start}
+.frame h2{margin:0 0 4px;font-size:20px}
+.frame>p{margin:0 0 12px;color:var(--muted);font-size:14px}
+.frame[data-viewport="phone"]{width:360px;max-width:100%}
+.frame[data-viewport="desktop"]{flex:1 1 720px;min-width:0;max-width:1280px}
+.screen{border:1px solid var(--border);border-radius:28px;background:var(--sky) var(--canvas);padding:24px 16px;display:flex;flex-direction:column;gap:24px}
+[data-viewport="desktop"] .screen{padding:32px}
+[data-viewport="desktop"] .grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start}
+.grid{display:flex;flex-direction:column;gap:24px}
+.page-title{margin:0;font-size:32px;line-height:1.1;font-weight:700;letter-spacing:-.03em}
+[data-viewport="desktop"] .page-title{font-size:42px}
+.stack{display:flex;flex-direction:column;gap:24px}
+.label{margin:0 0 8px;font-size:13px;font-weight:600;color:var(--muted)}
+.card{background:var(--glass);border:1px solid var(--border);border-radius:22px;overflow:hidden}
+.card h3{margin:0;font-size:17px;font-weight:600}
+.card-head{padding:16px 16px 8px;display:flex;flex-direction:column;gap:2px}
+.card-head small{font-size:13px;color:var(--muted)}
+.row{display:flex;gap:12px;align-items:flex-start;padding:12px 16px;border-top:1px solid var(--border);min-height:44px}
+.row .main{flex:1;min-width:0}
+.row .t{font-size:16px;font-weight:600;overflow-wrap:anywhere}
+.row .s{font-size:14px;color:var(--muted);overflow-wrap:anywhere}
+.dot{width:10px;height:10px;border-radius:50%;margin-top:7px;flex:none;background:var(--ok)}
+.dot.warn{background:var(--warn)}.dot.err{background:var(--err)}.dot.off{background:var(--muted)}
+.pill{display:inline-flex;align-items:center;min-height:28px;padding:0 12px;border-radius:32px;background:var(--chip);font-size:13px;white-space:nowrap}
+.pill.warn{border:1px solid var(--warn)}.pill.err{border:1px solid var(--err)}
+.pairs{display:grid;grid-template-columns:auto 1fr;gap:2px 8px;font-size:14px;margin-top:4px}
+.pairs span:nth-child(odd){color:var(--muted)}
+.facts{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px}
+.facts div{font-size:13px;color:var(--muted)}
+.facts b{display:block;font-size:16px;color:var(--text);font-weight:600}
+.note{padding:12px 16px;border-top:1px solid var(--border);font-size:14px;color:var(--muted)}
+.state-tag{display:inline-block;margin:0 0 8px;padding:2px 10px;border-radius:32px;background:var(--accent);color:var(--on-accent);font-size:12px}
+.ask{max-width:1320px;margin:48px auto 0;padding:24px;border:1px solid var(--border);border-radius:22px;background:var(--glass)}
+.ask h2{margin:0 0 12px;font-size:22px}
+.ask li{margin-bottom:8px}
+.bad{color:var(--muted);font-size:13px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <div>
+    <h1 id="h1"></h1>
+    <p id="intro"></p>
+  </div>
+  <div class="ctl">
+    <div class="seg" id="langseg" role="group" aria-label="Language">
+      <button type="button" data-lang="en" aria-pressed="true">English</button>
+      <button type="button" data-lang="fr" aria-pressed="false">Français</button>
+    </div>
+    <div class="seg" id="theme" role="group" aria-label="Theme">
+      <button type="button" data-t="auto" aria-pressed="true">Auto</button>
+      <button type="button" data-t="light" aria-pressed="false">Light</button>
+      <button type="button" data-t="dark" aria-pressed="false">Dark</button>
+    </div>
+  </div>
+</div>
+
+<div class="board">
+  <section class="frame" data-viewport="phone"><h2 id="ph"></h2><p id="pp"></p><div class="screen" id="phone"></div></section>
+  <section class="frame" data-viewport="desktop"><h2 id="dh"></h2><p id="dp"></p><div class="screen" id="desktop"></div></section>
+</div>
+
+<!-- Questions for the owner -->
+<section class="ask" id="ask">
+  <h2 id="askh"></h2>
+  <ol id="askl"></ol>
+</section>
+
+<script>
+(function(){
+  var L={
+    en:{
+      h1:"Health: Route sources (mockup, plan 68-12)",
+      intro:"Two cards for the Health page, drawn for the maximum scope. The figures are illustrative. The sizing note (68-ROUTE-SOURCES-SIZING.md) says which parts each option keeps: the status card is option 2 and 3a; the per-aircraft verdicts same / differ need option 1; the 'Route from' line alone is the free option 3a.",
+      ph:"Phone, 360 px", pp:"Health page, below the 'Data sources' card.",
+      dh:"Desktop, 1280 px", dp:"Same cards in the Health grid, two columns.",
+      title:"Health",
+      cmpT:"Route sources", cmpS:"Which directory gave the route, last 24 hours: 38 flights",
+      same:"Same route", onlyV:"Only VRS", onlyA:"Only adsbdb", differ:"They differ",
+      sameS:"VRS and adsbdb agree", onlyVS:"adsbdb had no route", onlyAS:"VRS had no route", differS:"The frame shows the VRS route",
+      vrs:"VRS", adb:"adsbdb", routeFrom:"Route from",
+      cmpNote:"Same: 31, one source only: 5, differ: 2. A route that differs is shown on the frame from VRS, the directory asked first.",
+      cmpOpt:"Option 3a keeps only the 'Route from' line (VRS or adsbdb) under each flight, with no same / differ verdict.",
+      dirT:"Route directories", dirS:"Last 24 hours",
+      reach:"Reachable", unreach:"Not answering", none:"No lookup yet",
+      last:"Last answer", failed:"Lookups failed", found:"Found a route", attempts:"Lookups",
+      ago:function(m){return m;},
+      healthy:"Healthy", degraded:"Degraded", empty:"Empty",
+      healthyN:"Both directories answer.",
+      degradedN:"adsbdb failed on 38 % of 21 lookups. The frame keeps working: VRS is asked first.",
+      emptyN:"No lookup in the last 24 hours: every callsign was already known. Nothing to judge yet.",
+      thin:"Few lookups: read the percentages with care.",
+      min:"min", h:"h", nev:"never", ago2:"ago",
+      askh:"Questions for the owner",
+      q:[
+        "Scope: both cards (option 1 + 2), status plus 'Route from' (option 3a, recommended), or status only (option 2)?",
+        "Wording: 'Route sources' and 'Route directories' in English; 'Sources des routes' and 'Annuaires de routes' in French. Keep, or change?",
+        "Time window of the percentages: 24 hours (drawn), 7 days, or the 14 days of the 'Flight identification' card?",
+        "Placement: both cards on Health under 'Data sources' (drawn), or the directory status only on Console > Fleet?",
+        "Degraded threshold: show 'Degraded' from 25 % failed lookups with at least 10 lookups (drawn). Change?"
+      ]
+    },
+    fr:{
+      h1:"Santé : Sources des routes (maquette, plan 68-12)",
+      intro:"Deux cartes pour la page Santé, dessinées pour le périmètre maximal. Les chiffres sont illustratifs. La note de dimensionnement (68-ROUTE-SOURCES-SIZING.md) dit ce que garde chaque option : la carte d'état est l'option 2 et 3a ; les verdicts par avion identique / différent demandent l'option 1 ; la seule ligne « Route donnée par » est l'option 3a, sans coût.",
+      ph:"Téléphone, 360 px", pp:"Page Santé, sous la carte « Sources de données ».",
+      dh:"Ordinateur, 1280 px", dp:"Mêmes cartes dans la grille Santé, deux colonnes.",
+      title:"Santé",
+      cmpT:"Sources des routes", cmpS:"Quel annuaire a donné la route, dernières 24 h : 38 vols",
+      same:"Même route", onlyV:"VRS seul", onlyA:"adsbdb seul", differ:"Elles diffèrent",
+      sameS:"VRS et adsbdb sont d'accord", onlyVS:"adsbdb n'avait pas de route", onlyAS:"VRS n'avait pas de route", differS:"Le cadre affiche la route de VRS",
+      vrs:"VRS", adb:"adsbdb", routeFrom:"Route donnée par",
+      cmpNote:"Identiques : 31, une seule source : 5, différentes : 2. Une route différente est affichée d'après VRS, l'annuaire interrogé en premier.",
+      cmpOpt:"L'option 3a garde seulement la ligne « Route donnée par » (VRS ou adsbdb) sous chaque vol, sans verdict identique / différent.",
+      dirT:"Annuaires de routes", dirS:"Dernières 24 h",
+      reach:"Joignable", unreach:"Ne répond pas", none:"Aucune recherche",
+      last:"Dernière réponse", failed:"Recherches échouées", found:"Route trouvée", attempts:"Recherches",
+      healthy:"En bonne santé", degraded:"Dégradé", empty:"Vide",
+      healthyN:"Les deux annuaires répondent.",
+      degradedN:"adsbdb a échoué sur 38 % de 21 recherches. Le cadre continue : VRS est interrogé en premier.",
+      emptyN:"Aucune recherche en 24 heures : tous les indicatifs étaient déjà connus. Rien à juger pour l'instant.",
+      thin:"Peu de recherches : lisez les pourcentages avec prudence.",
+      min:"min", h:"h", nev:"jamais", ago2:"",
+      askh:"Questions pour le propriétaire",
+      q:[
+        "Périmètre : les deux cartes (options 1 + 2), l'état plus « Route donnée par » (option 3a, recommandée), ou l'état seul (option 2) ?",
+        "Libellés : « Route sources » et « Route directories » en anglais ; « Sources des routes » et « Annuaires de routes » en français. On garde ou on change ?",
+        "Fenêtre des pourcentages : 24 heures (dessinée), 7 jours, ou les 14 jours de la carte « Identification des vols » ?",
+        "Emplacement : les deux cartes sur Santé sous « Sources de données » (dessiné), ou l'état des annuaires seulement dans Console > Flotte ?",
+        "Seuil « Dégradé » : à partir de 25 % de recherches échouées avec au moins 10 recherches (dessiné). On change ?"
+      ]
+    }
+  };
+  var lang="en";
+  function t(k){return L[lang][k];}
+  function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;");}
+  function ago(n,unit){return lang==="fr"?("il y a "+n+" "+unit):(n+" "+unit+" ago");}
+
+  function flight(call,air,route,kind,sub,extra){
+    var dot=kind==="differ"?"warn":(kind==="same"?"":"off");
+    var pillCls=kind==="differ"?"pill warn":"pill";
+    var label={same:t("same"),onlyV:t("onlyV"),onlyA:t("onlyA"),differ:t("differ")}[kind];
+    return '<div class="row"><span class="dot '+dot+'"></span><div class="main"><div class="t">'+esc(call)+' · '+esc(air)+'</div>'+
+      '<div class="s">'+esc(route)+'</div>'+(extra||"")+'</div><span class="'+pillCls+'">'+esc(label)+'</span></div>';
+  }
+  function cmpCard(){
+    var d='<div class="pairs"><span>'+t("vrs")+'</span><span class="num">ORY → TLS</span><span>'+t("adb")+'</span><span class="num">ORY → TLS</span></div>';
+    var d2='<div class="pairs"><span>'+t("vrs")+'</span><span class="num">ORY → NCE</span><span>'+t("adb")+'</span><span class="num">ORY → MRS</span></div>';
+    return '<div class="card"><div class="card-head"><h3>'+t("cmpT")+'</h3><small>'+t("cmpS")+'</small></div>'+
+      flight("AFR6104","Air France","Orly → Toulouse","same",t("sameS"),d)+
+      flight("TVF8412","Transavia","Orly → Marseille","onlyV",t("onlyVS"),'<div class="pairs"><span>'+t("vrs")+'</span><span class="num">ORY → MRS</span><span>'+t("adb")+'</span><span>—</span></div>')+
+      flight("EZY27QL","easyJet","Orly → Basel","onlyA",t("onlyAS"),'<div class="pairs"><span>'+t("vrs")+'</span><span>—</span><span>'+t("adb")+'</span><span class="num">ORY → BSL</span></div>')+
+      flight("AFR1234","Air France","Orly → Nice","differ",t("differS"),d2)+
+      '<div class="note">'+t("cmpNote")+'</div><div class="note bad">'+t("cmpOpt")+'</div></div>';
+  }
+  function dirRow(name,state,last,failed,found,n){
+    var dot=state==="ok"?"":(state==="warn"?"warn":(state==="err"?"err":"off"));
+    var word=state==="off"?t("none"):(state==="err"?t("unreach"):t("reach"));
+    var body=state==="off"?'':
+      '<div class="facts"><div><b class="num">'+n+'</b>'+t("attempts")+'</div><div><b class="num">'+failed+'</b>'+t("failed")+'</div><div><b class="num">'+found+'</b>'+t("found")+'</div></div>';
+    return '<div class="row"><span class="dot '+dot+'"></span><div class="main"><div class="t">'+esc(name)+' · '+word+'</div>'+
+      '<div class="s">'+t("last")+' : '+last+'</div>'+body+(n!==""&&n<10&&state!=="off"?'<div class="s" style="margin-top:8px">'+t("thin")+'</div>':'')+'</div></div>';
+  }
+  function dirCard(state){
+    var rows,note,tag=t(state);
+    if(state==="healthy"){
+      rows=dirRow("VRS","ok",ago(2,t("min")),"0 %","94 %",36)+dirRow("adsbdb","ok",ago(11,t("min")),"0 %","71 %",7);
+      note=t("healthyN");
+    }else if(state==="degraded"){
+      rows=dirRow("VRS","ok",ago(4,t("min")),"3 %","92 %",33)+dirRow("adsbdb","warn",ago(2,t("h")),"38 %","50 %",21);
+      note=t("degradedN");
+    }else{
+      rows=dirRow("VRS","off",t("nev"),"","","")+dirRow("adsbdb","off",t("nev"),"","","");
+      note=t("emptyN");
+    }
+    return '<div><span class="state-tag">'+tag+'</span><div class="card"><div class="card-head"><h3>'+t("dirT")+'</h3><small>'+t("dirS")+'</small></div>'+rows+'<div class="note">'+note+'</div></div></div>';
+  }
+  function screen(){
+    return '<h3 class="page-title">'+t("title")+'</h3><div class="grid"><div class="stack">'+cmpCard()+'</div><div class="stack">'+dirCard("healthy")+dirCard("degraded")+dirCard("empty")+'</div></div>';
+  }
+  function render(){
+    document.documentElement.lang=lang;document.documentElement.setAttribute("data-lang",lang);
+    ["h1","intro","ph","pp","dh","dp","askh"].forEach(function(id){document.getElementById(id).textContent=t(id);});
+    document.getElementById("phone").innerHTML=screen();
+    document.getElementById("desktop").innerHTML=screen();
+    document.getElementById("askl").innerHTML=t("q").map(function(x){return "<li>"+esc(x)+"</li>";}).join("");
+  }
+  render();
+  var lb=document.querySelectorAll("#langseg button");
+  lb.forEach(function(b){b.addEventListener("click",function(){
+    lang=b.dataset.lang;lb.forEach(function(x){x.setAttribute("aria-pressed",String(x===b));});render();});});
+  var tb=document.querySelectorAll("#theme button");
+  tb.forEach(function(b){b.addEventListener("click",function(){
+    var r=document.documentElement;
+    if(b.dataset.t==="auto")r.removeAttribute("data-theme");else r.setAttribute("data-theme",b.dataset.t);
+    tb.forEach(function(x){x.setAttribute("aria-pressed",String(x===b));});});});
+})();
+</script>
+</body>
+</html>
