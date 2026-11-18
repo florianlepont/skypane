@@ -193,7 +193,8 @@ def test_the_airline_type_rows_align_with_the_airline_row_and_nothing_overlaps(
             menu = [c for c in head if "airlines-cell--menu" in c["cls"]][0]
             for sub in subs:
                 sub_menu = [c for c in sub if "airlines-cell--menu" in c["cls"]]
-                assert sub_menu and abs(sub_menu[0]["r"] - menu["r"]) <= 1, (sub, menu)
+                # A narrow screen shows each type as a card inset in the opened row.
+                assert sub_menu and sub_menu[0]["r"] <= menu["r"] + 1, (sub, menu)
     finally:
         context.close()
 

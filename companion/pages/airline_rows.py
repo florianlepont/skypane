@@ -68,11 +68,11 @@ def row_kinds(has_art, views):
 
 
 def chips(counts, total):
-    """The `(kind, label)` chips for `ui_filter.filter_bar_html`, each label
-    followed by the number of rows of that kind; `counts` maps a kind to it."""
-    pairs = [("", "%s (%d)" % (i18n.t(CHIP_ALL), total))]
+    """The `(kind, label, count)` chips for `ui_filter.filter_bar_html`;
+    `counts` maps a kind to the number of rows of that kind."""
+    pairs = [("", i18n.t(CHIP_ALL), total)]
     for kind, label in _CHIPS:
-        pairs.append((kind, "%s (%d)" % (i18n.t(label), counts.get(kind, 0))))
+        pairs.append((kind, i18n.t(label), counts.get(kind, 0)))
     return pairs
 
 

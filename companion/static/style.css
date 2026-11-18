@@ -5490,6 +5490,49 @@ input[name="radius_km"] {
   padding: 0;
 }
 
+/* Text centring in a button, chip or pill. A line box centres the font's
+ * content area (its ascent plus descent), and that area is not symmetric
+ * about the capitals for every system font, so a label sat 1 to 2px high or
+ * low in its box depending on the platform. Trimming the text block to the
+ * cap height (baseline to capital top) and padding by the box's own height
+ * puts the capitals on the box's exact middle whatever the font. Only a
+ * box whose text is its own block can be trimmed (a flex or grid container
+ * cannot), so these are inline-block with the padding standing in for the
+ * old flex centring; a button with an icon or a nested element keeps its
+ * flex layout. A browser without text-box or the cap unit keeps the flex
+ * centring above. */
+@supports (text-box: trim-both cap alphabetic) and (padding: 1cap) {
+  .btn:not(:has(> *)) {
+    display: inline-block;
+    padding-block: calc((44px - 1cap) / 2 - var(--btn-border, 1px));
+    text-box: trim-both cap alphabetic;
+  }
+
+  .btn.btn--ghost {
+    --btn-border: 0px;
+  }
+
+  .airlines-pill:not(:has(> *)),
+  .airlines-gap-chip:not(:has(> *)),
+  .airline-card__chip:not(:has(> *)),
+  .airlines-gap__prefix:not(:has(> *)) {
+    display: inline-block;
+    box-sizing: border-box;
+    height: var(--pill-h);
+    padding-block: calc((var(--pill-h) - 1cap) / 2 - var(--pill-bw, 0px));
+    text-align: center;
+    text-box: trim-both cap alphabetic;
+    white-space: nowrap;
+  }
+
+  .airlines-pill { --pill-h: 24px; }
+  .airlines-gap-chip { --pill-h: 24px; --pill-bw: 1px; }
+  .airline-card__chip { --pill-h: 20px; --pill-bw: 1px; }
+  .airlines-gap__prefix { --pill-h: 32px; }
+  .filter-chip__text,
+  .filter-chip__count { text-box: trim-both cap alphabetic; }
+}
+
 /* The highlighted link card (ui_components.link_card_html): a tinted card with
  * an accent border, an accent icon tile, a title over an optional subtitle that
  * wraps rather than being cut, and an accent chevron. */

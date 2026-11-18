@@ -234,7 +234,7 @@ def test_airlines_filter_bar_has_no_manual_resolution_control(tmp_path, served_c
     finally:
         prefs.set_request_prefs(lang="en")
     for page in (rendered, rendered_fr):
-        bar = re.search(r'<div class="filter-bar filter-bar--chips">(.*?)<div class="empty-state ', page, re.S)
+        bar = re.search(r'<div class="filter-bar filter-bar--chips filter-bar--scroll-chips">(.*?)<div class="empty-state ', page, re.S)
         assert bar is not None, "expected to locate the rendered filter bar"
         assert "manual" not in bar.group(1).lower() and "manuelle" not in bar.group(1).lower()
         assert "data-filter-set" not in page

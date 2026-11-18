@@ -454,7 +454,9 @@ def test_gallery_filter_bar_carries_all_four_contract_markers_exactly_once(tmp_p
         "expected two Clear buttons, the second one also carrying data-filter-clear-all")
     assert 'data-filter-clear-all' in rendered
     labels = re.findall(r'<span class="filter-chip__text">([^<]*)</span>', rendered)
-    assert labels == ["All (36)", "Unidentified (0)", "No artwork (0)", "Seen (0)", "Not seen yet (36)"]
+    assert labels == ["All", "Unidentified", "No artwork", "Seen", "Not seen yet"]
+    counts = re.findall(r'<span class="filter-chip__count">([^<]*)</span>', rendered)
+    assert counts == ["36", "0", "0", "0", "36"]
 
 
 def test_gallery_filter_clear_controls_are_real_buttons(tmp_path):

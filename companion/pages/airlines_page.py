@@ -842,7 +842,7 @@ def _filter_bar_html(total, chips=None):
         i18n.t(_FILTER_PLACEHOLDER_TEXT), i18n.t(_FILTER_COUNT_TEMPLATE),
         total, total, i18n.t(_FILTER_EMPTY_HEADING),
         i18n.t(_FILTER_EMPTY_BODY_TEMPLATE) % total, chips=chips,
-        chips_legend=airline_rows.chips_legend() if chips else "")
+        chips_legend=airline_rows.chips_legend() if chips else "", chips_scroll=True)
 
 
 def unresolved_row_for_prefix(state_dir, prefix):

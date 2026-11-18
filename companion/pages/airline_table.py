@@ -62,6 +62,7 @@ DEFAULT_TYPE_PILL = i18n.msg("airlines.default_type_pill", "Default type")
 VIEWS_ONE = i18n.msg("airlines.views_one", "1 view")
 VIEWS_MANY = i18n.msg("airlines.views_many", "%d views")
 NOT_SEEN_TEXT = i18n.msg("airlines.table_not_seen", "Not seen yet")
+TYPES_HEAD_TEXT = i18n.msg("airlines.types_seen_head", "Aircraft types seen")
 SHOW_TYPES_TEXT = i18n.msg(
     "airlines.show_all_types", "Show the aircraft types of every airline")
 TYPES_PARAM = "types"
@@ -118,6 +119,9 @@ def _change_art_form(page, key, text=None, css="row-menu__item"):
     """The "Change artwork" control: a label wrapping the file input of a
     form that posts to the illustration upload route. With a script it sends
     on change; without one the Upload button sends it."""
+    label = escape_html(text or i18n.t(MENU_CHANGE_ART))
+    if css == "airlines-act":
+        label = '<span class="airlines-act__text">%s</span>' % label
     return (
         '<form class="airlines-art" method="post" '
         'enctype="multipart/form-data" action="%s">%s'
@@ -126,8 +130,8 @@ def _change_art_form(page, key, text=None, css="row-menu__item"):
         'required data-autosubmit></label>'
         '<noscript><button type="submit" class="airlines-art__upload">%s</button></noscript>'
         "</form>"
-    ) % (page._illustration_url(key, "POST"), csrf_field(), css,
-         escape_html(text or i18n.t(MENU_CHANGE_ART)), escape_html(i18n.t(ART_UPLOAD_TEXT)))
+    ) % (page._illustration_url(key, "POST"), csrf_field(), css, label,
+         escape_html(i18n.t(ART_UPLOAD_TEXT)))
 
 
 def _post_form(route, fields, text, css="row-menu__item"):
@@ -201,7 +205,7 @@ def _menu_html(items, aria):
     return (
         '<details class="row-menu"><summary class="row-menu__toggle" aria-label="%s">%s</summary>'
         '<div class="row-menu__panel">%s</div></details>'
-    ) % (escape_html(aria), layout.icon_html("icon-more-vertical", size=20), items)
+    ) % (escape_html(aria), layout.icon_html("icon-more", size=20), items)
 
 
 def _rename_dialog(row):
@@ -259,6 +263,15 @@ def _artwork_cell(page, row):
         _thumb_html(page, row["key"], row["state_dir"]), code)
 
 
+def _meta_html(row, prefixes):
+    """The phone row's second line, `AFR · A320 · 37 views`: the prefixes, the
+    default type and the views of the row's separate cells (which a phone
+    hides, so nothing is read twice)."""
+    parts = (prefixes or NO_VALUE, row["default_type"] or NO_VALUE, _views_text(row["views"]))
+    return '<span class="airlines-meta mono">%s</span>' % escape_html(
+        SUB_ROW_TYPE_SEP.join(parts))
+
+
 def _expand_cell(row):
     if not row["sub_rows"]:
         return '<span class="airlines-expand airlines-expand--none" aria-hidden="true"></span>'
@@ -273,14 +286,14 @@ def _main_row_html(page, row):
     return (
         '<tr class="airlines-row">'
         '<th scope="row" class="airlines-cell airlines-cell--name">'
-        '<div class="airlines-namebox">%s%s</div></th>'
+        '<div class="airlines-namebox">%s%s%s</div></th>'
         '<td class="airlines-cell airlines-cell--prefixes mono">%s%s</td>'
         '<td class="airlines-cell airlines-cell--art">%s</td>'
         '<td class="airlines-cell airlines-cell--views">%s</td>'
         '<td class="airlines-cell airlines-cell--seen">%s%s</td>'
         '<td class="airlines-cell airlines-cell--menu">%s</td></tr>'
     ) % (
-        _expand_cell(row), _name_cell(row),
+        _expand_cell(row), _name_cell(row), _meta_html(row, prefixes),
         _hidden_label(i18n.t(COL_PREFIXES)), escape_html(prefixes or NO_VALUE),
         _artwork_cell(page, row), escape_html(_views_text(row["views"])),
         _hidden_label(i18n.t(COL_LAST_SEEN)), row["last_seen_html"],
@@ -289,14 +302,12 @@ def _main_row_html(page, row):
 
 def _sub_art_html(page, sub, row):
     """The type's own picture (enlargeable), else the airline's picture
-    dimmed, with the state in words beside it."""
-    if sub["slot"] is None:
-        return '<span class="airlines-uses text-label">%s</span>' % escape_html(
-            i18n.t(STATE_DEFAULT))
+    dimmed, with the state in words beside it (a phone shows the words under
+    the type's code; a wide table leaves them to assistive technology and
+    the dimmed picture)."""
     label = "%s, %s" % (row["name"], sub["code"])
-    if sub["has_own"]:
-        sub_row = dict(row, manual_fields=_NO_MANUAL_FIELDS)
-        thumb = _enlarge_html(page, sub_row, sub["slot"], label)
+    if sub["slot"] is not None and sub["has_own"]:
+        thumb = _enlarge_html(page, dict(row, manual_fields=_NO_MANUAL_FIELDS), sub["slot"], label)
         state = STATE_OWN
     else:
         thumb = (
@@ -304,13 +315,8 @@ def _sub_art_html(page, sub, row):
                 escape_html(i18n.t(STATE_DEFAULT)),
                 _thumb_html(page, row["key"], row["state_dir"])))
         state = STATE_DEFAULT
-    # A type that shows its airline's picture says so as a tooltip and to
-    # assistive technology; the dimmed picture is the visible cue, so every
-    # type row keeps the height of the airline row.
-    state_class = "airlines-state text-label" + (
-        "" if sub["has_own"] else " visually-hidden")
-    return '%s<span class="%s">%s</span>' % (
-        thumb, state_class, escape_html(i18n.t(state)))
+    return '%s<span class="airlines-state text-label">%s</span>' % (
+        thumb, escape_html(i18n.t(state)))
 
 
 def _sub_action_html(page, sub):
@@ -454,10 +460,18 @@ def row_facts(data, index, builtin_name, shapes):
     return _row_facts(_page(), data, index, builtin_name, shapes)
 
 
+def _subhead_html(row):
+    """The label over an airline's aircraft-type rows."""
+    return (
+        '<tr class="airlines-subhead"><th scope="colgroup" colspan="6" '
+        'class="airlines-subhead__text">%s</th></tr>'
+    ) % escape_html(i18n.t(TYPES_HEAD_TEXT))
+
+
 def sub_rows_html(row):
-    """The aircraft-type rows of one airline group."""
+    """The aircraft-type rows of one airline group, under their label."""
     page = _page()
-    return "".join(_sub_row_html(page, sub, row) for sub in row["sub_rows"])
+    return _subhead_html(row) + "".join(_sub_row_html(page, sub, row) for sub in row["sub_rows"])
 
 
 def _types_source(row):
@@ -466,7 +480,7 @@ def _types_source(row):
 
 
 def _airline_group_html(page, row, types_open=False):
-    subs = "".join(_sub_row_html(page, sub, row) for sub in row["sub_rows"])
+    subs = sub_rows_html(row) if row["sub_rows"] else ""
     source = ""
     if subs and not types_open:
         # The rows are fetched when the airline's chevron first opens.
@@ -536,10 +550,14 @@ def table_and_chips(data):
             groups.append(_airline_group_html(page, row, data.types_open))
             for kind in row["kinds"].split():
                 counts[kind] = counts.get(kind, 0) + 1
+    gap_table = (
+        '<table class="airlines-table airlines-table--gaps"><caption class="airlines-label">%s</caption>%s</table>%s'
+    ) % (escape_html("%s · %d" % (i18n.t(airline_rows.CHIP_UNIDENTIFIED), len(data.gap_rows))),
+         gaps, _known_names_html()) if gaps else ""
     table = (
-        '<table class="airlines-table"><caption class="visually-hidden">%s</caption>%s%s%s</table>%s'
-    ) % (escape_html(i18n.t(CAPTION_TEXT)), _head_html(), gaps, "".join(groups),
-         _known_names_html() if gaps else "")
+        '<table class="airlines-table"><caption class="airlines-label">%s</caption>%s%s</table>'
+    ) % (escape_html("%s · %d" % (i18n.t(CAPTION_TEXT), len(groups))), _head_html(), "".join(groups))
+    table = gap_table + table
     return table, airline_rows.chips(counts, len(data.gap_rows) + len(groups))
 
 

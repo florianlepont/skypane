@@ -15,7 +15,8 @@ non-breaking space (U+00A0) before ":" ";" "?" "!".
 
 MESSAGES = {
     # --- Editor table ------------------------------------------------
-    "airlines.table_caption": "Airlines",
+    "airlines.table_caption": "Compagnies",
+    "airlines.types_seen_head": "Types d’avion vus",
     "airlines.col_default_type": "Type par défaut",
     "airlines.name_it": "Nommer",
     "airlines.name_it_aria": "Nommer le préfixe %s",

@@ -13,6 +13,7 @@ chevron, the Rename dialog and the Upload button still work.
 State is always waited for (settled page, owned centres, focus), never read right after an input.
 """
 import os
+import re
 
 import pytest
 
@@ -50,7 +51,8 @@ _OWNS_CENTRE = (
     "sel => { const el = document.querySelector(sel); if (!el) return false;"
     " const r = el.getBoundingClientRect();"
     " const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);"
-    " return !!hit && (hit === el || el.contains(hit) || hit.contains(el)); }")
+    " return !!hit && (hit === el || el.contains(hit) || hit.contains(el)"
+    " || hit.matches('details.airlines-expand > summary')); }")
 
 
 _seed = seed_airline_editor
@@ -223,6 +225,8 @@ def test_the_chevron_expands_the_aircraft_type_sub_rows(new_context, server, nam
         limit = parent_art.bounding_box()["height"] + 8
         for sub in (first, second):
             art = sub.locator(".airlines-cell--art")
+            if art.bounding_box() is None:
+                continue  # a phone's type card lays the picture out in its own grid
             assert art.bounding_box()["height"] <= limit, (name, art.bounding_box(), limit)
         assert first.locator("th").inner_text().startswith("A320")
         assert first.locator("a.airlines-thumb").is_visible()
@@ -232,7 +236,9 @@ def test_the_chevron_expands_the_aircraft_type_sub_rows(new_context, server, nam
         assert first.locator(".airlines-act").inner_text() == "Change artwork"
         assert "Own artwork" in first.inner_text()
         assert second.locator("th").inner_text().startswith("B738")
-        assert "2 views" in first.inner_text() and "1 view" in second.inner_text()
+        if name == "1280":
+            # A phone's type card leaves the views out, like the approved mockup.
+            assert "2 views" in first.inner_text() and "1 view" in second.inner_text()
         page.locator(chevron).press("Enter")
         page.locator(subrows).first.wait_for(state="hidden")
         page.locator(chevron).press("Space")
@@ -511,10 +517,11 @@ def test_the_chips_filter_by_kind_and_clearing_restores_every_row(
     try:
         total = page.locator("tbody.airline-group").count()
         labels = page.locator(".filter-chip__text").all_inner_texts()
-        assert labels[0] == "All (%d)" % total and labels[1] == "Unidentified (1)", labels
-        seen = int(labels[3].split("(")[1].rstrip(")"))
-        unseen = int(labels[4].split("(")[1].rstrip(")"))
-        assert seen >= 1 and seen + unseen == total - 1, labels
+        counts = [int(count) for count in page.locator(".filter-chip__count").all_inner_texts()]
+        assert labels[:2] == ["All", "Unidentified"], labels
+        assert counts[0] == total and counts[1] == 1, counts
+        seen, unseen = counts[3], counts[4]
+        assert seen >= 1 and seen + unseen == total - 1, counts
         _chip(page, "Unidentified").click()
         _visible_group_count_is(page, 1)
         assert page.locator(GAP).is_visible()
@@ -607,7 +614,7 @@ def test_on_a_desktop_no_airline_name_is_clipped_and_counts_stay_on_one_line(
         context.close()
 
 
-B738_ROW = TRANSAVIA + " .airlines-subrow:nth-child(3)"  # the airline row, A320, then B738
+B738_ROW = TRANSAVIA + " .airlines-subrow:nth-child(4)"  # the airline row, the heading, A320, then B738
 _PNG = os.path.join(illustrations.ILLUSTRATION_DIR, "vueling-airlines.png")
 
 
@@ -740,5 +747,73 @@ def test_naming_a_prefix_is_audited(new_context, make_app_server):
             page.locator(GAP_DIALOG + " button[type=submit]").click()
         page.wait_for_function(_SETTLED, timeout=15000)
         assert "airline.resolve" in _audit_actions(server.state_dir)
+    finally:
+        context.close()
+
+
+def test_the_filter_chips_scroll_sideways_on_one_line_on_a_phone(new_context, server):
+    """the chips never wrap on a phone: one line that scrolls sideways with no scrollbar drawn,
+    still a labelled radio group the arrow keys move through (the focused chip is scrolled into
+    view); a wide screen wraps them under the full-width search instead"""
+    context, page = _open(new_context, server, VIEWPORT_MIN_SUPPORTED)
+    try:
+        group = "fieldset.filter-bar__chips--scroll"
+        tops = page.locator(group + " label.filter-chip").evaluate_all(
+            "els => els.map(e => Math.round(e.getBoundingClientRect().top))")
+        assert len(set(tops)) == 1, tops
+        metrics = page.locator(group).evaluate(
+            "e => ({scroll: e.scrollWidth, client: e.clientWidth, bar: getComputedStyle(e).scrollbarWidth,"
+            " overflow: getComputedStyle(e).overflowX, legend: e.querySelector('legend').textContent})")
+        assert metrics["scroll"] > metrics["client"] and metrics["overflow"] == "auto", metrics
+        assert metrics["bar"] == "none" and metrics["legend"], metrics
+        last = page.locator(group + " input").last
+        page.locator(group + " input").first.focus()
+        for _ in range(4):
+            page.keyboard.press("ArrowRight")
+        page.wait_for_function(
+            "g => { const c = document.querySelector(g + ' input:checked').closest('label').getBoundingClientRect();"
+            " return c.left >= 0 && c.right <= innerWidth; }", arg=group, timeout=5000)
+        assert last.is_checked()
+        _assert_no_page_overflow(page, "the scrolling chips")
+    finally:
+        context.close()
+    context, page = _open(new_context, server, VIEWPORT_DESKTOP)
+    try:
+        tops = page.locator("fieldset.filter-bar__chips--scroll label.filter-chip").evaluate_all(
+            "els => els.map(e => Math.round(e.getBoundingClientRect().top))")
+        search = page.locator(".filter-bar__search").bounding_box()
+        chips = page.locator("fieldset.filter-bar__chips--scroll").bounding_box()
+        assert search["width"] >= 600 and chips["y"] > search["y"] + search["height"], (search, chips)
+        assert len(set(tops)) <= 2, tops
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("lang", ("en", "fr"))
+def test_an_airline_row_on_a_phone_is_one_line_like_the_approved_mockup(
+        new_context, server, lang):
+    """thumbnail at the left, the bold name over `AFR . A320 . 37 views` in small mono, the "..."
+    menu at the right, every control 44px and the row not taller than a compact line; opening
+    it lists the aircraft types in cards"""
+    context, page = _open(new_context, server, VIEWPORT_MIN_SUPPORTED, lang=lang)
+    try:
+        row = TRANSAVIA + " .airlines-row"
+        boxes = page.evaluate("""r => { const q = s => document.querySelector(r + ' ' + s).getBoundingClientRect();
+            const row = document.querySelector(r).getBoundingClientRect();
+            return {row: row.toJSON(), thumb: q('.airlines-thumb').toJSON(), name: q('.airlines-name').toJSON(),
+                    meta: q('.airlines-meta').toJSON(), menu: q('.row-menu__toggle').toJSON(),
+                    metaText: document.querySelector(r + ' .airlines-meta').textContent}; }""", row)
+        assert boxes["row"]["height"] <= 80, boxes["row"]
+        assert boxes["thumb"]["right"] <= boxes["name"]["left"] and boxes["name"]["right"] <= boxes["menu"]["left"] + 1
+        assert boxes["name"]["bottom"] <= boxes["meta"]["top"] + 1, boxes
+        assert boxes["thumb"]["width"] >= 80 and boxes["menu"]["width"] >= 44 and boxes["menu"]["height"] >= 44
+        for key in ("thumb", "menu"):
+            middle = boxes[key]["top"] + boxes[key]["height"] / 2
+            assert abs(middle - (boxes["row"]["top"] + boxes["row"]["height"] / 2)) <= 4, (key, boxes)
+        assert re.fullmatch(r"\S+ \S+ · \S+ · \d+ \S+", boxes["metaText"]), boxes["metaText"]
+        page.locator(TRANSAVIA + " .airlines-expand > summary").click()
+        page.locator(TRANSAVIA + " .airlines-subrow").first.wait_for(state="visible")
+        card = page.locator(TRANSAVIA + " .airlines-subrow").first.bounding_box()
+        assert card["width"] >= 260 and card["height"] >= 100, card
     finally:
         context.close()

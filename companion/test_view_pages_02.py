@@ -919,7 +919,7 @@ def test_airlines_section_order_is_title_then_filter_then_table_then_lightbox(tm
 
     literals = (
         ("title", '<h1 class="page-title"'),
-        ("filter", 'class="filter-bar filter-bar--chips"'),
+        ("filter", 'class="filter-bar filter-bar--chips filter-bar--scroll-chips"'),
         ("table", '<table class="airlines-table"'),
         ("gaprow", 'class="airline-group airline-group--gap"'),
         ("lightbox", '<dialog class="lightbox'),
@@ -930,7 +930,7 @@ def test_airlines_section_order_is_title_then_filter_then_table_then_lightbox(tm
         assert occurrences == 1, "expected exactly one occurrence of %r (the %s section), found %d" % (literal, name, occurrences)
         indices[name] = rendered.index(literal)
 
-    order = ["title", "filter", "table", "gaprow", "lightbox"]
+    order = ["title", "filter", "gaprow", "table", "lightbox"]
     for earlier, later in zip(order, order[1:]):
         assert indices[earlier] < indices[later], (
             "expected %s before %s, but got indices %r (CFG-82, 29-02-PLAN.md)" % (earlier, later, indices))
@@ -951,7 +951,7 @@ def test_airlines_no_chrome_gate_survives_the_reorder(tmp_path):
         rendered_gap_only = airlines_page.render({"state_dir": str(tmp_a)})
     finally:
         illustrations.target_variants_by_airline = original_target_variants_by_airline
-    assert 'class="filter-bar filter-bar--chips"' in rendered_gap_only, (
+    assert 'class="filter-bar filter-bar--chips filter-bar--scroll-chips"' in rendered_gap_only, (
         "expected the filter bar to still render when there are gap cards but no curated pairs "
         "(the gate is `pairs or gap_shown`, CFG-82, 29-02-PLAN.md)")
 

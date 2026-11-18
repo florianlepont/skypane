@@ -195,6 +195,19 @@
     chipInputs[ci].addEventListener("change", applyFilter);
   }
 
+  // A chip row that scrolls sideways (a phone) brings the chip that just took
+  // the focus or the choice fully into view, not only its left edge.
+  function showChip(evt) {
+    var label = evt.target.closest && evt.target.closest(".filter-chip");
+    if (label && label.scrollIntoView) {
+      label.scrollIntoView({ inline: "nearest", block: "nearest" });
+    }
+  }
+  for (var si = 0; si < chipInputs.length; si++) {
+    chipInputs[si].addEventListener("change", showChip);
+    chipInputs[si].addEventListener("focus", showChip);
+  }
+
   // The inline clear and the empty state's own Clear
   // button are both [data-filter-clear]. The inline one clears the
   // search text; the empty state's (also [data-filter-clear-all]) resets

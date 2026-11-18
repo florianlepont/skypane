@@ -385,3 +385,117 @@ button.row-menu__item:hover {
 .lightbox--picture .lightbox__caption:empty {
   display: none;
 }
+/* The scrolling pill row of the filter bar (Airlines editor): the search takes
+ * the whole first line, the chips are separate pills below it. A phone keeps
+ * them on one line that scrolls sideways (no scrollbar drawn, the group stays
+ * a focusable radio group, and the arrow keys and touch still move it); from
+ * 960px they wrap. The segmented track and its selected-pill inset of the
+ * other pages are not used. */
+.filter-bar.filter-bar--scroll-chips {
+  row-gap: var(--space-sm);
+}
+
+.filter-bar.filter-bar--scroll-chips .filter-bar__search {
+  flex: 1 1 100%;
+  max-width: none;
+}
+
+.filter-bar.filter-bar--scroll-chips .filter-bar__chips--scroll {
+  flex: 1 1 100%;
+  flex-wrap: nowrap;
+  gap: var(--space-sm);
+  height: auto;
+  margin-inline: calc(-1 * var(--space-lg));
+  padding: 2px var(--space-lg) var(--space-xs);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  scroll-padding-inline: var(--space-lg);
+  background: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.filter-bar.filter-bar--scroll-chips .filter-bar__chips--scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.filter-bar.filter-bar--scroll-chips .filter-bar__chips--scroll .filter-chip {
+  flex: none;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0;
+}
+
+.filter-bar.filter-bar--scroll-chips .filter-bar__chips--scroll .filter-chip__box {
+  flex-direction: row;
+  gap: var(--space-xs);
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--glass-solid);
+  box-shadow: none;
+}
+
+.filter-bar.filter-bar--scroll-chips .filter-bar__chips--scroll .filter-chip__text {
+  overflow: visible;
+}
+
+.filter-chip__count {
+  font-size: var(--font-caption-size);
+  line-height: 1.2;
+  color: var(--seg-idle-fg);
+  opacity: 0.75;
+}
+
+.filter-bar.filter-bar--scroll-chips .filter-bar__chips--scroll .filter-chip input:checked + .filter-chip__box {
+  border-color: var(--seg-selected-bg);
+  background: var(--seg-selected-bg);
+  box-shadow: none;
+}
+
+.filter-bar.filter-bar--scroll-chips .filter-bar__chips--scroll .filter-chip input:checked + .filter-chip__box .filter-chip__count {
+  color: var(--seg-selected-fg);
+}
+
+.filter-bar.filter-bar--scroll-chips .filter-bar__chips--scroll .filter-chip:hover input:not(:checked) + .filter-chip__box {
+  background: var(--color-control-wash);
+}
+
+@media (min-width: 960px) {
+  .filter-bar.filter-bar--scroll-chips {
+    flex-wrap: wrap;
+  }
+
+  .filter-bar.filter-bar--scroll-chips .filter-bar__chips--scroll {
+    flex-wrap: wrap;
+    margin-inline: 0;
+    padding: 0;
+    overflow: visible;
+  }
+
+  .filter-bar.filter-bar--scroll-chips .filter-chip {
+    flex: none;
+  }
+
+  .filter-bar.filter-bar--scroll-chips .filter-chip__box {
+    gap: var(--space-xs);
+    padding: 0 14px;
+  }
+}
+
+/* The radio of a scrolling chip covers its whole pill (still invisible), so
+ * moving the focus along the row scrolls the whole pill into view, not just
+ * its left edge. */
+.filter-bar.filter-bar--scroll-chips .filter-bar__chips--scroll .filter-chip input {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  overflow: visible;
+  clip-path: none;
+  opacity: 0;
+}
