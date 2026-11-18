@@ -1,6 +1,14 @@
 <!--
-STATUS 2026-11-18: drawn on the real shell for the owner's review (plan 06). Decisions to record after the owner's answers.
-Covers R27 to R31 and D-15: Complete button for unidentified prefixes (no Ignore), rename as an explicit action, one Change artwork action, Back to the default only where a default exists, filter chips, read-only rows for airlines known by name only with Add artwork, a clean aircraft types panel.
+OWNER-APPROVED 2026-11-18 (Airlines editor, on the real shell).
+Covers R27 to R31 and D-15. Decisions:
+1. Artwork belongs to the aircraft types, not to the airline: the table column is the airline's Default type (thumbnail of the default type). The default type's artwork shows for every type without its own artwork.
+2. Airline row menu: Rename only; "Reset to the original name" (the built-in name from the application's airline list) only after a rename; "Delete my name" only for an airline named by hand. No "Add an aircraft type" (types come from the flights seen).
+3. Each aircraft type has its own menu: Set as default type, Delete the artwork (the type then shows the default type's artwork again; no separate "use the default" action).
+4. Unidentified prefixes: one compact row each, no edit field by default: prefix, a Suggestion tag with the proposed name (or a Name it button when there is no suggestion), sightings and aircraft seen on the second line, a round check button to validate. Edit and Name it open the name in a modal, on desktop and on phone. No Ignore. Aircraft types are never asked: they are detected.
+5. Suggestion: the owner's idea, shown in the mockup with invented names; how it is produced (local list of airline designators, or an AI service) is still to be decided by the owner at planning (see the plan).
+6. Airlines known by name only: their own block; button "+ Artwork" (short) opening a dialog to choose the aircraft type, then the image; that type becomes the default type.
+7. Filters: All, Unidentified, Known by name only, No artwork, Seen, Not seen yet, with counts. Rename in a dialog from the row menu.
+Open: the word "Marchand" in remark R29 (unclear), to ask the owner.
 -->
 <!doctype html>
 <html lang="en">
