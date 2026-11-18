@@ -188,6 +188,9 @@ details.rd summary{min-height:48px;display:flex;align-items:center;padding:0 16p
 .fchip{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 14px;border-radius:32px;border:1px solid var(--border);background:var(--card);font-size:14px;white-space:nowrap}
 .fchip.on{background:var(--accent);color:var(--on-accent);border-color:var(--accent);font-weight:600}
 .fchip i{font-style:normal;font-size:12px;opacity:.75}
+.sugg{display:flex;align-items:center;gap:6px;font-size:15px}
+.sugg .ic{color:var(--accent);width:18px;height:18px}
+.sugg b{font-weight:700}
 .mono{font-family:ui-monospace,Menlo,monospace;font-size:13px}
 .thumb{width:84px;height:44px;border-radius:12px;background:var(--chip);display:flex;align-items:center;justify-content:center;flex:none;overflow:hidden}
 .thumb.none{border:1px dashed var(--border);background:transparent;color:var(--muted);font-size:11px}
@@ -247,6 +250,7 @@ select.sel{min-height:44px;border:1px solid var(--border);border-radius:14px;bac
   <symbol id="i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></symbol>
   <symbol id="i-down" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5"/></symbol>
   <symbol id="i-chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+  <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM18 15l.8 2.2L21 18l-2.2.8L18 21l-.8-2.2L15 18l2.2-.8z"/></symbol>
 </svg>
 <div class="top">
   <div>
@@ -272,7 +276,7 @@ select.sel{min-height:44px;border:1px solid var(--border);border-radius:14px;bac
       mrename:'Rename',mchange:'Change artwork',mrevert:'Back to the default',mdel:'Delete the illustration',mdef:'Set as default type',mreset:'Reset to the original name',
       types:'Aircraft types seen',usesair:'Uses the airline’s artwork',own:'Own artwork',defpill:'Default type',renameT:'Rename the airline',renameH:'The new name replaces the original on the companion and on the frame.',
       tabs:['Fleet','Team','Editor','Journal','More'],nav:['Fleet','Users','Editor','Audit log'],account:'Account',space:['Console','My frames'],admin:'Administration',signout:'Sign out',
-      openmenu:'Actions for Air France',complh:'Name the airline. Its aircraft types come from the flights seen.',madd:'Add an aircraft type',colD:'Default type',detected:'Aircraft seen',editname:'Edit the name',suggest:'Suggested name',use:'Use',tdef:'Set as default type',trevert:'Use the default type’s artwork',tdel:'Delete the artwork',usesdef:'Uses the default type’s artwork',addtart:'Add artwork',notype:'No aircraft artwork yet',menuT:'Actions for A220-300'},
+      openmenu:'Actions for Air France',complh:'Name the airline. Its aircraft types come from the flights seen.',madd:'Add an aircraft type',colD:'Default type',detected:'Aircraft seen',editname:'Edit the name',sugglabel:'Suggestion',suggest:'Suggested name',use:'Use',tdef:'Set as default type',trevert:'Use the default type’s artwork',tdel:'Delete the artwork',usesdef:'Uses the default type’s artwork',addtart:'Add artwork',notype:'No aircraft artwork yet',menuT:'Actions for A220-300'},
     fr:{title:'Éditeur de compagnies',search:'Compagnie ou indicatif…',count:'36 sur 36 affichées',
       f:['Toutes','Non identifiées','Connues par leur nom','Sans illustration','Vues','Pas encore vues'],
       unid:'Non identifiées',unidh:'Indicatifs vus sur des vols, sans nom de compagnie pour l’instant.',seen:function(n,d){return (n===1?'Vue une fois':'Vue '+n+'×')+' · '+d;},complete:'Compléter',
@@ -282,7 +286,7 @@ select.sel{min-height:44px;border:1px solid var(--border);border-radius:14px;bac
       mrename:'Renommer',mchange:'Changer l’illustration',mrevert:'Revenir à celle par défaut',mdel:'Supprimer l’illustration',mdef:'Définir comme type par défaut',mreset:'Rétablir le nom d’origine',
       types:'Types d’avion vus',usesair:'Utilise l’illustration de la compagnie',own:'Illustration propre',defpill:'Type par défaut',renameT:'Renommer la compagnie',renameH:'Le nouveau nom remplace le nom d’origine dans le companion et sur le cadre.',
       tabs:['Flotte','Équipe','Éditeur','Journal','Plus'],nav:['Flotte','Utilisateurs','Éditeur','Journal d’audit'],account:'Compte',space:['Console','Mes cadres'],admin:'Administration',signout:'Se déconnecter',
-      openmenu:'Actions pour Air France',complh:'Nommez la compagnie. Ses types d’avion viennent des vols vus.',madd:'Ajouter un type d’avion',colD:'Type par défaut',detected:'Avions vus',editname:'Modifier le nom',suggest:'Nom suggéré',use:'Utiliser',tdef:'Définir comme type par défaut',trevert:'Utiliser l’illustration du type par défaut',tdel:'Supprimer l’illustration',usesdef:'Utilise l’illustration du type par défaut',addtart:'Ajouter une illustration',notype:'Pas encore d’illustration d’avion',menuT:'Actions pour A220-300'}
+      openmenu:'Actions pour Air France',complh:'Nommez la compagnie. Ses types d’avion viennent des vols vus.',madd:'Ajouter un type d’avion',colD:'Type par défaut',detected:'Avions vus',editname:'Modifier le nom',sugglabel:'Suggestion',suggest:'Nom suggéré',use:'Utiliser',tdef:'Définir comme type par défaut',trevert:'Utiliser l’illustration du type par défaut',tdel:'Supprimer l’illustration',usesdef:'Utilise l’illustration du type par défaut',addtart:'Ajouter une illustration',notype:'Pas encore d’illustration d’avion',menuT:'Actions pour A220-300'}
   };
   Object.keys(S.fr).forEach(function(k){var v=S.fr[k];if(typeof v==='string')S.fr[k]=nb(v);else if(Array.isArray(v))S.fr[k]=v.map(nb);});
   function ic(n){return '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-'+n+'"/></svg>';}
@@ -316,7 +320,7 @@ select.sel{min-height:44px;border:1px solid var(--border);border-radius:14px;bac
   function unidBlock(t,vp,openForm){
     var rows=UNID.map(function(u,i){
       var sug=u[3];
-      var who=sug?'<b>'+sug+'</b><small>'+t.seen(u[1],u[2])+' · '+u[4]+'</small>':'<small>'+t.seen(u[1],u[2])+' · '+u[4]+'</small>';
+      var who=sug?'<span class="sugg">'+ic('spark')+t.sugglabel+' : <b>'+sug+'</b></span><small>'+t.seen(u[1],u[2])+' · '+u[4]+'</small>':'<small>'+t.seen(u[1],u[2])+' · '+u[4]+'</small>';
       var btns=sug?'<a class="btn sq" href="#" aria-label="'+t.editname+'" title="'+t.editname+'">'+ic('edit')+'</a><a class="btn dark" href="#" style="min-height:44px">'+t.validate+'</a>'
                   :(openForm&&i===2?'<span class="btn ghost" style="background:var(--chip)">'+t.cancel+'</span>':'<a class="btn dark" href="#" style="min-height:44px">'+t.complete+'</a>');
       var row='<div class="urow"><span class="mono" style="font-weight:700;font-size:15px;min-width:44px">'+u[0]+'</span><span class="who">'+who+'</span>'+btns+'</div>';
