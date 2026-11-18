@@ -188,8 +188,10 @@ sources by every automated poll as of 2026-08-27. It is joined by
 independent feeds can corroborate or contradict a single reading, which
 one feed alone cannot; adsb.lol's data is CC0-licensed and credited here
 by choice, not because its licence requires it. Callsign/airline/route
-enrichment is provided by [adsbdb.com](https://www.adsbdb.com), a free,
-unauthenticated, crowdsourced lookup service.
+enrichment is provided by [VRS Standing Data](https://github.com/vradarserver/standing-data)
+(CC0, read through the [adsb.lol](https://adsb.lol) mirror, credited by choice)
+and by [adsbdb.com](https://www.adsbdb.com), a free, unauthenticated,
+crowdsourced lookup service.
 
 No raw aggregator data is republished: the device downloads a rendered
 image of one selected flight, not a feed or a dataset. `COMPLIANCE.md`
