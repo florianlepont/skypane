@@ -535,13 +535,9 @@ div.update-item__summary {
 }
 
 .update-item__count {
-  display: block;
-}
-
-.update-item__notes-label {
-  flex: none;
-  font-size: var(--font-label-size);
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
 }
 
 /* The running chip is the accent fill, as in the approved design. */
@@ -564,12 +560,6 @@ div.update-item__summary {
 
 .update-item__details[open] .update-item__chevron {
   transform: rotate(-90deg);
-}
-
-/* A row without notes keeps the chevron's room so the chips share one edge. */
-.update-item__chevron-space {
-  flex: none;
-  width: 16px;
 }
 
 .update-item__action {

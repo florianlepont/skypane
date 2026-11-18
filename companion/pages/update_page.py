@@ -656,34 +656,30 @@ def _history_row_html(release, view, now, offered_version, newest):
         classes += " update-item--running"
     elif newest:
         classes += " update-item--newest"
-    # Beside a rollback action there is no room for the count on the right: it
-    # takes its own line under the date.
-    notes_beside_action = (
-        '<span class="update-item__count">%s</span>' % escape_html(
-            i18n.t(NOTES_TEXT) % len(notes))
-        if notes and action_html else "")
-    notes_label = (
-        '<span class="update-item__notes-label">%s</span>' % escape_html(
-            i18n.t(NOTES_TEXT) % len(notes))
-        if notes and not action_html else "")
+    # Every row counts its notes, with the disclosure chevron, on its own line
+    # under the date: the version line has the same room (version, then its
+    # chip) on every row and the chevron sits at one place on every row.
+    notes_count_html = (
+        '<span class="update-item__count">%s%s</span>' % (
+            escape_html(i18n.t(NOTES_TEXT) % len(notes)),
+            layout.icon_html("icon-chevron-right", size=16, extra_class="update-item__chevron"))
+        if notes else "")
     head_html = (
         '<span class="update-item__dot"></span>'
         '<span class="update-item__text"><span class="update-item__head">'
         '<span class="update-item__version mono">%s</span>%s</span>'
-        '<span class="update-item__meta">%s%s</span></span>%s'
+        '<span class="update-item__meta">%s%s</span></span>'
     ) % (escape_html(release.get("version")), _status_chip_html(release, newest),
-         " · ".join(_history_facts(release, now)), notes_beside_action, notes_label)
+         " · ".join(_history_facts(release, now)), notes_count_html)
     if notes:
         row_html = (
             '<details class="update-item__details"><summary class="update-item__summary">'
-            '%s%s</summary><ul class="update-item__notes">%s</ul></details>'
+            '%s</summary><ul class="update-item__notes">%s</ul></details>'
         ) % (head_html,
-             layout.icon_html("icon-chevron-right", size=16, extra_class="update-item__chevron"),
              "".join("<li>%s</li>" % escape_html(note) for note in notes))
     else:
         row_html = (
-            '<div class="update-item__summary">%s'
-            '<span class="update-item__chevron-space"></span></div>') % head_html
+            '<div class="update-item__summary">%s</div>') % head_html
     return '<li class="%s">%s<div class="update-item__action">%s</div></li>' % (
         classes, row_html, action_html)
 
