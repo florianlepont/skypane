@@ -106,14 +106,14 @@ _HISTORY_UNAVAILABLE_TEXT = i18n.msg(
 _HEADER_WHEN_TEXT = i18n.msg("flights.when", "When")
 _HEADER_FLIGHT_TEXT = i18n.msg("rules.flight", "Flight")
 _HEADER_ROUTE_TEXT = i18n.msg("flights.route", "Route")
-_HEADER_STATE_TEXT = i18n.msg("flights.state", "State")
+_HEADER_AIRCRAFT_TEXT = i18n.msg("flights.aircraft", "Aircraft")
 _HEADERS = (
-    _HEADER_WHEN_TEXT, _HEADER_FLIGHT_TEXT, _HEADER_ROUTE_TEXT,
-    _HEADER_STATE_TEXT,
+    _HEADER_FLIGHT_TEXT, _HEADER_ROUTE_TEXT, _HEADER_AIRCRAFT_TEXT,
+    _HEADER_WHEN_TEXT,
 )
 _TABLE_COLUMN_COUNT = len(_HEADERS) + 1
 
-# The visually-hidden header naming the picture column.
+# The visually-hidden header naming the picture column (the first one).
 _PICTURE_HEADER_TEXT = i18n.msg("flights.picture", "Picture")
 
 # "%s" is the row's callsign (or fallback): a page of ~50 identical
@@ -220,7 +220,6 @@ _VIEW_PANEL_CLOSE_ATTR = "data-view-panel-close"
 _DAY_TODAY_LABEL = i18n.msg("flights.today", "Today")
 _DAY_YESTERDAY_LABEL = i18n.msg("flights.yesterday", "Yesterday")
 
-VIEW_PICTURE_LABEL = i18n.msg("flights.view_picture", "View picture")
 
 # Shown for a selected device that has no recorded flights yet.
 DEVICE_EMPTY_HEADING = i18n.msg(
@@ -250,6 +249,10 @@ _CONFIRMED_STATE_LABELS = {
     "arriving": i18n.msg("home.arriving", "Arriving"),
     "overhead": i18n.msg("home.overhead", "Overhead"),
 }
+
+
+# The icon drawn for each direction the detector confirms.
+_DIRECTION_ICONS = {"departing": "icon-departure", "arriving": "icon-arrival"}
 
 
 def _confirmed_state_label(raw):
@@ -346,40 +349,25 @@ def _view_panel_attrs(name, iso, row_name):
     )
 
 
-def _view_panel_link_html(name, iso, row_name):
-    """The table row's "View picture" action: a real link to the archived
-    render, so it works without script. panel-lookup.js, when present,
-    intercepts the click and shows the same image in the shared
-    lightbox instead. `name` becomes the link target and the trigger
-    source attribute; `iso` is formatted through
-    `LIGHTBOX_CAPTION_TEMPLATE` into the caption attribute, which
-    `panel-lookup.js` copies verbatim into the lightbox caption on open.
-    The visible text is contained in the accessible name, which adds the
-    row's callsign.
-    """
-    return '<a class="btn btn--secondary flight-picture-link" %s>%s</a>' % (
-        _view_panel_attrs(name, iso, row_name),
-        escape_html(i18n.t(VIEW_PICTURE_LABEL)),
-    )
-
-
 def _view_panel_thumb_html(name, iso, row_name):
-    """The phone row's lead control: the same real link and trigger attributes as
-    `_view_panel_link_html()`, drawn as the archived render's 40px thumbnail. The image
-    carries no text of its own, so the `aria-label` (which names the call
-    sign) alone names the control.
+    """A row's lead control: a real link to the archived render (so it works without script;
+    panel-lookup.js, when present, shows the same image in the shared lightbox instead),
+    drawn as the render's thumbnail. `name` becomes the link target and the trigger source
+    attribute; `iso` is formatted through `LIGHTBOX_CAPTION_TEMPLATE` into the caption
+    attribute. The image carries no text of its own, so the `aria-label` (which names the
+    call sign) alone names the control.
     """
     src = escape_html(device_scope.scoped(_GALLERY_ROUTE_PREFIX + name))
     return (
-        '<a class="history-card__thumb" %s>'
-        '<img class="history-card__thumb-image" src="%s" alt="" width="40" height="40" '
+        '<a class="history-card__thumb flight-picture-link" %s>'
+        '<img class="history-card__thumb-image" src="%s" alt="" width="56" height="36" '
         'loading="lazy" decoding="async" fetchpriority="low">'
         '</a>'
     ) % (_view_panel_attrs(name, iso, row_name), src)
 
 
-# The stand-in is drawn 44 CSS px wide: the smallest served variant covers a
-# 3x screen with room to spare.
+# The stand-in is drawn at most 72 CSS px wide: the smallest served variant covers a
+# 3x phone screen and a 2x desktop one.
 STAND_IN_THUMB_WIDTH = min(illustration_normalize.THUMBNAIL_WIDTHS)
 
 
@@ -400,8 +388,8 @@ def _stand_in_thumb_html(row, state_dir):
                 STAND_IN_THUMB_WIDTH))
         return (
             '<span class="history-card__thumb history-card__thumb--illustration">'
-            '<img class="history-card__thumb-image" src="%s" alt="" width="40" '
-            'height="40" loading="lazy" decoding="async" fetchpriority="low"></span>'
+            '<img class="history-card__thumb-image" src="%s" alt="" width="56" '
+            'height="36" loading="lazy" decoding="async" fetchpriority="low"></span>'
         ) % src
     return (
         '<span class="history-card__thumb history-card__thumb--none" '
@@ -618,17 +606,16 @@ def day_label(day, today):
 
 
 def _flight_cell_html(row):
-    """The desktop Flight column's cell: `_merged_cell()`'s primary slot
-    carries the airline and the secondary slot the aircraft type, so the
-    rendered cell reads "Air France · A320"; the call sign is not shown (it
-    stays searchable and in the picture link's name). An unresolved airline reads as plain
-    unidentified wording, with no link, for every viewer.
-    """
-    is_unresolved = row["airline_label"] == AIRLINE_FALLBACK_TEXT
-    airline_display = i18n.t(row["airline_label"]) if is_unresolved else row["airline_label"]
-    cell = _merged_cell(airline_display, row["aircraft_type_label"])
-    ident = _row_ident_html(row) if row["callsign"] else ""
-    return cell.replace("<td>", "<td>" + ident, 1)
+    """The desktop Flight column's cell: the airline over the call sign (nothing under the
+    airline for a flight with no call sign). An unresolved airline reads as plain
+    unidentified wording, with no link, for every viewer."""
+    airline = row["airline_label"]
+    if airline == AIRLINE_FALLBACK_TEXT:
+        airline = i18n.t(AIRLINE_FALLBACK_TEXT)
+    sign = ('<span class="%s history-card__callsign">%s</span>'
+            % (CELL_SECONDARY_CLASS, escape_html(row["callsign"])) if row["callsign"] else "")
+    return '<td><span class="%s">%s</span>%s</td>' % (
+        CELL_PRIMARY_CLASS, escape_html(airline), sign)
 
 
 def _chips_html(view):
@@ -767,12 +754,12 @@ def _day_separator_row_html(day, today):
     ) % (_TABLE_COLUMN_COUNT, escape_html(day_label(day, today)))
 
 
-# One <col> per column (When, Flight, Route, State, Picture). The stylesheet gives them fixed
-# widths, so the columns are placed from this first element and never re-flow while the rows
-# stream in or change.
+# One <col> per column (Picture, Flight, Route, Aircraft, When). The stylesheet gives them
+# fixed widths, so the columns are placed from this first element and never re-flow while the
+# rows stream in or change.
 _COLGROUP_HTML = (
-    '<colgroup><col class="col-when"><col class="col-flight"><col class="col-route">'
-    '<col class="col-state"><col class="col-picture"></colgroup>')
+    '<colgroup><col class="col-picture"><col class="col-flight"><col class="col-route">'
+    '<col class="col-aircraft"><col class="col-when"></colgroup>')
 
 
 def _history_table_html(formatted_rows, now=None, anchor_index=None, dated=True, first=0):
@@ -783,12 +770,13 @@ def _history_table_html(formatted_rows, now=None, anchor_index=None, dated=True,
         return ui_groups.group_panel(layout.empty_state(
             i18n.t(_NO_FLIGHTS_HEADING), i18n.t(_NO_FLIGHTS_BODY), compact=True))
 
-    # The last <th> is the visually-hidden "Picture" header: no data
+    # The first <th> is the visually-hidden "Picture" header: no data
     # column behind it, so built directly here rather than through the
-    # _HEADERS/i18n.t(h) loop.
-    header_cells = "".join("<th>%s</th>" % escape_html(i18n.t(h)) for h in _HEADERS)
-    header_cells += '<th><span class="visually-hidden">%s</span></th>' % escape_html(
+    # _HEADERS/i18n.t(h) loop. The header row stays for screen readers; it
+    # is not drawn.
+    header_cells = '<th><span class="visually-hidden">%s</span></th>' % escape_html(
         i18n.t(_PICTURE_HEADER_TEXT))
+    header_cells += "".join("<th>%s</th>" % escape_html(i18n.t(h)) for h in _HEADERS)
 
     # `today` is the page's reference instant as a Europe/Paris calendar
     # date, so "Today"/"Yesterday" mean what a reader in Paris means.
@@ -809,11 +797,11 @@ def _history_table_html(formatted_rows, now=None, anchor_index=None, dated=True,
         # When/Flight already return already-safe, fully-built
         # <td>...</td> markup, interpolated directly, never re-escaped.
         cells = (
-            _when_cell_html(row["raw_ts"], now),
+            '<td class="flight-pic-cell">%s</td>' % row.get("view_panel_thumb_html", ""),
             _flight_cell_html(row),
-            "<td>%s</td>" % escape_html(row["route_label"]),
-            "<td>%s</td>" % escape_html(row["confirmed_state"]),
-            "<td>%s</td>" % row.get("view_panel_html", ""),
+            "<td>%s</td>" % _route_line_html(row, say_missing=True),
+            '<td class="flight-type-cell">%s</td>' % escape_html(row["aircraft_type_label"]),
+            _when_cell_html(row["raw_ts"], now),
         )
         # The stable event identity lets the refresh loop tell a new row from
         # one that only moved; the row at `anchor_index` is where the no-script
@@ -851,45 +839,52 @@ def _row_ident_html(row):
 
 
 def _row_label_html(row):
-    """The row's title: the airline, then the route codes with the home end
-    muted. The call sign is not drawn; it stays in the row's search text, as
-    visually hidden text and in the picture link's accessible name."""
+    """The row's title: the airline. The call sign is not drawn; it stays in the row's
+    search text, as visually hidden text and in the picture link's accessible name."""
     airline = row["airline_label"]
     if airline == AIRLINE_FALLBACK_TEXT:
         airline = i18n.t(AIRLINE_FALLBACK_TEXT)
-    return '%s<span class="history-card__airline">%s</span>%s' % (
-        _row_ident_html(row), escape_html(airline), _route_codes_html(row))
+    return '%s<span class="history-card__airline">%s</span>' % (
+        _row_ident_html(row), escape_html(airline))
 
 
-def _route_codes_html(row):
-    """"ORY → KEF" as two code spans; the home end (the origin of a
-    departure, the destination of an arrival) is muted so the far airport
-    reads first. With no route nothing is shown (the detail line carries the
-    shared "Route unavailable" wording)."""
-    origin, destination = row.get("origin"), row.get("destination")
-    if not (origin and destination):
+def _direction_html(row):
+    """The direction as a drawn icon (an arrow over a runway line) followed by the same
+    word as visually hidden text, so a screen reader still hears "Departing" or
+    "Arriving". Any other confirmed state (overhead, say) has no icon and is only spoken."""
+    state = row.get("confirmed_state")
+    if not state:
         return ""
-    state = row.get("state_raw")
-    return (
-        ' <span class="history-card__route">'
-        '<span class="history-card__code history-card__code--from%s">%s</span>'
-        '<span class="history-card__arrow" aria-hidden="true">\u2192</span>'
-        '<span class="history-card__code history-card__code--to%s">%s</span>'
-        "</span>"
-    ) % (" history-card__code--home" if state == "departing" else "", escape_html(origin),
-         " history-card__code--home" if state == "arriving" else "", escape_html(destination))
+    icon = _DIRECTION_ICONS.get(row.get("state_raw"))
+    return '<span class="history-card__dir">%s<span class="visually-hidden">%s</span> </span>' % (
+        layout.icon_html(icon, 18) if icon else "", escape_html(state))
 
 
-def _row_detail_text(row):
-    """"direction · aircraft type", skipping any empty part."""
-    state = row["confirmed_state"] if row["state_raw"] in _CONFIRMED_STATE_LABELS else ""
-    return " \u00b7 ".join(part for part in (state, row["aircraft_type_label"]) if part)
+def _route_line_html(row, say_missing=False):
+    """The one route line: the direction icon, then the two airport codes with a chevron
+    between them. With no route the line carries the shared "Route unavailable" wording
+    when `say_missing` (the desktop table) and nothing but the direction otherwise (the
+    phone row)."""
+    origin, destination = row.get("origin"), row.get("destination")
+    if origin and destination:
+        codes = (
+            '<span class="history-card__code">%s</span>'
+            '<span class="history-card__arrow" aria-hidden="true"></span>'
+            '<span class="history-card__code">%s</span>'
+        ) % (escape_html(origin), escape_html(destination))
+    elif say_missing:
+        codes = '<span class="history-card__code">%s</span>' % escape_html(row["route_label"])
+    else:
+        codes = ""
+    direction = _direction_html(row)
+    return '<span class="history-card__route">%s%s</span>' % (direction, codes) if (
+        direction or codes) else ""
 
 
 def _row_value_html(row, now, dated=True):
-    """The trailing value: the live relative age over the local clock time.
-    Under a day grouping the group's label carries the date, so the row shows
-    the clock alone; under any other order the row dates itself."""
+    """The trailing value: the local clock time over the live relative age. Under a day
+    grouping the group's label carries the date, so the row shows the clock alone; under
+    any other order the row dates itself."""
     parsed = layout.parse_iso(row["raw_ts"]) if row["raw_ts"] else None
     if parsed is None:
         clock = escape_html(row["raw_ts"] or i18n.t(_CLOCK_CELL_FALLBACK))
@@ -901,22 +896,22 @@ def _row_value_html(row, now, dated=True):
                % layout.relative_time_html(row["raw_ts"], now)
                if layout.age_seconds(row["raw_ts"], now) is not None else "")
     return (
-        '<span class="history-card__when">%s<span class="time-value time-value--primary">%s'
-        "</span></span>"
-    ) % (age, clock)
+        '<span class="history-card__when"><span class="time-value time-value--primary">%s'
+        "</span>%s</span>"
+    ) % (clock, age)
 
 
 def _history_card_html(row, index, now, anchor_index=None, dated=True):
     """One flight as a two-line row: at the left the archived render's thumbnail
-    (the control that opens it); the airline and route, "direction \u00b7 aircraft"
-    beneath, and the clock over the age at the right. The row at
-    `anchor_index` carries the id the Load more link scrolls to."""
+    (the control that opens it); the airline over the route line with its direction
+    icon, and the clock over the age at the right. The row at `anchor_index` carries the
+    id the Load more link scrolls to."""
     attrs = '%s%s' % (
         _row_facts(row, index),
         ' id="%s"' % _NEW_CARD_ANCHOR if index == anchor_index else "")
     return ui_groups.row(
         label_html=_row_label_html(row),
-        detail=_row_detail_text(row), value_html=_row_value_html(row, now, dated),
+        detail_html=_route_line_html(row), value_html=_row_value_html(row, now, dated),
         lead_html=row.get("view_panel_thumb_html", ""),
         extra_class="history-card", attrs=attrs)
 
@@ -1040,8 +1035,7 @@ def _attach_pictures(formatted_rows, gallery_entries, state_dir):
     for row in formatted_rows:
         match = _picture_for(row, gallery_entries)
         row_name = _row_name(row["callsign"], row["hex"])
-        row["view_panel_html"] = (
-            _view_panel_link_html(match[0], match[1], row_name) if match else "")
+        row["has_picture"] = match is not None
         row["view_panel_thumb_html"] = (
             _view_panel_thumb_html(match[0], match[1], row_name) if match
             else _stand_in_thumb_html(row, state_dir))
@@ -1124,5 +1118,5 @@ def render(ctx):
         inner += _list_html(formatted_rows, view, result, pages, now)
     else:
         inner += _empty_html(view, result)
-    lightbox = _lightbox_html() if any(r["view_panel_html"] for r in formatted_rows) else ""
+    lightbox = _lightbox_html() if any(r["has_picture"] for r in formatted_rows) else ""
     return header + inner + lightbox

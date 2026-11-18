@@ -2977,10 +2977,6 @@ table.data-table--readings {
   border-bottom: 1px solid var(--glass-hairline);
 }
 
-.data-table--flights td {
-  height: 56px;
-}
-
 /* The users phone cards: the solid glass base outside @supports. */
 .users-row {
   background: var(--glass-solid);
@@ -3004,14 +3000,6 @@ table.data-table--readings {
   --audit-columns: 11rem minmax(0, 1fr) minmax(0, 1.4fr) 7rem 20px;
 }
 
-/* Scoped to Flights' own table only. Tokens only (no literal px), so
- * this rule tracks --space-sm/--space-md automatically if either token
- * ever changes. */
-table.data-table--flights td,
-table.data-table--flights th {
-  padding: var(--space-sm) var(--space-sm);
-}
-
 /* .data-table's own min-width: max-content sizes every column to its
  * widest UNWRAPPED line, so inline primary+secondary spans blow through
  * the column budget. Making them block-level (stacked) makes each
@@ -3024,35 +3012,6 @@ table.data-table--flights .cell-secondary {
 
 table.data-table--flights .cell-inline-sep {
   display: none;
-}
-
-/* Fixed column widths: with automatic widths every row that streams in
- * re-divides the table between its columns, so the cells jump after the
- * first paint. The cells wrap inside their column instead. */
-table.data-table--flights {
-  table-layout: fixed;
-  min-width: 0;
-}
-
-table.data-table--flights .col-when {
-  width: 20%;
-}
-
-table.data-table--flights .col-flight {
-  width: 22%;
-}
-
-table.data-table--flights .col-route {
-  width: 22%;
-}
-
-table.data-table--flights .col-state {
-  width: 14%;
-}
-
-table.data-table--flights .col-picture {
-  /* Wide enough for the picture button at its natural width. */
-  width: 9rem;
 }
 
 /* 70% muted strength, matching .section-caption/.data-table th. color,
@@ -7825,17 +7784,6 @@ html:has(.tab-bar__more[open]) .is-breathing {
 
 .recent-flight[data-filter-kind="arriving"] .row__chip .icon {
   transform: rotate(45deg);
-}
-
-/* Two fixed lines: the airline, then the route (a line is reserved when a
- * flight has none). Each line is cut with an ellipsis instead of wrapping, so
- * every card has the one height the Flights sheet declares. */
-.history-card .row__label {
-  display: block;
-  overflow: visible;
-  min-height: calc(var(--font-body-size) * 2.6);
-  white-space: normal;
-  font-weight: var(--weight-semibold);
 }
 
 /* The one lead control of a row with a render: its 40px thumbnail (inside a 44px target)

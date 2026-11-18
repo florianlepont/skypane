@@ -27,7 +27,7 @@ MESSAGES = {
     # --- Table column headers ---------------------------------------------
     "flights.when": "Quand",
     "flights.route": "Trajet",
-    "flights.state": "Sens",
+    "flights.aircraft": "Avion",
     "flights.recent_flights_table_scrollable": "Tableau des vols récents, défilable",
 
     # --- The table's filter bar -----------------------------------------
@@ -78,9 +78,8 @@ MESSAGES = {
     "flights.today": "Aujourd’hui",
     "flights.yesterday": "Hier",
 
-    # The row-level picture link: visible label, hidden column header and
-    # the per-row accessible name.
-    "flights.view_picture": "Voir l’image",
+    # The row-level picture link: hidden column header and the per-row
+    # accessible name.
     "flights.picture": "Image",
     "flights.view_picture_of": "Voir l’image de %s",
     # The phone card's placeholder where an airline has no artwork.

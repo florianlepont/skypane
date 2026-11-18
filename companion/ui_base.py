@@ -627,6 +627,8 @@ ICON_IDS = ICON_IDS + (
     "icon-toast-trash",
     "icon-close",
     "icon-undo",
+    "icon-departure",
+    "icon-arrival",
 )
 
 # One more icon, for the estimated "probably charging" pill: a lightning
@@ -987,6 +989,16 @@ ICON_DEFS_HTML = (
     '<symbol id="icon-plane" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="0">'
     '<path fill="currentColor" d="M18.5 10c0-.7-.6-1.2-1.3-1.2h-4.4L8.6 2.5H6.9l2 6.3H4.6L3 6.8H1.6'
     'l1 3.2-1 3.2H3l1.6-2h4.3l-2 6.3h1.7l4.2-6.3h4.4c.7 0 1.3-.5 1.3-1.2z"/>'
+    "</symbol>"
+    # The Flights direction glyphs: an arrow leaving (up and to the right) or
+    # arriving (down and to the right) over a runway line.
+    '<symbol id="icon-departure" viewBox="0 0 24 24" fill="none" '
+    'stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M4 20h16M6 15l12-8M11 7h7v7"/>'
+    "</symbol>"
+    '<symbol id="icon-arrival" viewBox="0 0 24 24" fill="none" '
+    'stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M4 20h16M6 5l12 8M18 6v7h-7"/>'
     "</symbol>"
     '<symbol id="icon-undo" viewBox="0 0 20 20" fill="none" '
     'stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'

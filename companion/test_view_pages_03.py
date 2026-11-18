@@ -570,7 +570,8 @@ def test_the_phone_row_carries_identity_detail_and_a_picture_action(tmp_path):
     unresolved = vp.row_block(rendered, "li", 1)
     assert unresolved is not None, "could not locate the unresolved-airline row"
     assert unresolved.select_one(".row__label .history-card__airline").text() == "Airline unknown"
-    assert [a.attrs["class"] for a in unresolved.select("a")] == ["history-card__thumb"]
+    assert [a.attrs["class"] for a in unresolved.select("a")] == [
+        "history-card__thumb flight-picture-link"]
     assert unresolved.select("a[data-view-panel-src]")
 
 
@@ -579,7 +580,7 @@ def test_phone_row_identity_branches_and_the_label_keeps_every_code_readable(tmp
     the row label; the airline, the route and the detail are each one line cut with an ellipsis,
     so every card has the same height"""
     label_block = declarations_for(served_css, ".history-card .row__label")
-    assert label_block.get("white-space") == "normal"
+    assert label_block.get("white-space") == "nowrap"
     for selector in (".history-card__route", ".history-card .row__detail"):
         block = declarations_for(served_css, selector)
         assert block.get("white-space") == "nowrap"
@@ -647,10 +648,10 @@ def test_the_count_animates_without_its_text_production_moving(app):
         "expected the animation to fire only when the rendered text actually differs")
 
 
-def test_phone_row_route_mutes_the_home_end_and_names_the_direction(tmp_path):
-    """the phone row's route carries origin and destination as two codes with an arrow between
-    them; the home end (the origin of a departure, the destination of an arrival) is muted; the
-    confirmed direction opens the detail line; a row with no route says nothing about it"""
+def test_phone_row_route_line_draws_and_speaks_the_direction(tmp_path):
+    """the phone row's route line carries the direction icon (with its word as visually hidden
+    text), then origin and destination as two codes with a chevron between them; a row with no
+    route keeps only the direction and says nothing about the route"""
     vp.seed_runway_events(tmp_path, [
         {"ts": "2026-08-27T10:00:00+00:00", "hex": "rt01", "callsign": "DEPCARD",
          "origin": "ORY", "destination": "KEF", "confirmed_state": "departing"},
@@ -660,17 +661,18 @@ def test_phone_row_route_mutes_the_home_end_and_names_the_direction(tmp_path):
          "confirmed_state": "departing"},
     ])
     rendered = history_page.render(vp.history_ctx(tmp_path))
-    for index, origin, destination, home, direction in (
-            (0, "ORY", "KEF", "from", "Departing"), (1, "NCE", "ORY", "to", "Arriving")):
+    for index, origin, destination, icon, direction in (
+            (0, "ORY", "KEF", "icon-departure", "Departing"),
+            (1, "NCE", "ORY", "icon-arrival", "Arriving")):
         li = vp.row_block(rendered, "li", index)
-        route = li.select_one(".history-card__route")
-        assert route.select_one(".history-card__code--from").text() == origin
-        assert route.select_one(".history-card__code--to").text() == destination
-        homes = route.select(".history-card__code--home")
-        assert len(homes) == 1 and "history-card__code--%s" % home in homes[0].attrs["class"]
-        assert li.select_one(".row__detail").text().startswith(direction)
+        route = li.select_one(".row__detail .history-card__route")
+        assert [c.text() for c in route.select(".history-card__code")] == [origin, destination]
+        assert route.select_one(".history-card__arrow") is not None
+        assert route.select_one(".history-card__dir svg use").attrs["href"] == "#" + icon
+        assert route.select_one(".history-card__dir .visually-hidden").text() == direction
     li = vp.row_block(rendered, "li", 2)
-    assert not li.select(".history-card__route")
+    assert not li.select(".history-card__code")
+    assert li.select_one(".history-card__dir .visually-hidden").text() == "Departing"
     assert history_page.ROUTE_FALLBACK_TEXT not in li.text()
 
 
@@ -714,7 +716,7 @@ def test_flights_french_render_translates_headings_not_data(tmp_path):
     finally:
         prefs.set_request_prefs(lang="en")
     for needle in (
-            ">Historique des vols<", ">Quand<", ">Trajet<", ">Sens<", "Image",
+            ">Historique des vols<", ">Quand<", ">Trajet<", ">Avion<", "Image",
             "Filtrer les vols"):
         assert needle in rendered, "expected the French %r in a French Flights render" % (needle,)
     assert "FLT1" in rendered, "expected the seeded callsign 'FLT1' to stay untranslated data"
@@ -739,12 +741,12 @@ def test_flights_full_seeded_render_french_end_to_end(tmp_path):
         prefs.set_request_prefs(lang="en")
     for needle in (
             ">Historique des vols<", "Compagnie inconnue", "aucun indicatif",
-            "Au départ", "À l’arrivée", ">Quand<", ">Vol<", ">Trajet<", ">Sens<",
+            "Au départ", "À l’arrivée", ">Quand<", ">Vol<", ">Trajet<", ">Avion<",
             "Effacer",):
         assert needle in rendered_fr, "expected the French %r in the French Flights render" % (needle,)
     for english_only in (
             "Airline unknown", "no callsign", "Departing", "Arriving",
-            ">When<", ">Flight<", ">Route<", ">State<"):
+            ">When<", ">Flight<", ">Route<", ">Aircraft<"):
         assert english_only not in rendered_fr, (
             "expected no English %r leaking into the French render" % (english_only,))
     assert "FLT1" in rendered_fr, "expected the seeded callsign to stay untranslated data"
@@ -753,7 +755,7 @@ def test_flights_full_seeded_render_french_end_to_end(tmp_path):
     for needle in (
             '<h1 class="page-title">Flight history</h1>', history_page.AIRLINE_FALLBACK_TEXT,
             history_page.NO_CALLSIGN_NOTE_TEXT, "Departing", "Arriving",
-            ">When<", ">Flight<", ">Route<", ">State<"):
+            ">When<", ">Flight<", ">Route<", ">Aircraft<"):
         assert needle in rendered_en, (
             "expected the English %r in the default-language Flights render" % (needle,))
 
@@ -855,7 +857,7 @@ def test_flights_when_cell_age_is_a_live_time_element(tmp_path):
     rendered = history_page.render(vp.history_ctx(tmp_path, now=now))
     tr_block = vp.row_block(rendered, "tr", 0)
     assert tr_block is not None, "expected to locate the seeded row"
-    when_cell = tr_block.select("td")[0]
+    when_cell = tr_block.select("td")[4]
     element = when_cell.select_one("time[data-relative]")
     expected_age = layout.relative_age_text(600)
     assert element.text() == expected_age, (

@@ -90,7 +90,7 @@ def test_the_flights_picture_dialog_is_one_panel_holding_the_picture_caption_and
     context, page = _open(
         new_context, app, "/devices/LIVE/flights", {"width": 1280, "height": 900}, theme="dark")
     try:
-        page.locator(".flight-picture-link").first.click()
+        page.locator("tr .flight-picture-link").first.click()
         page.wait_for_function(
             "() => { const d = document.querySelector('dialog.lightbox--picture');"
             " return d.open && getComputedStyle(d).opacity === '1'; }", timeout=10000)
