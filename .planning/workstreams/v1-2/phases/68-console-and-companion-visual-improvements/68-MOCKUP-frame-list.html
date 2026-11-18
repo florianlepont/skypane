@@ -88,8 +88,8 @@ a{color:inherit;text-decoration:none}
 .item .who small{display:block;color:var(--muted);font-size:13px}
 .item .who b{display:block;font-weight:600}
 .item .val{color:var(--muted);font-size:14px;white-space:nowrap}
-.lead{width:36px;height:36px;border-radius:50%;background:var(--chip);display:flex;align-items:center;justify-content:center;flex:none}
-.lead.ok{background:var(--okbg);color:var(--ok)}
+.ico{width:36px;height:36px;border-radius:50%;background:var(--chip);display:flex;align-items:center;justify-content:center;flex:none}
+.ico.ok{background:var(--okbg);color:var(--ok)}
 .sw{flex:none;width:51px;height:31px;border-radius:31px;background:#7C8696;position:relative;cursor:pointer}
 .sw::after{content:"";position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3)}
 .sw.on{background:var(--accent)}.sw.on::after{left:22px}
@@ -236,7 +236,7 @@ a{color:inherit;text-decoration:none}
   function ic(n,cls){return '<svg class="ic'+(cls?' '+cls:'')+'" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-'+n+'"/></svg>';}
   function sw(on){return '<span class="sw'+(on?' on':'')+'" role="switch" aria-checked="'+on+'" tabindex="0"></span>';}
   function stateWord(t,s){return s==='ok'?t.online:s==='idle'?t.sleeping:t.offline;}
-  function lead(n,cls){return '<span class="lead'+(cls?' '+cls:'')+'">'+ic(n)+'</span>';}
+  function lead(n,cls){return '<span class="ico'+(cls?' '+cls:'')+'">'+ic(n)+'</span>';}
 
   /* ---------- shell ---------- */
   function phoneShell(t,inner,on,top){
@@ -291,9 +291,9 @@ a{color:inherit;text-decoration:none}
       '<div class="item">'+lead('bulb')+'<span class="who"><b>'+t.led+'</b><small>'+t.ledh+'</small></span>'+sw(false)+'</div></div></div>';
   }
   function accessBlock(t){
-    function person(n,role,mine){return '<div class="item"><span class="lead">'+n.charAt(0)+'</span><span class="who"><b>'+n+'</b><small>'+role+'</small></span>'+(mine?'<a class="btn" href="#" style="min-height:40px">'+t.reassign+'</a>':'<a class="btn sq" href="#" aria-label="X">'+ic('x')+'</a>')+'</div>';}
+    function person(n,role,mine){return '<div class="item"><span class="ico">'+n.charAt(0)+'</span><span class="who"><b>'+n+'</b><small>'+role+'</small></span>'+(mine?'<a class="btn" href="#" style="min-height:40px">'+t.reassign+'</a>':'<a class="btn sq" href="#" aria-label="X">'+ic('x')+'</a>')+'</div>';}
     return '<div class="blk" data-sec="access"><p class="label">'+t.access+'</p><div class="card">'+person('Camille Martin',t.owner,true)+person('Louis Bernard',t.co,false)+
-      '<a class="item" href="#"><span class="lead" style="background:var(--accent);color:var(--on-accent)">'+ic('plus')+'</span><span class="who"><b>'+t.addp+'</b></span></a>'+
+      '<a class="item" href="#"><span class="ico" style="background:var(--accent);color:var(--on-accent)">'+ic('plus')+'</span><span class="who"><b>'+t.addp+'</b></span></a>'+
       '<a class="item danger" href="#"><span class="who"><b>'+t.retire+'</b><small>'+t.retireh+'</small></span><span class="chev">'+ic('chev')+'</span></a></div></div>';
   }
 
