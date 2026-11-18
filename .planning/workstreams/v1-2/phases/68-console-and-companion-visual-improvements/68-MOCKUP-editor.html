@@ -272,7 +272,7 @@ select.sel{min-height:44px;border:1px solid var(--border);border-radius:14px;bac
       mrename:'Rename',mchange:'Change artwork',mrevert:'Back to the default',mdel:'Delete the illustration',mdef:'Set as default type',mreset:'Reset to the original name',
       types:'Aircraft types seen',usesair:'Uses the airline’s artwork',own:'Own artwork',defpill:'Default type',renameT:'Rename the airline',renameH:'The new name replaces the original on the companion and on the frame.',
       tabs:['Fleet','Team','Editor','Journal','More'],nav:['Fleet','Users','Editor','Audit log'],account:'Account',space:['Console','My frames'],admin:'Administration',signout:'Sign out',
-      openmenu:'Actions for Air France',complh:'Name the airline. Its aircraft types come from the flights seen.',madd:'Add an aircraft type',colD:'Default type',detected:'Aircraft seen',suggest:'Suggested name',use:'Use',tdef:'Set as default type',trevert:'Use the default type’s artwork',tdel:'Delete the artwork',usesdef:'Uses the default type’s artwork',addtart:'Add artwork',notype:'No aircraft artwork yet',menuT:'Actions for A220-300'},
+      openmenu:'Actions for Air France',complh:'Name the airline. Its aircraft types come from the flights seen.',madd:'Add an aircraft type',colD:'Default type',detected:'Aircraft seen',editname:'Edit the name',suggest:'Suggested name',use:'Use',tdef:'Set as default type',trevert:'Use the default type’s artwork',tdel:'Delete the artwork',usesdef:'Uses the default type’s artwork',addtart:'Add artwork',notype:'No aircraft artwork yet',menuT:'Actions for A220-300'},
     fr:{title:'Éditeur de compagnies',search:'Compagnie ou indicatif…',count:'36 sur 36 affichées',
       f:['Toutes','Non identifiées','Connues par leur nom','Sans illustration','Vues','Pas encore vues'],
       unid:'Non identifiées',unidh:'Indicatifs vus sur des vols, sans nom de compagnie pour l’instant.',seen:function(n,d){return (n===1?'Vue une fois':'Vue '+n+'×')+' · '+d;},complete:'Compléter',
@@ -282,7 +282,7 @@ select.sel{min-height:44px;border:1px solid var(--border);border-radius:14px;bac
       mrename:'Renommer',mchange:'Changer l’illustration',mrevert:'Revenir à celle par défaut',mdel:'Supprimer l’illustration',mdef:'Définir comme type par défaut',mreset:'Rétablir le nom d’origine',
       types:'Types d’avion vus',usesair:'Utilise l’illustration de la compagnie',own:'Illustration propre',defpill:'Type par défaut',renameT:'Renommer la compagnie',renameH:'Le nouveau nom remplace le nom d’origine dans le companion et sur le cadre.',
       tabs:['Flotte','Équipe','Éditeur','Journal','Plus'],nav:['Flotte','Utilisateurs','Éditeur','Journal d’audit'],account:'Compte',space:['Console','Mes cadres'],admin:'Administration',signout:'Se déconnecter',
-      openmenu:'Actions pour Air France',complh:'Nommez la compagnie. Ses types d’avion viennent des vols vus.',madd:'Ajouter un type d’avion',colD:'Type par défaut',detected:'Avions vus',suggest:'Nom suggéré',use:'Utiliser',tdef:'Définir comme type par défaut',trevert:'Utiliser l’illustration du type par défaut',tdel:'Supprimer l’illustration',usesdef:'Utilise l’illustration du type par défaut',addtart:'Ajouter une illustration',notype:'Pas encore d’illustration d’avion',menuT:'Actions pour A220-300'}
+      openmenu:'Actions pour Air France',complh:'Nommez la compagnie. Ses types d’avion viennent des vols vus.',madd:'Ajouter un type d’avion',colD:'Type par défaut',detected:'Avions vus',editname:'Modifier le nom',suggest:'Nom suggéré',use:'Utiliser',tdef:'Définir comme type par défaut',trevert:'Utiliser l’illustration du type par défaut',tdel:'Supprimer l’illustration',usesdef:'Utilise l’illustration du type par défaut',addtart:'Ajouter une illustration',notype:'Pas encore d’illustration d’avion',menuT:'Actions pour A220-300'}
   };
   Object.keys(S.fr).forEach(function(k){var v=S.fr[k];if(typeof v==='string')S.fr[k]=nb(v);else if(Array.isArray(v))S.fr[k]=v.map(nb);});
   function ic(n){return '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-'+n+'"/></svg>';}
@@ -290,7 +290,7 @@ select.sel{min-height:44px;border:1px solid var(--border);border-radius:14px;bac
   function plane(c){return '<svg viewBox="0 0 70 26" aria-hidden="true"><path d="M2 14l30-3 18-9 4 1-8 9 14 2 8-3 2 1-6 4-12 2-14 7-4-1 5-7-24 0z" fill="'+(c||'#9AA3B2')+'"/></svg>';}
   function thumb(c){return c?'<span class="thumb">'+plane(c)+'</span>':'<span class="thumb none">'+'—'+'</span>';}
   var AIR=[['Air France','AFR','#1F3A8A',37,'10:29','A320'],['Iberia Airlines','IBE','#DC2626',0,'','A320'],['TAP Portugal','TAP','#16A34A',0,'','A321'],['Air Algérie','DAH','#DC2626',3,'17 nov.','B737-800'],['Transavia France','TFV TVF','#16A34A',20,'17 nov.','B737-800'],['easyJet','EJU EZY','#F97316',17,'17 nov.','A320'],['Chalair Aviation','CLG',null,0,'',''],['Twin Jet','TJT',null,0,'','']];
-  var UNID=[['OCN',4,'17 Nov'],['ITI',2,'16 Nov'],['CMA',1,'15 Nov']];
+  var UNID=[['OCN',4,'17 Nov','Oceanair','A320 · A321'],['ITI',2,'16 Nov','Itavia Express','B737'],['CMA',1,'15 Nov','','A320']];
   var BYNAME=[['Turkish Airlines','THY'],['KLM','KLM'],['FedEx','FDX'],['Finnair','FIN']];
 
   function sidebar(t){
@@ -312,13 +312,16 @@ select.sel{min-height:44px;border:1px solid var(--border);border-radius:14px;bac
   }
   function uformHtml(t,vp){
     return '<div class="uform" style="grid-template-columns:1fr;gap:12px"><div style="display:grid;grid-template-columns:'+(vp==='phone'?'1fr':'1fr auto')+';gap:10px;align-items:center"><label class="field"><input placeholder="'+t.nameph+'" aria-label="'+t.nameph+'"></label><a class="btn dark" href="#">'+t.validate+'</a></div>'+
-      '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center"><span class="sub">'+t.suggest+'</span><span class="fchip">Oceanair</span><a class="btn" href="#" style="min-height:36px">'+t.use+'</a></div>'+
       '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center"><span class="sub">'+t.detected+'</span><span class="pill mono">A320</span><span class="pill mono">A321</span></div></div>';
   }
   function unidBlock(t,vp,openForm){
     var rows=UNID.map(function(u,i){
-      var row='<div class="urow"><span class="mono" style="font-weight:700;font-size:15px;min-width:44px">'+u[0]+'</span><span class="who"><small>'+t.seen(u[1],u[2])+'</small></span>'+(i===0&&openForm?'<span class="btn ghost" style="background:var(--chip)">'+t.cancel+'</span>':'<a class="btn dark" href="#" style="min-height:40px">'+t.complete+'</a>')+'</div>';
-      if(i===0&&openForm)row+=uformHtml(t,vp);
+      var sug=u[3];
+      var who=sug?'<b>'+sug+'</b><small>'+t.seen(u[1],u[2])+' · '+u[4]+'</small>':'<small>'+t.seen(u[1],u[2])+' · '+u[4]+'</small>';
+      var btns=sug?'<a class="btn sq" href="#" aria-label="'+t.editname+'" title="'+t.editname+'">'+ic('edit')+'</a><a class="btn dark" href="#" style="min-height:44px">'+t.validate+'</a>'
+                  :(openForm&&i===2?'<span class="btn ghost" style="background:var(--chip)">'+t.cancel+'</span>':'<a class="btn dark" href="#" style="min-height:44px">'+t.complete+'</a>');
+      var row='<div class="urow"><span class="mono" style="font-weight:700;font-size:15px;min-width:44px">'+u[0]+'</span><span class="who">'+who+'</span>'+btns+'</div>';
+      if(openForm&&i===2)row+=uformHtml(t,vp);
       return row;
     }).join('');
     return '<div><p class="label">'+t.unid+' · 3</p><div class="card">'+rows+'</div></div>';
@@ -362,7 +365,7 @@ select.sel{min-height:44px;border:1px solid var(--border);border-radius:14px;bac
     return sidebar(t)+'<div class="main" style="left:240px"><div style="max-width:1100px;display:flex;flex-direction:column;gap:20px">'+head+body+'</div></div>'+(opts.overlay||'');
   }
   function renameDlg(t){return '<div class="scrim"></div><div class="dlg" role="dialog" aria-label="'+t.renameT+'"><h4>'+t.renameT+'</h4><span class="sub">'+t.renameH+'</span><label class="field"><input value="Air France" aria-label="'+t.nameph+'"></label><div class="row"><a class="btn" href="#">'+t.cancel+'</a><a class="btn dark" href="#">'+t.save+'</a></div></div>';}
-  function completeSheet(t){return '<div class="scrim"></div><div class="sheet" role="dialog" aria-label="'+t.complete+'"><span class="grab"></span><h4 style="margin:0;font-size:20px"><span class="mono">OCN</span> · '+t.complete+'</h4><span class="sub">'+t.complh+'</span>'+uformHtml(t,'phone').replace('class="uform"','class="uform" style="padding:0;background:none;border:0"')+'<div class="row" style="display:flex;gap:10px"><a class="btn" style="flex:1" href="#">'+t.cancel+'</a></div></div>';}
+  function completeSheet(t){return '<div class="scrim"></div><div class="sheet" role="dialog" aria-label="'+t.complete+'"><span class="grab"></span><h4 style="margin:0;font-size:20px"><span class="mono">CMA</span> · '+t.complete+'</h4><span class="sub">'+t.complh+'</span>'+uformHtml(t,'phone').replace('class="uform"','class="uform" style="padding:0;background:none;border:0"')+'<div class="row" style="display:flex;gap:10px"><a class="btn" style="flex:1" href="#">'+t.cancel+'</a></div></div>';}
 
   function mock(vp,caption,sub,builder,scroll){
     var langs=['en','fr'].map(function(l){return '<div data-lang="'+l+'">'+builder(vp,S[l])+'</div>';}).join('');
@@ -372,8 +375,8 @@ select.sel{min-height:44px;border:1px solid var(--border);border-radius:14px;bac
   function section(h,lead,body,extra){return '<section class="sec"><h2>'+h+'</h2><p class="lead">'+lead+'</p>'+body+(extra||'')+'</section>';}
   var html='';
   html+=section('1. Desktop: the Airlines editor',
-    'Same real shell. At the top: search and filter chips with their counts (All, Unidentified, Known by name only, No artwork, Seen, Not seen yet). Unidentified prefixes are short rows with a single <b>Complete</b> button: the form opens only when asked and has just the airline name (with a suggested name to accept) and, for information, the aircraft seen. The aircraft types are detected from the flights, so they are not something to choose. There is no Ignore. Airlines known by name only (no aircraft artwork yet) are read-only rows with <b>Add artwork</b>. In the airlines table the name is plain text (renaming is an action of the row menu) and the column shows the airline&rsquo;s <b>default type</b>: an airline has no artwork of its own, the artwork belongs to its aircraft types.',
-    '<div class="row2">'+mock('desktop','Editor, Complete opened on the first unidentified prefix','',function(v,t){return page(v,t,{form:true});})+'</div>');
+    'Same real shell. At the top: search and filter chips with their counts (All, Unidentified, Known by name only, No artwork, Seen, Not seen yet). An unidentified prefix is a short row. When a name can be suggested, the suggestion is right in the row with a single <b>Validate</b> button (and a pencil to correct the name). When there is no suggestion, the row has a <b>Complete</b> button that opens a small form with just the airline name; the aircraft seen are shown for information, never asked, since they are detected from the flights. There is no Ignore. (The suggested names here are invented examples.) Airlines known by name only (no aircraft artwork yet) are read-only rows with <b>Add artwork</b>. In the airlines table the name is plain text (renaming is an action of the row menu) and the column shows the airline&rsquo;s <b>default type</b>: an airline has no artwork of its own, the artwork belongs to its aircraft types.',
+    '<div class="row2">'+mock('desktop','Editor, Complete opened on the prefix without a suggestion','',function(v,t){return page(v,t,{form:true});})+'</div>');
   html+=section('2. Desktop: the row menu and the types panel',
     'The airline menu only lists <b>Rename</b>, <b>Add an aircraft type</b> and <b>Reset to the original name</b>. Artwork belongs to the aircraft types: opening a row shows its types in a clean panel. Each type shows its own artwork or the default type&rsquo;s artwork, carries a <b>Default type</b> pill when it is the default, and has its own menu: <b>Set as default type</b>, <b>Use the default type&rsquo;s artwork</b> (only where it has its own) and <b>Delete the artwork</b>. One type is the default and its artwork shows for every type without a dedicated one.',
     '<div class="row2">'+mock('desktop','Airline menu open on the first row','',function(v,t){return page(v,t,{menu:true});},700)+'</div>'+
