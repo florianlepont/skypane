@@ -193,6 +193,8 @@ details.rd summary{min-height:48px;display:flex;align-items:center;padding:0 16p
 .cta{display:flex;flex-direction:column;gap:12px;padding:18px}
 .cta .big{font-size:22px;font-weight:700;letter-spacing:-.01em;display:flex;align-items:center;gap:10px}
 .cta .ver{font-family:ui-monospace,Menlo,monospace;font-size:18px;font-weight:600}
+.ctar{display:flex;gap:16px;align-items:center;justify-content:space-between}.ctal{display:flex;flex-direction:column;gap:8px;min-width:0}.ctar .btn{flex:none}
+[data-viewport="phone"] .ctar{flex-direction:column;align-items:stretch}
 .cta small{color:var(--muted);font-size:14px}
 .cta .foot{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;border-top:1px solid var(--border);padding-top:12px;font-size:14px;color:var(--muted)}
 .vlist .vr{display:flex;align-items:center;gap:12px;min-height:60px;padding:8px 16px;border-top:1px solid var(--border)}
@@ -283,8 +285,8 @@ details.rd summary{min-height:48px;display:flex;align-items:center;padding:0 16p
     return '<div class="ptop"><span class="brand">'+ic('logo')+'SkyPane</span></div><div class="screen">'+inner+'</div><div class="tabs">'+t.tabs.map(function(x,i){return '<div class="tab'+(i===0?' on':'')+'">'+ic(icons[i])+x+'</div>';}).join('')+'</div>'+(overlay||'');
   }
   function ctaCard(t,state){
-    if(state==='sched')return '<div class="card cta"><span class="big">'+ic('clock')+t.sched+'</span><small>'+t.schedb+'</small><div><a class="btn" href="#">'+t.cancelU+'</a></div><div class="foot"><span>'+t.onframe+'</span></div></div>';
-    return '<div class="card cta"><span class="big">'+ic('down2')+t.avail+'</span><div><span class="ver">v1.4.3</span> <small>· '+t.relago+'</small></div><small>'+t.note1+'</small><div><a class="btn dark" href="#">'+t.install+'</a></div><div class="foot"><span>'+t.onframe+'</span></div></div>';
+    if(state==='sched')return '<div class="card cta"><div class="ctar"><div class="ctal"><span class="big">'+ic('clock')+t.sched+'</span><small>'+t.schedb+'</small></div><a class="btn" href="#">'+t.cancelU+'</a></div></div>';
+    return '<div class="card cta"><div class="ctar"><div class="ctal"><span class="big">'+ic('down2')+t.avail+'</span><div><span class="ver">v1.4.3</span> <small>\u00b7 '+t.relago+'</small></div><small>'+t.note1+'</small></div><a class="btn dark" href="#">'+t.install+'</a></div></div>';
   }
   function versions(t,state){
     function dot(c){return '<span class="dot'+(c?' '+c:'')+'"></span>';}
