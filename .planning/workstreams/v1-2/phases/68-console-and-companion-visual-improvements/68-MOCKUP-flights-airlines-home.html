@@ -1,0 +1,485 @@
+<!doctype html>
+<html lang="fr" data-lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SkyPane - Vols, Compagnies, titre de l'Accueil (maquette)</title>
+<style>
+/* Standalone mockup. Tokens follow the companion design system and the approved Home mockup.
+   Frames are sized by --w; components inside use container queries so each frame behaves like a real viewport. */
+:root{
+  --canvas:#F1F3F6; --stage:#E4E9F0; --text:#17191F; --muted:#5B6372; --border:#DAE1EB; --chip:#E9EEF5;
+  --paper:#F7F5EF; --accent:#1F2430; --on-accent:#fff; --glass:rgba(255,255,255,.78); --tab:#fff;
+  --ok:#16A34A; --err:#BE123C; --occ:#0F766E; --rare:#6D28D9; --newb:#17191F; --scrim:rgba(10,14,22,.45);
+  --sky:linear-gradient(#E7EEF7,#F1F3F6 45%,#EDF1F6);
+}
+:root[data-theme="dark"]{
+  --canvas:#161A24; --stage:#0E1117; --text:#F1F3F6; --muted:#A3ABBB; --border:#2A3040; --chip:#1C222D;
+  --paper:#E9E6DE; --accent:#F2EFE9; --on-accent:#14171F; --glass:rgba(255,255,255,.09); --tab:#1C222D;
+  --ok:#4ADE80; --err:#FB7185; --occ:#5EEAD4; --rare:#C4B5FD; --newb:#F2EFE9;
+  --sky:linear-gradient(#12151D,#161A24 45%,#1A1F2B); color-scheme:dark;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --canvas:#161A24; --stage:#0E1117; --text:#F1F3F6; --muted:#A3ABBB; --border:#2A3040; --chip:#1C222D;
+  --paper:#E9E6DE; --accent:#F2EFE9; --on-accent:#14171F; --glass:rgba(255,255,255,.09); --tab:#1C222D;
+  --ok:#4ADE80; --err:#FB7185; --occ:#5EEAD4; --rare:#C4B5FD; --newb:#F2EFE9;
+  --sky:linear-gradient(#12151D,#161A24 45%,#1A1F2B); color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--stage);color:var(--text);font:16px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;padding:32px 16px 96px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.num{font-variant-numeric:tabular-nums}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.wrap{max-width:1320px;margin:0 auto}
+.top{display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between;align-items:flex-end;margin-bottom:24px}
+.top h1{margin:0 0 8px;font-size:32px;letter-spacing:-.03em}
+.top p{margin:0;color:var(--muted);max-width:70ch}
+.ctl{display:flex;gap:12px;flex-wrap:wrap}
+.seg{display:inline-flex;background:var(--chip);border-radius:32px;padding:4px;gap:4px}
+.seg button{border:0;background:none;min-height:44px;padding:0 16px;border-radius:32px;cursor:pointer;font-size:15px}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent)}
+h2.part{margin:56px 0 4px;font-size:26px;letter-spacing:-.02em}
+h3.sub{margin:28px 0 8px;font-size:18px}
+p.note{margin:0 0 12px;color:var(--muted);max-width:80ch;font-size:15px}
+.row{display:flex;gap:32px;flex-wrap:wrap;align-items:flex-start}
+.scroll{overflow-x:auto;padding-bottom:8px}
+.lab{font-size:13px;font-weight:600;color:var(--muted);margin:0 0 8px;text-transform:none}
+.lab b{color:var(--text)}
+.tag{display:inline-block;padding:2px 8px;border-radius:12px;background:var(--chip);font-size:12px;margin-left:6px}
+
+/* frames: a phone or a desktop window; the contents react to the frame's own width */
+.frame{container-type:inline-size;width:var(--w);flex:none;position:relative;overflow:hidden;border:1px solid var(--border);
+  background:var(--sky) var(--canvas);border-radius:28px;box-shadow:0 10px 32px rgba(20,30,50,.12)}
+.frame[data-viewport="desktop"],.frame[data-viewport="tablet"]{border-radius:14px}
+.screen{padding:20px 16px 24px;display:flex;flex-direction:column;gap:16px}
+.frame[data-viewport="desktop"] .screen{padding:28px 40px 40px}
+.frame[data-viewport="tablet"] .screen{padding:24px 28px 32px}
+.ic{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.eink{position:relative;flex:none;background:var(--paper);border:1px solid rgba(0,0,0,.18);border-radius:4px;overflow:hidden}
+.eink svg{display:block;width:100%;height:100%}
+
+/* Flights header. today: the search form wraps under the title. proposed: the title shrinks and the search stays on the row */
+.hdr{display:flex;align-items:center;gap:12px}
+.hdr h4{margin:0;font-weight:700;letter-spacing:-.03em;line-height:1.1}
+.hdr.today{flex-wrap:wrap}
+.hdr.today h4{font-size:32px;flex:1 1 auto}
+.hdr.today .sf{flex:1 1 260px;display:flex;align-items:center;gap:8px;min-height:44px;padding:0 14px;border:1px solid var(--border);border-radius:32px;background:var(--glass);color:var(--muted);font-size:15px}
+.hdr.new{justify-content:space-between}
+.hdr.new h4{font-size:clamp(24px,8cqi,32px);min-width:0;flex:1 1 auto;text-wrap:balance}
+.hdr.new .sb{flex:none;width:44px;height:44px;border-radius:50%;border:1px solid var(--border);background:var(--glass);display:grid;place-items:center}
+.hdr.new .sf{display:none}
+.hdr.new .sf.open{display:flex;position:absolute;left:16px;right:16px;height:44px;align-items:center;gap:8px;padding:0 14px;border:1px solid var(--accent);border-radius:32px;background:var(--tab);color:var(--muted);font-size:15px;z-index:2}
+@container (min-width:640px){
+  .hdr.new .sb{display:none}
+  .hdr.new .sf{display:flex;flex:0 1 300px;align-items:center;gap:8px;min-height:44px;padding:0 14px;border:1px solid var(--border);border-radius:32px;background:var(--glass);color:var(--muted);font-size:15px}
+  .hdr.new h4{font-size:32px}
+}
+.filters{display:flex;gap:8px;align-items:center}
+.filters .seg{flex:1;min-width:0;background:var(--glass);border:1px solid var(--border)}
+.filters .seg button{flex:1;padding:0 8px;font-size:14px}
+.filters .sb2{flex:none;width:44px;height:44px;border-radius:50%;border:1px solid var(--border);background:var(--glass);display:grid;place-items:center}
+.day{margin:4px 4px 0;font-size:13px;font-weight:600;color:var(--muted)}
+
+/* Flights rows */
+.card{background:var(--glass);border:1px solid var(--border);border-radius:22px;overflow:hidden}
+.fr{display:flex;align-items:center;gap:12px;padding:12px 14px;border-top:1px solid var(--border);min-height:64px}
+.fr:first-child{border-top:0}
+.fr .eink{width:44px;height:59px}
+.fr .mid{min-width:0;flex:1;display:flex;flex-direction:column;gap:2px}
+.fr .al{font-weight:700;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fr .rt{font-size:15px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.fr .rt b{color:var(--text)}
+.fr .meta{font-size:14px;color:var(--muted)}
+.fr .when{text-align:right;font-size:13px;color:var(--muted);display:flex;flex-direction:column;gap:2px;flex:none}
+.fr .when b{font-size:16px;color:var(--text);font-weight:600}
+.dir{width:24px;height:24px;border-radius:50%;background:var(--chip);display:inline-grid;place-items:center;flex:none;color:var(--text)}
+.dir .ic{width:14px;height:14px}
+/* desktop proposal: two columns of larger cards */
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.fc{display:flex;align-items:center;gap:18px;padding:14px 18px;background:var(--glass);border:1px solid var(--border);border-radius:22px}
+.fc .eink{width:76px;height:101px;border-radius:5px;box-shadow:0 6px 16px rgba(20,30,50,.16)}
+.fc .mid{min-width:0;flex:1;display:flex;flex-direction:column;gap:4px}
+.fc .al{font-size:19px;font-weight:700;letter-spacing:-.01em}
+.fc .rt{font-size:21px;font-weight:600;display:flex;align-items:center;gap:8px}
+.fc .rt span.dim{color:var(--muted);font-weight:500}
+.fc .sm{font-size:14px;color:var(--muted)}
+.fc .when{text-align:right;display:flex;flex-direction:column;gap:2px;font-size:14px;color:var(--muted)}
+.fc .when b{font-size:22px;color:var(--text);font-weight:600}
+.fc .ty{display:inline-block;align-self:flex-start;margin-top:2px;padding:2px 10px;border-radius:32px;background:var(--chip);font-size:12px;color:var(--text)}
+
+/* Airlines */
+.cards2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.ac{position:relative;border:1px solid var(--border);border-radius:22px;background:var(--glass);padding:14px 12px 12px;display:flex;flex-direction:column;gap:6px;min-height:150px;overflow:hidden}
+.ac .tail{height:44px;display:grid;place-items:center}
+.ac .nm{font-weight:700;font-size:16px;line-height:1.2}
+.ac .sn{font-size:14px;color:var(--muted)}
+.ac .newb{position:absolute;top:0;right:0;background:var(--newb);color:var(--on-accent);font-size:12px;font-weight:600;padding:3px 10px;border-radius:0 22px 0 14px}
+.rar-text{font-weight:600}
+.rar-text.o{color:var(--occ)}.rar-text.r{color:var(--rare)}
+/* option A: filled pill, bigger, dots + word */
+.rp{display:inline-flex;align-self:flex-start;align-items:center;gap:6px;min-height:26px;max-width:100%;white-space:nowrap;padding:0 8px 0 7px;border-radius:32px;font-size:12px;font-weight:700;border:1px solid transparent;background:var(--chip);color:var(--text)}
+.rp i{display:block;width:7px;height:7px;border-radius:50%;background:currentColor}
+.rp i.off{background:transparent;box-shadow:inset 0 0 0 1.5px currentColor;opacity:.45}
+.rp.o{background:color-mix(in srgb,var(--occ) 16%,var(--tab));color:var(--occ);border-color:color-mix(in srgb,var(--occ) 55%,transparent)}
+.rp.r{background:var(--rare);color:var(--tab);border-color:var(--rare)}
+:root[data-theme="dark"] .rp.r{color:#14171F}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .rp.r{color:#14171F}}
+/* option B: coloured rail on the card edge + the word */
+.ac.b::before{content:"";position:absolute;left:0;top:14px;bottom:14px;width:5px;border-radius:0 5px 5px 0;background:var(--muted)}
+.ac.b.o::before{background:var(--occ)}.ac.b.r::before{background:var(--rare);width:7px}
+.rb{font-size:13px;font-weight:700}.ac.b.o .rb{color:var(--occ)}.ac.b.r .rb{color:var(--rare)}
+
+/* detail sheet */
+.shell{position:relative}
+.back{padding:20px 16px;display:grid;grid-template-columns:1fr 1fr;gap:12px;filter:blur(1px);opacity:.55;height:100%}
+.scrimlay{position:absolute;inset:0;background:var(--scrim)}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:var(--tab);border-radius:28px 28px 0 0;border:1px solid var(--border);padding:12px 20px 20px;display:flex;flex-direction:column;gap:14px;box-shadow:0 -12px 40px rgba(0,0,0,.25)}
+.grab{width:40px;height:4px;border-radius:4px;background:var(--border);align-self:center}
+.sh-head{display:flex;gap:12px;align-items:flex-start;justify-content:space-between}
+.sh-head h5{margin:0;font-size:22px;line-height:1.15;letter-spacing:-.02em}
+.sh-head small{display:block;color:var(--muted);font-size:14px;margin-top:2px}
+.art{height:84px;border-radius:16px;background:var(--chip);display:grid;place-items:center}
+.facts{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.fact{padding:8px 10px;border:1px solid var(--border);border-radius:14px;background:var(--chip)}
+.fact small{display:block;font-size:12px;color:var(--muted)}.fact b{font-size:17px;font-weight:600}
+.types{display:flex;flex-wrap:wrap;gap:6px}
+.types span{padding:2px 10px;border:1px solid var(--border);border-radius:32px;font-size:13px}
+.types span.o{color:var(--occ);border-color:var(--occ)}
+.sh-note{margin:0;font-size:13px;color:var(--muted)}
+.btnx{min-height:44px;border-radius:14px;border:1px solid var(--border);background:var(--chip);color:var(--text);font-size:15px;font-weight:600;cursor:pointer;padding:0 20px}
+.btnx.full{width:100%}
+.xic{flex:none;width:44px;height:44px;border-radius:50%;border:1px solid var(--border);background:var(--chip);display:grid;place-items:center;cursor:pointer;margin:-6px -8px 0 0}
+.today-close{min-height:44px;border:0;border-radius:6px;background:#000;color:#fff;font-weight:600;padding:0 20px;width:100%}
+.fit{font-size:12px;color:var(--ok);font-weight:600;margin-top:6px}
+.dlg{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:760px;background:var(--tab);border:1px solid var(--border);border-radius:28px;padding:28px;display:grid;grid-template-columns:260px 1fr;gap:28px;box-shadow:0 24px 60px rgba(0,0,0,.35)}
+.dlg .art{height:150px;margin-bottom:12px}
+.dlg .col{display:flex;flex-direction:column;gap:14px;min-width:0}
+.dlg .foot{display:flex;justify-content:flex-end;gap:8px;grid-column:1 / -1}
+
+/* Home title row */
+.hh{padding:8px 4px 4px}
+.hh h4{margin:0;font-size:32px;line-height:1.1;font-weight:700;letter-spacing:-.03em}
+.hh .st{display:inline-flex;align-items:center;gap:8px;margin:6px 0 0;font-weight:600;font-size:15px;padding:4px 12px 4px 8px;border-radius:32px;background:color-mix(in srgb,var(--ok) 18%,transparent)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--ok)}
+.hh .nx{margin:10px 0 0;font-size:16px}
+.t-today{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.t-today .pen{flex:none;width:44px;height:44px;display:grid;place-items:center;color:var(--muted)}
+.t-today .nx{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.t-today .inf{flex:none;width:44px;height:44px;display:grid;place-items:center;color:var(--muted)}
+/* proposed: the glyphs sit inline against the last word; the 44px hit area is the padding of the same inline element */
+.pen2,.inf2{display:inline-grid;place-items:center;width:44px;height:44px;margin:-12px -8px -12px 0;vertical-align:middle;color:var(--muted);background:none;border:0;cursor:pointer;border-radius:50%}
+.pen2 .g,.inf2 .g{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:var(--glass)}
+.pen2 .ic,.inf2 .ic{width:15px;height:15px}
+.hh h4 .nw{white-space:nowrap}
+.cfg{background:var(--glass);border:1px solid var(--border);border-radius:22px;overflow:hidden}
+.cr{display:flex;align-items:center;gap:12px;padding:10px 16px;border-top:1px solid var(--border);min-height:60px}
+.cr:first-child{border-top:0}
+.cr .ico{width:34px;height:34px;border-radius:10px;background:var(--accent);color:var(--on-accent);display:grid;place-items:center}
+.cr .tx{flex:1;min-width:0;font-weight:600;font-size:16px}
+.cr .tx small{display:block;font-weight:400;font-size:14px;color:var(--muted)}
+.qh-today{text-decoration:underline;font-size:14px;color:var(--muted)}
+.qh-new{position:relative;display:inline-flex;align-items:center;gap:2px;min-height:44px;margin:-6px 0 -8px 0;padding:0 8px;color:var(--text);font-size:14px;font-weight:600;text-decoration:none}
+.mini{width:42px;height:26px;border-radius:26px;background:var(--border);position:relative;flex:none}
+.mini::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff}
+.hit{outline:1.5px dashed var(--err);outline-offset:-1px;border-radius:50%}
+.showhits .hit{outline-color:var(--err)}
+body:not(.showhits) .hit{outline:none}
+.tabs{display:flex;justify-content:space-around;padding:8px 4px;background:var(--tab);border:1px solid var(--border);border-radius:32px;margin:0 12px 12px;font-size:11px;color:var(--muted)}
+.qb{border:1px solid var(--border);border-radius:14px;padding:16px 20px;background:var(--glass);max-width:78ch;margin:8px 0}
+.qb h2{margin:0 0 8px;font-size:22px}.qb ol{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:12px}
+.qb li b{display:block}.qb li em{font-style:normal;color:var(--ok);font-weight:600}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="plane" viewBox="0 0 24 24"><path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z"/></symbol>
+  <symbol id="render" viewBox="0 0 120 160">
+    <rect y="118" width="120" height="42" fill="#1F2430"/><rect y="112" width="120" height="6" fill="#C0392B"/>
+    <g transform="translate(60 58) rotate(-32)"><use href="#plane" x="-36" y="-36" width="72" height="72" fill="#1F2430"/></g>
+  </symbol>
+  <symbol id="tail" viewBox="0 0 120 40"><rect x="8" y="16" width="96" height="10" rx="5" fill="#C9CED8"/><path d="M88 16 104 4v12z" fill="#2F6FD6"/><path d="M40 20 60 36h10L58 20z" fill="#9AA3B2"/></symbol>
+</svg>
+
+<div class="wrap">
+  <div class="top">
+    <div>
+      <h1 id="t-main"></h1>
+      <p id="t-intro"></p>
+    </div>
+    <div class="ctl">
+      <div class="seg" role="group" aria-label="Language"><button type="button" data-lang="en" aria-pressed="false">EN</button><button type="button" data-lang="fr" aria-pressed="true">FR</button></div>
+      <div class="seg" role="group" aria-label="Theme"><button type="button" data-t="auto" aria-pressed="true">Auto</button><button type="button" data-t="light" aria-pressed="false">Light</button><button type="button" data-t="dark" aria-pressed="false">Dark</button></div>
+      <div class="seg" role="group" aria-label="Hit areas"><button type="button" id="hits" aria-pressed="false">44 px</button></div>
+    </div>
+  </div>
+  <div id="app"></div>
+</div>
+
+<script>
+(function(){
+var LANG='fr';
+var D={
+ en:{
+  main:'Flights, Airlines and Home title row',
+  intro:'Three parts to approve: (1) Flights rows and header, (2) user Airlines rarity and detail sheet, (3) Home title row on phone. Every part shows today versus proposed. All flights are invented. The "44 px" switch outlines the real touch areas.',
+  today:'Today',prop:'Proposed',
+  p1:'1. Flights: rows and header',
+  p1n:'Direction is drawn by an icon only and stays available to screen readers as hidden text ("Arrival" / "Departure"). The aircraft type and the "Arriving / Departing" line leave the phone row; the desktop card keeps the type as a small chip.',
+  hdrT:'Header at 320, 360, 480, 768 and 1280 px',
+  hdrN:'Today the search field wraps under the title as soon as the title is long. Proposed: the title shrinks (and may wrap on two lines), the search stays on the title row as a 44 px icon button up to 480 px, and becomes a 300 px field from 640 px. Tap on the icon opens the field over the title row (shown at 360 px).',
+  title:'Flight history',search:'Search',all:'All',dep:'Departures',arr:'Arrivals',
+  phoneRow:'Phone row, 360 px',deskRow:'Desktop, 1280 px',
+  d0:'Today',d1:'Yesterday',
+  arrW:'Arrival',depW:'Departure',arrLine:'Arriving',depLine:'Departing',
+  ago:function(h){return h+' h ago';},
+  p2:'2. Airlines: rarity and detail sheet',
+  p2n:'The rarity today is a faint word or a 20 px outline pill. Two options keep it readable without colour alone (dots plus the word).',
+  optA:'Option A: filled pill with dots',optB:'Option B: coloured edge rail plus the word',
+  seen:function(n){return n===1?'Seen once':'Seen '+n+' times';},
+  Reg:'Regular',Occ:'Occasional',Rare:'Rare',New:'New',
+  sheetT:'Detail sheet, phone 360 x 740',sheetD:'Detail sheet, desktop 1280 x 720',
+  sheetN:'Everything fits without an inner scroll: the long note is one line, types are capped at three with "+n", facts are a 3 column grid, and on desktop the sheet becomes a two column dialog.',
+  fits:function(a,b){return 'Measured: content '+a+' px in a '+b+' px frame, no scroll';},
+  first:'First seen',last:'Last seen',views:'Sightings',type:'Types',
+  note:'Rarity depends on how often your frame has seen an airline.',
+  close:'Close',closeX:'Close dialog',
+  c1:'Close, option 1: light text button',c2:'Close, option 2: round icon button',todayClose:'Today: black block',
+  p3:'3. Home: title row on phone',
+  p3n:'Today the pencil floats at the far right and the "i" at the far edge, away from the words they refer to. Proposed: both sit inline against the last word of their line; the visual glyph is 28 px, the touch area is 44 px (dashed outline with the 44 px switch) and extends into the surrounding space without moving the text. The quiet-hours time becomes a 44 px high link.',
+  frame:'Orly window',online:'Online',next:'Next refresh in 14 min',about:'About updates',rename:'Rename frame',
+  screen:'Screen',on:'On',quiet:'Quiet hours',off:'Off',qhrange:'23:00 – 07:00',
+  q:'Questions for the owner',
+  nameGroup:'Today',
+ },
+ fr:{
+  main:'Vols, Compagnies et titre de l’Accueil',
+  intro:'Trois parties à valider : (1) lignes et en-tête de Vols, (2) rareté et fiche détail de Compagnies (utilisateur), (3) ligne de titre de l’Accueil sur téléphone. Chaque partie montre aujourd’hui contre proposé. Tous les vols sont inventés. Le commutateur « 44 px » entoure les vraies zones tactiles.',
+  today:'Aujourd’hui',prop:'Proposé',
+  p1:'1. Vols : lignes et en-tête',
+  p1n:'Le sens est dessiné par une icône seule et reste lu par les lecteurs d’écran grâce à un texte masqué (« Arrivée » / « Départ »). Le type d’avion et la ligne « À l’arrivée / Au départ » quittent la ligne mobile ; la carte bureau garde le type en petite pastille.',
+  hdrT:'En-tête à 320, 360, 480, 768 et 1280 px',
+  hdrN:'Aujourd’hui le champ de recherche passe sous le titre dès que le titre est long. Proposé : le titre rétrécit (et peut tenir sur deux lignes), la recherche reste sur la ligne du titre en bouton icône de 44 px jusqu’à 480 px, puis devient un champ de 300 px dès 640 px. Un appui sur l’icône ouvre le champ sur la ligne du titre (montré à 360 px).',
+  title:'Historique des vols',search:'Rechercher',all:'Tous',dep:'Départs',arr:'Arrivées',
+  phoneRow:'Ligne mobile, 360 px',deskRow:'Bureau, 1280 px',
+  d0:'Aujourd’hui',d1:'Hier',
+  arrW:'Arrivée',depW:'Départ',arrLine:'À l’arrivée',depLine:'Au départ',
+  ago:function(h){return 'il y a '+h+' h';},
+  p2:'2. Compagnies : rareté et fiche détail',
+  p2n:'Aujourd’hui la rareté est un mot pâle ou une pastille de 20 px à contour. Deux options la rendent lisible sans dépendre de la couleur seule (points plus mot).',
+  optA:'Option A : pastille pleine avec points',optB:'Option B : liseré de couleur sur le bord de la carte plus le mot',
+  seen:function(n){return n===1?'Vue une fois':'Vue '+n+' fois';},
+  Reg:'Habituelle',Occ:'Occasionnelle',Rare:'Rare',New:'Nouveau',
+  sheetT:'Fiche détail, téléphone 360 x 740',sheetD:'Fiche détail, bureau 1280 x 720',
+  sheetN:'Tout tient sans défilement interne : la note est sur une ligne, les types sont limités à trois avec « +n », les faits forment une grille de 3 colonnes, et sur bureau la fiche devient une boîte à deux colonnes.',
+  fits:function(a,b){return 'Mesuré : contenu '+a+' px dans un cadre de '+b+' px, sans défilement';},
+  first:'Première vue',last:'Dernière vue',views:'Observations',type:'Types',
+  note:'La rareté dépend de la fréquence à laquelle votre cadre a vu une compagnie.',
+  close:'Fermer',closeX:'Fermer la fenêtre',
+  c1:'Fermer, option 1 : bouton texte clair',c2:'Fermer, option 2 : bouton rond avec icône',todayClose:'Aujourd’hui : bloc noir',
+  p3:'3. Accueil : ligne de titre sur téléphone',
+  p3n:'Aujourd’hui le crayon flotte tout à droite et le « i » au bord, loin des mots qu’ils concernent. Proposé : les deux se collent au dernier mot de leur ligne ; le pictogramme fait 28 px, la zone tactile 44 px (contour en pointillés avec le commutateur 44 px) et déborde dans l’espace voisin sans déplacer le texte. L’horaire des heures calmes devient un lien de 44 px de haut.',
+  frame:'Orly window',online:'En ligne',next:'Prochain rafraîchissement dans 14 min',about:'À propos des mises à jour',rename:'Renommer le cadre',
+  screen:'Écran',on:'Allumé',quiet:'Heures calmes',off:'Éteint',qhrange:'23:00 – 07:00',
+  q:'Questions for the owner',
+ }
+};
+function T(k){var v=D[LANG][k];return v===undefined?D.en[k]:v;}
+var IC={
+ search:'<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
+ dep:'<path d="M7 17 17 7M9 7h8v8"/>',
+ arr:'<path d="M17 7 7 17M15 17H7V9"/>',
+ sort:'<path d="M4 7h16M7 12h10M10 17h4"/>',
+ pen:'<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>',
+ info:'<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>',
+ chev:'<path d="m9 6 6 6-6 6"/>',
+ x:'<path d="M6 6l12 12M18 6 6 18"/>',
+ screen:'<rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8M12 17v4"/>',
+ moon:'<path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z"/>'
+};
+function ic(n,c){return '<svg class="ic '+(c||'')+'" viewBox="0 0 24 24" aria-hidden="true">'+IC[n]+'</svg>';}
+function eink(w,h){return '<div class="eink" style="width:'+w+'px;height:'+h+'px"><svg viewBox="0 0 120 160" aria-hidden="true"><use href="#render"/></svg></div>';}
+function frame(vp,w,inner,extra){return '<div class="frame" data-viewport="'+vp+'" style="--w:'+w+'px'+(extra||'')+'"><div class="screen">'+inner+'</div></div>';}
+function block(label,html){return '<div><p class="lab">'+label+'</p>'+html+'</div>';}
+
+/* ---------- 1. Flights ---------- */
+var FL=[
+ ['Air France','LFMN','arr',1,'21:56','A320','Nice'],
+ ['Air France','LFML','dep',6,'16:38','A321neo','Marseille'],
+ ['easyJet','LFBO','arr',12,'11:20','A320','Toulouse'],
+ ['Transavia France','DAAG','dep',17,'06:02','737-800','Alger'],
+ ['Corsair','GMMN','arr',22,'00:44','A330-300','Casablanca']
+];
+function hdr(kind,openSearch){
+  var s=ic('search');
+  if(kind==='today')return '<div class="hdr today"><h4>'+T('title')+'</h4><div class="sf">'+s+T('search')+'</div></div>';
+  return '<div class="hdr new"><h4>'+T('title')+'</h4><button type="button" class="sb" aria-label="'+T('search')+'">'+s+'</button><div class="sf'+(openSearch?' open':'')+'">'+s+T('search')+'</div></div>';
+}
+function dirIcon(t){return '<span class="dir">'+ic(t==='arr'?'arr':'dep')+'<span class="sr">'+(t==='arr'?T('arrW'):T('depW'))+'</span></span>';}
+function rowToday(f){
+  var rt=f[2]==='arr'?'<b>'+f[1]+'</b> → LFPO':'LFPO → <b>'+f[1]+'</b>';
+  return '<div class="fr">'+eink(44,59)+'<div class="mid"><span class="al">'+f[0]+'</span><span class="rt">'+rt+'</span><span class="meta">'+(f[2]==='arr'?T('arrLine'):T('depLine'))+' · '+f[5]+'</span></div><div class="when"><span>'+T('ago')(f[3])+'</span><b class="num">'+f[4]+'</b></div></div>';
+}
+function rowNew(f){
+  var rt=f[2]==='arr'?'<b>'+f[1]+'</b> → LFPO':'LFPO → <b>'+f[1]+'</b>';
+  return '<div class="fr">'+eink(44,59)+'<div class="mid"><span class="al">'+f[0]+'</span><span class="rt">'+dirIcon(f[2])+rt+'</span></div><div class="when"><b class="num">'+f[4]+'</b><span>'+T('ago')(f[3])+'</span></div></div>';
+}
+function cardNew(f){
+  var from=f[2]==='arr'?f[1]:'LFPO',to=f[2]==='arr'?'LFPO':f[1];
+  return '<div class="fc">'+eink(76,101)+'<div class="mid"><span class="al">'+f[0]+'</span><span class="rt">'+dirIcon(f[2])+from+' <span class="dim">→</span> '+to+'</span><span class="sm">'+f[6]+'</span><span class="ty">'+f[5]+'</span></div><div class="when"><b class="num">'+f[4]+'</b><span>'+T('ago')(f[3])+'</span></div></div>';
+}
+function filters(){return '<div class="filters"><div class="seg" role="group"><button type="button" aria-pressed="true">'+T('all')+'</button><button type="button" aria-pressed="false">'+T('dep')+'</button><button type="button" aria-pressed="false">'+T('arr')+'</button></div><span class="sb2">'+ic('sort')+'</span></div>';}
+function part1(){
+  var phone=function(kind){
+    var rows=FL.slice(0,4).map(kind==='today'?rowToday:rowNew).join('');
+    return frame('phone',360,hdr(kind)+filters()+'<p class="day">'+T('d0')+'</p><div class="card">'+rows+'</div>');
+  };
+  var widths=[320,360,480,768,1280];
+  var hd=function(kind){return widths.map(function(w){
+    var vp=w>=1280?'desktop':(w>=768?'tablet':'phone');
+    return block('<b>'+w+' px</b>',frame(vp,w,hdr(kind)+(kind==='new'&&w===360?'':'')));
+  }).join('');};
+  var open360=frame('phone',360,hdr('new',true)+'<div style="height:12px"></div>');
+  var deskToday=frame('desktop',1280,hdr('today')+filters()+'<p class="day">'+T('d0')+'</p><div class="card">'+FL.slice(0,4).map(rowToday).join('')+'</div>');
+  var deskNew=frame('desktop',1280,hdr('new')+filters()+'<p class="day">'+T('d0')+'</p><div class="grid2">'+FL.map(cardNew).join('')+'</div><p class="day">'+T('d1')+'</p><div class="grid2">'+cardNew(FL[1])+cardNew(FL[2])+'</div>');
+  return '<h2 class="part">'+T('p1')+'</h2><p class="note">'+T('p1n')+'</p>'+
+   '<h3 class="sub">'+T('phoneRow')+'</h3><div class="row">'+block(T('today'),phone('today'))+block(T('prop'),phone('new'))+'</div>'+
+   '<h3 class="sub">'+T('hdrT')+'</h3><p class="note">'+T('hdrN')+'</p>'+
+   '<p class="lab"><b>'+T('today')+'</b></p><div class="scroll"><div class="row" style="flex-wrap:nowrap">'+hd('today')+'</div></div>'+
+   '<p class="lab"><b>'+T('prop')+'</b></p><div class="scroll"><div class="row" style="flex-wrap:nowrap">'+hd('new')+block('<b>360 px</b>, '+T('search').toLowerCase(),open360)+'</div></div>'+
+   '<h3 class="sub">'+T('deskRow')+'</h3><div class="scroll"><p class="lab"><b>'+T('today')+'</b></p>'+deskToday+'<p class="lab" style="margin-top:20px"><b>'+T('prop')+'</b></p>'+deskNew+'</div>';
+}
+
+/* ---------- 2. Airlines ---------- */
+function pill(level){
+  var n=level==='r'?1:level==='o'?2:3,lab=level==='r'?T('Rare'):level==='o'?T('Occ'):T('Reg');
+  var dots='';for(var i=1;i<=3;i++)dots+='<i'+(i>n?' class="off"':'')+'></i>';
+  return '<span class="rp '+(level==='g'?'':level)+'"><span style="display:inline-flex;gap:3px" aria-hidden="true">'+dots+'</span>'+lab+'</span>';
+}
+var AL=[['Air France','g',15,false],['Transavia France','o',9,false],['Air Algérie','r',1,true]];
+function acard(a,mode){
+  var lab=a[1]==='r'?T('Rare'):a[1]==='o'?T('Occ'):T('Reg');
+  var tail='<div class="tail"><svg width="96" height="32" viewBox="0 0 120 40" aria-hidden="true"><use href="#tail"/></svg></div>';
+  var nb=a[3]?'<span class="newb">'+T('New')+'</span>':'';
+  if(mode==='today'){
+    var cls=a[1]==='r'?'r':a[1]==='o'?'o':'';
+    return '<div class="ac">'+nb+tail+'<span class="nm">'+a[0]+'</span><span class="sn">'+T('seen')(a[2])+' · <span class="rar-text '+cls+'">'+lab+'</span></span></div>';
+  }
+  if(mode==='A')return '<div class="ac">'+nb+tail+'<span class="nm">'+a[0]+'</span><span class="sn">'+T('seen')(a[2])+'</span>'+pill(a[1])+'</div>';
+  return '<div class="ac b '+(a[1]==='r'?'r':a[1]==='o'?'o':'')+'">'+nb+tail+'<span class="nm">'+a[0]+'</span><span class="sn">'+T('seen')(a[2])+'</span><span class="rb">'+lab+'</span></div>';
+}
+function cardsFrame(mode,vp,w){
+  var list=AL.map(function(a){return acard(a,mode);}).join('');
+  if(vp==='desktop')return frame('desktop',w,'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">'+list+acard(['easyJet','g',10,false],mode)+'</div>');
+  return frame('phone',w,'<div class="cards2">'+list+acard(['easyJet','g',10,false],mode)+'</div>');
+}
+function sheetBody(closeKind,wide){
+  var head='<div class="sh-head"><div><h5>Transavia France</h5><small>TVF · '+T('seen')(9)+'</small></div>'+(closeKind==='x'?'<button type="button" class="xic" aria-label="'+T('closeX')+'">'+ic('x')+'</button>':'')+'</div>';
+  var art='<div class="art"><svg width="120" height="40" viewBox="0 0 120 40" aria-hidden="true"><use href="#tail"/></svg></div>';
+  var facts='<div class="facts"><div class="fact"><small>'+T('views')+'</small><b class="num">9</b></div><div class="fact"><small>'+T('first')+'</small><b class="num">12 mar.</b></div><div class="fact"><small>'+T('last')+'</small><b>'+T('d1')+'</b></div></div>';
+  var types='<div class="types"><span class="o">737-800</span><span>A320</span><span>A321</span><span>+2</span></div>';
+  var btn=closeKind==='text'?'<button type="button" class="btnx '+(wide?'':'full')+'">'+T('close')+'</button>':'';
+  return {head:head,art:art,rar:pill('o'),facts:facts,types:types,note:'<p class="sh-note">'+T('note')+'</p>',btn:btn};
+}
+function sheetPhone(closeKind){
+  var s=sheetBody(closeKind,false);
+  var back='<div class="back">'+AL.concat([AL[0]]).map(function(a){return acard(a,'A');}).join('')+'</div>';
+  return '<div class="frame" data-viewport="phone" style="--w:360px;height:740px"><div class="shell" style="height:100%">'+back+'<div class="scrimlay"></div><div class="sheet" data-fit>'+'<div class="grab"></div>'+s.head+s.art+s.rar+s.facts+s.types+s.note+s.btn+'</div></div></div>';
+}
+function sheetDesk(closeKind){
+  var s=sheetBody(closeKind,true);
+  var back='<div style="padding:28px 40px;display:grid;grid-template-columns:repeat(4,1fr);gap:12px;opacity:.55;filter:blur(1px)">'+AL.concat([AL[0],AL[1],AL[2],AL[0]]).map(function(a){return acard(a,'A');}).join('')+'</div>';
+  return '<div class="frame" data-viewport="desktop" style="--w:1280px;height:720px"><div class="shell" style="height:100%">'+back+'<div class="scrimlay"></div><div class="dlg"><div class="col">'+s.art+s.rar+'</div><div class="col">'+s.head+s.facts+s.types+s.note+'</div><div class="foot">'+s.btn+'</div></div></div></div>';
+}
+function part2(){
+  var todayClose='<div style="width:320px;padding:12px;border:1px solid var(--border);border-radius:14px;background:var(--tab)"><button type="button" class="today-close">'+T('close')+'</button></div>';
+  return '<h2 class="part">'+T('p2')+'</h2><p class="note">'+T('p2n')+'</p>'+
+   '<h3 class="sub">'+T('today')+' / '+T('optA')+' / '+T('optB')+'</h3>'+
+   '<div class="row">'+block('<b>'+T('today')+'</b>',cardsFrame('today','phone',360))+block('<b>'+T('optA')+'</b> <span class="tag">'+T('prop')+'</span>',cardsFrame('A','phone',360))+block('<b>'+T('optB')+'</b>',cardsFrame('B','phone',360))+'</div>'+
+   '<div class="scroll" style="margin-top:16px">'+block('<b>'+T('optA')+'</b>, 1280 px',cardsFrame('A','desktop',1280))+'</div>'+
+   '<h3 class="sub">'+T('sheetT')+'</h3><p class="note">'+T('sheetN')+'</p>'+
+   '<div class="row">'+block('<b>'+T('c1')+'</b> <span class="tag">'+T('prop')+'</span>',sheetPhone('text')+'<p class="fit" data-fitmsg></p>')+block('<b>'+T('c2')+'</b>',sheetPhone('x')+'<p class="fit" data-fitmsg></p>')+block('<b>'+T('todayClose')+'</b>',todayClose)+'</div>'+
+   '<h3 class="sub">'+T('sheetD')+'</h3><div class="scroll">'+block('<b>'+T('c1')+'</b>',sheetDesk('text'))+'<div style="height:16px"></div>'+block('<b>'+T('c2')+'</b>',sheetDesk('x'))+'</div>';
+}
+
+/* ---------- 3. Home title row ---------- */
+function cfgRows(mode){
+  var tgl='<span class="mini"></span>';
+  var qh=mode==='today'?'<u class="qh-today">'+T('off')+' · '+T('qhrange')+'</u>':T('off')+' · <a class="qh-new" href="#"><span class="num">'+T('qhrange')+'</span>'+ic('chev')+'<span class="hit" style="position:absolute;inset:0;border-radius:12px"></span></a>';
+  return '<div class="cfg"><div class="cr"><span class="ico">'+ic('screen')+'</span><span class="tx">'+T('screen')+'<small>'+T('on')+'</small></span>'+tgl+'</div>'+
+   '<div class="cr"><span class="ico">'+ic('moon')+'</span><span class="tx">'+T('quiet')+'<small>'+qh+'</small></span>'+tgl+'</div></div>';
+}
+function homeToday(){
+  return '<div class="hh t-today"><div><h4>'+T('frame')+'</h4><p class="st"><span class="dot"></span>'+T('online')+'</p></div><span class="pen hit">'+ic('pen')+'</span></div>'+
+   '<div class="hh t-today" style="padding-top:0"><p class="nx" style="flex:1;margin:0;display:block">'+T('next')+'</p><span class="inf hit">'+ic('info')+'</span></div>'+cfgRows('today');
+}
+function homeNew(){
+  var words=T('frame').split(' '),last=words.pop();
+  var name=(words.length?words.join(' ')+' ':'')+'<span class="nw">'+last+'<button type="button" class="pen2" aria-label="'+T('rename')+'"><span class="g">'+ic('pen')+'</span><span class="hit" style="position:absolute;width:44px;height:44px"></span></button></span>';
+  var nx=T('next').split(' '),lw=nx.splice(-2).join('\u00a0');
+  var next=nx.join(' ')+' <span style="white-space:nowrap">'+lw+'<button type="button" class="inf2" aria-label="'+T('about')+'"><span class="g">'+ic('info')+'</span><span class="hit" style="position:absolute;width:44px;height:44px"></span></button></span>';
+  return '<div class="hh"><h4>'+name+'</h4><p class="st"><span class="dot"></span>'+T('online')+'</p><p class="nx">'+next+'</p></div>'+cfgRows('new');
+}
+function part3(){
+  var ph=function(inner){return frame('phone',360,inner);};
+  return '<h2 class="part">'+T('p3')+'</h2><p class="note">'+T('p3n')+'</p>'+
+   '<div class="row">'+block('<b>'+T('today')+'</b>',ph(homeToday()))+block('<b>'+T('prop')+'</b>',ph(homeNew()))+
+   block('<b>'+T('prop')+'</b>, 320 px',frame('phone',320,homeNew()))+'</div>';
+}
+
+/* ---------- questions ---------- */
+var QS={
+ fr:[
+  ['Rareté : option A (pastille pleine avec points et mot) ou option B (liseré de couleur sur la carte) ?','Option A : lisible de loin, sans dépendre de la couleur seule.'],
+  ['Une ligne de Vols garde compagnie, route (sens par icône seule) et heure ; le type d’avion et la ligne « À l’arrivée / Au départ » disparaissent du mobile. D’accord ?','Oui. Le type reste en pastille sur la carte bureau et dans la fiche.'],
+  ['Bureau : cartes à deux colonnes avec grande miniature, plutôt qu’une longue liste ?','Oui, deux colonnes dès 1024 px.'],
+  ['En-tête de Vols : recherche en icône de 44 px jusqu’à 480 px, champ en ligne dès 640 px ?','Oui : la recherche ne passe plus jamais sous le titre.'],
+  ['« Fermer » dans la fiche détail : bouton texte clair (option 1) ou icône ronde « × » (option 2) ?','Option 1 en bas de la fiche, plus Échap et un appui sur le fond ; texte lisible en français comme en anglais.'],
+  ['Accueil mobile : crayon et « i » collés au dernier mot de leur ligne, zone tactile de 44 px, lien des heures calmes de 44 px de haut ?','Oui, sans déplacer le texte.']
+ ],
+ en:[
+  ['Rarity: option A (filled pill with dots and word) or option B (coloured rail on the card)?','Option A: readable at a glance, not colour alone.'],
+  ['A Flights row keeps airline, route (direction by icon only) and time; the aircraft type and the "Arriving / Departing" line leave the phone. Agreed?','Yes. The type stays as a chip on the desktop card and in the sheet.'],
+  ['Desktop: two column cards with a large thumbnail instead of one long list?','Yes, two columns from 1024 px.'],
+  ['Flights header: search as a 44 px icon up to 480 px, inline field from 640 px?','Yes: the search never drops under the title again.'],
+  ['"Close" in the detail sheet: light text button (option 1) or round "X" icon (option 2)?','Option 1 at the bottom of the sheet, plus Escape and tap on the scrim; readable text in English and French.'],
+  ['Home on phone: pencil and "i" against the last word of their line, 44 px touch area, quiet-hours link 44 px high?','Yes, without moving the text.']
+ ]
+};
+function questions(){
+  var other=LANG==='fr'?'en':'fr';
+  // The owner reads French; the English list is kept for the build plans.
+  var li=QS.fr.map(function(q,i){return '<li><b>'+q[0]+'</b><em>Ma recommandation : </em>'+q[1]+'</li>';}).join('');
+  return '<div class="qb" id="questions"><h2>Questions for the owner</h2><p class="note" style="margin-bottom:12px">Questions pour le propriétaire</p><ol>'+li+'</ol></div>';
+}
+
+function measure(){
+  document.querySelectorAll('[data-fit]').forEach(function(s){
+    var fr=s.closest('.frame');var msg=fr.parentElement.querySelector('[data-fitmsg]');
+    var h=Math.round(s.getBoundingClientRect().height);
+    if(msg){msg.textContent=T('fits')(h,fr.clientHeight);msg.style.color=h<=fr.clientHeight?'var(--ok)':'var(--err)';}
+  });
+}
+function render(){
+  document.documentElement.lang=LANG;document.documentElement.setAttribute('data-lang',LANG);
+  document.getElementById('t-main').textContent=T('main');
+  document.getElementById('t-intro').textContent=T('intro');
+  document.getElementById('app').innerHTML=questions()+part1()+part2()+part3();
+  document.querySelectorAll('[data-lang]').forEach(function(b){if(b.tagName==='BUTTON')b.setAttribute('aria-pressed',String(b.dataset.lang===LANG));});
+  measure();
+}
+document.querySelectorAll('button[data-lang]').forEach(function(b){b.addEventListener('click',function(){LANG=b.dataset.lang;render();});});
+var tb=document.querySelectorAll('button[data-t]');
+tb.forEach(function(b){b.addEventListener('click',function(){
+  var r=document.documentElement;
+  if(b.dataset.t==='auto')r.removeAttribute('data-theme');else r.setAttribute('data-theme',b.dataset.t);
+  tb.forEach(function(x){x.setAttribute('aria-pressed',String(x===b));});
+});});
+document.getElementById('hits').addEventListener('click',function(e){
+  var on=document.body.classList.toggle('showhits');e.currentTarget.setAttribute('aria-pressed',String(on));
+});
+render();
+})();
+</script>
+</body>
+</html>
