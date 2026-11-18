@@ -168,7 +168,7 @@ MESSAGES = {
     "detection.mode_runway":
         "Aéroport",
     "detection.mode_area":
-        "Ma position",
+        "Par position",
     "detection.mode_switch_label":
         "Ce que le cadre suit",
     "detection.area_heading":

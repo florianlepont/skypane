@@ -84,7 +84,7 @@ def test_my_position_is_the_first_tab_and_the_default_for_a_new_frame(new_contex
     context, page, _hosts, _errors = _open(new_context, server, VIEWPORT_DESKTOP)
     try:
         labels = page.locator("label.place-mode").all_inner_texts()
-        assert [text.strip() for text in labels] == ["My position", "Airport"]
+        assert [text.strip() for text in labels] == ["By position", "Airport"]
         assert page.is_checked("#place-mode-area")
         page.click("label.place-mode:has(#place-mode-runway)")
         assert page.is_checked("#place-mode-runway")
@@ -108,7 +108,7 @@ def test_a_saved_airport_still_opens_on_the_airport_tab(new_context, make_app_se
         page.wait_for_function(READY, timeout=15000)
         assert page.is_checked("#place-mode-runway")
         assert [text.strip() for text in page.locator("label.place-mode").all_inner_texts()] == [
-            "My position", "Airport"]
+            "By position", "Airport"]
     finally:
         context.close()
 

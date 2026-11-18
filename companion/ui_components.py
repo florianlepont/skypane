@@ -379,12 +379,14 @@ def button_html(label, variant="secondary", href=None, button_type="button", att
         button_type, css, attrs, escape_html(label))
 
 
-def icon_button_html(icon_id, aria_label, variant="ghost", button_type="button", attrs=""):
+def icon_button_html(icon_id, aria_label, variant="ghost", button_type="button", attrs="",
+                     extra_class=""):
     """The one icon-only button: a 44px square carrying a glyph, named by its
-    `aria-label`."""
+    `aria-label`. `extra_class` is trusted, already-safe class text."""
     return (
-        '<button type="%s" class="btn btn--%s btn--icon" aria-label="%s"%s>%s</button>'
-    ) % (button_type, variant, escape_html(aria_label), attrs, icon_html(icon_id, 20))
+        '<button type="%s" class="btn btn--%s btn--icon%s" aria-label="%s"%s>%s</button>'
+    ) % (button_type, variant, " " + extra_class if extra_class else "",
+         escape_html(aria_label), attrs, icon_html(icon_id, 20))
 
 
 def icon_link_html(icon_id, aria_label, href, variant="ghost", attrs=""):

@@ -167,7 +167,7 @@ def test_the_page_is_titled_and_labelled_in_french(rig):
     text = _text(page)
     assert "<title>Lieu et détection" in page
     for needle in ("Aéroports français", "Filtrer les aéroports", "Aéroport",
-                   "Ma position", "Piste à suivre", "Rayon (km)",
+                   "Par position", "Piste à suivre", "Rayon (km)",
                    "Coordonnées et fuseau horaire", "Nom du lieu", "Fuseau horaire",
                    "Enregistrer",
                    "Rechercher un aéroport ou une adresse", "Utiliser ma position",

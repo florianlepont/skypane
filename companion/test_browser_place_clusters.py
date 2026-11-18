@@ -98,7 +98,8 @@ def test_zoomed_out_the_airports_are_numbered_bubbles_that_account_for_every_air
     server = make_app_server(seed=_seed, fake_providers=True)
     context, page = _open(new_context, server, VIEWPORT_MIN_SUPPORTED, lang)
     try:
-        assert page.inner_text(FRANCE).strip() == label
+        assert page.get_attribute(FRANCE, "aria-label") == label
+        assert page.inner_text(FRANCE).strip() == ""
         assert page.locator(FRANCE).bounding_box()["height"] >= 44
         page.click(FRANCE)
         page.wait_for_function(

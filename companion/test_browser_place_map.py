@@ -456,6 +456,31 @@ MESSAGE_HAS = (
     "text => { const m = document.getElementById('place-message');"
     " return !m.hidden && getComputedStyle(m).display !== 'none' && m.textContent === text; }")
 
+# Every element whose text is on screen and mentions the found position, as a list of strings.
+VISIBLE_FOUND_TEXT = (
+    "() => [...document.querySelectorAll('body *')].filter((el) => {"
+    " if (el.children.length || !/Position found|Position trouv/.test(el.textContent)) return false;"
+    " const r = el.getBoundingClientRect(); const cs = getComputedStyle(el);"
+    " return r.width > 2 && r.height > 2 && cs.visibility !== 'hidden' && cs.display !== 'none';"
+    " }).map((el) => el.textContent)")
+
+
+def _assert_found_text_is_only_spoken(page):
+    """No visible text reports the found position; the polite status region still carries it."""
+    if page.evaluate(VISIBLE_FOUND_TEXT):
+        raise AssertionError("visible text %r" % page.evaluate(VISIBLE_FOUND_TEXT))
+    if not page.evaluate(
+            "() => { const s = document.getElementById('place-status');"
+            " return s.getAttribute('role') === 'status' && s.textContent.length > 0; }"):
+        raise AssertionError("the spoken status is missing")
+    box = page.evaluate(
+        "() => { const r = document.getElementById('place-status').getBoundingClientRect();"
+        " return [r.width, r.height]; }")
+    if box[0] > 2 or box[1] > 2:
+        raise AssertionError("the status region is visible: %r" % box)
+    if not page.evaluate("() => document.getElementById('place-message').hidden"):
+        raise AssertionError("the visible message showed the found position")
+
 
 @pytest.mark.parametrize("viewport", [VIEWPORT_MIN_SUPPORTED, VIEWPORT_DESKTOP],
                          ids=["360", "1280"])
@@ -475,8 +500,8 @@ def test_the_round_locate_button_places_the_pin_and_switches_to_my_position(
             raise AssertionError("a found position did not switch to My position")
         page.wait_for_function(
             "() => !!document.querySelector('#place-map .place-circle')", timeout=5000)
-        page.wait_for_function(
-            MESSAGE_HAS, arg="Position found (about 25 m). Check the pin, then save.", timeout=5000)
+        _status(page, "Position found (about 25 m). Check the pin, then save.")
+        _assert_found_text_is_only_spoken(page)
         page.wait_for_function(ANIMATIONS_DONE, timeout=10000)
         clear = page.evaluate(CLEAR_BOX)
         pin = page.evaluate(PIN_BOX)
