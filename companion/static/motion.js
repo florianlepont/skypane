@@ -249,8 +249,8 @@
       // Both edges are rounded, not the left edge and the width, so the first
       // and last choices keep the same inset from the track whatever the
       // fractional layout.
-      var left = Math.round(box.left - host.left - strip.clientLeft);
-      var right = Math.round(box.right - host.left - strip.clientLeft);
+      var left = Math.round(box.left - host.left - strip.clientLeft + strip.scrollLeft);
+      var right = Math.round(box.right - host.left - strip.clientLeft + strip.scrollLeft);
       var top = Math.round(box.top - host.top - strip.clientTop);
       var bottom = Math.round(box.bottom - host.top - strip.clientTop);
       thumb.style.width = (right - left) + "px";
@@ -261,6 +261,12 @@
     }
 
     var index = stripCurrent(items);
+    // A strip that scrolls sideways (the phone's one-line chip row) opens with
+    // the current segment in view.
+    if (index !== -1 && strip.scrollWidth > strip.clientWidth) {
+      var current = items[index];
+      strip.scrollLeft = current.offsetLeft - (strip.clientWidth - current.offsetWidth) / 2;
+    }
     if (thumb && index !== -1) {
       if (carried && !reducedMotion()) {
         thumb.style.width = carried.width;

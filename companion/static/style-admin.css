@@ -179,20 +179,24 @@
 
 .audit-event__detail {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
-  gap: var(--space-sm) var(--space-md);
-  margin: 0;
-  padding: 0 0 var(--space-md);
+  gap: var(--space-sm);
+  margin: 0 0 var(--space-md);
+  padding: var(--space-md);
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--color-text) 5%, transparent);
 }
 
 .audit-event__item {
+  display: grid;
+  grid-template-columns: 6rem minmax(0, 1fr);
+  column-gap: var(--space-sm);
   min-width: 0;
   overflow-wrap: anywhere;
 }
 
 .audit-event__item dt {
   font-size: var(--font-label-size);
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  color: color-mix(in srgb, var(--color-text) 80%, transparent);
 }
 
 .audit-event__item dd {
@@ -203,7 +207,7 @@
  * around it. */
 .audit-event__item--secondary dd {
   font-size: var(--font-label-size);
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  color: color-mix(in srgb, var(--color-text) 80%, transparent);
 }
 
 .audit-head {
@@ -232,6 +236,15 @@
     grid-template-areas: "when who action outcome chevron";
     column-gap: var(--space-md);
     min-height: 56px;
+  }
+
+  .audit-event__detail {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
+    gap: var(--space-sm) var(--space-md);
+  }
+
+  .audit-event__item {
+    display: block;
   }
 
   .audit-event__who {

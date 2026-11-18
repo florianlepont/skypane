@@ -499,3 +499,28 @@ button.row-menu__item:hover {
   clip-path: none;
   opacity: 0;
 }
+
+/* The Audit category chips are one line on a phone: the track scrolls
+ * sideways (no scrollbar drawn), the right edge fades to show there is more
+ * and the last chip scrolls clear of the fade. From 700px they all fit. */
+@media (max-width: 699px) {
+  .filter-bar__chips--links {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    padding-inline-end: var(--space-xl);
+    -webkit-mask-image: linear-gradient(to right, var(--color-text) calc(100% - var(--space-xl)), transparent);
+    mask-image: linear-gradient(to right, var(--color-text) calc(100% - var(--space-xl)), transparent);
+  }
+
+  .filter-bar__chips--links::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* The label's trimmed text box would clip a descender (Pairing, Frames). */
+.filter-bar__chips--links .filter-chip__text {
+  overflow: visible;
+}
