@@ -294,7 +294,7 @@ details.rd summary{min-height:48px;display:flex;align-items:center;padding:0 16p
   function table(t,withMenu){
     var head='<tr><th>'+t.colU+'</th><th>'+t.colR+'</th><th>'+t.colF+'</th><th>'+t.colL+'</th><th>'+t.colA+'</th><th style="width:56px"></th></tr>';
     var rows=USERS.map(function(u,i){
-      var role=u[2]==='admin'?'<b>'+t.admin+'</b>':'<span class="rolesel">'+t.user+' '+ic('down')+'</span>';
+      var role=u[2]==='admin'?'<span class="rolesel" style="background:transparent;border-color:transparent;color:var(--muted);padding-left:0">'+t.admin+'</span>':'<span class="rolesel">'+t.user+' '+ic('down')+'</span>';
       var last=u[5]==='now'?t.now:t.never;
       return '<tr><td><span class="who2"><span class="ico">'+u[1]+'</span><span style="min-width:0"><span class="em">'+u[0]+'</span>'+statusChips(t,u)+'</span></span></td><td>'+role+'</td><td class="num">'+t.frames(u[4])+'</td><td class="sub">'+last+'</td><td>'+sw(true,u[6])+'</td><td style="position:relative;text-align:right">'+(u[6]?'':'<span class="btn sq" style="border:0;background:none" aria-label="'+t.more+'">'+ic('more')+'</span>')+(withMenu&&i===2?menu(t):'')+'</td></tr>';
     }).join('');
