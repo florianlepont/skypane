@@ -1,238 +1,474 @@
+<!--
+STATUS 2026-11-18: built from the approved Health page for the owner's decision (plan 12). The owner chooses the level (A, B or C) before the build.
+-->
 <!doctype html>
-<html lang="en" data-lang="en">
-<head>
+<html lang="en">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>SkyPane Health: Route sources (mockup)</title>
+<title>SkyPane mockup: Route sources (Phase 68, plan 12)</title>
 <style>
-/* Mockup for plan 68-12. Tokens follow the companion design system (sketch-findings-skypane), as in the Home mockup. Illustrative figures, not measured. */
+/* Standalone mockup, no external asset. Tokens follow companion/static/style.css (light and dark only).
+   Each mock sits in a [data-viewport] box, 390 px (phone) or 1440 px (desktop); every translated block is a
+   [data-lang] wrapper and the toggle at the top shows one language at a time. All names and addresses are invented. */
 :root{
   --sky:linear-gradient(#E7EEF7,#F1F3F6 45%,#EDF1F6); --canvas:#F1F3F6; --stage:#E4E9F0;
-  --text:#17191F; --muted:#5B6372; --border:#DAE1EB; --chip:#E9EEF5;
-  --accent:#1F2430; --on-accent:#fff; --glass:rgba(255,255,255,.72); --tab:#fff;
-  --ok:#16A34A; --warn:#D97706; --err:#BE123C;
+  --text:#17191F; --muted:#5B6372; --border:#DAE1EB; --chip:#E9EEF5; --card:#fff;
+  --accent:#1F2430; --on-accent:#fff; --glass:rgba(255,255,255,.78); --tab:#fff; --shadow:0 6px 20px rgba(20,30,50,.08);
+  --ok:#16A34A; --okbg:#DDF3E4; --warn:#D97706; --err:#BE123C;
 }
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+@media (prefers-color-scheme:dark){:root:not([data-ui-theme="light"]){
   --sky:linear-gradient(#12151D,#161A24 45%,#1A1F2B); --canvas:#161A24; --stage:#0E1117;
-  --text:#F1F3F6; --muted:#A3ABBB; --border:#2A3040; --chip:#1C222D;
-  --accent:#F2EFE9; --on-accent:#14171F; --glass:rgba(255,255,255,.09); --tab:#1C222D;
-  --ok:#4ADE80; --warn:#FBBF24; --err:#FB7185; color-scheme:dark}}
-:root[data-theme="dark"]{
+  --text:#F1F3F6; --muted:#A3ABBB; --border:#2A3040; --chip:#232A38; --card:#1C222D;
+  --accent:#F2EFE9; --on-accent:#14171F; --glass:rgba(34,40,54,.82); --tab:#1C222D; --shadow:0 6px 20px rgba(0,0,0,.35);
+  --ok:#4ADE80; --okbg:#173225; --warn:#FBBF24; --err:#FB7185; color-scheme:dark}}
+:root[data-ui-theme="dark"]{
   --sky:linear-gradient(#12151D,#161A24 45%,#1A1F2B); --canvas:#161A24; --stage:#0E1117;
-  --text:#F1F3F6; --muted:#A3ABBB; --border:#2A3040; --chip:#1C222D;
-  --accent:#F2EFE9; --on-accent:#14171F; --glass:rgba(255,255,255,.09); --tab:#1C222D;
-  --ok:#4ADE80; --warn:#FBBF24; --err:#FB7185; color-scheme:dark}
+  --text:#F1F3F6; --muted:#A3ABBB; --border:#2A3040; --chip:#232A38; --card:#1C222D;
+  --accent:#F2EFE9; --on-accent:#14171F; --glass:rgba(34,40,54,.82); --tab:#1C222D; --shadow:0 6px 20px rgba(0,0,0,.35);
+  --ok:#4ADE80; --okbg:#173225; --warn:#FBBF24; --err:#FB7185; color-scheme:dark}
 *{box-sizing:border-box}
-body{margin:0;background:var(--stage);color:var(--text);font:16px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;padding:32px 16px 64px}
-.num{font-variant-numeric:tabular-nums}
-button{font:inherit;color:inherit}
+body{margin:0;background:var(--stage);color:var(--text);font:16px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;padding:32px 16px 96px}
+button,input{font:inherit;color:inherit}
+a{color:inherit;text-decoration:none}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.top{max-width:1320px;margin:0 auto 24px;display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between;align-items:flex-end}
-.top h1{margin:0 0 8px;font-size:30px;letter-spacing:-.03em}
-.top p{margin:0;color:var(--muted);max-width:70ch;font-size:15px}
-.ctl{display:flex;gap:12px;flex-wrap:wrap}
+.num{font-variant-numeric:tabular-nums}
+.top{max-width:1500px;margin:0 auto 24px;display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between;align-items:flex-end}
+.top h1{margin:0 0 8px;font-size:34px;letter-spacing:-.03em}
+.top p{margin:0;color:var(--muted);max-width:75ch}
+.toggles{display:flex;gap:16px;flex-wrap:wrap}
 .seg{display:inline-flex;background:var(--chip);border-radius:32px;padding:4px;gap:4px}
 .seg button{border:0;background:none;min-height:44px;padding:0 16px;border-radius:32px;cursor:pointer;font-size:15px}
 .seg button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent)}
-.board{max-width:1320px;margin:0 auto;display:flex;flex-wrap:wrap;gap:32px;align-items:flex-start}
-.frame h2{margin:0 0 4px;font-size:20px}
-.frame>p{margin:0 0 12px;color:var(--muted);font-size:14px}
-.frame[data-viewport="phone"]{width:360px;max-width:100%}
-.frame[data-viewport="desktop"]{flex:1 1 720px;min-width:0;max-width:1280px}
-.screen{border:1px solid var(--border);border-radius:28px;background:var(--sky) var(--canvas);padding:24px 16px;display:flex;flex-direction:column;gap:24px}
-[data-viewport="desktop"] .screen{padding:32px}
-[data-viewport="desktop"] .grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start}
-.grid{display:flex;flex-direction:column;gap:24px}
-.page-title{margin:0;font-size:32px;line-height:1.1;font-weight:700;letter-spacing:-.03em}
-[data-viewport="desktop"] .page-title{font-size:42px}
-.stack{display:flex;flex-direction:column;gap:24px}
-.label{margin:0 0 8px;font-size:13px;font-weight:600;color:var(--muted)}
-.card{background:var(--glass);border:1px solid var(--border);border-radius:22px;overflow:hidden}
-.card h3{margin:0;font-size:17px;font-weight:600}
-.card-head{padding:16px 16px 8px;display:flex;flex-direction:column;gap:2px}
-.card-head small{font-size:13px;color:var(--muted)}
-.row{display:flex;gap:12px;align-items:flex-start;padding:12px 16px;border-top:1px solid var(--border);min-height:44px}
-.row .main{flex:1;min-width:0}
-.row .t{font-size:16px;font-weight:600;overflow-wrap:anywhere}
-.row .s{font-size:14px;color:var(--muted);overflow-wrap:anywhere}
-.dot{width:10px;height:10px;border-radius:50%;margin-top:7px;flex:none;background:var(--ok)}
-.dot.warn{background:var(--warn)}.dot.err{background:var(--err)}.dot.off{background:var(--muted)}
-.pill{display:inline-flex;align-items:center;min-height:28px;padding:0 12px;border-radius:32px;background:var(--chip);font-size:13px;white-space:nowrap}
-.pill.warn{border:1px solid var(--warn)}.pill.err{border:1px solid var(--err)}
-.pairs{display:grid;grid-template-columns:auto 1fr;gap:2px 8px;font-size:14px;margin-top:4px}
-.pairs span:nth-child(odd){color:var(--muted)}
-.facts{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px}
-.facts div{font-size:13px;color:var(--muted)}
-.facts b{display:block;font-size:16px;color:var(--text);font-weight:600}
-.note{padding:12px 16px;border-top:1px solid var(--border);font-size:14px;color:var(--muted)}
-.state-tag{display:inline-block;margin:0 0 8px;padding:2px 10px;border-radius:32px;background:var(--accent);color:var(--on-accent);font-size:12px}
-.ask{max-width:1320px;margin:48px auto 0;padding:24px;border:1px solid var(--border);border-radius:22px;background:var(--glass)}
-.ask h2{margin:0 0 12px;font-size:22px}
-.ask li{margin-bottom:8px}
-.bad{color:var(--muted);font-size:13px}
-@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+.sec{max-width:1500px;margin:56px auto 0}
+.sec>h2{margin:0 0 4px;font-size:26px;letter-spacing:-.02em}
+.sec>p.lead{margin:0 0 24px;color:var(--muted);max-width:85ch}
+.row2{display:flex;flex-wrap:wrap;gap:32px;align-items:flex-start}
+.mock{margin:0;display:flex;flex-direction:column;gap:8px;min-width:0}
+.mock>figcaption{font-size:15px;font-weight:600}
+.mock>figcaption small{display:block;font-weight:400;color:var(--muted);font-size:13px}
+.scroller{max-width:100%;overflow-x:auto;padding-bottom:8px}
+[data-ui-lang="en"] [data-lang="fr"],[data-ui-lang="fr"] [data-lang="en"]{display:none}
+.note{margin:12px 0 0;padding:12px 16px;border:1px dashed var(--border);border-radius:14px;color:var(--muted);font-size:14px;max-width:85ch}
+.note b{color:var(--text)}
+
+[data-viewport]{position:relative;overflow:hidden;border:1px solid var(--border);background:var(--sky) var(--canvas);box-shadow:0 12px 40px rgba(20,30,50,.12)}
+[data-viewport="phone"]{width:390px;height:780px;border-radius:36px}
+[data-viewport="desktop"]{width:1440px;height:900px;border-radius:16px}
+[data-viewport] [data-lang]{height:100%;position:relative}
+
+/* shared pieces */
+.ic{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--ok);flex:none;display:inline-block}
+.dot.idle{background:var(--muted)}.dot.err{background:var(--err)}.dot.pend{background:var(--warn)}
+.label{margin:0 0 6px 16px;font-size:13px;font-weight:600;color:var(--muted)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:22px;box-shadow:var(--shadow);overflow:hidden}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 18px;border:1px solid var(--border);border-radius:14px;background:var(--card);font-size:15px;font-weight:600;cursor:pointer}
+.btn.dark{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.btn.sq{width:44px;padding:0}
+.field{display:flex;align-items:center;gap:8px;min-height:44px;padding:0 14px;border:1px solid var(--border);border-radius:14px;background:var(--card)}
+.field input{flex:1;min-width:0;border:0;background:none;min-height:42px;outline:0}
+.title{margin:0;font-size:40px;line-height:1.1;font-weight:700;letter-spacing:-.03em}
+.sub{color:var(--muted);font-size:15px}
+.state{margin:6px 0 0;display:flex;align-items:center;gap:8px;font-weight:600}
+
+/* rows */
+.item{display:flex;align-items:center;gap:12px;min-height:64px;padding:10px 16px;border-top:1px solid var(--border)}
+.item:first-child{border-top:0}
+.item .who{flex:1;min-width:0}
+.item .who small{display:block;color:var(--muted);font-size:13px}
+.item .who b{display:block;font-weight:600}
+.item .val{color:var(--muted);font-size:14px;white-space:nowrap}
+.ico{width:36px;height:36px;border-radius:50%;background:var(--chip);display:flex;align-items:center;justify-content:center;flex:none}
+.ico.ok{background:var(--okbg);color:var(--ok)}
+.sw{flex:none;width:51px;height:31px;border-radius:31px;background:#7C8696;position:relative;cursor:pointer}
+.sw::after{content:"";position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.sw.on{background:var(--accent)}.sw.on::after{left:22px}
+.badge{display:inline-flex;align-items:center;min-height:24px;padding:0 10px;border-radius:32px;border:1px solid var(--border);font-size:12px;color:var(--muted)}
+.range{height:6px;border-radius:6px;background:var(--border);position:relative;margin:14px 0 4px}
+.range i{position:absolute;left:0;top:0;bottom:0;width:26%;border-radius:6px;background:var(--accent)}
+.range b{position:absolute;left:26%;top:50%;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;background:var(--accent)}
+.section{display:flex;flex-direction:column}
+.danger b{color:var(--err)}
+
+/* frame list rows */
+.frow{display:flex;align-items:center;gap:12px;min-height:56px;padding:6px 14px;border-top:1px solid var(--border);cursor:pointer}
+.frow:first-child{border-top:0}
+.frow .who{flex:1;min-width:0}
+.frow .who b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.frow .who small{display:block;color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.frow .seen{font-size:13px;color:var(--muted);white-space:nowrap}
+.frow.retired{opacity:.8}
+.frow.sel{background:var(--chip)}
+.chev{color:var(--muted)}
+
+/* phone shell */
+.ptop{position:absolute;left:0;right:0;top:0;height:64px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;z-index:5}
+.brand{display:flex;align-items:center;gap:8px;font-size:22px;font-weight:700;letter-spacing:-.02em}
+.screen{position:absolute;inset:64px 0 0 0;overflow-y:auto;padding:8px 16px 120px;display:flex;flex-direction:column;gap:16px;scrollbar-width:none}
+.screen::-webkit-scrollbar{display:none}
+.screen>*{flex-shrink:0}
+.tabs{position:absolute;left:12px;right:12px;bottom:14px;display:flex;justify-content:space-around;padding:8px 6px;background:var(--tab);border:1px solid var(--border);border-radius:34px;box-shadow:0 8px 24px rgba(20,30,50,.14);z-index:6}
+.tab{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-width:60px;min-height:52px;border-radius:26px;font-size:11px;color:var(--text)}
+.tab.on{background:var(--accent);color:var(--on-accent);font-weight:600}
+.chips{display:flex;gap:8px;overflow-x:auto;margin:0 -16px;padding:0 16px 4px;scrollbar-width:none}
+.chip{flex:none;display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 14px;border-radius:32px;background:var(--card);border:1px solid var(--border);font-size:14px;white-space:nowrap}
+.chip[aria-current="page"]{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.chip.all{background:var(--chip)}
+.anchors{position:sticky;top:-8px;z-index:3;margin:0 -16px;padding:8px 16px;display:flex;gap:8px;background:var(--canvas)}
+.anchors button{flex:1;min-height:44px;border:1px solid var(--border);border-radius:32px;background:var(--card);font-size:14px;cursor:pointer}
+.anchors button[aria-current="true"]{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.blk{scroll-margin-top:72px}
+
+/* desktop shell */
+.side{position:absolute;left:0;top:0;bottom:0;width:240px;padding:24px 16px;background:var(--glass);border-right:1px solid var(--border);display:flex;flex-direction:column;gap:8px}
+.side .brand{padding:0 8px;margin-bottom:8px}
+.space{display:flex;gap:4px;padding:4px;border-radius:16px;background:var(--chip);margin-bottom:8px}
+.space span{flex:1;text-align:center;min-height:36px;display:flex;align-items:center;justify-content:center;border-radius:12px;font-size:14px;font-weight:600;color:var(--muted)}
+.space span.on{background:var(--accent);color:var(--on-accent)}
+.nlabel{margin:12px 8px 0;font-size:13px;font-weight:600;color:var(--muted)}
+.nav{display:flex;align-items:center;gap:12px;min-height:46px;padding:0 12px;border-radius:14px;font-size:15px}
+.nav.on{background:var(--accent);color:var(--on-accent);font-weight:600}
+.sep{height:1px;background:var(--border);margin:8px 0}
+.signout{margin-top:auto}
+.listp{position:absolute;left:240px;top:0;bottom:0;width:350px;background:var(--glass);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.listp .lhead{flex:none;padding:20px 16px 12px;display:flex;flex-direction:column;gap:12px;border-bottom:1px solid var(--border)}
+.listp .lbody{flex:1;min-height:0;overflow-y:auto;padding:12px 12px 20px;display:flex;flex-direction:column;gap:14px}
+.main{position:absolute;left:590px;right:0;top:0;bottom:0;overflow-y:auto;padding:32px 44px 64px}
+.dcol{display:flex;flex-direction:column;gap:24px;max-width:760px;margin-top:20px}
+.titlerow{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.iconbtns{display:flex;gap:8px;flex:none}
+.sparkline{display:block;width:100%;height:44px}
+.sub2{display:flex;flex-direction:column;gap:6px;width:100%;padding-left:48px;font-size:13px;color:var(--muted)}
+.item.wrap{flex-wrap:wrap}
+.tiles2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.tile2{display:flex;flex-direction:column;gap:6px;min-height:132px;padding:14px;border-radius:22px;background:var(--card);border:1px solid var(--border);box-shadow:var(--shadow);min-width:0}
+.tile2 .th{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+.tile2 .tv{font-size:19px;font-weight:700;letter-spacing:-.01em}
+.tile2 .tm{font-size:13px;color:var(--muted)}
+.tile2 .more{margin-top:auto;display:flex;align-items:center;gap:4px;font-size:13px;font-weight:600}
+.bigspark{display:block;width:100%;height:120px;color:var(--accent)}
+.kv{display:grid;grid-template-columns:1fr auto;gap:6px 16px;padding:12px 16px;border-top:1px solid var(--border);font-size:14px}
+.kv span:nth-child(odd){color:var(--muted)}
+.kv span:nth-child(even){text-align:right}
+.rtable{width:100%;border-collapse:collapse;font-size:14px}
+.rtable th{text-align:left;color:var(--muted);font-weight:600;font-size:13px;padding:8px 16px}
+.rtable td{padding:8px 16px;border-top:1px solid var(--border)}
+.rtable td:last-child,.rtable th:last-child{text-align:right}
+.banner{display:flex;flex-direction:column;gap:8px;padding:12px 16px;border-radius:18px;border:1px solid var(--warn);background:var(--card)}
+.banner b{font-weight:700}
+.pills{display:flex;flex-wrap:wrap;gap:6px}
+.pill{display:inline-flex;align-items:center;min-height:26px;padding:0 10px;border-radius:32px;background:var(--chip);font-size:13px}
+.pill.warn{background:var(--card);border:1px solid var(--warn)}
+.unit{display:inline-flex;gap:4px;padding:3px;border-radius:12px;background:var(--chip)}
+.unit span{min-height:32px;padding:0 12px;display:flex;align-items:center;border-radius:9px;font-size:13px}
+.unit span.on{background:var(--accent);color:var(--on-accent);font-weight:600}
+details.rd{border-top:1px solid var(--border)}
+details.rd summary{min-height:48px;display:flex;align-items:center;padding:0 16px;font-size:14px;font-weight:600;cursor:pointer}
+.outcomes{list-style:none;margin:0;padding:0}
+.outcomes li{padding:10px 16px;border-top:1px solid var(--border)}
+.outcomes p{margin:0;display:flex;align-items:center;gap:8px;font-weight:600}
+.outcomes p span.n{margin-left:auto}
+.outcomes small{display:block;color:var(--muted);font-size:13px;margin:2px 0 0 16px}
+.rtable.l td:last-child,.rtable.l th:last-child{text-align:left}
+.pagehead{display:flex;flex-direction:column;gap:6px;margin-bottom:8px}
+.backl{display:inline-flex;align-items:center;gap:6px;min-height:44px;font-size:15px;font-weight:600}
+.ring{width:64px;height:64px;border-radius:50%;background:conic-gradient(var(--ok) 0 47%,var(--border) 0);display:flex;align-items:center;justify-content:center;flex:none}
+.ring b{width:48px;height:48px;border-radius:50%;background:var(--card);display:flex;align-items:center;justify-content:center;font-size:14px}
+.vrow{display:flex;align-items:center;gap:12px;min-height:52px;padding:6px 16px;border-top:1px solid var(--border)}
+.vrow .who{flex:1}
+.btn.quiet{min-height:40px;font-weight:500;color:var(--muted)}
+
+@media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
 </style>
-</head>
-<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-logo" viewBox="0 0 24 24"><rect x="4" y="3" width="14" height="18" rx="3"/><path d="M9 10l2 2 4-4"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8v.5"/></symbol>
+  <symbol id="i-fleet" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="3"/><path d="M9 11l2 2 4-4"/></symbol>
+  <symbol id="i-team" viewBox="0 0 24 24"><circle cx="9" cy="12" r="5"/><circle cx="15" cy="12" r="5"/></symbol>
+  <symbol id="i-tag" viewBox="0 0 24 24"><path d="M3 12V4h8l10 10-8 8z"/><circle cx="8" cy="8" r="1.4"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></symbol>
+  <symbol id="i-battery" viewBox="0 0 24 24"><rect x="2" y="7" width="17" height="10" rx="2"/><path d="M22 11v2"/></symbol>
+  <symbol id="i-plane" viewBox="0 0 24 24"><path d="M2 14l8-2 3-8 2 1-1 7 6 2v2l-6-1-2 4-2-.5.5-3.5L2 16z"/></symbol>
+  <symbol id="i-chip" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/></symbol>
+  <symbol id="i-timer" viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M9 2h6"/></symbol>
+  <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z"/></symbol>
+  <symbol id="i-frame" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2.5"/><rect x="7" y="8" width="10" height="8" rx="1"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+</svg>
 
 <div class="top">
   <div>
-    <h1 id="h1"></h1>
-    <p id="intro"></p>
+    <h1>Route sources</h1>
+    <p>Mockup for the owner, redrawn on the real shell after the owner&rsquo;s answers of 2026-11-18 (CON-01: R11, R13, R14, R15, D-04). List of frames: <code>/fleet</code>; one frame: <code>/fleet?frame=&lt;id&gt;</code>. Retired and pending frames live only in the list. Sample data is invented. Use the toggles.</p>
   </div>
-  <div class="ctl">
-    <div class="seg" id="langseg" role="group" aria-label="Language">
-      <button type="button" data-lang="en" aria-pressed="true">English</button>
-      <button type="button" data-lang="fr" aria-pressed="false">Français</button>
-    </div>
+  <div class="toggles">
     <div class="seg" id="theme" role="group" aria-label="Theme">
       <button type="button" data-t="auto" aria-pressed="true">Auto</button>
       <button type="button" data-t="light" aria-pressed="false">Light</button>
       <button type="button" data-t="dark" aria-pressed="false">Dark</button>
     </div>
+    <div class="seg" id="lang" role="group" aria-label="Language">
+      <button type="button" data-l="en" aria-pressed="true">English</button>
+      <button type="button" data-l="fr" aria-pressed="false">Fran&ccedil;ais</button>
+    </div>
   </div>
 </div>
 
-<div class="board">
-  <section class="frame" data-viewport="phone"><h2 id="ph"></h2><p id="pp"></p><div class="screen" id="phone"></div></section>
-  <section class="frame" data-viewport="desktop"><h2 id="dh"></h2><p id="dp"></p><div class="screen" id="desktop"></div></section>
-</div>
-
-<!-- Questions for the owner -->
-<section class="ask" id="ask">
-  <h2 id="askh"></h2>
-  <ol id="askl"></ol>
-</section>
+<div id="app"></div>
 
 <script>
 (function(){
-  var L={
-    en:{
-      h1:"Health: Route sources (mockup, plan 68-12)",
-      intro:"Two cards for the Health page, drawn for the maximum scope. The figures are illustrative. The sizing note (68-ROUTE-SOURCES-SIZING.md) says which parts each option keeps: the status card is option 2 and 3a; the per-aircraft verdicts same / differ need option 1; the 'Route from' line alone is the free option 3a.",
-      ph:"Phone, 360 px", pp:"Health page, below the 'Data sources' card.",
-      dh:"Desktop, 1280 px", dp:"Same cards in the Health grid, two columns.",
-      title:"Health",
-      cmpT:"Route sources", cmpS:"Which directory gave the route, last 24 hours: 38 flights",
-      same:"Same route", onlyV:"Only VRS", onlyA:"Only adsbdb", differ:"They differ",
-      sameS:"VRS and adsbdb agree", onlyVS:"adsbdb had no route", onlyAS:"VRS had no route", differS:"The frame shows the VRS route",
-      vrs:"VRS", adb:"adsbdb", routeFrom:"Route from",
-      cmpNote:"Same: 31, one source only: 5, differ: 2. A route that differs is shown on the frame from VRS, the directory asked first.",
-      cmpOpt:"Option 3a keeps only the 'Route from' line (VRS or adsbdb) under each flight, with no same / differ verdict.",
-      dirT:"Route directories", dirS:"Last 24 hours",
-      reach:"Reachable", unreach:"Not answering", none:"No lookup yet",
-      last:"Last answer", failed:"Lookups failed", found:"Found a route", attempts:"Lookups",
-      ago:function(m){return m;},
-      healthy:"Healthy", degraded:"Degraded", empty:"Empty",
-      healthyN:"Both directories answer.",
-      degradedN:"adsbdb failed on 38 % of 21 lookups. The frame keeps working: VRS is asked first.",
-      emptyN:"No lookup in the last 24 hours: every callsign was already known. Nothing to judge yet.",
-      thin:"Few lookups: read the percentages with care.",
-      min:"min", h:"h", nev:"never", ago2:"ago",
-      askh:"Questions for the owner",
-      q:[
-        "Scope: both cards (option 1 + 2), status plus 'Route from' (option 3a, recommended), or status only (option 2)?",
-        "Wording: 'Route sources' and 'Route directories' in English; 'Sources des routes' and 'Annuaires de routes' in French. Keep, or change?",
-        "Time window of the percentages: 24 hours (drawn), 7 days, or the 14 days of the 'Flight identification' card?",
-        "Placement: both cards on Health under 'Data sources' (drawn), or the directory status only on Console > Fleet?",
-        "Degraded threshold: show 'Degraded' from 25 % failed lookups with at least 10 lookups (drawn). Change?"
-      ]
-    },
-    fr:{
-      h1:"Santé : Sources des routes (maquette, plan 68-12)",
-      intro:"Deux cartes pour la page Santé, dessinées pour le périmètre maximal. Les chiffres sont illustratifs. La note de dimensionnement (68-ROUTE-SOURCES-SIZING.md) dit ce que garde chaque option : la carte d'état est l'option 2 et 3a ; les verdicts par avion identique / différent demandent l'option 1 ; la seule ligne « Route donnée par » est l'option 3a, sans coût.",
-      ph:"Téléphone, 360 px", pp:"Page Santé, sous la carte « Sources de données ».",
-      dh:"Ordinateur, 1280 px", dp:"Mêmes cartes dans la grille Santé, deux colonnes.",
-      title:"Santé",
-      cmpT:"Sources des routes", cmpS:"Quel annuaire a donné la route, dernières 24 h : 38 vols",
-      same:"Même route", onlyV:"VRS seul", onlyA:"adsbdb seul", differ:"Elles diffèrent",
-      sameS:"VRS et adsbdb sont d'accord", onlyVS:"adsbdb n'avait pas de route", onlyAS:"VRS n'avait pas de route", differS:"Le cadre affiche la route de VRS",
-      vrs:"VRS", adb:"adsbdb", routeFrom:"Route donnée par",
-      cmpNote:"Identiques : 31, une seule source : 5, différentes : 2. Une route différente est affichée d'après VRS, l'annuaire interrogé en premier.",
-      cmpOpt:"L'option 3a garde seulement la ligne « Route donnée par » (VRS ou adsbdb) sous chaque vol, sans verdict identique / différent.",
-      dirT:"Annuaires de routes", dirS:"Dernières 24 h",
-      reach:"Joignable", unreach:"Ne répond pas", none:"Aucune recherche",
-      last:"Dernière réponse", failed:"Recherches échouées", found:"Route trouvée", attempts:"Recherches",
-      healthy:"En bonne santé", degraded:"Dégradé", empty:"Vide",
-      healthyN:"Les deux annuaires répondent.",
-      degradedN:"adsbdb a échoué sur 38 % de 21 recherches. Le cadre continue : VRS est interrogé en premier.",
-      emptyN:"Aucune recherche en 24 heures : tous les indicatifs étaient déjà connus. Rien à juger pour l'instant.",
-      thin:"Peu de recherches : lisez les pourcentages avec prudence.",
-      min:"min", h:"h", nev:"jamais", ago2:"",
-      askh:"Questions pour le propriétaire",
-      q:[
-        "Périmètre : les deux cartes (options 1 + 2), l'état plus « Route donnée par » (option 3a, recommandée), ou l'état seul (option 2) ?",
-        "Libellés : « Route sources » et « Route directories » en anglais ; « Sources des routes » et « Annuaires de routes » en français. On garde ou on change ?",
-        "Fenêtre des pourcentages : 24 heures (dessinée), 7 jours, ou les 14 jours de la carte « Identification des vols » ?",
-        "Emplacement : les deux cartes sur Santé sous « Sources de données » (dessiné), ou l'état des annuaires seulement dans Console > Flotte ?",
-        "Seuil « Dégradé » : à partir de 25 % de recherches échouées avec au moins 10 recherches (dessiné). On change ?"
-      ]
-    }
+  function nb(s){return s.replace(/ ([:;?!»])/g,'\u202f$1').replace(/« /g,'«\u202f');}
+  var S={
+    en:{frames:'Frames',search:'Search 30 frames',add:'Add a frame',live:'Live',pending:'Waiting to be paired',retired:'Retired',
+      online:'Online',sleeping:'Sleeping',offline:'Offline',allframes:'All frames (30)',
+      state:'State',device:'Device and version',settings:'Settings',access:'Access',
+      conn:'Frame connection',connv:'Connecting normally',connt:'just now',batt:'Battery',battv:'Normal level',battt:'47 % · 3801 mV',
+      fdata:'Flight data',fdatav:'No detection yet.',fdatat:'never',
+      onframe:'ON THE FRAME',model:'Model XIAO ePaper EE02 13.3in Spectra 6',uptodate:'Up to date',
+      interval:'Wake interval',intervalh:'How often the frame checks for new flight data',secs:'seconds · 15 min',led:'Diagnostic LED',ledh:'Flashes briefly at each check',off:'Off',
+      owner:'Owner',co:'Co-manager',reassign:'Reassign',addp:'Add a co-manager',retire:'Retire this frame…',retireh:'The frame stops showing anything.',
+      openpers:'Open personal view',rename:'Rename',unreach:'No signal since 3 h ago — Showing the last known data.',bantitle:'2 warnings:',ban1:'Flight data is stale',ban2:'ADS-B source outage',bantail:'Something needs attention — check the rows below.',cstate:'Checking in normally',charging:'Probably charging',unitp:'Percentage',unitv:'Voltage',view4:'View 4 readings',stale:'Flight data is stale.',lastacv:'never',outboth:'Both agree',outone:'Only one saw it',outdiff:'They disagree',outbothx:'Both flight-data sources on the frame picked the same aircraft.',outonex:'Only one of the two sources returned an aircraft this cycle.',outdiffx:'The two sources picked different aircraft.',nodis:'No disagreement',identt:'92.4 % of flights identified',toresolve:'2 to resolve',window:'Last 7 days: 148 flights',unres:'Unresolved airlines',colsrc:'Source',colcnt:'Count',coldesc:'Description',fresh:'Fresh lookup',cached:'Cached hit',aonly:'Airline only',manual:'Manual',miss:'Miss',other:'Other',freshx:'Route found just now',cachedx:'Route reused from an earlier lookup',aonlyx:'Only the airline is known',manualx:'Named by the owner',missx:'Nothing found',otherx:'Other cases',lastbk:'Last off-box backup',bkago:'2 h ago',adminonly:'Visible to administrators',tilec:'Connection',tilef:'Firmware',details:'Details',health:'Health',versions:'Versions',backto:'Back to ',nextwake:'Next wake',lastrun:'Last run',lastci:'Last check-in',inmin:'in 14 min',agomin:'2 min ago',nowt:'just now',lastac:'Last aircraft detected',nonet:'None yet',srcs:'Data sources',srcagree:'Sources agree',srcn:'adsb.fi and adsb.lol · 0 disagreements',ident:'Identification',identv:'92 % resolved',identm:'2 to resolve',backup:'Off-box backup',backupv:'Up to date',backupm:'last backup 03:12',serverdata:'Server & data',frameg:'Frame',latest:'Latest readings',ts:'Timestamp',mv:'Battery (mV)',levelok:'Level looks normal',changel:'Release notes',avail:'No update available',cur:'Installed',healthd:'Health details',healths:'Data sources, check-in times, identification, backup, battery readings',contacts:'Last contacts',c3:'just now · 15 min · 30 min ago',days:'Last 7 days',prev:'Previous versions',revert:'Revert',allv:'All versions',signout:'Sign out',admin:'Administration',
+      nav:['Fleet','Users','Editor','Audit log'],account:'Account',space:['Console','My frames'],tabs:['Fleet','Team','Editor','Journal','More'],
+      codeShown:'Code shown 5 min ago',retiredOn:'Retired 12 Oct',react:'Re-activate',
+      wake:'The frame shows its pairing code at its next wake (up to 24 h). Press Reset to restart it now.',
+      rdT:'Route directories',rdA:'VRS standing data',rdAs:'tried first',rdB:'adsbdb',rdBs:'used when the first has no route',reach:'Reachable',unr:'Not reachable',last:'Last answer',l24:'Last 24 hours',lk:'Lookups',foundp:'Found a route',failp:'Failed',ago4:'4 min ago',ago3h:'3 h ago',rsT:'Route sources',rsV:'The two directories agree',rsVs:'On 86 % of flights where both answered',same:'Same route',only:'Only one answers',diff:'Different routes',samex:'Both directories gave the same airports.',onlyx:'One directory had no route for this callsign.',diffx:'The two directories gave different airports.',ans:'Answered by',cs:'Flight',vrs:'VRS',adb:'adsbdb',verdict:'Result',ok:'Same',one:'One only',df:'Differ',mnote:'Illustrative numbers.',seen:function(m){return 'Seen '+m+' ago';}},
+    fr:{frames:'Cadres',search:'Rechercher parmi 30 cadres',add:'Ajouter un cadre',live:'En service',pending:'En attente d’appairage',retired:'Retirés',
+      online:'En ligne',sleeping:'En veille',offline:'Hors ligne',allframes:'Tous les cadres (30)',
+      state:'État',device:'Appareil et version',settings:'Réglages',access:'Accès',
+      conn:'Connexion du cadre',connv:'Se connecte normalement',connt:'à l’instant',batt:'Batterie',battv:'Niveau normal',battt:'47 % · 3801 mV',
+      fdata:'Données de vol',fdatav:'Aucune détection pour l’instant.',fdatat:'jamais',
+      onframe:'SUR LE CADRE',model:'Modèle XIAO ePaper EE02 13.3in Spectra 6',uptodate:'À jour',
+      interval:'Intervalle de réveil',intervalh:'À quelle fréquence le cadre cherche de nouvelles données de vol',secs:'secondes · 15 mn',led:'LED de diagnostic',ledh:'S’allume brièvement à chaque vérification',off:'Éteint',
+      owner:'Propriétaire',co:'Cogestionnaire',reassign:'Réattribuer',addp:'Ajouter un cogestionnaire',retire:'Retirer ce cadre…',retireh:'Le cadre n’affiche plus rien.',
+      openpers:'Ouvrir la vue personnelle',rename:'Renommer',unreach:'Aucun signal depuis il y a 3 h — Dernières données connues affichées.',bantitle:'2 avertissements :',ban1:'Données de vol anciennes',ban2:'Panne de source ADS-B',bantail:'Quelque chose demande votre attention — vérifiez les lignes ci-dessous.',cstate:'Se connecte normalement',charging:'Probablement en charge',unitp:'Pourcentage',unitv:'Tension',view4:'Voir 4 relevés',stale:'Données de vol anciennes.',lastacv:'jamais',outboth:'Les deux concordent',outone:'Une seule l’a vu',outdiff:'Elles se contredisent',outbothx:'Les deux sources de données de vol du cadre ont choisi le même avion.',outonex:'Une seule des deux sources a renvoyé un avion à ce cycle.',outdiffx:'Les deux sources ont choisi des avions différents.',nodis:'Aucun désaccord',identt:'92,4 % des vols identifiés',toresolve:'2 à résoudre',window:'7 derniers jours : 148 vols',unres:'Compagnies non identifiées',colsrc:'Source',colcnt:'Nombre',coldesc:'Description',fresh:'Recherche fraîche',cached:'Résultat en cache',aonly:'Compagnie seulement',manual:'Manuel',miss:'Échec',other:'Autre',freshx:'Trajet trouvé à l’instant',cachedx:'Trajet repris d’une recherche précédente',aonlyx:'Seule la compagnie est connue',manualx:'Nommée par le propriétaire',missx:'Rien trouvé',otherx:'Autres cas',lastbk:'Dernière sauvegarde hors serveur',bkago:'il y a 2 h',adminonly:'Visible des administrateurs',tilec:'Connexion',tilef:'Micrologiciel',details:'Détails',health:'Santé',versions:'Versions',backto:'Retour à ',nextwake:'Prochain réveil',lastrun:'Dernière exécution',lastci:'Dernier contact',inmin:'dans 14 min',agomin:'il y a 2 min',nowt:'à l’instant',lastac:'Dernier avion détecté',nonet:'Aucun pour l’instant',srcs:'Sources de données',srcagree:'Les sources concordent',srcn:'adsb.fi et adsb.lol · 0 désaccord',ident:'Identification',identv:'92 % résolus',identm:'2 à résoudre',backup:'Sauvegarde hors serveur',backupv:'À jour',backupm:'dernière sauvegarde 03:12',serverdata:'Serveur et données',frameg:'Cadre',latest:'Derniers relevés',ts:'Horodatage',mv:'Batterie (mV)',levelok:'Le niveau semble normal',changel:'Notes de version',avail:'Aucune mise à jour disponible',cur:'Installée',healthd:'Détails de santé',healths:'Sources de données, heures de contact, identification, sauvegarde, relevés de batterie',contacts:'Derniers contacts',c3:'à l’instant · 15 min · 30 min',days:'7 derniers jours',prev:'Versions précédentes',revert:'Revenir',allv:'Toutes les versions',signout:'Se déconnecter',admin:'Administration',
+      nav:['Flotte','Utilisateurs','Éditeur','Journal d’audit'],account:'Compte',space:['Console','Mes cadres'],tabs:['Flotte','Équipe','Éditeur','Journal','Plus'],
+      codeShown:'Code affiché il y a 5 min',retiredOn:'Retiré le 12 oct.',react:'Réactiver',
+      wake:'Le cadre affichera son code à son prochain réveil (24 h au plus). Appuyez sur Reset pour le relancer tout de suite.',
+      rdT:'Annuaires de routes',rdA:'Données VRS',rdAs:'interrogées en premier',rdB:'adsbdb',rdBs:'utilisé quand le premier n’a pas de route',reach:'Joignable',unr:'Injoignable',last:'Dernière réponse',l24:'Dernières 24 h',lk:'Recherches',foundp:'Route trouvée',failp:'En échec',ago4:'il y a 4 min',ago3h:'il y a 3 h',rsT:'Sources de routes',rsV:'Les deux annuaires concordent',rsVs:'Sur 86 % des vols où les deux ont répondu',same:'Même route',only:'Un seul répond',diff:'Routes différentes',samex:'Les deux annuaires ont donné les mêmes aéroports.',onlyx:'Un annuaire n’avait pas de route pour cet indicatif.',diffx:'Les deux annuaires ont donné des aéroports différents.',ans:'Répondu par',cs:'Vol',vrs:'VRS',adb:'adsbdb',verdict:'Résultat',ok:'Identique',one:'Un seul',df:'Différent',mnote:'Chiffres illustratifs.',seen:function(m){return 'Vu il y a '+m;}}
   };
-  var lang="en";
-  function t(k){return L[lang][k];}
-  function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;");}
-  function ago(n,unit){return lang==="fr"?("il y a "+n+" "+unit):(n+" "+unit+" ago");}
+  Object.keys(S.fr).forEach(function(k){var v=S.fr[k];if(typeof v==='string')S.fr[k]=nb(v);else if(Array.isArray(v))S.fr[k]=v.map(nb);});
 
-  function flight(call,air,route,kind,sub,extra){
-    var dot=kind==="differ"?"warn":(kind==="same"?"":"off");
-    var pillCls=kind==="differ"?"pill warn":"pill";
-    var label={same:t("same"),onlyV:t("onlyV"),onlyA:t("onlyA"),differ:t("differ")}[kind];
-    return '<div class="row"><span class="dot '+dot+'"></span><div class="main"><div class="t">'+esc(call)+' · '+esc(air)+'</div>'+
-      '<div class="s">'+esc(route)+'</div>'+(extra||"")+'</div><span class="'+pillCls+'">'+esc(label)+'</span></div>';
+  var NAMES=['Salon','Chambre','Bureau','Cuisine','Entrée','Atelier','Terrasse','Balcon Orly','Garage','Mezzanine','Véranda','Grenier','Cave','Palier','Couloir','Studio','Loft','Cabanon','Phare','Vigie','Tour nord','Tour sud','Hangar','Quai 3'];
+  var OWNERS=['Camille','Louis','Inès','Hugo','Léa','Nora','Paul','Zoé'];
+  var STAT=[['ok','2 min'],['ok','4 min'],['err','3 h'],['ok','1 min'],['idle','2 h'],['ok','3 min'],['ok','7 min'],['ok','2 min'],['err','26 h'],['ok','5 min'],['ok','1 min'],['ok','9 min'],['idle','5 h'],['ok','2 min'],['ok','6 min'],['ok','3 min'],['ok','4 min'],['ok','1 min'],['ok','8 min'],['ok','2 min'],['ok','3 min'],['ok','5 min'],['ok','1 min'],['ok','2 min']];
+  var LIVE=NAMES.map(function(n,i){return{n:n,o:OWNERS[i%OWNERS.length],s:STAT[i][0],m:STAT[i][1]};});
+  LIVE.sort(function(a,b){var r={err:0,idle:1,ok:2};return r[a.s]-r[b.s];});
+  var PEND=[{n:'Cadre 7F:3A'},{n:'Cadre B2:19'}];
+  var RET=[{n:'Le Petit Cadre',o:'Hugo'},{n:'Ancien salon',o:'Léa'},{n:'Banc de test',o:'Paul'},{n:'Cadre prêté',o:'Nora'}];
+
+  function ic(n,cls){return '<svg class="ic'+(cls?' '+cls:'')+'" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-'+n+'"/></svg>';}
+  function sw(on){return '<span class="sw'+(on?' on':'')+'" role="switch" aria-checked="'+on+'" tabindex="0"></span>';}
+  function stateWord(t,s){return s==='ok'?t.online:s==='idle'?t.sleeping:t.offline;}
+  function lead(n,cls){return '<span class="ico'+(cls?' '+cls:'')+'">'+ic(n)+'</span>';}
+
+  /* ---------- shell ---------- */
+  function phoneShell(t,inner,on,top){
+    var icons=['fleet','team','tag','clock','more'];
+    return '<div class="ptop"><span class="brand">'+ic('logo')+'SkyPane</span>'+(top||'')+'</div><div class="screen">'+inner+'</div>'+
+      '<div class="tabs">'+t.tabs.map(function(x,i){return '<div class="tab'+(i===on?' on':'')+'">'+ic(icons[i])+x+'</div>';}).join('')+'</div>';
   }
-  function cmpCard(){
-    var d='<div class="pairs"><span>'+t("vrs")+'</span><span class="num">ORY → TLS</span><span>'+t("adb")+'</span><span class="num">ORY → TLS</span></div>';
-    var d2='<div class="pairs"><span>'+t("vrs")+'</span><span class="num">ORY → NCE</span><span>'+t("adb")+'</span><span class="num">ORY → MRS</span></div>';
-    return '<div class="card"><div class="card-head"><h3>'+t("cmpT")+'</h3><small>'+t("cmpS")+'</small></div>'+
-      flight("AFR6104","Air France","Orly → Toulouse","same",t("sameS"),d)+
-      flight("TVF8412","Transavia","Orly → Marseille","onlyV",t("onlyVS"),'<div class="pairs"><span>'+t("vrs")+'</span><span class="num">ORY → MRS</span><span>'+t("adb")+'</span><span>—</span></div>')+
-      flight("EZY27QL","easyJet","Orly → Basel","onlyA",t("onlyAS"),'<div class="pairs"><span>'+t("vrs")+'</span><span>—</span><span>'+t("adb")+'</span><span class="num">ORY → BSL</span></div>')+
-      flight("AFR1234","Air France","Orly → Nice","differ",t("differS"),d2)+
-      '<div class="note">'+t("cmpNote")+'</div><div class="note bad">'+t("cmpOpt")+'</div></div>';
+  function sidebar(t){
+    var icons=['fleet','team','tag','clock'];
+    return '<div class="side"><span class="brand">'+ic('logo')+'SkyPane</span>'+
+      '<div class="space"><span>'+t.space[1]+'</span><span class="on">'+ic('check')+t.space[0]+'</span></div>'+
+      '<div class="sep"></div><div class="nlabel">'+t.admin+'</div>'+
+      t.nav.map(function(x,i){return (i===2?'<div class="sep"></div>':'')+'<div class="nav'+(i===0?' on':'')+'">'+ic(icons[i])+x+'</div>';}).join('')+
+      '<div class="sep"></div><div class="nav">'+ic('user')+t.account+'</div>'+
+      '<div class="signout"><a class="btn" href="#">'+t.signout+'</a></div></div>';
   }
-  function dirRow(name,state,last,failed,found,n){
-    var dot=state==="ok"?"":(state==="warn"?"warn":(state==="err"?"err":"off"));
-    var word=state==="off"?t("none"):(state==="err"?t("unreach"):t("reach"));
-    var body=state==="off"?'':
-      '<div class="facts"><div><b class="num">'+n+'</b>'+t("attempts")+'</div><div><b class="num">'+failed+'</b>'+t("failed")+'</div><div><b class="num">'+found+'</b>'+t("found")+'</div></div>';
-    return '<div class="row"><span class="dot '+dot+'"></span><div class="main"><div class="t">'+esc(name)+' · '+word+'</div>'+
-      '<div class="s">'+t("last")+' : '+last+'</div>'+body+(n!==""&&n<10&&state!=="off"?'<div class="s" style="margin-top:8px">'+t("thin")+'</div>':'')+'</div></div>';
+
+  /* ---------- list pieces ---------- */
+  function frowLive(t,f,sel){
+    return '<a class="frow'+(sel?' sel':'')+'" href="#"><span class="dot '+(f.s==='ok'?'':f.s)+'"></span><span class="who"><b>'+f.n+'</b><small>'+f.o+' · '+stateWord(t,f.s)+'</small></span><span class="seen num">'+t.seen(f.m)+'</span><span class="chev">'+ic('chev')+'</span></a>';
   }
-  function dirCard(state){
-    var rows,note,tag=t(state);
-    if(state==="healthy"){
-      rows=dirRow("VRS","ok",ago(2,t("min")),"0 %","94 %",36)+dirRow("adsbdb","ok",ago(11,t("min")),"0 %","71 %",7);
-      note=t("healthyN");
-    }else if(state==="degraded"){
-      rows=dirRow("VRS","ok",ago(4,t("min")),"3 %","92 %",33)+dirRow("adsbdb","warn",ago(2,t("h")),"38 %","50 %",21);
-      note=t("degradedN");
-    }else{
-      rows=dirRow("VRS","off",t("nev"),"","","")+dirRow("adsbdb","off",t("nev"),"","","");
-      note=t("emptyN");
+  function frowPend(t,f){return '<a class="frow" href="#"><span class="dot pend"></span><span class="who"><b>'+f.n+'</b><small>'+t.codeShown+'</small></span><span class="chev">'+ic('chev')+'</span></a>';}
+  function frowRet(t,f,sel){return '<a class="frow retired'+(sel?' sel':'')+'" href="#"><span class="dot idle"></span><span class="who"><b>'+f.n+'</b><small>'+f.o+' · '+t.retiredOn+'</small></span><span class="chev">'+ic('chev')+'</span></a>';}
+  function groups(t,selLive,selRet){
+    function g(title,n,body){return '<div><p class="label">'+title+' · '+n+'</p><div class="card">'+body+'</div></div>';}
+    return g(t.live,24,LIVE.map(function(f,i){return frowLive(t,f,selLive&&i===0);}).join(''))+
+      g(t.pending,2,PEND.map(function(f){return frowPend(t,f);}).join(''))+
+      g(t.retired,4,RET.map(function(f,i){return frowRet(t,f,selRet&&i===0);}).join(''));
+  }
+  function listHeadPhone(t){
+    return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><h3 class="title" style="font-size:34px">'+t.frames+'</h3><a class="btn dark" href="#">'+ic('plus')+t.add+'</a></div>'+
+      '<label class="field">'+ic('search')+'<input type="search" placeholder="'+t.search+'" aria-label="'+t.search+'"></label>';
+  }
+  function listPhone(_v,t){return phoneShell(t,listHeadPhone(t)+groups(t,false,false),0);}
+  function listPanel(t,selLive,selRet){
+    return '<div class="listp"><div class="lhead"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><h3 style="margin:0;font-size:24px">'+t.frames+'</h3><a class="btn dark" href="#">'+ic('plus')+t.add+'</a></div>'+
+      '<label class="field">'+ic('search')+'<input type="search" placeholder="'+t.search+'" aria-label="'+t.search+'"></label></div><div class="lbody">'+groups(t,selLive,selRet)+'</div></div>';
+  }
+
+  /* ---------- frame page sections (the real ones) ---------- */
+  function spark(){return '<svg class="sparkline" viewBox="0 0 300 44" preserveAspectRatio="none" aria-hidden="true"><polyline fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" points="0,10 40,14 80,16 120,22 160,24 200,30 240,32 300,36"/></svg>';}
+  function statusRow(n,label,val,right,ok,extra){return '<div class="item wrap">'+lead(n,ok?'ok':'')+'<span class="who"><small>'+label+'</small><b>'+val+'</b></span><span class="val num">'+right+'</span>'+(extra?'<div class="sub2">'+extra+'</div>':'')+'</div>';}
+  function stateBlock(t){
+    return '<div class="blk" data-sec="state"><p class="label">'+t.state+'</p><div class="card">'+
+      statusRow('check',t.conn,t.connv,t.connt,true,'<span>'+t.contacts+' : '+t.c3+'</span>')+
+      statusRow('check',t.batt,t.battv,t.battt,true,'<span>'+t.days+'</span>'+spark())+
+      statusRow('info',t.fdata,t.fdatav,t.fdatat,false,'')+'<a class="vrow" href="#" style="min-height:60px"><span class="who"><b>'+t.healthd+'</b><small style="color:var(--muted);font-size:13px;display:block">'+t.healths+'</small></span><span class="chev">'+ic('chev')+'</span></a></div></div>';
+  }
+  function deviceBlock(t){
+    function v(n,note){return '<div class="vrow"><span class="who"><b class="num">'+n+'</b></span><span class="val">'+note+'</span><a class="btn quiet" href="#">'+t.revert+'</a></div>';}
+    return '<div class="blk" data-sec="device"><p class="label">'+t.device+'</p><div class="card"><div class="item"><span class="who"><small>'+t.onframe+'</small><b style="font-family:ui-monospace,Menlo,monospace;font-size:18px">v1.4.2</b><small>'+t.model+'</small></span><span class="badge">'+t.uptodate+'</span></div>'+
+      '<div class="vrow" style="border-top:1px solid var(--border);min-height:40px"><span class="label" style="margin:0">'+t.prev+'</span></div>'+v('v1.4.1','12 Oct')+v('v1.4.0','28 Sep')+
+      '<a class="vrow" href="#"><span class="who"><b>'+t.allv+'</b></span><span class="chev">'+ic('chev')+'</span></a></div></div>';
+  }
+  function settingsBlock(t){
+    return '<div class="blk" data-sec="settings"><p class="label">'+t.settings+'</p><div class="card">'+
+      '<div class="item" style="flex-direction:column;align-items:stretch;gap:2px"><div style="display:flex;gap:12px;align-items:center">'+lead('timer')+'<span class="who"><b>'+t.interval+'</b><small>'+t.intervalh+'</small></span><span class="val num">900 '+t.secs+'</span></div><div class="range"><i></i><b></b></div></div>'+
+      '<div class="item">'+lead('bulb')+'<span class="who"><b>'+t.led+'</b><small>'+t.ledh+'</small></span>'+sw(false)+'</div></div></div>';
+  }
+  function accessBlock(t){
+    function person(n,role,mine){return '<div class="item"><span class="ico">'+n.charAt(0)+'</span><span class="who"><b>'+n+'</b><small>'+role+'</small></span>'+(mine?'<a class="btn" href="#" style="min-height:40px">'+t.reassign+'</a>':'<a class="btn sq" href="#" aria-label="X">'+ic('x')+'</a>')+'</div>';}
+    return '<div class="blk" data-sec="access"><p class="label">'+t.access+'</p><div class="card">'+person('Camille Martin',t.owner,true)+person('Louis Bernard',t.co,false)+
+      '<a class="item" href="#"><span class="ico" style="background:var(--accent);color:var(--on-accent)">'+ic('plus')+'</span><span class="who"><b>'+t.addp+'</b></span></a>'+
+      '<a class="item danger" href="#"><span class="who"><b>'+t.retire+'</b><small>'+t.retireh+'</small></span><span class="chev">'+ic('chev')+'</span></a></div></div>';
+  }
+
+
+  /* ---------- overview tiles and the two detail pages ---------- */
+  function bigSpark(){return '<svg class="bigspark" viewBox="0 0 300 120" preserveAspectRatio="none" aria-hidden="true"><path d="M0 100H300M0 60H300M0 20H300" stroke="var(--border)" stroke-width="1" fill="none"/><polyline fill="none" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round" points="0,24 40,32 80,38 120,52 160,58 200,72 240,78 300,88"/></svg>';}
+  function tile(t,n,label,val,meta,extra,ok){return '<a class="tile2" href="#"><span class="th">'+lead(n,ok?'ok':'')+label+'</span><span class="tv">'+val+'</span><span class="tm">'+meta+'</span>'+(extra||'')+'<span class="more">'+t.details+ic('chev')+'</span></a>';}
+  function tilesBlock(t){
+    return '<div class="blk" data-sec="state"><p class="label">'+t.state+'</p><div class="tiles2">'+
+      tile(t,'check',t.tilec,t.connv,t.connt,'',true)+
+      tile(t,'battery',t.batt,'47 %',t.battv,'<svg class="sparkline" style="height:28px;color:var(--accent)" viewBox="0 0 300 44" preserveAspectRatio="none" aria-hidden="true"><polyline fill="none" stroke="currentColor" stroke-width="2.5" points="0,10 40,14 80,16 120,22 160,24 200,30 240,32 300,36"/></svg>',true)+
+      tile(t,'plane',t.fdata,t.fdatav,t.fdatat,'',false)+
+      tile(t,'chip',t.tilef,'v1.4.2',t.uptodate,'',true)+'</div></div>';
+  }
+  function healthContent(t){
+    function row(n,ok,label,val,extra,right){return '<div class="item wrap">'+lead(n,ok?'ok':'')+'<span class="who"><small>'+label+'</small><b>'+val+'</b></span>'+(right||'')+(extra?'<div class="sub2" style="padding-left:0;width:100%">'+extra+'</div>':'')+'</div>';}
+    function facts(pairs){return '<div class="kv">'+pairs.map(function(x){return '<span>'+x[0]+'</span><span>'+x[1]+'</span>';}).join('')+'</div>';}
+    var unreach='<div class="banner"><span>'+t.unreach+'</span></div>';
+    var banner='<div class="banner"><b>'+t.bantitle+'</b><span class="pills"><span class="pill warn">'+t.ban1+'</span><span class="pill warn">'+t.ban2+'</span></span><span class="sub">'+t.bantail+'</span></div>';
+    var rows=[['14:02','3801'],['13:47','3804'],['13:32','3807'],['13:17','3810']].map(function(r){return '<tr><td class="num">'+r[0]+'</td><td class="num">'+r[1]+'</td></tr>';}).join('');
+    var conn='<div class="card">'+row('check',true,t.conn,t.cstate,'')+facts([[t.lastci,t.agomin],[t.nextwake,t.inmin],[t.lastrun,t.agomin]])+'</div>';
+    var batt='<div class="card"><div class="item"><span class="ring"><b>47 %</b></span><span class="who"><small>'+t.batt+'</small><b>'+t.levelok+'</b><small class="num">47 % · 3801 mV</small></span><span class="pill">'+t.charging+'</span></div>'+
+      '<div style="padding:0 16px 12px"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><span class="tm" style="font-size:13px;color:var(--muted)">'+t.days+'</span><span class="unit"><span class="on">'+t.unitp+'</span><span>'+t.unitv+'</span></span></div>'+bigSpark()+'</div>'+
+      '<details class="rd" open><summary>'+t.view4+'</summary><table class="rtable"><thead><tr><th>'+t.ts+'</th><th>'+t.mv+'</th></tr></thead><tbody>'+rows+'</tbody></table></details></div>';
+    var fd='<div class="card">'+row('info',false,t.fdata,t.fdatav,'')+facts([[t.lastac,t.lastacv]])+'<div class="kv" style="color:var(--warn)"><span style="color:var(--warn)">'+t.stale+'</span><span></span></div></div>';
+    function out(l,n,x,ok){return '<li><p><span class="dot'+(ok?'':' idle')+'"></span>'+l+'<span class="n num">'+n+'</span></p><small>'+x+'</small></li>';}
+    var src='<div class="card">'+row('check',true,t.srcs,t.srcagree,'',  '<span class="val">'+t.nodis+'</span>')+'<ul class="outcomes">'+out(t.outboth,41,t.outbothx,true)+out(t.outone,6,t.outonex,false)+out(t.outdiff,0,t.outdiffx,true)+'</ul></div>';
+    function trow(a,b,c){return '<tr><td>'+a+'</td><td class="num">'+b+'</td><td>'+c+'</td></tr>';}
+    var ident='<div class="card"><div class="item">'+lead('info')+'<span class="who"><small>'+t.ident+'</small><b>'+t.identt+'</b><small>'+t.window+'</small></span><span class="pill">'+t.toresolve+'</span></div>'+
+            '<table class="rtable l"><thead><tr><th>'+t.colsrc+'</th><th>'+t.colcnt+'</th><th style="text-align:left">'+t.coldesc+'</th></tr></thead><tbody>'+trow(t.fresh,22,t.freshx)+trow(t.cached,96,t.cachedx)+trow(t.aonly,11,t.aonlyx)+trow(t.manual,3,t.manualx)+trow(t.miss,9,t.missx)+trow(t.other,7,t.otherx)+'</tbody></table></div>';
+    var bk='<div class="card">'+row('check',true,t.backup,t.backupv,'')+facts([[t.lastbk,t.bkago]])+'</div>';
+    var RO=window.__ro||'none';
+    function dirRow(n,name,sub,ok,lastv,fl,fp){return '<div class="item wrap">'+lead(ok?'check':'info',ok?'ok':'')+'<span class="who"><small>'+sub+'</small><b>'+name+'</b></span><span class="val">'+(ok?t.reach:t.unr)+'</span></div>'+facts([[t.last,lastv],[t.l24,t.lk+' '+fl],[t.foundp,fp[0]],[t.failp,fp[1]]]);}
+    var dirs='<div class="card">'+dirRow(1,t.rdA,t.rdAs,true,t.ago4,'63','94 %|2 %'.split('|'))+dirRow(2,t.rdB,t.rdBs,false,t.ago3h,'11','45 %|36 %'.split('|'))+'</div>';
+    function ansbar(){return '<div class="card"><div class="item">'+lead('info')+'<span class="who"><small>'+t.ans+' · '+t.window+'</small><b>'+t.vrs+' 118 · '+t.adb+' 30</b></span></div><div style="padding:0 16px 14px"><div style="display:flex;height:12px;border-radius:12px;overflow:hidden"><span style="flex:118;background:var(--accent)"></span><span style="flex:30;background:var(--border)"></span></div></div></div>';}
+    function cmpcard(){
+      function o2(l,n,x,ok){return '<li><p><span class="dot'+(ok?'':' idle')+'"></span>'+l+'<span class="n num">'+n+'</span></p><small>'+x+'</small></li>';}
+      function cr(c,a,b,v,warn){return '<tr><td>'+c+'</td><td class="num">'+a+'</td><td class="num">'+b+'</td><td><span class="pill'+(warn?' warn':'')+'">'+v+'</span></td></tr>';}
+      return '<div class="card">'+row('check',true,t.rsT,t.rsV,'','<span class="val">86 %</span>')+'<ul class="outcomes">'+o2(t.same,128,t.samex,true)+o2(t.only,11,t.onlyx,false)+o2(t.diff,9,t.diffx,false)+'</ul>'+
+        '<table class="rtable l"><thead><tr><th>'+t.cs+'</th><th>'+t.vrs+'</th><th>'+t.adb+'</th><th>'+t.verdict+'</th></tr></thead><tbody>'+cr('AFR1000','LFMN-LFPO','LFMN-LFPO',t.ok)+cr('EZY4411','LFBO-LFPO','LFBO-LFPO',t.ok)+cr('TVF3302','LFPO-DAAG','&mdash;',t.one,true)+cr('VLG8821','LFPO-LEBL','LEBL-LFPO',t.df,true)+'</tbody></table></div>';
     }
-    return '<div><span class="state-tag">'+tag+'</span><div class="card"><div class="card-head"><h3>'+t("dirT")+'</h3><small>'+t("dirS")+'</small></div>'+rows+'<div class="note">'+note+'</div></div></div>';
+    var extra='';
+    if(RO==='A'||RO==='B'||RO==='C')extra+=dirs;
+    if(RO==='B')extra+=ansbar();
+    if(RO==='C')extra+=cmpcard();
+    return unreach+banner+'<div><p class="label">'+t.frameg+'</p><div style="display:flex;flex-direction:column;gap:12px">'+conn+batt+'</div></div>'+
+      '<div><p class="label">'+t.serverdata+' · '+t.adminonly+'</p><div style="display:flex;flex-direction:column;gap:12px">'+fd+src+ident+extra+bk+'</div></div>';
   }
-  function screen(){
-    return '<h3 class="page-title">'+t("title")+'</h3><div class="grid"><div class="stack">'+cmpCard()+'</div><div class="stack">'+dirCard("healthy")+dirCard("degraded")+dirCard("empty")+'</div></div>';
+  function versionsContent(t){
+    function v(n,date,note){return '<div class="item"><span class="who"><b class="num">'+n+'</b><small>'+date+' · '+note+'</small></span><a class="btn quiet" href="#">'+t.revert+'</a></div>';}
+    var cur='<div class="card"><div class="item"><span class="who"><small>'+t.cur+'</small><b style="font-family:ui-monospace,Menlo,monospace;font-size:20px">v1.4.2</b><small>'+t.model+'</small></span><span class="badge">'+t.uptodate+'</span></div><div class="kv"><span>'+t.avail+'</span><span></span></div></div>';
+    var list='<div class="card">'+v('v1.4.1','12 Oct','Battery reading fix')+v('v1.4.0','28 Sep','Quieter retired screen')+v('v1.3.9','3 Sep','Wake interval up to 1 h')+v('v1.3.8','17 Aug','Initial landscape support')+'</div>';
+    return '<div><p class="label">'+t.device+'</p>'+cur+'</div><div><p class="label">'+t.prev+'</p>'+list+'</div>';
   }
-  function render(){
-    document.documentElement.lang=lang;document.documentElement.setAttribute("data-lang",lang);
-    ["h1","intro","ph","pp","dh","dp","askh"].forEach(function(id){document.getElementById(id).textContent=t(id);});
-    document.getElementById("phone").innerHTML=screen();
-    document.getElementById("desktop").innerHTML=screen();
-    document.getElementById("askl").innerHTML=t("q").map(function(x){return "<li>"+esc(x)+"</li>";}).join("");
+  function detailPage(kind){
+    return function(vp,t){
+      var body=kind==='health'?healthContent(t):versionsContent(t);
+      var head='<div class="pagehead"><a class="backl" href="#">'+ic('chev').replace('<svg','<svg style="transform:rotate(180deg)"')+t.backto+'Salon</a><h3 class="title"'+(vp==='phone'?' style="font-size:34px"':'')+'>'+(kind==='health'?t.health:t.versions)+'</h3></div>';
+      if(vp==='phone')return phoneShell(t,head+body,0);
+      return sidebar(t)+'<div class="main" style="left:240px"><div style="max-width:760px">'+head+'<div style="display:flex;flex-direction:column;gap:24px">'+body+'</div></div></div>';
+    };
   }
-  render();
-  var lb=document.querySelectorAll("#langseg button");
-  lb.forEach(function(b){b.addEventListener("click",function(){
-    lang=b.dataset.lang;lb.forEach(function(x){x.setAttribute("aria-pressed",String(x===b));});render();});});
-  var tb=document.querySelectorAll("#theme button");
-  tb.forEach(function(b){b.addEventListener("click",function(){
-    var r=document.documentElement;
-    if(b.dataset.t==="auto")r.removeAttribute("data-theme");else r.setAttribute("data-theme",b.dataset.t);
-    tb.forEach(function(x){x.setAttribute("aria-pressed",String(x===b));});});});
+
+  function iconBtns(t){return '<div class="iconbtns"><a class="btn sq" href="#" title="'+t.openpers+'" aria-label="'+t.openpers+'">'+ic('frame')+'</a><a class="btn sq" href="#" title="'+t.rename+'" aria-label="'+t.rename+'">'+ic('edit')+'</a></div>';}
+  /* ---------- phone frame page ---------- */
+  function phoneFrame(_v,t){
+    var chipNames=['Salon','Cuisine','Chambre','Atelier','Terrasse','Mezzanine'];
+    var chips='<div class="chips" role="navigation"><a class="chip all" href="#">'+ic('grid')+t.allframes+'</a>'+chipNames.map(function(n,i){return '<a class="chip" href="#"'+(i===0?' aria-current="page"':'')+'><span class="dot"></span>'+n+'</a>';}).join('')+'</div>';
+    var head='<div class="titlerow"><div><h3 class="title" style="font-size:34px">Salon</h3><p class="state"><span class="dot"></span>'+t.online+'</p></div>'+iconBtns(t)+'</div>';
+    var acts='';
+    var anchors='<div class="anchors">'+['state','settings','access'].map(function(k,i){return '<button type="button" data-go="'+k+'"'+(i===0?' aria-current="true"':'')+'>'+t[k]+'</button>';}).join('')+'</div>';
+    return phoneShell(t,chips+head+acts+anchors+tilesBlock(t)+settingsBlock(t)+accessBlock(t),0);
+  }
+
+  /* ---------- desktop ---------- */
+  function desktopLive(_v,t){
+    var f=LIVE[0];
+    var head='<div class="titlerow" style="max-width:760px"><div><h3 class="title">'+f.n+'</h3><p class="state"><span class="dot err"></span>'+t.offline+' <span class="sub" style="font-weight:400">· '+t.seen(f.m)+'</span></p></div>'+iconBtns(t)+'</div>';
+    return sidebar(t)+listPanel(t,true,false)+'<div class="main">'+head+'<div class="dcol">'+tilesBlock(t)+settingsBlock(t)+accessBlock(t)+'</div></div>';
+  }
+  function desktopRetired(_v,t){
+    var head='<h3 class="title">Le Petit Cadre</h3><p class="state"><span class="dot idle"></span>'+t.retired+' <span class="sub" style="font-weight:400">· '+t.retiredOn+'</span></p>';
+    var card='<div class="dcol"><div><p class="label">'+t.react+'</p><div class="card"><div class="item"><span class="who"><b>'+t.react+'</b><small>'+t.wake+'</small></span><a class="btn dark" href="#">'+t.react+'</a></div></div></div></div>';
+    return sidebar(t)+listPanel(t,false,true)+'<div class="main">'+head+card+'</div>';
+  }
+
+  /* ---------- assemble ---------- */
+  function mock(vp,caption,sub,builder){
+    var langs=['en','fr'].map(function(l){return '<div data-lang="'+l+'">'+builder(vp,S[l])+'</div>';}).join('');
+    var box='<div data-viewport="'+vp+'">'+langs+'</div>';
+    return '<figure class="mock"><figcaption>'+caption+(sub?'<small>'+sub+'</small>':'')+'</figcaption>'+(vp==='desktop'?'<div class="scroller">'+box+'</div>':box)+'</figure>';
+  }
+  function section(h,lead,body,extra){return '<section class="sec"><h2>'+h+'</h2><p class="lead">'+lead+'</p>'+body+(extra||'')+'</section>';}
+  var html='';
+  html+=section('Sizing: three levels, you choose',
+    'Both items sit on the Health page of a frame (admin only) and need the server to record more. <b>A. Status only (D-27):</b> a card per directory: reachable or not, last answer, lookups in the last 24 h, share that found a route, share that failed. New table in the history database written when a lookup really goes to the network (not on a cache hit), no extra request. About one plan. <b>B. A + who answered:</b> adds one value to say which directory answered each flight, and a bar on the Health page. Still no extra request. About one more small plan. <b>C. B + comparison per aircraft (D-26):</b> asks the other directory too for each new callsign, so both answers can be compared (same, only one, different). Doubles route requests for new callsigns (they are cached a day when empty and a month when found), touches the code that chooses the route drawn on the frame, which must not change (the display keeps using the directory order of today). About two to three plans and the most tests. Recommendation: A and B; C only if you want to see the 9-in-148 disagreements aircraft by aircraft.',
+    '');
+  html+=section('Level A: route directories status',
+    'A card of the Health page, in the Server &amp; data group, after Identification. The second directory is shown unreachable to illustrate a problem.',
+    '<div class="row2">'+mock('desktop','Health page, level A','',function(v,t){window.__ro='A';var r=detailPage('health')(v,t);window.__ro='none';return r;})+mock('phone','Health page, level A (phone)','Scroll inside the phone',function(v,t){window.__ro='A';var r=detailPage('health')(v,t);window.__ro='none';return r;})+'</div>');
+  html+=section('Level B: A plus "answered by"',
+    'One more bar: how many flights of the last 7 days were answered by each directory (the first one asked, or the fallback).',
+    '<div class="row2">'+mock('desktop','Health page, level B','',function(v,t){window.__ro='B';var r=detailPage('health')(v,t);window.__ro='none';return r;})+'</div>');
+  html+=section('Level C: B plus the comparison per aircraft',
+    'A card like "Data sources: the sources agree", for the route directories: share of agreement, the three outcomes with their counts, and the last aircraft with both answers.',
+    '<div class="row2">'+mock('desktop','Health page, level C','',function(v,t){window.__ro='C';var r=detailPage('health')(v,t);window.__ro='none';return r;})+mock('phone','Health page, level C (phone)','Scroll inside the phone',function(v,t){window.__ro='C';var r=detailPage('health')(v,t);window.__ro='none';return r;})+'</div>');
+  document.getElementById('app').innerHTML=html;
+
+  /* ---------- behaviour ---------- */
+  document.querySelectorAll('[data-lang]').forEach(function(root){
+    var screen=root.querySelector('.screen')||root.querySelector('.main');
+    if(!screen)return;
+    var gos=root.querySelectorAll('[data-go]');
+    function mark(k){gos.forEach(function(b){if(b.dataset.go===k)b.setAttribute('aria-current','true');else b.removeAttribute('aria-current');});}
+    gos.forEach(function(b){b.addEventListener('click',function(){
+      var target=root.querySelector('[data-sec="'+b.dataset.go+'"]');
+      if(target){screen.scrollTo({top:target.offsetTop-64,behavior:'smooth'});mark(b.dataset.go);}
+    });});
+    if(gos.length){screen.addEventListener('scroll',function(){
+      var best='state';
+      root.querySelectorAll('[data-sec]').forEach(function(s){if(s.offsetTop-screen.scrollTop<140)best=(s.dataset.sec==='device'?'state':s.dataset.sec);});
+      mark(best);
+    });}
+    root.querySelectorAll('.sw').forEach(function(s){s.addEventListener('click',function(){var on=s.classList.toggle('on');s.setAttribute('aria-checked',String(on));});});
+  });
+  var r=document.documentElement;
+  r.setAttribute('data-ui-lang','en');
+  document.querySelectorAll('#theme button').forEach(function(b){b.addEventListener('click',function(){
+    if(b.dataset.t==='auto')r.removeAttribute('data-ui-theme');else r.setAttribute('data-ui-theme',b.dataset.t);
+    document.querySelectorAll('#theme button').forEach(function(x){x.setAttribute('aria-pressed',String(x===b));});
+  });});
+  document.querySelectorAll('#lang button').forEach(function(b){b.addEventListener('click',function(){
+    r.setAttribute('data-ui-lang',b.dataset.l);r.lang=b.dataset.l;
+    document.querySelectorAll('#lang button').forEach(function(x){x.setAttribute('aria-pressed',String(x===b));});
+  });});
 })();
 </script>
-</body>
 </html>
