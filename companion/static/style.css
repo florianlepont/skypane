@@ -2207,8 +2207,6 @@ select.visually-hidden {
 }
 
 .fleet-group .page-section,
-.fleet-group .update-cta,
-.fleet-group .update-versions,
 .fleet-group .theme-status,
 .fleet-group .data-card,
 .fleet-group .data-cards,
@@ -3055,21 +3053,6 @@ table.data-table--flights .col-state {
 table.data-table--flights .col-picture {
   /* Wide enough for the picture button at its natural width. */
   width: 9rem;
-}
-
-.update-cta__icon .icon {
-  width: 22px;
-  height: 22px;
-}
-
-.update-cta .mono {
-  white-space: nowrap;
-}
-
-.update-row__version .mono {
-  font-size: var(--font-body-size);
-  font-weight: var(--weight-semibold);
-  white-space: nowrap;
 }
 
 /* 70% muted strength, matching .section-caption/.data-table th. color,

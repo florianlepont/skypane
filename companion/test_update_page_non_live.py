@@ -48,7 +48,7 @@ def _served(root, frame_dir, hardware_type):
     try:
         prefs.set_request_prefs(lang="en")
         device_html, versions_html, _summary = update_page.render_parts(
-            ctx, hardware_type, "Model X")
+            ctx, hardware_type)
     finally:
         prefs.set_request_prefs(lang="en")
     return device_html + versions_html
@@ -72,7 +72,7 @@ def test_non_live_frame_card_reads_the_root_registry_and_report(
     doc = parse_html(text)
     versions = [node.text() for node in doc.select("li.update-item .update-item__version")]
     assert sorted(versions) == ["fw-v1.2.0", "fw-v1.2.1"]
-    assert doc.select_one(".update-sum__version").text() == "fw-v1.2.0"
+    assert doc.select_one("li.update-item--running .update-item__version").text() == "fw-v1.2.0"
     assert "No version reported yet" not in text
     assert "No releases yet" not in text
     assert "Update available" in text
@@ -87,7 +87,7 @@ def test_live_frame_output_is_the_same_whichever_directory_is_named(tmp_path):
     same = _served(root, root, hardware.LEGACY_KEY)
     ctx = page_context.coerce({"state_dir": root, "now": _NOW})
     prefs.set_request_prefs(lang="en")
-    without_root = "".join(update_page.render_parts(ctx, hardware.LEGACY_KEY, "Model X")[:2])
+    without_root = "".join(update_page.render_parts(ctx, hardware.LEGACY_KEY)[:2])
     assert same == without_root
     assert "fw-v1.1.0" in same
 
@@ -126,7 +126,7 @@ def test_live_frame_page_has_no_chooser_and_only_its_own_type(tmp_path, second_t
     assert doc.select(".update-type-chooser") == []
     assert hardware.get_profile(_SECOND_TYPE).label not in text
     assert _versions(text) == ["fw-v1.0.0", "fw-v1.1.0"]
-    assert doc.select_one(".update-sum__version").text() == "fw-v1.1.0"
+    assert doc.select_one("li.update-item--running .update-item__version").text() == "fw-v1.1.0"
     assert "fw-v1.2.0" not in text
 
 
@@ -140,7 +140,7 @@ def test_second_type_frame_page_has_no_chooser_and_only_its_own_type(
     assert doc.select(".update-type-chooser") == []
     assert hardware.get_profile(hardware.LEGACY_KEY).label not in text
     assert _versions(text) == ["fw-v1.2.0", "fw-v1.2.1"]
-    assert doc.select_one(".update-sum__version").text() == "fw-v1.2.0"
+    assert doc.select_one("li.update-item--running .update-item__version").text() == "fw-v1.2.0"
     assert "fw-v1.1.0" not in text
 
 

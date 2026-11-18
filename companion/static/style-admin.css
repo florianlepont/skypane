@@ -255,13 +255,12 @@
   flex-wrap: wrap;
 }
 
-/* The Update page. Two cards: a call-to-action card (up to date, or the
- * one newer release to install, or the schedule in flight) and a
- * "Versions" card of compact one-line rows, each a native <details>
- * holding every note, the absolute dates and the action, so the page
- * works with scripts blocked. Status colour only marks state (ok, warn,
- * error); the accent fill is the global primary button and is spent only
- * on installing a newer release. */
+/* The Update panel: one card (headline, version, release note, the one
+ * action) and a Versions label over a card of flat rows, each row a status
+ * dot, the version with its chip, a line of facts and, for an older version,
+ * a quiet Roll back; the notes fold behind one disclosure. Status colour only
+ * marks state (ok, warn, error); the accent fill is spent only on installing
+ * a newer release. */
 /* The hardware type switch reuses the segmented control (.theme-form).
  * Type labels are long, so a segment may wrap to a second line instead
  * of clipping, and the control sits one card gap above the cards. The
@@ -279,173 +278,117 @@
   overflow-wrap: anywhere;
 }
 
-/* The summary opening the Fleet panel: what the frame runs, large, with its
- * state chip on the right (under the text when the row is too narrow). */
-.update-sum {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-sm) var(--space-md);
-  margin-bottom: var(--space-md);
+/* In the Fleet page the Device and version block is not one glass group: the
+ * card and the version list are the cards. */
+.fleet-frame .fleet-block--device .fleet-group {
+  overflow: visible;
+  background: none;
+  border: 0;
+  box-shadow: none;
 }
 
-.update-sum__text {
-  min-width: 0;
-  flex: 1 1 14rem;
+.fleet-block--device .fleet-group > .fleet-group__item {
+  padding: 0;
 }
 
-.update-sum__label {
-  margin: 0;
-  font-size: var(--font-caption-size);
-  font-weight: var(--weight-semibold);
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+.fleet-block--device .fleet-group > li + li {
+  border-top: 0;
 }
 
-.update-sum__version {
-  margin: var(--space-xs) 0;
-  font-family: var(--font-mono);
-  font-size: var(--font-heading-size);
-  font-weight: var(--weight-semibold);
-  line-height: 1.25;
-  overflow-wrap: anywhere;
-}
-
-.update-sum__meta {
-  margin: 0;
-  font-size: var(--font-label-size);
-  line-height: 1.5;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-  overflow-wrap: anywhere;
-}
-
-.update-sum time {
-  white-space: nowrap;
-}
-
-/* The one update card: a tinted box inside the panel, never a shadowed card.
- * Text left and the Install button right where the row is wide; on a phone the
- * button takes the full width under the text. */
-.update-offer {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-md);
-  padding: var(--space-md);
-  border: 1px solid color-mix(in srgb, var(--color-accent) 35%, transparent);
+/* The rollback notice is a bordered warning card above the update card. */
+.fleet-block--device .update-rollback,
+.update-rollback {
+  margin: 0 0 var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--glass-solid);
+  border: 1px solid var(--color-status-warn);
   border-radius: var(--radius-control);
-  background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+  box-shadow: none;
 }
 
-.update-offer__text {
-  min-width: 0;
-  flex: 1 1 16rem;
+.update-for {
+  margin: 0 var(--space-md) var(--space-sm);
 }
 
-.update-offer__title {
+.update-cta,
+.update-hist__list,
+.update-hist__empty {
+  box-sizing: border-box;
   margin: 0;
-  font-size: var(--font-card-title-size);
-  font-weight: var(--weight-semibold);
-  line-height: 1.3;
-  overflow-wrap: anywhere;
-}
-
-.update-offer__note {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  margin: var(--space-xs) 0 0;
+  padding: 0;
   overflow: hidden;
-  font-size: var(--font-label-size);
-  line-height: 1.5;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-  overflow-wrap: anywhere;
+  list-style: none;
+  background: var(--glass-solid);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-glass);
 }
 
-.update-offer time {
-  white-space: nowrap;
-}
-
-.update-offer .update-actions,
-.update-offer .update-actions form,
-.update-offer .update-actions button[type="submit"] {
-  width: 100%;
-}
-
-@media (min-width: 600px) {
-  .update-offer .update-actions,
-  .update-offer .update-actions form,
-  .update-offer .update-actions button[type="submit"] {
-    width: auto;
-  }
-}
-
-.update-cta__top {
+.update-cta__row {
+  padding: var(--space-md);
   display: flex;
-  align-items: flex-start;
+  flex-direction: column;
+  align-items: stretch;
   gap: var(--space-md);
-}
-
-.update-cta__icon {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-  background: color-mix(in srgb, var(--color-text) 6%, transparent);
-}
-
-.update-cta--ok .update-cta__icon {
-  color: var(--color-status-ok);
-  background: color-mix(in srgb, var(--color-status-ok) 14%, transparent);
-}
-
-.update-cta--warn .update-cta__icon {
-  color: var(--color-status-warn);
-  background: color-mix(in srgb, var(--color-status-warn) 14%, transparent);
-}
-
-.update-cta--error .update-cta__icon {
-  color: var(--color-status-error);
-  background: color-mix(in srgb, var(--color-status-error) 14%, transparent);
 }
 
 .update-cta__text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
   min-width: 0;
   flex: 1;
 }
 
-/* The card's headline is a section title, the same role
- * .page-section--nested > h2 uses. */
 .update-cta__title {
-  margin: 0 0 var(--space-xs);
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin: 0;
   font-family: var(--font-display);
-  font-size: var(--font-card-title-size);
-  font-weight: var(--weight-semibold);
+  font-size: var(--font-heading-size);
+  font-weight: var(--weight-title);
   letter-spacing: -0.01em;
-  line-height: 1.3;
+  line-height: 1.25;
+}
+
+.update-cta__title .icon {
+  flex: none;
+}
+
+.update-cta--ok .update-cta__title .icon {
+  color: var(--color-status-ok);
+}
+
+.update-cta--warn .update-cta__title .icon {
+  color: var(--color-status-warn);
+}
+
+.update-cta--error .update-cta__title .icon {
+  color: var(--color-status-error);
 }
 
 .update-cta__detail {
   margin: 0;
   font-size: var(--font-label-size);
   line-height: 1.5;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
   overflow-wrap: anywhere;
+}
+
+.update-cta__detail:first-of-type {
+  color: var(--color-text);
+}
+
+.update-cta__detail:first-of-type .mono {
+  font-size: var(--font-card-title-size);
+  font-weight: var(--weight-semibold);
 }
 
 /* A relative age never breaks mid-phrase ("il y a / 1 h"). */
 .update-cta time,
-.update-row__meta time {
+.update-item__meta time {
   white-space: nowrap;
-}
-
-.update-cta__detail + .update-cta__detail {
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
 .update-cta__note {
@@ -453,21 +396,11 @@
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   overflow: hidden;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-.update-cta__on {
-  margin: var(--space-md) 0 0;
-  padding-top: var(--space-md);
-  border-top: 1px solid var(--color-border);
-  font-size: var(--font-label-size);
-  line-height: 1.5;
-  overflow-wrap: anywhere;
-}
-
-/* Install is a safety-relevant action: it keeps the full touch target
- * at every width. Specificity (0,2,1) beats both the global button and
- * the quiet secondary button's own padding and font size. */
+/* The action sits under the text on a phone, full width; on the right of
+ * the card from 600px. Install is safety-relevant: it keeps the full touch
+ * target at every width. */
 .update-actions {
   display: flex;
   flex-wrap: wrap;
@@ -476,10 +409,12 @@
 }
 
 .update-actions form {
+  flex: 1 1 auto;
   margin: 0;
 }
 
 .update-actions button[type="submit"] {
+  width: 100%;
   min-height: 44px;
   min-width: 44px;
   padding: 0 var(--space-md);
@@ -487,160 +422,266 @@
   white-space: nowrap;
 }
 
-.update-cta .update-actions {
-  margin-top: var(--space-md);
+@media (min-width: 600px) {
+  .update-cta__row {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .update-actions {
+    flex: none;
+  }
+
+  .update-actions form {
+    flex: none;
+  }
+
+  .update-actions button[type="submit"] {
+    width: auto;
+  }
 }
 
-.update-cta .update-actions form,
-.update-cta .update-actions button[type="submit"] {
-  width: 100%;
+.update-versions {
+  margin-top: var(--space-lg);
 }
 
-.update-versions__head h2 {
-  margin: 0;
-}
-
-.update-versions__count {
-  font-size: var(--font-label-size);
+.update-hist__title {
+  margin: 0 0 var(--space-xs) var(--space-md);
+  font-size: var(--font-caption-size);
+  font-weight: var(--weight-semibold);
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-/* The one-line row. Phone: version and age on the first line, the first
- * note on its own ellipsised line below, the chevron spanning both.
- * Replaces the global summary's flex layout and leading chevron: the row
- * owns a trailing chevron instead. */
-.update-row > summary {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto 20px;
-  grid-template-areas: "v d c" "s s c";
-  column-gap: var(--space-sm);
-  row-gap: 2px;
-  align-items: center;
-  min-height: 60px;
-  padding: var(--space-sm) 0;
-  color: var(--color-text);
-  list-style: none;
+.update-hist__empty .empty-state {
+  padding: var(--space-md);
 }
 
-.update-row > summary::before {
+.update-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding-right: var(--space-md);
+  border-top: 1px solid var(--color-border);
+}
+
+.update-item:first-child {
+  border-top: 0;
+}
+
+.update-item__details {
+  flex: 1;
+  min-width: 0;
+}
+
+.update-item__summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-height: 60px;
+  padding: var(--space-sm) 0 var(--space-sm) var(--space-md);
+  color: var(--color-text);
+  list-style: none;
+  cursor: pointer;
+}
+
+div.update-item__summary {
+  flex: 1;
+  min-width: 0;
+  cursor: default;
+}
+
+.update-item__summary::before,
+.update-item__summary::marker {
   content: none;
 }
 
-.update-row > summary::-webkit-details-marker {
+.update-item__summary::-webkit-details-marker {
   display: none;
 }
 
-.update-row__version {
-  grid-area: v;
+.update-item__dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--color-text) 30%, transparent);
+}
+
+.update-item--newest .update-item__dot,
+.update-item--running .update-item__dot {
+  background: var(--color-status-ok);
+}
+
+.update-item__text {
+  flex: 1;
+  min-width: 0;
+}
+
+.update-item__head {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-xs) var(--space-sm);
-  min-width: 0;
 }
 
-.update-row__when {
-  grid-area: d;
-  font-size: var(--font-label-size);
+.update-item__version {
+  font-size: var(--font-body-size);
+  font-weight: var(--weight-semibold);
   white-space: nowrap;
+}
+
+.update-item__meta {
+  display: block;
+  font-size: var(--font-caption-size);
+  line-height: 1.5;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-.update-row__note {
-  grid-area: s;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.update-item__count {
+  display: block;
+}
+
+.update-item__notes-label {
+  flex: none;
   font-size: var(--font-label-size);
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-.update-row__note:empty,
-.update-row[open] .update-row__note {
-  display: none;
+/* The running chip is the accent fill, as in the approved design. */
+.update-item--running .update-item__head .banner__pill {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-on-accent);
 }
 
-.update-row__chevron {
-  grid-area: c;
-  justify-self: end;
+.update-item__head .banner__pill {
+  height: 22px;
+  line-height: 1;
+}
+
+.update-item__chevron {
+  flex: none;
   transform: rotate(90deg);
   transition: transform var(--motion-fast) ease;
 }
 
-.update-row[open] > summary .update-row__chevron {
+.update-item__details[open] .update-item__chevron {
   transform: rotate(-90deg);
 }
 
-.update-row__body {
-  display: grid;
-  gap: var(--space-sm);
-  padding: 0 0 var(--space-md);
+/* A row without notes keeps the chevron's room so the chips share one edge. */
+.update-item__chevron-space {
+  flex: none;
+  width: 16px;
 }
 
-/* Notes are untrusted CI text: overflow-wrap: anywhere lets one long
- * unbroken token wrap instead of widening the card past the viewport. */
-.update-row__notes {
+.update-item__action {
+  flex: none;
+}
+
+.update-item__action:empty {
+  display: none;
+}
+
+.update-item__action form {
   margin: 0;
-  padding: 0 0 0 var(--space-md);
+}
+
+.update-item__action button[type="submit"] {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 var(--space-sm);
   font-size: var(--font-label-size);
-  line-height: 1.5;
-  overflow-wrap: anywhere;
+  font-weight: var(--weight-semibold);
+  white-space: nowrap;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
-.update-row__notes li {
-  margin: 0 0 var(--space-xs);
-}
-
-.update-row__meta {
+/* Notes are untrusted release text: long unbroken tokens wrap instead of
+ * widening the panel. */
+.update-item__notes {
   margin: 0;
+  padding: var(--space-xs) var(--space-md) var(--space-md) calc(var(--space-md) + 8px + var(--space-sm));
+  border-top: 1px dashed var(--color-border);
   font-size: var(--font-label-size);
   line-height: 1.5;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  overflow-wrap: anywhere;
 }
 
-/* The running release: a status-ok wash and rail bleeding to the card's
- * own edges (the card pads 16px, 24px from 960px). */
-.update-row--running {
-  margin-inline: calc(-1 * var(--space-md));
-  padding-inline: var(--space-md);
-  background: color-mix(in srgb, var(--color-status-ok) 7%, transparent);
-  box-shadow: inset 3px 0 0 var(--color-status-ok);
+.update-item__notes li {
+  margin: var(--space-xs) 0 0;
 }
 
-@media (min-width: 960px) {
-  .update-cta .update-actions form {
-    width: auto;
-  }
+/* The question dialog confirm-submit.js builds: Cancel beside the action, at
+ * every width, the text in the muted body colour. */
+.question-dialog .modal__title {
+  font-size: var(--font-heading-size);
+}
 
-  .update-cta .update-actions button[type="submit"] {
-    width: auto;
-    min-width: 200px;
-  }}
+.question-dialog .modal__body .text-body {
+  margin: 0;
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
 
-/* The release rows lay out in columns only where their own list is wide
- * enough; the Fleet page puts them in a narrow block even on a wide screen. */
-@container update-rows (min-width: 700px) {
-  .update-row > summary {
-    grid-template-columns: 232px minmax(0, 1fr) 140px 20px;
-    grid-template-areas: "v s d c";
-    column-gap: var(--space-md);
-    min-height: 56px;
-  }
+.question-dialog .modal__actions {
+  flex-direction: row;
+  justify-content: stretch;
+}
 
-  .update-row__when {
-    text-align: right;
-  }
+.question-dialog .modal__actions > button {
+  flex: 1 1 0;
+}
 
-  .update-row__body {
-    padding-left: 248px;
-    padding-right: var(--space-lg);
-  }
+/* The confirmation page without script: one card with the question, what
+ * will happen, and Cancel beside Install (Roll back). */
+.update-confirm {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  width: 100%;
+  max-width: 460px;
+  margin-top: var(--space-lg);
+  padding: var(--space-lg);
+  background: var(--glass-solid);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-glass);
+}
 
-  .update-row--running {
-    margin-inline: calc(-1 * var(--space-lg));
-    padding-inline: var(--space-lg);
-  }}
+.update-confirm__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--font-heading-size);
+  font-weight: var(--weight-semibold);
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.update-confirm .text-body,
+.update-confirm .text-label {
+  margin: 0;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.update-confirm__actions {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.update-confirm__actions > a.btn,
+.update-confirm__actions > form {
+  flex: 1 1 0;
+  margin: 0;
+}
+
+.update-confirm__actions button[type="submit"] {
+  width: 100%;
+}
 
 /* Renders INSIDE an existing .page-section card, unlike .history-card
  * which sits on the page background — so .data-card carries no fill,
@@ -973,164 +1014,6 @@ a.fleet-retire__link {
   font-size: var(--font-label-size);
   font-weight: var(--weight-semibold);
   text-decoration: none;
-}
-
-/* The version history: a flat list inside the panel, no card of its own. Each
- * row is a status dot, the version over its date line, a status chip and, for
- * an older version, a quiet Revert. */
-.update-hist__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-sm);
-  padding-bottom: var(--space-xs);
-}
-
-.update-hist__title {
-  margin: 0;
-  font-size: var(--font-caption-size);
-  font-weight: var(--weight-semibold);
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
-.update-hist__list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.update-item {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-sm);
-  border-top: 1px solid var(--glass-hairline);
-}
-
-.update-item:first-child {
-  border-top: 0;
-}
-
-.update-item__details {
-  flex: 1;
-  min-width: 0;
-}
-
-.update-item__summary {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-md);
-  min-height: 60px;
-  padding: var(--space-sm) 0;
-  color: var(--color-text);
-  list-style: none;
-}
-
-.update-item__summary::before,
-.update-item__summary::marker {
-  content: none;
-}
-
-.update-item__summary::-webkit-details-marker {
-  display: none;
-}
-
-.update-item__dot {
-  flex: none;
-  width: 10px;
-  height: 10px;
-  margin-top: 8px;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--color-text) 20%, transparent);
-}
-
-.update-item--newest .update-item__dot {
-  background: var(--color-accent);
-}
-
-.update-item--running .update-item__dot {
-  background: var(--color-status-ok);
-}
-
-.update-item__text {
-  flex: 1;
-  min-width: 0;
-}
-
-.update-item__version {
-  display: block;
-  font-size: var(--font-body-size);
-  font-weight: var(--weight-semibold);
-  white-space: nowrap;
-}
-
-.update-item__meta {
-  display: block;
-  font-size: var(--font-caption-size);
-  line-height: 1.5;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
-.update-item__meta time {
-  white-space: nowrap;
-}
-
-.update-item__summary > .banner__pill {
-  margin-top: 4px;
-}
-
-.update-item__chevron {
-  flex: none;
-  margin-top: 6px;
-  transform: rotate(90deg);
-  transition: transform var(--motion-fast) ease;
-}
-
-/* A row without notes keeps the chevron's room so the chips share one edge. */
-.update-item__chevron-space {
-  flex: none;
-  width: 16px;
-}
-
-.update-item__details[open] .update-item__chevron {
-  transform: rotate(-90deg);
-}
-
-.update-item__action {
-  flex: none;
-  margin-top: var(--space-sm);
-}
-
-.update-item__action:empty {
-  display: none;
-}
-
-.update-item__action form {
-  margin: 0;
-}
-
-.update-item__action button[type="submit"] {
-  min-height: 44px;
-  min-width: 44px;
-  padding: 0 var(--space-sm);
-  font-size: var(--font-label-size);
-  font-weight: var(--weight-semibold);
-  white-space: nowrap;
-}
-
-/* Notes are untrusted release text: long unbroken tokens wrap instead of
- * widening the panel. */
-.update-item__notes {
-  margin: 0 0 var(--space-sm);
-  padding: 0 0 0 calc(10px + var(--space-md) + var(--space-md));
-  font-size: var(--font-label-size);
-  line-height: 1.5;
-  overflow-wrap: anywhere;
-}
-
-.update-item__notes li {
-  margin: 0 0 var(--space-xs);
 }
 
 /* A quiet outlined action link in a row (Reassign beside the owner). */
@@ -1855,23 +1738,6 @@ dialog.access-sheet .modal__actions {
   box-sizing: border-box;
   width: 100%;
   margin-inline: 0;
-}
-
-/* Releases: the version list is one glass group of expandable rows. */
-.update-group {
-  container: update-rows / inline-size;
-}
-
-.update-group > li + li {
-  border-top: 1px solid var(--glass-hairline);
-}
-
-.update-group .update-row > summary {
-  padding: var(--space-sm) var(--space-md);
-}
-
-.update-group .update-row__body {
-  padding: 0 var(--space-md) var(--space-md);
 }
 
 /* A System topic's own row already carries the topic's title, so its section

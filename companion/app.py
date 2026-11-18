@@ -310,13 +310,11 @@ _PAGE_SCRIPTS = {
         layout.AIRLINE_TYPES_SCRIPT_SRC,
         layout.PANEL_LOOKUP_SCRIPT_SRC,
     ),
-    # CONFIRM_SUBMIT_SCRIPT_SRC gates the per-release Install form's
-    # data-confirm misclick guard: the script never sets a "confirm"
-    # field of its own, so accepting the native confirm() dialog still
-    # lands on _handle_update_install_post()'s server-side confirm page,
-    # never schedules directly.
+    # UPDATE_QUESTION_SCRIPT_SRC turns the per-release Install form's
+    # data-confirm-* attributes into a question dialog; without it the form
+    # lands on _handle_update_install_post()'s server-side confirm page.
     layout.UPDATE_ROUTE: (
-        layout.CONFIRM_SUBMIT_SCRIPT_SRC,
+        layout.UPDATE_QUESTION_SCRIPT_SRC,
     ),
 }
 
@@ -1351,11 +1349,10 @@ class Handler(
                 firmware_registry.load_registry(self.args.state_dir, hardware_type),
                 firmware_registry.load_device_report(self.args.state_dir),
                 history_db.utc_now_iso())
-            is_bench = any(
-                release.get("version") == version and release.get("bench")
-                for release in confirm_view.get("releases") or [])
+            is_bench, is_rollback = update_page.release_flags(confirm_view, version)
             body = update_page.update_install_confirm_page(
                 ctx, version, next_wake_text, wake_held=wake_held, is_bench=is_bench,
+                rollback=is_rollback,
                 type_choice=update_page.post_choice(self.args.state_dir, hardware_type),
                 back_href=self._update_flash_url(None, hardware_type))
             return self.send_html(200, self._page_shell_for(UPDATE_ROUTE, body, ctx))

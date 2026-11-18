@@ -1,6 +1,6 @@
 """Browser checks for the Update page: its call-to-action card and compact
 version rows at every supported width, and the Install/Cancel action flows: the
-JS `data-confirm` misclick guard versus the no-JS-safe server
+JS question dialog versus the no-JS-safe server
 confirmation gate, the full install -> scheduled -> cancel round
 trip, and the mobile-fit gate for the tab bar's More sheet
 (375px/390px, English/French) plus the >=960px sidebar Advanced group.
@@ -280,6 +280,18 @@ _CLICK_FORM_SUBMIT_PROBE = (
     "}")
 
 
+_QUESTION = "dialog.question-dialog[open]"
+
+
+def _confirm_in_dialog(page):
+    """Click the dialog's primary button (the form posts with confirm=yes and lands on
+    the Fleet page of the frame)."""
+    question = page.locator(_QUESTION)
+    question.wait_for(state="visible")
+    with page.expect_navigation():
+        question.locator("button.btn--primary").click()
+
+
 def _click_install_form_no_js(page):
     with page.expect_navigation():
         result = page.evaluate(_CLICK_FORM_SUBMIT_PROBE, update_page.INSTALL_ROUTE)
@@ -292,8 +304,9 @@ def _click_install_form_no_js(page):
 # ==========================================================================
 
 
-def test_install_lands_on_server_confirm_page_then_schedules(
-        new_context, make_app_server):
+def test_install_asks_in_a_dialog_then_schedules(new_context, make_app_server):
+    """With script the Install click opens one question dialog and schedules nothing; its
+    Cancel closes it with nothing scheduled, and its Install posts the confirmed form"""
     server = make_app_server(seed=_seed_two_releases)
     context = new_context(viewport=VIEWPORT_PHONE)
     try:
@@ -303,17 +316,16 @@ def test_install_lands_on_server_confirm_page_then_schedules(
         page.goto(base_url + FLEET_ROUTE)
 
         _install_submit(page).click()
-        page.wait_for_load_state("networkidle")
-        assert page.url == base_url + update_page.INSTALL_ROUTE, (
-            "expected the Install click to submit the form with no 'confirm' "
-            "field, landing on the server confirm page")
-        assert fr.load_registry(server.state_dir)["schedule"] is None, (
-            "the server confirm page must not have scheduled anything yet")
+        question = page.locator(_QUESTION)
+        question.wait_for(state="visible")
+        assert "Install firmware %s?" % _AVAILABLE_VERSION in question.inner_text()
+        assert page.url.startswith(base_url + FLEET_ROUTE)
+        question.locator("button.btn--secondary").click()
+        question.wait_for(state="detached")
+        assert fr.load_registry(server.state_dir)["schedule"] is None
 
-        page.locator(
-            'form[action="%s"] button[type="submit"]' % update_page.INSTALL_ROUTE
-        ).click()
-        page.wait_for_load_state("networkidle")
+        _install_submit(page).click()
+        _confirm_in_dialog(page)
         assert page.url == base_url + "/fleet?frame=live"
         registry = fr.load_registry(server.state_dir)
         assert registry["schedule"]["state"] == "scheduled"
@@ -331,7 +343,7 @@ def test_no_js_install_goes_straight_to_confirm_page_and_completes(
         _click_install_form_no_js(page)
         assert page.url == base_url + update_page.INSTALL_ROUTE, (
             "with scripts blocked, the Install click submits the form "
-            "directly to the confirm page (no data-confirm handler ran)")
+            "directly to the confirm page (no question dialog ran)")
         assert fr.load_registry(server.state_dir)["schedule"] is None
 
         _click_install_form_no_js(page)
@@ -352,11 +364,7 @@ def test_full_flow_install_then_scheduled_then_cancel_returns_to_available(
         page.goto(base_url + FLEET_ROUTE)
 
         _install_submit(page).click()
-        page.wait_for_load_state("networkidle")
-        page.locator(
-            'form[action="%s"] button[type="submit"]' % update_page.INSTALL_ROUTE
-        ).click()
-        page.wait_for_load_state("networkidle")
+        _confirm_in_dialog(page)
 
         cancel_form = page.locator('form[action="%s"]' % update_page.CANCEL_ROUTE)
         assert cancel_form.count() == 1
@@ -509,11 +517,11 @@ def test_version_rows_fit_at_phone_widths_with_no_overflow(
                     "row %d action is %r tall at %s" % (index, button_box["height"], where))
                 assert button_box["x"] + button_box["width"] <= viewport["width"] + 0.5
 
-        install_button = page.locator(".update-offer form button[type=submit]")
+        install_button = page.locator(".update-cta form button[type=submit]")
         box = install_button.bounding_box()
         assert box is not None and install_button.is_enabled()
         assert box["x"] >= -0.5 and box["x"] + box["width"] <= viewport["width"] + 0.5
-        _assert_hit_target(page, ".update-offer form button[type=submit]", where)
+        _assert_hit_target(page, ".update-cta form button[type=submit]", where)
     finally:
         context.close()
 
@@ -541,9 +549,9 @@ def test_running_row_and_its_notes_work_at_phone_and_desktop_widths(
         _reveal(page, "versions")
         where = "%dpx/%s" % (viewport["width"], lang)
 
-        installed = {"en": "installed", "fr": "installée"}[lang]
+        installed = {"en": "running", "fr": "en cours"}[lang]
         badge = page.locator("li.update-item--running .banner__pill:visible")
-        assert badge.count() == 1, "expected one visible Installed chip at %s" % where
+        assert badge.count() == 1, "expected one visible Running chip at %s" % where
         assert badge.inner_text().strip().lower() == installed
         assert page.locator("li.update-item .banner__pill--ok").count() == 1
         row = page.locator("li.update-item--running")
@@ -566,7 +574,7 @@ def test_running_row_and_its_notes_work_at_phone_and_desktop_widths(
         assert list_box["x"] >= -0.5 and list_box["x"] + list_box["width"] <= viewport["width"] + 0.5
         assert row.locator("time").count() >= 1
         assert _page_has_no_horizontal_overflow(page), "overflow at %s" % where
-        install_button = page.locator(".update-offer form button[type=submit]")
+        install_button = page.locator(".update-cta form button[type=submit]")
         install_box = install_button.bounding_box()
         assert install_box is not None and install_button.is_enabled()
         assert install_box["x"] + install_box["width"] <= viewport["width"] + 0.5
@@ -586,8 +594,8 @@ def test_card_and_eligible_releases_at_every_width(
     """At 1280, 390 and 360px in English and French, with a bench build published beside
     real releases: the call-to-action card offers the newer release by name once, the bench
     version is nowhere on the page, nothing overflows, the eligible Install button is a
-    full-size target with a visible focus ring, and activating it reaches the server
-    confirmation page whose Cancel link returns to Update with nothing scheduled.
+    full-size target with a visible focus ring, and activating it asks the question in a dialog
+    whose Cancel leaves nothing scheduled.
     """
     server = make_app_server(seed=_seed_running_bench_and_newer)
     context = new_context(viewport=viewport)
@@ -601,9 +609,9 @@ def test_card_and_eligible_releases_at_every_width(
         _reveal(page, "device")
         where = "%dpx/%s" % (viewport["width"], lang)
 
-        card = page.locator("section.update-offer")
+        card = page.locator("section.update-cta")
         assert card.count() == 1 and card.is_visible()
-        assert page.locator(".update-sum .banner__pill").inner_text() == (
+        assert card.locator("h2").inner_text() == (
             "Update available" if lang == "en" else "Mise à jour disponible")
         assert _AVAILABLE_VERSION in card.inner_text()
         assert card.locator("time").count() >= 1, "relative dates at %s" % where
@@ -612,7 +620,7 @@ def test_card_and_eligible_releases_at_every_width(
         assert page.locator('input[name="version"][value="%s"]' % _BENCH_VERSION).count() == 0
         assert _page_has_no_horizontal_overflow(page), "overflow at %s" % where
 
-        selector = ".update-offer form button[type=submit]"
+        selector = ".update-cta form button[type=submit]"
         install = page.locator(selector)
         _assert_hit_target(page, selector, where)
         # A key press first: after the pointer opened the dialog, a script focus alone does
@@ -624,15 +632,17 @@ def test_card_and_eligible_releases_at_every_width(
             " return [s.outlineStyle, parseFloat(s.outlineWidth)]; }")
         assert outline[0] != "none" and outline[1] >= 2, "no focus ring at %s: %r" % (where, outline)
 
-        with page.expect_navigation():
-            install.click()
-        assert update_page.INSTALL_ROUTE in page.url
-        cancel = page.locator('main a[href="%s"]' % FLEET_FRAME_HREF)
-        with page.expect_navigation():
-            cancel.click()
-        assert page.url.endswith(FLEET_FRAME_HREF)
+        install.click()
+        question = page.locator(_QUESTION)
+        question.wait_for(state="visible")
+        assert _AVAILABLE_VERSION in question.inner_text()
+        for button in question.locator("button").all():
+            assert button.bounding_box()["height"] >= 44 - 0.5, where
+        question.locator("button.btn--secondary").click()
+        question.wait_for(state="detached")
         assert page.locator('form[action="%s"]' % update_page.CANCEL_ROUTE).count() == 0, (
-            "cancelling at the confirmation page must leave nothing scheduled at %s" % where)
+            "cancelling the question must leave nothing scheduled at %s" % where)
+        assert fr.load_registry(server.state_dir)["schedule"] is None
     finally:
         context.close()
 
@@ -668,7 +678,6 @@ def test_twelve_releases_fit_at_every_width_with_unbroken_versions_and_full_targ
 
         rows = page.locator("li.update-item")
         assert rows.count() == 12, "the full history must be listed at %s" % where
-        assert page.locator(".update-hist__head .banner__pill").inner_text().strip() == "12"
         assert _page_has_no_horizontal_overflow(page), "overflow at %s" % where
 
         wrapped = page.evaluate(_WRAPPED_VERSION_PROBE)
@@ -710,7 +719,7 @@ def test_older_release_rollback_button_is_quiet_and_only_the_update_card_uses_th
         accent = page.evaluate(_ACCENT_PROBE)
 
         _reveal(page, "device")
-        primary = page.locator(".update-offer form button[type=submit]")
+        primary = page.locator(".update-cta form button[type=submit]")
         assert primary.inner_text() == "Installer %s" % _MANY_NEWEST
         assert _background(primary) == accent
         _dismiss(page)
@@ -912,12 +921,8 @@ def test_switching_type_shows_that_types_schedule_and_scheduling_is_independent(
         assert page.locator(_CHOOSER + ' button[aria-pressed="true"]').inner_text() == other_label
         assert page.locator("section.update-cta").inner_text().count(_OTHER_AVAILABLE_VERSION) >= 1
 
-        page.once("dialog", lambda dialog: dialog.accept())
         _install_submit(page).click()
-        page.wait_for_load_state("networkidle")
-        page.locator(
-            'form[action="%s"] button[type="submit"]' % update_page.INSTALL_ROUTE).click()
-        page.wait_for_load_state("networkidle")
+        _confirm_in_dialog(page)
         assert _OTHER_TYPE in page.url
         other = fr.load_registry(server.state_dir, _OTHER_TYPE)
         assert other["schedule"]["version"] == _OTHER_AVAILABLE_VERSION
@@ -932,7 +937,7 @@ def test_switching_type_shows_that_types_schedule_and_scheduling_is_independent(
         assert page.url.startswith(base_url + FLEET_ROUTE)
         assert page.locator(_CHOOSER).count() == 0
         assert page.locator('form[action="%s"]' % update_page.CANCEL_ROUTE).count() == 0
-        assert page.locator("section.update-offer, section.update-cta").inner_text().count(_AVAILABLE_VERSION) >= 1
+        assert page.locator("section.update-cta").inner_text().count(_AVAILABLE_VERSION) >= 1
     finally:
         context.close()
 

@@ -55,12 +55,15 @@ _FLEET = """() => {
   const bad = [];
   const blocks = [...document.querySelectorAll('section.fleet-block')];
   blocks.forEach((s) => {
+    // The Device and version block is the one block of cards: its update card and its
+    // version list are the cards of the approved Update design.
+    const ownCards = s.classList.contains('fleet-block--device');
     const label = s.querySelector(':scope > h2.section-label');
     const groups = s.querySelectorAll(':scope > ul.group');
     if (!label) bad.push('no label');
     if (groups.length !== 1) bad.push('groups: ' + groups.length);
     if (s.querySelectorAll('.group .group').length) bad.push('nested group');
-    const inner = [...s.querySelectorAll('.group *')].filter((e) => {
+    const inner = ownCards ? [] : [...s.querySelectorAll('.group *')].filter((e) => {
       const c = getComputedStyle(e);
       return e.checkVisibility() && c.boxShadow !== 'none' && !e.closest('.switch, .dirty-bar, details.row-menu')
         && c.borderRadius !== '0px' && c.backgroundColor !== 'rgba(0, 0, 0, 0)'
@@ -68,8 +71,8 @@ _FLEET = """() => {
     }).map((e) => e.className);
     if (inner.length) bad.push('card surface inside a group: ' + inner.slice(0, 3));
   });
-  const summary = document.querySelector('.fleet-block--device .update-sum');
-  if (!summary || !summary.checkVisibility()) bad.push('no firmware summary');
+  const card = document.querySelector('.fleet-block--device .update-cta');
+  if (!card || !card.checkVisibility()) bad.push('no firmware card');
   return {bad: bad, count: blocks.length};
 }"""
 
