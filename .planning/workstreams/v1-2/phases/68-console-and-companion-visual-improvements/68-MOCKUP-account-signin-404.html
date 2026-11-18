@@ -227,6 +227,7 @@ details.rd summary{min-height:48px;display:flex;align-items:center;padding:0 16p
 .arow.kv{justify-content:space-between}.arow.link{min-height:64px}.arow.link .ic{color:var(--muted);flex:none}
 .arow.add{font-weight:600;color:var(--text)}
 .arow.add .ic{width:32px;height:32px;padding:6px;border-radius:12px;background:var(--accent);color:var(--on-accent);stroke:var(--on-accent);background:var(--accent)}
+.arow.pref{flex-wrap:wrap}.arow.pref .seg{flex:none}
 .thumb{flex:none;width:30px;height:40px;border:3px solid var(--text);border-radius:6px}
 .iconbtn{flex:none;display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:14px;border:1px solid var(--border);background:var(--card);color:var(--text)}
 .lnk{display:inline-flex;align-items:center;min-height:44px;font-weight:600;text-decoration:underline;text-underline-offset:3px;flex-basis:100%}
@@ -266,6 +267,8 @@ details.rd summary{min-height:48px;display:flex;align-items:center;padding:0 16p
   <symbol id="i-down" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5"/></symbol>
   <symbol id="i-chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
   <symbol id="i-down2" viewBox="0 0 24 24"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></symbol>
+  <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M16 7l3 3M14 9l2 2"/></symbol>
+  <symbol id="i-out" viewBox="0 0 24 24"><path d="M10 4H5v16h5M15 8l4 4-4 4M19 12H9"/></symbol>
   <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 7L4 12l5 5M4 12h11a5 5 0 0 1 0 10h-3"/></symbol>
 </svg>
 <div class="top">
@@ -283,7 +286,7 @@ details.rd summary{min-height:48px;display:flex;align-items:center;padding:0 16p
     en:{tabs:['Home','Flights','Airlines','Style','Location','Account'],side:['Home','Flights','Airlines','Style','Location'],space:['Console','My frames'],
       acct:'Account',acctsub:'Your SkyPane sign-in and preferences.',frames:'My frames',owner:'Owner',co:'Co-manager',seen:'Seen just now',seen2:'Seen 3 h ago',
       manage:'Manage access',leave:'Leave frame',add:'Add a frame',ident:'Identity',email:'Email',role:'Role',user:'User',adm:'Administrator',about:'About',credits:'Credits',creditsSub:'Data sources and licences',
-      lang:'Language',hw:'XIAO ePaper EE02 13.3in',by:'Shared by marie@example.test',
+      lang:'Language',prefs:'Preferences',langHint:'The language of the companion pages.',theme:'Theme',themeHint:'Light, dark, or follow the system.',themes:['Auto','Light','Dark'],signout:'Sign out',hw:'XIAO ePaper EE02 13.3in',by:'Shared by marie@example.test',
       today:'Today',prop:'Proposed',
       cT:'Credits',cI:'SkyPane shows live flights thanks to these open data sources.',back:'Back to Account',
       lg1:'Sign in to manage your SkyPane frames.',lgBtn:'Sign in',first:'First visit? Use the email address you were invited with.',lgCred:'Credits',
@@ -291,7 +294,7 @@ details.rd summary{min-height:48px;display:flex;align-items:center;padding:0 16p
     fr:{tabs:['Accueil','Vols','Airlines','Style','Lieu','Compte'],side:['Accueil','Vols','Airlines','Style','Lieu'],space:['Console','Mes cadres'],
       acct:'Compte',acctsub:'Votre connexion SkyPane et vos préférences.',frames:'Mes cadres',owner:'Propriétaire',co:'Cogestionnaire',seen:'Vu à l’instant',seen2:'Vu il y a 3 h',
       manage:'Gérer l’accès',leave:'Quitter le cadre',add:'Ajouter un cadre',ident:'Identité',email:'E-mail',role:'Rôle',user:'Utilisateur',adm:'Administrateur',about:'À propos',credits:'Crédits',creditsSub:'Sources de données et licences',
-      lang:'Langue',hw:'XIAO ePaper EE02 13.3in',by:'Partagé par marie@example.test',
+      lang:'Langue',prefs:'Préférences',langHint:'La langue des pages du compagnon.',theme:'Thème',themeHint:'Clair, sombre, ou suivre le système.',themes:['Auto','Clair','Sombre'],signout:'Se déconnecter',hw:'XIAO ePaper EE02 13.3in',by:'Partagé par marie@example.test',
       today:'Aujourd’hui',prop:'Proposé',
       cT:'Crédits',cI:'SkyPane affiche les vols en direct grâce à ces sources de données ouvertes.',back:'Retour au compte',
       lg1:'Connectez-vous pour gérer vos cadres SkyPane.',lgBtn:'Se connecter',first:'Première visite ? Utilisez l’adresse e-mail avec laquelle on vous a invité.',lgCred:'Crédits',
@@ -316,7 +319,7 @@ details.rd summary{min-height:48px;display:flex;align-items:center;padding:0 16p
     var pill='<span class="chipv" style="margin-left:6px">'+(o.shared?t.co:t.owner)+'</span>';
     var line=o.hw?'<small class="ln">'+t.hw+'</small>':(o.shared?'<small class="ln">'+t.by+'</small>':'');
     var seen='<small class="ln st">'+dot(o.dot||'',o.seen)+o.seen+'</small>';
-    var act=o.today?'':'<a class="iconbtn" href="#" aria-label="'+(o.shared?t.leave:t.manage)+'">'+ic(o.shared?'x':'team')+'</a>';
+    var act=o.today?'':'<a class="iconbtn" href="#" aria-label="'+(o.shared?t.leave:t.manage)+'">'+ic(o.shared?'out':'key')+'</a>';
     var todayAct=o.today?'<a class="lnk" href="#">'+(o.shared?t.leave:t.manage)+'</a>':'';
     return '<div class="arow'+(o.today?' tall':'')+'"><span class="thumb"></span><span class="who"><b>'+o.name+'</b>'+pill+line+seen+todayAct+'</span>'+act+'</div>';
   }
@@ -330,8 +333,11 @@ details.rd summary{min-height:48px;display:flex;align-items:center;padding:0 16p
     var h='<div class="pagehead"><h3 class="title">'+t.acct+'</h3><span class="sub">'+t.acctsub+'</span></div>';
     var id='<div><p class="label">'+t.ident+'</p>'+group(kv(t.email,o.admin?'admin@example.test':'user-a@example.test')+kv(t.role,o.admin?t.adm:t.user))+'</div>';
     var about=o.today?'':'<div><p class="label">'+t.about+'</p>'+group('<div class="arow link"><span class="who"><b>'+t.credits+'</b><small class="ln">'+t.creditsSub+'</small></span>'+ic('chev')+'</div>')+'</div>';
-    var pref='<div><p class="label">'+t.lang+'</p>'+group('<div class="arow kv"><span>'+t.lang+'</span><span class="sub">English</span></div>')+'</div>';
-    return h+framesCard(t,o.today,o.admin)+id+pref+about;
+    function seg(a,on){return '<div class="seg">'+a.map(function(x,i){return '<button type="button" aria-pressed="'+(i===on)+'">'+x+'</button>';}).join('')+'</div>';}
+    function prow(l,hint,c){return '<div class="arow pref"><span class="who"><b>'+l+'</b><small class="ln">'+hint+'</small></span>'+c+'</div>';}
+    var pref='<div><p class="label">'+t.prefs+'</p>'+group(prow(t.lang,t.langHint,seg(['English','Français'],t===S.fr?1:0))+prow(t.theme,t.themeHint,seg(t.themes,0)))+'</div>';
+    var out='<div>'+group('<div class="arow link"><b style="color:var(--bad,#b42318)">'+t.signout+'</b></div>')+'</div>';
+    return h+framesCard(t,o.today,o.admin)+id+pref+about+out;
   }
   function creditsPage(t){
     return '<div class="pagehead"><a class="backl" href="#">'+ic('chev').replace('<svg','<svg style="transform:rotate(180deg)"')+t.back+'</a><h3 class="title">'+t.cT+'</h3><span class="sub">'+t.cI+'</span></div>'+
