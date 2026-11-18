@@ -195,6 +195,8 @@ details.rd summary{min-height:48px;display:flex;align-items:center;padding:0 16p
 .cta .ver{font-family:ui-monospace,Menlo,monospace;font-size:18px;font-weight:600}
 .ctar{display:flex;gap:16px;align-items:center;justify-content:space-between}.ctal{display:flex;flex-direction:column;gap:8px;min-width:0}.ctar .btn{flex:none}
 [data-viewport="phone"] .ctar{flex-direction:column;align-items:stretch}
+.clamp{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.notes li{overflow-wrap:anywhere}
 .cta small{color:var(--muted);font-size:14px}
 .cta .foot{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;border-top:1px solid var(--border);padding-top:12px;font-size:14px;color:var(--muted)}
 .vlist .vr{display:flex;align-items:center;gap:12px;min-height:60px;padding:8px 16px;border-top:1px solid var(--border)}
@@ -254,23 +256,23 @@ details.rd summary{min-height:48px;display:flex;align-items:center;padding:0 16p
   function nb(s){return s.replace(/ ([:;?!»])/g,' $1').replace(/« /g,'« ');}
   var S={
     en:{back:'Back to Salon',title:'Versions',forhw:'For XIAO ePaper EE02 13.3in Spectra 6',
-      avail:'Update available',relago:'Released 2 days ago',note1:'Faster wake after quiet hours',install:'Install v1.4.3',onframe:'On the frame: v1.4.2',
+      avail:'Update available',relago:'Released 2 days ago',note1:'Faster wake after quiet hours, fixes the battery percentage shown on a full charge, and keeps the previous picture on screen when the server is unreachable during the night',install:'Install v1.4.3',onframe:'On the frame: v1.4.2',
       sched:'Update scheduled',schedb:'v1.4.3 installs at the next wake, around 14:20.',cancelU:'Cancel update',
       hist:'Versions',newest:'Newest',running:'Running',installed:'Installed',rb:'Roll back',notes:function(n){return 'Notes ('+n+')';},
       cT:'Install firmware v1.4.3?',cB:'The frame will download and install this version at its next wake, around 14:20. It keeps the update after one successful check-in, otherwise it rolls back automatically.',cGo:'Install',cNo:'Cancel',
       rT:'Roll back to v1.4.1?',rB:'The frame goes back to v1.4.1 at its next wake, around 14:20. Its settings are kept.',rGo:'Roll back',
       toast:'Firmware rolled back: the update to v1.4.3 failed on trial boot; the frame is back on v1.4.2.',
       tabs:['Fleet','Team','Editor','Journal','More'],nav:['Fleet','Users','Editor','Audit log'],account:'Account',space:['Console','My frames'],adminl:'Administration',signout:'Sign out',
-      n1:['Faster wake after quiet hours','Fixes the battery percentage on a full charge'],n2:['Battery reading fix'],n3:['Quieter retired screen']},
+      n1:['Faster wake after quiet hours, fixes the battery percentage shown on a full charge, and keeps the previous picture on screen when the server is unreachable during the night','Fixes the battery percentage on a full charge'],n2:['Battery reading fix'],n3:['Quieter retired screen']},
     fr:{back:'Retour à Salon',title:'Versions',forhw:'Pour XIAO ePaper EE02 13.3in Spectra 6',
-      avail:'Mise à jour disponible',relago:'Publiée il y a 2 jours',note1:'Réveil plus rapide après les heures calmes',install:'Installer v1.4.3',onframe:'Sur le cadre : v1.4.2',
+      avail:'Mise à jour disponible',relago:'Publiée il y a 2 jours',note1:'Réveil plus rapide après les heures calmes, corrige le pourcentage de batterie affiché à pleine charge et garde l’image précédente à l’écran quand le serveur est injoignable la nuit',install:'Installer v1.4.3',onframe:'Sur le cadre : v1.4.2',
       sched:'Mise à jour programmée',schedb:'v1.4.3 s’installera au prochain réveil, vers 14:20.',cancelU:'Annuler la mise à jour',
       hist:'Versions',newest:'La plus récente',running:'En cours',installed:'Installée',rb:'Revenir',notes:function(n){return 'Notes ('+n+')';},
       cT:'Installer le micrologiciel v1.4.3 ?',cB:'Le cadre téléchargera et installera cette version à son prochain réveil, vers 14:20. Il la garde après une connexion réussie, sinon il revient automatiquement en arrière.',cGo:'Installer',cNo:'Annuler',
       rT:'Revenir à v1.4.1 ?',rB:'Le cadre revient à v1.4.1 à son prochain réveil, vers 14:20. Ses réglages sont conservés.',rGo:'Revenir',
       toast:'Micrologiciel annulé : la mise à jour vers v1.4.3 a échoué au démarrage d’essai ; le cadre est revenu à v1.4.2.',
       tabs:['Flotte','Équipe','Éditeur','Journal','Plus'],nav:['Flotte','Utilisateurs','Éditeur','Journal d’audit'],account:'Compte',space:['Console','Mes cadres'],adminl:'Administration',signout:'Se déconnecter',
-      n1:['Réveil plus rapide après les heures calmes','Corrige le pourcentage de batterie à pleine charge'],n2:['Correction de la lecture de batterie'],n3:['Écran retiré plus discret']}
+      n1:['Réveil plus rapide après les heures calmes, corrige le pourcentage de batterie affiché à pleine charge et garde l’image précédente à l’écran quand le serveur est injoignable la nuit','Corrige le pourcentage de batterie à pleine charge'],n2:['Correction de la lecture de batterie'],n3:['Écran retiré plus discret']}
   };
   Object.keys(S.fr).forEach(function(k){var v=S.fr[k];if(typeof v==='string')S.fr[k]=nb(v);else if(Array.isArray(v))S.fr[k]=v.map(nb);});
   function ic(n){return '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-'+n+'"/></svg>';}
@@ -286,7 +288,7 @@ details.rd summary{min-height:48px;display:flex;align-items:center;padding:0 16p
   }
   function ctaCard(t,state){
     if(state==='sched')return '<div class="card cta"><div class="ctar"><div class="ctal"><span class="big">'+ic('clock')+t.sched+'</span><small>'+t.schedb+'</small></div><a class="btn" href="#">'+t.cancelU+'</a></div></div>';
-    return '<div class="card cta"><div class="ctar"><div class="ctal"><span class="big">'+ic('down2')+t.avail+'</span><div><span class="ver">v1.4.3</span> <small>\u00b7 '+t.relago+'</small></div><small>'+t.note1+'</small></div><a class="btn dark" href="#">'+t.install+'</a></div></div>';
+    return '<div class="card cta"><div class="ctar"><div class="ctal"><span class="big">'+ic('down2')+t.avail+'</span><div><span class="ver">v1.4.3</span> <small>\u00b7 '+t.relago+'</small></div><small class="clamp">'+t.note1+'</small></div><a class="btn dark" href="#">'+t.install+'</a></div></div>';
   }
   function versions(t,state){
     function dot(c){return '<span class="dot'+(c?' '+c:'')+'"></span>';}
