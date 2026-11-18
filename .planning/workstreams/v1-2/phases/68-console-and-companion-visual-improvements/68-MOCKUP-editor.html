@@ -191,6 +191,11 @@ details.rd summary{min-height:48px;display:flex;align-items:center;padding:0 16p
 [data-viewport="phone"] .urow{flex-wrap:wrap;row-gap:4px}
 [data-viewport="phone"] .urow .who{flex:1 1 calc(100% - 70px)}
 [data-viewport="phone"] .urow>.tlink,[data-viewport="phone"] .urow>.btn{margin-left:auto}
+[data-viewport="phone"] .urow.nw{flex-wrap:nowrap}
+[data-viewport="phone"] .urow.nw .who{flex:1 1 0}
+[data-viewport="phone"] .trow{flex-wrap:wrap;row-gap:6px}
+[data-viewport="phone"] .trow .who{flex:1 1 calc(100% - 110px)}
+[data-viewport="phone"] .trow>.btn.quiet{margin-left:auto}
 .tlink{display:inline-flex;align-items:center;min-height:44px;padding:0 6px;font-size:14px;font-weight:600;color:var(--muted);text-decoration:underline;text-underline-offset:3px}
 .urow2{display:flex;align-items:center;gap:12px;min-height:64px;padding:8px 14px;border-top:1px solid var(--border)}
 .urow2:first-child{border-top:0}
@@ -289,7 +294,7 @@ select.sel{min-height:44px;border:1px solid var(--border);border-radius:14px;bac
       f:['All','Unidentified','Known by name only','No artwork','Seen','Not seen yet'],
       unid:'Unidentified',unidh:'Prefixes seen on flights with no airline name yet.',seen:function(n,d){return (n===1?'Seen once':'Seen '+n+'×')+' · '+d;},complete:'Complete',
       nameph:'Airline name',typeph:'Aircraft type',validate:'Validate',cancel:'Cancel',save:'Save',
-      byname:'Known by name only',bynameh:'The name is known; there is no artwork yet.',noart:'No artwork',addart:'Add the first artwork',addT:'Add the first artwork for Turkish Airlines',addH:'Choose the aircraft type this artwork is for. It becomes the airline’s default type.',choose:'Choose an image',
+      byname:'Known by name only',bynameh:'The name is known; there is no artwork yet.',noart:'No artwork',addart:'Add the first artwork',addshort:'Artwork',addT:'Add the first artwork for Turkish Airlines',addH:'Choose the aircraft type this artwork is for. It becomes the airline’s default type.',choose:'Choose an image',
       airlines:'Airlines',colA:'Airline',colP:'Prefixes',colI:'Artwork',colV:'Views',colL:'Last seen',views:function(n){return n+' views';},never:'Not seen yet',
       mrename:'Rename',mchange:'Change artwork',mrevert:'Back to the default',mdel:'Delete the illustration',mdef:'Set as default type',mreset:'Reset to the original name',
       types:'Aircraft types seen',usesair:'Uses the airline’s artwork',own:'Own artwork',defpill:'Default type',renameT:'Rename the airline',renameH:'The new name replaces the original on the companion and on the frame.',
@@ -299,7 +304,7 @@ select.sel{min-height:44px;border:1px solid var(--border);border-radius:14px;bac
       f:['Toutes','Non identifiées','Connues par leur nom','Sans illustration','Vues','Pas encore vues'],
       unid:'Non identifiées',unidh:'Indicatifs vus sur des vols, sans nom de compagnie pour l’instant.',seen:function(n,d){return (n===1?'Vue une fois':'Vue '+n+'×')+' · '+d;},complete:'Compléter',
       nameph:'Nom de la compagnie',typeph:'Type d’avion',validate:'Valider',cancel:'Annuler',save:'Enregistrer',
-      byname:'Connues par leur nom seulement',bynameh:'Le nom est connu ; il n’y a pas encore d’illustration.',noart:'Sans illustration',addart:'Ajouter la première illustration',addT:'Ajouter la première illustration pour Turkish Airlines',addH:'Choisissez le type d’avion concerné. Il devient le type par défaut de la compagnie.',choose:'Choisir une image',
+      byname:'Connues par leur nom seulement',bynameh:'Le nom est connu ; il n’y a pas encore d’illustration.',noart:'Sans illustration',addart:'Ajouter la première illustration',addshort:'Illustration',addT:'Ajouter la première illustration pour Turkish Airlines',addH:'Choisissez le type d’avion concerné. Il devient le type par défaut de la compagnie.',choose:'Choisir une image',
       airlines:'Compagnies',colA:'Compagnie',colP:'Préfixes',colI:'Illustration',colV:'Vues',colL:'Dernière vue',views:function(n){return n+' vues';},never:'Pas encore vue',
       mrename:'Renommer',mchange:'Changer l’illustration',mrevert:'Revenir à celle par défaut',mdel:'Supprimer l’illustration',mdef:'Définir comme type par défaut',mreset:'Rétablir le nom d’origine',
       types:'Types d’avion vus',usesair:'Utilise l’illustration de la compagnie',own:'Illustration propre',defpill:'Type par défaut',renameT:'Renommer la compagnie',renameH:'Le nouveau nom remplace le nom d’origine dans le companion et sur le cadre.',
@@ -354,10 +359,10 @@ select.sel{min-height:44px;border:1px solid var(--border);border-radius:14px;bac
     return '<div><p class="label">'+t.unid+' · 3</p><div class="card">'+r1+r2+r3+'</div></div>';
   }
   function bynameBlock(t){
-    return '<div><p class="label">'+t.byname+' · 4</p><div class="card">'+BYNAME.map(function(b){return '<div class="urow"><span class="who"><b>'+b[0]+'</b><small class="mono">'+b[1]+'</small></span><a class="btn" href="#" style="min-height:40px">'+ic('plus')+t.addart+'</a></div>';}).join('')+'</div></div>';
+    return '<div><p class="label">'+t.byname+' · 4</p><div class="card">'+BYNAME.map(function(b){return '<div class="urow nw"><span class="who"><b>'+b[0]+'</b><small class="mono">'+b[1]+'</small></span><a class="btn" href="#" style="min-height:40px" aria-label="'+t.addart+'" title="'+t.addart+'">'+ic('plus')+t.addshort+'</a></div>';}).join('')+'</div></div>';
   }
   function typesPanel(t,openMenu){
-    function tr(n,note,c,pill,btn,withMenu,own){return '<div class="trow" style="position:relative">'+(c?thumb(c):thumb(null))+'<span class="who"><b>'+n+'</b><small>'+note+'</small></span>'+(pill?'<span class="pill">'+t.defpill+'</span>':'')+'<a class="btn quiet" href="#" style="min-height:40px;font-weight:500">'+btn+'</a><span class="btn sq" style="border:0;background:none" aria-label="'+t.menuT+'">'+ic('more')+'</span>'+(withMenu?typeMenu(t):'')+'</div>';}
+    function tr(n,note,c,pill,btn,withMenu,own){return '<div class="trow" style="position:relative">'+(c?thumb(c):thumb(null))+'<span class="who"><b>'+n+'</b>'+(pill?' <span class="pill" style="margin-left:6px">'+t.defpill+'</span>':'')+'<small>'+note+'</small></span>'+'<a class="btn quiet" href="#" style="min-height:40px;font-weight:500">'+btn+'</a><span class="btn sq" style="border:0;background:none" aria-label="'+t.menuT+'">'+ic('more')+'</span>'+(withMenu?typeMenu(t):'')+'</div>';}
     return '<div class="types">'+tr('A320',t.own,'#1F3A8A',true,t.mchange,false)+tr('A321',t.usesdef,'#1F3A8A',false,t.addtart,false)+tr('A220-300',t.own,'#1F3A8A',false,t.mchange,openMenu)+tr('B777-300ER',t.usesdef,'#1F3A8A',false,t.addtart,false)+'</div>';
   }
   function menu(t){
@@ -379,7 +384,7 @@ select.sel{min-height:44px;border:1px solid var(--border);border-radius:14px;bac
   function phoneRows(t,withExp){
     return '<div><p class="label">'+t.airlines+' · 36</p><div class="card">'+AIR.map(function(a,i){
       var meta=a[1]+' · '+(a[5]||'—')+' · '+(a[3]?t.views(a[3]):t.never);
-      var r='<div class="urow">'+thumb(a[2])+'<span class="who"><b>'+a[0]+'</b><small class="mono">'+meta+'</small></span><span class="btn sq" style="border:0;background:none" aria-label="'+t.openmenu+'">'+ic('more')+'</span></div>';
+      var r='<div class="urow nw">'+thumb(a[2])+'<span class="who"><b>'+a[0]+'</b><small class="mono">'+meta+'</small></span><span class="btn sq" style="border:0;background:none" aria-label="'+t.openmenu+'">'+ic('more')+'</span></div>';
       if(i===0&&withExp)r+='<div style="padding:8px 12px 12px;background:var(--chip);display:flex;flex-direction:column;gap:8px"><p class="label" style="margin:0 4px">'+t.types+'</p><div style="display:flex;flex-direction:column;gap:8px">'+typesPanel(t).replace('class="types"','class="types" style="grid-template-columns:1fr"')+'</div></div>';
       return r;
     }).join('')+'</div></div>';
