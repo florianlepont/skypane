@@ -20,7 +20,7 @@ opening of the mat (140 x 99 mm today), not on the active area of the screen.
 | Provider | The owner's workplace (own access, no print service) | decided by the owner | 2026-11-18 |
 | Material | PETG; any colour (changed by the owner on 2026-11-18; the previous proposal was black) | decided by the owner | 2026-11-18 |
 | Nozzle | 0.4 mm, or another if needed | decided by the owner | 2026-11-18 |
-| Filament brand | Not stated yet; record when known | open | |
+| Filament brand | Bambu Lab filament (reference to confirm when known) | decided by the owner | 2026-11-18 |
 | Build plate | Not stated yet; record when known | open | |
 | Lid fixing | M2 self-tapping screws, pilot holes 1.7 mm, through holes 2.4 mm (design values, not measured). Heat-set inserts are a fallback if the printed threads wear. | decided by the owner | 2026-11-18 |
 | Slicer | Bambu Studio (planned, to confirm) | open | |
