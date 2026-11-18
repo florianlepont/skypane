@@ -204,6 +204,15 @@ details.rd summary{min-height:48px;display:flex;align-items:center;padding:0 16p
 .dlg .row{display:flex;gap:10px}
 .dlg .row .btn{flex:1}
 .dlg p{margin:0;color:var(--muted);font-size:15px}
+.sheet{position:absolute;left:0;right:0;bottom:0;z-index:21;background:var(--card);border-radius:28px 28px 0 0;padding:12px 16px 24px;display:flex;flex-direction:column;gap:14px;max-height:85%}
+.sheet .grab{width:44px;height:5px;border-radius:5px;background:var(--border);margin:0 auto 2px}
+.sheet h4{margin:0;font-size:20px}
+.sheet .row{display:flex;gap:10px}.sheet .row .btn{flex:1}
+.sheet p{margin:0;color:var(--muted);font-size:15px}
+[data-viewport="phone"] .dlgd{display:none}
+[data-viewport="desktop"] .sheetd{display:none}
+.mfield{display:flex;flex-direction:column;gap:6px}
+.mfield>span{font-size:14px;font-weight:600}
 .segc{display:flex;gap:4px;padding:4px;border-radius:14px;background:var(--chip)}
 .segc span{flex:1;text-align:center;min-height:40px;display:flex;align-items:center;justify-content:center;border-radius:10px;font-size:14px;font-weight:600;color:var(--muted)}
 .segc span.on{background:var(--accent);color:var(--on-accent)}
@@ -315,11 +324,12 @@ details.rd summary{min-height:48px;display:flex;align-items:center;padding:0 16p
     if(vp==='phone')return phoneShell(t,head+body,o.overlay);
     return sidebar(t)+'<div class="main" style="left:240px"><div style="max-width:1100px;display:flex;flex-direction:column;gap:14px">'+head+body+'</div></div>'+(o.overlay||'');
   }
-  function invDlg(t){return '<div class="scrim"></div><div class="dlg dtop" role="dialog" aria-label="'+t.invT+'"><h4>'+t.invT+'</h4><label class="field" style="min-height:52px"><input type="email" placeholder="'+t.email+'" aria-label="'+t.email+'" autofocus></label><div class="segc" role="group" aria-label="'+t.role+'"><span class="on">'+t.user+'</span><span>'+t.admin+'</span></div><div class="row"><a class="btn" href="#">'+t.cancel+'</a><a class="btn dark" href="#">'+t.invGo+'</a></div></div>';}
-  function resDlg(t){return '<div class="scrim"></div><div class="dlg dtop" role="dialog" aria-label="'+t.resT+'"><h4>'+ic('check').replace('class="ic"','class="ic" style="color:var(--ok)"')+' '+t.resT+'</h4><span>'+t.resL+'<b>new.person@example.test</b></span><div class="linkbox"><code>https://skypane.example/invite/Qm9…9xA</code><a class="btn dark" href="#" style="min-height:40px">'+ic('copy')+t.copy+'</a></div><span class="sub">'+t.resH+'</span><div class="row"><a class="btn dark" href="#">'+t.done+'</a></div></div>';}
+  function ov(c,mid){return '<div class="scrim"></div><div class="dlg '+(mid?'mid':'dtop')+' dlgd" role="dialog">'+c+'</div><div class="sheet sheetd" role="dialog"><span class="grab"></span>'+c+'</div>';}
+  function invDlg(t){return ov('<h4>'+t.invT+'</h4><label class="mfield"><span>'+t.email+'</span><span class="field" style="min-height:48px"><input type="email" placeholder="name@example.com" aria-label="'+t.email+'" autofocus></span></label><div class="mfield"><span>'+t.role+'</span><div class="segc" role="group" aria-label="'+t.role+'"><span class="on">'+t.user+'</span><span>'+t.admin+'</span></div></div><div class="row"><a class="btn" href="#">'+t.cancel+'</a><a class="btn dark" href="#">'+t.invGo+'</a></div>');}
+  function resDlg(t){return ov('<h4>'+t.resT+'</h4><span>'+t.resL+'<b>new.person@example.test</b></span><div class="linkbox"><code>https://skypane.example/invite/Qm9…9xA</code><a class="btn dark" href="#" style="min-height:40px">'+ic('copy')+t.copy+'</a></div><span class="sub">'+t.resH+'</span><div class="row"><a class="btn dark" href="#">'+t.done+'</a></div>');}
   function confirmDlg(kind){return function(t){
     var T=kind==='pro'?t.proT:t.delT,W=kind==='pro'?t.proW:t.delW,G=kind==='pro'?t.proGo:t.delGo,K=kind==='pro'?t.proKeep:t.delKeep;
-    return '<div class="scrim"></div><div class="dlg mid" role="alertdialog" aria-label="'+T+'"><h4>'+T+'</h4><p>'+W+'</p><div class="row"><a class="btn" href="#">'+K+'</a><a class="btn '+(kind==='pro'?'dark':'')+'" href="#" style="'+(kind==='del'?'background:var(--err);color:#fff;border-color:var(--err)':'')+'">'+G+'</a></div></div>';};}
+    return ov('<h4>'+T+'</h4><p>'+W+'</p><div class="row"><a class="btn" href="#">'+K+'</a><a class="btn '+(kind==='pro'?'dark':'')+'" href="#" style="'+(kind==='del'?'background:var(--err);color:#fff;border-color:var(--err)':'')+'">'+G+'</a></div>',true);};}
   function mock(vp,caption,sub,builder){
     var langs=['en','fr'].map(function(l){return '<div data-lang="'+l+'">'+builder(vp,S[l])+'</div>';}).join('');
     return '<figure class="mock"><figcaption>'+caption+(sub?'<small>'+sub+'</small>':'')+'</figcaption>'+(vp==='desktop'?'<div class="scroller"><div data-viewport="desktop">'+langs+'</div></div>':'<div data-viewport="phone">'+langs+'</div>')+'</figure>';
@@ -331,9 +341,9 @@ details.rd summary{min-height:48px;display:flex;align-items:center;padding:0 16p
     '<div class="row2">'+mock('desktop','Users','',function(v,t){return page(v,t);})+'</div>'+
     '<div style="height:32px"></div><div class="row2">'+mock('desktop','Row menu','Send a new invitation, Reset sign-in, Delete user',function(v,t){return page(v,t,{menu:true});})+'</div>');
   html+=section('2. The invitation (R25, R26)',
-    'The invite dialog is short: a title, the email field, the role as two choices (User, Administrator) and two buttons. No explanatory paragraph and no odd margins. On phone it sits at the top of the screen so the keyboard never covers the field. After <b>Invite</b>, SkyPane creates the sign-in account and shows the invitation link <b>once</b> with a Copy button: the person opens it, chooses a password and signs in. Nothing is stored or logged; a lost link is replaced with &ldquo;Send a new invitation&rdquo;.',
+    'The invite dialog follows the design system: an opaque card over a dimmed page on desktop, a bottom sheet with a grabber and 28 px top corners on phone. It is short: a title, the labelled email field, the role as two choices (User, Administrator) and two buttons. No explanatory paragraph and no odd margins. The field is the first thing in the sheet, so it stays above the keyboard. After <b>Invite</b>, SkyPane creates the sign-in account and shows the invitation link <b>once</b> with a Copy button: the person opens it, chooses a password and signs in. Nothing is stored or logged; a lost link is replaced with &ldquo;Send a new invitation&rdquo;.',
     '<div class="row2">'+mock('desktop','Invite dialog','',function(v,t){return page(v,t,{overlay:invDlg(t)});})+mock('desktop','Invitation ready','The link is shown once',function(v,t){return page(v,t,{overlay:resDlg(t)});})+'</div>'+
-    '<div style="height:32px"></div><div class="row2">'+mock('phone','Users (phone)','',function(v,t){return page(v,t);})+mock('phone','Invite dialog, at the top','The keyboard cannot cover the field',function(v,t){return page(v,t,{overlay:invDlg(t)});})+mock('phone','Invitation ready','',function(v,t){return page(v,t,{overlay:resDlg(t)});})+'</div>');
+    '<div style="height:32px"></div><div class="row2">'+mock('phone','Users (phone)','',function(v,t){return page(v,t);})+mock('phone','Invite, as a bottom sheet','Field first, above the keyboard',function(v,t){return page(v,t,{overlay:invDlg(t)});})+mock('phone','Invitation ready','',function(v,t){return page(v,t,{overlay:resDlg(t)});})+'</div>');
   html+=section('3. Confirmations (R25)',
     'Role change and deletion: a title, one sentence with the consequence, two buttons. Tight and even margins; the longer explanation that was above and below is gone.',
     '<div class="row2">'+mock('desktop','Make administrator','',function(v,t){return page(v,t,{overlay:confirmDlg('pro')(t)});})+mock('phone','Delete user','',function(v,t){return page(v,t,{overlay:confirmDlg('del')(t)});})+'</div>',
