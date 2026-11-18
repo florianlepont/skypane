@@ -739,7 +739,7 @@ Plans:
   2. Mockups are approved by the owner before the code, as for the active-mode card.
   3. Every change follows the design system (tokens, contrast, spacing, density), and any new pattern is added to it (`sketch-findings-skypane`).
   4. English and French both work, and so does phone width; browser tests cover what changes visually, in line with the behaviour-over-source rule, and the accessibility checks still pass.
-  5. No behaviour change beyond what the list asks: the full test suite and the golden hashes pass, and the route x role x owner matrix is unchanged.
+  5. No behaviour change beyond what the list asks: the full test suite and the golden hashes pass, and the route x role x owner matrix is unchanged except the owner-requested removal of the Locations routes (the list includes behaviour items the owner chose on 2026-11-18).
   6. The owner validates the result on the deployed companion, in English and French.
 
 **Not in this phase**: the screens of photo mode, the getting-started wizard and the Wi-Fi setup (they are built later, in v1.3 and v1.4, to the same design system); new features; the security audit and the code cleanup, which follow.
