@@ -1,379 +1,389 @@
+<!--
+STATUS 2026-11-18: drawn on the real shell for the owner's review (plan 06). Decisions to record after the owner's answers.
+Covers R27 to R31 and D-15: Complete button for unidentified prefixes (no Ignore), rename as an explicit action, one Change artwork action, Back to the default only where a default exists, filter chips, read-only rows for airlines known by name only with Add artwork, a clean aircraft types panel.
+-->
 <!doctype html>
-<html lang="en" data-lang="en" data-view="phone">
-<head>
+<html lang="en">
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>SkyPane Airlines editor - mockup (Phase 68, R27 to R31, D-15)</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SkyPane mockup: Airlines editor (Phase 68, plan 06)</title>
 <style>
-/* Standalone mockup, no production code. Tokens follow the companion design system (sketch-findings-skypane).
-   Controls at the top switch viewport (phone 360 px / desktop 1280 px page, content column 1040 px), language and theme. */
+/* Standalone mockup, no external asset. Tokens follow companion/static/style.css (light and dark only).
+   Each mock sits in a [data-viewport] box, 390 px (phone) or 1440 px (desktop); every translated block is a
+   [data-lang] wrapper and the toggle at the top shows one language at a time. All names and addresses are invented. */
 :root{
   --sky:linear-gradient(#E7EEF7,#F1F3F6 45%,#EDF1F6); --canvas:#F1F3F6; --stage:#E4E9F0;
-  --text:#17191F; --muted:#5B6372; --border:#DAE1EB; --chip:#E9EEF5;
-  --accent:#1F2430; --on-accent:#fff; --glass:rgba(255,255,255,.72); --tab:#fff;
-  --ok:#16A34A; --warn:#D97706; --err:#BE123C;
+  --text:#17191F; --muted:#5B6372; --border:#DAE1EB; --chip:#E9EEF5; --card:#fff;
+  --accent:#1F2430; --on-accent:#fff; --glass:rgba(255,255,255,.78); --tab:#fff; --shadow:0 6px 20px rgba(20,30,50,.08);
+  --ok:#16A34A; --okbg:#DDF3E4; --warn:#D97706; --err:#BE123C;
 }
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+@media (prefers-color-scheme:dark){:root:not([data-ui-theme="light"]){
   --sky:linear-gradient(#12151D,#161A24 45%,#1A1F2B); --canvas:#161A24; --stage:#0E1117;
-  --text:#F1F3F6; --muted:#A3ABBB; --border:#2A3040; --chip:#1C222D;
-  --accent:#F2EFE9; --on-accent:#14171F; --glass:rgba(255,255,255,.09); --tab:#1C222D;
-  --ok:#4ADE80; --warn:#FBBF24; --err:#FB7185; color-scheme:dark}}
-:root[data-theme="dark"]{
+  --text:#F1F3F6; --muted:#A3ABBB; --border:#2A3040; --chip:#232A38; --card:#1C222D;
+  --accent:#F2EFE9; --on-accent:#14171F; --glass:rgba(34,40,54,.82); --tab:#1C222D; --shadow:0 6px 20px rgba(0,0,0,.35);
+  --ok:#4ADE80; --okbg:#173225; --warn:#FBBF24; --err:#FB7185; color-scheme:dark}}
+:root[data-ui-theme="dark"]{
   --sky:linear-gradient(#12151D,#161A24 45%,#1A1F2B); --canvas:#161A24; --stage:#0E1117;
-  --text:#F1F3F6; --muted:#A3ABBB; --border:#2A3040; --chip:#1C222D;
-  --accent:#F2EFE9; --on-accent:#14171F; --glass:rgba(255,255,255,.09); --tab:#1C222D;
-  --ok:#4ADE80; --warn:#FBBF24; --err:#FB7185; color-scheme:dark}
+  --text:#F1F3F6; --muted:#A3ABBB; --border:#2A3040; --chip:#232A38; --card:#1C222D;
+  --accent:#F2EFE9; --on-accent:#14171F; --glass:rgba(34,40,54,.82); --tab:#1C222D; --shadow:0 6px 20px rgba(0,0,0,.35);
+  --ok:#4ADE80; --okbg:#173225; --warn:#FBBF24; --err:#FB7185; color-scheme:dark}
 *{box-sizing:border-box}
-body{margin:0;background:var(--stage);color:var(--text);font:16px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;padding:32px 16px 64px}
-button,input,select{font:inherit;color:inherit}
+body{margin:0;background:var(--stage);color:var(--text);font:16px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;padding:32px 16px 96px}
+button,input{font:inherit;color:inherit}
+a{color:inherit;text-decoration:none}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-html[data-lang="en"] [data-lang="fr"],html[data-lang="fr"] [data-lang="en"]{display:none!important}
-html[data-view="phone"] [data-viewport="desktop"],html[data-view="desktop"] [data-viewport="phone"]{display:none!important}
-
-/* page chrome */
-.top{max-width:1240px;margin:0 auto 32px;display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between;align-items:flex-end}
-.top h1{margin:0 0 8px;font-size:32px;letter-spacing:-.03em}
-.top p{margin:0;color:var(--muted);max-width:70ch;font-size:15px}
-.ctl{display:flex;flex-wrap:wrap;gap:8px}
+.num{font-variant-numeric:tabular-nums}
+.top{max-width:1500px;margin:0 auto 24px;display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between;align-items:flex-end}
+.top h1{margin:0 0 8px;font-size:34px;letter-spacing:-.03em}
+.top p{margin:0;color:var(--muted);max-width:75ch}
+.toggles{display:flex;gap:16px;flex-wrap:wrap}
 .seg{display:inline-flex;background:var(--chip);border-radius:32px;padding:4px;gap:4px}
 .seg button{border:0;background:none;min-height:44px;padding:0 16px;border-radius:32px;cursor:pointer;font-size:15px}
 .seg button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent)}
-.scene{max-width:1240px;margin:0 auto 56px}
-.scene>h2{margin:0 0 4px;font-size:22px;font-weight:600}
-.scene>.why{margin:0 0 16px;color:var(--muted);font-size:15px;max-width:80ch}
+.sec{max-width:1500px;margin:56px auto 0}
+.sec>h2{margin:0 0 4px;font-size:26px;letter-spacing:-.02em}
+.sec>p.lead{margin:0 0 24px;color:var(--muted);max-width:85ch}
 .row2{display:flex;flex-wrap:wrap;gap:32px;align-items:flex-start}
-.row2>*{max-width:100%;min-width:0}
-.cap{margin:0 0 8px;font-size:13px;font-weight:600;color:var(--muted)}
+.mock{margin:0;display:flex;flex-direction:column;gap:8px;min-width:0}
+.mock>figcaption{font-size:15px;font-weight:600}
+.mock>figcaption small{display:block;font-weight:400;color:var(--muted);font-size:13px}
+.scroller{max-width:100%;overflow-x:auto;padding-bottom:8px}
+[data-ui-lang="en"] [data-lang="fr"],[data-ui-lang="fr"] [data-lang="en"]{display:none}
+.note{margin:12px 0 0;padding:12px 16px;border:1px dashed var(--border);border-radius:14px;color:var(--muted);font-size:14px;max-width:85ch}
+.note b{color:var(--text)}
 
-/* the two page widths */
-.mock{border:1px solid var(--border);background:var(--sky) var(--canvas);box-shadow:0 12px 40px rgba(20,30,50,.12);padding:16px;min-width:0}
-.mock[data-viewport="phone"]{width:360px;max-width:100%;border-radius:36px;padding:20px 16px}
-.mock[data-viewport="desktop"]{width:1040px;max-width:100%;border-radius:22px;padding:24px 32px}
-.mock .pt{margin:0 0 16px;font-size:32px;line-height:1.1;font-weight:700;letter-spacing:-.03em}
-.mock[data-viewport="desktop"] .pt{font-size:40px}
-.stack{display:flex;flex-direction:column;gap:16px}
+[data-viewport]{position:relative;overflow:hidden;border:1px solid var(--border);background:var(--sky) var(--canvas);box-shadow:0 12px 40px rgba(20,30,50,.12)}
+[data-viewport="phone"]{width:390px;height:780px;border-radius:36px}
+[data-viewport="desktop"]{width:1440px;height:900px;border-radius:16px}
+[data-viewport] [data-lang]{height:100%;position:relative}
 
-/* buttons */
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;padding:0 16px;border-radius:14px;border:1px solid var(--border);background:var(--chip);cursor:pointer;font-size:15px;white-space:nowrap}
-.btn.pri{background:var(--accent);color:var(--on-accent);border-color:var(--accent);font-weight:600}
-.btn.ico{width:44px;padding:0}
-.ic{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+/* shared pieces */
+.ic{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--ok);flex:none;display:inline-block}
+.dot.idle{background:var(--muted)}.dot.err{background:var(--err)}.dot.pend{background:var(--warn)}
+.label{margin:0 0 6px 16px;font-size:13px;font-weight:600;color:var(--muted)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:22px;box-shadow:var(--shadow);overflow:hidden}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 18px;border:1px solid var(--border);border-radius:14px;background:var(--card);font-size:15px;font-weight:600;cursor:pointer}
+.btn.dark{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.btn.sq{width:44px;padding:0}
+.field{display:flex;align-items:center;gap:8px;min-height:44px;padding:0 14px;border:1px solid var(--border);border-radius:14px;background:var(--card)}
+.field input{flex:1;min-width:0;border:0;background:none;min-height:42px;outline:0}
+.title{margin:0;font-size:40px;line-height:1.1;font-weight:700;letter-spacing:-.03em}
+.sub{color:var(--muted);font-size:15px}
+.state{margin:6px 0 0;display:flex;align-items:center;gap:8px;font-weight:600}
 
-/* filter */
-.filter{display:flex;flex-direction:column;gap:8px}
-.search{display:flex;align-items:center;gap:8px;min-height:44px;padding:0 12px;border:1px solid var(--border);border-radius:14px;background:var(--glass)}
-.search input{flex:1;min-width:0;border:0;background:none;outline:0;font-size:16px}
-.chips{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
-.mock[data-viewport="desktop"] .chips{flex-wrap:wrap;overflow:visible}
-.chip{flex:none;min-height:44px;padding:0 14px;border-radius:32px;border:1px solid var(--border);background:var(--glass);cursor:pointer;font-size:14px}
-.chip[aria-pressed="true"]{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
-.chip small{color:inherit;opacity:.7;margin-left:4px}
-.count{font-size:13px;color:var(--muted);margin:0}
+/* rows */
+.item{display:flex;align-items:center;gap:12px;min-height:64px;padding:10px 16px;border-top:1px solid var(--border)}
+.item:first-child{border-top:0}
+.item .who{flex:1;min-width:0}
+.item .who small{display:block;color:var(--muted);font-size:13px}
+.item .who b{display:block;font-weight:600}
+.item .val{color:var(--muted);font-size:14px;white-space:nowrap}
+.ico{width:36px;height:36px;border-radius:50%;background:var(--chip);display:flex;align-items:center;justify-content:center;flex:none}
+.ico.ok{background:var(--okbg);color:var(--ok)}
+.sw{flex:none;width:51px;height:31px;border-radius:31px;background:#7C8696;position:relative;cursor:pointer}
+.sw::after{content:"";position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.sw.on{background:var(--accent)}.sw.on::after{left:22px}
+.badge{display:inline-flex;align-items:center;min-height:24px;padding:0 10px;border-radius:32px;border:1px solid var(--border);font-size:12px;color:var(--muted)}
+.range{height:6px;border-radius:6px;background:var(--border);position:relative;margin:14px 0 4px}
+.range i{position:absolute;left:0;top:0;bottom:0;width:26%;border-radius:6px;background:var(--accent)}
+.range b{position:absolute;left:26%;top:50%;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;background:var(--accent)}
+.section{display:flex;flex-direction:column}
+.danger b{color:var(--err)}
 
-/* group and rows */
-.sec{margin:8px 0 0;display:flex;align-items:baseline;justify-content:space-between;gap:8px}
-.sec h3{margin:0;font-size:17px;font-weight:600}
-.sec span{font-size:13px;color:var(--muted)}
-.grp{background:var(--glass);border:1px solid var(--border);border-radius:22px;overflow:hidden}
-.grp>.r+.r,.grp>.r+.px,.grp>.px+.r,.grp>.mn+.r{border-top:1px solid var(--border)}
-.r{display:grid;align-items:center;gap:4px 12px;padding:8px 12px;min-height:60px}
-.mock[data-viewport="phone"] .r{grid-template-columns:40px minmax(0,1fr) auto}
-.mock[data-viewport="phone"] .r .vw{display:none}
-.mock[data-viewport="phone"] .nm b{white-space:normal}
-.mock[data-viewport="phone"] .r .th{grid-column:1;grid-row:1}
-.mock[data-viewport="phone"] .r .nm{grid-column:2;grid-row:1}
-.mock[data-viewport="phone"] .r .ac{grid-column:3;grid-row:1}
-.mock[data-viewport="phone"] .r .st{grid-column:2/-1;grid-row:2}
-.mock[data-viewport="phone"] .r .st:empty{display:none}
-.mock[data-viewport="desktop"] .r{grid-template-columns:44px minmax(0,2fr) minmax(0,1.3fr) 150px auto;padding:8px 16px}
-.th{width:40px;height:40px;border-radius:10px;background:var(--chip);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:var(--muted)}
-.th.own{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
-.th.u{border-style:dashed}
-.nm{min-width:0}
-.nm b{display:block;font-size:16px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.nm small{display:block;font-size:13px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.vw{font-size:13px;color:var(--muted)}
-.vw b{display:block;color:var(--text);font-weight:600;font-size:15px}
-.st{display:flex;gap:6px;flex-wrap:wrap}
-.pill{display:inline-flex;align-items:center;gap:6px;min-height:28px;padding:0 10px;border-radius:32px;background:var(--chip);font-size:13px}
-.pill i{width:8px;height:8px;border-radius:50%;background:var(--muted)}
-.pill.warn i{background:var(--warn)}.pill.ok i{background:var(--ok)}
-.ac{display:flex;gap:4px;justify-content:flex-end}
-.r.known{opacity:.92}
-.r.known .th{border-style:dotted}
-.px{padding:12px;background:color-mix(in srgb,var(--chip) 55%,transparent);display:flex;flex-direction:column;gap:12px}
-.mock[data-viewport="desktop"] .px{padding:16px 16px 16px 76px}
-.fld{display:flex;flex-direction:column;gap:4px}
-.fld label{font-size:13px;font-weight:600;color:var(--muted)}
-.fld input,.fld select{min-height:44px;padding:0 12px;border:1px solid var(--border);border-radius:14px;background:var(--tab);font-size:16px;width:100%}
-.mock[data-viewport="desktop"] .fl{display:grid;grid-template-columns:2fr 1fr auto;gap:12px;align-items:end}
-.mock[data-viewport="phone"] .fl{display:flex;flex-direction:column;gap:12px}
-.mock[data-viewport="phone"] .fl .btn{width:100%}
-.hint{margin:0;font-size:13px;color:var(--muted)}
+/* frame list rows */
+.frow{display:flex;align-items:center;gap:12px;min-height:56px;padding:6px 14px;border-top:1px solid var(--border);cursor:pointer}
+.frow:first-child{border-top:0}
+.frow .who{flex:1;min-width:0}
+.frow .who b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.frow .who small{display:block;color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.frow .seen{font-size:13px;color:var(--muted);white-space:nowrap}
+.frow.retired{opacity:.8}
+.frow.sel{background:var(--chip)}
+.chev{color:var(--muted)}
 
-/* aircraft type sub-rows: one 44 px line each, never overlapping the next airline */
-.sub{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px;min-height:44px;padding:0 0 0 4px}
-.sub+.sub{border-top:1px dashed var(--border)}
-.sub .nm b{font-size:15px;font-weight:500}
-.sub .nm small{font-size:13px}
-.sub .lnk{border:0;background:none;min-height:44px;padding:0 10px;font-size:14px;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
-.subhead{margin:0;font-size:13px;font-weight:600;color:var(--muted)}
+/* phone shell */
+.ptop{position:absolute;left:0;right:0;top:0;height:64px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;z-index:5}
+.brand{display:flex;align-items:center;gap:8px;font-size:22px;font-weight:700;letter-spacing:-.02em}
+.screen{position:absolute;inset:64px 0 0 0;overflow-y:auto;padding:8px 16px 120px;display:flex;flex-direction:column;gap:16px;scrollbar-width:none}
+.screen::-webkit-scrollbar{display:none}
+.screen>*{flex-shrink:0}
+.tabs{position:absolute;left:12px;right:12px;bottom:14px;display:flex;justify-content:space-around;padding:8px 6px;background:var(--tab);border:1px solid var(--border);border-radius:34px;box-shadow:0 8px 24px rgba(20,30,50,.14);z-index:6}
+.tab{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-width:60px;min-height:52px;border-radius:26px;font-size:11px;color:var(--text)}
+.tab.on{background:var(--accent);color:var(--on-accent);font-weight:600}
+.chips{display:flex;gap:8px;overflow-x:auto;margin:0 -16px;padding:0 16px 4px;scrollbar-width:none}
+.chip{flex:none;display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 14px;border-radius:32px;background:var(--card);border:1px solid var(--border);font-size:14px;white-space:nowrap}
+.chip[aria-current="page"]{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.chip.all{background:var(--chip)}
+.anchors{position:sticky;top:-8px;z-index:3;margin:0 -16px;padding:8px 16px;display:flex;gap:8px;background:var(--canvas)}
+.anchors button{flex:1;min-height:44px;border:1px solid var(--border);border-radius:32px;background:var(--card);font-size:14px;cursor:pointer}
+.anchors button[aria-current="true"]{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.blk{scroll-margin-top:72px}
 
-/* menu: in flow here so nothing overlaps; the build anchors it to the button with the same padding */
-.mn{display:flex;justify-content:flex-end;padding:4px 12px 12px}
-.menu{width:min(100%,280px);padding:8px;background:var(--tab);border:1px solid var(--border);border-radius:18px;box-shadow:0 12px 32px rgba(0,0,0,.18);display:flex;flex-direction:column}
-.menu button{min-height:44px;padding:0 12px;border:0;border-radius:12px;background:none;text-align:left;cursor:pointer;font-size:15px}
-.menu button:hover{background:var(--chip)}
-.menu hr{border:0;border-top:1px solid var(--border);margin:4px 0;width:100%}
-.menu .danger{color:var(--err)}
-.menu [hidden]{display:none}
-.menu small{display:block;font-size:12px;color:var(--muted)}
+/* desktop shell */
+.side{position:absolute;left:0;top:0;bottom:0;width:240px;padding:24px 16px;background:var(--glass);border-right:1px solid var(--border);display:flex;flex-direction:column;gap:8px}
+.side .brand{padding:0 8px;margin-bottom:8px}
+.space{display:flex;gap:4px;padding:4px;border-radius:16px;background:var(--chip);margin-bottom:8px}
+.space span{flex:1;text-align:center;min-height:36px;display:flex;align-items:center;justify-content:center;border-radius:12px;font-size:14px;font-weight:600;color:var(--muted)}
+.space span.on{background:var(--accent);color:var(--on-accent)}
+.nlabel{margin:12px 8px 0;font-size:13px;font-weight:600;color:var(--muted)}
+.nav{display:flex;align-items:center;gap:12px;min-height:46px;padding:0 12px;border-radius:14px;font-size:15px}
+.nav.on{background:var(--accent);color:var(--on-accent);font-weight:600}
+.sep{height:1px;background:var(--border);margin:8px 0}
+.signout{margin-top:auto}
+.listp{position:absolute;left:240px;top:0;bottom:0;width:350px;background:var(--glass);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.listp .lhead{flex:none;padding:20px 16px 12px;display:flex;flex-direction:column;gap:12px;border-bottom:1px solid var(--border)}
+.listp .lbody{flex:1;min-height:0;overflow-y:auto;padding:12px 12px 20px;display:flex;flex-direction:column;gap:14px}
+.main{position:absolute;left:590px;right:0;top:0;bottom:0;overflow-y:auto;padding:32px 44px 64px}
+.dcol{display:flex;flex-direction:column;gap:24px;max-width:760px;margin-top:20px}
+.titlerow{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.iconbtns{display:flex;gap:8px;flex:none}
+.sparkline{display:block;width:100%;height:44px}
+.sub2{display:flex;flex-direction:column;gap:6px;width:100%;padding-left:48px;font-size:13px;color:var(--muted)}
+.item.wrap{flex-wrap:wrap}
+.tiles2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.tile2{display:flex;flex-direction:column;gap:6px;min-height:132px;padding:14px;border-radius:22px;background:var(--card);border:1px solid var(--border);box-shadow:var(--shadow);min-width:0}
+.tile2 .th{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+.tile2 .tv{font-size:19px;font-weight:700;letter-spacing:-.01em}
+.tile2 .tm{font-size:13px;color:var(--muted)}
+.tile2 .more{margin-top:auto;display:flex;align-items:center;gap:4px;font-size:13px;font-weight:600}
+.bigspark{display:block;width:100%;height:120px;color:var(--accent)}
+.kv{display:grid;grid-template-columns:1fr auto;gap:6px 16px;padding:12px 16px;border-top:1px solid var(--border);font-size:14px}
+.kv span:nth-child(odd){color:var(--muted)}
+.kv span:nth-child(even){text-align:right}
+.rtable{width:100%;border-collapse:collapse;font-size:14px}
+.rtable th{text-align:left;color:var(--muted);font-weight:600;font-size:13px;padding:8px 16px}
+.rtable td{padding:8px 16px;border-top:1px solid var(--border)}
+.rtable td:last-child,.rtable th:last-child{text-align:right}
+.banner{display:flex;flex-direction:column;gap:8px;padding:12px 16px;border-radius:18px;border:1px solid var(--warn);background:var(--card)}
+.banner b{font-weight:700}
+.pills{display:flex;flex-wrap:wrap;gap:6px}
+.pill{display:inline-flex;align-items:center;min-height:26px;padding:0 10px;border-radius:32px;background:var(--chip);font-size:13px}
+.pill.warn{background:var(--card);border:1px solid var(--warn)}
+.unit{display:inline-flex;gap:4px;padding:3px;border-radius:12px;background:var(--chip)}
+.unit span{min-height:32px;padding:0 12px;display:flex;align-items:center;border-radius:9px;font-size:13px}
+.unit span.on{background:var(--accent);color:var(--on-accent);font-weight:600}
+details.rd{border-top:1px solid var(--border)}
+details.rd summary{min-height:48px;display:flex;align-items:center;padding:0 16px;font-size:14px;font-weight:600;cursor:pointer}
+.outcomes{list-style:none;margin:0;padding:0}
+.outcomes li{padding:10px 16px;border-top:1px solid var(--border)}
+.outcomes p{margin:0;display:flex;align-items:center;gap:8px;font-weight:600}
+.outcomes p span.n{margin-left:auto}
+.outcomes small{display:block;color:var(--muted);font-size:13px;margin:2px 0 0 16px}
+.rtable.l td:last-child,.rtable.l th:last-child{text-align:left}
+.pagehead{display:flex;flex-direction:column;gap:6px;margin-bottom:8px}
+.backl{display:inline-flex;align-items:center;gap:6px;min-height:44px;font-size:15px;font-weight:600}
+.ring{width:64px;height:64px;border-radius:50%;background:conic-gradient(var(--ok) 0 47%,var(--border) 0);display:flex;align-items:center;justify-content:center;flex:none}
+.ring b{width:48px;height:48px;border-radius:50%;background:var(--card);display:flex;align-items:center;justify-content:center;font-size:14px}
+.vrow{display:flex;align-items:center;gap:12px;min-height:52px;padding:6px 16px;border-top:1px solid var(--border)}
+.vrow .who{flex:1}
+.btn.quiet{min-height:40px;font-weight:500;color:var(--muted)}
 
-/* policy table */
-.pol{width:100%;border-collapse:collapse;font-size:14px;background:var(--glass);border:1px solid var(--border);border-radius:14px;overflow:hidden}
-.pol th,.pol td{padding:8px 12px;border-bottom:1px solid var(--border);text-align:left;vertical-align:top}
-.pol th{font-size:13px;color:var(--muted);font-weight:600}
-.pol td.no{color:var(--muted)}
-.opt{flex:1 1 min(100%,420px);min-width:0;padding:16px;background:var(--glass);border:1px solid var(--border);border-radius:22px}
-.opt h3{margin:0 0 8px;font-size:17px}
-.note{margin:8px 0 0;font-size:13px;color:var(--muted)}
-.sheet{padding:16px;border:1px solid var(--border);border-radius:22px;background:var(--tab);display:flex;flex-direction:column;gap:12px}
-.sheet h4{margin:0;font-size:22px;font-weight:600}
-.drop{min-height:96px;border:2px dashed var(--border);border-radius:14px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:15px;text-align:center;padding:8px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
 
-/* questions */
-.q{max-width:1240px;margin:0 auto;padding:24px;background:var(--glass);border:1px solid var(--accent);border-radius:22px}
-.q h2{margin:0 0 12px;font-size:22px}
-.q ol{margin:0;padding-left:24px;display:flex;flex-direction:column;gap:12px}
-.q em{color:var(--muted);font-style:normal}
+.tbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.tbar .field{flex:1;min-width:220px}
+.fchips{display:flex;gap:8px;flex-wrap:wrap}
+[data-viewport="phone"] .fchips{flex-wrap:nowrap;overflow-x:auto;margin:0 -16px;padding:0 16px 4px;scrollbar-width:none}
+.fchip{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 14px;border-radius:32px;border:1px solid var(--border);background:var(--card);font-size:14px;white-space:nowrap}
+.fchip.on{background:var(--accent);color:var(--on-accent);border-color:var(--accent);font-weight:600}
+.fchip i{font-style:normal;font-size:12px;opacity:.75}
+.mono{font-family:ui-monospace,Menlo,monospace;font-size:13px}
+.thumb{width:84px;height:44px;border-radius:12px;background:var(--chip);display:flex;align-items:center;justify-content:center;flex:none;overflow:hidden}
+.thumb.none{border:1px dashed var(--border);background:transparent;color:var(--muted);font-size:11px}
+.thumb svg{width:70px;height:26px}
+.etable{width:100%;border-collapse:collapse}
+.etable th{text-align:left;color:var(--muted);font-weight:600;font-size:13px;padding:10px 12px;border-bottom:1px solid var(--border)}
+.etable td{padding:8px 12px;border-top:1px solid var(--border);vertical-align:middle}
+.etable tr:first-child td{border-top:0}
+.etable .exp td{background:var(--chip);padding:12px 12px 12px 56px}
+.rname{font-weight:600}
+.rmenu{position:relative}
+.menu{position:absolute;right:12px;top:44px;z-index:8;min-width:250px;background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:0 12px 32px rgba(20,30,50,.2);padding:6px}
+.menu a{display:flex;align-items:center;min-height:44px;padding:0 12px;border-radius:10px;font-size:15px}
+.menu a:hover{background:var(--chip)}
+.menu a.dg{color:var(--err)}
+.urow{display:flex;align-items:center;gap:12px;min-height:60px;padding:8px 16px;border-top:1px solid var(--border)}
+.urow:first-child{border-top:0}
+.urow .who{flex:1;min-width:0}
+.urow .who b{display:block}
+.urow .who small{display:block;color:var(--muted);font-size:13px}
+.uform{display:grid;grid-template-columns:1fr 1fr auto;gap:10px;padding:12px 16px 16px;background:var(--chip);border-top:1px solid var(--border)}
+.uform .field{background:var(--card)}
+.types{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.trow{display:flex;align-items:center;gap:12px;padding:8px 12px;border-radius:14px;background:var(--card);border:1px solid var(--border);min-height:60px}
+.trow .who{flex:1;min-width:0}
+.trow .who small{display:block;color:var(--muted);font-size:13px}
+.scrim{position:absolute;inset:0;background:rgba(10,14,22,.45);z-index:20}
+.sheet{position:absolute;left:0;right:0;bottom:0;z-index:21;background:var(--card);border-radius:28px 28px 0 0;padding:12px 16px 24px;display:flex;flex-direction:column;gap:12px}
+.sheet .grab{width:44px;height:5px;border-radius:5px;background:var(--border);margin:0 auto 4px}
+.dlg{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:21;width:min(440px,86%);background:var(--card);border:1px solid var(--border);border-radius:24px;padding:20px;display:flex;flex-direction:column;gap:14px;box-shadow:0 20px 50px rgba(20,30,50,.3)}
+.dlg h4{margin:0;font-size:20px}
+.dlg .row{display:flex;gap:10px;justify-content:flex-end}
+.pr{display:flex;flex-wrap:wrap;gap:6px}
+.main{overflow-y:auto}
+select.sel{min-height:44px;border:1px solid var(--border);border-radius:14px;background:var(--card);padding:0 12px;width:100%}
 </style>
-</head>
-<body>
-
-<header class="top">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-logo" viewBox="0 0 24 24"><rect x="4" y="3" width="14" height="18" rx="3"/><path d="M9 10l2 2 4-4"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8v.5"/></symbol>
+  <symbol id="i-fleet" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="3"/><path d="M9 11l2 2 4-4"/></symbol>
+  <symbol id="i-team" viewBox="0 0 24 24"><circle cx="9" cy="12" r="5"/><circle cx="15" cy="12" r="5"/></symbol>
+  <symbol id="i-tag" viewBox="0 0 24 24"><path d="M3 12V4h8l10 10-8 8z"/><circle cx="8" cy="8" r="1.4"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></symbol>
+  <symbol id="i-battery" viewBox="0 0 24 24"><rect x="2" y="7" width="17" height="10" rx="2"/><path d="M22 11v2"/></symbol>
+  <symbol id="i-plane" viewBox="0 0 24 24"><path d="M2 14l8-2 3-8 2 1-1 7 6 2v2l-6-1-2 4-2-.5.5-3.5L2 16z"/></symbol>
+  <symbol id="i-chip" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/></symbol>
+  <symbol id="i-timer" viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M9 2h6"/></symbol>
+  <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z"/></symbol>
+  <symbol id="i-frame" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2.5"/><rect x="7" y="8" width="10" height="8" rx="1"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+</svg>
+<div class="top">
   <div>
-    <h1><span data-lang="en">Airlines editor: mockup</span><span data-lang="fr">Éditeur des compagnies : maquette</span></h1>
-    <p><span data-lang="en">Administrator console, /airlines/manage. Items R27 to R31 and D-15. 36 named airlines, 6 unidentified prefixes, 10 known by name only. Mockup only: no production code. Phase 64 owns airlines_page.py and airline_table.py; plans 14 and 23 touch them later.</span><span data-lang="fr">Console administrateur, /airlines/manage. Points R27 à R31 et D-15. 36 compagnies nommées, 6 préfixes non identifiés, 10 connues par leur nom seulement. Maquette seule : aucun code de production. La phase 64 possède airlines_page.py et airline_table.py ; les plans 14 et 23 les modifieront plus tard.</span></p>
+    <h1>Airlines editor</h1>
+    <p>Mockup for the owner, on the real shell (CON-01: R27 to R31, D-15). Sample data is invented. Use the toggles.</p>
   </div>
-  <div class="ctl">
-    <div class="seg" id="vp" role="group" aria-label="Viewport">
-      <button type="button" data-v="phone" aria-pressed="true">Phone 360</button>
-      <button type="button" data-v="desktop" aria-pressed="false">Desktop 1280</button>
-    </div>
-    <div class="seg" id="lg" role="group" aria-label="Language">
-      <button type="button" data-l="en" aria-pressed="true">EN</button>
-      <button type="button" data-l="fr" aria-pressed="false">FR</button>
-    </div>
-    <div class="seg" id="th" role="group" aria-label="Theme">
-      <button type="button" data-t="auto" aria-pressed="true">Auto</button>
-      <button type="button" data-t="light" aria-pressed="false">Light</button>
-      <button type="button" data-t="dark" aria-pressed="false">Dark</button>
-    </div>
+  <div class="toggles">
+    <div class="seg" id="theme" role="group" aria-label="Theme"><button type="button" data-t="auto" aria-pressed="true">Auto</button><button type="button" data-t="light" aria-pressed="false">Light</button><button type="button" data-t="dark" aria-pressed="false">Dark</button></div>
+    <div class="seg" id="lang" role="group" aria-label="Language"><button type="button" data-l="en" aria-pressed="true">English</button><button type="button" data-l="fr" aria-pressed="false">Fran&ccedil;ais</button></div>
   </div>
-</header>
-
-<main id="board"></main>
-
-<section class="q" id="questions">
-  <h2>Questions for the owner <span data-lang="fr">(questions pour le propriétaire)</span></h2>
-  <ol>
-    <li data-lang="en">placeholder</li>
-  </ol>
-</section>
-
+</div>
+<div id="app"></div>
 <script>
 (function(){
-'use strict';
-/* i18n helper: both languages in the DOM, CSS shows one. */
-function T(en,fr){return '<span data-lang="en">'+en+'</span><span data-lang="fr">'+fr+'</span>';}
-var L={
-  complete:T('Complete','Compléter'), edit:T('Edit','Modifier'), rename:T('Rename','Renommer'),
-  validate:T('Validate','Valider'), changeArt:T('Change illustration','Changer l’illustration'),
-  delArt:T('Delete the illustration','Supprimer l’illustration'), backDef:T('Back to the default','Revenir à celle par défaut'),
-  resetName:T('Reset to the original name','Revenir au nom d’origine'), addArt:T('Add artwork','Ajouter une illustration'),
-  save:T('Save','Enregistrer'), unid:T('Unidentified','Non identifiée'), byHand:T('Named by hand','Nommée à la main'),
-  ownArt:T('Own artwork','Illustration perso'), sameAs:T('Same as the airline','Comme la compagnie'),
-  known:T('Known by name','Connue par son nom'), noArt:T('no artwork','sans illustration'),
-  views:function(n){return T(n+' views',n+' vues');}
-};
-var IC={
-  dots:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/></svg>',
-  search:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4-4"/></svg>',
-  up:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg>',
-  down:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>'
-};
-function aria(en,fr){return en;}
+  function nb(s){return s.replace(/ ([:;?!»])/g,' $1').replace(/« /g,'« ');}
+  var S={
+    en:{title:'Airlines editor',search:'Airline or prefix…',count:'36 of 36 shown',
+      f:['All','Unidentified','Known by name only','No artwork','Seen','Not seen yet'],
+      unid:'Unidentified',unidh:'Prefixes seen on flights with no airline name yet.',seen:function(n,d){return (n===1?'Seen once':'Seen '+n+'×')+' · '+d;},complete:'Complete',
+      nameph:'Airline name',typeph:'Aircraft type',validate:'Validate',cancel:'Cancel',save:'Save',
+      byname:'Known by name only',bynameh:'The name is known; there is no artwork yet.',noart:'No artwork',addart:'Add artwork',
+      airlines:'Airlines',colA:'Airline',colP:'Prefixes',colI:'Artwork',colV:'Views',colL:'Last seen',views:function(n){return n+' views';},never:'Not seen yet',
+      mrename:'Rename',mchange:'Change artwork',mrevert:'Back to the default',mdel:'Delete the illustration',mdef:'Set as default type',mreset:'Reset to the original name',
+      types:'Aircraft types seen',usesair:'Uses the airline’s artwork',own:'Own artwork',defpill:'Default type',renameT:'Rename the airline',renameH:'The new name replaces the original on the companion and on the frame.',
+      tabs:['Fleet','Team','Editor','Journal','More'],nav:['Fleet','Users','Editor','Audit log'],account:'Account',space:['Console','My frames'],admin:'Administration',signout:'Sign out',
+      openmenu:'Actions for Air France',complh:'Name the airline and its main aircraft type.'},
+    fr:{title:'Éditeur de compagnies',search:'Compagnie ou indicatif…',count:'36 sur 36 affichées',
+      f:['Toutes','Non identifiées','Connues par leur nom','Sans illustration','Vues','Pas encore vues'],
+      unid:'Non identifiées',unidh:'Indicatifs vus sur des vols, sans nom de compagnie pour l’instant.',seen:function(n,d){return (n===1?'Vue une fois':'Vue '+n+'×')+' · '+d;},complete:'Compléter',
+      nameph:'Nom de la compagnie',typeph:'Type d’avion',validate:'Valider',cancel:'Annuler',save:'Enregistrer',
+      byname:'Connues par leur nom seulement',bynameh:'Le nom est connu ; il n’y a pas encore d’illustration.',noart:'Sans illustration',addart:'Ajouter une illustration',
+      airlines:'Compagnies',colA:'Compagnie',colP:'Préfixes',colI:'Illustration',colV:'Vues',colL:'Dernière vue',views:function(n){return n+' vues';},never:'Pas encore vue',
+      mrename:'Renommer',mchange:'Changer l’illustration',mrevert:'Revenir à celle par défaut',mdel:'Supprimer l’illustration',mdef:'Définir comme type par défaut',mreset:'Rétablir le nom d’origine',
+      types:'Types d’avion vus',usesair:'Utilise l’illustration de la compagnie',own:'Illustration propre',defpill:'Type par défaut',renameT:'Renommer la compagnie',renameH:'Le nouveau nom remplace le nom d’origine dans le companion et sur le cadre.',
+      tabs:['Flotte','Équipe','Éditeur','Journal','Plus'],nav:['Flotte','Utilisateurs','Éditeur','Journal d’audit'],account:'Compte',space:['Console','Mes cadres'],admin:'Administration',signout:'Se déconnecter',
+      openmenu:'Actions pour Air France',complh:'Nommez la compagnie et son type d’avion principal.'}
+  };
+  Object.keys(S.fr).forEach(function(k){var v=S.fr[k];if(typeof v==='string')S.fr[k]=nb(v);else if(Array.isArray(v))S.fr[k]=v.map(nb);});
+  function ic(n){return '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-'+n+'"/></svg>';}
+  function lead(n){return '<span class="ico">'+ic(n)+'</span>';}
+  function plane(c){return '<svg viewBox="0 0 70 26" aria-hidden="true"><path d="M2 14l30-3 18-9 4 1-8 9 14 2 8-3 2 1-6 4-12 2-14 7-4-1 5-7-24 0z" fill="'+(c||'#9AA3B2')+'"/></svg>';}
+  function thumb(c){return c?'<span class="thumb">'+plane(c)+'</span>':'<span class="thumb none">'+'—'+'</span>';}
+  var AIR=[['Air France','AFR','#1F3A8A',37,'10:29'],['Iberia Airlines','IBE','#DC2626',0,''],['TAP Portugal','TAP','#16A34A',0,''],['Air Algérie','DAH','#DC2626',3,'17 nov.'],['Transavia France','TFV TVF','#16A34A',20,'17 nov.'],['easyJet','EJU EZY','#F97316',17,'17 nov.'],['Chalair Aviation','CLG',null,0,''],['Twin Jet','TJT',null,0,'']];
+  var UNID=[['OCN',4,'17 Nov'],['ITI',2,'16 Nov'],['CMA',1,'15 Nov']];
+  var BYNAME=[['Turkish Airlines','THY'],['KLM','KLM'],['FedEx','FDX'],['Finnair','FIN']];
 
-/* sample data: public airline names only */
-var NAMED=[
-  {n:'Air France',p:'AFR',art:'own',v:412,s:T('today','aujourd’hui'),types:[['A320','Airbus A320-214','own',188,true],['A321','Airbus A321-212','airline',96],['B77W','Boeing 777-328ER','airline',41],['A359','Airbus A350-941','own',23]]},
-  {n:'easyJet',p:'EZY, EJU',art:'airline',v:268,s:T('today','aujourd’hui')},
-  {n:'Transavia France',p:'TVF',art:'own',v:231,s:T('yesterday','hier'),hand:true},
-  {n:'Vueling',p:'VLG',art:'airline',v:174,s:T('2 days ago','il y a 2 jours')},
-  {n:'Iberia Express',p:'IBS',art:'airline',v:96,s:T('3 days ago','il y a 3 jours')}
-];
-var UNID=[['BCS','BCS1234'],['ABR','ABR5X'],['CKS','CKS482'],['SWT','SWT603']];
-var KNOWN=[['Aegean Airlines','AEE'],['Swiss','SWR'],['Lufthansa CityLine','CLH'],['Wizz Air Malta','WMT']];
+  function sidebar(t){
+    var icons=['fleet','team','tag','clock'];
+    return '<div class="side"><span class="brand">'+ic('logo')+'SkyPane</span><div class="space"><span>'+t.space[1]+'</span><span class="on">'+ic('check')+t.space[0]+'</span></div><div class="sep"></div><div class="nlabel">'+t.admin+'</div>'+
+      t.nav.map(function(x,i){return (i===2?'<div class="sep"></div>':'')+'<div class="nav'+(i===2?' on':'')+'">'+ic(icons[i])+x+'</div>';}).join('')+
+      '<div class="sep"></div><div class="nav">'+ic('user')+t.account+'</div><div class="signout"><a class="btn" href="#">'+t.signout+'</a></div></div>';
+  }
+  function phoneShell(t,inner,overlay){
+    var icons=['fleet','team','tag','clock','more'];
+    return '<div class="ptop"><span class="brand">'+ic('logo')+'SkyPane</span></div><div class="screen">'+inner+'</div><div class="tabs">'+t.tabs.map(function(x,i){return '<div class="tab'+(i===2?' on':'')+'">'+ic(icons[i])+x+'</div>';}).join('')+'</div>'+(overlay||'');
+  }
+  function filters(t,vp){
+    var n=[36,3,4,6,9,27];
+    return '<div class="fchips">'+t.f.map(function(x,i){return '<span class="fchip'+(i===0?' on':'')+'">'+x+' <i>'+n[i]+'</i></span>';}).join('')+'</div>';
+  }
+  function toolbar(t,vp){
+    return '<div class="tbar"><label class="field">'+ic('search')+'<input type="search" placeholder="'+t.search+'" aria-label="'+t.search+'"></label>'+(vp==='desktop'?'<span class="sub">'+t.count+'</span>':'')+'</div>'+filters(t,vp);
+  }
+  function unidBlock(t,vp,openForm){
+    var rows=UNID.map(function(u,i){
+      var row='<div class="urow"><span class="mono" style="font-weight:700;font-size:15px;min-width:44px">'+u[0]+'</span><span class="who"><small>'+t.seen(u[1],u[2])+'</small></span>'+(i===0&&openForm?'<span class="btn ghost" style="background:var(--chip)">'+t.cancel+'</span>':'<a class="btn dark" href="#" style="min-height:40px">'+t.complete+'</a>')+'</div>';
+      if(i===0&&openForm)row+='<div class="uform"'+(vp==='phone'?' style="grid-template-columns:1fr"':'')+'><label class="field"><input placeholder="'+t.nameph+'" aria-label="'+t.nameph+'"></label><select class="sel" aria-label="'+t.typeph+'"><option>'+t.typeph+'</option></select><a class="btn dark" href="#">'+t.validate+'</a></div>';
+      return row;
+    }).join('');
+    return '<div><p class="label">'+t.unid+' · 3</p><div class="card">'+rows+'</div></div>';
+  }
+  function bynameBlock(t){
+    return '<div><p class="label">'+t.byname+' · 4</p><div class="card">'+BYNAME.map(function(b){return '<div class="urow"><span class="who"><b>'+b[0]+'</b><small class="mono">'+b[1]+' · '+t.noart+'</small></span><a class="btn" href="#" style="min-height:40px">'+ic('plus')+t.addart+'</a></div>';}).join('')+'</div></div>';
+  }
+  function typesPanel(t){
+    function tr(n,note,c,pill){return '<div class="trow">'+thumb(c)+'<span class="who"><b>'+n+'</b><small>'+note+'</small></span>'+(pill?'<span class="pill">'+t.defpill+'</span>':'')+'<a class="btn quiet" href="#" style="min-height:40px;font-weight:500">'+t.mchange+'</a></div>';}
+    return '<div class="types">'+tr('A320',t.usesair,'#1F3A8A',true)+tr('A321',t.usesair,'#1F3A8A',false)+tr('A220-300',t.own,'#1F3A8A',false)+tr('B777-300ER',t.usesair,'#1F3A8A',false)+'</div>';
+  }
+  function menu(t){
+    return '<div class="menu" role="menu"><a href="#">'+t.mrename+'</a><a href="#">'+t.mchange+'</a><a href="#">'+t.mdef+'</a><a href="#">'+t.mrevert+'</a><a href="#" class="dg">'+t.mdel+'</a></div>';
+  }
+  function tableBlock(t,vp,withMenu,withExp){
+    var head='<tr><th style="width:40px"></th><th>'+t.colA+'</th><th>'+t.colP+'</th><th>'+t.colI+'</th><th>'+t.colV+'</th><th>'+t.colL+'</th><th style="width:56px"></th></tr>';
+    var rows=AIR.map(function(a,i){
+      var seen=a[3]?t.views(a[3]):t.never, last=a[4]?a[4]:'';
+      var r='<tr><td>'+(a[3]?'<span class="chev" style="display:inline-block;'+(i===0&&withExp?'transform:rotate(90deg)':'')+'">'+ic('chev')+'</span>':'')+'</td><td class="rname">'+a[0]+'</td><td class="mono">'+a[1]+'</td><td>'+thumb(a[2])+'</td><td class="num">'+seen+'</td><td class="sub">'+last+'</td><td class="rmenu" style="text-align:right"><span class="btn sq" style="border:0;background:none">'+ic('more')+'</span>'+(i===0&&withMenu?menu(t):'')+'</td></tr>';
+      if(i===0&&withExp)r+='<tr class="exp"><td colspan="7"><p class="label" style="margin:0 0 8px">'+t.types+'</p>'+typesPanel(t)+'</td></tr>';
+      return r;
+    }).join('');
+    return '<div><p class="label">'+t.airlines+' · 36</p><div class="card" style="overflow:visible"><table class="etable">'+head+rows+'</table></div></div>';
+  }
+  function phoneRows(t,withExp){
+    return '<div><p class="label">'+t.airlines+' · 36</p><div class="card">'+AIR.map(function(a,i){
+      var meta=a[1]+' · '+(a[3]?t.views(a[3]):t.never);
+      var r='<div class="urow">'+thumb(a[2])+'<span class="who"><b>'+a[0]+'</b><small class="mono">'+meta+'</small></span><span class="btn sq" style="border:0;background:none" aria-label="'+t.openmenu+'">'+ic('more')+'</span></div>';
+      if(i===0&&withExp)r+='<div style="padding:8px 12px 12px;background:var(--chip);display:flex;flex-direction:column;gap:8px"><p class="label" style="margin:0 4px">'+t.types+'</p><div style="display:flex;flex-direction:column;gap:8px">'+typesPanel(t).replace('class="types"','class="types" style="grid-template-columns:1fr"')+'</div></div>';
+      return r;
+    }).join('')+'</div></div>';
+  }
+  function page(vp,t,opts){
+    opts=opts||{};
+    var head='<h3 class="title"'+(vp==='phone'?' style="font-size:34px"':'')+'>'+t.title+'</h3>';
+    var body=toolbar(t,vp)+unidBlock(t,vp,opts.form)+bynameBlock(t)+(vp==='phone'?phoneRows(t,opts.exp):tableBlock(t,vp,opts.menu,opts.exp));
+    if(vp==='phone')return phoneShell(t,head+body,opts.overlay);
+    return sidebar(t)+'<div class="main" style="left:240px"><div style="max-width:1100px;display:flex;flex-direction:column;gap:20px">'+head+body+'</div></div>'+(opts.overlay||'');
+  }
+  function renameDlg(t){return '<div class="scrim"></div><div class="dlg" role="dialog" aria-label="'+t.renameT+'"><h4>'+t.renameT+'</h4><span class="sub">'+t.renameH+'</span><label class="field"><input value="Air France" aria-label="'+t.nameph+'"></label><div class="row"><a class="btn" href="#">'+t.cancel+'</a><a class="btn dark" href="#">'+t.save+'</a></div></div>';}
+  function completeSheet(t){return '<div class="scrim"></div><div class="sheet" role="dialog" aria-label="'+t.complete+'"><span class="grab"></span><h4 style="margin:0;font-size:20px"><span class="mono">OCN</span> · '+t.complete+'</h4><span class="sub">'+t.complh+'</span><label class="field"><input placeholder="'+t.nameph+'" aria-label="'+t.nameph+'"></label><select class="sel" aria-label="'+t.typeph+'"><option>'+t.typeph+'</option></select><div class="row" style="display:flex;gap:10px"><a class="btn" style="flex:1" href="#">'+t.cancel+'</a><a class="btn dark" style="flex:1" href="#">'+t.validate+'</a></div></div>';}
 
-function th(a){return a.art==='own'?'<div class="th own" aria-hidden="true">'+a.n.slice(0,2)+'</div>':'<div class="th" aria-hidden="true">'+a.n.slice(0,2)+'</div>';}
-function artPill(a){
-  if(a.hand)return '';
-  return a.art==='own'?'<span class="pill ok"><i></i>'+L.ownArt+'</span>':'<span class="pill"><i></i>'+L.sameAs+'</span>';
-}
-function stPills(a){
-  var h=a.hand?'<span class="pill"><i></i>'+L.byHand+'</span>':'';
-  return h+artPill(a);
-}
-function namedRow(a,o){
-  o=o||{};
-  return '<div class="r" data-name="'+a.n.toLowerCase()+'" data-kind="named'+(a.hand?' hand':'')+(a.art==='own'?' own':'')+'">'+th(a)+
-    '<div class="nm"><b>'+a.n+'</b><small>'+a.p+'</small></div>'+
-    '<div class="st">'+stPills(a)+'</div>'+
-    '<div class="vw"><b>'+L.views(a.v)+'</b>'+a.s+'</div>'+
-    '<div class="ac"><button type="button" class="btn" data-open="'+(o.id||'')+'" aria-expanded="'+(o.open?'true':'false')+'">'+L.edit+'</button>'+
-    '<button type="button" class="btn ico" data-menu="'+(o.id||'')+'" aria-label="Actions for '+a.n+'">'+IC.dots+'</button></div></div>';
-}
-function unidRow(u,open,id){
-  return '<div class="r" data-kind="unid" data-name="'+u[0].toLowerCase()+' '+u[1].toLowerCase()+'"><div class="th u" aria-hidden="true">?</div>'+
-    '<div class="nm"><b>'+u[0]+'</b><small>'+T('callsign','indicatif')+' '+u[1]+'</small></div>'+
-    '<div class="st"><span class="pill warn"><i></i>'+L.unid+'</span></div><div class="vw"></div>'+
-    '<div class="ac"><button type="button" class="btn pri" data-open="'+(id||'')+'" aria-expanded="'+(open?'true':'false')+'">'+(open?IC.up:'')+L.complete+'</button></div></div>';
-}
-function unidForm(u){
-  return '<div class="px"><div class="fl">'+
-    '<div class="fld"><label>'+T('Airline name','Nom de la compagnie')+'</label><input value="" placeholder="'+'Airline name'+'" aria-label="Airline name for the prefix '+u[0]+'"></div>'+
-    '<div class="fld"><label>'+T('Default aircraft type (optional)','Type d’appareil par défaut (facultatif)')+'</label><select><option>Aircraft type / Type d’appareil</option><option>A320</option></select></div>'+
-    '<button type="button" class="btn pri">'+L.validate+'</button></div>'+
-    '<p class="hint">'+T('Seen as '+u[1]+'. Tap Complete again to fold this row; nothing is cleared or hidden.','Vu comme '+u[1]+'. Touchez à nouveau Compléter pour replier la ligne ; rien n’est effacé ni masqué.')+'</p></div>';
-}
-function knownRow(k){
-  return '<div class="r known" data-kind="known" data-name="'+k[0].toLowerCase()+'"><div class="th" aria-hidden="true">'+k[0].slice(0,2)+'</div>'+
-    '<div class="nm"><b>'+k[0]+'</b><small>'+k[1]+'</small></div>'+
-    '<div class="st"><span class="pill"><i></i>'+T('Known by name, no artwork','Connue par son nom, sans illustration')+'</span></div><div class="vw"></div>'+
-    '<div class="ac"><button type="button" class="btn">'+L.addArt+'</button></div></div>';
-}
-function menu(items){
-  return '<div class="mn"><div class="menu" role="menu">'+items.map(function(i){
-    return i==='-'?'<hr>':'<button type="button" role="menuitem"'+(i[1]?' class="danger"':'')+'>'+i[0]+'</button>';}).join('')+'</div></div>';
-}
-function filterBar(active){
-  var c=[['all',T('All','Tout'),52],['unid',T('Unidentified','Non identifiées'),6],['hand',L.byHand,9],['own',L.ownArt,14],['known',L.known,10]];
-  return '<div class="filter"><label class="search">'+IC.search+'<input type="search" placeholder="Filter by airline or callsign" aria-label="Filter"></label>'+
-    '<div class="chips" role="group" aria-label="Filter">'+c.map(function(x){return '<button type="button" class="chip" data-chip="'+x[0]+'" aria-pressed="'+(x[0]===active?'true':'false')+'">'+x[1]+'<small>'+x[2]+'</small></button>';}).join('')+'</div>'+
-    '<p class="count">'+T('52 airlines shown','52 compagnies affichées')+'</p></div>';
-}
-function mock(vp,title,inner){
-  return '<div class="mock" data-viewport="'+vp+'"><h1 class="pt">'+title+'</h1><div class="stack">'+inner+'</div></div>';
-}
-var TITLE=T('Airlines','Compagnies');
-function both(inner){return mock('phone',TITLE,inner)+mock('desktop',TITLE,inner);}
-function scene(num,h,why,body){
-  return '<section class="scene"><h2>'+num+'. '+h+'</h2><p class="why">'+why+'</p>'+body+'</section>';
-}
-
-/* 1. whole list */
-var s1=scene(1,T('The list: filter, chips, collapsed rows','La liste : filtre, pastilles, lignes repliées'),
-  T('R27, R29, R31. Unidentified prefixes are one compact row with a Complete button (no open fields). Named airlines show Edit plus a "..." menu. The filter field and chips reuse the filter bar of Users and Audit. Tap Complete, Edit or "..." to try it.','R27, R29, R31. Un préfixe non identifié tient sur une ligne compacte avec un bouton Compléter (plus de champs ouverts). Les compagnies nommées ont Modifier et un menu « ... ». Le champ de filtre et les pastilles reprennent la barre de filtre des Utilisateurs et de l’Audit. Touchez Compléter, Modifier ou « ... » pour essayer.'),
-  both(
-    filterBar('all')+
-    '<div class="sec"><h3>'+T('To identify','À identifier')+'</h3><span>'+T('6 prefixes','6 préfixes')+'</span></div>'+
-    '<div class="grp">'+unidRow(UNID[0],false,'u1')+unidRow(UNID[1],false,'u2')+unidRow(UNID[2],false,'u3')+'</div>'+
-    '<p class="count">'+T('3 more prefixes','3 autres préfixes')+'</p>'+
-    '<div class="sec"><h3>'+T('Airlines','Compagnies')+'</h3><span>'+T('36 named','36 nommées')+'</span></div>'+
-    '<div class="grp">'+namedRow(NAMED[0],{id:'n1'})+namedRow(NAMED[1],{id:'n2'})+namedRow(NAMED[2],{id:'n3'})+namedRow(NAMED[3],{id:'n4'})+'</div>'+
-    '<div class="sec"><h3>'+T('Known by name, no artwork','Connues par leur nom, sans illustration')+'</h3><span>'+T('10, read-only','10, lecture seule')+'</span></div>'+
-    '<div class="grp">'+knownRow(KNOWN[0])+knownRow(KNOWN[1])+'</div>'));
-
-/* 2. unidentified collapsed / expanded */
-var s2=scene(2,T('Unidentified airline: collapsed, then Complete','Compagnie non identifiée : repliée, puis Compléter'),
-  T('R27, R28. Name, optional default aircraft type and one Validate button. The Ignore button is gone: it only cleared the fields, and the owner reported an "ignored" airline that could no longer be edited. A row stays until it is named.','R27, R28. Nom, type d’appareil par défaut facultatif et un seul bouton Valider. Le bouton Ignorer disparaît : il ne faisait que vider les champs, et le propriétaire a signalé une compagnie « ignorée » impossible à modifier. Une ligne reste tant qu’elle n’est pas nommée.'),
-  both('<div class="grp">'+unidRow(UNID[3],false,'x1')+'</div>'+
-       '<div class="grp">'+unidRow(UNID[0],true,'x2')+unidForm(UNID[0])+'</div>'));
-
-/* 3. known airline: Edit + Rename via menu, phone "..." menu */
-var menuNamed=[[L.rename],[L.changeArt],'-',[L.resetName]];
-var s3=scene(3,T('Known airline: Edit and an explicit Rename','Compagnie connue : Modifier et un Renommer explicite'),
-  T('R27, R29. The name is no longer an open field in the row. Edit opens the details (aircraft types, illustrations); Rename sits in the "..." menu and opens a single name field. The menu has 8 px padding, 44 px items, a divider before the rarely used entry, and is anchored under its button (shown in flow here).','R27, R29. Le nom n’est plus un champ ouvert dans la ligne. Modifier ouvre le détail (types d’appareil, illustrations) ; Renommer est dans le menu « ... » et ouvre un seul champ de nom. Le menu a 8 px de marge, des entrées de 44 px, un séparateur avant l’entrée rare, et s’ancre sous son bouton (montré dans le flux ici).'),
-  '<div class="row2">'+
-  '<div><p class="cap">'+T('Menu open','Menu ouvert')+'</p>'+both('<div class="grp">'+namedRow(NAMED[2],{id:'m1'})+menu(menuNamed)+'</div>')+'</div>'+
-  '<div><p class="cap">'+T('After Rename','Après Renommer')+'</p>'+both('<div class="grp">'+namedRow(NAMED[2],{id:'m2'})+
-    '<div class="px"><div class="fl"><div class="fld"><label>'+T('Airline name','Nom de la compagnie')+'</label><input value="Transavia France"></div><div></div><button type="button" class="btn pri">'+L.save+'</button></div></div></div>')+'</div></div>');
-
-/* 4. expanded airline, compact sub-rows, next airline below not overlapped */
-function typeRows(a){
-  return a.types.map(function(t){
-    var own=t[2]==='own';
-    return '<div class="sub"><div class="nm"><b>'+t[0]+' <span style="font-weight:400;color:var(--muted)">'+t[1]+'</span></b><small>'+L.views(t[3])+' · '+(own?L.ownArt:L.sameAs)+(t[4]?' · '+T('Default type','Type par défaut'):'')+'</small></div>'+
-      '<div class="ac"><button type="button" class="btn ico" aria-label="Actions for '+t[0]+'">'+IC.dots+'</button></div></div>';
-  }).join('');
-}
-var s4=scene(4,T('Opened airline: compact aircraft types','Compagnie ouverte : types d’appareil compacts'),
-  T('R29, R31. Each type is one 44 px line with a "..." menu (no inline Customise button), so a 4-type airline adds about 190 px instead of the old tall rows. The panel is a normal block in the grid, so the next airline starts below it: no overlap. The types are fetched when Edit is opened (as today), only the rows already on the page are drawn.','R29, R31. Chaque type tient sur une ligne de 44 px avec un menu « ... » (plus de bouton Personnaliser en ligne) : une compagnie de 4 types ajoute environ 190 px au lieu des anciennes lignes hautes. Le panneau est un bloc normal de la grille, la compagnie suivante commence en dessous : pas de chevauchement. Les types sont chargés à l’ouverture de Modifier (comme aujourd’hui).'),
-  both('<div class="grp">'+namedRow(NAMED[0],{id:'e1',open:true})+
-    '<div class="px"><p class="subhead">'+T('Aircraft types seen','Types d’appareil vus')+'</p><div>'+typeRows(NAMED[0])+'</div></div>'+
-    namedRow(NAMED[1],{id:'e2'})+'</div>'));
-
-/* 5. illustration policy A / B */
-function pol(rows,head){
-  return '<table class="pol"><thead><tr><th>'+T('State of the aircraft type','État du type d’appareil')+'</th><th>'+head+'</th></tr></thead><tbody>'+rows.map(function(r){return '<tr><td>'+r[0]+'</td><td>'+r[1]+'</td></tr>';}).join('')+'</tbody></table>';
-}
-var sA=pol([
-  [T('Uses the airline’s artwork (no override)','Utilise l’illustration de la compagnie (aucune personnalisation)'),L.changeArt],
-  [T('Own uploaded picture, no built-in picture','Image envoyée, pas d’image intégrée'),L.changeArt+' · '+L.delArt],
-  [T('Own uploaded picture, built-in picture beneath','Image envoyée, image intégrée en dessous'),L.changeArt+' · '+L.delArt+' · '+L.backDef]
-],T('Menu entries (policy A)','Entrées du menu (politique A)'));
-var sB=pol([
-  [T('Uses the airline’s artwork (no override)','Utilise l’illustration de la compagnie (aucune personnalisation)'),L.changeArt],
-  [T('Own uploaded picture (any case)','Image envoyée (tous les cas)'),L.changeArt+' · '+T('Remove my illustration','Retirer mon illustration')]
-],T('Menu entries (policy B)','Entrées du menu (politique B)'));
-var s5=scene(5,T('Illustration actions: policy A (proposed) or B','Actions sur l’illustration : politique A (proposée) ou B'),
-  T('R30. Today Customise and Change illustration are the same upload control, and Back to the default and Delete the illustration are the same change worded twice. Since the owner supplies every picture, "default" usually does not exist, so the entry must not appear then.','R30. Aujourd’hui Personnaliser et Changer l’illustration sont le même contrôle d’envoi, et Revenir à celle par défaut et Supprimer l’illustration sont le même changement dit deux fois. Comme le propriétaire fournit toutes les images, le « défaut » n’existe en général pas : l’entrée ne doit alors pas apparaître.'),
-  '<div class="row2"><div class="opt"><h3>'+T('A. Proposed: three precise entries','A. Proposée : trois entrées précises')+'</h3>'+sA+
-  '<p class="note">'+T('One upload entry, Customise dropped. Delete only when a picture was uploaded. Back to the default only when a built-in picture exists beneath. Needs the has_builtin flag checked per aircraft type.','Une seule entrée d’envoi, Personnaliser supprimé. Supprimer seulement si une image a été envoyée. Revenir à celle par défaut seulement s’il existe une image intégrée en dessous. Il faut vérifier l’indicateur has_builtin par type d’appareil.')+'</p>'+
-  both('<div class="grp"><div class="sub" style="padding:0 12px"><div class="nm"><b>A320 <span style="font-weight:400;color:var(--muted)">Airbus A320-214</span></b><small>'+L.ownArt+'</small></div><div class="ac"><button type="button" class="btn ico">'+IC.dots+'</button></div></div>'+
-    menu([[L.changeArt],[L.delArt,1]])+'</div>')+
-  '</div>'+
-  '<div class="opt"><h3>'+T('B. Alternative: always two entries','B. Alternative : toujours deux entrées')+'</h3>'+sB+
-  '<p class="note">'+T('The word "default" is never shown. The removal entry says what it does for the owner: the airline’s own picture (or the generic one) comes back. Simpler wording, same server action.','Le mot « défaut » n’apparaît jamais. L’entrée de retrait dit ce qu’elle fait : l’illustration de la compagnie (ou l’image générique) revient. Libellé plus simple, même action serveur.')+'</p>'+
-  both('<div class="grp"><div class="sub" style="padding:0 12px"><div class="nm"><b>A320 <span style="font-weight:400;color:var(--muted)">Airbus A320-214</span></b><small>'+L.ownArt+'</small></div><div class="ac"><button type="button" class="btn ico">'+IC.dots+'</button></div></div>'+
-    menu([[L.changeArt],[T('Remove my illustration','Retirer mon illustration'),1]])+'</div>')+
-  '</div></div>');
-
-/* 6. known by name, read-only */
-var s6=scene(6,T('Known by name, no artwork: read-only rows','Connues par leur nom, sans illustration : lignes en lecture seule'),
-  T('D-15. These airlines are named by the server but have no picture. They are listed so the owner sees what is missing: no Edit, no Rename, no menu. Add artwork opens the same add-artwork step as the Add airline button, with the name and prefix filled in and not editable. They are not counted in the 36 named airlines.','D-15. Ces compagnies sont nommées par le serveur mais n’ont pas d’image. Elles sont listées pour voir ce qui manque : pas de Modifier, pas de Renommer, pas de menu. Ajouter une illustration ouvre la même étape d’ajout que le bouton Ajouter une compagnie, nom et préfixe déjà remplis et non modifiables. Elles ne comptent pas dans les 36 compagnies nommées.'),
-  '<div class="row2"><div>'+both('<div class="grp">'+KNOWN.map(knownRow).join('')+'</div><p class="count">'+T('6 more, shown by the filter chip "Known by name"','6 autres, visibles avec la pastille « Connue par son nom »')+'</p>')+'</div>'+
-  '<div><p class="cap">'+T('After Add artwork (existing step)','Après Ajouter une illustration (étape existante)')+'</p>'+
-  '<div class="sheet" style="width:min(100%,360px)"><h4>'+T('Add an illustration for Aegean Airlines','Ajouter une illustration pour Aegean Airlines')+'</h4><div class="fld"><label>'+T('Prefix','Préfixe')+'</label><input value="AEE" disabled></div>'+
-  '<div class="drop">'+T('Drop an image in the frame, or choose one.','Déposez une image dans le cadre, ou choisissez-en une.')+'</div><button type="button" class="btn pri">'+T('Upload','Envoyer')+'</button></div></div></div>');
-
-document.getElementById('board').innerHTML=s1+s2+s3+s4+s5+s6;
-
-/* questions, both languages */
-document.querySelector('#questions ol').innerHTML=[
-  [T('What does "marchand" mean in your R29 note ("rows not optimised")? I read it as "Marque" (brand) or "marchands" (merchants/types), or a typo. Recommendation: treat it as "lignes" (rows) and keep what is shown here; tell me if you meant a column or label.','Que veut dire « marchand » dans votre remarque R29 (« lignes pas optimisées ») ? Je lis « Marque », « marchands » ou une faute de frappe. Recommandation : le lire comme « lignes » et garder ce qui est montré ici ; dites-moi si vous pensiez à une colonne ou une étiquette.')],
-  [T('Illustration policy (R30): A (three precise entries, Back to the default only if a built-in picture exists) or B (always two entries, never the word "default")? Recommendation: A, it matches today’s server behaviour exactly; B if you never expect built-in pictures.','Politique d’illustration (R30) : A (trois entrées précises, Revenir à celle par défaut seulement s’il existe une image intégrée) ou B (toujours deux entrées, jamais le mot « défaut ») ? Recommandation : A, elle colle au comportement serveur actuel ; B si vous n’attendez jamais d’images intégrées.')],
-  [T('Words: Complete / Edit / Rename in English, Compléter / Modifier / Renommer in French. Right? Recommendation: keep these three.','Mots : Complete / Edit / Rename en anglais, Compléter / Modifier / Renommer en français. Bon ? Recommandation : garder ces trois mots.')],
-  [T('Filter chips: All, Unidentified, Named by hand, Own artwork, Known by name (EN) / Tout, Non identifiées, Nommées à la main, Illustration perso, Connues par leur nom (FR), with counts. Right? Recommendation: yes, with counts.','Pastilles de filtre : Tout, Non identifiées, Nommées à la main, Illustration perso, Connues par leur nom, avec compteurs. Bon ? Recommandation : oui, avec compteurs.')],
-  [T('Remove Ignore (R28) and let an unidentified row fold with the Complete button only. Right? Recommendation: yes, nothing is stored by Ignore today.','Supprimer Ignorer (R28) et replier une ligne non identifiée avec le seul bouton Compléter. Bon ? Recommandation : oui, Ignorer ne stocke rien aujourd’hui.')],
-  [T('Known-by-name rows (D-15): grouped at the bottom, read-only, with Add artwork only, 4 shown and a "show more" link. Right? Recommendation: yes.','Lignes « connues par leur nom » (D-15) : groupées en bas, lecture seule, avec Ajouter une illustration seulement, 4 visibles et un lien « Voir plus ». Bon ? Recommandation : oui.')]
-].map(function(q){return '<li>'+q[0]+'</li>';}).join('');
-
-/* interactions: expand, menu, chip, controls */
-document.getElementById('board').addEventListener('click',function(e){
-  var b=e.target.closest('button');if(!b)return;
-  if(b.dataset.chip){b.parentNode.querySelectorAll('.chip').forEach(function(c){c.setAttribute('aria-pressed',String(c===b));});}
-  if(b.hasAttribute('aria-expanded')){var on=b.getAttribute('aria-expanded')!=='true';b.setAttribute('aria-expanded',String(on));}
-});
-function seg(id,key,attr,fn){
-  var bs=document.querySelectorAll('#'+id+' button');
-  bs.forEach(function(b){b.addEventListener('click',function(){fn(b.dataset[key]);bs.forEach(function(x){x.setAttribute('aria-pressed',String(x===b));});});});
-}
-var R=document.documentElement;
-seg('vp','v','',function(v){R.setAttribute('data-view',v);});
-seg('lg','l','',function(l){R.setAttribute('data-lang',l);R.lang=l;});
-seg('th','t','',function(t){if(t==='auto')R.removeAttribute('data-theme');else R.setAttribute('data-theme',t);});
+  function mock(vp,caption,sub,builder,scroll){
+    var langs=['en','fr'].map(function(l){return '<div data-lang="'+l+'">'+builder(vp,S[l])+'</div>';}).join('');
+    var box='<div data-viewport="'+vp+'"'+(scroll?' data-scroll="'+scroll+'"':'')+'>'+langs+'</div>';
+    return '<figure class="mock"><figcaption>'+caption+(sub?'<small>'+sub+'</small>':'')+'</figcaption>'+(vp==='desktop'?'<div class="scroller">'+box+'</div>':box)+'</figure>';
+  }
+  function section(h,lead,body,extra){return '<section class="sec"><h2>'+h+'</h2><p class="lead">'+lead+'</p>'+body+(extra||'')+'</section>';}
+  var html='';
+  html+=section('1. Desktop: the Airlines editor',
+    'Same real shell. At the top: search and filter chips with their counts (All, Unidentified, Known by name only, No artwork, Seen, Not seen yet). Unidentified prefixes are short rows with a single <b>Complete</b> button: the form (name and aircraft type, then Validate) opens only when asked, and there is no Ignore. Airlines known by name only (no artwork yet) are read-only rows with <b>Add artwork</b>. The airlines table shows the name as plain text (renaming is an explicit action in the row menu), the artwork, the views and the last view.',
+    '<div class="row2">'+mock('desktop','Editor, Complete opened on the first unidentified prefix','',function(v,t){return page(v,t,{form:true});})+'</div>');
+  html+=section('2. Desktop: the row menu and the types panel',
+    'The row menu lists <b>Rename</b>, <b>Change artwork</b> (the old Customise and Change artwork were the same upload, now one action), <b>Set as default type</b>, <b>Back to the default</b> and <b>Delete the illustration</b>. The row opens to the aircraft types seen, in a clean two-column panel that no longer overlaps the next rows. (In the real build, Back to the default only shows where a default exists to go back to.)',
+    '<div class="row2">'+mock('desktop','Menu open on the first row','',function(v,t){return page(v,t,{menu:true});},700)+'</div>'+
+    '<div style="height:32px"></div><div class="row2">'+mock('desktop','First row opened: aircraft types seen','',function(v,t){return page(v,t,{exp:true});},700)+'</div>'+
+    '<div style="height:32px"></div><div class="row2">'+mock('desktop','Rename dialog','',function(v,t){return page(v,t,{overlay:renameDlg(t)});})+'</div>');
+  html+=section('3. Phone',
+    'Compact rows: a prefix and one Complete button for the unidentified ones (the form is a bottom sheet), read-only rows with Add artwork for those known by name only, and one line per airline (thumbnail, name, prefix, views, a menu). Opening an airline shows its aircraft types in one column. Filters scroll as chips.',
+    '<div class="row2">'+mock('phone','Editor','Scroll inside the phone',function(v,t){return page(v,t,{});})+mock('phone','Complete sheet','',function(v,t){return page(v,t,{overlay:completeSheet(t)});})+mock('phone','An airline opened','Aircraft types seen',function(v,t){return page(v,t,{exp:true});},640)+'</div>');
+  document.getElementById('app').innerHTML=html;
+  document.querySelectorAll('[data-scroll]').forEach(function(v){var y=+v.dataset.scroll;v.querySelectorAll('.main,.screen').forEach(function(m){m.scrollTop=y;});});
+  document.querySelectorAll('[data-lang]').forEach(function(root){root.querySelectorAll('.sw').forEach(function(s){s.addEventListener('click',function(){s.classList.toggle('on');});});});
+  var r=document.documentElement;r.setAttribute('data-ui-lang','en');
+  document.querySelectorAll('#theme button').forEach(function(b){b.addEventListener('click',function(){
+    if(b.dataset.t==='auto')r.removeAttribute('data-ui-theme');else r.setAttribute('data-ui-theme',b.dataset.t);
+    document.querySelectorAll('#theme button').forEach(function(x){x.setAttribute('aria-pressed',String(x===b));});});});
+  document.querySelectorAll('#lang button').forEach(function(b){b.addEventListener('click',function(){
+    r.setAttribute('data-ui-lang',b.dataset.l);r.lang=b.dataset.l;
+    document.querySelectorAll('#lang button').forEach(function(x){x.setAttribute('aria-pressed',String(x===b));});});});
 })();
 </script>
-</body>
 </html>
