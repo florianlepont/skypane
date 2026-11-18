@@ -37,6 +37,7 @@ Not in this phase: the administrator flashing tool (SEED-014, v1.4), a 13.3 inch
 ### Mat, tabs and battery (owner, 2026-11-18)
 - **D-09:** The mat keeps its 140 x 99 mm opening; the displayed image will be adapted to the visible window, not the mat recut. That image change is rendering work outside this phase.
 - **D-10:** Metal tab depth is 8 mm (corrects the first report of 0.8 mm).
+- **D-12:** Everything (shim, tray, lid, stand) is centred on the mat opening, not on the screen active area (owner, 2026-11-18).
 - **D-11:** The pack in the enclosure is the Kubii 3000 mAh (8 x 50 x 60 mm, vendor size; measured 8 x 60 x 50 mm, 49 g).
 
 ### Blender work
