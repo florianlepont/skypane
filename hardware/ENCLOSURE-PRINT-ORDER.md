@@ -37,7 +37,7 @@ unless a measurement row is given. Nothing has been printed.
 | Lid | Pad positions along the sides | at the middle of each side | centres, from the rebate centre: top +16.5, bottom -12.5, left -3.5, right -7.5 mm; computed by the assistant from the owner's four readings and a 4 mm tab width | 7c, 7d | 2026-11-18 |
 | Lid | Screw lugs on the edge (new, owner request) | none | 4 lugs 4 x 8 mm, z 12.5 to 22 mm, 2.2 mm horizontal hole at z 18 mm, head recess 4.2 mm; assume a vertical rebate wall between z 14 and 22 mm, not measured | none | 2026-11-18 |
 | Lid | Stand stop walls (new) | hinge knuckles for a folding stand | two stop walls 3 mm thick and 4.5 mm high with side guides: landscape at x 6.9 mm, portrait at y -32 mm | none | 2026-11-18 |
-| Lid | Signature (new, owner request) | none | "SKYPANE" engraved 0.4 mm deep on the wall side | none | 2026-11-18 |
+| Lid | Signature and logo (new, owner request) | none | "SKYPANE" and the SkyPane mark (the S in its tile, from `companion/static/favicon.svg`) engraved 0.4 mm deep on the wall side; the S strokes are 1.9 mm wide, the tile outline 1.0 mm | none | 2026-11-18 |
 | Tray | Antenna position | top left, on a 41 x 21 mm platform with ribs and a 0.6 mm top plate | above the board: 40 x 20 mm footprint at x 12 to 52 mm and y 65 to 85 mm, on a solid block; moved instead of buying an extension | 13 | 2026-11-18 |
 | Tray | Interior layout | scattered stops and ribs, L-shaped bay with filler blocks | one continuous partition, battery pocket with solid walls, service well with 1.2 mm walls and rounded corners, free area under the partition; names and outlines of the components engraved 0.4 mm | none | 2026-11-18 |
 | Tray | Board standoffs | 5.2 mm diameter, pilot hole 0.6 mm above the floor | 4.0 mm diameter, pilot floor 0.8 mm (no wall under 0.8 mm) | none | 2026-11-18 |
@@ -64,7 +64,7 @@ not reported any check of his own yet.
 |---|---|---|
 | Closed meshes | Tray, lid, stand and shim: all closed, 0 open edges | 2026-11-18 |
 | No support needed | Tray, stand, shim: no face tilted under 45 degrees from the horizontal. Lid: 13 small groups, hole tops up to 3.0 mm across and bridges up to 4.5 mm; none needs support under the 4.5 mm rule | 2026-11-18 |
-| No wall under 0.8 mm | No wall under 0.8 mm outside the engraved letters. 31 faces of 0.24 mm in the tray labels and 20 in the lid signature: thin ridges between letter strokes, decorative, slicers drop them | 2026-11-18 |
+| No wall under 0.8 mm | No wall under 0.8 mm outside the engraved letters. 31 faces of 0.24 mm in the tray labels and 22 in the lid signature and logo: thin ridges between letter strokes and between the logo grooves, decorative, slicers drop them | 2026-11-18 |
 | No slot under 1 mm | Narrowest slot: tray 1.09 mm, lid 1.0 mm, stand none, shim none | 2026-11-18 |
 | Bridges 4.5 mm at most | Longest bridge 4.5 mm (lid hook cavity); 3.0 mm for the lug holes | 2026-11-18 |
 | Centre of gravity against the landscape hook axis (with the measured masses) | With the owner's masses (frame 173 g, screen 36 g, battery 49 g, board with antenna and cable 20 g) and the printed parts solid or at 40 % of solid (PETG 1.27 g/cm3, design value): x -3.6 to -2.6 mm, y +1.5 to +5.1 mm, total 328 to 403 g, without the stand plate. The landscape hook axis is at y = 0 with +-12 mm of adjustment | 2026-11-18 |
@@ -107,9 +107,9 @@ in millimetres, each part lying in its printing pose (lowest point at z = 0):
 | File | Size of the part | Triangles |
 |---|---|---|
 | `skypane_tray.stl` | 132.6 x 182.6 x 11.0 mm | 7346 |
-| `skypane_lid.stl` | 132.6 x 182.6 x 11.2 mm | 3926 |
+| `skypane_lid.stl` | 132.6 x 182.6 x 11.2 mm | 5326 |
 | `skypane_stand.stl` | 71.0 x 30.0 x 4.0 mm | 12 |
 | `skypane_shim.stl` | 132.6 x 182.6 x 0.8 mm | 208 |
 
-The files were checked for size and bounding box only. They have not been opened
-in a slicer and nothing has been printed.
+The files were checked in Python for size, bounding box and watertightness (every edge is shared by exactly two triangles); 3 triangles in the lid and 11 in the tray have a
+near-zero area (under 1e-6 mm2), which slicers ignore. They have not been opened in a slicer and nothing has been printed.
