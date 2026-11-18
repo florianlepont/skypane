@@ -56,7 +56,8 @@
   // dispatched from here.
   var SWAPPED_EVENT = "skypane-regions-swapped";
   // Optional segmented chips: radios whose value is a row's
-  // data-filter-kind ("" is every row). Absent on a plain search bar.
+  // data-filter-kind ("" is every row); a row can list several kinds
+  // separated by spaces and matches a chip of any one of them. Absent on a plain search bar.
   var chipInputs = document.querySelectorAll("[data-filter-chip]");
   // Set on the bar while the search holds text, so the collapsed search
   // stays open without a :has() selector.
@@ -129,7 +130,7 @@
       group = "g" + (rawGroup === null ? "i" + i : rawGroup);
       rowKind = row.getAttribute("data-filter-kind") || "";
       matched = (query === "" || text.indexOf(query) !== -1)
-        && (kind === "" || rowKind === kind);
+        && (kind === "" || (" " + rowKind + " ").indexOf(" " + kind + " ") !== -1);
       row.hidden = !matched;
       // A Flights summary row's sibling .flight-detail-row is a
       // separate element sharing the same group value via

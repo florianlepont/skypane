@@ -892,7 +892,7 @@ def test_airlines_gap_rows_render_first_in_the_table_with_a_name_it_link(tmp_pat
     first_airline_index = rendered.index('<tbody class="airline-group" ')
     assert gap_index > filter_bar_index, "expected the gap row after the filter bar"
     assert gap_index < first_airline_index, "expected the gap row before every airline's rows"
-    assert ">Validate</button>" in rendered and ">Name it</a>" not in rendered
+    assert ">Name it</a>" in rendered and ">Validate</button>" in rendered and "Ignore" not in rendered
 
 
 def test_airlines_gap_rows_absent_with_no_gaps(tmp_path):
@@ -919,7 +919,7 @@ def test_airlines_section_order_is_title_then_filter_then_table_then_lightbox(tm
 
     literals = (
         ("title", '<h1 class="page-title"'),
-        ("filter", 'class="filter-bar"'),
+        ("filter", 'class="filter-bar filter-bar--chips"'),
         ("table", '<table class="airlines-table"'),
         ("gaprow", 'class="airline-group airline-group--gap"'),
         ("lightbox", '<dialog class="lightbox'),
@@ -951,7 +951,7 @@ def test_airlines_no_chrome_gate_survives_the_reorder(tmp_path):
         rendered_gap_only = airlines_page.render({"state_dir": str(tmp_a)})
     finally:
         illustrations.target_variants_by_airline = original_target_variants_by_airline
-    assert 'class="filter-bar"' in rendered_gap_only, (
+    assert 'class="filter-bar filter-bar--chips"' in rendered_gap_only, (
         "expected the filter bar to still render when there are gap cards but no curated pairs "
         "(the gate is `pairs or gap_shown`, CFG-82, 29-02-PLAN.md)")
 
@@ -1097,7 +1097,7 @@ def test_airlines_full_seeded_render_french_end_to_end(tmp_path):
     # The needle names the CURRENT French translation via the module's
     # own MESSAGES lookup (by stable id), never a hand-typed literal
     # that would silently go stale on the next edit.
-    for needle in (">Éditeur de compagnies<", ">Valider</button>", ">Ignorer</button>",
+    for needle in (">Éditeur de compagnies<", ">Valider</button>", ">Nommer</a>",
                    i18n_fr_airlines.MESSAGES[airline_table.MENU_CHANGE_ART.msg_id]):
         assert needle in rendered_fr, "expected the French %r in the French Airlines render" % (needle,)
     for needle in ("Identifier un vol non reconnu", "Nom de la compagnie",

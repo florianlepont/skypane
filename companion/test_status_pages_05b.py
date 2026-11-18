@@ -453,7 +453,8 @@ def test_gallery_filter_bar_carries_all_four_contract_markers_exactly_once(tmp_p
     assert rendered.count("data-filter-clear") == 3, (
         "expected two Clear buttons, the second one also carrying data-filter-clear-all")
     assert 'data-filter-clear-all' in rendered
-    assert "filter-chip" not in rendered, "expected the plain search pill, no chips, on Airlines"
+    labels = re.findall(r'<span class="filter-chip__text">([^<]*)</span>', rendered)
+    assert labels == ["All (36)", "Unidentified (0)", "No artwork (0)", "Seen (0)", "Not seen yet (36)"]
 
 
 def test_gallery_filter_clear_controls_are_real_buttons(tmp_path):
@@ -745,8 +746,8 @@ def test_replace_form_action_matches_trigger_attribute_membership(tmp_path):
             "%s-%s" % (illustrations.normalise_airline_key(name), shape)))
     assert len(actions) == expected + typed_with_art
     uploads = re.findall(r'<form class="airlines-art"[^>]* action="([^"]+)"', rendered)
-    assert len(uploads) == expected + sum(
-        len(shapes) for _name, shapes in illustrations.target_variants_by_airline())
+    assert len(uploads) == sum(
+        len(shapes) or 1 for _name, shapes in illustrations.target_variants_by_airline())
     for action in actions + uploads:
         assert action.startswith(prefix) and action.endswith(".png"), (
             "expected every upload action to be %s{key}.png, got %r" % (prefix, action))

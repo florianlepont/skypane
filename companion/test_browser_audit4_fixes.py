@@ -215,7 +215,7 @@ def test_a_hand_named_airline_keeps_its_row_one_line_tall(new_context, app_serve
     try:
         sizes = page.evaluate("""() => { const rows = [...document.querySelectorAll('tr.airlines-row')];
             const mine = rows.find(r => r.textContent.includes('Ryanair'));
-            const other = rows.find(r => r.querySelector('.airlines-name input'));
+            const other = rows.find(r => !r.textContent.includes('Ryanair') && r.querySelector('.airlines-name'));
             const left = el => el.querySelector('.airlines-name').getBoundingClientRect().left;
             return [mine.getBoundingClientRect().height, other.getBoundingClientRect().height,
                     left(mine), left(other)]; }""")

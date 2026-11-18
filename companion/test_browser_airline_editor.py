@@ -21,7 +21,11 @@ pytestmark = pytest.mark.browser
 VIEWPORTS = (("360", VIEWPORT_MIN_SUPPORTED), ("1280", VIEWPORT_DESKTOP))
 ROW = "tbody.airline-group:has(.airlines-pill)"
 DELETE_LINK = ROW + " .airlines-row .row-menu__toggle"
-FRANCE_NAME = '.airlines-name input[name="airline_name"][value="Air France"]'
+FRANCE = "#airline-air-france"
+FRANCE_NAME = FRANCE + " .airlines-name"
+FRANCE_MENU = FRANCE + " .airlines-row .row-menu__toggle"
+FRANCE_DIALOG = FRANCE + " dialog"
+FRANCE_FIELD = FRANCE_DIALOG + ' input[name="airline_name"]'
 
 _SETTLED = (
     "() => document.readyState === 'complete'"
@@ -82,7 +86,7 @@ def test_the_editor_is_a_console_page_without_a_frame_strip_and_with_usable_cont
         for _paint in _in_both_themes(page):
             page.wait_for_function(_SETTLED, timeout=15000)
             assert not _assert_no_page_overflow(page, "editor", viewport["width"])
-            for selector in (FRANCE_NAME, DELETE_LINK):
+            for selector in (FRANCE_MENU, DELETE_LINK):
                 _settle(page, selector)
                 _assert_hit_target(page, selector, "editor %s %s" % (name, lang))
     finally:
@@ -175,19 +179,22 @@ def test_renaming_an_airline_through_the_editor_works_end_to_end(new_context, ma
             link.click()
         taps += 1
         page.wait_for_url("**/airlines/manage")
-        _settle(page, FRANCE_NAME)
-        field = page.locator(FRANCE_NAME)
-        field.click()
+        _settle(page, FRANCE_MENU)
+        page.locator(FRANCE_MENU).click()
         taps += 1
+        page.locator(FRANCE + " .airlines-row .row-menu__panel a.row-menu__item").click()
+        taps += 1
+        field = page.locator(FRANCE_FIELD)
+        field.wait_for(state="visible")
         field.fill("Skyline Air")
         with page.expect_navigation():
-            field.press("Enter")
+            page.locator(FRANCE_DIALOG + " button[type=submit]").click()
         taps += 1
         page.wait_for_function(
             "() => document.body.innerText.includes('Airline name saved')", timeout=15000)
         page.wait_for_function(_SETTLED, timeout=15000)
-        assert page.locator('.airlines-name input[value="Skyline Air"]').count() == 1
+        assert page.locator("#airline-skyline-air .airlines-name").inner_text() == "Skyline Air"
         print("STEP-COUNT A8 phone %d" % taps)
-        assert taps == 3
+        assert taps == 4
     finally:
         context.close()

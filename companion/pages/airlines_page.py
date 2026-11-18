@@ -27,7 +27,7 @@ import companion.layout as layout
 import companion.page_context as page_context
 import companion.ui_components as ui_components
 from companion import airline_collection
-from companion.pages import airline_sheet, airline_table
+from companion.pages import airline_rows, airline_sheet, airline_table
 from companion.ui_base import AIRLINE_EDITOR_LABEL
 from server.plane import airline_default_types, illustrations
 # manual_resolutions, enrich and state_store import this page module in
@@ -833,17 +833,16 @@ _CLOSE_TEXT = i18n.msg("airlines.close", "Close")
 _CHOOSE_AN_IMAGE_TEXT = i18n.msg("airlines.choose_an_image", "Choose an image")
 
 
-def _filter_bar_html(total):
-    """Filter bar over the gallery, entirely inert without JS —
-    list-filter.js's early-return guard leaves the full unfiltered grid
-    usable if the script never loads. The plain search pill: no chips,
-    since no row carries a second dimension worth segmenting.
-    """
-    return layout.filter_bar_html(
+def _filter_bar_html(total, chips=None):
+    """Filter bar over the editor table, inert without JS (list-filter.js's
+    early-return guard leaves the full table usable). `chips` adds the kind
+    chips (`airline_rows.chips`)."""
+    return '<div class="airlines-filter">%s</div>' % layout.filter_bar_html(
         _FILTER_INPUT_ID, i18n.t(_FILTER_LABEL_TEXT),
         i18n.t(_FILTER_PLACEHOLDER_TEXT), i18n.t(_FILTER_COUNT_TEMPLATE),
         total, total, i18n.t(_FILTER_EMPTY_HEADING),
-        i18n.t(_FILTER_EMPTY_BODY_TEMPLATE) % total)
+        i18n.t(_FILTER_EMPTY_BODY_TEMPLATE) % total, chips=chips,
+        chips_legend=airline_rows.chips_legend() if chips else "")
 
 
 def unresolved_row_for_prefix(state_dir, prefix):
@@ -1274,8 +1273,8 @@ def render(ctx):
     overflow_html = _gap_overflow_html(gap_overflow_count)
     pairs, gap_shown = table_data.pairs, table_data.gap_rows
     lightbox_html = _lightbox_html() if (pairs or gap_shown) else ""
-    filter_html = _filter_bar_html(len(gap_shown) + len(pairs)) if (pairs or gap_shown) else ""
-    table_html = airline_table.table_html(table_data)
+    table_html, chips = airline_table.table_and_chips(table_data)
+    filter_html = _filter_bar_html(len(gap_shown) + len(pairs), chips) if (pairs or gap_shown) else ""
     return (
         layout.page_header(i18n.t(AIRLINE_EDITOR_LABEL))
         + filter_html

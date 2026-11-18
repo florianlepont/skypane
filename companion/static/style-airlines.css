@@ -683,41 +683,14 @@
   margin-right: 0;
 }
 
-.airlines-name {
-  display: flex;
-  flex: 1;
-  align-items: center;
-  gap: var(--space-xs);
-  min-width: 0;
-  margin: 0;
-}
-
-/* A name that is not editable in place sits where the editable ones put their
- * text (their border and padding), beside the badge on one line. */
+/* The airline's name: plain text beside its badge, on one line. */
 .airlines-name--fixed {
   display: block;
   flex: 1 1 auto;
   min-width: 0;
-  padding-inline: calc(var(--space-sm) + 1px);
+  padding-inline: var(--space-sm);
   font-weight: var(--weight-semibold);
   overflow-wrap: anywhere;
-}
-
-.airlines-name input[type="text"] {
-  flex: 1;
-  min-width: 0;
-  box-sizing: border-box;
-  font-weight: var(--weight-semibold);
-  background: transparent;
-  border: 1px solid transparent;
-  border-bottom: 1px dashed var(--color-border);
-  border-radius: var(--radius-control);
-}
-
-.airlines-name input[type="text"]:hover,
-.airlines-name input[type="text"]:focus {
-  background: var(--color-dominant);
-  border-color: var(--color-border);
 }
 
 .airlines-art {
@@ -807,63 +780,86 @@
   outline-offset: 1px;
 }
 
-/* The in-place resolve form of an unidentified prefix. */
-.airlines-resolve {
-  display: grid;
-  gap: var(--space-sm);
-  margin: 0;
+/* An unidentified prefix: the prefix, what was seen on two lines, the
+ * "Name it" button; the dialog that names it lives in the same cell. */
+.airlines-gap {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm) var(--space-md);
+  min-width: 0;
 }
 
-.airlines-resolve__cap {
+.airlines-gap__prefix {
+  flex: none;
+  min-width: 3.5rem;
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--color-text) 8%, transparent);
+  font-weight: var(--weight-bold);
+  text-align: center;
+}
+
+.airlines-gap__body {
   display: flex;
+  flex: 1;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-xs) var(--space-sm);
-  margin: 0;
+  min-width: 0;
+}
+
+.airlines-gap__meta {
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  overflow-wrap: anywhere;
+}
+
+.airlines-gap > .btn {
+  flex: none;
+}
+
+/* The filter chips: five segments do not fit a phone's line, so they wrap
+ * onto a second row there instead of pushing the page sideways. */
+.airlines-filter .filter-bar__chips {
+  flex-wrap: wrap;
+  height: auto;
+}
+
+.airlines-filter .filter-chip {
+  flex: 1 1 auto;
+}
+
+@media (min-width: 960px) {
+  .airlines-filter .filter-bar__chips {
+    flex-wrap: nowrap;
+  }
+}
+
+/* The default type column: the picture and the type's code on one line. */
+.airlines-deftype-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  white-space: nowrap;
+}
+
+.airlines-deftype {
   font-size: var(--font-label-size);
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-.airlines-resolve__fields {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-sm);
+/* The "..." menu: even padding, every item a 44px line, no margin from the
+ * forms the items sit in. */
+.airlines-table .row-menu__panel {
+  display: grid;
+  gap: 0;
+  padding: var(--space-xs);
 }
 
-.airlines-resolve__fields input[type="text"] {
-  flex: 0 1 280px;
-  min-width: 0;
-  min-height: 44px;
-  box-sizing: border-box;
+.airlines-table .row-menu__item {
+  border-radius: var(--radius-control);
 }
 
-.airlines-resolve__fields select {
-  flex: 0 1 180px;
-  min-width: 0;
-  min-height: 44px;
-}
-
-.airlines-resolve__actions {
-  display: flex;
-  flex: none;
-  gap: var(--space-sm);
-}
-
-@media (max-width: 559.98px) {
-  .airlines-resolve__fields > * {
-    flex: 1 1 100%;
-  }
-
-  .airlines-resolve__fields select {
-    width: 100%;
-  }
-
-  .airlines-resolve__actions > * {
-    flex: 1 1 0;
-  }}
-
-.airlines-name__save,
 .airlines-art__upload {
   min-height: 44px;
   min-width: 44px;
@@ -946,16 +942,14 @@
     color: color-mix(in srgb, var(--color-text) 70%, transparent);
   }
 
-  .airlines-col--name { width: 36%; }
-  .airlines-col--prefixes { width: 8%; }
+  .airlines-col--name { width: 35%; }
+  .airlines-col--prefixes { width: 7%; }
   .airlines-col--art { width: 17%; }
-  .airlines-col--views { width: 10%; }
-  .airlines-col--menu { width: 112px; }
+  .airlines-col--views { width: 9%; }
+  .airlines-col--seen { width: 21%; }
+  .airlines-col--menu { width: 72px; }
 
-  /* The airline name input ends in an ellipsis rather than a hard clip. */
-  .airlines-name input[type="text"] {
-    text-overflow: ellipsis;
-  }}
+}
 
 .collection-facts > .collection-facts__wide dd {
   text-align: left;

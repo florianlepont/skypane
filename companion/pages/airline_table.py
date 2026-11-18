@@ -1,14 +1,13 @@
 """The Console Airlines editor as one table.
 
-One `<tbody>` per airline: the airline's row (name edited in place, callsign
-prefixes as read-only text, the artwork thumbnail that replaces the artwork
-enlarged when tapped, views, last seen, a "..." menu) and, behind a native
-`<details>` chevron, one sub-row per aircraft type seen for it. Every type
-row is editable: it starts as "Same as the airline" and can take a picture of
-its own, go back to the default, or be starred as the airline's default type.
-Unidentified prefixes sit above as highlighted rows that are resolved in
-place: a name field with suggestions, an optional default aircraft type, and
-Validate / Ignore. A name typed by hand keeps its row, marked "Named by
+One `<tbody>` per airline: the airline's row (its name as plain text, callsign
+prefixes, the default aircraft type with its picture, views, last seen, a
+"..." menu) and, behind a native `<details>` chevron, one sub-row per aircraft
+type seen for it. The artwork belongs to the aircraft types: a type row says
+whether it has a picture of its own or follows the default type's, offers one
+upload entry, and its menu sets the default type or deletes the uploaded
+picture. Unidentified prefixes sit above as compact rows (`airline_rows`)
+named in a dialog. A name typed by hand keeps its row, marked "Named by
 hand". Below 70rem every row is a card.
 
 Every control posts to a route of the editor: the rename and reset routes,
@@ -23,10 +22,8 @@ import companion.device_scope as device_scope
 import companion.i18n as i18n
 import companion.illustration_normalize as illustration_normalize
 import companion.layout as layout
-import companion.ui_components as ui_components
 from companion.layout import csrf_field, escape_html
-from companion.ui_base import validation_attrs
-from companion.pages import airline_sheet
+from companion.pages import airline_rows, airline_sheet
 from server.plane import airline_default_types
 from server.plane import illustrations
 from server.plane import render as panel_render
@@ -38,40 +35,30 @@ NO_VALUE = "—"
 # airlines_page._airline_card_manual_fields()).
 _NO_MANUAL_FIELDS = ("art", False, False, "", "", "", "", "", "", "", "", "")
 SUB_ROW_TYPE_SEP = " · "
-KNOWN_NAMES_LIST_ID = "airlines-known-names"
+KNOWN_NAMES_LIST_ID = airline_rows.KNOWN_NAMES_LIST_ID
 
 CAPTION_TEXT = i18n.msg("airlines.table_caption", "Airlines")
 COL_AIRLINE = i18n.msg("airlines.col_airline", "Airline")
 COL_PREFIXES = i18n.msg("airlines.col_prefixes", "Prefixes")
-COL_ARTWORK = i18n.msg("airlines.col_artwork", "Artwork")
+COL_DEFAULT_TYPE = airline_rows.COL_DEFAULT_TYPE
 COL_VIEWS = i18n.msg("airlines.col_views", "Views")
 COL_LAST_SEEN = i18n.msg("airlines.col_last_seen", "Last seen")
-NAME_ARIA = i18n.msg("airlines.name_aria", "Airline name: %s")
-SAVE_NAME_TEXT = i18n.msg("airlines.table_save_name", "Save")
 ENLARGE_ARIA = i18n.msg("airlines.enlarge_artwork_of", "Enlarge the artwork of %s")
 ART_UPLOAD_TEXT = i18n.msg("airlines.table_upload", "Upload")
-USES_AIRLINE_ART = i18n.msg("airlines.uses_airline_artwork", "Uses the airline’s artwork")
 EXPAND_ARIA = i18n.msg("airlines.expand_types_aria", "Aircraft types seen for %s")
 MENU_ARIA = i18n.msg("airlines.row_menu_aria", "Actions for %s")
 MENU_RESET = i18n.msg("airlines.reset_original_name", "Reset to the original name")
 MENU_CHANGE_ART = i18n.msg("airlines.change_artwork", "Change artwork")
-RESOLVE_NAME_ARIA = i18n.msg("airlines.resolve_name_aria", "Airline name for the prefix %s")
-RESOLVE_NAME_PLACEHOLDER = i18n.msg("airlines.resolve_name_placeholder", "Airline name")
-RESOLVE_TYPE_ARIA = i18n.msg("airlines.resolve_type_aria", "Default aircraft type for %s")
-RESOLVE_TYPE_NONE = i18n.msg("airlines.resolve_type_none", "Aircraft type")
-RESOLVE_VALIDATE = i18n.msg("airlines.resolve_validate", "Validate")
-RESOLVE_IGNORE = i18n.msg("airlines.resolve_ignore", "Ignore")
 HAND_NAMED_TEXT = i18n.msg("airlines.named_by_hand", "Named by hand")
-STATE_DEFAULT = i18n.msg("airlines.state_airline_default", "Same as the airline")
+STATE_DEFAULT = i18n.msg(
+    "airlines.state_default_type_artwork", "Uses the default type’s artwork")
 STATE_OWN = i18n.msg("airlines.state_own_artwork", "Own artwork")
-ACTION_CUSTOMISE = i18n.msg("airlines.customise_artwork", "Customise")
-MENU_REVERT = i18n.msg("airlines.menu_revert_artwork", "Back to the default")
-MENU_DELETE_ART = i18n.msg("airlines.menu_delete_artwork", "Delete the illustration")
-MENU_SET_DEFAULT_TYPE = i18n.msg("airlines.menu_set_default_type", "Set as the default type")
+ACTION_ADD_ART = i18n.msg("airlines.add_artwork", "Add artwork")
+MENU_DELETE_ART = i18n.msg("airlines.menu_delete_artwork", "Delete the artwork")
+MENU_SET_DEFAULT_TYPE = i18n.msg("airlines.menu_set_default_type", "Set as default type")
 MENU_CLEAR_DEFAULT_TYPE = i18n.msg(
     "airlines.menu_clear_default_type", "Remove as the default type")
 DEFAULT_TYPE_PILL = i18n.msg("airlines.default_type_pill", "Default type")
-UNIDENTIFIED_TEXT = i18n.msg("airlines.unidentified_label", "Unidentified")
 VIEWS_ONE = i18n.msg("airlines.views_one", "1 view")
 VIEWS_MANY = i18n.msg("airlines.views_many", "%d views")
 NOT_SEEN_TEXT = i18n.msg("airlines.table_not_seen", "Not seen yet")
@@ -154,42 +141,23 @@ def _post_form(route, fields, text, css="row-menu__item"):
     ) % (device_scope.scoped(route, "POST"), hidden, csrf_field(), css, escape_html(text))
 
 
-def _delete_art_form(row_key, delete=False, css="row-menu__item"):
-    """Removes the owner's uploaded picture of `row_key`: the type or airline
-    shows its default again (the vendored picture, else the airline's own or
-    the generic one). "Back to the default" and "Delete the illustration" are
-    the same change worded two ways."""
-    if delete:
-        return _post_form(
-            airline_sheet.ARTWORK_DELETE_ROUTE, (("key", row_key),), i18n.t(MENU_DELETE_ART),
-            css + " row-menu__item--destructive")
+def _delete_art_form(row_key):
+    """Removes the owner's uploaded picture of `row_key`: the type then shows
+    the default type's picture (or the vendored one) again."""
     return _post_form(
-        airline_sheet.ARTWORK_DELETE_ROUTE, (("key", row_key),), i18n.t(MENU_REVERT), css)
+        airline_sheet.ARTWORK_DELETE_ROUTE, (("key", row_key),), i18n.t(MENU_DELETE_ART),
+        "row-menu__item row-menu__item--destructive")
 
 
 def _name_cell(row):
-    """The airline's name: a form posting to the rename route for an airline
-    the built-in prefix table knows, plain text for any other."""
-    name = row["name"]
-    sheet = row["sheet"]
-    if sheet is None:
-        manual = row["manual_info"]
-        pill = (
-            '<span class="airlines-pill">%s</span>' % escape_html(i18n.t(HAND_NAMED_TEXT))
-            if manual is not None and not manual[1] else "")
-        return '<span class="airlines-name airlines-name--fixed">%s</span>%s' % (
-            escape_html(name), pill)
-    return (
-        '<form class="airlines-name" method="post" action="%s">'
-        '<input type="hidden" name="airline" value="%s">%s'
-        '<input type="text" name="airline_name" value="%s" maxlength="100" required '
-        'autocomplete="off" aria-label="%s" data-autosubmit%s%s>'
-        '<noscript><button type="submit" class="airlines-name__save">%s</button></noscript>'
-        "</form>"
-    ) % (device_scope.scoped(airline_sheet.RENAME_ROUTE, "POST"), escape_html(sheet["builtin"]),
-         csrf_field(), escape_html(name), escape_html(i18n.t(NAME_ARIA) % name),
-         " autofocus" if row["focus"] else "", validation_attrs("text"),
-         escape_html(i18n.t(SAVE_NAME_TEXT)))
+    """The airline's name as plain text, with the "Named by hand" pill for an
+    owner-named airline; renaming is an action of the row's menu."""
+    manual = row["manual_info"]
+    pill = (
+        '<span class="airlines-pill">%s</span>' % escape_html(i18n.t(HAND_NAMED_TEXT))
+        if row["sheet"] is None and manual is not None and not manual[1] else "")
+    return '<span class="airlines-name airlines-name--fixed">%s</span>%s' % (
+        escape_html(row["name"]), pill)
 
 
 def _enlarge_html(page, row, key, label):
@@ -236,32 +204,59 @@ def _menu_html(items, aria):
     ) % (escape_html(aria), layout.icon_html("icon-more-vertical", size=20), items)
 
 
+def _rename_dialog(row):
+    page = _page()
+    sheet = row["sheet"]
+    return airline_rows.rename_dialog_html(
+        row["index"], sheet["builtin"], row["name"],
+        device_scope.scoped(airline_sheet.RENAME_ROUTE, "POST"), csrf_field(),
+        device_scope.scoped(page.MANAGE_ROUTE), open_=row["focus"])
+
+
 def _menu_cell(page, row):
-    """Change artwork, back to the default or delete it when the owner
-    uploaded one, then the name item when the airline has an owner name."""
-    items = _change_art_form(page, row["key"])
-    if row["has_override"]:
-        items += _delete_art_form(row["key"]) + _delete_art_form(row["key"], delete=True)
-    return _menu_html(items + _reset_form(page, row), i18n.t(MENU_ARIA) % row["name"])
+    """The airline's menu: Rename for an airline the built-in prefix table
+    knows, the way back to the original name after a rename (or Delete my
+    name for an owner-named one). An airline with no aircraft-type row to
+    carry a picture keeps "Change artwork" so it is never a dead end. Empty
+    when nothing applies."""
+    items = airline_rows.rename_item_html(row["index"]) if row["sheet"] is not None else ""
+    items += _reset_form(page, row)
+    if not row["sub_rows"] and not row["needs_artwork"]:
+        items += _change_art_form(page, row["key"])
+    if not items:
+        return ""
+    return _menu_html(items, i18n.t(MENU_ARIA) % row["name"]) + (
+        _rename_dialog(row) if row["sheet"] is not None else "")
+
+
+def _default_type_text(row):
+    code = row["default_type"]
+    return '<span class="airlines-deftype mono">%s</span>' % escape_html(code or NO_VALUE)
 
 
 def _artwork_cell(page, row):
-    """The airline's artwork: a link to the resolve step for an owner-named
-    airline still without artwork, the tap-to-enlarge thumbnail when there is
-    a picture, else the empty frame."""
+    """The airline's default type: its picture (the airline's own when the
+    default type has none) with the type's code. An owner-named airline still
+    without artwork links to the resolve step; a tap on the picture enlarges it."""
+    code = _default_type_text(row)
+    key = row["thumb_key"]
     if row["needs_artwork"]:
         inner = _thumb_html(page, row["key"], row["state_dir"])
         card = {
             "name": row["name"], "state_dir": row["state_dir"], "sheet": None,
             "manual_fields": row["manual_fields"], "types": [],
         }
-        return page._type_trigger_html(
+        trigger = page._type_trigger_html(
             card, page.ANY_TYPE_ID, row["name"], row["key"], "airlines-thumb", inner,
             i18n.t(page.ACTION_LABEL_TEMPLATE) % (i18n.t(page.ADD_ACTION_TEXT), row["name"]))
+        return '<span class="airlines-deftype-cell">%s%s</span>' % (trigger, code)
     if row["has_art"]:
-        return _enlarge_html(page, row, row["key"], row["name"])
-    return '<span class="airlines-thumb">%s</span>' % _thumb_html(
-        page, row["key"], row["state_dir"])
+        if key != row["key"]:
+            row = dict(row, manual_fields=_NO_MANUAL_FIELDS)
+        return '<span class="airlines-deftype-cell">%s%s</span>' % (
+            _enlarge_html(page, row, key, row["name"]), code)
+    return '<span class="airlines-deftype-cell"><span class="airlines-thumb">%s</span>%s</span>' % (
+        _thumb_html(page, row["key"], row["state_dir"]), code)
 
 
 def _expand_cell(row):
@@ -297,7 +292,7 @@ def _sub_art_html(page, sub, row):
     dimmed, with the state in words beside it."""
     if sub["slot"] is None:
         return '<span class="airlines-uses text-label">%s</span>' % escape_html(
-            i18n.t(USES_AIRLINE_ART))
+            i18n.t(STATE_DEFAULT))
     label = "%s, %s" % (row["name"], sub["code"])
     if sub["has_own"]:
         sub_row = dict(row, manual_fields=_NO_MANUAL_FIELDS)
@@ -319,30 +314,29 @@ def _sub_art_html(page, sub, row):
 
 
 def _sub_action_html(page, sub):
-    """The row's one inline action: back to the default for a type with an
-    uploaded picture, else customise it; nothing for a vendored picture."""
+    """The type row's one upload entry: "Add artwork" for a type with no
+    picture, "Change artwork" for one that has any; nothing for a type no
+    picture slot exists for."""
     if sub["slot"] is None:
         return ""
-    if sub["has_override"]:
-        return _delete_art_form(sub["slot"], css="airlines-act")
-    if sub["has_builtin"]:
-        return ""
-    return _change_art_form(page, sub["slot"], i18n.t(ACTION_CUSTOMISE), "airlines-act")
+    return _change_art_form(
+        page, sub["slot"], i18n.t(MENU_CHANGE_ART if sub["has_own"] else ACTION_ADD_ART),
+        "airlines-act")
 
 
 def _sub_menu_html(page, sub, row):
-    if sub["slot"] is None and not sub["code_ok"]:
-        return ""
-    items = _change_art_form(page, sub["slot"]) if sub["slot"] else ""
-    if sub["slot"] and sub["has_override"]:
-        items += _delete_art_form(sub["slot"])
+    """The type's menu: set (or clear) it as the airline's default type, and
+    delete the uploaded picture, which only exists as an owner's upload."""
+    items = ""
     if sub["code_ok"]:
         items += _post_form(
             airline_sheet.DEFAULT_TYPE_ROUTE,
             (("airline_key", row["key"]), ("type", "" if sub["is_default"] else sub["code_ok"])),
             i18n.t(MENU_CLEAR_DEFAULT_TYPE if sub["is_default"] else MENU_SET_DEFAULT_TYPE))
     if sub["slot"] and sub["has_override"]:
-        items += '<hr class="row-menu__sep">' + _delete_art_form(sub["slot"], delete=True)
+        items += _delete_art_form(sub["slot"])
+    if not items:
+        return ""
     return _menu_html(items, i18n.t(MENU_ARIA) % ("%s, %s" % (row["name"], sub["code"])))
 
 
@@ -434,6 +428,9 @@ def _row_facts(page, data, index, builtin_name, shapes):
         "focus": bool(data.focus_key) and sheet is not None and data.focus_key == key,
     }
     facts["sub_rows"] = _sub_rows(page, entry, builtin_name, shapes, facts)
+    facts["thumb_key"] = next(
+        (sub["slot"] for sub in facts["sub_rows"] if sub["is_default"] and sub["has_own"]), key)
+    facts["kinds"] = airline_rows.row_kinds(facts["has_art"], facts["views"])
     return facts
 
 
@@ -476,62 +473,24 @@ def _airline_group_html(page, row, types_open=False):
         subs = ""
         source = ' data-types-src="%s"' % escape_html(_types_source(row))
     return (
-        '<tbody class="airline-group" id="airline-%s" data-filter-text="%s" data-filter-group="%d"%s>%s%s</tbody>'
-    ) % (escape_html(row["key"]), escape_html(_filter_text(row)), row["index"], source,
+        '<tbody class="airline-group" id="airline-%s" data-filter-text="%s" data-filter-group="%d" '
+        'data-filter-kind="%s"%s>%s%s</tbody>'
+    ) % (escape_html(row["key"]), escape_html(_filter_text(row)), row["index"], row["kinds"], source,
          _main_row_html(page, row), subs)
 
 
-def known_type_codes():
-    """The aircraft designators the curated pictures show, sorted, for the
-    default-type pick of an unidentified row."""
-    codes = set(illustrations.PRIMARY_AIRCRAFT_LABELS.values())
-    codes |= set(illustrations.VARIANT_AIRCRAFT_LABELS.values())
-    return sorted(code for code in codes if airline_default_types.normalise_code(code))
-
-
-def _type_select_html(prefix):
-    options = '<option value="">%s</option>' % escape_html(i18n.t(RESOLVE_TYPE_NONE))
-    options += "".join(
-        '<option value="%s">%s</option>' % (escape_html(code), escape_html(code))
-        for code in known_type_codes())
-    return '<select name="default_type" aria-label="%s">%s</select>' % (
-        escape_html(i18n.t(RESOLVE_TYPE_ARIA) % prefix), options)
-
-
 def _gap_group_html(page, index, gap_row, now):
-    """One unidentified prefix: a highlighted row resolved in place. A name
-    (suggestions from the known airlines), an optional default aircraft type,
-    Validate to save the name and Ignore to clear the fields. The form posts
-    to the resolve route with `inline`, so the editor comes back with the
-    row identified."""
+    """One unidentified prefix: a compact row with a "Name it" button whose
+    dialog names it through the resolve route."""
     prefix, count, _first_seen, last_seen, callsign = gap_row
     callsign = callsign if isinstance(callsign, str) else str(callsign)
-    form = (
-        '<form class="airlines-resolve" method="post" action="%s">'
-        '<input type="hidden" name="prefix" value="%s">'
-        '<input type="hidden" name="inline" value="1">%s'
-        '<p class="airlines-resolve__cap"><span class="airlines-gap-chip">%s</span>'
-        '<span class="mono">%s</span><span class="cell-inline-sep">·</span>%s'
-        '<span class="cell-inline-sep">·</span>%s</p>'
-        '<div class="airlines-resolve__fields">'
-        '<input type="text" name="airline_name" list="%s" maxlength="100" required '
-        'autocomplete="off" placeholder="%s" aria-label="%s"%s>%s'
-        '<div class="airlines-resolve__actions">'
-        '%s%s</div></div></form>'
-    ) % (
-        device_scope.scoped(page.RESOLVE_ROUTE, "POST"), escape_html(prefix), csrf_field(),
-        escape_html(i18n.t(UNIDENTIFIED_TEXT)), escape_html(callsign),
-        escape_html(_views_text(count)), layout.concise_timestamp_html(last_seen, now, fallback=""),
-        KNOWN_NAMES_LIST_ID, escape_html(i18n.t(RESOLVE_NAME_PLACEHOLDER)),
-        escape_html(i18n.t(RESOLVE_NAME_ARIA) % prefix), validation_attrs("text"),
-        _type_select_html(prefix),
-        ui_components.button_html(i18n.t(RESOLVE_VALIDATE), "primary", button_type="submit"),
-        ui_components.button_html(i18n.t(RESOLVE_IGNORE), "secondary", button_type="reset"))
-    return (
-        '<tbody class="airline-group airline-group--gap" data-filter-text="%s" '
-        'data-filter-group="gap%d"><tr class="airlines-row airlines-row--gap">'
-        '<th scope="row" colspan="6" class="airlines-cell airlines-cell--resolve">%s</th></tr></tbody>'
-    ) % (escape_html("%s %s" % (callsign.lower(), prefix.lower())), index, form)
+    meta = '%s<span class="cell-inline-sep">·</span>%s<span class="cell-inline-sep">·</span>%s' % (
+        escape_html(callsign), escape_html(_views_text(count)),
+        layout.concise_timestamp_html(last_seen, now, fallback=""))
+    return airline_rows.gap_group_html(
+        index, prefix, meta, "%s %s" % (callsign.lower(), prefix.lower()),
+        device_scope.scoped(page.RESOLVE_ROUTE, "POST"), csrf_field(),
+        device_scope.scoped(page.MANAGE_ROUTE))
 
 
 def _known_names_html():
@@ -546,7 +505,7 @@ def _head_html():
         '<th scope="col" class="airlines-col airlines-col--%s">%s</th>' % (
             name, escape_html(i18n.t(label)))
         for name, label in (
-            ("name", COL_AIRLINE), ("prefixes", COL_PREFIXES), ("art", COL_ARTWORK),
+            ("name", COL_AIRLINE), ("prefixes", COL_PREFIXES), ("art", COL_DEFAULT_TYPE),
             ("views", COL_VIEWS), ("seen", COL_LAST_SEEN)))
     return '<thead><tr>%s<td class="airlines-col airlines-col--menu"></td></tr></thead>' % cells
 
@@ -562,19 +521,28 @@ def show_types_link_html(data):
          escape_html(i18n.t(SHOW_TYPES_TEXT)))
 
 
-def table_html(data):
-    """The whole editor table for `data`: unidentified rows first, then one
-    group per airline."""
+def table_and_chips(data):
+    """`(table markup, filter chips)` for `data`: unidentified rows first, then
+    one group per airline; the chips carry the count of each kind of row."""
     page = _page()
     gaps = "".join(
         _gap_group_html(page, index, gap_row, data.now)
         for index, gap_row in enumerate(data.gap_rows))
     groups = []
+    counts = {airline_rows.KIND_UNIDENTIFIED: len(data.gap_rows)}
     for index, (builtin_name, shapes) in enumerate(data.pairs):
         row = _row_facts(page, data, index, builtin_name, shapes)
         if row is not None:
             groups.append(_airline_group_html(page, row, data.types_open))
-    return (
+            for kind in row["kinds"].split():
+                counts[kind] = counts.get(kind, 0) + 1
+    table = (
         '<table class="airlines-table"><caption class="visually-hidden">%s</caption>%s%s%s</table>%s'
     ) % (escape_html(i18n.t(CAPTION_TEXT)), _head_html(), gaps, "".join(groups),
          _known_names_html() if gaps else "")
+    return table, airline_rows.chips(counts, len(data.gap_rows) + len(groups))
+
+
+def table_html(data):
+    """The whole editor table for `data`."""
+    return table_and_chips(data)[0]

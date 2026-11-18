@@ -43,28 +43,31 @@ def _flash(headers):
     return urllib.parse.parse_qs(urllib.parse.urlsplit(headers["Location"]).query)
 
 
-def test_a_builtin_row_edits_the_name_in_place_and_lists_its_prefixes_read_only(tmp_path):
-    """every curated row is a rename form posting the built-in name and the shown name, saved
-    on change with a script and by a visible Save button without one; its callsign prefixes
-    are read-only text, never an input"""
+def test_a_builtin_row_shows_its_name_as_text_and_renames_through_a_dialog(tmp_path):
+    """every curated row shows its name as plain text; "Rename" in its menu opens a dialog whose
+    form posts the built-in name and the new name to the rename route, with a Save button and no
+    script needed; its callsign prefixes are read-only text, never an input"""
     rendered = airlines_page.render(shp.ctx(str(tmp_path)))
     card = _card(rendered, "Transavia France")
-    form = card[card.index('<form class="airlines-name"'):card.index("</form>")]
-    assert 'method="post" action="/airlines/rename"' in form
-    assert 'name="airline" value="Transavia France"' in form
-    assert 'name="airline_name" value="Transavia France" maxlength="100" required' in form
-    assert "data-autosubmit" in form and "list=" not in form and "autofocus" not in form
-    assert '<noscript><button type="submit" class="airlines-name__save">Save</button></noscript>' in form
+    assert '<span class="airlines-name airlines-name--fixed">Transavia France</span>' in card
+    assert '<a href="#rename-airline-' in card and ">Rename</a>" in card
+    dialog = card[card.index("<dialog"):card.index("</dialog>")]
+    assert 'method="post" action="/airlines/rename"' in dialog
+    assert 'name="airline" value="Transavia France"' in dialog
+    assert 'name="airline_name" value="Transavia France" maxlength="100" required' in dialog
+    assert "data-autosubmit" not in dialog and "list=" not in dialog
+    assert re.search(r'<button type="submit"[^>]*>Save</button>', dialog)
     assert re.search(r'<td class="airlines-cell airlines-cell--prefixes mono">'
                      r'<span class="visually-hidden">Prefixes </span>TFV TVF</td>', card)
     assert card.count('name="airline_name"') == 1
     assert "Renamed" not in card and "Renommée" not in card
 
 
-def test_manual_only_and_unidentified_rows_have_no_rename_form(tmp_path):
-    """an owner-named airline (no built-in prefix to rename by) shows its name as plain text,
-    and an unidentified prefix is resolved in its own row: a form posting to the resolve route
-    with the prefix, a name field with suggestions and an optional default aircraft type"""
+def test_manual_only_and_unidentified_rows_have_no_rename_dialog(tmp_path):
+    """an owner-named airline (no built-in prefix to rename by) shows its name as plain text
+    and has no rename dialog, and an unidentified prefix is one compact row with a Name it
+    button whose dialog posts to the resolve route with the prefix and a name field with
+    suggestions; no aircraft type is asked and nothing offers to ignore the prefix"""
     tmp = str(tmp_path)
     manual_resolutions.add_entry(tmp, "XQZ", "Totally Novel Airline", now="2026-01-01T00:00:00+00:00")
     shp.seed_unresolved_prefixes(tmp, {
@@ -76,11 +79,14 @@ def test_manual_only_and_unidentified_rows_have_no_rename_form(tmp_path):
         for attr in airline_sheet.SHEET_ATTRS:
             assert ('%s="' % attr) in trigger, (attr, trigger[:120])
     novel = _card(rendered, "Totally Novel Airline")
-    assert 'name="airline_name"' not in novel and "<form" in novel
-    gap = re.search(r'<form class="airlines-resolve".*?</form>', rendered, re.S).group(0)
-    assert 'action="/airlines/resolve"' in gap and 'name="prefix" value="XYZ"' in gap
-    assert 'name="airline_name"' in gap and 'list="airlines-known-names"' in gap
-    assert '<select name="default_type"' in gap and ">Validate<" in gap and ">Ignore<" in gap
+    assert 'name="airline_name"' not in novel and "<dialog" not in novel
+    gap = re.search(r'<tbody class="airline-group airline-group--gap".*?</tbody>', rendered, re.S).group(0)
+    assert ">Name it</a>" in gap and 'name="airlines-resolve"' not in gap
+    dialog = gap[gap.index("<dialog"):gap.index("</dialog>")]
+    assert 'action="/airlines/resolve"' in dialog and 'name="prefix" value="XYZ"' in dialog
+    assert 'name="airline_name"' in dialog and 'list="airlines-known-names"' in dialog
+    assert "<select" not in gap and "Ignore" not in rendered and "resolve_ignore" not in rendered
+    assert ">Validate<" in dialog
     assert 'id="airlines-known-names"' in rendered
 
 
@@ -88,7 +94,8 @@ def test_the_shared_dialog_no_longer_holds_a_name_form(tmp_path):
     """the shared dialog serves the artwork and the resolve flow only: names are edited in the
     table, so it carries no rename or reset form and no type switcher"""
     rendered = airlines_page.render(shp.ctx(str(tmp_path)))
-    dialog = rendered[rendered.index('<dialog'):]
+    dialog = rendered[rendered.index('<dialog class="lightbox'):] if '<dialog class="lightbox' in rendered else (
+        rendered[rendered.index('<dialog id="panel-lookup-dialog"'):])
     assert 'action="/airlines/rename' not in dialog
     assert "airline-sheet" not in dialog
     assert dialog.count('<h2 class="lightbox__heading">') == 1
@@ -105,7 +112,6 @@ def test_a_renamed_airline_shows_its_new_name_and_new_artwork_key_without_a_chip
     card = _card(rendered, "Transavia")
     assert 'name="airline" value="Transavia France"' in card
     assert 'name="airline_name" value="Transavia"' in card
-    assert 'action="/illustration/transavia.png"' in card
     assert 'action="/illustration/transavia-a320.png"' in card
     reset = card[card.index('<form class="airlines-menu__form"'):]
     assert 'action="/airlines/rename/reset"' in reset and "Reset to the original name" in reset
@@ -134,27 +140,27 @@ def test_a_row_names_the_airframe_and_never_an_any_aircraft_label(tmp_path):
         prefs.set_request_prefs(lang="en")
 
 
-def test_a_refused_rename_focuses_the_name_of_that_row_only(tmp_path):
-    """the editor reached after a name refusal (taken included) puts focus on the name field of
-    the refused airline's row, and only there; any other flash or key focuses nothing"""
+def test_a_refused_rename_reopens_the_dialog_of_that_row_only(tmp_path):
+    """the editor reached after a name refusal (taken included) renders the rename dialog of the
+    refused airline's row open, and only that one; any other flash or key opens nothing"""
     tmp = str(tmp_path)
 
-    def table(markup):
-        start = markup.index('<table class="airlines-table"')
-        return markup[start:markup.index("</table>", start)]
+    def open_dialogs(markup):
+        return re.findall(r'<dialog class="modal" id="(rename-airline-\d+)"[^>]* open[ >]', markup)
 
-    plain = airlines_page.render(shp.ctx(tmp) | {"sheet_key": "air-france"})
-    assert "autofocus" not in table(plain)
+    assert open_dialogs(airlines_page.render(shp.ctx(tmp) | {"sheet_key": "air-france"})) == []
     for key in (airline_sheet.FLASH_RENAME_TAKEN, "manual_name_too_long"):
         refused = airlines_page.render(shp.ctx(tmp) | {"sheet_key": "air-france", "flash_key": key})
-        assert table(refused).count(" autofocus") == 1
-        assert " autofocus" in re.search(r'<input type="text" name="airline_name" value="Air France"[^>]*>', refused).group(0)
+        opened = open_dialogs(refused)
+        assert len(opened) == 1
+        dialog = refused[refused.index('id="%s"' % opened[0]):]
+        assert 'name="airline_name" value="Air France"' in dialog[:dialog.index("</dialog>")]
     reset = airlines_page.render(shp.ctx(tmp) | {"sheet_key": "air-france", "flash_key": "airline_renamed"})
-    assert " autofocus" not in table(reset)
+    assert open_dialogs(reset) == []
     for hostile in ("nope", '"><script>', "../etc", ""):
         out = airlines_page.render(shp.ctx(tmp) | {
             "sheet_key": hostile, "flash_key": airline_sheet.FLASH_RENAME_TAKEN})
-        assert " autofocus" not in table(out) and "<script>alert" not in out
+        assert open_dialogs(out) == [] and "<script>alert" not in out
 
 
 def test_rename_post_stores_every_prefix_and_carries_the_artwork(make_app_server):
