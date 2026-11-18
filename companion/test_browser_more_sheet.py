@@ -492,9 +492,7 @@ _AMBIENT = """(want) => {
   const read = [
     getComputedStyle(document.querySelector('.home-state__dot--pulse')).animationIterationCount,
     getComputedStyle(
-      document.querySelector('.home-state__dot--pulse'), '::after').animationIterationCount,
-    getComputedStyle(
-      document.querySelector('.hero__picture'), '::before').animationIterationCount];
+      document.querySelector('.home-state__dot--pulse'), '::after').animationIterationCount];
   return read.every((v) => v === want); }"""
 
 

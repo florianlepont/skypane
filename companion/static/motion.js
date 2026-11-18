@@ -574,22 +574,24 @@
     });
   }
 
-  // A new flight row brought in by the freshness swap slides in at the top
-  // while the rows below glide down from where they were (FLIP, whole
-  // pixels, transform and opacity only).
-  var HOME_ROWS = 'section[aria-labelledby="home-flights"] li.row';
+  // A new flight tile brought in by the freshness swap slides in at the start
+  // of the Recent flights strip while the tiles after it glide along from
+  // where they were (FLIP, whole pixels, transform and opacity only).
+  var HOME_ROWS = 'section[aria-labelledby="home-flights"] .home-strip__tile';
 
-  function rowKey(li) {
-    var name = li.querySelector(".mono");
-    var detail = li.querySelector(".row__detail");
-    return (name ? name.textContent : "") + "|" + (detail ? detail.textContent : "");
+  // A tile is told apart by its call sign, the caption's own text: the age
+  // beside it changes on every repaint.
+  function rowKey(tile) {
+    var caption = tile.querySelector("figcaption");
+    var first = caption && caption.firstChild;
+    return first ? first.textContent.replace(/\s+$/, "") : "";
   }
 
   function readRows() {
     var rows = {};
     var nodes = document.querySelectorAll(HOME_ROWS);
     for (var i = 0; i < nodes.length; i++) {
-      rows[rowKey(nodes[i])] = Math.round(nodes[i].getBoundingClientRect().top);
+      rows[rowKey(nodes[i])] = Math.round(nodes[i].getBoundingClientRect().left);
     }
     return rows;
   }
@@ -611,14 +613,14 @@
       for (var i = 0; i < nodes.length; i++) {
         var key = rowKey(nodes[i]);
         if (!Object.prototype.hasOwnProperty.call(was, key)) {
-          play(nodes[i], [{opacity: 0, transform: "translateY(-14px)"},
+          play(nodes[i], [{opacity: 0, transform: "translateX(-14px)"},
                           {opacity: 1, transform: "none"}],
                {duration: duration, easing: ease});
           continue;
         }
-        var shift = was[key] - Math.round(nodes[i].getBoundingClientRect().top);
+        var shift = was[key] - Math.round(nodes[i].getBoundingClientRect().left);
         if (shift !== 0) {
-          play(nodes[i], [{transform: "translateY(" + shift + "px)"},
+          play(nodes[i], [{transform: "translateX(" + shift + "px)"},
                           {transform: "none"}],
                {duration: duration, easing: ease});
         }
