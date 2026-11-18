@@ -169,6 +169,15 @@ button.item{width:100%;background:none;border-left:0;border-right:0;border-botto
 .twocol .body{flex:1;min-width:0;display:flex;flex-direction:column;gap:32px}
 .banner{padding:12px 16px;border:1px solid var(--err);border-radius:14px;font-size:14px}
 
+/* desktop master-detail */
+.listcol{position:absolute;left:240px;top:0;bottom:0;width:340px;padding:24px 16px;border-right:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column;gap:12px}
+.listcol .rows .frow{padding:6px 12px}
+.frow.sel{background:var(--chip)}
+.main2{position:absolute;left:580px;right:0;top:0;bottom:0;overflow-y:auto;padding:32px 40px 64px;display:flex;flex-direction:column;gap:24px}
+.main2 .cols{display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start}
+.item.static .val{color:var(--text)}
+.main2 .tiles{grid-template-columns:1fr 1fr}
+
 /* questions */
 .q ol{padding-left:24px;display:flex;flex-direction:column;gap:16px;max-width:90ch}
 .q li b{display:block}
@@ -187,7 +196,7 @@ button.item{width:100%;background:none;border-left:0;border-right:0;border-botto
 <div class="top">
   <div>
     <h1>Frame list and frame page</h1>
-    <p>Mockup for the owner (CON-01: R11, R13, R14, R15, D-04). The list of frames is <code>/fleet</code> with no frame chosen; one frame is <code>/fleet?frame=&lt;id&gt;</code> (no new route). Retired and pending frames appear in the list only, never on another frame&rsquo;s page. Sample data is invented. Use the toggles, then answer the questions at the end.</p>
+    <p>Mockup for the owner, updated after the owner&rsquo;s answers of 2026-11-18 (CON-01: R11, R13, R14, R15, D-04). The list of frames is <code>/fleet</code> with no frame chosen; one frame is <code>/fleet?frame=&lt;id&gt;</code> (no new route). Retired and pending frames appear in the list only, never on another frame&rsquo;s page. Sample data is invented. Use the toggles, then answer the questions at the end.</p>
   </div>
   <div class="toggles">
     <div class="seg" id="theme" role="group" aria-label="Theme">
@@ -219,7 +228,7 @@ button.item{width:100%;background:none;border-left:0;border-right:0;border-botto
       onlyList:'Retired and pending frames are listed here only.',
       v1:'Variant 1: chip row',v2:'Variant 2: back link only',scrollhint:'Scroll inside the frame',
       sectionHint:{state:'Online',settings:'All saved',access:'3 people'},codeShown:'Code shown 5 min ago',retiredOn:'Retired 12 Oct',
-      seen:function(m){return 'Seen '+m+' ago';},react:'Re-activate'},
+      seen:function(m){return 'Seen '+m+' ago';},react:'Re-activate',wakeNote:'The frame shows its pairing code at its next wake (up to 24 h). Press Reset to restart it now.'},
     fr:{frames:'Cadres',search:'Rechercher parmi 30 cadres',add:'Ajouter un cadre',live:'En service',pending:'En attente d’appairage',retired:'Retirés',
       online:'En ligne',sleeping:'En veille',offline:'Hors ligne',allframes:'Tous les cadres',allframes30:'Tous les cadres (30)',switchl:'Changer de cadre',
       state:'État',settings:'Réglages',access:'Accès',next:'Prochaine mise à jour dans 0:22',battery:'Batterie',signal:'Signal',fw:'Micrologiciel',seenl:'Dernier contact',
@@ -230,7 +239,7 @@ button.item{width:100%;background:none;border-left:0;border-right:0;border-botto
       onlyList:'Les cadres retirés et en attente ne figurent que dans cette liste.',
       v1:'Variante 1 : pastilles',v2:'Variante 2 : lien retour seul',scrollhint:'Faire défiler dans le cadre',
       sectionHint:{state:'En ligne',settings:'Tout est enregistré',access:'3 personnes'},codeShown:'Code affiché il y a 5 min',retiredOn:'Retiré le 12 oct.',
-      seen:function(m){return 'Vu il y a '+m;},react:'Réactiver'}
+      seen:function(m){return 'Vu il y a '+m;},react:'Réactiver',wakeNote:'Le cadre affichera son code à son prochain réveil (24 h au plus). Appuyez sur Reset pour le relancer tout de suite.'}
   };
   Object.keys(S.fr).forEach(function(k){
     var v=S.fr[k];
@@ -302,7 +311,7 @@ button.item{width:100%;background:none;border-left:0;border-right:0;border-botto
   }
   function stateBlock(t,vp){
     var tiles='<div class="tile"><small>'+t.battery+'</small><b class="num">82 %</b></div><div class="tile"><small>'+t.signal+'</small><b>'+t.good+'</b></div><div class="tile"><small>'+t.fw+'</small><b class="num">1.4.2</b></div><div class="tile"><small>'+t.seenl+'</small><b>'+t.min+'</b></div>';
-    return '<div class="block" data-sec="state"><h3>'+t.state+'</h3><div class="card tiles">'+tiles+'</div><div class="card"><a class="item" href="#"><span class="who"><b>'+t.uptodate+'</b></span><span class="val num">1.4.2<span class="chev">›</span></span></a></div></div>';
+    return '<div class="block" data-sec="state"><h3>'+t.state+'</h3><div class="card tiles">'+tiles+'</div><div class="card"><div class="item static"><span class="who"><b>'+t.uptodate+'</b></span><span class="val num">1.4.2</span></div></div></div>';
   }
   function settingsBlock(t){
     function link(a,b){return '<a class="item" href="#"><span class="who"><b>'+a+'</b></span><span class="val">'+b+'<span class="chev">›</span></span></a>';}
@@ -345,6 +354,27 @@ button.item{width:100%;background:none;border-left:0;border-right:0;border-botto
     return shell(vp,t,'<a class="back" href="#">'+ic('back')+'Salon</a>'+inner,0);
   }
 
+  function listColumn(t,selName){
+    var rows=LIVE.slice(0,12).map(function(f){var r=frowLive(t,f);return f.n===selName?r.replace('class="frow"','class="frow sel" aria-current="page"'):r;}).join('');
+    var pend=PEND.map(function(f){return '<a class="frow" href="#"><span class="dot pend"></span><span class="who"><b>'+f.n+'</b><small>'+t.codeShown+'</small></span><span class="chev">›</span></a>';}).join('');
+    var ret=RET.map(function(f){return '<a class="frow retired" href="#"><span class="dot idle"></span><span class="who"><b>'+f.n+'</b><small>'+f.o+' · '+t.retiredOn+'</small></span><span class="chev">›</span></a>';}).join('');
+    return '<div class="listcol"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><h3 class="h2">'+t.frames+'</h3><a class="btn" href="#">'+ic('plus')+t.add+'</a></div>'+
+      '<label class="field">'+ic('search')+'<input type="search" placeholder="'+t.search+'" aria-label="'+t.search+'"></label>'+
+      '<div><p class="label" style="margin:0 4px 4px">'+t.live+' · 24</p><div class="card rows">'+rows+'</div></div>'+
+      '<div><p class="label" style="margin:0 4px 4px">'+t.pending+' · 2</p><div class="card rows">'+pend+'</div></div>'+
+      '<div><p class="label" style="margin:0 4px 4px">'+t.retired+' · 4</p><div class="card rows">'+ret+'</div></div></div>';
+  }
+  function masterDetail(_vp,t){
+    var name=LIVE[0].n;
+    var head='<div><h3 class="title dtitle">'+name+'</h3><p class="state" style="margin-top:4px"><span class="dot err"></span>'+t.offline+' <span class="sub" style="font-weight:400">· '+t.seen(LIVE[0].m)+'</span></p></div>';
+    var inner='<div class="main2">'+head+'<div class="cols"><div style="display:flex;flex-direction:column;gap:24px">'+stateBlock(t,'desktop')+accessBlock(t)+'</div><div>'+settingsBlock(t)+'</div></div></div>';
+    return sidebar(t)+listColumn(t,name)+inner;
+  }
+  function retiredDetail(_vp,t){
+    var inner='<div class="main2"><div><h3 class="title dtitle">Le Petit Cadre</h3><p class="state" style="margin-top:4px"><span class="dot idle"></span>'+t.retired+' <span class="sub" style="font-weight:400">· '+t.retiredOn+'</span></p></div><div class="card"><div class="item"><span class="who"><b>'+t.react+'</b><small>'+t.wakeNote+'</small></span><button type="button" class="btn">'+t.react+'</button></div></div></div>';
+    return sidebar(t)+listColumn(t,'')+inner;
+  }
+
   /* ---------- assemble ---------- */
   function mock(vp,caption,sub,builder,cls){
     var langs=['en','fr'].map(function(l){return '<div data-lang="'+l+'">'+builder(vp,S[l])+'</div>';}).join('');
@@ -354,29 +384,18 @@ button.item{width:100%;background:none;border-left:0;border-right:0;border-botto
   function section(h,lead,body,extra){return '<section class="sec"><h2>'+h+'</h2><p class="lead">'+lead+'</p>'+body+(extra||'')+'</section>';}
 
   var html='';
-  html+=section('1. The list of frames (<code>/fleet</code>, no frame chosen)',
-    'Replaces the dropdown and the "Other frames" block. 30 frames: 24 live (problems first), 2 pending, 4 retired. The list scrolls inside its box here; on the real page the page scrolls. Every row and control is at least 44 px high. Variant A: rows. Variant B: cards.',
-    '<div class="row2">'+mock('phone','Variant A: rows (phone)','',function(v,t){return listMock(v,t,'A');})+mock('phone','Variant B: cards (phone)','',function(v,t){return listMock(v,t,'B');})+'</div>'+
-    '<div style="height:32px"></div><div class="row2">'+mock('desktop','Variant A: rows (desktop, two columns)','',function(v,t){return listMock(v,t,'A');})+'</div>'+
-    '<div style="height:32px"></div><div class="row2">'+mock('desktop','Variant B: cards (desktop)','',function(v,t){return listMock(v,t,'B');})+'</div>',
-    '<p class="note"><b>Today:</b> the first frame opens by default, a dropdown in the top bar lists every frame (retired included) and an "Other frames" block repeats pending and retired frames at the bottom of every frame page. <b>Proposed:</b> retired and pending frames live only in this list; tapping one opens its own page.</p>');
-
-  html+=section('2. The frame page header and the way to other frames (R13, R15, D-04)',
-    'The header names the frame (title and status) and always offers a compact way back to the list. Variant 1 adds a chip row of live frames (problems first, six at most, then "All frames (30)"). Variant 2 keeps only the back link. Neither shows a retired or pending frame, and there is no "Other frames" block.',
-    '<div class="row2">'+mock('phone',S.en.v1,'',function(v,t){return headerMock(v,t,1);})+mock('phone',S.en.v2,'',function(v,t){return headerMock(v,t,2);})+'</div>'+
-    '<div style="height:32px"></div><div class="row2">'+mock('desktop',S.en.v1+' (desktop)','',function(v,t){return headerMock(v,t,1);},'crop')+'</div>'+
-    '<div style="height:32px"></div><div class="row2">'+mock('desktop',S.en.v2+' (desktop)','',function(v,t){return headerMock(v,t,2);},'crop')+'</div>');
-
-  html+=section('3. State, Settings and Access (R11)',
-    'Phone variant X: the three sections are stacked on one page; a sticky anchor bar jumps to each (it also follows the scroll). Phone variant Y: the segmented control stays, and the page reopens on the last section used (here Settings). Settings switches are plain 44 px rows in both. Desktop: a sticky section navigation on the left (with a status word) and all sections in one column. Try the anchors and the segmented control.',
-    '<div class="row2">'+mock('phone','Variant X: stacked, sticky anchors','Scroll inside the phone',stacked)+mock('phone','Variant Y: segmented control, last section remembered','Opened on Settings',segmented)+'</div>'+
-    '<div style="height:32px"></div><div class="row2">'+mock('desktop','Desktop: section navigation on the left','Scroll inside the frame',desktopPage)+'</div>');
-
-  html+=section('4. Access with a fraction of today’s text (R14)',
-    'The people list, one "Add a person" row, then Reassign and Retire as plain rows with a one-line hint each. The long sentences move to the confirmation dialogs they already have.',
-    '<div class="row2">'+mock('phone','Access (phone)','',accessOnly)+'</div>',
-    '<p class="note"><b>Removed from the section:</b> the introduction paragraph about co-managers, the empty-state body ("No co-managers yet" and its explanation), the helper line under the e-mail field, and the two-sentence Reassign / Retire explanations. <b>Kept:</b> people, Add, Reassign, Retire, and the confirmation dialogs with the full consequence text.</p>');
-
+  html+=section('1. Phone: the list of frames (<code>/fleet</code>, no frame chosen)',
+    'Rows, problems first. 30 frames: 24 live, 2 pending, 4 retired. The list scrolls inside its box here; on the real page the page scrolls. Tapping a row opens <code>/fleet?frame=&lt;id&gt;</code>. Every row and control is at least 44 px high.',
+    '<div class="row2">'+mock('phone','List (phone)','',function(v,t){return listMock(v,t,'A');})+'</div>',
+    '<p class="note"><b>Today:</b> the first frame opens by default, a dropdown in the top bar lists every frame (retired included) and an "Other frames" block repeats pending and retired frames at the bottom of every frame page. <b>Proposed:</b> retired and pending frames live only in the list; tapping one opens its own page.</p>');
+  html+=section('2. Phone: a frame page with stacked sections (R11, R13, R15, D-04)',
+    'The header names the frame with its status. The chip row lists live frames (problems first, six at most, then "All frames (30)"), never a retired or pending frame. State, Settings and Access are stacked on one page; a sticky anchor bar jumps to each. Information is shown directly: no arrow to click to see more.',
+    '<div class="row2">'+mock('phone','Frame page (phone)','Scroll inside the phone',stacked)+mock('phone','Access with a fraction of today&rsquo;s text (R14)','',accessOnly)+'</div>',
+    '<p class="note"><b>Removed from Access:</b> the introduction paragraph about co-managers, the empty-state body, the helper line under the e-mail field, and the two-sentence Reassign / Retire explanations (they stay in the confirmation dialogs). <b>Kept:</b> people, Add, Reassign, Retire.</p>');
+  html+=section('3. Desktop: the list as a column next to the navigation, the frame on the rest of the screen',
+    'Master-detail. The column on the left lists the frames (problems first, pending, retired); the selected frame is shown in the area on the right, with State, Settings and Access all visible, no section tabs and no arrow to expand. Without a chosen frame, <code>/fleet</code> selects the first frame with a problem. Click a frame in the second mock to see a retired frame\u2019s own page (only the useful action).',
+    '<div class="row2">'+mock('desktop','A live frame with a problem selected (desktop)','Scroll inside the list and the page',masterDetail)+'</div>'+
+    '<div style="height:32px"></div><div class="row2">'+mock('desktop','A retired frame selected (desktop)','Re-activate, with the message about the wake and the Reset button',retiredDetail)+'</div>');
   document.getElementById('app').innerHTML=html;
 
   /* ---------- behaviour ---------- */
