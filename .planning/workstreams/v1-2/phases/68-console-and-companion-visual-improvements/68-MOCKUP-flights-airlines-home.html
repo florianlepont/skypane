@@ -309,6 +309,9 @@ details.rd summary{min-height:48px;display:flex;align-items:center;padding:0 16p
   <symbol id="i-down2" viewBox="0 0 24 24"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></symbol>
   <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M16 7l3 3M14 9l2 2"/></symbol>
   <symbol id="i-out" viewBox="0 0 24 24"><path d="M10 4H5v16h5M15 8l4 4-4 4M19 12H9"/></symbol>
+  <symbol id="i-dep" viewBox="0 0 24 24"><path d="M4 20h16M6 15l12-8M11 7h7v7"/></symbol>
+  <symbol id="i-lnd" viewBox="0 0 24 24"><path d="M4 20h16M6 5l12 8M18 6v7h-7"/></symbol>
+  <symbol id="i-sort" viewBox="0 0 24 24"><path d="M4 7h16M7 12h10M10 17h4"/></symbol>
   <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 7L4 12l5 5M4 12h11a5 5 0 0 1 0 10h-3"/></symbol>
 </svg>
 <div class="top">
@@ -324,15 +327,15 @@ details.rd summary{min-height:48px;display:flex;align-items:center;padding:0 16p
   function nb(s){return s.replace(/ ([:;?!»])/g,' $1').replace(/« /g,'« ');}
   var S={
     en:{tabs:['Home','Flights','Airlines','Style','Location','Account'],side:['Home','Flights','Airlines','Style','Location'],space:['Console','My frames'],acct:'Account',
-      fl:'Flight history',today:'Today',dep:'Departing',arr:'Arriving',ago:['1 h ago','6 h ago','12 h ago'],
-      depT:'Departure',arrT:'Arrival',filter:'Filter',close:'Close',
+      fl:'Flight history',today:'Today',all:'All',dep:'Departures',arr:'Arrivals',sort:'Sort',search:'Search',ago:['1 h ago','6 h ago','12 h ago'],
+      depT:'Departing',arrT:'Arriving',filter:'Filter',close:'Close',
       al:'Airlines',spotted:'Spotted',seenN:function(n){return 'Seen '+n+' times';},seen1:'Seen once',rar:['Regular','Occasional','Rare'],newb:'New',
       type:'Aircraft',seenLast:'Last seen',total:'Seen',
       home:'Orly window',next:'Next refresh in 14 min',edit:'Rename frame',info:'About the refresh rhythm',quiet:'Quiet hours',quietV:'23:00 to 07:00',off:'Off',
       first:'First seen',route:'Route'},
     fr:{tabs:['Accueil','Vols','Airlines','Style','Lieu','Compte'],side:['Accueil','Vols','Airlines','Style','Lieu'],space:['Console','Mes cadres'],acct:'Compte',
-      fl:'Historique des vols',today:'Aujourd’hui',dep:'Au départ',arr:'À l’arrivée',ago:['il y a 1 h','il y a 6 h','il y a 12 h'],
-      depT:'Départ',arrT:'Arrivée',filter:'Filtrer',close:'Fermer',
+      fl:'Historique des vols',today:'Aujourd’hui',all:'Tous',dep:'Départs',arr:'Arrivées',sort:'Trier',search:'Rechercher',ago:['il y a 1 h','il y a 6 h','il y a 12 h'],
+      depT:'Au départ',arrT:'À l’arrivée',filter:'Filtrer',close:'Fermer',
       al:'Airlines',spotted:'Repérées',seenN:function(n){return 'Vue '+n+' fois';},seen1:'Vue une fois',rar:['Habituelle','Occasionnelle','Rare'],newb:'Nouveau',
       type:'Avion',seenLast:'Dernière fois',total:'Vue',
       home:'Orly window',next:'Prochain rafraîchissement dans 14 min',edit:'Renommer le cadre',info:'À propos du rythme de rafraîchissement',quiet:'Heures calmes',quietV:'23:00 à 07:00',off:'Éteint',
@@ -352,20 +355,19 @@ details.rd summary{min-height:48px;display:flex;align-items:center;padding:0 16p
     if(vp==='phone')return userPhone(t,inner,on);
     return userSide(t,on)+'<div class="main" style="left:240px"><div class="page2">'+inner+'</div></div>';
   }
-  function dirIc(kind,t){return '<span class="dir" role="img" aria-label="'+(kind==='dep'?t.depT:t.arrT)+'">'+ic(kind==='dep'?'plane':'down')+'</span>';}
+  function dirIc(kind,t){return '<span class="dir" role="img" aria-label="'+(kind==='dep'?t.depT:t.arrT)+'">'+ic(kind==='dep'?'dep':'lnd')+'</span>';}
   var ROWS=[['Air France','AFR1000','LFMN','LFPO','A320','arr',0,'21:56'],['Air France','AFR2210','LFPO','LFML','A321neo','dep',1,'16:38'],['easyJet','EZY4411','LFBO','LFPO','A320','arr',2,'11:20'],['Transavia France','TVF3302','LFPO','DAAG','737-800','dep',2,'06:02']];
-  function rowToday(t,r){return '<div class="frow"><span class="pic"></span><span class="mid"><b>'+r[0]+'</b><span class="route">'+(r[5]==='arr'?'<b>'+r[2]+'</b> → '+r[3]:r[2]+' → <b>'+r[3]+'</b>')+'</span><small>'+(r[5]==='arr'?t.arr:t.dep)+' · '+r[4]+'</small></span><span class="rt"><span>'+t.ago[r[6]]+'</span><b>'+r[7]+'</b></span></div>';}
+  function rowToday(t,r){return '<div class="frow"><span class="pic"></span><span class="mid"><b>'+r[0]+'</b><span class="route">'+(r[5]==='arr'?'<b>'+r[2]+'</b> → '+r[3]:r[2]+' → <b>'+r[3]+'</b>')+'</span><small>'+(r[5]==='arr'?t.arrT:t.depT)+' · '+r[4]+'</small></span><span class="rt"><span>'+t.ago[r[6]]+'</span><b>'+r[7]+'</b></span></div>';}
   function rowProp(t,r){return '<div class="frow"><span class="pic"></span><span class="mid"><b>'+r[0]+'</b><span class="route">'+dirIc(r[5],t)+r[2]+ic('chev')+r[3]+'</span></span><span class="rt"><b>'+r[7]+'</b><span>'+t.ago[r[6]]+'</span></span></div>';}
+  function flightsHead(t,size){return '<div class="hdr" style="border:0;padding:0"><h3 class="title" style="font-size:'+size+'px;margin:0">'+t.fl+'</h3><a class="iconbtn" href="#" aria-label="'+t.search+'">'+ic('search')+'</a></div>';}
+  function flightsSeg(t){return '<div style="display:flex;gap:10px;align-items:center"><div class="seg" style="flex:1"><button type="button" aria-pressed="true" style="flex:1">'+t.all+'</button><button type="button" aria-pressed="false" style="flex:1">'+t.dep+'</button><button type="button" aria-pressed="false" style="flex:1">'+t.arr+'</button></div><a class="iconbtn" href="#" aria-label="'+t.sort+'">'+ic('sort')+'</a></div>';}
   function flightsPage(t,mode){
-    var head='<div class="pagehead"><h3 class="title" style="font-size:34px;margin:0">'+t.fl+'</h3></div>';
-    var seg='<div class="seg" style="align-self:flex-start"><button type="button" aria-pressed="true">All</button><button type="button" aria-pressed="false">'+t.dep+'</button><button type="button" aria-pressed="false">'+t.arr+'</button></div>';
     var rows=ROWS.map(function(r){return mode==='today'?rowToday(t,r):rowProp(t,r);}).join('');
-    return head+seg+'<p class="label">'+t.today+'</p><div class="card vlist">'+rows+'</div>';
+    return flightsHead(t,34)+flightsSeg(t)+'<p class="label">'+t.today+'</p><div class="card vlist">'+rows+'</div>';
   }
   function flightsDesktop(t){
-    var head='<div class="hdr" style="border:0;padding:0"><h3 class="title" style="font-size:40px">'+t.fl+'</h3><a class="iconbtn" href="#" aria-label="'+t.filter+'">'+ic('search')+'</a></div>';
     var rows=ROWS.map(function(r){return '<div class="dtab"><span class="pic"></span><span><b>'+r[0]+'</b><small>'+r[1]+'</small></span><span class="route">'+dirIc(r[5],t)+'<b>'+r[2]+'</b>'+ic('chev')+'<b>'+r[3]+'</b></span><span><b>'+r[4]+'</b></span><span style="text-align:right"><b>'+r[7]+'</b><small>'+t.ago[r[6]]+'</small></span></div>';}).join('');
-    return head+'<p class="label">'+t.today+'</p><div class="card vlist">'+rows+'</div>';
+    return flightsHead(t,40)+flightsSeg(t)+'<p class="label">'+t.today+'</p><div class="card vlist">'+rows+'</div>';
   }
   function hdrAt(t,w){
     return '<div class="widths"><p class="wlabel">'+w+' px</p><div class="hdr" style="width:'+w+'px;max-width:100%"><h3>'+t.fl+'</h3><a class="iconbtn" href="#" aria-label="Search">'+ic('search')+'</a></div></div>';
@@ -404,7 +406,7 @@ details.rd summary{min-height:48px;display:flex;align-items:center;padding:0 16p
   function section(h,lead,body){return '<section class="sec"><h2>'+h+'</h2><p class="lead">'+lead+'</p>'+body+'</section>';}
   var html='';
   html+=section('1. Flights rows (R03)',
-    'Today a row says three things twice: the airline, the route in bold, then "Arriving / Departing" and the aircraft. Proposed: airline, one route line with a small direction icon (a plane going up for a departure, down for an arrival; the word stays as spoken text) and the time with its age. The aircraft type is in the flight detail, not the row. On desktop the rows become a table with a larger thumbnail and columns: airline and callsign, route, aircraft, time.',
+    'Today a row says three things twice: the airline, the route in bold, then "Arriving / Departing" and the aircraft. Proposed: airline, one route line with a small direction icon (a plane going up for a departure, down for an arrival; the word stays as spoken text) and the time with its age. The search button, the All / Departures / Arrivals filter and the sort button are not touched: they stay exactly as today. The direction icon is a plane-free arrow over a runway line: up and to the right for a departure, down and to the right for an arrival. The aircraft type is in the flight detail, not the row. On desktop the rows become a table with a larger thumbnail and columns: airline and callsign, route, aircraft, time.',
     '<div class="row2">'+mock('phone','Today','',function(v,t){return wrap(v,t,flightsPage(t,'today'),1);})+mock('phone','Proposed','',function(v,t){return wrap(v,t,flightsPage(t,'prop'),1);})+'</div><div style="height:32px"></div><div class="row2">'+mock('desktop','Proposed, desktop','',function(v,t){return wrap(v,t,flightsDesktop(t),1);})+'</div>');
   html+=section('2. Flights header at narrow widths (D-05)',
     'The title and the search button share one row at every width from 320 px; the title is cut with an ellipsis before the button is ever pushed under it.',
