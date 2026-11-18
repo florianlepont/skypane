@@ -355,6 +355,16 @@ def test_console_pages_ship_no_confirm_and_dialogs_only_where_planned(
             assert "<dialog" not in script and "confirm(" not in script, src
 
 
+# The opened Audit event is a tinted panel in the approved Audit mockup: the page ink at 5 %
+# for its ground and at 80 % for its terms. They are counted as already in use, resolved in the
+# theme being checked, because a reference page cannot show an opened event.
+_ADD_AUDIT_PANEL_PAINT = (
+    "() => { const panel = document.createElement('div');"
+    " panel.style.background = 'color-mix(in srgb, var(--color-text) 5%, transparent)';"
+    " panel.style.color = 'color-mix(in srgb, var(--color-text) 80%, transparent)';"
+    " panel.textContent = 'x'; document.querySelector('main').appendChild(panel); }")
+
+
 def _resolved_values(page, server, paths, probe=False):
     colours, motion = set(), set()
     for path in paths:
@@ -362,6 +372,7 @@ def _resolved_values(page, server, paths, probe=False):
         page.locator("main").wait_for(state="visible")
         if probe:
             page.evaluate(_ADD_EXISTING_BUTTONS)
+            page.evaluate(_ADD_AUDIT_PANEL_PAINT)
         seen = page.evaluate(_STYLE_VALUES)
         colours.update(seen["colours"])
         motion.update(seen["motion"])
