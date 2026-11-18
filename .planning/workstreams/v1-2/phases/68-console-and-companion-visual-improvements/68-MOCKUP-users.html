@@ -1,125 +1,352 @@
+<!--
+STATUS 2026-11-18: drawn on the real shell for the owner's review (plan 05). Decisions to record after the owner's answers.
+Covers R25 and R26 (owner decision D-28: automatic invitation through the sign-in provider's Management API, link shown once).
+-->
 <!doctype html>
-<html lang="fr" data-lang="fr">
-<head>
+<html lang="en">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>SkyPane Users dialogs and invitation mockup</title>
+<title>SkyPane mockup: Users and invitation (Phase 68, plan 05)</title>
 <style>
-:root{--sky:linear-gradient(#E7EEF7,#F1F3F6 45%,#EDF1F6);--canvas:#F1F3F6;--stage:#E4E9F0;--text:#17191F;--muted:#5B6372;--border:#DAE1EB;--chip:#E9EEF5;
---accent:#1F2430;--on-accent:#fff;--glass:rgba(255,255,255,.72);--tab:#fff;--ok:#16A34A;--warn:#D97706;--err:#BE123C;--kbd:#D1D5DB;--key:#fff}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--sky:linear-gradient(#12151D,#161A24 45%,#1A1F2B);--canvas:#161A24;--stage:#0E1117;--text:#F1F3F6;--muted:#A3ABBB;--border:#2A3040;--chip:#1C222D;
---accent:#F2EFE9;--on-accent:#14171F;--glass:rgba(255,255,255,.09);--tab:#1C222D;--ok:#4ADE80;--warn:#FBBF24;--err:#FB7185;--kbd:#2B2F3A;--key:#4A4F5C;color-scheme:dark}}
-:root[data-theme="dark"]{--sky:linear-gradient(#12151D,#161A24 45%,#1A1F2B);--canvas:#161A24;--stage:#0E1117;--text:#F1F3F6;--muted:#A3ABBB;--border:#2A3040;--chip:#1C222D;
---accent:#F2EFE9;--on-accent:#14171F;--glass:rgba(255,255,255,.09);--tab:#1C222D;--ok:#4ADE80;--warn:#FBBF24;--err:#FB7185;--kbd:#2B2F3A;--key:#4A4F5C;color-scheme:dark}
+/* Standalone mockup, no external asset. Tokens follow companion/static/style.css (light and dark only).
+   Each mock sits in a [data-viewport] box, 390 px (phone) or 1440 px (desktop); every translated block is a
+   [data-lang] wrapper and the toggle at the top shows one language at a time. All names and addresses are invented. */
+:root{
+  --sky:linear-gradient(#E7EEF7,#F1F3F6 45%,#EDF1F6); --canvas:#F1F3F6; --stage:#E4E9F0;
+  --text:#17191F; --muted:#5B6372; --border:#DAE1EB; --chip:#E9EEF5; --card:#fff;
+  --accent:#1F2430; --on-accent:#fff; --glass:rgba(255,255,255,.78); --tab:#fff; --shadow:0 6px 20px rgba(20,30,50,.08);
+  --ok:#16A34A; --okbg:#DDF3E4; --warn:#D97706; --err:#BE123C;
+}
+@media (prefers-color-scheme:dark){:root:not([data-ui-theme="light"]){
+  --sky:linear-gradient(#12151D,#161A24 45%,#1A1F2B); --canvas:#161A24; --stage:#0E1117;
+  --text:#F1F3F6; --muted:#A3ABBB; --border:#2A3040; --chip:#232A38; --card:#1C222D;
+  --accent:#F2EFE9; --on-accent:#14171F; --glass:rgba(34,40,54,.82); --tab:#1C222D; --shadow:0 6px 20px rgba(0,0,0,.35);
+  --ok:#4ADE80; --okbg:#173225; --warn:#FBBF24; --err:#FB7185; color-scheme:dark}}
+:root[data-ui-theme="dark"]{
+  --sky:linear-gradient(#12151D,#161A24 45%,#1A1F2B); --canvas:#161A24; --stage:#0E1117;
+  --text:#F1F3F6; --muted:#A3ABBB; --border:#2A3040; --chip:#232A38; --card:#1C222D;
+  --accent:#F2EFE9; --on-accent:#14171F; --glass:rgba(34,40,54,.82); --tab:#1C222D; --shadow:0 6px 20px rgba(0,0,0,.35);
+  --ok:#4ADE80; --okbg:#173225; --warn:#FBBF24; --err:#FB7185; color-scheme:dark}
 *{box-sizing:border-box}
-body{margin:0;background:var(--stage);color:var(--text);font:16px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;padding:32px 16px 64px}
+body{margin:0;background:var(--stage);color:var(--text);font:16px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;padding:32px 16px 96px}
 button,input{font:inherit;color:inherit}
+a{color:inherit;text-decoration:none}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-html[data-lang="fr"] .en,html[data-lang="en"] .fr{display:none}
-html[data-view="phone"] [data-viewport="desktop"],html[data-view="desktop"] [data-viewport="phone"]{display:none}
-.top{max-width:1320px;margin:0 auto 32px;display:flex;flex-wrap:wrap;gap:16px 32px;justify-content:space-between;align-items:flex-end}
-.top h1{margin:0 0 8px;font-size:34px;letter-spacing:-.03em}.top p{margin:0;color:var(--muted);max-width:70ch}
-.ctl{display:flex;flex-wrap:wrap;gap:12px}
+.num{font-variant-numeric:tabular-nums}
+.top{max-width:1500px;margin:0 auto 24px;display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between;align-items:flex-end}
+.top h1{margin:0 0 8px;font-size:34px;letter-spacing:-.03em}
+.top p{margin:0;color:var(--muted);max-width:75ch}
+.toggles{display:flex;gap:16px;flex-wrap:wrap}
 .seg{display:inline-flex;background:var(--chip);border-radius:32px;padding:4px;gap:4px}
 .seg button{border:0;background:none;min-height:44px;padding:0 16px;border-radius:32px;cursor:pointer;font-size:15px}
 .seg button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent)}
-.sec{max-width:1320px;margin:0 auto 56px}
-.sec>h2{margin:0 0 4px;font-size:22px;font-weight:600}.sec>p{margin:0 0 24px;color:var(--muted);font-size:15px;max-width:80ch}
-.row{display:flex;flex-wrap:wrap;gap:32px 32px;align-items:flex-start}
-.col{display:flex;flex-direction:column;gap:12px;min-width:0}
-.col h3{margin:0;font-size:17px;font-weight:600}
-.tag{display:inline-block;font-size:13px;font-weight:600;padding:2px 10px;border-radius:32px;background:var(--chip);color:var(--muted)}
-.tag.new{background:var(--accent);color:var(--on-accent)}
-.deskwrap{max-width:100%;overflow-x:auto}
-/* phone */
-.phone{position:relative;overflow:hidden;width:360px;height:640px;border:1px solid var(--border);border-radius:36px;background:var(--sky) var(--canvas);box-shadow:0 12px 40px rgba(20,30,50,.12);flex:none}
-.screen{padding:24px 16px 96px;display:flex;flex-direction:column;gap:16px;height:100%;overflow:hidden}
-.title{margin:0;font-size:32px;line-height:1.1;font-weight:700;letter-spacing:-.03em}
-.tabs{position:absolute;left:12px;right:12px;bottom:12px;display:flex;justify-content:space-around;padding:8px 4px;background:var(--tab);border:1px solid var(--border);border-radius:32px}
-.tab{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:48px;font-size:11px;color:var(--muted)}
-.tab i{width:22px;height:22px;border-radius:7px;background:var(--border)}.tab.on{color:var(--text);font-weight:600}.tab.on i{background:var(--accent)}
-.scrim{position:absolute;inset:0;z-index:5;display:flex;justify-content:center;padding:16px;background:rgba(10,14,22,.45)}
-.scrim.top{align-items:flex-start;padding-top:56px}.scrim.mid{align-items:center}
-.kbd{position:absolute;left:0;right:0;bottom:0;height:256px;z-index:9;background:var(--kbd);padding:8px 4px;display:flex;flex-direction:column;gap:10px}
-.kbd div{display:flex;gap:4px;justify-content:center}.kbd b{flex:1;max-width:32px;height:42px;border-radius:6px;background:var(--key);box-shadow:0 1px 0 rgba(0,0,0,.3)}
-.kbd .sp b{max-width:none}.kbd .sp b:first-child{max-width:70px}.kbd .sp b:last-child{max-width:90px;background:var(--accent)}
-.kbd-note{position:absolute;right:8px;bottom:262px;z-index:10;font-size:11px;color:var(--muted)}
-/* dialog */
-.dlg{width:100%;display:flex;flex-direction:column;gap:12px;padding:20px;background:var(--tab);border:1px solid var(--border);border-radius:28px;box-shadow:0 20px 50px rgba(0,0,0,.3)}
-.dlg h4{margin:0;font-size:22px;font-weight:600}.dlg p{margin:0;font-size:15px;color:var(--muted)}
-.dlg.today{gap:0}.dlg.today h4{margin-bottom:40px}.dlg.today p{margin-bottom:32px}.dlg.today .field{margin-bottom:24px}
-.dlg.wide{padding:48px 40px;gap:0}.dlg.wide h4{margin-bottom:40px}.dlg.wide p{margin-bottom:48px}
-.field{display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;color:var(--muted)}
-.input{min-height:44px;display:flex;align-items:center;padding:0 14px;border:1px solid var(--border);border-radius:14px;background:var(--chip);font-size:16px;font-weight:400;color:var(--text)}
-.input.focus{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent)}
-.ro{font-size:13px;line-height:1.4;padding:12px 14px;border:1px solid var(--border);border-radius:14px;background:var(--chip);color:var(--text);word-break:break-word;font-weight:400}
-.btns{display:flex;gap:8px}.btns.stack{flex-direction:column}
-.btn{flex:1;min-height:44px;padding:0 16px;display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:14px;background:var(--accent);color:var(--on-accent);font-size:15px;font-weight:600;cursor:pointer;text-align:center}
-.btn.ghost{background:var(--chip);color:var(--text)}.btn.auto{flex:none}
-.note{font-size:13px;color:var(--muted)}
-.ic{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-/* cards, banner */
-.card{background:var(--glass);border:1px solid var(--border);border-radius:22px;backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);padding:16px;display:flex;flex-direction:column;gap:12px}
-.card .who{font-weight:600;word-break:break-all}.card .meta{font-size:14px;color:var(--muted);display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-.dot{width:8px;height:8px;border-radius:50%;background:var(--muted);flex:none}.dot.warn{background:var(--warn)}.dot.ok{background:var(--ok)}
-.banner{display:flex;gap:12px;align-items:flex-start;padding:12px 16px;border:1px solid var(--warn);border-radius:22px;background:var(--glass);font-size:15px}
-.banner .ic{color:var(--warn);margin-top:2px}.banner.okb{border-color:var(--ok)}.banner.okb .ic{color:var(--ok)}
-.banner b{display:block}
-.pillrole{display:inline-flex;align-items:center;min-height:28px;padding:0 12px;border-radius:32px;background:var(--chip);font-size:13px}
-/* desktop */
-.desk{position:relative;overflow:hidden;width:1280px;height:460px;border:1px solid var(--border);border-radius:22px;background:var(--sky) var(--canvas);display:flex;flex:none}
-.side{width:240px;padding:24px 16px;display:flex;flex-direction:column;gap:8px;border-right:1px solid var(--border);background:var(--glass)}
-.side b{font-size:20px;margin-bottom:16px}.side span{min-height:44px;display:flex;align-items:center;padding:0 14px;border-radius:14px;color:var(--muted);font-size:15px}.side span.on{background:var(--accent);color:var(--on-accent);font-weight:600}
-.main{flex:1;padding:32px 40px;display:flex;flex-direction:column;gap:16px;min-width:0}
-.main h5{margin:0;font-size:40px;letter-spacing:-.03em;line-height:1.1}
-table{width:100%;border-collapse:collapse;font-size:15px}
-th{text-align:left;font-size:13px;font-weight:600;color:var(--muted);padding:8px 12px}td{padding:6px 12px;border-top:1px solid var(--border);height:56px}
-.dscrim{position:absolute;inset:0;background:rgba(10,14,22,.45);display:flex;align-items:center;justify-content:center;z-index:5}
-.dscrim .dlg{width:480px}
-/* steps */
-.steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px;width:100%}
-.step{display:flex;flex-direction:column;gap:8px;padding:16px;border:1px solid var(--border);border-radius:22px;background:var(--glass)}
-.step .n{width:28px;height:28px;border-radius:50%;background:var(--accent);color:var(--on-accent);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px}
-.step h3{margin:0;font-size:17px}.step p{margin:0;font-size:15px;color:var(--muted)}
-.mini{margin-top:4px;padding:12px;border:1px solid var(--border);border-radius:14px;background:var(--tab);display:flex;flex-direction:column;gap:8px;font-size:13px}
-.mini .btn{min-height:36px;font-size:13px}
-.qs{max-width:1320px;margin:0 auto;padding:24px;border:2px solid var(--accent);border-radius:22px;background:var(--glass)}
-.qs h2{margin:0 0 16px;font-size:22px}.qs ol{margin:0;padding-left:24px;display:flex;flex-direction:column;gap:16px}
-.qs li{font-size:16px}.qs li small{display:block;color:var(--muted);font-size:15px;margin-top:2px}
-.src{font-size:13px;color:var(--muted);max-width:80ch}
-@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+.sec{max-width:1500px;margin:56px auto 0}
+.sec>h2{margin:0 0 4px;font-size:26px;letter-spacing:-.02em}
+.sec>p.lead{margin:0 0 24px;color:var(--muted);max-width:85ch}
+.row2{display:flex;flex-wrap:wrap;gap:32px;align-items:flex-start}
+.mock{margin:0;display:flex;flex-direction:column;gap:8px;min-width:0}
+.mock>figcaption{font-size:15px;font-weight:600}
+.mock>figcaption small{display:block;font-weight:400;color:var(--muted);font-size:13px}
+.scroller{max-width:100%;overflow-x:auto;padding-bottom:8px}
+[data-ui-lang="en"] [data-lang="fr"],[data-ui-lang="fr"] [data-lang="en"]{display:none}
+.note{margin:12px 0 0;padding:12px 16px;border:1px dashed var(--border);border-radius:14px;color:var(--muted);font-size:14px;max-width:85ch}
+.note b{color:var(--text)}
+
+[data-viewport]{position:relative;overflow:hidden;border:1px solid var(--border);background:var(--sky) var(--canvas);box-shadow:0 12px 40px rgba(20,30,50,.12)}
+[data-viewport="phone"]{width:390px;height:780px;border-radius:36px}
+[data-viewport="desktop"]{width:1440px;height:900px;border-radius:16px}
+[data-viewport] [data-lang]{height:100%;position:relative}
+
+/* shared pieces */
+.ic{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--ok);flex:none;display:inline-block}
+.dot.idle{background:var(--muted)}.dot.err{background:var(--err)}.dot.pend{background:var(--warn)}
+.label{margin:0 0 6px 16px;font-size:13px;font-weight:600;color:var(--muted)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:22px;box-shadow:var(--shadow);overflow:hidden}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 18px;border:1px solid var(--border);border-radius:14px;background:var(--card);font-size:15px;font-weight:600;cursor:pointer}
+.btn.dark{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.btn.sq{width:44px;padding:0}
+.field{display:flex;align-items:center;gap:8px;min-height:44px;padding:0 14px;border:1px solid var(--border);border-radius:14px;background:var(--card)}
+.field input{flex:1;min-width:0;border:0;background:none;min-height:42px;outline:0}
+.title{margin:0;font-size:40px;line-height:1.1;font-weight:700;letter-spacing:-.03em}
+.sub{color:var(--muted);font-size:15px}
+.state{margin:6px 0 0;display:flex;align-items:center;gap:8px;font-weight:600}
+
+/* rows */
+.item{display:flex;align-items:center;gap:12px;min-height:64px;padding:10px 16px;border-top:1px solid var(--border)}
+.item:first-child{border-top:0}
+.item .who{flex:1;min-width:0}
+.item .who small{display:block;color:var(--muted);font-size:13px}
+.item .who b{display:block;font-weight:600}
+.item .val{color:var(--muted);font-size:14px;white-space:nowrap}
+.ico{width:36px;height:36px;border-radius:50%;background:var(--chip);display:flex;align-items:center;justify-content:center;flex:none}
+.ico.ok{background:var(--okbg);color:var(--ok)}
+.sw{flex:none;width:51px;height:31px;border-radius:31px;background:#7C8696;position:relative;cursor:pointer}
+.sw::after{content:"";position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.sw.on{background:var(--accent)}.sw.on::after{left:22px}
+.badge{display:inline-flex;align-items:center;min-height:24px;padding:0 10px;border-radius:32px;border:1px solid var(--border);font-size:12px;color:var(--muted)}
+.range{height:6px;border-radius:6px;background:var(--border);position:relative;margin:14px 0 4px}
+.range i{position:absolute;left:0;top:0;bottom:0;width:26%;border-radius:6px;background:var(--accent)}
+.range b{position:absolute;left:26%;top:50%;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;background:var(--accent)}
+.section{display:flex;flex-direction:column}
+.danger b{color:var(--err)}
+
+/* frame list rows */
+.frow{display:flex;align-items:center;gap:12px;min-height:56px;padding:6px 14px;border-top:1px solid var(--border);cursor:pointer}
+.frow:first-child{border-top:0}
+.frow .who{flex:1;min-width:0}
+.frow .who b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.frow .who small{display:block;color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.frow .seen{font-size:13px;color:var(--muted);white-space:nowrap}
+.frow.retired{opacity:.8}
+.frow.sel{background:var(--chip)}
+.chev{color:var(--muted)}
+
+/* phone shell */
+.ptop{position:absolute;left:0;right:0;top:0;height:64px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;z-index:5}
+.brand{display:flex;align-items:center;gap:8px;font-size:22px;font-weight:700;letter-spacing:-.02em}
+.screen{position:absolute;inset:64px 0 0 0;overflow-y:auto;padding:8px 16px 120px;display:flex;flex-direction:column;gap:16px;scrollbar-width:none}
+.screen::-webkit-scrollbar{display:none}
+.screen>*{flex-shrink:0}
+.tabs{position:absolute;left:12px;right:12px;bottom:14px;display:flex;justify-content:space-around;padding:8px 6px;background:var(--tab);border:1px solid var(--border);border-radius:34px;box-shadow:0 8px 24px rgba(20,30,50,.14);z-index:6}
+.tab{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-width:60px;min-height:52px;border-radius:26px;font-size:11px;color:var(--text)}
+.tab.on{background:var(--accent);color:var(--on-accent);font-weight:600}
+.chips{display:flex;gap:8px;overflow-x:auto;margin:0 -16px;padding:0 16px 4px;scrollbar-width:none}
+.chip{flex:none;display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 14px;border-radius:32px;background:var(--card);border:1px solid var(--border);font-size:14px;white-space:nowrap}
+.chip[aria-current="page"]{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.chip.all{background:var(--chip)}
+.anchors{position:sticky;top:-8px;z-index:3;margin:0 -16px;padding:8px 16px;display:flex;gap:8px;background:var(--canvas)}
+.anchors button{flex:1;min-height:44px;border:1px solid var(--border);border-radius:32px;background:var(--card);font-size:14px;cursor:pointer}
+.anchors button[aria-current="true"]{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.blk{scroll-margin-top:72px}
+
+/* desktop shell */
+.side{position:absolute;left:0;top:0;bottom:0;width:240px;padding:24px 16px;background:var(--glass);border-right:1px solid var(--border);display:flex;flex-direction:column;gap:8px}
+.side .brand{padding:0 8px;margin-bottom:8px}
+.space{display:flex;gap:4px;padding:4px;border-radius:16px;background:var(--chip);margin-bottom:8px}
+.space span{flex:1;text-align:center;min-height:36px;display:flex;align-items:center;justify-content:center;border-radius:12px;font-size:14px;font-weight:600;color:var(--muted)}
+.space span.on{background:var(--accent);color:var(--on-accent)}
+.nlabel{margin:12px 8px 0;font-size:13px;font-weight:600;color:var(--muted)}
+.nav{display:flex;align-items:center;gap:12px;min-height:46px;padding:0 12px;border-radius:14px;font-size:15px}
+.nav.on{background:var(--accent);color:var(--on-accent);font-weight:600}
+.sep{height:1px;background:var(--border);margin:8px 0}
+.signout{margin-top:auto}
+.listp{position:absolute;left:240px;top:0;bottom:0;width:350px;background:var(--glass);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.listp .lhead{flex:none;padding:20px 16px 12px;display:flex;flex-direction:column;gap:12px;border-bottom:1px solid var(--border)}
+.listp .lbody{flex:1;min-height:0;overflow-y:auto;padding:12px 12px 20px;display:flex;flex-direction:column;gap:14px}
+.main{position:absolute;left:590px;right:0;top:0;bottom:0;overflow-y:auto;padding:32px 44px 64px}
+.dcol{display:flex;flex-direction:column;gap:24px;max-width:760px;margin-top:20px}
+.titlerow{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.iconbtns{display:flex;gap:8px;flex:none}
+.sparkline{display:block;width:100%;height:44px}
+.sub2{display:flex;flex-direction:column;gap:6px;width:100%;padding-left:48px;font-size:13px;color:var(--muted)}
+.item.wrap{flex-wrap:wrap}
+.tiles2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.tile2{display:flex;flex-direction:column;gap:6px;min-height:132px;padding:14px;border-radius:22px;background:var(--card);border:1px solid var(--border);box-shadow:var(--shadow);min-width:0}
+.tile2 .th{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+.tile2 .tv{font-size:19px;font-weight:700;letter-spacing:-.01em}
+.tile2 .tm{font-size:13px;color:var(--muted)}
+.tile2 .more{margin-top:auto;display:flex;align-items:center;gap:4px;font-size:13px;font-weight:600}
+.bigspark{display:block;width:100%;height:120px;color:var(--accent)}
+.kv{display:grid;grid-template-columns:1fr auto;gap:6px 16px;padding:12px 16px;border-top:1px solid var(--border);font-size:14px}
+.kv span:nth-child(odd){color:var(--muted)}
+.kv span:nth-child(even){text-align:right}
+.rtable{width:100%;border-collapse:collapse;font-size:14px}
+.rtable th{text-align:left;color:var(--muted);font-weight:600;font-size:13px;padding:8px 16px}
+.rtable td{padding:8px 16px;border-top:1px solid var(--border)}
+.rtable td:last-child,.rtable th:last-child{text-align:right}
+.banner{display:flex;flex-direction:column;gap:8px;padding:12px 16px;border-radius:18px;border:1px solid var(--warn);background:var(--card)}
+.banner b{font-weight:700}
+.pills{display:flex;flex-wrap:wrap;gap:6px}
+.pill{display:inline-flex;align-items:center;min-height:26px;padding:0 10px;border-radius:32px;background:var(--chip);font-size:13px}
+.pill.warn{background:var(--card);border:1px solid var(--warn)}
+.unit{display:inline-flex;gap:4px;padding:3px;border-radius:12px;background:var(--chip)}
+.unit span{min-height:32px;padding:0 12px;display:flex;align-items:center;border-radius:9px;font-size:13px}
+.unit span.on{background:var(--accent);color:var(--on-accent);font-weight:600}
+details.rd{border-top:1px solid var(--border)}
+details.rd summary{min-height:48px;display:flex;align-items:center;padding:0 16px;font-size:14px;font-weight:600;cursor:pointer}
+.outcomes{list-style:none;margin:0;padding:0}
+.outcomes li{padding:10px 16px;border-top:1px solid var(--border)}
+.outcomes p{margin:0;display:flex;align-items:center;gap:8px;font-weight:600}
+.outcomes p span.n{margin-left:auto}
+.outcomes small{display:block;color:var(--muted);font-size:13px;margin:2px 0 0 16px}
+.rtable.l td:last-child,.rtable.l th:last-child{text-align:left}
+.pagehead{display:flex;flex-direction:column;gap:6px;margin-bottom:8px}
+.backl{display:inline-flex;align-items:center;gap:6px;min-height:44px;font-size:15px;font-weight:600}
+.ring{width:64px;height:64px;border-radius:50%;background:conic-gradient(var(--ok) 0 47%,var(--border) 0);display:flex;align-items:center;justify-content:center;flex:none}
+.ring b{width:48px;height:48px;border-radius:50%;background:var(--card);display:flex;align-items:center;justify-content:center;font-size:14px}
+.vrow{display:flex;align-items:center;gap:12px;min-height:52px;padding:6px 16px;border-top:1px solid var(--border)}
+.vrow .who{flex:1}
+.btn.quiet{min-height:40px;font-weight:500;color:var(--muted)}
+
+@media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+
+.sw{display:inline-block;vertical-align:middle}
+.utable{width:100%;border-collapse:collapse}
+.utable th{text-align:left;color:var(--muted);font-weight:600;font-size:13px;padding:12px 14px;border-bottom:1px solid var(--border)}
+.utable td{padding:10px 14px;border-top:1px solid var(--border);vertical-align:middle}
+.utable tr:first-child td{border-top:0}
+.who2{display:flex;align-items:center;gap:12px;min-width:0}
+.who2 .em{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
+.chip2{display:inline-flex;align-items:center;min-height:22px;padding:0 8px;border-radius:32px;font-size:12px;font-weight:600;background:var(--chip);color:var(--muted)}
+.chip2.ok{background:var(--okbg);color:var(--ok)}
+.chip2.wait{background:rgba(217,119,6,.15);color:var(--warn)}
+.rolesel{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 12px;border-radius:12px;border:1px solid var(--border);background:var(--card);font-size:14px}
+.menu{position:absolute;right:12px;top:48px;z-index:8;min-width:250px;background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:0 12px 32px rgba(20,30,50,.2);padding:6px}
+.menu a{display:flex;align-items:center;gap:10px;min-height:44px;padding:0 12px;border-radius:10px;font-size:15px}
+.menu a.dg{color:var(--err)}
+.scrim{position:absolute;inset:0;background:rgba(10,14,22,.45);z-index:20}
+.dlg{position:absolute;left:50%;transform:translateX(-50%);z-index:21;width:min(420px,88%);background:var(--card);border:1px solid var(--border);border-radius:24px;padding:20px;display:flex;flex-direction:column;gap:14px;box-shadow:0 20px 50px rgba(20,30,50,.3)}
+.dlg.mid{top:50%;transform:translate(-50%,-50%)}
+.dlg.dtop{top:16%}
+[data-viewport="phone"] .dlg.dtop{top:72px}
+.dlg h4{margin:0;font-size:20px}
+.dlg .row{display:flex;gap:10px}
+.dlg .row .btn{flex:1}
+.dlg p{margin:0;color:var(--muted);font-size:15px}
+.segc{display:flex;gap:4px;padding:4px;border-radius:14px;background:var(--chip)}
+.segc span{flex:1;text-align:center;min-height:40px;display:flex;align-items:center;justify-content:center;border-radius:10px;font-size:14px;font-weight:600;color:var(--muted)}
+.segc span.on{background:var(--accent);color:var(--on-accent)}
+.linkbox{display:flex;align-items:center;gap:8px;padding:6px 6px 6px 12px;border:1px solid var(--border);border-radius:14px;background:var(--chip)}
+.linkbox code{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}
+.ucard{display:flex;align-items:center;gap:12px;min-height:76px;padding:10px 14px;border-top:1px solid var(--border)}
+.ucard:first-child{border-top:0}
+.ucard .grow{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.ucard small{color:var(--muted);font-size:13px}
+.ucard .acts{display:flex;align-items:center;gap:2px;flex:none}
 </style>
-</head>
-<body>
-<!-- Mockup for Phase 68 plan 05: Users dialogs (R25) and invitation (R26, D-28). Standalone, no production code. All sample addresses and links are invented. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-logo" viewBox="0 0 24 24"><rect x="4" y="3" width="14" height="18" rx="3"/><path d="M9 10l2 2 4-4"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8v.5"/></symbol>
+  <symbol id="i-fleet" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="3"/><path d="M9 11l2 2 4-4"/></symbol>
+  <symbol id="i-team" viewBox="0 0 24 24"><circle cx="9" cy="12" r="5"/><circle cx="15" cy="12" r="5"/></symbol>
+  <symbol id="i-tag" viewBox="0 0 24 24"><path d="M3 12V4h8l10 10-8 8z"/><circle cx="8" cy="8" r="1.4"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></symbol>
+  <symbol id="i-battery" viewBox="0 0 24 24"><rect x="2" y="7" width="17" height="10" rx="2"/><path d="M22 11v2"/></symbol>
+  <symbol id="i-plane" viewBox="0 0 24 24"><path d="M2 14l8-2 3-8 2 1-1 7 6 2v2l-6-1-2 4-2-.5.5-3.5L2 16z"/></symbol>
+  <symbol id="i-chip" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/></symbol>
+  <symbol id="i-timer" viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M9 2h6"/></symbol>
+  <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z"/></symbol>
+  <symbol id="i-frame" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2.5"/><rect x="7" y="8" width="10" height="8" rx="1"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="M3 11l18-8-8 18-2-8z"/></symbol>
+</svg>
 <div class="top">
-  <div><h1><span class="en">Users: dialogs and invitation</span><span class="fr">Utilisateurs : dialogues et invitation</span></h1><p><span class="en">Invite dialog, role confirmation, the invitation link after an invitation (Auth0 password-change ticket, link shown once) and the first sign-in. Phone 360 px (keyboard at 40%) and desktop 1280 px, English and French, light and dark. Built from catalogue components only.</span><span class="fr">Dialogue d’invitation, confirmation de rôle, lien d’invitation après une invitation (ticket de changement de mot de passe Auth0, lien affiché une fois) et première connexion. Téléphone 360 px (clavier à 40 %) et bureau 1280 px, anglais et français, clair et sombre. Composants du catalogue uniquement.</span></p></div>
-  <div class="ctl">
-    <div class="seg" role="group" aria-label="Langue / Language" id="lang"><button type="button" data-lang="fr" aria-pressed="true">Français</button><button type="button" data-lang="en" aria-pressed="false">English</button></div>
-    <div class="seg" role="group" aria-label="Largeur / Width" id="view"><button type="button" data-view="both" aria-pressed="true"><span class="en">Both</span><span class="fr">Les deux</span></button><button type="button" data-view="phone" aria-pressed="false"><span class="en">Phone</span><span class="fr">Téléphone</span></button><button type="button" data-view="desktop" aria-pressed="false"><span class="en">Desktop</span><span class="fr">Bureau</span></button></div>
-    <div class="seg" role="group" aria-label="Thème / Theme" id="theme"><button type="button" data-t="auto" aria-pressed="true">Auto</button><button type="button" data-t="light" aria-pressed="false"><span class="en">Light</span><span class="fr">Clair</span></button><button type="button" data-t="dark" aria-pressed="false"><span class="en">Dark</span><span class="fr">Sombre</span></button></div>
+  <div><h1>Users and invitation</h1><p>Mockup for the owner, on the real shell (CON-01: R25, R26). Sample data is invented. Use the toggles.</p></div>
+  <div class="toggles">
+    <div class="seg" id="theme" role="group" aria-label="Theme"><button type="button" data-t="auto" aria-pressed="true">Auto</button><button type="button" data-t="light" aria-pressed="false">Light</button><button type="button" data-t="dark" aria-pressed="false">Dark</button></div>
+    <div class="seg" id="lang" role="group" aria-label="Language"><button type="button" data-l="en" aria-pressed="true">English</button><button type="button" data-l="fr" aria-pressed="false">Fran&ccedil;ais</button></div>
   </div>
 </div>
-<section class="sec"><h2><span class="en">1. Invite dialog (R25)</span><span class="fr">1. Dialogue d’invitation (R25)</span></h2><p><span class="en">Today the dialog is centred, so the keyboard covers the email field, and the gap under the title and the explanatory text are uneven. Proposed: no explanatory text (the dialog now creates the link, see 4), dialog anchored to the top so the field and the buttons stay above the keyboard (keyboard shown at 40% of the height), role as a two-option segmented control. Scoped modal modifier: other dialogs keep their margins.</span><span class="fr">Aujourd’hui le dialogue est centré : le clavier cache le champ e-mail, et les espaces sous le titre et le texte explicatif sont inégaux. Proposé : plus de texte explicatif (le dialogue crée désormais le lien, voir 4), dialogue ancré en haut pour que le champ et les boutons restent au-dessus du clavier (clavier à 40 % de la hauteur), rôle en contrôle segmenté. Modificateur de dialogue limité à celui-ci : les autres dialogues gardent leurs marges.</span></p><div class="row"><div class="col"><h3><span class="en">Phone, today</span><span class="fr">Téléphone, aujourd’hui</span> <span class="tag"><span class="en">Today</span><span class="fr">Aujourd’hui</span></span></h3><div class="phone" data-viewport="phone"><div class="screen"><h1 class="title"><span class="en">Users</span><span class="fr">Utilisateurs</span></h1><div class="card"><span class="who">admin@example.test</span><span class="meta"><span class="en">Administrator</span><span class="fr">Administrateur</span></span></div><div class="card"><span class="who">alex@example.test</span><span class="meta"><span class="en">User</span><span class="fr">Utilisateur</span></span></div><div class="scrim mid"><div class="dlg today"><h4><span class="en">Invite a user</span><span class="fr">Inviter un utilisateur</span></h4><p><span class="en">They sign in with this email through Auth0. SkyPane does not send them a message, so tell them to sign in.</span><span class="fr">Elle se connecte avec cet e-mail via Auth0. SkyPane ne lui envoie aucun message : dites-lui de se connecter.</span></p><label class="field"><span class="en">Email</span><span class="fr">E-mail</span><span class="input focus"><span>camille@example.test</span></span></label><div class="field"><span class="en">Role</span><span class="fr">Rôle</span><span class="input"><span class="en">User</span><span class="fr">Utilisateur</span> <span style="margin-left:auto;color:var(--muted)">▾</span></span></div><div class="btns"><button class="btn ghost" type="button"><span class="en">Cancel</span><span class="fr">Annuler</span></button><button class="btn" type="button"><span class="en">Invite user</span><span class="fr">Inviter</span></button></div></div></div><div class="kbd" aria-hidden="true"><div><b></b><b></b><b></b><b></b><b></b><b></b><b></b><b></b><b></b><b></b></div><div><b></b><b></b><b></b><b></b><b></b><b></b><b></b><b></b><b></b></div><div><b></b><b></b><b></b><b></b><b></b><b></b><b></b></div><div class="sp"><b></b><b></b><b></b></div></div></div></div></div><div class="col"><h3><span class="en">Phone, proposed</span><span class="fr">Téléphone, proposé</span> <span class="tag new"><span class="en">Proposed</span><span class="fr">Proposé</span></span></h3><div class="phone" data-viewport="phone"><div class="screen"><h1 class="title"><span class="en">Users</span><span class="fr">Utilisateurs</span></h1><div class="card"><span class="who">admin@example.test</span><span class="meta"><span class="en">Administrator</span><span class="fr">Administrateur</span></span></div><div class="card"><span class="who">alex@example.test</span><span class="meta"><span class="en">User</span><span class="fr">Utilisateur</span></span></div><div class="scrim top"><div class="dlg"><h4><span class="en">Invite a user</span><span class="fr">Inviter un utilisateur</span></h4><label class="field"><span class="en">Email</span><span class="fr">E-mail</span><span class="input focus"><span>camille@example.test</span></span></label><div class="field"><span class="en">Role</span><span class="fr">Rôle</span><div class="seg" style="display:flex"><button type="button" aria-pressed="true" style="flex:1"><span class="en">User</span><span class="fr">Utilisateur</span></button><button type="button" aria-pressed="false" style="flex:1"><span class="en">Administrator</span><span class="fr">Administrateur</span></button></div></div><div class="btns"><button class="btn ghost" type="button"><span class="en">Cancel</span><span class="fr">Annuler</span></button><button class="btn" type="button"><span class="en">Invite and create link</span><span class="fr">Inviter et créer le lien</span></button></div></div></div><div class="kbd" aria-hidden="true"><div><b></b><b></b><b></b><b></b><b></b><b></b><b></b><b></b><b></b><b></b></div><div><b></b><b></b><b></b><b></b><b></b><b></b><b></b><b></b><b></b></div><div><b></b><b></b><b></b><b></b><b></b><b></b><b></b></div><div class="sp"><b></b><b></b><b></b></div></div></div></div></div><div class="col"><h3><span class="en">Desktop, proposed</span><span class="fr">Bureau, proposé</span> <span class="tag new"><span class="en">Proposed</span><span class="fr">Proposé</span></span></h3><div class="deskwrap" data-viewport="desktop"><div class="desk" data-viewport="desktop" style="height:400px"><div class="side"><b>SkyPane</b><span><span class="en">Fleet</span><span class="fr">Flotte</span></span><span class="on"><span class="en">Users</span><span class="fr">Utilisateurs</span></span><span><span class="en">Editor</span><span class="fr">Éditeur</span></span><span><span class="en">Audit</span><span class="fr">Audit</span></span><span><span class="en">More</span><span class="fr">Plus</span></span></div><div class="main"><h5><span class="en">Users</span><span class="fr">Utilisateurs</span></h5><table><thead><tr><th><span class="en">Email</span><span class="fr">E-mail</span></th><th><span class="en">Role</span><span class="fr">Rôle</span></th><th><span class="en">Status</span><span class="fr">Statut</span></th><th><span class="en">Invitation</span><span class="fr">Invitation</span></th><th></th></tr></thead><tbody><tr><td>admin@example.test</td><td><span class="en">Administrator</span><span class="fr">Administrateur</span></td><td><span class="dot ok" style="display:inline-block"></span> <span class="en">Active</span><span class="fr">Actif</span></td><td></td><td></td></tr></tbody></table></div><div class="dscrim"><div class="dlg "><h4><span class="en">Invite a user</span><span class="fr">Inviter un utilisateur</span></h4><label class="field"><span class="en">Email</span><span class="fr">E-mail</span><span class="input focus"><span>camille@example.test</span></span></label><div class="field"><span class="en">Role</span><span class="fr">Rôle</span><div class="seg" style="display:flex"><button type="button" aria-pressed="true" style="flex:1"><span class="en">User</span><span class="fr">Utilisateur</span></button><button type="button" aria-pressed="false" style="flex:1"><span class="en">Administrator</span><span class="fr">Administrateur</span></button></div></div><div class="btns" style="justify-content:flex-end"><button class="btn ghost auto" type="button"><span class="en">Cancel</span><span class="fr">Annuler</span></button><button class="btn auto" type="button"><span class="en">Invite and create link</span><span class="fr">Inviter et créer le lien</span></button></div></div></div></div></div></div></div></section><section class="sec"><h2><span class="en">2. Role-change confirmation (R25)</span><span class="fr">2. Confirmation du changement de rôle (R25)</span></h2><p><span class="en">Today the margins inside the dialog are far too wide. Proposed: the standard dialog padding (20 px) and 12 px rhythm, buttons stacked at full width on a phone, right-aligned on desktop. Same content and same two actions.</span><span class="fr">Aujourd’hui les marges du dialogue sont beaucoup trop larges. Proposé : le remplissage standard (20 px) et un rythme de 12 px, boutons empilés pleine largeur sur téléphone, alignés à droite sur bureau. Même contenu, mêmes deux actions.</span></p><div class="row"><div class="col"><h3><span class="en">Phone, today</span><span class="fr">Téléphone, aujourd’hui</span> <span class="tag"><span class="en">Today</span><span class="fr">Aujourd’hui</span></span></h3><div class="phone" data-viewport="phone"><div class="screen"><h1 class="title"><span class="en">Users</span><span class="fr">Utilisateurs</span></h1><div class="card"><span class="who">admin@example.test</span><span class="meta"><span class="en">Administrator</span><span class="fr">Administrateur</span></span></div><div class="card"><span class="who">alex@example.test</span><span class="meta"><span class="en">User</span><span class="fr">Utilisateur</span></span></div><div class="scrim mid" style="padding:0"><div class="dlg wide" style="border-radius:28px"><h4><span class="en">Make this person an administrator?</span><span class="fr">Faire de cette personne un administrateur ?</span></h4><p><span class="en">alex@example.test will be able to manage every frame, every user and every setting.</span><span class="fr">alex@example.test pourra gérer tous les cadres, tous les utilisateurs et tous les réglages.</span></p><div class="btns stack"><button class="btn" type="button"><span class="en">Make administrator</span><span class="fr">Rendre administrateur</span></button><button class="btn ghost" type="button"><span class="en">Keep as user</span><span class="fr">Rester utilisateur</span></button></div></div></div></div></div></div><div class="col"><h3><span class="en">Phone, proposed</span><span class="fr">Téléphone, proposé</span> <span class="tag new"><span class="en">Proposed</span><span class="fr">Proposé</span></span></h3><div class="phone" data-viewport="phone"><div class="screen"><h1 class="title"><span class="en">Users</span><span class="fr">Utilisateurs</span></h1><div class="card"><span class="who">admin@example.test</span><span class="meta"><span class="en">Administrator</span><span class="fr">Administrateur</span></span></div><div class="card"><span class="who">alex@example.test</span><span class="meta"><span class="en">User</span><span class="fr">Utilisateur</span></span></div><div class="scrim mid"><div class="dlg"><h4><span class="en">Make this person an administrator?</span><span class="fr">Faire de cette personne un administrateur ?</span></h4><p><span class="en">alex@example.test will be able to manage every frame, every user and every setting.</span><span class="fr">alex@example.test pourra gérer tous les cadres, tous les utilisateurs et tous les réglages.</span></p><div class="btns stack"><button class="btn" type="button"><span class="en">Make administrator</span><span class="fr">Rendre administrateur</span></button><button class="btn ghost" type="button"><span class="en">Keep as user</span><span class="fr">Rester utilisateur</span></button></div></div></div></div></div></div><div class="col"><h3><span class="en">Desktop, proposed</span><span class="fr">Bureau, proposé</span> <span class="tag new"><span class="en">Proposed</span><span class="fr">Proposé</span></span></h3><div class="deskwrap" data-viewport="desktop"><div class="desk" data-viewport="desktop" style="height:400px"><div class="side"><b>SkyPane</b><span><span class="en">Fleet</span><span class="fr">Flotte</span></span><span class="on"><span class="en">Users</span><span class="fr">Utilisateurs</span></span><span><span class="en">Editor</span><span class="fr">Éditeur</span></span><span><span class="en">Audit</span><span class="fr">Audit</span></span><span><span class="en">More</span><span class="fr">Plus</span></span></div><div class="main"><h5><span class="en">Users</span><span class="fr">Utilisateurs</span></h5><table><thead><tr><th><span class="en">Email</span><span class="fr">E-mail</span></th><th><span class="en">Role</span><span class="fr">Rôle</span></th><th><span class="en">Status</span><span class="fr">Statut</span></th><th><span class="en">Invitation</span><span class="fr">Invitation</span></th><th></th></tr></thead><tbody><tr><td>admin@example.test</td><td><span class="en">Administrator</span><span class="fr">Administrateur</span></td><td><span class="dot ok" style="display:inline-block"></span> <span class="en">Active</span><span class="fr">Actif</span></td><td></td><td></td></tr></tbody></table></div><div class="dscrim"><div class="dlg "><h4><span class="en">Make this person an administrator?</span><span class="fr">Faire de cette personne un administrateur ?</span></h4><p><span class="en">alex@example.test will be able to manage every frame, every user and every setting.</span><span class="fr">alex@example.test pourra gérer tous les cadres, tous les utilisateurs et tous les réglages.</span></p><div class="btns stack"><button class="btn" type="button"><span class="en">Make administrator</span><span class="fr">Rendre administrateur</span></button><button class="btn ghost" type="button"><span class="en">Keep as user</span><span class="fr">Rester utilisateur</span></button></div></div></div></div></div></div></div></section><section class="sec"><h2><span class="en">3. Row of an invited person (R26)</span><span class="fr">3. Ligne d’une personne invitée (R26)</span></h2><p><span class="en">Today the control copies a text without any link, and from 79.5 rem it is icon-only. Proposed: a visible labelled button on every width. It creates the invitation link (Auth0 password-change ticket) and shows it as in 4. A one-line note gives the validity.</span><span class="fr">Aujourd’hui le contrôle copie un texte sans aucun lien, et dès 79,5 rem il n’a qu’une icône. Proposé : un bouton avec libellé visible à toutes les largeurs. Il crée le lien d’invitation (ticket de changement de mot de passe Auth0) et l’affiche comme en 4. Une ligne indique la validité.</span></p><div class="row"><div class="col"><h3><span class="en">Phone, today</span><span class="fr">Téléphone, aujourd’hui</span> <span class="tag"><span class="en">Today</span><span class="fr">Aujourd’hui</span></span></h3><div class="phone" data-viewport="phone"><div class="screen"><h1 class="title"><span class="en">Users</span><span class="fr">Utilisateurs</span></h1><div class="card"><span class="who">camille@example.test</span><span class="meta"><span class="pillrole"><span class="en">User</span><span class="fr">Utilisateur</span></span><span class="dot"></span><span class="en">Invited, not signed in yet</span><span class="fr">Invité(e), pas encore connecté(e)</span></span><div class="btns"><button class="btn ghost" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h8"/></svg><span class="en">Copy invitation message</span><span class="fr">Copier le message d’invitation</span></button></div></div><span class="note"><span class="en">Today: copies a text with no link and no password step.</span><span class="fr">Aujourd’hui : copie un texte sans lien ni choix du mot de passe.</span></span></div><div class="tabs"><div class="tab"><i></i><span class="en">Fleet</span><span class="fr">Flotte</span></div><div class="tab on"><i></i><span class="en">Users</span><span class="fr">Utilisateurs</span></div><div class="tab"><i></i><span class="en">Editor</span><span class="fr">Éditeur</span></div><div class="tab"><i></i><span class="en">Audit</span><span class="fr">Audit</span></div><div class="tab"><i></i><span class="en">More</span><span class="fr">Plus</span></div></div></div></div><div class="col"><h3><span class="en">Phone, proposed</span><span class="fr">Téléphone, proposé</span> <span class="tag new"><span class="en">Proposed</span><span class="fr">Proposé</span></span></h3><div class="phone" data-viewport="phone"><div class="screen"><h1 class="title"><span class="en">Users</span><span class="fr">Utilisateurs</span></h1><div class="card"><span class="who">camille@example.test</span><span class="meta"><span class="pillrole"><span class="en">User</span><span class="fr">Utilisateur</span></span><span class="dot "></span><span class="en">Invited, not signed in yet</span><span class="fr">Invité(e), pas encore connecté(e)</span></span><button class="btn" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg><span class="en">Create invitation link</span><span class="fr">Créer le lien d’invitation</span></button><span class="note"><span class="en">Link valid for 5 days.</span><span class="fr">Lien valable 5 jours.</span></span></div></div><div class="tabs"><div class="tab"><i></i><span class="en">Fleet</span><span class="fr">Flotte</span></div><div class="tab on"><i></i><span class="en">Users</span><span class="fr">Utilisateurs</span></div><div class="tab"><i></i><span class="en">Editor</span><span class="fr">Éditeur</span></div><div class="tab"><i></i><span class="en">Audit</span><span class="fr">Audit</span></div><div class="tab"><i></i><span class="en">More</span><span class="fr">Plus</span></div></div></div></div><div class="col"><h3><span class="en">Desktop, proposed</span><span class="fr">Bureau, proposé</span> <span class="tag new"><span class="en">Proposed</span><span class="fr">Proposé</span></span></h3><div class="deskwrap" data-viewport="desktop"><div class="desk" data-viewport="desktop" style="height:340px"><div class="side"><b>SkyPane</b><span><span class="en">Fleet</span><span class="fr">Flotte</span></span><span class="on"><span class="en">Users</span><span class="fr">Utilisateurs</span></span><span><span class="en">Editor</span><span class="fr">Éditeur</span></span><span><span class="en">Audit</span><span class="fr">Audit</span></span><span><span class="en">More</span><span class="fr">Plus</span></span></div><div class="main"><h5><span class="en">Users</span><span class="fr">Utilisateurs</span></h5><table><thead><tr><th><span class="en">Email</span><span class="fr">E-mail</span></th><th><span class="en">Role</span><span class="fr">Rôle</span></th><th><span class="en">Status</span><span class="fr">Statut</span></th><th><span class="en">Invitation</span><span class="fr">Invitation</span></th><th></th></tr></thead><tbody><tr><td>admin@example.test</td><td><span class="en">Administrator</span><span class="fr">Administrateur</span></td><td><span class="dot ok" style="display:inline-block"></span> <span class="en">Active</span><span class="fr">Actif</span></td><td></td><td></td></tr><tr><td>camille@example.test</td><td><span class="en">User</span><span class="fr">Utilisateur</span></td><td><span class="dot" style="display:inline-block"></span> <span class="en">Invited, not signed in yet</span><span class="fr">Invité(e), pas encore connecté(e)</span></td><td><button class="btn auto" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg><span class="en">Create invitation link</span><span class="fr">Créer le lien d’invitation</span></button> <span class="note"><span class="en">Valid for 5 days</span><span class="fr">Valable 5 jours</span></span></td><td>⋯</td></tr></tbody></table></div></div></div></div></div></section><section class="sec"><h2><span class="en">4. Invitation shown once, after “Invite” (R26, D-28)</span><span class="fr">4. Invitation affichée une fois, après « Inviter » (R26, D-28)</span></h2><p><span class="en">The dialog turns into a result: the full message with the link, one Copy button, the validity. The link lives only in this response: it is not stored and not logged. Sample link below is invented.</span><span class="fr">Le dialogue devient un résultat : le message complet avec le lien, un bouton Copier, la validité. Le lien n’existe que dans cette réponse : il n’est ni stocké ni journalisé. Le lien d’exemple ci-dessous est inventé.</span></p><div class="row"><div class="col"><h3><span class="en">Phone</span><span class="fr">Téléphone</span> <span class="tag new"><span class="en">Proposed</span><span class="fr">Proposé</span></span></h3><div class="phone" data-viewport="phone"><div class="screen"><h1 class="title"><span class="en">Users</span><span class="fr">Utilisateurs</span></h1><div class="card"><span class="who">admin@example.test</span><span class="meta"><span class="en">Administrator</span><span class="fr">Administrateur</span></span></div><div class="card"><span class="who">alex@example.test</span><span class="meta"><span class="en">User</span><span class="fr">Utilisateur</span></span></div><div class="scrim top" style="padding-top:24px"><div class="dlg"><h4><span class="en">Invitation ready</span><span class="fr">Invitation prête</span></h4><p><span class="en">Send this message to camille@example.test. The link is shown only now and is not kept.</span><span class="fr">Envoyez ce message à camille@example.test. Le lien n’est affiché que maintenant et n’est pas conservé.</span></p><div class="field"><span class="en">Message</span><span class="fr">Message</span><div class="ro"><span class="en">Hello, you have been invited to SkyPane. 1) Choose your password: <b>https://example-tenant.eu.auth0.com/lo/reset?ticket=EXAMPLE-NOT-A-REAL-TICKET</b> 2) Then open skypane.example and sign in with camille@example.test. The link is valid for 5 days.</span><span class="fr">Bonjour, vous êtes invité(e) sur SkyPane. 1) Choisissez votre mot de passe : <b>https://example-tenant.eu.auth0.com/lo/reset?ticket=EXAMPLE-NOT-A-REAL-TICKET</b> 2) Ouvrez ensuite skypane.example et connectez-vous avec camille@example.test. Le lien est valable 5 jours.</span></div></div><button class="btn" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h8"/></svg><span class="en">Copy message</span><span class="fr">Copier le message</span></button><span class="note"><span class="en">The link is valid for 5 days.</span><span class="fr">Le lien est valable 5 jours.</span></span><button class="btn ghost" type="button"><span class="en">Done</span><span class="fr">Terminé</span></button></div></div></div></div></div><div class="col"><h3><span class="en">Desktop</span><span class="fr">Bureau</span> <span class="tag new"><span class="en">Proposed</span><span class="fr">Proposé</span></span></h3><div class="deskwrap" data-viewport="desktop"><div class="desk" data-viewport="desktop" style="height:520px"><div class="side"><b>SkyPane</b><span><span class="en">Fleet</span><span class="fr">Flotte</span></span><span class="on"><span class="en">Users</span><span class="fr">Utilisateurs</span></span><span><span class="en">Editor</span><span class="fr">Éditeur</span></span><span><span class="en">Audit</span><span class="fr">Audit</span></span><span><span class="en">More</span><span class="fr">Plus</span></span></div><div class="main"><h5><span class="en">Users</span><span class="fr">Utilisateurs</span></h5><table><thead><tr><th><span class="en">Email</span><span class="fr">E-mail</span></th><th><span class="en">Role</span><span class="fr">Rôle</span></th><th><span class="en">Status</span><span class="fr">Statut</span></th><th><span class="en">Invitation</span><span class="fr">Invitation</span></th><th></th></tr></thead><tbody><tr><td>admin@example.test</td><td><span class="en">Administrator</span><span class="fr">Administrateur</span></td><td><span class="dot ok" style="display:inline-block"></span> <span class="en">Active</span><span class="fr">Actif</span></td><td></td><td></td></tr></tbody></table></div><div class="dscrim"><div class="dlg "><h4><span class="en">Invitation ready</span><span class="fr">Invitation prête</span></h4><p><span class="en">Send this message to camille@example.test. The link is shown only now and is not kept.</span><span class="fr">Envoyez ce message à camille@example.test. Le lien n’est affiché que maintenant et n’est pas conservé.</span></p><div class="field"><span class="en">Message</span><span class="fr">Message</span><div class="ro"><span class="en">Hello, you have been invited to SkyPane. 1) Choose your password: <b>https://example-tenant.eu.auth0.com/lo/reset?ticket=EXAMPLE-NOT-A-REAL-TICKET</b> 2) Then open skypane.example and sign in with camille@example.test. The link is valid for 5 days.</span><span class="fr">Bonjour, vous êtes invité(e) sur SkyPane. 1) Choisissez votre mot de passe : <b>https://example-tenant.eu.auth0.com/lo/reset?ticket=EXAMPLE-NOT-A-REAL-TICKET</b> 2) Ouvrez ensuite skypane.example et connectez-vous avec camille@example.test. Le lien est valable 5 jours.</span></div></div><button class="btn" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h8"/></svg><span class="en">Copy message</span><span class="fr">Copier le message</span></button><span class="note"><span class="en">The link is valid for 5 days.</span><span class="fr">Le lien est valable 5 jours.</span></span><button class="btn ghost" type="button"><span class="en">Done</span><span class="fr">Terminé</span></button></div></div></div></div></div></div></section><section class="sec"><h2><span class="en">5. After a reload (D-28)</span><span class="fr">5. Après un rechargement (D-28)</span></h2><p><span class="en">The link is gone. The invited row only offers a new link; nothing shows or re-reads the old one.</span><span class="fr">Le lien a disparu. La ligne de la personne invitée ne propose qu’un nouveau lien ; rien n’affiche ni ne relit l’ancien.</span></p><div class="row"><div class="col"><h3><span class="en">Phone</span><span class="fr">Téléphone</span> <span class="tag new"><span class="en">Proposed</span><span class="fr">Proposé</span></span></h3><div class="phone" data-viewport="phone"><div class="screen"><h1 class="title"><span class="en">Users</span><span class="fr">Utilisateurs</span></h1><div class="card"><span class="who">camille@example.test</span><span class="meta"><span class="pillrole"><span class="en">User</span><span class="fr">Utilisateur</span></span><span class="dot "></span><span class="en">Invited, not signed in yet</span><span class="fr">Invité(e), pas encore connecté(e)</span></span><button class="btn" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg><span class="en">Create a new invitation link</span><span class="fr">Créer un nouveau lien d’invitation</span></button><span class="note"><span class="en">For safety the link is not kept. Create a new one whenever you need it.</span><span class="fr">Par sécurité, le lien n’est pas conservé. Créez-en un nouveau quand vous en avez besoin.</span></span></div></div><div class="tabs"><div class="tab"><i></i><span class="en">Fleet</span><span class="fr">Flotte</span></div><div class="tab on"><i></i><span class="en">Users</span><span class="fr">Utilisateurs</span></div><div class="tab"><i></i><span class="en">Editor</span><span class="fr">Éditeur</span></div><div class="tab"><i></i><span class="en">Audit</span><span class="fr">Audit</span></div><div class="tab"><i></i><span class="en">More</span><span class="fr">Plus</span></div></div></div></div><div class="col"><h3><span class="en">Desktop</span><span class="fr">Bureau</span> <span class="tag new"><span class="en">Proposed</span><span class="fr">Proposé</span></span></h3><div class="deskwrap" data-viewport="desktop"><div class="desk" data-viewport="desktop" style="height:340px"><div class="side"><b>SkyPane</b><span><span class="en">Fleet</span><span class="fr">Flotte</span></span><span class="on"><span class="en">Users</span><span class="fr">Utilisateurs</span></span><span><span class="en">Editor</span><span class="fr">Éditeur</span></span><span><span class="en">Audit</span><span class="fr">Audit</span></span><span><span class="en">More</span><span class="fr">Plus</span></span></div><div class="main"><h5><span class="en">Users</span><span class="fr">Utilisateurs</span></h5><table><thead><tr><th><span class="en">Email</span><span class="fr">E-mail</span></th><th><span class="en">Role</span><span class="fr">Rôle</span></th><th><span class="en">Status</span><span class="fr">Statut</span></th><th><span class="en">Invitation</span><span class="fr">Invitation</span></th><th></th></tr></thead><tbody><tr><td>admin@example.test</td><td><span class="en">Administrator</span><span class="fr">Administrateur</span></td><td><span class="dot ok" style="display:inline-block"></span> <span class="en">Active</span><span class="fr">Actif</span></td><td></td><td></td></tr><tr><td>camille@example.test</td><td><span class="en">User</span><span class="fr">Utilisateur</span></td><td><span class="dot" style="display:inline-block"></span> <span class="en">Invited, not signed in yet</span><span class="fr">Invité(e), pas encore connecté(e)</span></td><td><button class="btn auto" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg><span class="en">Create a new invitation link</span><span class="fr">Créer un nouveau lien d’invitation</span></button></td><td>⋯</td></tr></tbody></table><p class="note" style="margin:0"><span class="en">After a reload the link is gone: the page offers a new one, never the old one.</span><span class="fr">Après un rechargement le lien a disparu : la page propose d’en créer un nouveau, jamais l’ancien.</span></p></div></div></div></div></div></section><section class="sec"><h2><span class="en">6. Failure: the sign-in service does not answer</span><span class="fr">6. Échec : le service de connexion ne répond pas</span></h2><p><span class="en">The person stays invited in SkyPane (the local invitation is the access gate) but no link exists. The banner says so, and Try again creates the link without a new invitation.</span><span class="fr">La personne reste invitée dans SkyPane (l’invitation locale reste la porte d’accès) mais aucun lien n’existe. Le bandeau le dit, et Réessayer crée le lien sans nouvelle invitation.</span></p><div class="row"><div class="col"><h3><span class="en">Phone</span><span class="fr">Téléphone</span> <span class="tag new"><span class="en">Proposed</span><span class="fr">Proposé</span></span></h3><div class="phone" data-viewport="phone"><div class="screen"><h1 class="title"><span class="en">Users</span><span class="fr">Utilisateurs</span></h1><div class="banner" role="alert"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2 20h20L12 3z"/><path d="M12 10v5M12 18v.5"/></svg><div><b><span class="en">camille@example.test is invited, but the link could not be created.</span><span class="fr">camille@example.test est invité(e), mais le lien n’a pas pu être créé.</span></b><span class="en">The sign-in service did not answer. Nothing was sent. Try again.</span><span class="fr">Le service de connexion n’a pas répondu. Rien n’a été envoyé. Réessayez.</span></div></div><div class="card"><span class="who">camille@example.test</span><span class="meta"><span class="pillrole"><span class="en">User</span><span class="fr">Utilisateur</span></span><span class="dot warn"></span><span class="en">Invited, link not created</span><span class="fr">Invité(e), lien non créé</span></span><button class="btn" type="button"><span class="en">Try again</span><span class="fr">Réessayer</span></button></div></div><div class="tabs"><div class="tab"><i></i><span class="en">Fleet</span><span class="fr">Flotte</span></div><div class="tab on"><i></i><span class="en">Users</span><span class="fr">Utilisateurs</span></div><div class="tab"><i></i><span class="en">Editor</span><span class="fr">Éditeur</span></div><div class="tab"><i></i><span class="en">Audit</span><span class="fr">Audit</span></div><div class="tab"><i></i><span class="en">More</span><span class="fr">Plus</span></div></div></div></div><div class="col"><h3><span class="en">Desktop</span><span class="fr">Bureau</span> <span class="tag new"><span class="en">Proposed</span><span class="fr">Proposé</span></span></h3><div class="deskwrap" data-viewport="desktop"><div class="desk" data-viewport="desktop" style="height:420px"><div class="side"><b>SkyPane</b><span><span class="en">Fleet</span><span class="fr">Flotte</span></span><span class="on"><span class="en">Users</span><span class="fr">Utilisateurs</span></span><span><span class="en">Editor</span><span class="fr">Éditeur</span></span><span><span class="en">Audit</span><span class="fr">Audit</span></span><span><span class="en">More</span><span class="fr">Plus</span></span></div><div class="main"><h5><span class="en">Users</span><span class="fr">Utilisateurs</span></h5><div class="banner" role="alert"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2 20h20L12 3z"/><path d="M12 10v5M12 18v.5"/></svg><div><b><span class="en">camille@example.test is invited, but the link could not be created.</span><span class="fr">camille@example.test est invité(e), mais le lien n’a pas pu être créé.</span></b><span class="en">The sign-in service did not answer. Nothing was sent. Try again.</span><span class="fr">Le service de connexion n’a pas répondu. Rien n’a été envoyé. Réessayez.</span></div></div><table><thead><tr><th><span class="en">Email</span><span class="fr">E-mail</span></th><th><span class="en">Role</span><span class="fr">Rôle</span></th><th><span class="en">Status</span><span class="fr">Statut</span></th><th><span class="en">Invitation</span><span class="fr">Invitation</span></th><th></th></tr></thead><tbody><tr><td>admin@example.test</td><td><span class="en">Administrator</span><span class="fr">Administrateur</span></td><td><span class="dot ok" style="display:inline-block"></span> <span class="en">Active</span><span class="fr">Actif</span></td><td></td><td></td></tr><tr><td>camille@example.test</td><td><span class="en">User</span><span class="fr">Utilisateur</span></td><td><span class="dot warn" style="display:inline-block"></span> <span class="en">Invited, link not created</span><span class="fr">Invité(e), lien non créé</span></td><td><button class="btn auto" type="button"><span class="en">Try again</span><span class="fr">Réessayer</span></button></td><td>⋯</td></tr></tbody></table></div></div></div></div></div></section><section class="sec"><h2><span class="en">7. First sign-in of the invited person</span><span class="fr">7. Première connexion de la personne invitée</span></h2><p><span class="en">Four steps, no manual work for the administrator in the Auth0 dashboard. The sign-in page hint changes from “Use the email address you were invited with” to the sentence shown in step 3.</span><span class="fr">Quatre étapes, sans travail manuel de l’administrateur dans le tableau de bord Auth0. Le texte de la page de connexion passe de « Utilisez l’adresse e-mail de votre invitation » à la phrase de l’étape 3.</span></p><div class="steps"><div class="step"><span class="n">1</span><h3><span class="en">Receive the invitation</span><span class="fr">Recevoir l’invitation</span></h3><p><span class="en">The administrator sends the message. It holds the link and the address to use.</span><span class="fr">L’administrateur envoie le message. Il contient le lien et l’adresse à utiliser.</span></p><div class="mini"><span><span class="en">Hello, you have been invited to SkyPane…</span><span class="fr">Bonjour, vous êtes invité(e) sur SkyPane…</span></span><span class="note">example-tenant.eu.auth0.com/lo/reset?ticket=…</span></div></div><div class="step"><span class="n">2</span><h3><span class="en">Choose a password</span><span class="fr">Choisir un mot de passe</span></h3><p><span class="en">The link opens the sign-in service page to set a password. No account is needed beforehand.</span><span class="fr">Le lien ouvre la page du service de connexion pour choisir un mot de passe. Aucun compte n’est nécessaire avant.</span></p><div class="mini"><span class="note"><span class="en">New password</span><span class="fr">Nouveau mot de passe</span></span><span class="input" style="min-height:36px">••••••••••</span><button class="btn" type="button"><span class="en">Save password</span><span class="fr">Enregistrer</span></button></div></div><div class="step"><span class="n">3</span><h3><span class="en">Sign in with the same address</span><span class="fr">Se connecter avec la même adresse</span></h3><p><span class="en">Back on SkyPane, the person signs in with the invited address and the new password.</span><span class="fr">De retour sur SkyPane, la personne se connecte avec l’adresse invitée et le nouveau mot de passe.</span></p><div class="mini"><span><b><span class="en">Sign in</span><span class="fr">Connexion</span></b></span><span class="note"><span class="en">First visit? Use the link you received to choose your password, then sign in with the address you were invited with.</span><span class="fr">Première visite ? Utilisez le lien reçu pour choisir votre mot de passe, puis connectez-vous avec l’adresse de votre invitation.</span></span><button class="btn" type="button"><span class="en">Sign in</span><span class="fr">Se connecter</span></button></div></div><div class="step"><span class="n">4</span><h3><span class="en">Welcome</span><span class="fr">Bienvenue</span></h3><p><span class="en">The address matches the invitation, so the account is linked and Home opens.</span><span class="fr">L’adresse correspond à l’invitation : le compte est lié et l’accueil s’ouvre.</span></p><div class="mini"><span class="banner okb" style="padding:8px 12px"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg><span><span class="en">Welcome to SkyPane</span><span class="fr">Bienvenue sur SkyPane</span></span></span></div></div></div></section>
-
-<section class="qs"><h2>Questions for the owner (Questions pour le propriétaire)</h2><ol>
-<li>Texte du message d’invitation : EN « Hello, you have been invited to SkyPane. 1) Choose your password: {link} 2) Then open {app} and sign in with {email}. The link is valid for 5 days. » et FR « Bonjour, vous êtes invité(e) sur SkyPane. 1) Choisissez votre mot de passe : {lien} 2) Ouvrez ensuite {app} et connectez-vous avec {e-mail}. Le lien est valable 5 jours. » ?<small>Recommandation : oui, tel quel, en deux étapes numérotées.</small></li>
-<li>Afficher la validité du lien (« Lien valable 5 jours ») dans le message et sous le bouton ?<small>Recommandation : oui, une ligne courte ; l’administrateur sait quand relancer.</small></li>
-<li>Où apparaît le lien : dans le dialogue juste après « Inviter », ou dans la ligne de la liste ?<small>Recommandation : dans le dialogue, une seule fois ; la ligne ne garde que « Créer un nouveau lien d’invitation ».</small></li>
-<li>Après rechargement : régénération seulement, jamais le lien précédent (non stocké, non journalisé) ?<small>Recommandation : oui, c’est la règle de sécurité D-28.</small></li>
-<li>Si Auth0 ne répond pas : la personne reste invitée localement, avec un bandeau et un bouton « Réessayer » ?<small>Recommandation : oui (rien n’est à moitié créé, l’invitation locale reste la porte d’accès).</small></li>
-<li>Dialogue d’invitation : supprimer le texte explicatif, ancrer le dialogue en haut sur téléphone, rôle en contrôle segmenté ?<small>Recommandation : oui aux trois.</small></li>
-<li>Confirmation de rôle : marges standard (20 px) limitées à ces dialogues, boutons empilés sur téléphone ?<small>Recommandation : oui.</small></li>
-<li>Page de connexion : nouvelle phrase « Première visite ? Utilisez le lien reçu pour choisir votre mot de passe, puis connectez-vous avec l’adresse de votre invitation. » ?<small>Recommandation : oui, elle explique la première connexion sans autre écran.</small></li>
-</ol></section>
+<div id="app"></div>
 <script>
 (function(){
-  var r=document.documentElement;
-  function wire(id,attr,fn){var bs=document.querySelectorAll('#'+id+' button');bs.forEach(function(b){b.addEventListener('click',function(){bs.forEach(function(x){x.setAttribute('aria-pressed',String(x===b));});fn(b.getAttribute(attr));});});}
-  wire('lang','data-lang',function(v){r.setAttribute('data-lang',v);r.lang=v;});
-  wire('view','data-view',function(v){if(v==='both')r.removeAttribute('data-view');else r.setAttribute('data-view',v);});
-  wire('theme','data-t',function(v){if(v==='auto')r.removeAttribute('data-theme');else r.setAttribute('data-theme',v);});
+  function nb(s){return s.replace(/ ([:;?!»])/g,' $1').replace(/« /g,'« ');}
+  var S={
+    en:{title:'Users',count:'4 users',invite:'+ Invite a user',colU:'User',colR:'Role',colF:'Frames',colL:'Last sign-in',colA:'Active',
+      admin:'Administrator',user:'User',you:'You',active:'Active',waiting:'Invited, not signed in yet',now:'just now',never:'Never signed in',frames:function(n){return n+(n===1?' frame':' frames');},
+      mReset:'Reset sign-in',mNew:'Send a new invitation',mDel:'Delete user',
+      invT:'Invite a user',email:'Email address',role:'Role',invGo:'Invite',cancel:'Cancel',
+      resT:'Invitation ready',resL:'Send this link to ',resH:'It is shown only once. They choose their password and sign in.',copy:'Copy',copied:'Copied',done:'Done',
+      proT:'Make this person an administrator?',proW:'user-a@example.test will be able to manage every frame, every user and every setting.',proGo:'Make administrator',proKeep:'Keep as user',
+      delT:'Delete this user?',delW:'user-b@example.test is removed from SkyPane and loses access to their frames. This cannot be undone.',delGo:'Delete user',delKeep:'Keep this user',
+      tabs:['Fleet','Team','Editor','Journal','More'],nav:['Fleet','Users','Editor','Audit log'],account:'Account',space:['Console','My frames'],adminl:'Administration',signout:'Sign out',more:'More actions'},
+    fr:{title:'Utilisateurs',count:'4 utilisateurs',invite:'+ Inviter un utilisateur',colU:'Utilisateur',colR:'Rôle',colF:'Cadres',colL:'Dernière connexion',colA:'Actif',
+      admin:'Administrateur',user:'Utilisateur',you:'Vous',active:'Actif',waiting:'Invité, pas encore connecté',now:'à l’instant',never:'Jamais connecté',frames:function(n){return n+(n===1?' cadre':' cadres');},
+      mReset:'Réinitialiser la connexion',mNew:'Envoyer une nouvelle invitation',mDel:'Supprimer l’utilisateur',
+      invT:'Inviter un utilisateur',email:'Adresse e-mail',role:'Rôle',invGo:'Inviter',cancel:'Annuler',
+      resT:'Invitation prête',resL:'Envoyez ce lien à ',resH:'Il n’est affiché qu’une fois. La personne choisit son mot de passe et se connecte.',copy:'Copier',copied:'Copié',done:'Terminé',
+      proT:'Nommer cette personne administrateur ?',proW:'user-a@example.test pourra gérer tous les cadres, tous les utilisateurs et tous les réglages.',proGo:'Nommer administrateur',proKeep:'Garder utilisateur',
+      delT:'Supprimer cet utilisateur ?',delW:'user-b@example.test est retiré de SkyPane et perd l’accès à ses cadres. Cette action est définitive.',delGo:'Supprimer l’utilisateur',delKeep:'Garder cet utilisateur',
+      tabs:['Flotte','Équipe','Éditeur','Journal','Plus'],nav:['Flotte','Utilisateurs','Éditeur','Journal d’audit'],account:'Compte',space:['Console','Mes cadres'],adminl:'Administration',signout:'Se déconnecter',more:'Plus d’actions'}
+  };
+  Object.keys(S.fr).forEach(function(k){var v=S.fr[k];if(typeof v==='string')S.fr[k]=nb(v);else if(Array.isArray(v))S.fr[k]=v.map(nb);});
+  function ic(n){return '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-'+n+'"/></svg>';}
+  function sw(on,dis){return '<span class="sw'+(on?' on':'')+'" style="'+(dis?'opacity:.4':'')+'" role="switch" aria-checked="'+on+'" tabindex="0"></span>';}
+  var USERS=[['admin@example.test','A','admin','act',2,'now',true],['user-a@example.test','U','user','act',2,'now',false],['user-b@example.test','U','user','inv',1,'never',false],['frameless@example.test','F','user','inv',0,'never',false]];
+  function sidebar(t){
+    var icons=['fleet','team','tag','clock'];
+    return '<div class="side"><span class="brand">'+ic('logo')+'SkyPane</span><div class="space"><span>'+t.space[1]+'</span><span class="on">'+ic('check')+t.space[0]+'</span></div><div class="sep"></div><div class="nlabel">'+t.adminl+'</div>'+
+      t.nav.map(function(x,i){return (i===2?'<div class="sep"></div>':'')+'<div class="nav'+(i===1?' on':'')+'">'+ic(icons[i])+x+'</div>';}).join('')+
+      '<div class="sep"></div><div class="nav">'+ic('user')+t.account+'</div><div class="signout"><a class="btn" href="#">'+t.signout+'</a></div></div>';
+  }
+  function phoneShell(t,inner,overlay){
+    var icons=['fleet','team','tag','clock','more'];
+    return '<div class="ptop"><span class="brand">'+ic('logo')+'SkyPane</span></div><div class="screen">'+inner+'</div><div class="tabs">'+t.tabs.map(function(x,i){return '<div class="tab'+(i===1?' on':'')+'">'+ic(icons[i])+x+'</div>';}).join('')+'</div>'+(overlay||'');
+  }
+  function statusChips(t,u){
+    var c=u[6]?'<span class="chip2 ok">'+t.active+'</span> <span class="chip2">'+t.you+'</span>':(u[3]==='act'?'<span class="chip2 ok">'+t.active+'</span>':'<span class="chip2 wait">'+t.waiting+'</span>');
+    return c;
+  }
+  function menu(t){return '<div class="menu" role="menu"><a href="#">'+ic('send')+t.mNew+'</a><a href="#">'+t.mReset+'</a><a href="#" class="dg">'+ic('trash')+t.mDel+'</a></div>';}
+  function table(t,withMenu){
+    var head='<tr><th>'+t.colU+'</th><th>'+t.colR+'</th><th>'+t.colF+'</th><th>'+t.colL+'</th><th>'+t.colA+'</th><th style="width:56px"></th></tr>';
+    var rows=USERS.map(function(u,i){
+      var role=u[2]==='admin'?'<b>'+t.admin+'</b>':'<span class="rolesel">'+t.user+' '+ic('down')+'</span>';
+      var last=u[5]==='now'?t.now:t.never;
+      return '<tr><td><span class="who2"><span class="ico">'+u[1]+'</span><span style="min-width:0"><span class="em">'+u[0]+'</span>'+statusChips(t,u)+'</span></span></td><td>'+role+'</td><td class="num">'+t.frames(u[4])+'</td><td class="sub">'+last+'</td><td>'+sw(true,u[6])+'</td><td style="position:relative;text-align:right">'+(u[6]?'':'<span class="btn sq" style="border:0;background:none" aria-label="'+t.more+'">'+ic('more')+'</span>')+(withMenu&&i===2?menu(t):'')+'</td></tr>';
+    }).join('');
+    return '<div class="card" style="overflow:visible"><table class="utable">'+head+rows+'</table></div>';
+  }
+  function cards(t){
+    return '<div class="card">'+USERS.map(function(u){
+      var role=u[2]==='admin'?t.admin:t.user;
+      return '<div class="ucard"><span class="ico">'+u[1]+'</span><span class="grow"><span class="em" style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+u[0]+'</span><span>'+statusChips(t,u)+'</span><small>'+role+' · '+t.frames(u[4])+'</small></span><span class="acts">'+sw(true,u[6])+(u[6]?'':'<span class="btn sq" style="border:0;background:none" aria-label="'+t.more+'">'+ic('more')+'</span>')+'</span></div>';
+    }).join('')+'</div>';
+  }
+  function page(vp,t,o){
+    o=o||{};
+    var head=vp==='phone'
+      ?'<div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><h3 class="title" style="font-size:34px">'+t.title+'</h3><a class="btn dark" href="#" aria-label="'+t.invite+'">'+ic('plus')+'</a></div><span class="sub">'+t.count+'</span>'
+      :'<div style="display:flex;align-items:center;justify-content:space-between;gap:12px"><h3 class="title">'+t.title+'</h3><a class="btn dark" href="#">'+t.invite+'</a></div><span class="sub">'+t.count+'</span>';
+    var body=vp==='phone'?cards(t):table(t,o.menu);
+    if(vp==='phone')return phoneShell(t,head+body,o.overlay);
+    return sidebar(t)+'<div class="main" style="left:240px"><div style="max-width:1100px;display:flex;flex-direction:column;gap:14px">'+head+body+'</div></div>'+(o.overlay||'');
+  }
+  function invDlg(t){return '<div class="scrim"></div><div class="dlg dtop" role="dialog" aria-label="'+t.invT+'"><h4>'+t.invT+'</h4><label class="field" style="min-height:52px"><input type="email" placeholder="'+t.email+'" aria-label="'+t.email+'" autofocus></label><div class="segc" role="group" aria-label="'+t.role+'"><span class="on">'+t.user+'</span><span>'+t.admin+'</span></div><div class="row"><a class="btn" href="#">'+t.cancel+'</a><a class="btn dark" href="#">'+t.invGo+'</a></div></div>';}
+  function resDlg(t){return '<div class="scrim"></div><div class="dlg dtop" role="dialog" aria-label="'+t.resT+'"><h4>'+ic('check').replace('class="ic"','class="ic" style="color:var(--ok)"')+' '+t.resT+'</h4><span>'+t.resL+'<b>new.person@example.test</b></span><div class="linkbox"><code>https://skypane.example/invite/Qm9…9xA</code><a class="btn dark" href="#" style="min-height:40px">'+ic('copy')+t.copy+'</a></div><span class="sub">'+t.resH+'</span><div class="row"><a class="btn dark" href="#">'+t.done+'</a></div></div>';}
+  function confirmDlg(kind){return function(t){
+    var T=kind==='pro'?t.proT:t.delT,W=kind==='pro'?t.proW:t.delW,G=kind==='pro'?t.proGo:t.delGo,K=kind==='pro'?t.proKeep:t.delKeep;
+    return '<div class="scrim"></div><div class="dlg mid" role="alertdialog" aria-label="'+T+'"><h4>'+T+'</h4><p>'+W+'</p><div class="row"><a class="btn" href="#">'+K+'</a><a class="btn '+(kind==='pro'?'dark':'')+'" href="#" style="'+(kind==='del'?'background:var(--err);color:#fff;border-color:var(--err)':'')+'">'+G+'</a></div></div>';};}
+  function mock(vp,caption,sub,builder){
+    var langs=['en','fr'].map(function(l){return '<div data-lang="'+l+'">'+builder(vp,S[l])+'</div>';}).join('');
+    return '<figure class="mock"><figcaption>'+caption+(sub?'<small>'+sub+'</small>':'')+'</figcaption>'+(vp==='desktop'?'<div class="scroller"><div data-viewport="desktop">'+langs+'</div></div>':'<div data-viewport="phone">'+langs+'</div>')+'</figure>';
+  }
+  function section(h,lead,body,extra){return '<section class="sec"><h2>'+h+'</h2><p class="lead">'+lead+'</p>'+body+(extra||'')+'</section>';}
+  var html='';
+  html+=section('1. Desktop: the Users page',
+    'Same real shell. The table keeps its columns. The copy-link icon in the Active column is gone (it copied a message, not a link, and was easy to misread). For a person who has not signed in yet, the row menu offers <b>Send a new invitation</b>, which creates a fresh link, plus Reset sign-in and Delete user.',
+    '<div class="row2">'+mock('desktop','Users','',function(v,t){return page(v,t);})+'</div>'+
+    '<div style="height:32px"></div><div class="row2">'+mock('desktop','Row menu','Send a new invitation, Reset sign-in, Delete user',function(v,t){return page(v,t,{menu:true});})+'</div>');
+  html+=section('2. The invitation (R25, R26)',
+    'The invite dialog is short: a title, the email field, the role as two choices (User, Administrator) and two buttons. No explanatory paragraph and no odd margins. On phone it sits at the top of the screen so the keyboard never covers the field. After <b>Invite</b>, SkyPane creates the sign-in account and shows the invitation link <b>once</b> with a Copy button: the person opens it, chooses a password and signs in. Nothing is stored or logged; a lost link is replaced with &ldquo;Send a new invitation&rdquo;.',
+    '<div class="row2">'+mock('desktop','Invite dialog','',function(v,t){return page(v,t,{overlay:invDlg(t)});})+mock('desktop','Invitation ready','The link is shown once',function(v,t){return page(v,t,{overlay:resDlg(t)});})+'</div>'+
+    '<div style="height:32px"></div><div class="row2">'+mock('phone','Users (phone)','',function(v,t){return page(v,t);})+mock('phone','Invite dialog, at the top','The keyboard cannot cover the field',function(v,t){return page(v,t,{overlay:invDlg(t)});})+mock('phone','Invitation ready','',function(v,t){return page(v,t,{overlay:resDlg(t)});})+'</div>');
+  html+=section('3. Confirmations (R25)',
+    'Role change and deletion: a title, one sentence with the consequence, two buttons. Tight and even margins; the longer explanation that was above and below is gone.',
+    '<div class="row2">'+mock('desktop','Make administrator','',function(v,t){return page(v,t,{overlay:confirmDlg('pro')(t)});})+mock('phone','Delete user','',function(v,t){return page(v,t,{overlay:confirmDlg('del')(t)});})+'</div>',
+    '<p class="note"><b>For the build plan:</b> the invitation link depends on the sign-in provider: the plan checks what the provider returns before building and keeps the local invitation as the only access gate.</p>');
+  document.getElementById('app').innerHTML=html;
+  document.querySelectorAll('[data-lang]').forEach(function(root){root.querySelectorAll('.sw').forEach(function(s){s.addEventListener('click',function(){s.classList.toggle('on');});});});
+  var r=document.documentElement;r.setAttribute('data-ui-lang','en');
+  document.querySelectorAll('#theme button').forEach(function(b){b.addEventListener('click',function(){
+    if(b.dataset.t==='auto')r.removeAttribute('data-ui-theme');else r.setAttribute('data-ui-theme',b.dataset.t);
+    document.querySelectorAll('#theme button').forEach(function(x){x.setAttribute('aria-pressed',String(x===b));});});});
+  document.querySelectorAll('#lang button').forEach(function(b){b.addEventListener('click',function(){
+    r.setAttribute('data-ui-lang',b.dataset.l);r.lang=b.dataset.l;
+    document.querySelectorAll('#lang button').forEach(function(x){x.setAttribute('aria-pressed',String(x===b));});});});
 })();
 </script>
-</body>
 </html>
