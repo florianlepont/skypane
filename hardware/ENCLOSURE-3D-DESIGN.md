@@ -1,5 +1,13 @@
 # Rear enclosure for the 7.3 inch frame: 3D design record
 
+**Status (2026-11-18).** The design was reworked with the owner in a Blender session
+and checked on the model; the original text of 2026-11-16 below is updated where it
+had become wrong. The four parts are exported as STL in `hardware/cad/export/`. The
+changes, the checks and the measured values are listed in
+[ENCLOSURE-PRINT-ORDER.md](ENCLOSURE-PRINT-ORDER.md) and
+[ENCLOSURE-MEASUREMENTS.md](ENCLOSURE-MEASUREMENTS.md). Values the owner has not
+reported remain design values, not measured. Nothing has been sliced or printed.
+
 Hand-over of the owner's design work of 2026-11-16, done in a separate
 conversation ("Choix imprimante 3D Bambu Lab") and not yet verified against the
 real parts. It feeds SEED-014 (enclosure and administrator tool, milestone
@@ -12,8 +20,8 @@ Print the back of the SkyPane 7.3 inch e-ink frame, to sit inside an IKEA RÖDAL
 13 x 18 cm black frame in place of the original back and spacer. Four parts:
 
 1. **Tray** (bac): holds the board, the battery and the antenna.
-2. **Lid** (couvercle): carries the two wall hooks and the hinge.
-3. **Folding stand** (béquille), to stand the frame on a piece of furniture.
+2. **Lid** (couvercle): carries the two wall hooks, the supports for the frame tabs, four screw lugs, two stop walls for the stand and the engraved name.
+3. **Stand** (chevalet): one loose plate that leans against a stop wall on the lid and stands the frame on a piece of furniture, in landscape or in portrait, at a tilt of 20 degrees.
 4. **Centring shim** (cale) for the screen.
 
 Intended use: landscape as the base format (board at the bottom), portrait as
@@ -42,13 +50,13 @@ powered over USB.
   stick out.
 - Metal tabs: one per side, about 12.6 mm behind the screen.
 
-**Parts** (design values):
+**Parts** (design values; masses are the solid volume at 1.27 g/cm3, an upper bound):
 
 | Part | Dimensions | Estimated mass |
 |---|---|---|
-| Tray | 132.6 x 182.6 x 11 mm, floor 1.2, walls 1.6 | about 57 g |
-| Lid | 132.6 x 182.6 x 1.5 mm, hooks up to 22.2 mm | about 48 g |
-| Stand | about 54 x 68 x 3 mm, hinge knuckles diameter 6 | about 11 g |
+| Tray | 132.6 x 182.6 x 11 mm, floor 1.2, walls 1.6 | about 66 g |
+| Lid | 132.6 x 182.6 x 1.5 mm, hooks up to 22.2 mm | about 54 g |
+| Stand | 71.0 x 30.0 x 4 mm plate (64.7 mm on the small face) | about 10 g |
 | Shim | 132.6 x 182.6 x 0.8 mm | about 5 g |
 
 **Openings:**
@@ -59,20 +67,18 @@ powered over USB.
 - Buttons and switch: one common notch of 47.5 mm.
 - Screen ribbon: a 4 x 28 mm slot in the floor, plugged in directly without an
   extension.
-- Wi-Fi antenna: inside, on a 41 x 21 mm platform 7 mm from the screen. No
-  opening.
+- Wi-Fi antenna: inside, above the board, on a solid block 7 mm from the screen (40 x 20 mm
+  footprint). No opening. The owner's antenna cable is 50 mm; the route to the board socket
+  is estimated at 46 to 47 mm for the far corner, so it is tight.
 
 **Clearances** (usual values, none tested):
 
 - 0.4 mm per side in the rebate.
 - 0.5 mm around the battery, plus 1.8 mm in thickness (foam to stick).
 - 0.5 mm around the screen in the shim.
-- Pilot holes 1.7 mm, through holes 2.4 mm, axle holes 1.9 mm.
+- Pilot holes 1.7 mm, through holes 2.4 mm.
 
-**Checks done on the model:** closed meshes and no collision; no wall under
-0.8 mm and no slot under 1 mm; no support needed, bridges 4.5 mm at most; centre
-of gravity computed within 0.1 mm of the landscape hook axis, with estimated
-masses.
+**Checks done on the model:** see "Design checks redone" in ENCLOSURE-PRINT-ORDER.md (2026-11-18, computed in Blender, not printed).
 
 ## Parts modelled or tested
 
@@ -99,7 +105,9 @@ masses.
    - the masses of the board and the frame.
 5. Thickness of the mat, ordered elsewhere: 1.2 mm assumed.
 6. Printer purchase, material, filament, plate: not decided.
-7. First test print, to adjust the clearances (hinge, screws, rebate).
+7. First test print, to adjust the clearances (stop walls and plate, screws, rebate, tab pads).
+8. Cables: the battery cable (95 mm) is shorter than the route inside the box (about 105 mm), so the owner will buy a JST-PH extension; the antenna cable is tight at 50 mm (U.FL extension as a fallback).
+9. Storage of the stand plate: none for now; the plate is loose. A storage place is to be found after the first fit.
 
 ## Product references
 
@@ -117,12 +125,13 @@ In this repository, `hardware/cad/` (added by the owner on 2026-11-17):
 
 - `skypane_cassette.blend`: the Blender file with the four parts and the generating
   script `skypane_cassette.py` (renamed from "Sans titre.blend"; about 5.5 MB). It
-  may still contain the Father Christmas test figurine and the abandoned
-  versions; the owner has not checked that it is the saved, current version.
+  was reworked on 2026-11-18 and saved in this repository; the owner reports that the
+  figurine and the abandoned versions are no longer in it.
 - `ee04_board.stl`: the board, converted from the GrabCAD STEP file (about 12.5 MB).
 - `ikea_rodalm_13x18_noir.glb`: the IKEA 3D model of the frame (about 0.14 MB).
 
-Not existing yet: any STL, STEP or 3MF file of the parts to print.
+- `export/skypane_tray.stl`, `export/skypane_lid.stl`, `export/skypane_stand.stl`, `export/skypane_shim.stl`: the four parts to print,
+  exported on 2026-11-18 (details in ENCLOSURE-PRINT-ORDER.md).
 
 ## Notes for the planning
 
