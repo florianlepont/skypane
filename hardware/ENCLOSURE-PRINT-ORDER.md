@@ -34,6 +34,7 @@ unless a measurement row is given. Nothing has been printed.
 | Part | Dimension | Old design value (design value, not measured) | New value | Measurement row | Date |
 |---|---|---|---|---|---|
 | Tray, lid, shim | Plate size (audit, owner choice) | 132.6 x 182.6 mm, 0.2 mm clearance per side; the model's smallest clearance to the wood was 0.07 mm | 132.0 x 182.0 mm, 0.5 mm per side; smallest clearance in the model 0.37 mm (tray) and 0.44 mm (lid) | 4 (reading 133 x 183, about 1 mm resolution) | 2026-11-18 |
+| Lid | Landscape hook slot edge (owner request) | smooth slot edge, position held by friction only | 12 V notches with a flat bottom, 2 mm pitch and 0.6 mm deep, on the edge that carries the screw shank, so the frame sits in a notch and is shifted by lifting it one notch (about 2.4 degrees of tilt per notch); graduations every 2 mm engraved on the hook block, the centre mark and the two ends open to the block edge. The 0.4 mm wide ridges between notches are functional, not free-standing walls | none | 2026-11-18 |
 | Lid | Landscape hook rail centre (audit, owner choice) | y = 0 mm | y = +3 mm, adjustment still +-12 mm around it; the estimated centre of gravity is at y = +0.6 to +5.2 mm | none | 2026-11-18 |
 | Lid | Support under the frame tabs | none; lid top at 12.5 mm, tabs assumed at 12.6 mm | 4 pads, top at 15.0 mm, 20 mm wide along the side and 8 mm deep (owner asked for wide pads to tolerate frame-to-frame variation) | 7b | 2026-11-18 |
 | Lid | Pad positions along the sides | at the middle of each side | centres, from the rebate centre: top +16.5, bottom -12.5, left -3.5, right -7.5 mm; computed by the assistant from the owner's four readings and a 4 mm tab width | 7c, 7d | 2026-11-18 |
@@ -109,7 +110,7 @@ in millimetres, each part lying in its printing pose (lowest point at z = 0):
 | File | Size of the part | Triangles |
 |---|---|---|
 | `skypane_tray.stl` | 132.0 x 182.0 x 11.0 mm | 7346 |
-| `skypane_lid.stl` | 132.0 x 182.0 x 11.2 mm | 5326 |
+| `skypane_lid.stl` | 132.0 x 182.0 x 11.2 mm | 5716 |
 | `skypane_stand.stl` | 71.0 x 30.0 x 4.0 mm | 12 |
 | `skypane_shim.stl` | 132.0 x 182.0 x 0.8 mm | 208 |
 
