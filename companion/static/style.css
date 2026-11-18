@@ -453,6 +453,9 @@ html[data-ui-theme="dark"] {
   --color-toast-warning: #92400E;
   --color-toast-error: #BE123C;
   --color-toast-pending: #B13F16;
+  --color-map-ground: #16140F;
+  --map-control-bg: #2B3345;
+  --map-control-edge: rgba(241, 243, 246, 0.55);
   color-scheme: dark;
 }
 @media (prefers-reduced-motion: reduce) {

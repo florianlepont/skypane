@@ -1782,14 +1782,8 @@ button.place-result.is-active {
 }
 /* The dark theme gets a dark map: the one OpenStreetMap tile layer is inverted
  * and turned back to its hues, so roads, runways and labels stay readable on
- * a dark ground. The tile ground colour follows (it is what the filter makes
- * of the light land colour). Light keeps the plain tiles. */
-html[data-ui-theme="dark"] {
-  --color-map-ground: #16140F;
-  --map-control-bg: #2B3345;
-  --map-control-edge: rgba(241, 243, 246, 0.55);
-}
-
+ * a dark ground. The tile ground colour and the control colours are the dark
+ * theme's variables in style.css. Light keeps the plain tiles. */
 html[data-ui-theme="dark"] .place-map .leaflet-tile-pane {
   filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.95);
 }
