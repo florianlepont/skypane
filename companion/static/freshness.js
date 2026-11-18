@@ -280,11 +280,10 @@
   var SWAP_SELECTORS_BY_PAGE = {
     "home": [
       ".page-header__freshness",
-      "figure.preview-frame",
-      'section[aria-labelledby="home-flights"]',
-      'section[aria-labelledby="home-detection"]',
       'section[aria-labelledby="home-frame-state"]',
+      'section[aria-labelledby="home-flight"]',
       'section[aria-labelledby="home-frame-controls"]',
+      'section[aria-labelledby="home-flights"]',
       ".home-facts"
     ],
     "display": [

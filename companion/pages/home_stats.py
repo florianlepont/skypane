@@ -193,6 +193,6 @@ def stats_card_html(timeline, week, highlights=None, now_hour=None, quiet_window
     renders the same card at zero (an empty timeline and flat bars), with no
     airline facts."""
     return (
-        '<div class="home-stats">%s<div class="home-stats__card">%s%s</div></div>' % (
+        '<div class="home-stats reveal">%s<div class="home-stats__card">%s%s</div></div>' % (
             _period_switch_html(), _day_panel_html(timeline, now_hour, quiet_windows),
             _week_panel_html(week, highlights)))

@@ -21,7 +21,8 @@ from server.plane import illustrations
 GALLERY_ROUTE_PREFIX = "/gallery/"
 FLIGHTS_ROUTE = "/flights"
 HEADING_ID = "home-flights"
-# The tile is a portrait frame: 3 wide for 4 tall.
+# The tile is a portrait frame: 3 wide for 4 tall; a landscape frame's tile is
+# 5 wide for 3 tall (the stylesheet's `--landscape` modifier).
 TILE_WIDTH = 112
 TILE_HEIGHT = 149
 ILLUSTRATION_WIDTH = min(illustration_normalize.THUMBNAIL_WIDTHS)
@@ -38,6 +39,12 @@ DEPARTURE_TEXT = i18n.msg("home.strip_departure", "Departure")
 OVERHEAD_TEXT = i18n.msg("home.overhead", "Overhead")
 _DIRECTION_TEXTS = {
     "arriving": ARRIVAL_TEXT, "departing": DEPARTURE_TEXT, "overhead": OVERHEAD_TEXT}
+
+
+def direction_text(state):
+    """The message for a confirmed state ("Arrival", "Departure", "Overhead"),
+    or None for any other."""
+    return _DIRECTION_TEXTS.get(state)
 
 
 def _age_text(ts, now):
@@ -114,15 +121,16 @@ def _head_html():
          layout.icon_html("icon-chevron-right", 16))
 
 
-def recent_strip_html(rows, now, state_dir, gallery_entries=()):
+def recent_strip_html(rows, now, state_dir, gallery_entries=(), landscape=False):
     """The recent-flights section. `rows` are history rows, newest first;
     `now` the request's ISO time; `gallery_entries` the archived render file
-    names. No row renders the empty state under the same heading."""
+    names; `landscape` draws each tile in a landscape frame's shape. No row
+    renders the empty state under the same heading."""
     if rows:
         body = '<div class="home-strip__tiles">%s</div>' % "".join(
             _tile_html(row, now, state_dir, gallery_entries) for row in rows)
     else:
         body = layout.empty_state(
             i18n.t(NO_FLIGHTS_HEADING), i18n.t(NO_FLIGHTS_BODY), compact=True)
-    return '<section class="home-strip" aria-labelledby="%s">%s%s</section>' % (
-        HEADING_ID, _head_html(), body)
+    return '<section class="home-strip%s reveal" aria-labelledby="%s">%s%s</section>' % (
+        " home-strip--landscape" if landscape else "", HEADING_ID, _head_html(), body)

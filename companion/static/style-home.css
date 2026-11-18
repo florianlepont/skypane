@@ -1,52 +1,87 @@
-
-
-/* Stays one column at every width: splitting into desktop columns would
- * put the day band in a narrower column than its canvas needs (measured:
- * an 880px container leaves 288px per column against a 310px floor),
- * silently invalidating draw.py's DAY_BAND_MIN_MARK_SPACING_PERCENT. */
-
-/* .home-overview > * is doubled to (0,2,0) deliberately: at (0,1,0) it
- * tied .frame-strip's own margin-bottom rule and lost to source order,
- * leaving inconsistent gaps (measured in Chromium). */
-
-.home-section > .text-heading {
-  margin-top: 0;
+/* Home is one column of blocks, 24px apart: the title block, the
+ * notification, the flight card, the pills, the statistics and the strip. */
+.home {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  min-width: 0;
 }
 
-/* The amber or red notification: the explanation is the toast title, the
- * known figures and the tip stack under it, each on its own line. */
-.home-notice__line {
-  display: block;
-  margin-top: var(--space-xs);
-  color: color-mix(in srgb, var(--color-toast-fg) 76%, transparent);
+.home > .home-facts {
+  margin: 0;
 }
 
-.home-notice__tip {
-  display: block;
-  margin-top: var(--space-xs);
+/* The title block: the name with its pencil, the state, the next update. */
+.home-state {
+  --home-tone: var(--color-status-ok);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  min-width: 0;
 }
 
-/* The halo: a ring of the dot's own tone that expands and fades, drawn on
- * a pseudo-element so only a transform and opacity move. Green when the
- * screen is on, amber when overdue or the battery holds the frame; a
- * resting frame (quiet hours, screen off) carries no pulse class. The
- * amber ring is gentler (smaller, fainter) through two custom properties,
- * never a second duration. */
-
-.home-state__dot.dot--hollow {
-  background: transparent;
-  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--color-text) 50%, transparent);
+.home-state .title-action {
+  --title-size: 32px;
+  gap: var(--space-xs);
 }
 
-.home-state__detail {
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+@media (min-width: 700px) {
+  .home-state .title-action {
+    --title-size: 44px;
+  }
+}
+
+/* The rename pencil and the "i" are round buttons with a visible, opaque
+ * surface, never a bare glyph. */
+.home-state .title-action__action .btn.btn--icon,
+.home-state .info-tip__button {
+  border: 1px solid var(--color-border);
+  background: var(--glass-solid);
+  box-shadow: var(--shadow-glass);
+  color: var(--color-text);
+}
+
+.home-state .title-action__action .btn.btn--icon:hover,
+.home-state .title-action__action .btn.btn--icon:focus-visible,
+.home-state .info-tip__button:hover,
+.home-state .info-tip:focus-within .info-tip__button {
+  background: color-mix(in srgb, var(--color-text) 8%, var(--glass-solid));
+  color: var(--color-text);
+}
+
+.home-state__status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin: 0;
+  font-weight: var(--weight-semibold);
+}
+
+.home-state .home-state__dot {
+  width: 10px;
+  height: 10px;
+  margin: 0;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--home-tone) 22%, transparent);
 }
 
 .home-state__next {
+  position: relative;
   display: flex;
   align-items: flex-start;
   gap: var(--space-sm);
-  color: var(--color-text);
+  margin: 0;
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.home-state .home-state__next-icon {
+  flex: none;
+  /* Centres the 18px glyph on the first line of the text. */
+  margin-top: 3px;
+}
+
+.home-state__sentence {
+  min-width: 0;
 }
 
 /* An overdue line reads in the warning treatment through its weight and
@@ -71,59 +106,23 @@
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-/* The next-update line and its info button share one row. The row is the
- * positioning context of the tooltip, so the bubble wraps within the
- * status zone instead of the button's own width. */
-.home-state__next-row {
-  position: relative;
-  display: flex;
-  align-items: flex-start;
-  align-self: stretch;
-  gap: var(--space-xs);
+/* The "i" ends the sentence: a 44px round hit area on an 18px glyph, its
+ * negative margins handing the extra height back so the line keeps its own
+ * height. */
+.info-tip {
+  display: inline-block;
+  vertical-align: middle;
 }
 
-/* A 44px tap target around an 18px glyph; the negative margins hand the
- * extra height back so the row keeps the line's own height. */
 .info-tip__button {
-  flex: none;
   display: inline-grid;
   place-items: center;
   width: 44px;
   height: 44px;
-  margin: -10px -10px -10px -8px;
+  margin: -12px -8px -12px 0;
   padding: 0;
-  border: 0;
   border-radius: 50%;
-  background: transparent;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
   cursor: help;
-}
-
-.info-tip__button:hover,
-.info-tip:focus-within .info-tip__button {
-  color: var(--color-text);
-}
-
-/* A landscape frame's picture is wider than tall, so beside the text it leaves
- * a narrow column. On a phone the picture takes the full width and the name,
- * the state and the next-refresh line stack under it. A portrait frame keeps
- * the picture beside the text. */
-@media (max-width: 699.98px) {
-  .hero:has(.preview-frame__image[data-frame-shape="landscape"]) {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .hero:has(.preview-frame__image[data-frame-shape="landscape"]) .hero__body {
-    align-items: stretch;
-  }
-
-  .hero:has(.preview-frame__image[data-frame-shape="landscape"]) .hero__status {
-    align-self: flex-start;
-  }
-
-  .hero:has(.preview-frame__image[data-frame-shape="landscape"]) .home-state__next-row {
-    align-items: center;
-  }
 }
 
 .info-tip:hover .info-tip__bubble,
@@ -132,184 +131,484 @@
   opacity: 1;
 }
 
-/* The battery dial: the open arc drawn by draw.arc_gauge() with the
- * reading stacked in its middle and the level word in the arc's gap. All
- * three share the one grid cell (grid-area: 1 / 1 on each). */
-.home-battery {
-  display: grid;
-  justify-content: center;
-  align-items: center;
-  justify-items: center;
-  margin: 0;
-  padding: var(--space-sm) 0 0;
-}
-
-/* The 132px drawing shown at 120px on a narrow card; its viewBox scales
- * the arc and its stroke together. */
-.home-battery > svg {
-  grid-area: 1 / 1;
-  width: 120px;
-  height: 120px;
-}
-
-.home-battery__reading {
-  grid-area: 1 / 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-xs);
-  padding-top: var(--space-xs);
-}
-
-.home-battery__value {
-  font-size: var(--font-page-title-size);
-  font-weight: var(--weight-title);
-  line-height: 1;
-  letter-spacing: -0.01em;
-  font-variant-numeric: tabular-nums;
-}
-
-.home-battery__unit {
-  margin-left: 1px;
-  font-size: var(--font-body-size);
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
-/* Same micro-label voice as the header's "Frame state". */
-.home-battery__label {
+/* The amber or red notification: the explanation is the toast title, the
+ * known figures and the tip stack under it, each on its own line. */
+.home-notice__line {
+  display: block;
+  margin-top: var(--space-xs);
   font-size: var(--font-caption-size);
-  font-weight: var(--weight-semibold);
-  line-height: 1.2;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  color: color-mix(in srgb, var(--color-toast-fg) 76%, transparent);
 }
 
-/* The level word is always present for low and critical, so colour is
- * never the only signal. It sits in the arc's gap; text is the status
- * colour mixed toward the text colour, readable on its tinted pill in
- * both themes. */
-.home-battery__state {
-  grid-area: 1 / 1;
-  align-self: end;
-  /* Drops the pill clear of the arc's round end caps; the zone's bottom
-   * padding has room for it. */
-  transform: translateY(6px);
-  padding: 2px var(--space-sm);
-  border-radius: var(--radius-pill);
+.home-notice__tip {
+  display: block;
+  margin-top: var(--space-xs);
   font-size: var(--font-caption-size);
-  font-weight: var(--weight-semibold);
-  line-height: 1.4;
-  white-space: nowrap;
-  color: color-mix(in srgb, var(--color-status-warn) 55%, var(--color-text));
-  background: color-mix(in srgb, var(--color-status-warn) 18%, var(--color-dominant));
 }
 
-.home-battery--critical .home-battery__state {
-  color: color-mix(in srgb, var(--color-status-error) 70%, var(--color-text));
-  background: color-mix(in srgb, var(--color-status-error) 16%, var(--color-dominant));
+/* The card reads like the approved alert: a tone-coloured border, a plain
+ * title and small lines under it. */
+.home-notice {
+  border-color: var(--toast-tone);
 }
 
-.home-battery--none {
-  justify-content: start;
-  padding: var(--space-md) var(--space-lg);
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+.home-notice .toast__icon {
+  width: 24px;
+  height: 24px;
+  background: transparent;
+  color: var(--toast-tone);
 }
 
-/* The Battery row of Home's Frame group: the level word is tinted by the
- * level but always present, so colour is never the only signal; the thin
- * bar is an SVG whose widths are percentage attributes. */
-.frame-battery {
-  --battery-tone: var(--color-status-ok);
+.home-notice .toast__icon .toast__glyph {
+  width: 24px;
+  height: 24px;
 }
 
-.frame-battery--low {
-  --battery-tone: var(--color-status-warn);
-}
-
-.frame-battery--critical {
-  --battery-tone: var(--color-status-error);
-}
-
-.frame-battery__state {
-  font-weight: var(--weight-semibold);
-  color: var(--color-text);
-}
-
-.frame-battery__word {
-  color: color-mix(in srgb, var(--battery-tone) 55%, var(--color-text));
-}
-
-.frame-battery--none .frame-battery__state {
+.home-notice .toast__title {
   font-weight: var(--weight-regular);
 }
 
-.frame-battery__bar {
-  display: block;
+
+
+.home-state__dot.dot--hollow {
+  background: transparent;
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--color-text) 50%, transparent);
+}
+
+/* The flight card: the picture beside its flight. */
+.home-flight {
+  display: flex;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  background: var(--glass-solid);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-glass);
+  min-width: 0;
+}
+
+.home-flight__picture {
+  flex: none;
+  width: 132px;
+}
+
+.home-flight__picture .preview-frame {
+  margin: 0;
+}
+
+.home-flight__picture .preview-frame__image {
   width: 100%;
-  height: 4px;
-  margin-top: var(--space-xs);
+  max-height: none;
+  margin: 0;
+  aspect-ratio: 3 / 4;
+  object-fit: contain;
+  border: 1px solid color-mix(in srgb, var(--color-text) 18%, transparent);
+  border-radius: var(--radius-frame-pic);
+  box-shadow: var(--shadow-glass);
 }
 
-.frame-battery__bar rect {
-  height: 100%;
-  rx: 2px;
+.home-flight__picture .preview-frame__image[data-frame-shape="landscape"] {
+  aspect-ratio: 5 / 3;
 }
 
-.frame-battery__track {
-  fill: color-mix(in srgb, var(--color-text) 14%, transparent);
+.home--offline .home-strip__frame,
+.home--offline .home-flight__picture {
+  filter: grayscale(1);
+  opacity: 0.6;
 }
 
-.frame-battery__fill {
-  fill: var(--battery-tone);
-}
-
-.frame-battery__note {
+.home-flight__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  font-size: var(--font-caption-size);
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-/* A row of its own under the arc, centred, so it never competes with the
- * level word that sits in the arc's gap for a low battery. */
-.home-battery__charging {
-  grid-area: 2 / 1;
-  justify-self: center;
-  /* Clears the level word, which sits 6px below the arc's gap. */
+.home-flight__badge {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 6px;
+  min-height: 28px;
+  box-sizing: border-box;
+  padding: 0 12px 0 8px;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--color-text) 8%, var(--glass-solid));
+  font-size: var(--font-caption-size);
+  line-height: 1;
+  color: var(--color-text);
+}
+
+.home-flight__call {
+  font-size: 22px;
+  font-weight: var(--weight-title);
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+}
+
+.home-flight__airline {
+  font-size: var(--font-label-size);
+  color: var(--color-text);
+}
+
+.home-flight__detected {
+  margin-top: auto;
+}
+
+@media (min-width: 700px) {
+  .home-flight__picture {
+    width: 168px;
+  }
+}
+
+/* A landscape frame's picture is wider than tall: on a phone it takes the
+ * card's width and the text stacks under it. */
+.home-flight--landscape .home-flight__picture {
+  width: 200px;
+}
+
+@media (max-width: 699.98px) {
+  .home-flight--landscape {
+    flex-direction: column;
+  }
+
+  .home-flight--landscape .home-flight__picture {
+    width: 100%;
+  }
+}
+
+/* The pills: 44px glass capsules. */
+.home-pills__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.home-pill {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-height: 44px;
+  box-sizing: border-box;
+  padding: 0 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--glass-solid);
+  box-shadow: var(--shadow-glass);
+  font-size: 14px;
+  line-height: 1.2;
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.home-pill > .icon,
+.home-pill__chevron {
+  flex: none;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.home-pill__text {
+  display: inline-flex;
+  align-items: center;
+}
+
+.home-pill--static {
+  cursor: default;
+}
+
+.home-pill--link:hover {
+  background: color-mix(in srgb, var(--color-text) 6%, var(--glass-solid));
+}
+
+.home-pill--switch {
+  padding-right: 6px;
+}
+
+/* The switch is the shared control, drawn small inside the capsule; its
+ * button covers the whole pill so the pill is the touch target. */
+.home-pill .quick-action__form {
+  margin: 0;
+}
+
+.home-pill .switch::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-pill);
+}
+
+.home-pill .switch__track {
+  width: 36px;
+  height: 22px;
+}
+
+.home-pill .switch__thumb {
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+}
+
+.home-pill .switch[aria-checked="true"] .switch__thumb {
+  transform: translateX(14px);
+  background: var(--color-switch-thumb);
+}
+
+/* On is green, as in the approved mockup; the thumb's side and the
+ * switch's state word still carry the state. */
+.home-pill .switch[aria-checked="true"] .switch__track {
+  border-color: var(--color-status-ok);
+  background: var(--color-status-ok);
+}
+
+.home-battery-pill--low {
+  border-color: var(--color-status-warn);
+}
+
+.home-battery-pill--critical {
+  border-color: var(--color-status-error);
+}
+
+/* The statistics card with its Day and Week switch. The Week panel shows
+ * while the Week radio is checked, with no script. */
+.home-stats {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.home-stats__period.theme-form {
+  align-self: flex-start;
+  padding: 4px;
+  gap: 4px;
+  border-radius: var(--radius-pill);
+}
+
+.home-stats__period.theme-form input[type="radio"] + label {
+  flex: none;
+  padding: 0 14px;
+  border-radius: var(--radius-pill);
+  font-size: 14px;
+}
+
+.home-stats__card {
+  padding: var(--space-md);
+  background: var(--glass-solid);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-glass);
+}
+
+.home-stats__panel--week,
+.home-stats:has(#home-stats-week:checked) .home-stats__panel--day {
+  display: none;
+}
+
+.home-stats:has(#home-stats-week:checked) .home-stats__panel--week {
+  display: block;
+}
+
+.home-stats__head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.home-stats__big {
+  font-size: 56px;
+  font-weight: var(--weight-title);
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+.home-stats__caption {
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.home-stats__split {
+  text-align: right;
+  font-size: var(--font-caption-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.home-stats__timeline {
+  display: block;
+  margin-top: 12px;
+}
+
+.home-stats__hours {
+  display: flex;
+  justify-content: space-between;
+  margin-top: var(--space-xs);
+  font-size: 11px;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.home-stats__bars {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-sm);
+  height: 96px;
   margin-top: var(--space-md);
 }
 
-/* The recessed panel: a step down from the card surface toward the
- * canvas. */
+.home-stats__bar-col {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-xs);
+  height: 100%;
+  font-size: 11px;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
 
-/* Each row is a pill and one big tap target: the native switch button
- * stretches its ::after over the whole pill, so the control keeps its
- * role, state and focus behaviour while the finger gets a 56px-tall
- * target. */
+.home-stats__bar {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: 8px 8px 4px 4px;
+  background: color-mix(in srgb, var(--color-text) 8%, var(--glass-solid));
+}
 
-.home-switch__window {
-  /* Above the switch's row-wide ::after so the link takes its own click.
-   * The box is the text itself, so the focus ring hugs it; the 44px target
-   * is the ::after reaching past it. */
-  position: relative;
-  z-index: 1;
+.home-stats__quiet {
+  fill: color-mix(in srgb, var(--color-text) 8%, var(--glass-solid));
+}
+
+.home-stats__value {
+  color: var(--color-text);
+}
+
+.home-stats__bar-col--today {
+  font-weight: var(--weight-semibold);
+  color: var(--color-text);
+}
+
+.home-stats__bar-col--today .home-stats__bar {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+}
+
+.home-stats__facts {
+  display: flex;
+  gap: var(--space-md);
+  margin-top: var(--space-md);
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border);
+  font-size: var(--font-caption-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.home-stats__facts b {
+  display: block;
+  font-size: var(--font-body-size);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text);
+}
+
+/* The strip of recent flights: a heading row, then portrait tiles that
+ * scroll sideways. */
+.home-strip__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 44px;
+  padding: 0 var(--space-xs);
+}
+
+.home-strip__label {
+  margin: 0;
+  font-size: var(--font-caption-size);
+  font-weight: var(--weight-semibold);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.home-strip__more {
   display: inline-flex;
   align-items: center;
   gap: var(--space-xs);
-  box-sizing: border-box;
-  white-space: nowrap;
-  color: inherit;
-  text-decoration: underline;
-  text-decoration-color: color-mix(in srgb, var(--color-text) 35%, transparent);
-  text-underline-offset: 3px;
-  border-radius: var(--radius-chip);
-}
-
-.home-switch__window::after {
-  content: "";
-  position: absolute;
-  inset: -13px -6px;
-}
-
-.home-switch__window:hover {
+  min-height: 44px;
+  font-size: 14px;
   color: var(--color-text);
-  text-decoration-color: currentColor;
+  text-decoration: none;
+}
+
+.home-strip__tiles {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding: 0 0 var(--space-xs);
+  scrollbar-width: none;
+  scroll-snap-type: x proximity;
+}
+
+.home-strip__tile {
+  flex: none;
+  margin: 0;
+  scroll-snap-align: start;
+}
+
+.home-strip__frame {
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: 112px;
+  aspect-ratio: 3 / 4;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--color-text) 18%, transparent);
+  border-radius: var(--radius-frame-pic);
+  background: var(--color-image-backdrop);
+  box-shadow: var(--shadow-glass);
+}
+
+.home-strip__frame img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.home-strip__frame--none {
+  background: var(--color-secondary);
+  color: color-mix(in srgb, var(--color-text) 55%, transparent);
+}
+
+.home-strip--landscape .home-strip__frame {
+  width: 168px;
+  aspect-ratio: 5 / 3;
+}
+
+.home-strip__tile figcaption {
+  margin-top: 6px;
+  max-width: 112px;
+  font-size: var(--font-caption-size);
+}
+
+.home-strip--landscape .home-strip__tile figcaption {
+  max-width: 168px;
+}
+
+.home-strip__tile figcaption span {
+  display: block;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+@media (max-width: 699.98px) {
+  /* The tiles run to the screen's edges, as the page's cards do not. */
+  .home-strip__tiles {
+    margin-inline: calc(-1 * var(--space-md));
+    padding-inline: var(--space-md);
+    scroll-padding-inline: var(--space-md);
+  }
 }
 
 html[data-ambient="rest"] .home-state__dot--pulse::after,
@@ -349,29 +648,6 @@ html:has(.tab-bar__more[open]) .home-state__dot--pulse::after {
 
 .preview-empty__glyph {
   opacity: .7;
-}
-
-/* The frame state as a pill: the status dot and its word on a faint wash of
- * the state's tone. The word is in the text colour, so contrast never rests
- * on the tone. */
-.home-state__pill {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-sm);
-  padding: var(--space-xs) var(--space-md) var(--space-xs) var(--space-sm);
-  border-radius: var(--radius-pill);
-  font-size: var(--font-label-size);
-  font-weight: var(--weight-semibold);
-  line-height: 1.3;
-  background: color-mix(in srgb, var(--home-tone) 14%, transparent);
-  color: var(--color-text);
-}
-
-.home-state__pill .home-state__dot {
-  width: 10px;
-  height: 10px;
-  margin: 0;
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--home-tone) 22%, transparent);
 }
 
 .home-state--warn {
