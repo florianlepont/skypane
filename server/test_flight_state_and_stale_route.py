@@ -318,3 +318,18 @@ def test_take_off_with_a_positive_vertical_rate_still_departs_after_a_landing(
     _cycle(clock, state_dir, _snapshot("bbbbbb", "EJU2OPO", 1800, alt=900))
     (row,) = _rows(state_dir)
     assert row["confirmed_state"] == "departing"
+
+
+def test_a_wrong_vertical_rate_sign_in_the_air_does_not_make_a_landing_a_departure(
+        tmp_path, clock, routes):
+    """Recorded at Roissy: UAE7V (A380) descends 1450, 1325, then reports
+    +608 ft/min at 1000 ft (its altitude fell 325 ft in 30 s), then is on the
+    pavement. No 'departing' event may follow its arrival."""
+    state_dir = str(tmp_path)
+    routes["UAE7V"] = _route_payload("UAE7V", "DXB", "Dubai", "ORY", "Paris", airline="Emirates")
+    _cycle(clock, state_dir, _snapshot("896189", "UAE7V", -640, alt=1450))
+    _cycle(clock, state_dir, _snapshot("896189", "UAE7V", -704, alt=1325), advance_s=30)
+    _cycle(clock, state_dir, _snapshot("896189", "UAE7V", 608, alt=1000), advance_s=30)
+    _cycle(clock, state_dir, _ground_roll_snapshot("896189", "UAE7V", 608), advance_s=30)
+    states = [r["confirmed_state"] for r in _rows(state_dir) if r["hex"] == "896189"]
+    assert states and set(states) == {"arriving"}
