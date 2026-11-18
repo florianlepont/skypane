@@ -231,7 +231,7 @@ def test_the_chevron_expands_the_aircraft_type_sub_rows(new_context, server, nam
         assert first.locator("th").inner_text().startswith("A320")
         assert first.locator("a.airlines-thumb").is_visible()
         assert first.locator(".row-menu__toggle").is_visible()
-        assert "Uses the default type’s artwork" in second.inner_text()
+        assert "Uses the default" not in second.inner_text()
         assert second.locator(".airlines-act").inner_text() == "Add artwork"
         assert first.locator(".airlines-act").inner_text() == "Change artwork"
         assert "Own artwork" in first.inner_text()
@@ -666,7 +666,7 @@ def test_a_type_row_is_given_a_picture_then_its_artwork_is_deleted(
         page.wait_for_function(_SETTLED, timeout=15000)
         assert not os.path.exists(slot)
         _expand_transavia(page)
-        assert "Uses the default type’s artwork" in page.locator(B738_ROW).inner_text()
+        assert "Uses the default" not in page.locator(B738_ROW).inner_text()
         assert page.locator(B738_ROW + " .airlines-act").inner_text() == "Add artwork"
         assert "airline.artwork_delete" in _audit_actions(server.state_dir)
     finally:
@@ -732,7 +732,7 @@ def test_every_type_of_a_fully_identified_airline_is_editable(new_context, serve
         for index in range(subrows.count()):
             row = subrows.nth(index)
             assert row.locator(".airlines-act").count() == 1
-            assert row.locator(".airlines-state").count() == 1
+            assert "Uses the default" not in row.inner_text()
     finally:
         context.close()
 

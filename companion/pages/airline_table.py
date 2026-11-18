@@ -50,8 +50,6 @@ MENU_ARIA = i18n.msg("airlines.row_menu_aria", "Actions for %s")
 MENU_RESET = i18n.msg("airlines.reset_original_name", "Reset to the original name")
 MENU_CHANGE_ART = i18n.msg("airlines.change_artwork", "Change artwork")
 HAND_NAMED_TEXT = i18n.msg("airlines.named_by_hand", "Named by hand")
-STATE_DEFAULT = i18n.msg(
-    "airlines.state_default_type_artwork", "Uses the default type’s artwork")
 STATE_OWN = i18n.msg("airlines.state_own_artwork", "Own artwork")
 ACTION_ADD_ART = i18n.msg("airlines.add_artwork", "Add artwork")
 MENU_DELETE_ART = i18n.msg("airlines.menu_delete_artwork", "Delete the artwork")
@@ -301,22 +299,15 @@ def _main_row_html(page, row):
 
 
 def _sub_art_html(page, sub, row):
-    """The type's own picture (enlargeable), else the airline's picture
-    dimmed, with the state in words beside it (a phone shows the words under
-    the type's code; a wide table leaves them to assistive technology and
-    the dimmed picture)."""
+    """The type's own picture (enlargeable) with "Own artwork" beside it, else
+    the airline's picture dimmed and no words."""
     label = "%s, %s" % (row["name"], sub["code"])
     if sub["slot"] is not None and sub["has_own"]:
         thumb = _enlarge_html(page, dict(row, manual_fields=_NO_MANUAL_FIELDS), sub["slot"], label)
-        state = STATE_OWN
-    else:
-        thumb = (
-            '<span class="airlines-thumb airlines-thumb--inherited" title="%s">%s</span>' % (
-                escape_html(i18n.t(STATE_DEFAULT)),
-                _thumb_html(page, row["key"], row["state_dir"])))
-        state = STATE_DEFAULT
-    return '%s<span class="airlines-state text-label">%s</span>' % (
-        thumb, escape_html(i18n.t(state)))
+        return '%s<span class="airlines-state text-label">%s</span>' % (
+            thumb, escape_html(i18n.t(STATE_OWN)))
+    return '<span class="airlines-thumb airlines-thumb--inherited">%s</span>' % (
+        _thumb_html(page, row["key"], row["state_dir"]))
 
 
 def _sub_action_html(page, sub):

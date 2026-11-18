@@ -35,7 +35,6 @@ MESSAGES = {
     "airlines.chip_not_seen": "Pas encore vues",
     "airlines.chips_legend": "Filtrer les compagnies",
     "airlines.add_artwork": "Ajouter une illustration",
-    "airlines.state_default_type_artwork": "Utilise l’illustration du type par défaut",
     "airlines.col_airline": "Compagnie",
     "airlines.col_prefixes": "Préfixes",
     "airlines.col_views": "Vues",

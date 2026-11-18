@@ -1494,7 +1494,7 @@ def test_every_type_stays_listed_and_reachable_without_scripts(new_context, serv
         single.locator(".airlines-expand > summary").click()
         row = single.locator(".airlines-subrow")
         row.first.wait_for(state="visible")
-        if row.count() != 1 or "Uses the default type’s artwork" not in row.first.inner_text() or (
+        if row.count() != 1 or "Own artwork" in row.first.inner_text() or (
                 row.first.locator(".airlines-act").count() != 1):
             raise AssertionError("expected one seen type, editable, following the airline's "
                                  "artwork, got %r" % row.all_inner_texts())
