@@ -505,7 +505,7 @@ def _locate_html():
         'id="place-locate">%s<span class="place-locate__label">%s</span></button></div>'
     ) % (
         icon_button_html(
-            "icon-globe", i18n.t(SHOW_FRANCE), variant="ghost",
+            "icon-fit", i18n.t(SHOW_FRANCE), variant="ghost",
             attrs=' id="place-france" title="%s"' % escape_html(i18n.t(SHOW_FRANCE)),
             extra_class="place-france js-gate"),
         layout.icon_html("icon-locate", 20), escape_html(i18n.t(LOCATE_BUTTON)))

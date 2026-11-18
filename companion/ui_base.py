@@ -708,6 +708,7 @@ ICON_IDS = ICON_IDS + (
 ICON_IDS = ICON_IDS + (
     "icon-globe",
     "icon-sign-out",
+    "icon-fit",
 )
 
 ICON_IDS = ICON_IDS + (
@@ -1015,6 +1016,10 @@ ICON_DEFS_HTML = (
     '<symbol id="icon-globe" viewBox="0 0 20 20" fill="none" '
     'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
     '<circle cx="10" cy="10" r="7.5"/><path d="M2.5 10h15M10 2.5c2.6 2.8 2.6 12.2 0 15M10 2.5c-2.6 2.8-2.6 12.2 0 15"/>'
+    "</symbol>"
+    '<symbol id="icon-fit" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M3.5 7.5v-4h4M16.5 7.5v-4h-4M3.5 12.5v4h4M16.5 12.5v4h-4"/>'
     "</symbol>"
     '<symbol id="icon-sign-out" viewBox="0 0 20 20" fill="none" '
     'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'

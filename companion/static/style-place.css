@@ -452,10 +452,10 @@ html.js-early:has(.place-stage) {
   min-height: 44px;
   padding: 0;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--color-dominant) 88%, transparent);
-  border: 1px solid var(--color-border);
-  box-shadow: var(--shadow-card);
-  color: color-mix(in srgb, var(--color-text) 80%, transparent);
+  background: var(--map-control-bg, var(--color-dominant));
+  border: 1px solid var(--map-control-edge, color-mix(in srgb, var(--color-text) 56%, transparent));
+  box-shadow: var(--shadow-card-hover);
+  color: var(--color-text);
 }
 
 .map-ready .place-credits {
@@ -1532,13 +1532,13 @@ html.js-early:not(.map-ready) .place-boot .place-boot__fill {
 }
 
 /* The way back to the whole of France, a round 44 px icon button over the map. */
-.place-france {
+.btn.btn--icon.place-france {
   width: 44px;
   min-height: 44px;
   padding: 0;
   border-radius: 50%;
-  border: 1px solid var(--color-border);
-  background: var(--color-dominant);
+  border: 1px solid var(--map-control-edge, color-mix(in srgb, var(--color-text) 56%, transparent));
+  background: var(--map-control-bg, var(--color-dominant));
   color: var(--color-text);
   box-shadow: var(--shadow-card-hover);
   cursor: pointer;
@@ -1748,17 +1748,28 @@ button.place-result.is-active {
 
 /* The locate button is a round button on the map. */
 .map-ready .place-locate {
-  width: 48px;
-  height: 48px;
-  min-height: 48px;
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
   padding: 0;
   justify-content: center;
   border-radius: 50%;
-  background: var(--color-dominant);
-  border: 1px solid var(--color-border);
+  background: var(--map-control-bg, var(--color-dominant));
+  border: 1px solid var(--map-control-edge, color-mix(in srgb, var(--color-text) 56%, transparent));
   box-shadow: var(--shadow-card-hover);
   color: var(--color-accent);
   pointer-events: auto;
+}
+
+/* The map's own buttons (locate, show France, credits) are opaque round
+ * buttons: a solid fill and a visible edge that stand out from the map in
+ * both themes, never the glass of the page. Hover and press keep the fill. */
+.btn.btn--icon.place-france:hover,
+.btn.btn--icon.place-france:focus-visible,
+.map-ready .place-locate:hover,
+.map-ready .place-info__button:hover {
+  background: var(--map-control-bg, var(--color-dominant));
+  border-color: var(--color-accent);
 }
 
 .map-ready .place-locate__label {
@@ -1775,6 +1786,8 @@ button.place-result.is-active {
  * of the light land colour). Light keeps the plain tiles. */
 html[data-ui-theme="dark"] {
   --color-map-ground: #16140F;
+  --map-control-bg: #2B3345;
+  --map-control-edge: rgba(241, 243, 246, 0.55);
 }
 
 html[data-ui-theme="dark"] .place-map .leaflet-tile-pane {
@@ -1784,6 +1797,8 @@ html[data-ui-theme="dark"] .place-map .leaflet-tile-pane {
 @media (prefers-color-scheme: dark) {
   html:not([data-ui-theme="light"]) {
     --color-map-ground: #16140F;
+    --map-control-bg: #2B3345;
+    --map-control-edge: rgba(241, 243, 246, 0.55);
   }
 
   html:not([data-ui-theme="light"]) .place-map .leaflet-tile-pane {
@@ -1826,3 +1841,4 @@ html[data-ui-theme="dark"] .place-map .leaflet-tile-pane {
     --shadow-glass: inherit;
   }
 }
+
