@@ -16,14 +16,14 @@ opening of the mat (140 x 99 mm today), not on the active area of the screen.
 
 | Subject | Proposed value | Status | Date |
 |---|---|---|---|
-| Printer or means | First print made elsewhere by a print service or fablab; no printer purchase for now. The Bambu Lab X2D Combo (749 EUR noted, Black Friday offer until 2026-12-01, to recheck) stays an option after the first fit. Purchase not decided, and it is the owner's decision. | proposed, awaiting owner | |
-| Provider | | open | |
-| Material | PETG, black | proposed, awaiting owner | |
-| Nozzle | 0.4 mm | proposed, awaiting owner | |
-| Filament brand | Left to the provider or the owner; record when known | open | |
-| Build plate | Left to the provider or the owner; record when known | open | |
-| Lid fixing | M2 self-tapping screws, pilot holes 1.7 mm, through holes 2.4 mm (design values, not measured). Heat-set inserts are a fallback if the printed threads wear. | proposed, awaiting owner | |
-| Slicer | Bambu Studio, or the slicer the provider uses | open | |
+| Printer or means | First print on the printers at the owner's workplace: Bambu Lab X1 series (exact model to confirm). No printer purchase for now; the Bambu Lab X2D Combo (749 EUR noted, Black Friday offer until 2026-12-01, to recheck) stays an option after the first fit and is the owner's decision. | decided by the owner | 2026-11-18 |
+| Provider | The owner's workplace (own access, no print service) | decided by the owner | 2026-11-18 |
+| Material | PETG; any colour (changed by the owner on 2026-11-18; the previous proposal was black) | decided by the owner | 2026-11-18 |
+| Nozzle | 0.4 mm, or another if needed | decided by the owner | 2026-11-18 |
+| Filament brand | Not stated yet; record when known | open | |
+| Build plate | Not stated yet; record when known | open | |
+| Lid fixing | M2 self-tapping screws, pilot holes 1.7 mm, through holes 2.4 mm (design values, not measured). Heat-set inserts are a fallback if the printed threads wear. | decided by the owner | 2026-11-18 |
+| Slicer | Bambu Studio (planned, to confirm) | open | |
 
 ## Design changes from the measurements
 
@@ -44,15 +44,15 @@ opening of the mat (140 x 99 mm today), not on the active area of the screen.
 
 ## Print-order spec
 
-To send to the provider. It contains dimensions only: no device identifier,
+To use for the print at the owner's workplace. It contains dimensions only: no device identifier,
 address or secret.
 
 | Item | Value |
 |---|---|
 | Parts | Tray, lid, stand, shim; quantity 1 each. File names: `skypane_tray`, `skypane_lid`, `skypane_stand`, `skypane_shim` (`.stl` or `.3mf`) |
 | Orientation | Flat face down, no support |
-| Material | PETG, black |
-| Nozzle | 0.4 mm |
+| Material | PETG; any colour (changed by the owner on 2026-11-18; the previous proposal was black) | decided by the owner | 2026-11-18 |
+| Nozzle | 0.4 mm, or another if needed | decided by the owner | 2026-11-18 |
 | Layer height and infill | To record from the slice |
 | Fit-critical dimensions | Fit in the frame rebate, hinge, screw holes, battery bay, ribbon slot |
 | To report back | Actual print settings, filament brand, cost per part |

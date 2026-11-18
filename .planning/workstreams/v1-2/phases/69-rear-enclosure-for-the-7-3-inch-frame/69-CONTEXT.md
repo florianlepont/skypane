@@ -28,6 +28,9 @@ Not in this phase: the administrator flashing tool (SEED-014, v1.4), a 13.3 inch
 ### Printing
 - **D-05:** The parts are printed elsewhere (print service or fablab) for the first test print. No printer purchase for now. The Bambu Lab X2D Combo (749 EUR noted, Black Friday offer until 2026-12-01, to recheck) stays an option to revisit after the first fit result; the purchase is not decided and is the owner's.
 
+### Owner update 2026-11-18 (replaces D-05, D-06 where different)
+- **D-13:** First print on the Bambu Lab X1 printers at the owner's workplace (no print service). PETG, any colour, nozzle 0.4 mm or another if needed, M2 self-tapping screws. Filament brand and build plate open.
+
 ### Material and fixing
 - **D-06:** PETG, black (to match the black frame), 0.4 mm nozzle. Filament brand and build plate are left to the print provider / owner and recorded when known. Lid fixing: M2 self-tapping screws, pilot holes 1.7 mm, through holes 2.4 mm. Heat-set inserts stay a fallback if the printed threads wear.
 
