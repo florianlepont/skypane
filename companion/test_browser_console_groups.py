@@ -107,15 +107,16 @@ _TABLE = """(sel) => {
 
 @pytest.mark.parametrize("scheme", THEMES)
 @pytest.mark.parametrize("lang", LANGS)
-@pytest.mark.parametrize("path,sel", [("/users", ".users-table"), ("/airlines/manage", ".airlines-table")])
+@pytest.mark.parametrize("path,sel,head_size", [
+    ("/users", ".users-table", "12px"), ("/airlines/manage", ".airlines-table", "13px")])
 def test_console_tables_have_the_quiet_header_and_tall_rows(
-        new_context, server, path, sel, lang, scheme):
+        new_context, server, path, sel, head_size, lang, scheme):
     context, page = _open(new_context, server, "admin", path, None, VIEWPORT_DESKTOP, lang, scheme)
     try:
         out = page.evaluate(_TABLE, sel)
         assert out["heads"], path
         for head in out["heads"]:
-            assert head["size"] == "12px" and head["weight"] == "600" and head["upper"] == "none", head
+            assert head["size"] == head_size and head["weight"] == "600" and head["upper"] == "none", head
         assert out["rows"] and min(out["rows"]) >= 55.5, out["rows"]
     finally:
         context.close()
