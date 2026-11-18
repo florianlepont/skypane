@@ -1,511 +1,449 @@
+<!--
+STATUS 2026-11-18: drawn on the real shell for the owner's review (plan 09). Decisions to record after the owner's answers.
+Covers R06, R07, R08, R09, D-10.
+-->
 <!doctype html>
-<html lang="en" data-viewport="phone" data-lang="en" data-theme="auto">
+<html lang="en">
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>SkyPane Location and Style mockup (68-09)</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SkyPane mockup: Location and Style (Phase 68, plan 09)</title>
 <style>
-/* Mockup only: tokens follow the companion design system (sketch-findings-skypane).
-   Boards force a theme with data-force="light|dark"; the rest follow the toolbar. */
-:root,[data-force="light"]{
+/* Standalone mockup, no external asset. Tokens follow companion/static/style.css (light and dark only).
+   Each mock sits in a [data-viewport] box, 390 px (phone) or 1440 px (desktop); every translated block is a
+   [data-lang] wrapper and the toggle at the top shows one language at a time. All names and addresses are invented. */
+:root{
   --sky:linear-gradient(#E7EEF7,#F1F3F6 45%,#EDF1F6); --canvas:#F1F3F6; --stage:#E4E9F0;
-  --text:#17191F; --muted:#5B6372; --border:#DAE1EB; --chip:#E9EEF5;
-  --accent:#1F2430; --on-accent:#fff; --glass:rgba(255,255,255,.72); --card:#FBFCFC; --tab:#fff;
-  --ok:#16A34A; --warn:#D97706; --err:#BE123C; --scrim:rgba(10,14,22,.45);
-  color-scheme:light}
-html[data-resolved="dark"],[data-force="dark"]{
+  --text:#17191F; --muted:#5B6372; --border:#DAE1EB; --chip:#E9EEF5; --card:#fff;
+  --accent:#1F2430; --on-accent:#fff; --glass:rgba(255,255,255,.78); --tab:#fff; --shadow:0 6px 20px rgba(20,30,50,.08);
+  --ok:#16A34A; --okbg:#DDF3E4; --warn:#D97706; --err:#BE123C;
+}
+@media (prefers-color-scheme:dark){:root:not([data-ui-theme="light"]){
   --sky:linear-gradient(#12151D,#161A24 45%,#1A1F2B); --canvas:#161A24; --stage:#0E1117;
-  --text:#F1F3F6; --muted:#A3ABBB; --border:#2A3040; --chip:#1C222D;
-  --accent:#F2EFE9; --on-accent:#14171F; --glass:rgba(255,255,255,.09); --card:#2B2F38; --tab:#1C222D;
-  --ok:#4ADE80; --warn:#FBBF24; --err:#FB7185; --scrim:rgba(0,0,0,.6);
-  color-scheme:dark}
-[data-force]{color:var(--text)}
+  --text:#F1F3F6; --muted:#A3ABBB; --border:#2A3040; --chip:#232A38; --card:#1C222D;
+  --accent:#F2EFE9; --on-accent:#14171F; --glass:rgba(34,40,54,.82); --tab:#1C222D; --shadow:0 6px 20px rgba(0,0,0,.35);
+  --ok:#4ADE80; --okbg:#173225; --warn:#FBBF24; --err:#FB7185; color-scheme:dark}}
+:root[data-ui-theme="dark"]{
+  --sky:linear-gradient(#12151D,#161A24 45%,#1A1F2B); --canvas:#161A24; --stage:#0E1117;
+  --text:#F1F3F6; --muted:#A3ABBB; --border:#2A3040; --chip:#232A38; --card:#1C222D;
+  --accent:#F2EFE9; --on-accent:#14171F; --glass:rgba(34,40,54,.82); --tab:#1C222D; --shadow:0 6px 20px rgba(0,0,0,.35);
+  --ok:#4ADE80; --okbg:#173225; --warn:#FBBF24; --err:#FB7185; color-scheme:dark}
 *{box-sizing:border-box}
-body{margin:0;background:var(--stage);color:var(--text);font:16px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;
-  padding:32px max(16px,env(safe-area-inset-right,0px)) 64px max(16px,env(safe-area-inset-left,0px))}
-button{font:inherit;color:inherit}
+body{margin:0;background:var(--stage);color:var(--text);font:16px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;padding:32px 16px 96px}
+button,input{font:inherit;color:inherit}
+a{color:inherit;text-decoration:none}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .num{font-variant-numeric:tabular-nums}
-.vh{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
-
-/* language and viewport switching */
-html[data-lang="en"] [data-lang="fr"],html[data-lang="fr"] [data-lang="en"]{display:none!important}
-html[data-viewport="phone"] [data-viewport="desktop"],html[data-viewport="desktop"] [data-viewport="phone"]{display:none!important}
-
-/* page chrome */
-.top{max-width:1320px;margin:0 auto 24px;display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between;align-items:flex-end}
+.top{max-width:1500px;margin:0 auto 24px;display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between;align-items:flex-end}
 .top h1{margin:0 0 8px;font-size:34px;letter-spacing:-.03em}
-.top p{margin:0;color:var(--muted);max-width:70ch}
-.tools{display:flex;flex-wrap:wrap;gap:12px}
+.top p{margin:0;color:var(--muted);max-width:75ch}
+.toggles{display:flex;gap:16px;flex-wrap:wrap}
 .seg{display:inline-flex;background:var(--chip);border-radius:32px;padding:4px;gap:4px}
 .seg button{border:0;background:none;min-height:44px;padding:0 16px;border-radius:32px;cursor:pointer;font-size:15px}
 .seg button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent)}
-section.sec{max-width:1320px;margin:0 auto 56px}
-section.sec>h2{margin:0 0 4px;font-size:26px;font-weight:600;letter-spacing:-.02em}
-section.sec>.lede{margin:0 0 20px;color:var(--muted);max-width:78ch}
-.row{display:flex;flex-wrap:wrap;gap:32px 40px;align-items:flex-start}
-.cell{display:flex;flex-direction:column;gap:12px;min-width:0}
-.cell h3{margin:0;font-size:17px;font-weight:600}
-.cell .note{margin:0;font-size:14px;color:var(--muted);max-width:60ch}
-.tag{display:inline-block;padding:2px 10px;border-radius:32px;background:var(--chip);font-size:13px;font-weight:600;color:var(--muted)}
-.tag.new{background:var(--accent);color:var(--on-accent)}
-.scroll{max-width:100%;overflow-x:auto;padding-bottom:8px}
-.fit .scr.desk{zoom:.55}
+.sec{max-width:1500px;margin:56px auto 0}
+.sec>h2{margin:0 0 4px;font-size:26px;letter-spacing:-.02em}
+.sec>p.lead{margin:0 0 24px;color:var(--muted);max-width:85ch}
+.row2{display:flex;flex-wrap:wrap;gap:32px;align-items:flex-start}
+.mock{margin:0;display:flex;flex-direction:column;gap:8px;min-width:0}
+.mock>figcaption{font-size:15px;font-weight:600}
+.mock>figcaption small{display:block;font-weight:400;color:var(--muted);font-size:13px}
+.scroller{max-width:100%;overflow-x:auto;padding-bottom:8px}
+[data-ui-lang="en"] [data-lang="fr"],[data-ui-lang="fr"] [data-lang="en"]{display:none}
+.note{margin:12px 0 0;padding:12px 16px;border:1px dashed var(--border);border-radius:14px;color:var(--muted);font-size:14px;max-width:85ch}
+.note b{color:var(--text)}
 
-/* screens */
-.scr{position:relative;overflow:hidden;border:1px solid var(--border);background:var(--sky) var(--canvas);color:var(--text);
-  box-shadow:0 12px 40px rgba(20,30,50,.12);flex:none}
-.scr.ph{width:360px;height:660px;border-radius:36px}
-.scr.desk{width:1280px;height:640px;border-radius:16px}
-.map{position:absolute;inset:0}
-.map svg{position:absolute;inset:0;width:100%;height:100%}
-.tiles.A{filter:invert(1) hue-rotate(180deg) brightness(.92) contrast(.9) saturate(.55)}
-.tiles.B{filter:brightness(.52) saturate(.75) contrast(1.05)}
+[data-viewport]{position:relative;overflow:hidden;border:1px solid var(--border);background:var(--sky) var(--canvas);box-shadow:0 12px 40px rgba(20,30,50,.12)}
+[data-viewport="phone"]{width:390px;height:780px;border-radius:36px}
+[data-viewport="desktop"]{width:1440px;height:900px;border-radius:16px}
+[data-viewport] [data-lang]{height:100%;position:relative}
+
+/* shared pieces */
 .ic{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-.glass{background:var(--card);border:1px solid var(--border);box-shadow:0 6px 20px rgba(20,30,50,.18)}
-.search{position:absolute;left:12px;right:12px;top:12px;height:48px;border-radius:24px;display:flex;align-items:center;padding:0 16px;color:var(--muted);font-size:15px}
-.chips{position:absolute;left:12px;top:68px;display:flex;gap:8px}
-.chipb{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 16px;border-radius:32px;font-size:15px;font-weight:600}
-.chipb.on{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
-.ph .tabs{position:absolute;left:12px;right:12px;bottom:12px;display:flex;justify-content:space-around;padding:8px 4px;background:var(--tab);border:1px solid var(--border);border-radius:32px;font-size:11px;color:var(--muted)}
-.tab{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:48px}
-.tab i{width:22px;height:22px;border-radius:7px;background:var(--border)}
-.tab.on{color:var(--text);font-weight:600}.tab.on i{background:var(--accent)}
-.side{position:absolute;left:0;top:0;bottom:0;width:224px;padding:24px 16px;background:var(--card);border-right:1px solid var(--border);display:flex;flex-direction:column;gap:8px;z-index:3}
-.side b{font-size:20px;margin-bottom:12px}
-.side span{display:flex;align-items:center;min-height:44px;padding:0 12px;border-radius:14px;color:var(--muted)}
-.side span.on{background:var(--accent);color:var(--on-accent);font-weight:600}
-.dmap{position:absolute;left:224px;right:0;top:0;bottom:0}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--ok);flex:none;display:inline-block}
+.dot.idle{background:var(--muted)}.dot.err{background:var(--err)}.dot.pend{background:var(--warn)}
+.label{margin:0 0 6px 16px;font-size:13px;font-weight:600;color:var(--muted)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:22px;box-shadow:var(--shadow);overflow:hidden}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 18px;border:1px solid var(--border);border-radius:14px;background:var(--card);font-size:15px;font-weight:600;cursor:pointer}
+.btn.dark{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.btn.sq{width:44px;padding:0}
+.field{display:flex;align-items:center;gap:8px;min-height:44px;padding:0 14px;border:1px solid var(--border);border-radius:14px;background:var(--card)}
+.field input{flex:1;min-width:0;border:0;background:none;min-height:42px;outline:0}
+.title{margin:0;font-size:40px;line-height:1.1;font-weight:700;letter-spacing:-.03em}
+.sub{color:var(--muted);font-size:15px}
+.state{margin:6px 0 0;display:flex;align-items:center;gap:8px;font-weight:600}
 
-/* sheet and card */
-.sheet{position:absolute;left:12px;right:12px;bottom:72px;border-radius:28px;padding:16px;display:flex;flex-direction:column;gap:12px}
-.sheet h4{margin:0;font-size:17px;font-weight:600}.sheet small{display:block;color:var(--muted);font-size:13px}
-.runs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-.run{min-height:48px;border:1px solid var(--border);border-radius:14px;background:var(--chip);display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:700;font-size:16px}
-.run small{font-weight:400;font-size:11px}
-.run.sel{border:2px solid var(--accent)}
-.card.d{position:absolute;left:248px;top:24px;width:360px;border-radius:22px;padding:16px;display:flex;flex-direction:column;gap:12px;z-index:2}
-.card.d h4{margin:0;font-size:17px;font-weight:600}.card.d small{display:block;color:var(--muted);font-size:13px}
+/* rows */
+.item{display:flex;align-items:center;gap:12px;min-height:64px;padding:10px 16px;border-top:1px solid var(--border)}
+.item:first-child{border-top:0}
+.item .who{flex:1;min-width:0}
+.item .who small{display:block;color:var(--muted);font-size:13px}
+.item .who b{display:block;font-weight:600}
+.item .val{color:var(--muted);font-size:14px;white-space:nowrap}
+.ico{width:36px;height:36px;border-radius:50%;background:var(--chip);display:flex;align-items:center;justify-content:center;flex:none}
+.ico.ok{background:var(--okbg);color:var(--ok)}
+.sw{flex:none;width:51px;height:31px;border-radius:31px;background:#7C8696;position:relative;cursor:pointer}
+.sw::after{content:"";position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.sw.on{background:var(--accent)}.sw.on::after{left:22px}
+.badge{display:inline-flex;align-items:center;min-height:24px;padding:0 10px;border-radius:32px;border:1px solid var(--border);font-size:12px;color:var(--muted)}
+.range{height:6px;border-radius:6px;background:var(--border);position:relative;margin:14px 0 4px}
+.range i{position:absolute;left:0;top:0;bottom:0;width:26%;border-radius:6px;background:var(--accent)}
+.range b{position:absolute;left:26%;top:50%;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;background:var(--accent)}
+.section{display:flex;flex-direction:column}
+.danger b{color:var(--err)}
 
-/* map tools */
-.mtools{position:absolute;right:12px;display:flex;flex-direction:column;align-items:flex-end;gap:8px;z-index:2}
-.ph .mtools{bottom:calc(var(--sheetH,220px) + 84px)}
-.desk .mtools{bottom:24px;right:24px}
-.france{min-height:44px;padding:0 16px;border-radius:32px;display:inline-flex;align-items:center;font-size:13px;font-weight:600;background:var(--card);border:1px solid var(--border);box-shadow:0 6px 20px rgba(20,30,50,.18)}
-.round{width:48px;height:48px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:var(--card);border:1px solid var(--border);box-shadow:0 6px 20px rgba(20,30,50,.18)}
-.round.s44{width:44px;height:44px}
-.msg{position:absolute;left:12px;right:12px;padding:10px 16px;border-radius:14px;font-size:14px;z-index:2}
-.ph .msg{bottom:calc(var(--sheetH,220px) + 84px);right:72px}
+/* frame list rows */
+.frow{display:flex;align-items:center;gap:12px;min-height:56px;padding:6px 14px;border-top:1px solid var(--border);cursor:pointer}
+.frow:first-child{border-top:0}
+.frow .who{flex:1;min-width:0}
+.frow .who b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.frow .who small{display:block;color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.frow .seen{font-size:13px;color:var(--muted);white-space:nowrap}
+.frow.retired{opacity:.8}
+.frow.sel{background:var(--chip)}
+.chev{color:var(--muted)}
 
-/* save bar */
-.dbar{display:flex;align-items:center;gap:8px;min-height:44px}
-.dbar .m{flex:1;font-size:14px;font-weight:600;min-width:0}
-.btn{min-height:44px;padding:0 24px;border-radius:14px;border:1px solid var(--border);background:var(--chip);font-weight:600;font-size:15px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
-.btn.p{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
-.btn.big{flex:1;min-height:52px}
-.ib{width:44px;height:44px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--border);background:var(--chip);cursor:pointer}
-.ib.p{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+/* phone shell */
+.ptop{position:absolute;left:0;right:0;top:0;height:64px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;z-index:5}
+.brand{display:flex;align-items:center;gap:8px;font-size:22px;font-weight:700;letter-spacing:-.02em}
+.screen{position:absolute;inset:64px 0 0 0;overflow-y:auto;padding:8px 16px 120px;display:flex;flex-direction:column;gap:16px;scrollbar-width:none}
+.screen::-webkit-scrollbar{display:none}
+.screen>*{flex-shrink:0}
+.tabs{position:absolute;left:12px;right:12px;bottom:14px;display:flex;justify-content:space-around;padding:8px 6px;background:var(--tab);border:1px solid var(--border);border-radius:34px;box-shadow:0 8px 24px rgba(20,30,50,.14);z-index:6}
+.tab{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-width:60px;min-height:52px;border-radius:26px;font-size:11px;color:var(--text)}
+.tab.on{background:var(--accent);color:var(--on-accent);font-weight:600}
+.chips{display:flex;gap:8px;overflow-x:auto;margin:0 -16px;padding:0 16px 4px;scrollbar-width:none}
+.chip{flex:none;display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 14px;border-radius:32px;background:var(--card);border:1px solid var(--border);font-size:14px;white-space:nowrap}
+.chip[aria-current="page"]{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.chip.all{background:var(--chip)}
+.anchors{position:sticky;top:-8px;z-index:3;margin:0 -16px;padding:8px 16px;display:flex;gap:8px;background:var(--canvas)}
+.anchors button{flex:1;min-height:44px;border:1px solid var(--border);border-radius:32px;background:var(--card);font-size:14px;cursor:pointer}
+.anchors button[aria-current="true"]{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.blk{scroll-margin-top:72px}
 
-/* annotation callouts */
-.anno{display:flex;gap:8px;align-items:flex-start;font-size:13px;color:var(--muted)}
-.pt{flex:none;width:22px;height:22px;border-radius:50%;background:#E11D48;color:#fff;font-size:12px;font-weight:700;display:inline-flex;align-items:center;justify-content:center}
-.pt.abs{position:absolute;z-index:6;box-shadow:0 0 0 2px #fff}
+/* desktop shell */
+.side{position:absolute;left:0;top:0;bottom:0;width:240px;padding:24px 16px;background:var(--glass);border-right:1px solid var(--border);display:flex;flex-direction:column;gap:8px}
+.side .brand{padding:0 8px;margin-bottom:8px}
+.space{display:flex;gap:4px;padding:4px;border-radius:16px;background:var(--chip);margin-bottom:8px}
+.space span{flex:1;text-align:center;min-height:36px;display:flex;align-items:center;justify-content:center;border-radius:12px;font-size:14px;font-weight:600;color:var(--muted)}
+.space span.on{background:var(--accent);color:var(--on-accent)}
+.nlabel{margin:12px 8px 0;font-size:13px;font-weight:600;color:var(--muted)}
+.nav{display:flex;align-items:center;gap:12px;min-height:46px;padding:0 12px;border-radius:14px;font-size:15px}
+.nav.on{background:var(--accent);color:var(--on-accent);font-weight:600}
+.sep{height:1px;background:var(--border);margin:8px 0}
+.signout{margin-top:auto}
+.listp{position:absolute;left:240px;top:0;bottom:0;width:350px;background:var(--glass);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.listp .lhead{flex:none;padding:20px 16px 12px;display:flex;flex-direction:column;gap:12px;border-bottom:1px solid var(--border)}
+.listp .lbody{flex:1;min-height:0;overflow-y:auto;padding:12px 12px 20px;display:flex;flex-direction:column;gap:14px}
+.main{position:absolute;left:590px;right:0;top:0;bottom:0;overflow-y:auto;padding:32px 44px 64px}
+.dcol{display:flex;flex-direction:column;gap:24px;max-width:760px;margin-top:20px}
+.titlerow{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.iconbtns{display:flex;gap:8px;flex:none}
+.sparkline{display:block;width:100%;height:44px}
+.sub2{display:flex;flex-direction:column;gap:6px;width:100%;padding-left:48px;font-size:13px;color:var(--muted)}
+.item.wrap{flex-wrap:wrap}
+.tiles2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.tile2{display:flex;flex-direction:column;gap:6px;min-height:132px;padding:14px;border-radius:22px;background:var(--card);border:1px solid var(--border);box-shadow:var(--shadow);min-width:0}
+.tile2 .th{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+.tile2 .tv{font-size:19px;font-weight:700;letter-spacing:-.01em}
+.tile2 .tm{font-size:13px;color:var(--muted)}
+.tile2 .more{margin-top:auto;display:flex;align-items:center;gap:4px;font-size:13px;font-weight:600}
+.bigspark{display:block;width:100%;height:120px;color:var(--accent)}
+.kv{display:grid;grid-template-columns:1fr auto;gap:6px 16px;padding:12px 16px;border-top:1px solid var(--border);font-size:14px}
+.kv span:nth-child(odd){color:var(--muted)}
+.kv span:nth-child(even){text-align:right}
+.rtable{width:100%;border-collapse:collapse;font-size:14px}
+.rtable th{text-align:left;color:var(--muted);font-weight:600;font-size:13px;padding:8px 16px}
+.rtable td{padding:8px 16px;border-top:1px solid var(--border)}
+.rtable td:last-child,.rtable th:last-child{text-align:right}
+.banner{display:flex;flex-direction:column;gap:8px;padding:12px 16px;border-radius:18px;border:1px solid var(--warn);background:var(--card)}
+.banner b{font-weight:700}
+.pills{display:flex;flex-wrap:wrap;gap:6px}
+.pill{display:inline-flex;align-items:center;min-height:26px;padding:0 10px;border-radius:32px;background:var(--chip);font-size:13px}
+.pill.warn{background:var(--card);border:1px solid var(--warn)}
+.unit{display:inline-flex;gap:4px;padding:3px;border-radius:12px;background:var(--chip)}
+.unit span{min-height:32px;padding:0 12px;display:flex;align-items:center;border-radius:9px;font-size:13px}
+.unit span.on{background:var(--accent);color:var(--on-accent);font-weight:600}
+details.rd{border-top:1px solid var(--border)}
+details.rd summary{min-height:48px;display:flex;align-items:center;padding:0 16px;font-size:14px;font-weight:600;cursor:pointer}
+.outcomes{list-style:none;margin:0;padding:0}
+.outcomes li{padding:10px 16px;border-top:1px solid var(--border)}
+.outcomes p{margin:0;display:flex;align-items:center;gap:8px;font-weight:600}
+.outcomes p span.n{margin-left:auto}
+.outcomes small{display:block;color:var(--muted);font-size:13px;margin:2px 0 0 16px}
+.rtable.l td:last-child,.rtable.l th:last-child{text-align:left}
+.pagehead{display:flex;flex-direction:column;gap:6px;margin-bottom:8px}
+.backl{display:inline-flex;align-items:center;gap:6px;min-height:44px;font-size:15px;font-weight:600}
+.ring{width:64px;height:64px;border-radius:50%;background:conic-gradient(var(--ok) 0 47%,var(--border) 0);display:flex;align-items:center;justify-content:center;flex:none}
+.ring b{width:48px;height:48px;border-radius:50%;background:var(--card);display:flex;align-items:center;justify-content:center;font-size:14px}
+.vrow{display:flex;align-items:center;gap:12px;min-height:52px;padding:6px 16px;border-top:1px solid var(--border)}
+.vrow .who{flex:1}
+.btn.quiet{min-height:40px;font-weight:500;color:var(--muted)}
 
-/* tables */
-table.t{border-collapse:collapse;font-size:14px;background:var(--glass);border:1px solid var(--border);border-radius:14px;overflow:hidden}
-table.t th,table.t td{padding:8px 12px;text-align:left;border-bottom:1px solid var(--border);vertical-align:middle}
-table.t th{font-weight:600;color:var(--muted);font-size:13px}
-.scroll table.t{min-width:560px}
-code{font:13px ui-monospace,Menlo,Consolas,monospace;background:var(--chip);padding:1px 6px;border-radius:6px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
 
-/* leave dialog */
-.dscrim{position:absolute;inset:0;background:var(--scrim);display:flex;align-items:center;justify-content:center;padding:16px}
-.dlg{width:100%;max-width:420px;background:var(--tab);border:1px solid var(--border);border-radius:28px;box-shadow:0 20px 50px rgba(0,0,0,.3);padding:24px;display:flex;flex-direction:column;gap:16px;position:relative}
-.dlg h4{margin:0;font-size:22px;font-weight:600}
-.dlg p{margin:0;color:var(--muted);font-size:15px}
-.dlg .acts{display:flex;flex-direction:column;gap:8px;align-items:flex-start}
-.dlg.new .acts{flex-direction:row;align-items:stretch}
-.dlg.new .acts .btn{flex:1 1 0;padding:0 12px;text-align:center}
-.dlg .x{position:absolute;right:12px;top:12px;width:44px;height:44px;border:0;background:none;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted)}
-.dlg .quiet{align-self:flex-start;min-height:44px;background:none;border:0;padding:0 4px;text-decoration:underline;color:var(--text);cursor:pointer}
-.pagebg{position:absolute;inset:0;padding:24px 16px;display:flex;flex-direction:column;gap:16px;opacity:.55}
-.pagebg .bar{height:120px;border-radius:22px;background:var(--glass);border:1px solid var(--border)}
+.scrim{position:absolute;inset:0;background:rgba(10,14,22,.45);z-index:20}
+.dlg{position:absolute;left:50%;transform:translate(-50%,-50%);top:50%;z-index:21;width:min(460px,88%);background:var(--card);border:1px solid var(--border);border-radius:24px;padding:22px;display:flex;flex-direction:column;gap:14px;box-shadow:0 20px 50px rgba(20,30,50,.3)}
+.dlg h4,.sheet h4{margin:0;font-size:20px}
+.dlg p,.sheet p{margin:0;color:var(--muted);font-size:15px}
+.dlg .row,.sheet .row{display:flex;gap:10px}.dlg .row .btn,.sheet .row .btn{flex:1}
+.sheet{position:absolute;left:0;right:0;bottom:0;z-index:21;background:var(--card);border-radius:28px 28px 0 0;padding:12px 16px 24px;display:flex;flex-direction:column;gap:14px;max-height:85%}
+.sheet .grab{width:44px;height:5px;border-radius:5px;background:var(--border);margin:0 auto 2px}
+[data-viewport="phone"] .dlgd{display:none}
+[data-viewport="desktop"] .sheetd{display:none}
+.cta{display:flex;flex-direction:column;gap:12px;padding:18px}
+.cta .big{font-size:22px;font-weight:700;letter-spacing:-.01em;display:flex;align-items:center;gap:10px}
+.cta .ver{font-family:ui-monospace,Menlo,monospace;font-size:18px;font-weight:600}
+.ctar{display:flex;gap:16px;align-items:center;justify-content:space-between}.ctal{display:flex;flex-direction:column;gap:8px;min-width:0}.ctar .btn{flex:none}
+[data-viewport="phone"] .ctar{flex-direction:column;align-items:stretch}
+.clamp{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.notes li{overflow-wrap:anywhere}
+.cta small{color:var(--muted);font-size:14px}
+.cta .foot{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;border-top:1px solid var(--border);padding-top:12px;font-size:14px;color:var(--muted)}
+.vlist .vr{display:flex;align-items:center;gap:12px;min-height:60px;padding:8px 16px;border-top:1px solid var(--border)}
+.vlist .vr:first-child{border-top:0}
+.vr .who{flex:1;min-width:0}
+.vr .who b{font-family:ui-monospace,Menlo,monospace;font-size:16px}
+.vr .who small{display:block;color:var(--muted);font-size:13px}
+.vr .act{flex:none}
+.notes{padding:4px 16px 14px 44px;color:var(--muted);font-size:14px;border-top:1px dashed var(--border)}
+.notes li{margin:3px 0}
+.chipv{display:inline-flex;align-items:center;min-height:22px;padding:0 8px;border-radius:32px;font-size:12px;font-weight:600;background:var(--chip);color:var(--muted);margin-left:8px;vertical-align:middle}
+.chipv.new{background:var(--okbg);color:var(--ok)}
+.chipv.run{background:var(--accent);color:var(--on-accent)}
+.toastb{display:flex;gap:10px;align-items:flex-start;padding:12px 16px;border-radius:18px;border:1px solid var(--warn);background:var(--card);font-size:14px}
+.btn.ghost2{background:transparent;border-color:transparent;color:var(--muted);min-height:40px;font-weight:600;text-decoration:underline;text-underline-offset:3px}
+.pagehead{display:flex;flex-direction:column;gap:6px;margin-bottom:8px}
+.backl{display:inline-flex;align-items:center;gap:6px;min-height:44px;font-size:15px;font-weight:600}
+.page2{max-width:760px;display:flex;flex-direction:column;gap:20px}
+.fallback{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:24px}
 
-/* look picker swatches */
-.pick{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:16px;background:var(--card);border:1px solid var(--border);border-radius:22px;max-width:392px}
-.opt{display:flex;align-items:center;gap:12px;min-height:56px;padding:8px 12px;border:1px solid var(--border);border-radius:14px;background:var(--chip);font-size:14px}
-.opt.sel{border:2px solid var(--accent)}
-.sw{display:block;width:24px;height:32px;border-radius:14px;box-shadow:0 0 0 1px var(--border);flex:none}
-.big .sw{width:72px;height:96px}
-.swbox{display:flex;gap:24px;flex-wrap:wrap}
-.swbox figure{margin:0;display:flex;flex-direction:column;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
-.cta{display:flex;flex-direction:column;gap:8px;max-width:78ch}
-.q{max-width:1000px;margin:0 auto 24px;padding:24px;border:2px solid var(--accent);border-radius:22px;background:var(--glass)}
-.q h2{margin:0 0 12px}
-.q ol{margin:0;padding-left:24px;display:flex;flex-direction:column;gap:12px}
-.q li b{display:block}
+.arow{display:flex;align-items:center;gap:12px;min-height:60px;padding:8px 16px;border-top:1px solid var(--border)}
+.vlist .arow:first-child{border-top:0}
+.arow.tall{min-height:96px}
+.arow .who{flex:1;min-width:0;display:flex;flex-wrap:wrap;align-items:center;gap:0 0}
+.arow .who b{font-size:16px;margin-right:2px}
+.arow .ln{display:block;flex-basis:100%;color:var(--muted);font-size:13px}
+.arow .st{display:flex;align-items:center;gap:8px}
+.arow.kv{justify-content:space-between}.arow.link{min-height:64px}.arow.link .ic{color:var(--muted);flex:none}
+.arow.add{font-weight:600;color:var(--text)}
+.arow.add .ic{width:32px;height:32px;padding:6px;border-radius:12px;background:var(--accent);color:var(--on-accent);stroke:var(--on-accent);background:var(--accent)}
+.arow.pref{flex-wrap:wrap}.arow.pref .seg{flex:none}
+.thumb{flex:none;width:30px;height:40px;border:3px solid var(--text);border-radius:6px}
+.iconbtn{flex:none;display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:14px;border:1px solid var(--border);background:var(--card);color:var(--text)}
+.lnk{display:inline-flex;align-items:center;min-height:44px;font-weight:600;text-decoration:underline;text-underline-offset:3px;flex-basis:100%}
+.lnk.center{justify-content:center}
+.lwrap{display:flex;justify-content:center}
+.lcard{width:100%;max-width:420px;background:var(--card);border:1px solid var(--border);border-radius:22px;padding:24px;display:flex;flex-direction:column;gap:14px;box-shadow:0 10px 30px rgba(20,30,50,.12)}
+.lcard .lg{width:40px;height:40px}.lcard .lg .ic{width:40px;height:40px}
+.lcard p{margin:0}.lead0{font-size:16px}
+.btn.wide{width:100%;justify-content:center}
+.first{text-align:center;color:var(--muted);font-size:13px}
+.nfcard{display:flex;flex-direction:column;align-items:center;gap:8px;padding:20px}
+.ill{width:100%;max-width:260px;height:auto;color:var(--text);--ink:var(--text)}
+.nfc{margin:0;text-align:center;color:var(--muted);font-size:15px}
+.page2 .title{font-size:34px;margin:0}
+
+.frow{display:flex;align-items:center;gap:12px;padding:10px 16px;border-top:1px solid var(--border);min-height:68px}
+.frow:first-child{border-top:0}
+.frow .pic{flex:none;width:56px;height:36px;border-radius:10px;background:linear-gradient(135deg,var(--chip),var(--border))}
+.frow .mid{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.frow .mid b{font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.frow .mid small{color:var(--muted);font-size:13px}
+.frow .rt{flex:none;text-align:right;display:flex;flex-direction:column;gap:2px;color:var(--muted);font-size:13px}
+.frow .rt b{color:var(--text);font-size:15px}
+.dir{display:inline-flex;vertical-align:-4px;margin-right:4px}.dir .ic{width:18px;height:18px}
+.route{display:flex;align-items:center;gap:6px;font-size:15px}
+.route .ic{width:16px;height:16px;color:var(--muted)}
+.dtab{display:grid;grid-template-columns:72px 1.3fr 1.4fr .9fr .9fr;gap:16px;align-items:center;padding:14px 20px;border-top:1px solid var(--border)}
+.dtab:first-child{border-top:0}
+.dtab .pic{width:72px;height:46px;border-radius:12px;background:linear-gradient(135deg,var(--chip),var(--border))}
+.dtab small{color:var(--muted);font-size:13px;display:block}
+.dtab b{font-size:16px}
+.hdr{display:flex;align-items:center;gap:10px;justify-content:space-between;padding:12px;border:1px dashed var(--border);border-radius:16px;min-width:0}
+.hdr h3{margin:0;font-size:28px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hdr .iconbtn{flex:none}
+.wlabel{font-size:12px;color:var(--muted);margin:10px 0 4px}
+.acard{background:var(--card);border:1px solid var(--border);border-radius:22px;padding:14px;display:flex;flex-direction:column;gap:6px;position:relative;min-height:150px}
+.acard .art{height:44px;border-radius:10px;background:linear-gradient(135deg,var(--chip),var(--border))}
+.acard b{font-size:16px}
+.acard small{color:var(--muted);font-size:13px}
+.rar{display:inline-flex;align-items:center;gap:6px;min-height:26px;padding:0 10px;border-radius:32px;font-size:13px;font-weight:700;align-self:flex-start}
+.rar .rd{width:8px;height:8px;border-radius:50%;background:currentColor}
+.rar.r0{background:var(--chip);color:var(--text)}
+.rar.r1{background:#d9f0ea;color:#0b5e4f}
+.rar.r2{background:#eadcff;color:#5b21b6}
+.rar.r3{background:#fde7c2;color:#8a4b00}
+[data-ui-theme="dark"] .rar.r1{background:#12453b;color:#9ee6d3}[data-ui-theme="dark"] .rar.r2{background:#3b2766;color:#d9c2ff}[data-ui-theme="dark"] .rar.r3{background:#5a3a0a;color:#ffd99a}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.chipn{position:absolute;top:12px;right:12px;font-size:11px;font-weight:700;padding:2px 8px;border-radius:32px;background:var(--accent);color:var(--on-accent)}
+.hero{display:flex;flex-direction:column;gap:8px;padding:8px 4px 16px}
+.nm{display:flex;align-items:center;gap:2px}.nm h3{margin:0;font-size:32px;line-height:1.05}
+.ghostic{flex:none;display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:14px;color:var(--muted)}
+.cad{display:flex;align-items:center;gap:0;color:var(--muted);font-size:15px}
+.page2 .grid2{max-width:100%}
+.widths{display:flex;flex-direction:column;gap:2px}
+
+.map{position:relative;height:300px;border-radius:0;background:#efeae0;overflow:hidden}
+[data-ui-theme="dark"] .map{background:#1b2230}
+@media (prefers-color-scheme:dark){:root:not([data-ui-theme="light"]) .map{background:#1b2230}}
+.map>svg{position:absolute;inset:0;width:100%;height:100%}
+.map .land{fill:#e4ddcc}.map .road{stroke:#d3c9b3;stroke-width:3;fill:none}.map .rwy{stroke:#1f2430;stroke-width:6;stroke-linecap:round}.map .rwyc{stroke:#fff;stroke-width:1.5;stroke-dasharray:6 6}
+.map .pin{fill:var(--accent)}
+[data-ui-theme="dark"] .map .land{fill:#232c3d}[data-ui-theme="dark"] .map .road{stroke:#34405a}[data-ui-theme="dark"] .map .rwy{stroke:#f2f5fa}[data-ui-theme="dark"] .map .rwyc{stroke:#1b2230}
+@media (prefers-color-scheme:dark){:root:not([data-ui-theme="light"]) .map .land{fill:#232c3d}:root:not([data-ui-theme="light"]) .map .road{stroke:#34405a}:root:not([data-ui-theme="light"]) .map .rwy{stroke:#f2f5fa}:root:not([data-ui-theme="light"]) .map .rwyc{stroke:#1b2230}}
+.mtop{display:flex;flex-direction:column;gap:10px;padding:0 12px 10px}
+.sbox{display:flex;align-items:center;gap:8px;min-height:48px;padding:0 6px 0 14px;border-radius:24px;background:var(--card);border:1px solid var(--border);color:var(--muted)}
+.sbox span{flex:1}
+.mrow{display:flex;gap:10px;align-items:center}
+.pillb{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 16px;border-radius:32px;background:var(--card);border:1px solid var(--border);font-weight:600}
+.pillb.on{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.igrp{display:inline-flex;gap:6px;padding:4px;border-radius:32px;background:var(--card);border:1px solid var(--border)}
+.igrp .ib{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:50%;color:var(--text)}
+.igrp .ib.on{background:var(--accent);color:var(--on-accent)}
+.mcard{padding:14px 16px;display:flex;flex-direction:column;gap:10px;background:var(--card);border-radius:22px 22px 0 0;border:1px solid var(--border)}
+.runways{display:flex;gap:14px;justify-content:center}
+.rw{padding:6px 12px;border-radius:16px;text-align:center;border:2px solid transparent}.rw b{display:block;font-size:20px}.rw small{color:var(--muted);font-size:12px}
+.rw.on{border-color:var(--text);background:var(--chip)}
+.note2{background:var(--chip);border-radius:14px;padding:10px 12px;font-size:14px;color:var(--text)}
+.dlg2{display:flex;flex-direction:column;gap:12px}
+.dlg2 .btn{width:100%;justify-content:center;min-height:48px}
+.swr{display:flex;gap:12px;flex-wrap:wrap}
+.sw2{width:150px;border-radius:18px;background:var(--card);border:1px solid var(--border);padding:10px;display:flex;flex-direction:column;gap:8px}
+.prev{height:120px;border-radius:12px;position:relative;overflow:hidden;background:#efefef}
+.prev i{position:absolute;left:0;right:0;top:44px;height:32px}
+.sw2 b{font-size:15px}
+.cnt{font-size:12px;color:var(--muted)}
 </style>
-
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
-  <symbol id="i-locate" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><circle cx="12" cy="12" r="7.5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></symbol>
-  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.2 3 14.8 0 18M12 3c-3 3.2-3 14.8 0 18"/></symbol>
-  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
-  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5 10 17.5 19 7"/></symbol>
-  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></symbol>
-  <symbol id="i-plane" viewBox="0 0 24 24"><path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z"/></symbol>
+  <symbol id="i-logo" viewBox="0 0 24 24"><rect x="4" y="3" width="14" height="18" rx="3"/><path d="M9 10l2 2 4-4"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8v.5"/></symbol>
+  <symbol id="i-fleet" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="3"/><path d="M9 11l2 2 4-4"/></symbol>
+  <symbol id="i-team" viewBox="0 0 24 24"><circle cx="9" cy="12" r="5"/><circle cx="15" cy="12" r="5"/></symbol>
+  <symbol id="i-tag" viewBox="0 0 24 24"><path d="M3 12V4h8l10 10-8 8z"/><circle cx="8" cy="8" r="1.4"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></symbol>
+  <symbol id="i-battery" viewBox="0 0 24 24"><rect x="2" y="7" width="17" height="10" rx="2"/><path d="M22 11v2"/></symbol>
+  <symbol id="i-plane" viewBox="0 0 24 24"><path d="M2 14l8-2 3-8 2 1-1 7 6 2v2l-6-1-2 4-2-.5.5-3.5L2 16z"/></symbol>
+  <symbol id="i-chip" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/></symbol>
+  <symbol id="i-timer" viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M9 2h6"/></symbol>
+  <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z"/></symbol>
+  <symbol id="i-frame" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2.5"/><rect x="7" y="8" width="10" height="8" rx="1"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+  <symbol id="i-down2" viewBox="0 0 24 24"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></symbol>
+  <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M16 7l3 3M14 9l2 2"/></symbol>
+  <symbol id="i-out" viewBox="0 0 24 24"><path d="M10 4H5v16h5M15 8l4 4-4 4M19 12H9"/></symbol>
+  <symbol id="i-dep" viewBox="0 0 24 24"><path d="M4 20h16M6 15l12-8M11 7h7v7"/></symbol>
+  <symbol id="i-lnd" viewBox="0 0 24 24"><path d="M4 20h16M6 5l12 8M18 6v7h-7"/></symbol>
+  <symbol id="i-sort" viewBox="0 0 24 24"><path d="M4 7h16M7 12h10M10 17h4"/></symbol>
+  <symbol id="i-locate" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></symbol>
+  <symbol id="i-france" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></symbol>
+  <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 7L4 12l5 5M4 12h11a5 5 0 0 1 0 10h-3"/></symbol>
 </svg>
-
 <div class="top">
-  <div>
-    <h1><span data-lang="en">Location and Style</span><span data-lang="fr">Lieu et Style</span></h1>
-    <p><span data-lang="en">Five changes, each shown as today versus proposed: R07 no "position found" text, R08 dark map, R09 icon-only action buttons, R06 leave dialog, D-10 yellow stripe swatch. Sample place: Paris-Orly (public airport position), never a home position. Mockup only, no production code.</span><span data-lang="fr">Cinq changements, chacun montré aujourd’hui contre proposé : R07 plus de texte « position trouvée », R08 carte sombre, R09 boutons d’action en icônes seules, R06 dialogue de sortie, D-10 pastille de bande jaune. Lieu d’exemple : Paris-Orly (position publique de l’aéroport), jamais une position domicile. Maquette seule, aucun code de production.</span></p>
-  </div>
-  <div class="tools">
-    <div class="seg" id="vp" role="group" aria-label="Viewport">
-      <button type="button" data-set="viewport" data-v="phone" aria-pressed="true">Phone 360 px</button>
-      <button type="button" data-set="viewport" data-v="desktop" aria-pressed="false">Desktop 1280 px</button>
-    </div>
-    <div class="seg" id="lg" role="group" aria-label="Language">
-      <button type="button" data-set="lang" data-v="en" aria-pressed="true">English</button>
-      <button type="button" data-set="lang" data-v="fr" aria-pressed="false">Français</button>
-    </div>
-    <div class="seg" id="th" role="group" aria-label="Theme">
-      <button type="button" data-set="theme" data-v="auto" aria-pressed="true">Auto</button>
-      <button type="button" data-set="theme" data-v="light" aria-pressed="false"><span data-lang="en">Light</span><span data-lang="fr">Clair</span></button>
-      <button type="button" data-set="theme" data-v="dark" aria-pressed="false"><span data-lang="en">Dark</span><span data-lang="fr">Sombre</span></button>
-    </div>
-    <div class="seg" role="group" aria-label="Fit"><button type="button" id="fit" aria-pressed="false"><span data-lang="en">Shrink desktop to fit</span><span data-lang="fr">Réduire le bureau</span></button></div>
+  <div><h1>Location and Style</h1><p>Mockup for the owner, on the real shell (CON-01: R06 to R09, D-10). Sample data is invented. Use the toggles.</p></div>
+  <div class="toggles">
+    <div class="seg" id="theme" role="group" aria-label="Theme"><button type="button" data-t="auto" aria-pressed="true">Auto</button><button type="button" data-t="light" aria-pressed="false">Light</button><button type="button" data-t="dark" aria-pressed="false">Dark</button></div>
+    <div class="seg" id="lang" role="group" aria-label="Language"><button type="button" data-l="en" aria-pressed="true">English</button><button type="button" data-l="fr" aria-pressed="false">Fran&ccedil;ais</button></div>
   </div>
 </div>
-
-<!-- 1. Locate: no "position found" text (R07) -->
-<section class="sec" id="s1">
-  <h2><span data-lang="en">1. After pressing locate: no "position found" text (R07)</span><span data-lang="fr">1. Après « Ma position » : plus de texte « position trouvée » (R07)</span></h2>
-  <p class="lede"><span data-lang="en">The pin jumps to the located spot, the map recentres and the Save bar appears: that is the signal. The sentence "Position found (about 35 m). Check the pin, then save." leaves the screen but stays as a visually hidden live region (<code>role="status"</code>) so a screen reader still hears it. Refusals ("could not be found") stay visible: only the success text goes.</span><span data-lang="fr">Le repère saute à l’endroit trouvé, la carte se recentre et la barre Enregistrer apparaît : c’est le signal. La phrase « Position trouvée (environ 35 m). Vérifiez le repère, puis enregistrez. » quitte l’écran mais reste en zone vivante masquée visuellement (<code>role="status"</code>) pour les lecteurs d’écran. Les refus (« position introuvable ») restent visibles : seul le texte de succès disparaît.</span></p>
-  <div class="row" id="b1"></div>
-</section>
-
-<!-- 2. Dark map (R08) -->
-<section class="sec" id="s2">
-  <h2><span data-lang="en">2. Dark theme with a dark map (R08)</span><span data-lang="fr">2. Thème sombre avec carte sombre (R08)</span></h2>
-  <p class="lede"><span data-lang="en">Today the tiles stay light in dark mode, so the ivory overlay (pin, radius ring, selected airport dot) sits on a pale ground and nearly vanishes. Proposed: a CSS filter on the tile pane only (the overlay is untouched), applied in <code>html[data-ui-theme="dark"]</code> and in the Auto + OS-dark media query. Auto with the OS in dark renders exactly like Dark: same rules, so one column each. Light mode is unchanged. Two filter looks are shown: A (inverted, neutral blue-grey, recommended) and B (the same colours simply dimmed). The overlay also gets a dark casing so it reads even where tiles fail to load.</span><span data-lang="fr">Aujourd’hui les tuiles restent claires en sombre : le tracé ivoire (repère, cercle de rayon, point de l’aéroport choisi) se pose sur un fond pâle et disparaît presque. Proposé : un filtre CSS sur la couche de tuiles seulement (le tracé n’est pas touché), appliqué dans <code>html[data-ui-theme="dark"]</code> et dans la requête Auto + OS sombre. Auto avec l’OS en sombre donne exactement le rendu Sombre : mêmes règles, donc une colonne chacun. Le clair ne change pas. Deux rendus : A (inversé, gris-bleu neutre, recommandé) et B (mêmes couleurs, simplement assombries). Le tracé reçoit aussi un liseré sombre pour rester lisible si les tuiles ne chargent pas.</span></p>
-  <div class="row" id="b2"></div>
-  <div class="cell" style="margin-top:24px"><h3><span data-lang="en">Contrast of the ivory overlay against the tile ground (measured in this page)</span><span data-lang="fr">Contraste du tracé ivoire contre le fond des tuiles (mesuré dans cette page)</span></h3>
-    <div class="scroll"><table class="t" id="ct2"><thead><tr><th><span data-lang="en">Case</span><span data-lang="fr">Cas</span></th><th><span data-lang="en">Tile ground</span><span data-lang="fr">Fond de tuile</span></th><th><span data-lang="en">Overlay ink</span><span data-lang="fr">Encre du tracé</span></th><th><span data-lang="en">Ratio</span><span data-lang="fr">Rapport</span></th></tr></thead><tbody></tbody></table></div>
-    <p class="note"><span data-lang="en">Build target: overlay against the dark tile ground at least 3:1 (graphic object). Dark overlay colours stay the design-system ivory <code>#F2EFE9</code>; the light theme keeps graphite <code>#1F2430</code>.</span><span data-lang="fr">Cible de construction : tracé contre le fond de tuile sombre au moins 3:1 (objet graphique). Les couleurs sombres restent l’ivoire du système <code>#F2EFE9</code> ; le clair garde le graphite <code>#1F2430</code>.</span></p>
-  </div>
-</section>
-
-<!-- 3. Icon-only buttons (R09) -->
-<section class="sec" id="s3">
-  <h2><span data-lang="en">3. Icon-only action buttons, same space (R09)</span><span data-lang="fr">3. Boutons d’action en icônes seules, même place (R09)</span></h2>
-  <p class="lede"><span data-lang="en">Three groups of action buttons on the Location page: the "Show all of France" pill, the locate button, and the Save bar's Cancel and Save. All become 44 px round icon buttons in the footprint they use today (the Save bar keeps its status text). Each keeps an accessible name and a French name, and the name is also the tooltip. The detailed layouts are in the phone and desktop frames below.</span><span data-lang="fr">Trois groupes de boutons d’action sur la page Lieu : la pastille « Voir toute la France », le bouton de localisation, et Annuler / Enregistrer de la barre. Tous deviennent des boutons ronds de 44 px, en icône seule, dans l’emprise actuelle (la barre garde son texte d’état). Chacun garde un nom accessible en anglais et en français, repris en info-bulle. Les maquettes détaillées sont dans les cadres téléphone et bureau ci-dessous.</span></p>
-  <div class="row" id="b3"></div>
-  <div class="cell" style="margin-top:24px"><h3><span data-lang="en">Accessible names</span><span data-lang="fr">Noms accessibles</span></h3>
-    <div class="scroll"><table class="t">
-      <thead><tr><th><span data-lang="en">Button</span><span data-lang="fr">Bouton</span></th><th><span data-lang="en">Today</span><span data-lang="fr">Aujourd’hui</span></th><th>aria-label EN</th><th>aria-label FR</th><th><span data-lang="en">Hit area</span><span data-lang="fr">Zone</span></th></tr></thead>
-      <tbody>
-        <tr><td>France</td><td><span data-lang="en">text pill</span><span data-lang="fr">pastille texte</span></td><td>Show all of France</td><td>Voir toute la France</td><td>44 px</td></tr>
-        <tr><td>Locate</td><td><span data-lang="en">round icon, label hidden</span><span data-lang="fr">icône ronde, libellé masqué</span></td><td>Use my position</td><td>Utiliser ma position</td><td>44 px (48 → 44)</td></tr>
-        <tr><td>Cancel</td><td><span data-lang="en">text button</span><span data-lang="fr">bouton texte</span></td><td>Cancel changes</td><td>Annuler les modifications</td><td>44 px</td></tr>
-        <tr><td>Save</td><td><span data-lang="en">text button</span><span data-lang="fr">bouton texte</span></td><td>Save the place</td><td>Enregistrer le lieu</td><td>44 px</td></tr>
-      </tbody></table></div>
-  </div>
-</section>
-
-<!-- 4. Leave dialog (R06) -->
-<section class="sec" id="s4">
-  <h2><span data-lang="en">4. Leave dialog: one status, clear buttons, equal sizes (R06)</span><span data-lang="fr">4. Dialogue de sortie : un seul état, boutons clairs, tailles égales (R06)</span></h2>
-  <p class="lede"><span data-lang="en">Today the dialog repeats "Unsaved changes" as title and as the bar status, adds a question and a footnote, offers "Save and continue", "Save", "Discard" and "Stay here" with different widths on desktop. Proposed: one title that is the question, one status line naming what is unsaved, two equal buttons that say what happens to the changes, and "Stay" as the close control (also Escape and tapping the scrim). The same shared dialog serves Style, Location, Settings and the frame page.</span><span data-lang="fr">Aujourd’hui le dialogue répète « Modifications non enregistrées » en titre et en état de barre, ajoute une question et une note, propose « Enregistrer et continuer », « Enregistrer », « Abandonner » et « Rester ici » avec des largeurs différentes sur bureau. Proposé : un titre qui est la question, une ligne d’état qui dit ce qui n’est pas enregistré, deux boutons égaux qui disent ce qu’il advient des modifications, et « Rester » en bouton de fermeture (Échap et clic sur le fond aussi). Le même dialogue partagé sert Style, Lieu, Réglages et la page cadre.</span></p>
-  <div class="row" id="b4"></div>
-</section>
-
-<!-- 5. Yellow stripe swatch (D-10) -->
-<section class="sec" id="s5">
-  <h2><span data-lang="en">5. Yellow Full and Soft stripe swatch (D-10)</span><span data-lang="fr">5. Pastille jaune, bande Pleine et Douce (D-10)</span></h2>
-  <p class="lede"><span data-lang="en">What 1.12 is: the swatch paints the panel's yellow <code>#F0E050</code>; a Soft stripe is that yellow at 45% over white (<code>#F8F1B0</code>), which sits at 1.12 against the light card (<code>#FBFCFC</code>), and a Soft or Full stripe against its yellow field reads at 1.18. Both are nearly invisible in the picker. Only the companion swatch changes: the real panel colour, the frame render and the golden hashes stay as they are, so the owner still checks the real panel (plan 32).</span><span data-lang="fr">Ce que vaut 1,12 : la pastille peint le jaune du panneau <code>#F0E050</code> ; une bande Douce est ce jaune à 45 % sur blanc (<code>#F8F1B0</code>), soit 1,12 contre la carte claire (<code>#FBFCFC</code>), et une bande contre son fond jaune est à 1,18. Les deux sont presque invisibles dans le sélecteur. Seule la pastille du compagnon change : la couleur réelle du panneau, le rendu du cadre et les empreintes de référence restent identiques, donc le propriétaire vérifie toujours le vrai panneau (plan 32).</span></p>
-  <div class="row" id="b5"></div>
-  <div class="cell" style="margin-top:24px"><h3><span data-lang="en">Computed contrast (WCAG relative luminance)</span><span data-lang="fr">Contraste calculé (luminance relative WCAG)</span></h3>
-    <div class="scroll"><table class="t" id="ct5"><thead><tr><th><span data-lang="en">Colour</span><span data-lang="fr">Couleur</span></th><th><span data-lang="en">Full ink vs light card</span><span data-lang="fr">Encre pleine vs carte claire</span></th><th><span data-lang="en">Soft ink vs light card</span><span data-lang="fr">Encre douce vs carte claire</span></th><th><span data-lang="en">Soft stripe vs full field</span><span data-lang="fr">Bande douce vs fond plein</span></th><th><span data-lang="en">Full ink vs dark card (#2B2F38)</span><span data-lang="fr">Encre pleine vs carte sombre (#2B2F38)</span></th></tr></thead><tbody></tbody></table></div>
-    <p class="note"><span data-lang="en">Suggested build target: full swatch ink at least 3:1 against the card in light and dark (non-text graphic); soft stripe at least 1.6:1 against the card and 2:1 against the full field, never worse than today. Hue stays yellow (amber-leaning); a tick in the swatch frame already carries the selected state.</span><span data-lang="fr">Cible de construction suggérée : encre pleine de la pastille au moins 3:1 contre la carte en clair et en sombre (graphique non textuel) ; bande douce au moins 1,6:1 contre la carte et 2:1 contre le fond plein, jamais pire qu’aujourd’hui. La teinte reste jaune (tirant vers l’ambre) ; la sélection est déjà portée par le cadre de l’option.</span></p>
-    <p class="note"><b><span data-lang="en">Real panel: this does not prove the e-ink yellow is readable. The owner checks it on the device (plan 32).</span><span data-lang="fr">Panneau réel : cela ne prouve pas que le jaune e-ink soit lisible. Le propriétaire le vérifie sur l’appareil (plan 32).</span></b></p>
-  </div>
-</section>
-
-<!-- Questions -->
-<section class="q" id="questions">
-  <h2>Questions for the owner</h2>
-  <ol>
-    <li><b>1. Look de la carte sombre (R08) ?</b>
-      A = inversée gris-bleu neutre, B = mêmes couleurs assombries, ou garder claire. <i>Recommandation : A (meilleur contraste pour le tracé ivoire, proche du reste de l’interface sombre).</i></li>
-    <li><b>2. Quel élément appelez-vous « la ligne blanche de la piste » (R08) ?</b>
-      (1) le tracé ivoire du repère et du cercle de rayon, (2) le point du terrain choisi et son étiquette ORY, (3) la bande de piste dessinée dans les tuiles de la carte (gris clair, trait blanc au milieu). <i>Recommandation : je pense à (1) et (2), le tracé ivoire ; la maquette traite (1) et (2) par le liseré sombre et (3) par le filtre ; dites-moi si c’est autre chose (une capture).</i></li>
-    <li><b>3. Boutons à passer en icônes (R09) ?</b>
-      Seulement les outils de la carte (France, localisation) ou aussi Annuler / Enregistrer ? <i>Recommandation : les quatre, avec nom accessible et info-bulle ; Enregistrer reste le bouton plein (coche), Annuler le bouton discret (croix).</i></li>
-    <li><b>4. Libellés du dialogue de sortie, anglais et français (R06) ?</b>
-      A : « Save and leave » / « Leave without saving » ; « Enregistrer et quitter » / « Quitter sans enregistrer ». B : « Save and continue » / « Discard changes » ; « Enregistrer et continuer » / « Abandonner les modifications ». Titre : « Leave this page? » / « Quitter cette page ? ». État : « Your layout changes are not saved yet. » / « Vos modifications de disposition ne sont pas encore enregistrées. » <i>Recommandation : A, plus clair sur l’effet ; « Rester » devient la croix de fermeture (Échap compris).</i></li>
-    <li><b>5. Jaune de la pastille de bande (D-10) ?</b>
-      A = jaune ambré #A98600 (3,35:1 contre la carte claire), B = garder #F0E050 et ajouter un liseré sombre à la pastille, C = rien changer (vérification sur le panneau seulement). <i>Recommandation : A pour le compagnon, plus la vérification du vrai panneau (plan 32).</i></li>
-  </ol>
-</section>
-
+<div id="app"></div>
 <script>
 (function(){
-  var root=document.documentElement;
-  function T(en,fr){return '<span data-lang="en">'+en+'</span><span data-lang="fr">'+fr+'</span>';}
-  function ic(n,s){return '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"'+(s?' style="width:'+s+'px;height:'+s+'px"':'')+'><use href="#i-'+n+'"/></svg>';}
-
-  /* ---- map drawing ---- */
-  function tilesSVG(klass){
-    return '<svg class="tiles '+klass+'" viewBox="0 0 400 700" preserveAspectRatio="xMidYMid slice" aria-hidden="true">'+
-      '<rect width="400" height="700" fill="#EDEAE0"/>'+
-      '<path d="M-10 520 C 80 470 140 560 230 520 S 380 440 420 470 L420 520 C 360 500 250 580 160 600 S 40 560 -10 590Z" fill="#AAD3DF"/>'+
-      '<g fill="#CDEBB0"><rect x="20" y="40" width="110" height="90" rx="8"/><rect x="300" y="300" width="90" height="120" rx="8"/><rect x="40" y="380" width="100" height="70" rx="8"/></g>'+
-      '<g fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round"><path d="M0 150 L400 210"/><path d="M120 0 L170 700"/><path d="M0 330 L400 300"/><path d="M290 0 L330 700"/></g>'+
-      '<g fill="none" stroke="#F6D77A" stroke-width="5"><path d="M0 250 L400 120"/></g>'+
-      '<g transform="rotate(-22 200 260)"><rect x="40" y="249" width="320" height="22" rx="3" fill="#C9C5BA"/><path d="M50 260 H350" stroke="#fff" stroke-width="2.5" stroke-dasharray="14 9"/></g>'+
-      '</svg>';
+  function nb(s){return s.replace(/ ([:;?!»])/g,' $1').replace(/« /g,'« ');}
+  var S={
+    en:{tabs:['Home','Flights','Airlines','Style','Location','Account'],side:['Home','Flights','Airlines','Style','Location'],space:['Console','My frames'],acct:'Account',
+      ph:'Airport (ORY) or address',mypos:'My position',airport:'Airport',info:'About this map',france:'Show all of France',recenter:'Use my position',
+      found:'Position found (about 12 m). Check the pin, then save.',
+      ap:'Paris-Orly Airport',apc:'LFPO · ORY',r:['Runway 2','Runway 4','Runway 3'],
+      style:'Style',dep:'Departures',
+      lT:'Unsaved changes',lB:'You have changes that are not saved. What do you want to do?',lSave:'Save and continue',lDis:'Discard',lStay:'Stay here',
+      nT:'Leave without saving?',nB:'Your changes to Departures colours are not saved yet.',nSave:'Save and leave',nDis:'Leave without saving',nStay:'Stay here',
+      bar:'Unsaved changes',barSave:'Save',barCancel:'Cancel',
+      yel:'Light yellow',blue:'Light blue',full:'Full',soft:'Soft stripe'},
+    fr:{tabs:['Accueil','Vols','Airlines','Style','Lieu','Compte'],side:['Accueil','Vols','Airlines','Style','Lieu'],space:['Console','Mes cadres'],acct:'Compte',
+      ph:'Aéroport (ORY) ou adresse',mypos:'Ma position',airport:'Aéroport',info:'À propos de cette carte',france:'Voir toute la France',recenter:'Utiliser ma position',
+      found:'Position trouvée (environ 12 m). Vérifiez le repère, puis enregistrez.',
+      ap:'Paris-Orly Airport',apc:'LFPO · ORY',r:['Piste 2','Piste 4','Piste 3'],
+      style:'Style',dep:'Départs',
+      lT:'Modifications non enregistrées',lB:'Vous avez des modifications non enregistrées. Que voulez-vous faire ?',lSave:'Enregistrer et continuer',lDis:'Abandonner',lStay:'Rester ici',
+      nT:'Quitter sans enregistrer ?',nB:'Vos changements aux couleurs des départs ne sont pas encore enregistrés.',nSave:'Enregistrer et quitter',nDis:'Quitter sans enregistrer',nStay:'Rester ici',
+      bar:'Modifications non enregistrées',barSave:'Enregistrer',barCancel:'Annuler',
+      yel:'Jaune clair',blue:'Bleu clair',full:'Plein',soft:'Bande claire'}
+  };
+  Object.keys(S.fr).forEach(function(k){var v=S.fr[k];if(typeof v==='string')S.fr[k]=nb(v);else if(Array.isArray(v))S.fr[k]=v.map(nb);});
+  function ic(n){return '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-'+n+'"/></svg>';}
+  var TI=['frame','clock','tag','grid','fleet','user'];
+  function userSide(t,on){
+    return '<div class="side"><span class="brand">'+ic('logo')+'SkyPane</span><div class="space"><span class="on">'+ic('check')+t.space[1]+'</span><span>'+t.space[0]+'</span></div><div class="sep"></div>'+
+      t.side.map(function(x,i){return '<div class="nav'+(on===i?' on':'')+'">'+ic(TI[i])+x+'</div>';}).join('')+'<div class="sep"></div><div class="nav">'+ic('user')+t.acct+'</div></div>';
   }
-  function overlaySVG(o){
-    /* o.ring colour, o.casing true for proposed, o.pin location */
-    var ink=o.ink, cas=o.casing?'<circle cx="'+o.px+'" cy="'+o.py+'" r="78" fill="none" stroke="'+o.casingInk+'" stroke-width="7" opacity=".85"/>':'';
-    var pinCas=o.casing?'<circle cx="'+o.px+'" cy="'+o.py+'" r="13" fill="'+o.casingInk+'"/>':'';
-    var dot=o.casing?'<circle cx="200" cy="262" r="15" fill="'+o.casingInk+'"/>':'';
-    return '<svg viewBox="0 0 400 700" preserveAspectRatio="xMidYMid slice" aria-hidden="true">'+
-      cas+'<circle cx="'+o.px+'" cy="'+o.py+'" r="78" fill="'+ink+'" fill-opacity=".10" stroke="'+ink+'" stroke-width="3"/>'+
-      dot+'<circle cx="200" cy="262" r="11" fill="'+ink+'"/>'+
-      '<rect x="214" y="248" width="44" height="26" rx="13" fill="'+o.chipBg+'" stroke="'+o.chipLine+'"/><text x="236" y="266" text-anchor="middle" font-family="system-ui,sans-serif" font-size="14" font-weight="700" fill="'+o.chipInk+'">ORY</text>'+
-      pinCas+'<path d="M'+o.px+' '+(o.py+12)+' c-10-14-16-21-16-29 a16 16 0 1 1 32 0 c0 8-6 15-16 29z" transform="translate(0 -6)" fill="'+ink+'"/><circle cx="'+o.px+'" cy="'+(o.py-35)+'" r="5.5" fill="'+o.pinHole+'"/>'+
-      '</svg>';
+  function userPhone(t,inner,on){
+    return '<div class="ptop"><span class="brand">'+ic('logo')+'SkyPane</span></div><div class="screen" style="padding:0">'+inner+'</div><div class="tabs">'+t.tabs.map(function(x,i){return '<div class="tab'+(on===i?' on':'')+'">'+ic(TI[i])+x+'</div>';}).join('')+'</div>';
   }
-  function mapHTML(cfg){
-    /* cfg.dark: dark chrome; cfg.tiles: ''|'A'|'B'; cfg.casing */
-    var ink=cfg.dark?'#F2EFE9':'#1F2430';
-    var o={ink:ink,casing:cfg.casing,casingInk:cfg.dark?'#0E1117':'#FFFFFF',chipBg:cfg.dark?'#2B2F38':'#FBFCFC',chipLine:cfg.dark?'#2A3040':'#DAE1EB',
-      chipInk:cfg.dark?'#F1F3F6':'#17191F',pinHole:cfg.dark?'#14171F':'#fff',px:cfg.moved?150:200,py:cfg.moved?420:262};
-    return '<div class="map" data-tiles="'+(cfg.tiles||'light')+'">'+tilesSVG(cfg.tiles||'')+overlaySVG(o)+'</div>';
+  function wrap(vp,t,inner,on){
+    if(vp==='phone')return userPhone(t,inner,on);
+    return userSide(t,on)+'<div class="main" style="left:240px"><div class="page2">'+inner+'</div></div>';
   }
-
-  /* ---- Location screens ---- */
-  function savebar(cfg){
-    var msg=T('Unsaved changes: place','Modifications non enregistrées : lieu');
-    if(cfg.icons) return '<div class="dbar"><span class="m">'+msg+'</span>'+
-      '<button type="button" class="ib" title="Cancel changes">'+ic('x')+'<span class="vh">'+T('Cancel changes','Annuler les modifications')+'</span></button>'+
-      '<button type="button" class="ib p" title="Save the place">'+ic('check')+'<span class="vh">'+T('Save the place','Enregistrer le lieu')+'</span></button></div>';
-    return '<div class="dbar"><span class="m">'+msg+'</span><button type="button" class="btn">'+T('Cancel','Annuler')+'</button><button type="button" class="btn p">'+T('Save','Enregistrer')+'</button></div>';
+  function mapSvg(){return '<svg viewBox="0 0 360 300" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><path class="land" d="M0 60C80 40 150 90 230 70S330 40 360 80V300H0z"/><path class="road" d="M0 220C90 190 160 240 360 170M120 0C140 90 110 160 150 300"/><line class="rwy" x1="150" y1="150" x2="238" y2="116"/><line class="rwyc" x1="150" y1="150" x2="238" y2="116"/><circle class="pin" cx="188" cy="134" r="0"/></svg>';}
+  function mapCtl(t,controls){
+    return '<div class="mrow" style="position:absolute;right:12px;bottom:12px;gap:10px">'+(controls==='today'?'<span class="pillb" style="min-height:44px">'+t.france+'</span>':'<a class="iconbtn" href="#" aria-label="'+t.france+'">'+ic('france')+'</a>')+'<a class="iconbtn" href="#" aria-label="'+t.recenter+'">'+ic('locate')+'</a></div>';
   }
-  function tools(cfg){
-    var france=cfg.icons?'<button type="button" class="round s44" title="Show all of France">'+ic('globe')+'<span class="vh">'+T('Show all of France','Voir toute la France')+'</span></button>'
-      :'<button type="button" class="france">'+T('Show all of France','Voir toute la France')+'</button>';
-    var loc='<button type="button" class="round'+(cfg.icons?' s44':'')+'" title="Use my position">'+ic('locate')+'<span class="vh">'+T('Use my position','Utiliser ma position')+'</span></button>';
-    return '<div class="mtools">'+france+loc+'</div>';
+  function locPage(t,mode){
+    var box='<div class="sbox"><span>'+t.ph+'</span><a class="iconbtn" href="#" aria-label="Search" style="width:40px;height:40px;border-radius:50%">'+ic('search')+'</a></div>';
+    var row=mode==='today'?
+      '<div class="mrow"><span class="pillb">'+ic('locate')+t.mypos+'</span><span class="pillb on">'+ic('plane')+t.airport+'</span><a class="iconbtn" href="#" style="border-radius:50%" aria-label="'+t.info+'">'+ic('info')+'</a></div>':
+      '<div class="mrow"><div class="igrp" role="group"><a class="ib" href="#" aria-label="'+t.mypos+'" title="'+t.mypos+'">'+ic('locate')+'</a><a class="ib on" href="#" aria-label="'+t.airport+'" title="'+t.airport+'" aria-pressed="true">'+ic('plane')+'</a></div><a class="iconbtn" href="#" style="border-radius:50%" aria-label="'+t.info+'">'+ic('info')+'</a></div>';
+    var found=mode==='today'?'<div class="note2">'+t.found+'</div>':'';
+    var card='<div class="mcard"><div><b style="font-size:20px">'+t.ap+'</b><div class="sub">'+t.apc+'</div></div><div class="runways"><span class="rw"><b>02/20</b><small>'+t.r[0]+'</small></span><span class="rw on"><b>06/24</b><small>'+t.r[1]+'</small></span><span class="rw"><b>07/25</b><small>'+t.r[2]+'</small></span></div>'+found+'</div>';
+    return '<div class="mtop" style="padding-top:8px">'+box+row+'</div><div class="map" style="height:'+(mode==='today'?'250':'310')+'px">'+mapSvg()+mapCtl(t,mode)+'</div>'+card;
   }
-  function message(cfg){
-    if(cfg.hideMsg) return '<span class="vh" role="status">'+T('Position found (about 35 m). Check the pin, then save.','Position trouvée (environ 35 m). Vérifiez le repère, puis enregistrez.')+'</span>';
-    return '<div class="msg glass" role="status">'+T('Position found (about 35 m). Check the pin, then save.','Position trouvée (environ 35 m). Vérifiez le repère, puis enregistrez.')+'</div>';
+  function barHtml(t){return '<div class="mrow" style="justify-content:space-between;padding:12px 16px;background:var(--card);border-top:1px solid var(--border)"><b>'+t.bar+'</b><span class="mrow"><a class="btn" href="#">'+t.barCancel+'</a><a class="btn dark" href="#">'+t.barSave+'</a></span></div>';}
+  function styleBase(t){
+    return '<div style="padding:16px"><h3 class="title" style="font-size:34px;margin:0 0 12px">'+t.style+'</h3><div class="seg" style="margin-bottom:12px"><button type="button" aria-pressed="true">'+t.dep+'</button></div><div class="swr"><span class="sw2"><span class="prev" style="background:#808080"></span><b>Gris</b></span><span class="sw2"><span class="prev" style="background:#bcd0ee"></span><b>'+t.blue+'</b></span></div></div>';
   }
-  function phone(cfg){
-    var h=cfg.icons?'220':'250';
-    return '<div class="scr ph" data-force="'+(cfg.dark?'dark':'light')+'" style="--sheetH:'+(cfg.icons?'190':'220')+'px">'+mapHTML(cfg)+
-      '<div class="search glass">'+ic('search')+'&nbsp;'+T('Airport (ORY) or address','Aéroport (ORY) ou adresse')+'</div>'+
-      '<div class="chips"><span class="chipb glass">'+ic('locate')+T('My position','Ma position')+'</span><span class="chipb glass on">'+ic('plane')+T('Airport','Aéroport')+'</span></div>'+
-      tools(cfg)+message(cfg)+
-      '<div class="sheet glass"><div><h4>Paris-Orly Airport</h4><small>LFPO · ORY</small></div>'+
-      '<div class="runs"><div class="run">02/20<small>'+T('Runway 2','Piste 2')+'</small></div><div class="run sel">06/24<small>'+T('Runway 4','Piste 4')+'</small></div><div class="run">07/25<small>'+T('Runway 3','Piste 3')+'</small></div></div>'+
-      savebar(cfg)+'</div>'+
-      '<div class="tabs"><span class="tab"><i></i>'+T('Home','Accueil')+'</span><span class="tab"><i></i>'+T('Flights','Vols')+'</span><span class="tab"><i></i>'+T('Airlines','Compagnies')+'</span><span class="tab"><i></i>Style</span><span class="tab on"><i></i>'+T('Place','Lieu')+'</span><span class="tab"><i></i>'+T('More','Plus')+'</span></div></div>';
+  function dlgOld(t){return '<div class="scrim"></div><div class="sheet" role="dialog"><span class="grab"></span><h4>'+t.lT+'</h4><p>'+t.lB+'</p><div class="dlg2"><a class="btn dark" href="#">'+t.lSave+'</a><a class="btn" href="#">'+t.lDis+'</a><a class="btn" href="#">'+t.lStay+'</a></div></div>';}
+  function dlgNew(t){return '<div class="scrim"></div><div class="sheet" role="alertdialog"><span class="grab"></span><h4>'+t.nT+'</h4><p>'+t.nB+'</p><div class="dlg2"><a class="btn dark" href="#">'+t.nSave+'</a><a class="btn" href="#">'+t.nDis+'</a><a class="btn ghost2" href="#">'+t.nStay+'</a></div></div>';}
+  function dlgCard(t,kind){var o=kind==='old';return '<div class="scrim"></div><div class="dlg" role="dialog" style="width:min(420px,88%)"><h4>'+(o?t.lT:t.nT)+'</h4><p>'+(o?t.lB:t.nB)+'</p><div class="dlg2"><a class="btn dark" href="#">'+(o?t.lSave:t.nSave)+'</a><a class="btn" href="#">'+(o?t.lDis:t.nDis)+'</a><a class="btn'+(o?'':' ghost2')+'" href="#">'+(o?t.lStay:t.nStay)+'</a></div></div>';}
+  function styleScreen(t,over){return styleBase(t)+barHtml(t)+over;}
+  function yellowCard(t,mode){
+    var ring=mode==='prop'?'box-shadow:inset 0 0 0 2px #8a6d00;':'';
+    var sw=function(label,bg,stripe,r,edge){return '<span class="sw2"><span class="prev" style="background:'+bg+';'+r+'"><i style="background:'+stripe+';'+(mode==='prop'?'border-top:2px solid '+edge+';border-bottom:2px solid '+edge:'')+'"></i></span><b>'+label+'</b><span class="cnt">'+t.soft+'</span></span>';};
+    return '<div style="padding:16px;display:flex;gap:12px;flex-wrap:wrap">'+sw(t.yel,'#f4f1e6','#fbe96a',ring,'#8a6d00')+sw(t.blue,'#e7eefb','#bcd0ee','','#5f7fb8')+'</div>';
   }
-  function desktop(cfg){
-    return '<div class="scr desk" data-force="'+(cfg.dark?'dark':'light')+'"><div class="side"><b>SkyPane</b><span>'+T('Home','Accueil')+'</span><span>'+T('Flights','Vols')+'</span><span>'+T('Airlines','Compagnies')+'</span><span>Style</span><span class="on">'+T('Place','Lieu')+'</span><span>'+T('More','Plus')+'</span></div>'+
-      '<div class="dmap">'+mapHTML(cfg)+tools(cfg)+(cfg.hideMsg?message(cfg):'<div class="msg glass" role="status" style="left:auto;right:24px;top:24px;bottom:auto;max-width:360px">'+T('Position found (about 35 m). Check the pin, then save.','Position trouvée (environ 35 m). Vérifiez le repère, puis enregistrez.')+'</div>')+'</div>'+
-      '<div class="card d glass"><div style="display:flex;gap:8px"><span class="chipb glass">'+ic('locate')+T('My position','Ma position')+'</span><span class="chipb glass on">'+ic('plane')+T('Airport','Aéroport')+'</span></div><div><h4>Paris-Orly Airport</h4><small>LFPO · ORY</small></div>'+
-      '<div class="runs"><div class="run">02/20<small>'+T('Runway 2','Piste 2')+'</small></div><div class="run sel">06/24<small>'+T('Runway 4','Piste 4')+'</small></div><div class="run">07/25<small>'+T('Runway 3','Piste 3')+'</small></div></div>'+savebar(cfg)+'</div></div>';
+  function mock(vp,caption,sub,builder){
+    var langs=['en','fr'].map(function(l){return '<div data-lang="'+l+'">'+builder(vp,S[l])+'</div>';}).join('');
+    return '<figure class="mock"><figcaption>'+caption+(sub?'<small>'+sub+'</small>':'')+'</figcaption>'+(vp==='desktop'?'<div class="scroller"><div data-viewport="desktop">'+langs+'</div></div>':'<div data-viewport="phone">'+langs+'</div>')+'</figure>';
   }
-  function screen(cfg){return cfg.vp==='phone'?phone(cfg):desktop(cfg);}
-  function wrap(vp,html){return '<div data-viewport="'+vp+'" class="scroll">'+html+'</div>';}
-  function cell(title,tag,note,body){return '<div class="cell"><h3>'+title+' <span class="tag'+(tag.n?' new':'')+'">'+tag.t+'</span></h3>'+body+(note?'<p class="note">'+note+'</p>':'')+'</div>';}
-  var TODAY={t:'today',n:0},NEW={t:'proposed',n:1};
-
-  /* section 1 */
-  function s1(){
-    var out='';
-    ['phone','desktop'].forEach(function(vp){
-      var c1={vp:vp,moved:1,hideMsg:0,icons:0},c2={vp:vp,moved:1,hideMsg:1,icons:0};
-      var row='<div class="row" data-viewport="'+vp+'">'+
-        cell(T('Today','Aujourd’hui'),TODAY,T('A pale message sits over the map and covers part of it, on top of the Save bar.','Un message pâle recouvre une partie de la carte, en plus de la barre Enregistrer.'),wrap(vp,screen(c1)))+
-        cell(T('Proposed','Proposé'),NEW,T('Pin and bar are the whole signal. A visually hidden status keeps the screen-reader announcement. Buttons here stay as today; their change is section 3.','Le repère et la barre font tout le signal. Un état masqué visuellement garde l’annonce pour les lecteurs d’écran. Les boutons restent ici comme aujourd’hui ; leur changement est en section 3.'),wrap(vp,screen(c2)))+'</div>';
-      out+=row;
-    });
-    document.getElementById('b1').innerHTML=out;
-    var b=document.getElementById('b1'); b.style.display='block';
-  }
-
-  /* section 2 */
-  function s2(){
-    var out='';
-    ['phone','desktop'].forEach(function(vp){
-      var base={vp:vp,moved:0,hideMsg:1,icons:0};
-      function c(extra){var o={};for(var k in base)o[k]=base[k];for(var j in extra)o[j]=extra[j];return o;}
-      var cells=
-        cell(T('Light, unchanged','Clair, inchangé'),{t:'today',n:0},'',wrap(vp,screen(c({dark:0,tiles:'',casing:0}))))+
-        cell(T('Dark, today','Sombre, aujourd’hui'),TODAY,T('Light tiles under an ivory overlay: the ring and dot nearly vanish.','Tuiles claires sous un tracé ivoire : le cercle et le point disparaissent presque.'),wrap(vp,screen(c({dark:1,tiles:'',casing:0}))))+
-        cell(T('Dark, proposal A (recommended)','Sombre, proposition A (recommandée)'),NEW,T('<code>filter: invert(1) hue-rotate(180deg) brightness(.92) contrast(.9) saturate(.55)</code> on the tile pane. Auto with OS dark: identical.','<code>filter: invert(1) hue-rotate(180deg) brightness(.92) contrast(.9) saturate(.55)</code> sur la couche de tuiles. Auto avec OS sombre : identique.'),wrap(vp,screen(c({dark:1,tiles:'A',casing:1}))))+
-        cell(T('Dark, proposal B','Sombre, proposition B'),NEW,T('<code>filter: brightness(.52) saturate(.75) contrast(1.05)</code>: same colours, dimmed. Water and parks keep their hue.','<code>filter: brightness(.52) saturate(.75) contrast(1.05)</code> : mêmes couleurs, assombries. L’eau et les parcs gardent leur teinte.'),wrap(vp,screen(c({dark:1,tiles:'B',casing:1}))));
-      out+='<div class="row" data-viewport="'+vp+'" style="margin-bottom:32px">'+cells+'</div>';
-    });
-    var b=document.getElementById('b2'); b.style.display='block'; b.innerHTML=out;
-    /* annotated candidates for "the white runway line" */
-    var an=document.createElement('div');an.className='cell';an.style.marginTop='24px';
-    an.innerHTML='<h3>'+T('Which one is "the white runway line"?','Laquelle est « la ligne blanche de la piste » ?')+'</h3>'+
-      '<div class="anno"><span class="pt">1</span><span>'+T('Ivory radius ring and pin (overlay, drawn by the app)','Cercle de rayon ivoire et repère (tracé de l’application)')+'</span></div>'+
-      '<div class="anno"><span class="pt">2</span><span>'+T('Selected airport dot and its ORY label (overlay)','Point du terrain choisi et son étiquette ORY (tracé)')+'</span></div>'+
-      '<div class="anno"><span class="pt">3</span><span>'+T('The runway strip with its white centre dashes, drawn inside the OpenStreetMap tiles (not the app)','La bande de piste avec ses tirets blancs, dessinée dans les tuiles OpenStreetMap (pas par l’application)')+'</span></div>'+
-      '<p class="note">'+T('In the frames above: 1 = ring around the pin, 2 = the filled dot and ORY chip at the airport, 3 = the grey diagonal strip. Proposals A and B darken 3 with the tiles; the casing makes 1 and 2 readable.','Dans les cadres ci-dessus : 1 = cercle autour du repère, 2 = point plein et pastille ORY au terrain, 3 = la bande grise en diagonale. Les propositions A et B assombrissent 3 avec les tuiles ; le liseré rend 1 et 2 lisibles.')+'</p>';
-    b.appendChild(an);
-  }
-
-  /* section 3 */
-  function s3(){
-    var out='';
-    ['phone','desktop'].forEach(function(vp){
-      var c1={vp:vp,moved:1,hideMsg:1,icons:0},c2={vp:vp,moved:1,hideMsg:1,icons:1};
-      out+='<div class="row" data-viewport="'+vp+'">'+
-        cell(T('Today','Aujourd’hui'),TODAY,T('A text pill, a 48 px round button and two text buttons, each with its own look and size.','Une pastille texte, un bouton rond de 48 px et deux boutons texte, chacun avec son style et sa taille.'),wrap(vp,screen(c1)))+
-        cell(T('Proposed','Proposé'),NEW,T('Four 44 px icon buttons on the same positions; the bar status stays and the card does not grow. Cancel is quiet, Save is filled with a check.','Quatre boutons icône de 44 px aux mêmes positions ; l’état de la barre reste et la carte ne grandit pas. Annuler est discret, Enregistrer est plein avec une coche.'),wrap(vp,screen(c2)))+'</div>';
-    });
-    var b=document.getElementById('b3'); b.style.display='block'; b.innerHTML=out;
-  }
-
-  /* section 4 */
-  function dlgToday(vp){
-    return '<div class="dscrim"><div class="dlg" role="dialog" aria-label="Unsaved changes" style="max-width:'+(vp==='phone'?'328':'420')+'px"><h4>'+T('Unsaved changes','Modifications non enregistrées')+'</h4>'+
-      '<p>'+T('You have changes that are not saved. What do you want to do?','Vous avez des modifications non enregistrées. Que souhaitez-vous faire ?')+'</p>'+
-      '<div class="acts"><button type="button" class="btn p" style="'+(vp==='desktop'?'width:100%':'')+'">'+T('Save and continue','Enregistrer et continuer')+'</button>'+
-      '<button type="button" class="btn" style="'+(vp==='desktop'?'width:140px':'')+'">'+T('Discard','Abandonner')+'</button>'+
-      '<button type="button" class="btn" style="'+(vp==='desktop'?'width:96px':'')+'">'+T('Stay here','Rester ici')+'</button></div>'+
-      '<p style="font-size:13px">'+T('After saving you stay on this page.','Après l’enregistrement, vous restez sur cette page.')+'</p></div></div>';
-  }
-  function dlgNew(vp,opt){
-    var save=opt==='A'?T('Save and leave','Enregistrer et quitter'):T('Save and continue','Enregistrer et continuer');
-    var dis=opt==='A'?T('Leave without saving','Quitter sans enregistrer'):T('Discard changes','Abandonner les modifications');
-    return '<div class="dscrim"><div class="dlg new" role="dialog" aria-label="Leave this page?" style="max-width:'+(vp==='phone'?'328':'420')+'px">'+
-      '<button type="button" class="x" title="Stay on this page">'+ic('x')+'<span class="vh">'+T('Stay on this page','Rester sur cette page')+'</span></button>'+
-      '<h4 style="padding-right:40px">'+T('Leave this page?','Quitter cette page ?')+'</h4>'+
-      '<p role="status">'+T('Your layout changes are not saved yet.','Vos modifications de disposition ne sont pas encore enregistrées.')+'</p>'+
-      '<div class="acts"><button type="button" class="btn">'+dis+'</button><button type="button" class="btn p">'+save+'</button></div></div></div>';
-  }
-  function s4(){
-    var out='';
-    ['phone','desktop'].forEach(function(vp){
-      function scr(inner){return '<div class="scr '+(vp==='phone'?'ph':'desk')+'" style="'+(vp==='phone'?'height:460px':'height:380px')+'"><div class="pagebg"><div class="bar"></div><div class="bar"></div></div>'+inner+'</div>';}
-      out+='<div class="row" data-viewport="'+vp+'">'+
-        cell(T('Today','Aujourd’hui'),TODAY,T('Title and question say the same thing; four ways out; on desktop the widths differ (full, 140 and 96 px).','Titre et question disent la même chose ; quatre sorties ; sur bureau les largeurs diffèrent (pleine, 140 et 96 px).'),wrap(vp,scr(dlgToday(vp))))+
-        cell(T('Proposed, wording A (recommended)','Proposé, libellés A (recommandés)'),NEW,T('One status line. Two equal-width buttons whose labels say what happens. "Stay" is the close cross, Escape and the scrim. The "Save" (stay on page) variant for pages with no destination keeps its own pair of labels: Save / Cancel.','Une seule ligne d’état. Deux boutons de même largeur dont les libellés disent ce qui arrive. « Rester » est la croix, Échap et le fond. La variante « Enregistrer » (rester sur la page) des pages sans destination garde sa paire : Enregistrer / Annuler.'),wrap(vp,scr(dlgNew(vp,'A'))))+
-        cell(T('Proposed, wording B','Proposé, libellés B'),NEW,T('Closer to today’s words; "Discard changes" is explicit about the loss.','Plus proche des mots actuels ; « Abandonner les modifications » dit clairement la perte.'),wrap(vp,scr(dlgNew(vp,'B'))))+'</div>';
-    });
-    var b=document.getElementById('b4'); b.style.display='block'; b.innerHTML=out;
-  }
-
-  /* section 5 */
-  function lum(h){var c=[1,3,5].map(function(i){var v=parseInt(h.substr(i,2),16)/255;return v<=.03928?v/12.92:Math.pow((v+.055)/1.055,2.4);});return .2126*c[0]+.7152*c[1]+.0722*c[2];}
-  function cr(a,b){var x=lum(a),y=lum(b);if(x<y){var t=x;x=y;y=t;}return (x+.05)/(y+.05);}
-  function mix(h,bg,a){var o='#';[1,3,5].forEach(function(i){var f=parseInt(h.substr(i,2),16),g=parseInt(bg.substr(i,2),16);var v=Math.round(a*f+(1-a)*g).toString(16);o+=(v.length<2?'0':'')+v;});return o.toUpperCase();}
-  function f2(x){return x.toFixed(2);}
-  var CARD='#FBFCFC',DCARD='#2B2F38';
-  var YEL=[['today','#F0E050',T('Today (panel yellow)','Aujourd’hui (jaune du panneau)')],['A','#A98600',T('A: amber #A98600 (recommended)','A : ambre #A98600 (recommandé)')],['A2','#9A7B00',T('A, darker #9A7B00','A, plus sombre #9A7B00')]];
-  function swatch(ink,kind,tone){
-    /* kind: 'field' = full yellow field; 'stripe' = soft stripe on full field; 'soft' = soft stripe on paper */
-    var soft=mix(ink,'#FFFFFF',.45);
-    var base=kind==='stripe'?ink:'#FFFFFF';
-    var band=kind==='field'?'':'<polygon points="3,32 11,32 21,0 13,0" fill="'+(kind==='stripe'?soft:soft)+'"/>';
-    var field=kind==='field'?'<rect width="24" height="32" fill="'+ink+'"/>':(kind==='stripe'?'<rect width="24" height="32" fill="'+ink+'"/>':'');
-    var ring=tone==='ring'?' style="box-shadow:0 0 0 1.5px #6B5800"':'';
-    return '<svg class="sw" viewBox="0 0 24 32" aria-hidden="true"'+ring+'><rect width="24" height="32" fill="#fff"/>'+field+band+'</svg>';
-  }
-  function pickCell(ink,label,tone,dark,on){
-    return '<div class="opt'+(on?' sel':'')+'">'+swatch(ink,'stripe',tone)+'<span>'+label+'</span></div>';
-  }
-  function s5(){
-    var out='';
-    var themes=[['light','Light','Clair'],['dark','Dark','Sombre']];
-    var cols='';
-    YEL.forEach(function(y){
-      var tone=y[0]==='B'?'ring':'';
-      cols+='<div class="cell"><h3>'+y[2]+' <span class="tag'+(y[0]==='today'?'':' new')+'">'+(y[0]==='today'?'today':'proposed')+'</span></h3><div class="swbox">'+
-        '<figure>'+swatch(y[1],'stripe',tone).replace('class="sw"','class="sw" style="width:72px;height:96px"')+'<span>'+T('Soft stripe on full','Bande douce sur plein')+'</span></figure>'+
-        '<figure>'+swatch(y[1],'soft',tone).replace('class="sw"','class="sw" style="width:72px;height:96px"')+'<span>'+T('Soft stripe on paper','Bande douce sur papier')+'</span></figure>'+
-        '<figure>'+swatch(y[1],'field',tone).replace('class="sw"','class="sw" style="width:72px;height:96px"')+'<span>'+T('Full yellow field','Fond jaune plein')+'</span></figure></div></div>';
-    });
-    out+='<div class="row" id="swrow" style="margin-bottom:24px">'+cols+'</div>';
-    /* option B: ring */
-    out+='<div class="row" style="margin-bottom:24px"><div class="cell"><h3>'+T('Option B: keep #F0E050, add a dark ring','Option B : garder #F0E050, ajouter un liseré sombre')+' <span class="tag new">proposed</span></h3><div class="swbox">'+
-      '<figure>'+swatch('#F0E050','stripe','ring').replace('class="sw"','class="sw" style="width:72px;height:96px"')+'<span>'+T('Soft stripe on full','Bande douce sur plein')+'</span></figure>'+
-      '<figure>'+swatch('#F0E050','soft','ring').replace('class="sw"','class="sw" style="width:72px;height:96px"')+'<span>'+T('Soft stripe on paper','Bande douce sur papier')+'</span></figure></div>'+
-      '<p class="note">'+T('The ring (#6B5800 at 1.5 px) gives the shape; the stripe inside is still 1.18 against its field.','Le liseré (#6B5800, 1,5 px) donne la forme ; la bande à l’intérieur reste à 1,18 contre son fond.')+'</p></div></div>';
-    /* in the picker, light and dark */
-    var pick='';
-    themes.forEach(function(t){
-      pick+='<div class="cell" data-force="'+t[0]+'" style="background:var(--sky) var(--canvas);padding:16px;border-radius:22px;border:1px solid var(--border)"><h3>'+T('Picker, '+t[1],'Sélecteur, '+t[2])+'</h3><div class="pick">'+
-        '<div class="opt">'+swatch('#F0E050','stripe','')+'<span>'+T('Yellow, today','Jaune, aujourd’hui')+'</span></div>'+
-        '<div class="opt sel">'+swatch('#A98600','stripe','')+'<span>'+T('Yellow, proposal A','Jaune, proposition A')+'</span></div>'+
-        '<div class="opt">'+swatch('#F0E050','soft','')+'<span>'+T('Soft, today','Douce, aujourd’hui')+'</span></div>'+
-        '<div class="opt">'+swatch('#A98600','soft','')+'<span>'+T('Soft, proposal A','Douce, proposition A')+'</span></div></div></div>';
-    });
-    out+='<div class="row">'+pick+'</div>';
-    document.getElementById('b5').style.display='block';
-    document.getElementById('b5').innerHTML=out;
-    var tb=document.querySelector('#ct5 tbody');
-    YEL.forEach(function(y){
-      var soft=mix(y[1],'#FFFFFF',.45);
-      var tr=document.createElement('tr');
-      tr.innerHTML='<td><span class="num">'+y[1]+'</span> · '+y[2]+'</td><td class="num">'+f2(cr(y[1],CARD))+'</td><td class="num">'+f2(cr(soft,CARD))+' <small>('+soft+')</small></td><td class="num">'+f2(cr(soft,y[1]))+'</td><td class="num">'+f2(cr(y[1],DCARD))+'</td>';
-      tb.appendChild(tr);
-    });
-  }
-
-  /* ---- contrast table for section 2, measured from rendered pixels ---- */
-  function ratioRGB(a,b){
-    function l(c){var v=c.map(function(x){x/=255;return x<=.03928?x/12.92:Math.pow((x+.055)/1.055,2.4);});return .2126*v[0]+.7152*v[1]+.0722*v[2];}
-    var x=l(a),y=l(b);if(x<y){var t=x;x=y;y=t;}return (x+.05)/(y+.05);
-  }
-  function measure(){
-    /* draw each tile svg into a canvas with its filter and read the ground pixel */
-    var jobs=[['light','',T('Light tiles + ivory (dark UI, today)','Tuiles claires + ivoire (UI sombre, aujourd’hui)'),'#F2EFE9'],
-              ['A','A',T('Proposal A + ivory','Proposition A + ivoire'),'#F2EFE9'],
-              ['B','B',T('Proposal B + ivory','Proposition B + ivoire'),'#F2EFE9']];
-    var tb=document.querySelector('#ct2 tbody');
-    jobs.forEach(function(j){
-      var svg=tilesSVG(j[1]).replace('<svg ','<svg xmlns="http://www.w3.org/2000/svg" ').replace(/class="tiles [AB]?"/,'');
-      var img=new Image();
-      img.onload=function(){
-        var c=document.createElement('canvas');c.width=40;c.height=40;var g=c.getContext('2d');
-        try{
-          g.filter=j[1]==='A'?'invert(1) hue-rotate(180deg) brightness(.92) contrast(.9) saturate(.55)':j[1]==='B'?'brightness(.52) saturate(.75) contrast(1.05)':'none';
-          g.drawImage(img,0,0,40,40);
-          var d=g.getImageData(36,3,1,1).data;var rgb=[d[0],d[1],d[2]];
-          var hex='#'+rgb.map(function(v){return (v<16?'0':'')+v.toString(16);}).join('').toUpperCase();
-          var tr=document.createElement('tr');
-          tr.innerHTML='<td>'+j[2]+'</td><td class="num">'+hex+'</td><td class="num">'+j[3]+'</td><td class="num"><b>'+ratioRGB(rgb,[0xF2,0xEF,0xE9]).toFixed(2)+'</b></td>';
-          tb.appendChild(tr);
-        }catch(e){var tr2=document.createElement('tr');tr2.innerHTML='<td colspan="4">measure unavailable in this browser</td>';tb.appendChild(tr2);}
-      };
-      img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
-    });
-  }
-
-  s1();s2();s3();s4();s5();measure();
-
-  /* ---- toolbar ---- */
-  var mq=window.matchMedia('(prefers-color-scheme: dark)');
-  function resolve(){var t=root.getAttribute('data-theme');root.setAttribute('data-resolved',(t==='dark'||(t==='auto'&&mq.matches))?'dark':'light');}
-  if(mq.addEventListener)mq.addEventListener('change',resolve);
-  resolve();
-  document.querySelectorAll('[data-set]').forEach(function(b){b.addEventListener('click',function(){
-    var k=b.getAttribute('data-set'),v=b.getAttribute('data-v');
-    root.setAttribute(k==='theme'?'data-theme':'data-'+k,v);
-    b.parentNode.querySelectorAll('button').forEach(function(x){x.setAttribute('aria-pressed',String(x===b));});
-    resolve();
-  });});
-  document.getElementById('fit').addEventListener('click',function(e){var b=e.currentTarget;var on=b.getAttribute('aria-pressed')!=='true';b.setAttribute('aria-pressed',String(on));document.body.classList.toggle('fit',on);});
+  function section(h,lead,body){return '<section class="sec"><h2>'+h+'</h2><p class="lead">'+lead+'</p>'+body+'</section>';}
+  var html='';
+  html+=section('1. Location: buttons and the "position found" line (R07, R09)',
+    'Today the two mode buttons are large pills with words and, after Use my position, a blue line "Position found (about 12 m)..." pushes the runway card up. Proposed: the two mode buttons become round 44 px icon buttons (position, airport) in one small group, with their names as tooltip and read aloud, so the row shrinks; the "Show all of France" pill becomes a round icon button on the map; and the "Position found" line is removed (the pin moving on the map is the answer; errors keep their messages).',
+    '<div class="row2">'+mock('phone','Today','',function(v,t){return wrap(v,t,locPage(t,'today'),4);})+mock('phone','Proposed','',function(v,t){return wrap(v,t,locPage(t,'prop'),4);})+'</div>');
+  html+=section('2. Location in dark theme (R08)',
+    'In dark theme the map goes dark too (land, roads) and the runway line is drawn in near white with a dark centre line, so it reads. In light theme it stays dark on the light map. Use the Dark toggle at the top to compare.',
+    '<div class="row2">'+mock('phone','Map and runway line','Switch the theme to Dark above',function(v,t){return wrap(v,t,locPage(t,'prop'),4);})+'</div>');
+  html+=section('3. Style: the unsaved-changes question (R06)',
+    'Today the question has a title that repeats the bar behind it, two buttons whose effect is unclear (Save and continue / Discard), and a Stay here button of another size on desktop. Proposed: a title that is a question, one sentence naming what is lost, then three equal 48 px buttons stacked: Save and leave (primary), Leave without saving, Stay here (quiet). The bar behind is dimmed, so only one status shows.',
+    '<div class="row2">'+mock('phone','Today','',function(v,t){return wrap(v,t,styleScreen(t,dlgOld(t)),3);})+mock('phone','Proposed','',function(v,t){return wrap(v,t,styleScreen(t,dlgNew(t)),3);})+'</div><div style="height:32px"></div><div class="row2">'+mock('desktop','Today, desktop','',function(v,t){return wrap(v,t,styleScreen(t,dlgCard(t,'old')),3);})+mock('desktop','Proposed, desktop','',function(v,t){return wrap(v,t,styleScreen(t,dlgCard(t,'new')),3);})+'</div>');
+  html+=section('4. Style: the yellow stripe (D-10)',
+    'The light-yellow Soft stripe has a contrast of 1.12 against the panel, so it nearly vanishes. Proposed: a thin darker-yellow edge (2 px) on the stripe and on the yellow tile, so the shape reads on the screen. This only changes the preview on screen; whether the real panel needs a different yellow is checked on the physical frame later.',
+    '<div class="row2">'+mock('phone','Today','',function(v,t){return wrap(v,t,yellowCard(t,'today'),3);})+mock('phone','Proposed','',function(v,t){return wrap(v,t,yellowCard(t,'prop'),3);})+'</div>');
+  document.getElementById('app').innerHTML=html;
+  var r=document.documentElement;r.setAttribute('data-ui-lang','en');
+  document.querySelectorAll('#theme button').forEach(function(b){b.addEventListener('click',function(){
+    if(b.dataset.t==='auto')r.removeAttribute('data-ui-theme');else r.setAttribute('data-ui-theme',b.dataset.t);
+    document.querySelectorAll('#theme button').forEach(function(x){x.setAttribute('aria-pressed',String(x===b));});});});
+  document.querySelectorAll('#lang button').forEach(function(b){b.addEventListener('click',function(){
+    r.setAttribute('data-ui-lang',b.dataset.l);r.lang=b.dataset.l;
+    document.querySelectorAll('#lang button').forEach(function(x){x.setAttribute('aria-pressed',String(x===b));});});});
 })();
 </script>
 </html>
