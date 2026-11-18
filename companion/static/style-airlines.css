@@ -820,17 +820,17 @@
 
 /* The filter chips: five segments do not fit a phone's line, so they wrap
  * onto a second row there instead of pushing the page sideways. */
-.airlines-filter .filter-bar__chips {
+.filter-bar--chips .filter-bar__chips {
   flex-wrap: wrap;
   height: auto;
 }
 
-.airlines-filter .filter-chip {
+.filter-bar--chips .filter-chip {
   flex: 1 1 auto;
 }
 
 @media (min-width: 960px) {
-  .airlines-filter .filter-bar__chips {
+  .filter-bar--chips > .filter-bar__chips {
     flex-wrap: nowrap;
   }
 }
@@ -942,11 +942,11 @@
     color: color-mix(in srgb, var(--color-text) 70%, transparent);
   }
 
-  .airlines-col--name { width: 35%; }
+  .airlines-col--name { width: 34%; }
   .airlines-col--prefixes { width: 7%; }
-  .airlines-col--art { width: 17%; }
+  .airlines-col--art { width: 16%; }
   .airlines-col--views { width: 9%; }
-  .airlines-col--seen { width: 21%; }
+  .airlines-col--seen { width: 24%; }
   .airlines-col--menu { width: 72px; }
 
 }

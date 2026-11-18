@@ -837,7 +837,7 @@ def _filter_bar_html(total, chips=None):
     """Filter bar over the editor table, inert without JS (list-filter.js's
     early-return guard leaves the full table usable). `chips` adds the kind
     chips (`airline_rows.chips`)."""
-    return '<div class="airlines-filter">%s</div>' % layout.filter_bar_html(
+    return layout.filter_bar_html(
         _FILTER_INPUT_ID, i18n.t(_FILTER_LABEL_TEXT),
         i18n.t(_FILTER_PLACEHOLDER_TEXT), i18n.t(_FILTER_COUNT_TEMPLATE),
         total, total, i18n.t(_FILTER_EMPTY_HEADING),

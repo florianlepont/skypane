@@ -221,9 +221,9 @@ def test_airlines_rows_carry_no_badge_or_per_row_control_but_full_vocabulary():
 
 
 def test_airlines_filter_bar_has_no_manual_resolution_control(tmp_path, served_css):
-    """the Airlines filter bar is the plain search pill: no "N manual resolutions" summary
+    """the Airlines filter bar carries the kind chips and no "N manual resolutions" summary
     control in either language, no style rule for it, and no status chip on the row (the
-    retired count and the chips were owner feedback)"""
+    retired count was owner feedback)"""
     registry = {"QQQ": {"airline_name": "Air France",
                         "created_at": "2026-09-01T10:00:00+00:00"}}
     ctx = {"state_dir": str(tmp_path), "manual_resolutions": registry}
@@ -234,7 +234,7 @@ def test_airlines_filter_bar_has_no_manual_resolution_control(tmp_path, served_c
     finally:
         prefs.set_request_prefs(lang="en")
     for page in (rendered, rendered_fr):
-        bar = re.search(r'<div class="filter-bar">(.*?)<div class="empty-state ', page, re.S)
+        bar = re.search(r'<div class="filter-bar filter-bar--chips">(.*?)<div class="empty-state ', page, re.S)
         assert bar is not None, "expected to locate the rendered filter bar"
         assert "manual" not in bar.group(1).lower() and "manuelle" not in bar.group(1).lower()
         assert "data-filter-set" not in page
