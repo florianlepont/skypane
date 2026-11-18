@@ -34,6 +34,8 @@ def _safe_latest_runway_event(state_dir):
     return rows[0] if rows else None
 
 
+ADDRESSED_CACHE_SECONDS = 365 * 24 * 3600
+
 _REFUSED = object()
 
 
@@ -93,12 +95,20 @@ class PreviewImagesMixin:
         layout = _requested_layout(urlsplit(self.path).query)
         if layout is _REFUSED:
             return self.send_html(404, self._not_found_page())
+        profile = device_scope.profile_for(device)
         try:
             payload = theme_preview.cached_frame_preview_bytes(
-                device.state_dir, theme_id, state, size, layout,
-                profile=device_scope.profile_for(device))
+                device.state_dir, theme_id, state, size, layout, profile=profile)
         except Exception:
             return self.send_html(404, self._not_found_page())
         if payload is None:
             return self.send_html(404, self._not_found_page())
+        # `v` is the content address the page put in the URL: only a request that carries
+        # the current one is answered with a year-long entry. Any other value, or none,
+        # keeps the short lifetime, so a stale link can never pin an outdated image.
+        asked = parse_qs(urlsplit(self.path).query).get("v", [None])[0]
+        current = theme_preview.frame_preview_version(theme_id, state, size, layout, profile)
+        if asked is not None and asked == current:
+            return self.send_bytes(200, "image/png", payload, cache_seconds=ADDRESSED_CACHE_SECONDS,
+                                   immutable=True)
         return self.send_bytes(200, "image/png", payload, cache_seconds=300)

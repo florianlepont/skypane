@@ -488,7 +488,7 @@ class Handler(
         self._send_hardening_headers()
         self.end_headers()
 
-    def send_bytes(self, code, content_type, payload, cache_seconds=0, public=False):
+    def send_bytes(self, code, content_type, payload, cache_seconds=0, public=False, immutable=False):
         """`public` (default False, fail-closed): a shared cache has no
         knowledge of the session cookie, so `public=True` must be an
         explicit opt-in, never the default, or a shared cache could
@@ -504,8 +504,8 @@ class Handler(
             self.send_header("Content-Length", str(len(payload)))
         if etag is not None:
             self.send_header("ETag", etag)
-            self.send_header("Cache-Control", "%s, max-age=%d" % (
-                "public" if public else "private", cache_seconds))
+            self.send_header("Cache-Control", "%s, max-age=%d%s" % (
+                "public" if public else "private", cache_seconds, ", immutable" if immutable else ""))
         else:
             self.send_header("Cache-Control", "no-store")
         self._send_hardening_headers()
