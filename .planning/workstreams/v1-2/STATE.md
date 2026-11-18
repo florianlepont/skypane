@@ -95,6 +95,7 @@ None yet.
 
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
+| 1 | Phase 69 rear enclosure: reworked cassette design, exported STL, filled print-order tables | 2026-11-18 | 7f810ad2 | [261118-q4d-phase-69-rear-enclosure-update-cassette-](./quick/261118-q4d-phase-69-rear-enclosure-update-cassette-/) |
 
 ## Session Continuity
 
