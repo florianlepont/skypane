@@ -768,7 +768,27 @@ Plans: TBD
 **Decisions** (discuss-phase, 2026-11-18): milestone v1.2 MAY CLOSE before this phase is finished; an unfinished phase carries into the next milestone (owner decision). First print is made elsewhere, no printer purchase for now. Measurements by the owner, screen first, then frame, then ribbon, cable and masses. Black PETG, 0.4 mm nozzle, M2 self-tapping screws. Wi-Fi compared by the frame's reported RSSI, same place and access point (see `69-CONTEXT.md`).
 **Must not break**: the live frame and its configuration; nothing in this phase changes code or the deployed system.
 
-Plans: TBD
+**Plans**: 5 plans
+Plans:
+**Wave 1**
+
+- [ ] 69-01-PLAN.md — Measurement sheet, owner measures the real parts, owner confirms the Blender file (ENC-01)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 69-02-PLAN.md — Design updated from measurements, decisions recorded, export and slice check, print-order spec (ENC-01)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 69-03-PLAN.md — First test print elsewhere, clearance measurements and adjustment log (ENC-01)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 69-04-PLAN.md — Validation checklist (wall hooks, stand, USB-C, switch, buttons) and Wi-Fi RSSI comparison (ENC-01)
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [ ] 69-05-PLAN.md — Final files stored, assembly note, BOM update, SEED-014 update (ENC-01)
 
 ### Phase 66: Security Audit
 
