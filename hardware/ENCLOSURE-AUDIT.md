@@ -18,7 +18,7 @@ to need a change after the first fit; **Low** = precaution; **Info** = checked a
 | Collisions | No collision between the printed parts, the electronics (board, battery, antenna, ribbon, screen) and the IKEA frame (wood, glass, spacer, mat, tabs). Contacts are intended: lid on tray walls, board on its standoffs, antenna on its block |
 | Depth | Highest point of the lid is 22.2 mm; the wooden edge is at 23.1 mm (IKEA model), so nothing sticks out |
 | Overhangs, walls, slots | No support needed (longest bridge 4.5 mm); no wall under 0.8 mm outside the engraved letters and logo; narrowest slot 1.0 mm |
-| Bed size | Largest part 132.6 x 182.6 mm; the Bambu Lab X1 bed is larger |
+| Bed size | Largest part 132.0 x 182.0 mm; the Bambu Lab X1 bed is larger |
 | Clearance, lid to electronics | Battery 1.75 mm, antenna 2.2 mm, board 0.41 mm (see F-08) |
 | Hook strength (estimate) | The printed hook roof carries the whole 5.8 N with a very large margin in shear and bearing; it is not the weak link (see F-02) |
 
@@ -37,7 +37,7 @@ to need a change after the first fit; **Low** = precaution; **Info** = checked a
 | F-09 | Medium | The screen ribbon passes through a 4 x 28 mm slot and bends. Its bend radius at the slot edge is not known, and a flat flex cable creases easily | Design record | Dry-fit with the real ribbon before closing; widen the slot or round its edge if needed |
 | F-10 | Medium | The stand's forward-tipping margin at 20 degrees is 7.5 degrees (landscape) and 10.5 degrees (portrait), assuming the mass centre at 6 mm depth and the wood edge 74 mm from the lid origin (both unmeasured). With the mass centre at 3 mm, the margins are 5.4 and 8.9 degrees. One millimetre of plate length changes the tilt by about 1.4 degrees. The plate is loose, has no storage place, and its foot may slip | Calculation | Balance-test the real frame; add a rubber pad to the foot; decide on storage after the first fit |
 | F-11 | Low | The M2 pilot holes are 1.7 mm. Printed PETG holes often come out 0.1 to 0.2 mm small | Common experience, not tested | Print the tray first, try a screw in a standoff, and ream if needed |
-| F-12 | Low | Two large flat plates (132.6 x 182.6 mm) can warp or lift at the corners in PETG | Common experience | Brim, textured plate, glue stick, enclosure closed, first layer slow |
+| F-12 | Low | Two large flat plates (132.0 x 182.0 mm) can warp or lift at the corners in PETG | Common experience | Brim, textured plate, glue stick, enclosure closed, first layer slow |
 | F-13 | Low | The design source is a script inside a binary .blend (5.5 MB), so a change cannot be reviewed as text. The script has French names and comments, while the repository convention is English | Repository convention | Export a text copy of the script next to the .blend; rename objects and translate comments in a later pass |
 | F-14 | Info | Wall screw requirement for the hook: head up to 9.5 mm diameter, shank 3.0 to 4.3 mm, head underside 2.1 mm or more from the wall. One screw is a single hanging point | Model | Put it in the hanging instructions |
 | F-15 | Info | The hanging, stand and clearance figures all depend on the IKEA 3D model of the frame (wood edge at 74 mm, outer size 148 x 198 mm, rebate profile). None of it is measured on the real frame | Model | Measure the outer size and the rebate at the four corners with a caliper if one becomes available |
