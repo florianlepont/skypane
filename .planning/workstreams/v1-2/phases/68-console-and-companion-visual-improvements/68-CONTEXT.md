@@ -1,7 +1,7 @@
 # Phase 68: Console and Companion Visual Improvements - Context
 
 **Gathered:** 2026-11-16
-**Status:** Ready for planning (list closed by the owner on 2026-11-18: 13 starting items plus walk-through remarks R01-R35; the owner's walk-through may add more)
+**Status:** Ready for planning (list closed by the owner on 2026-11-18: 13 starting items, walk-through remarks R01-R36 and two route-source items; the owner's walk-through may add more)
 
 <domain>
 ## Phase Boundary
@@ -50,6 +50,9 @@ Low value:
 
 - **D-24:** R36 (owner, 2026-11-18): a re-activated retired frame keeps its retired screen until its next wake, up to 24 h (`RETIRED_SLEEP_S = 86400` s in `server/pairing_code.py`, used in `stub-server/byos_server.py::_pending_panel`); the server cannot wake a sleeping frame. Owner's decision: keep the 24 h wake interval (no battery or cadence change) and explain it clearly: a message at re-activation and on the pairing page saying when the frame will show its code and how to wake it by hand (reset button or power cycle: the planner must confirm the exact gesture per hardware type from `hardware/` docs). No change to `server/pairing_code.py` timings.
 - **D-25:** R36 also covers the frame's own retired screen (owner, 2026-11-18): it must say that pressing the Reset button restarts the device so it can be paired again (wording short, English and French per the existing retired-screen convention, one version per hardware type with the right button name and place, confirmed from `hardware/`). It is rendered by `pairing_image.render_retired_image` and cached per frame as `retired.bin` (`stub-server/byos_server.py`): the planner must decide how already-retired frames pick up the new text (cache invalidation) and check which golden hashes or baselines cover this image. The retired screen of the live frame protocol and `test_phase47_freeze.py` must stay green. Mockup of the screen first, rendered for both hardware types, owner approves.
+
+- **D-26:** Route sources "comparison" card (owner request of 2026-11-18, `68-CANDIDATE-ITEMS.md`): per aircraft, whether adsbdb and VRS give the same route, only one answers, or they differ. Needs the server to record which directory answered and the other directory's answer (a second request per new callsign): the planner must size the server and history-database change and offer the owner a choice before building. Mockup first.
+- **D-27:** Route directories status (same source): reachable or not, time of the last answer, share of failed lookups and of lookups that found a route; needs new counters in the history database written by the poll cycle (a failed transient lookup is not recorded today). Both D-26 and D-27 touch the Health page, server history writes and companion files owned by Phase 64. Included because the owner asked for them; sizing and the exact scope are confirmed with the owner at planning. Mockup first.
 
 ### Process
 - **D-16:** Owner-guided page-by-page walk-through of the deployed console and companion (administrator and user views) still to be done, with a screenshot per remark. New remarks are added to the list only on the owner's say.
