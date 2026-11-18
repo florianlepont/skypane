@@ -34,7 +34,7 @@ The owner decisions above, the fixes marked "agree" (plan 65-14, test first), an
 | F-05 | Deferred (no touch-down time and hex) | this file |
 | G-01, H-03 | Deferred: a second source is a product and terms decision; OpenSky was ruled out | `COMPLIANCE.md` |
 | G-04 | Deferred until more departures are measured | this file |
-| H-05 (new, replay) | Open: a wrong vertical-rate sign in the air flips the state (UAE7V); proposal needs the owner's agreement | `65-TRACKING-REPLAY.md` |
+| H-05 (new, replay) | Fix, test first (owner agreed 2026-11-17): a climb rate the altitude contradicts no longer turns a held arrival into a departure (UAE7V). Replay: only UAE7V's false departure disappears | PR #466, merged |
 
 The owner accepted the recommendations above on 2026-11-17 (`ok pour vos recommandations`).
 
