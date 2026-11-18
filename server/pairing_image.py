@@ -23,6 +23,12 @@ from server.plane.render import style
 from server.plane.render.giant import status
 
 
+# Bumped whenever the retired screen's copy or layout changes on purpose; the
+# server caches the retired panel under a name that carries it, so frames that
+# are already retired pick the new screen up at their next wake.
+RETIRED_SCREEN_REVISION = 2
+
+
 def _pack(image: Image.Image) -> bytes:
     """Pack a P-mode canvas into two-pixels-per-byte panel nibbles."""
     table_hi = bytes(
@@ -72,8 +78,8 @@ def render_retired_image(profile: hardware.HardwareProfile) -> bytes:
     scaled to fit.
     """
     if profile.width > profile.height:
-        return _pack(status.build_status("retired", (profile.width, profile.height)))
-    reference = status.build_status("retired", (panel_format.WIDTH, panel_format.HEIGHT))
+        return _pack(status.build_retired((profile.width, profile.height)))
+    reference = status.build_retired((panel_format.WIDTH, panel_format.HEIGHT))
     field = dither.dithered_state_background(
         style.DIMMED_FIELD_IDX, size=(profile.width, profile.height)
     )

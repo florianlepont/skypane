@@ -204,4 +204,12 @@ def test_retired_image_is_the_calm_screen():
     from server import pairing_image
     legacy = hardware.get_profile(hardware.LEGACY_KEY)
     packed = pairing_image.render_retired_image(legacy)
-    assert packed == pairing_image._pack(status.build_status("retired", PORTRAIT))
+    assert packed == pairing_image._pack(status.build_retired(PORTRAIT))
+    assert status.build_retired(PORTRAIT).tobytes() != status.build_status("retired", PORTRAIT).tobytes()
+
+
+def test_retired_body_has_the_approved_reset_line():
+    assert status.RETIRED_RESET_BODY_LINES == (
+        "This frame was removed from SkyPane.", "Press Reset to set it up again.")
+    assert status.RETIRED_BODY_LINES == (
+        "This frame was removed from SkyPane.", "Ask an administrator to set it up again.")

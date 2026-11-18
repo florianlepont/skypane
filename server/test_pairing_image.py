@@ -26,7 +26,9 @@ LEGAL_NIBBLES = {
 }
 # sha256 of the retired screen for the legacy profile; changes only when the
 # retired layout, copy or fonts change on purpose.
-RETIRED_GOLDEN_SHA256 = "7222f198c2ce485f5ab0d67a62d1198bc9259e2a006740eb830c07d2e5d93f04"
+RETIRED_GOLDEN_SHA256 = "7251991eb3a15a3f90ea8df180ab26c58e446660391d12bddf2df079e82a919a"
+# Same, for the simulated landscape profile.
+RETIRED_LANDSCAPE_GOLDEN_SHA256 = "f6fd51ea5e4bdbf04e67e371161c26e67607a2de1e73e80f49889b908920c997"
 # sha256 of the pairing screen for FAKE_CODE on the legacy profile.
 PAIRING_GOLDEN_SHA256 = "aeee7b8f620102c9441569ccebf3650f0a45fd5bc74e4c29c1307372884df4ea"
 
@@ -191,3 +193,11 @@ def test_pairing_code_is_the_widest_giant_line_and_stays_in_the_margins(
 def test_pairing_is_not_a_status_kind() -> None:
     with pytest.raises(ValueError):
         status.build_status("pairing", (800, 480))
+
+
+def test_retired_landscape_golden_and_determinism(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(hardware.SIM_ENV_VAR, "1")
+    profile = hardware.get_profile(hardware.SIM_LANDSCAPE_KEY)
+    first = pairing_image.render_retired_image(profile)
+    assert first == pairing_image.render_retired_image(profile)
+    assert hashlib.sha256(first).hexdigest() == RETIRED_LANDSCAPE_GOLDEN_SHA256
