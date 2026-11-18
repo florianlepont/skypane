@@ -28,6 +28,14 @@ The owner decisions above, the fixes marked "agree" (plan 65-14, test first), an
 | H-02 (landing roll-out drawn as a departure) | Fix, test first | PR #458 |
 | H-01 (aircraft detected but not drawn) | Keep the screen pace; enrich the recent-flights row with route and direction | PR #458 |
 | H-04 and the 25 % of flights with no route | OpenSky ruled out: its terms need a written licence for operational REST API use. The seed and the phase inserted for it were deleted the same evening. Six airlines added by name; the rest is the owner's choice | `COMPLIANCE.md` (OpenSky entry), PR #461 |
-| F-01..F-06, G-01, G-03, G-04, H-03 | Still open: decision pending | this file |
+| F-04 | Test only. The case is already covered: `test_departure_on_take_off_roll_does_not_inherit_arriving` (arrival, then an aircraft whose rate stays in the deadband, then a climb) passes | `server/test_flight_state_and_stale_route.py` |
+| F-06 | Document only | `65-EVIDENCE.md` |
+| G-03 | Left to the owner's manual registry: adsbdb does not know ITI and no name can be verified | companion Airlines page |
+| F-05 | Deferred (no touch-down time and hex) | this file |
+| G-01, H-03 | Deferred: a second source is a product and terms decision; OpenSky was ruled out | `COMPLIANCE.md` |
+| G-04 | Deferred until more departures are measured | this file |
+| H-05 (new, replay) | Open: a wrong vertical-rate sign in the air flips the state (UAE7V); proposal needs the owner's agreement | `65-TRACKING-REPLAY.md` |
+
+The owner accepted the recommendations above on 2026-11-17 (`ok pour vos recommandations`).
 
 Evidence for H-01..H-04: `65-TRACKING-MULTI-EVENING.md`.
