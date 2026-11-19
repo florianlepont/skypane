@@ -1220,7 +1220,9 @@ def _table_data(ctx):
                 and airline_name not in injected_names):
             injected_pairs.append((airline_name, []))
             injected_names.add(airline_name)
-    pairs = pairs + injected_pairs
+    promoted_prefixes = airline_known_rows.promoted(
+        state_dir, registry, curated_names | injected_names)
+    pairs = pairs + injected_pairs + [(name, []) for name in promoted_prefixes]
 
     overrides = ctx.name_overrides or {}
     sheets_by_name = {}
@@ -1235,6 +1237,7 @@ def _table_data(ctx):
         pairs=pairs, state_dir=state_dir, now=now, sheets_by_name=sheets_by_name,
         manual_info_by_name=manual_info_by_name, entries_by_slug=_entries_by_slug(ctx, now),
         gap_rows=gap_shown, known_rows=airline_known_rows.rows(state_dir, registry),
+        promoted_prefixes=promoted_prefixes,
         focus_key=focus_key,
         default_types=airline_default_types.load_default_types(state_dir),
         types_open=ctx.types_open == airline_table.TYPES_ALL)

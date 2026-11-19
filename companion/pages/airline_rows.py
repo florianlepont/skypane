@@ -31,7 +31,6 @@ RENAME_TITLE = i18n.msg("airlines.rename_title", "Rename the airline")
 RENAME_HINT = i18n.msg(
     "airlines.rename_hint",
     "The new name replaces the original on the companion and on the frame.")
-UNIDENTIFIED_TEXT = i18n.msg("airlines.unidentified_label", "Unidentified")
 NAME_ARIA = i18n.msg("airlines.name_aria", "Airline name: %s")
 NAME_PLACEHOLDER = i18n.msg("airlines.resolve_name_placeholder", "Airline name")
 NAME_FOR_PREFIX_ARIA = i18n.msg(
@@ -141,7 +140,7 @@ def gap_group_html(index, prefix, meta_html, filter_text, action, csrf_html, dis
         'data-filter-group="gap%d" data-filter-kind="%s"><tr class="airlines-row airlines-row--gap">'
         '<th scope="row" colspan="6" class="airlines-cell airlines-cell--resolve">'
         '<div class="airlines-gap"><span class="airlines-gap__prefix mono">%s</span>'
-        '<span class="airlines-gap__body"><span class="airlines-gap-chip">%s</span>'
+        '<span class="airlines-gap__body">'
         '<span class="airlines-gap__meta">%s</span></span>%s</div>%s</th></tr></tbody>'
     ) % (escape_html(filter_text), index, KIND_UNIDENTIFIED, escape_html(prefix),
-         escape_html(i18n.t(UNIDENTIFIED_TEXT)), meta_html, trigger, dialog)
+         meta_html, trigger, dialog)

@@ -39,6 +39,21 @@ def rows(state_dir, registry):
     return tuple(pairs)
 
 
+def promoted(state_dir, registry, taken):
+    """`{name: prefix}` of the airlines named by the application whose
+    uploaded artwork gives them a row of the main table: not hand-named (that
+    row exists already) and not in `taken`, the names the table lists."""
+    registry = registry or {}
+    found = {}
+    for prefix, name in enrich.names_without_artwork():
+        key = manual_resolutions.illustration_key_for_name(name)
+        if prefix in registry or not key or name in taken or name in found:
+            continue
+        if illustrations.resolved_illustration_path(key, state_dir) is not None:
+            found[name] = prefix
+    return found
+
+
 def caption_text(count):
     return "%s · %d" % (i18n.t(KNOWN_TEXT), count)
 

@@ -60,7 +60,6 @@ MESSAGES = {
     "airlines.menu_set_default_type": "Définir comme type par défaut",
     "airlines.menu_clear_default_type": "Retirer comme type par défaut",
     "airlines.default_type_pill": "Type par défaut",
-    "airlines.unidentified_label": "Non identifiée",
     "airlines.views_one": "1 vue",
     "airlines.views_many": "%d vues",
     "airlines.table_not_seen": "Pas encore vue",

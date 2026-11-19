@@ -78,6 +78,7 @@ class TableData:
     entries_by_slug: dict = field(default_factory=dict)
     gap_rows: list = field(default_factory=list)
     known_rows: tuple = ()
+    promoted_prefixes: dict = field(default_factory=dict)
     focus_key: str = ""
     default_types: dict = field(default_factory=dict)
     # True when the aircraft-type rows are part of the table itself (the
@@ -281,7 +282,7 @@ def _expand_cell(row):
 
 def _main_row_html(page, row):
     prefixes = " ".join(row["sheet"]["prefixes"]) if row["sheet"] else (
-        row["manual_info"][0] if row["manual_info"] else "")
+        row["manual_info"][0] if row["manual_info"] else row["promoted_prefix"])
     return (
         '<tr class="airlines-row">'
         '<th scope="row" class="airlines-cell airlines-cell--name">'
@@ -423,6 +424,7 @@ def _row_facts(page, data, index, builtin_name, shapes):
         "last_seen_html": (
             layout.concise_timestamp_html(entry.last_ts, data.now, fallback="")
             if seen else escape_html(i18n.t(NOT_SEEN_TEXT))),
+        "promoted_prefix": data.promoted_prefixes.get(builtin_name, ""),
         "focus": bool(data.focus_key) and sheet is not None and data.focus_key == key,
     }
     facts["sub_rows"] = _sub_rows(page, entry, builtin_name, shapes, facts)
@@ -444,6 +446,8 @@ def _filter_text(row):
             parts.append(sheet["builtin"].lower())
     elif row["manual_info"] is not None:
         parts.append(str(row["manual_info"][0]).lower())
+    elif row["promoted_prefix"]:
+        parts.append(row["promoted_prefix"].lower())
     return " ".join(parts)
 
 

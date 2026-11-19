@@ -550,17 +550,6 @@ table.airlines-table {
   border-radius: 0 0 var(--radius-card) var(--radius-card);
 }
 
-/* The amber chip, not a coloured card, marks a prefix the table cannot name. */
-.airlines-gap-chip {
-  padding-inline: var(--space-sm);
-  border-radius: var(--radius-pill);
-  background: color-mix(in srgb, var(--color-status-warn) 22%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-status-warn) 60%, transparent);
-  color: var(--color-text);
-  font-size: var(--font-caption-size);
-  font-weight: var(--weight-semibold);
-}
-
 /* An airline's row on a phone is one line: its picture, its name over
  * `AFR · A320 · 37 views` in small mono, and the "..." menu. The row opens
  * on a tap: the chevron's summary is laid over the whole row, under the
@@ -785,8 +774,7 @@ table.airlines-table {
 
 /* Without text-box and the cap unit the pills centre by flex alignment. */
 @supports not ((text-box: trim-both cap alphabetic) and (padding: 1cap)) {
-  .airlines-pill,
-  .airlines-gap-chip {
+  .airlines-pill {
     display: inline-flex;
     align-items: center;
     height: 24px;
@@ -972,7 +960,7 @@ table.airlines-table {
   outline-offset: 1px;
 }
 
-/* An unidentified prefix: the prefix, the amber chip over what was seen, the
+/* An unidentified prefix: the prefix, what was seen, the
  * "Name it" button; the dialog that names it lives in the same cell. */
 .airlines-gap {
   display: flex;

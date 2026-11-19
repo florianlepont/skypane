@@ -1,6 +1,6 @@
 """Real-browser structure checks of the Console pages on the grouped-list language: the Fleet
 blocks are glass groups under a section label with nothing nested, the Users table and the
-Airline editor keep header and row geometry, the unidentified rows carry the amber chip, the
+Airline editor keep header and row geometry, the unidentified rows sit in their own labelled card above the table, the
 Audit log phone list is one glass group, and none of them overflows at 360px in either
 language and theme."""
 import pytest
@@ -124,15 +124,21 @@ def test_console_tables_have_the_quiet_header_and_tall_rows(
 
 @pytest.mark.parametrize("scheme", THEMES)
 @pytest.mark.parametrize("lang", LANGS)
-def test_unidentified_airline_rows_carry_the_amber_chip(new_context, server, lang, scheme):
+def test_unidentified_airline_rows_sit_in_their_own_labelled_card_with_no_chip(
+        new_context, server, lang, scheme):
     context, page = _open(
         new_context, server, "admin", "/airlines/manage", None, VIEWPORT_DESKTOP, lang, scheme)
     try:
-        chips = page.locator(".airline-group--gap .airlines-gap-chip")
-        assert chips.count() >= 1
-        chip = chips.first.evaluate(
-            "(e) => ({bg: getComputedStyle(e).backgroundColor, h: e.getBoundingClientRect().height})")
-        assert chip["bg"] != "rgba(0, 0, 0, 0)" and chip["h"] >= 20
+        assert page.locator(".airline-group--gap .airlines-gap__prefix").count() >= 1
+        assert page.locator(".airline-group--gap .airlines-gap-chip").count() == 0
+        out = page.evaluate(
+            "() => { const gap = document.querySelector('.airline-group--gap').closest('table');"
+            " const main = [...document.querySelectorAll('table.airlines-table')]"
+            ".find((t) => !t.querySelector('.airline-group--gap') && t.querySelector('#airline-air-france'));"
+            " return {label: gap.querySelector('caption').textContent.trim(),"
+            " alone: gap.querySelectorAll('.airline-group:not(.airline-group--gap)').length,"
+            " above: !!main && gap.getBoundingClientRect().bottom <= main.getBoundingClientRect().top}; }")
+        assert out["label"] and out["alone"] == 0 and out["above"], out
     finally:
         context.close()
 

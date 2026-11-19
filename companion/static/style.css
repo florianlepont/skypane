@@ -5462,7 +5462,6 @@ input[name="radius_km"] {
   }
 
   .airlines-pill:not(:has(> *)),
-  .airlines-gap-chip:not(:has(> *)),
   .airline-card__chip:not(:has(> *)),
   .airlines-gap__prefix:not(:has(> *)) {
     display: inline-block;
@@ -5475,7 +5474,6 @@ input[name="radius_km"] {
   }
 
   .airlines-pill { --pill-h: 24px; }
-  .airlines-gap-chip { --pill-h: 24px; --pill-bw: 1px; }
   .airline-card__chip { --pill-h: 20px; --pill-bw: 1px; }
   .airlines-gap__prefix { --pill-h: 32px; }
   .filter-chip__text,

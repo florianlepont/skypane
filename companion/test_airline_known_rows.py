@@ -77,7 +77,10 @@ def test_an_airline_with_artwork_leaves_the_block(known):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "wb") as handle:
         handle.write(b"\x89PNG")
-    assert "Finnair" not in " ".join(_rows(get()))
+    page = get()
+    assert "Finnair" not in " ".join(_rows(page))
+    assert 'id="airline-finnair"' in page
+    assert "FIN" in re.search(r'<tbody[^>]*id="airline-finnair".*?</tbody>', page, re.S).group(0)
 
 
 def test_an_airline_named_by_hand_leaves_the_block(known):
