@@ -49,7 +49,7 @@ _NEW_ROWS_ANCHOR = "flights-new"
 _NEW_CARD_ANCHOR = "flights-new-card"
 _FORM_ID = "flights_form"
 
-PAGE_TITLE = i18n.msg("nav.flight_history", "Flight history")
+PAGE_TITLE = i18n.msg("nav.flight_history", "Flights")
 LIGHTBOX_ARIA_LABEL = i18n.msg(
     "flights.picture_shown_on_the_frame", "Picture shown on the frame")
 

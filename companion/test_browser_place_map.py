@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Browser checks for the map of the Location and detection page: tiles, the draggable pin and
+"""Browser checks for the map of the Location page: tiles, the draggable pin and
 its fields, the attribution, the failure modes (tile host down, library blocked) and the Referer
 the tile host receives.
 

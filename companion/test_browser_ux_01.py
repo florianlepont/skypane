@@ -324,12 +324,12 @@ def test_display_reveal_and_persist_across_all_field_kinds(page, make_app_server
             "expected the theme chip's committed value to reach disk, got %r"
             % (on_disk()["theme"],))
 
-    # 2. The Runway card and the Location and detection card are gone: the Location page owns
+    # 2. The Runway card and the Location card are gone: the Location page owns
     # the runway and the place, and Display carries no pointer to it.
     if page.locator('input[name="tracked_runway"]').count():
         raise AssertionError("Display still renders a tracked_runway control")
     if page.locator(".detection-card").count():
-        raise AssertionError("Display still renders the Location and detection card")
+        raise AssertionError("Display still renders the Location card")
     # The Quiet hours card left Display as well (Home's dialog owns the schedule), so Display
     # has neither the time fields nor the note that pointed from them to the Location page.
     if page.locator('input[name="quiet_hours_start"], .quiet-timezone-note').count():

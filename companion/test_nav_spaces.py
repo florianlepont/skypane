@@ -41,8 +41,8 @@ def test_admin_personal_sidebar_follows_the_spec():
     sidebar = layout.sidebar_nav("home", health_alert="warn", device_config={})
     prefix = "/devices/abc123"
     assert _hrefs(sidebar) == [
-        prefix + "/", prefix + "/flights", prefix + "/detection",
-        prefix + "/display", prefix + "/airlines", "/account"]
+        prefix + "/", prefix + "/flights", prefix + "/airlines",
+        prefix + "/display", prefix + "/detection", "/account"]
     # The switch is its own landmark above the sidebar navigation, never inside it.
     assert "space-switch" not in sidebar
     switch = ui_nav.space_switch_html("home")

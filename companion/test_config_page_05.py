@@ -696,7 +696,7 @@ def test_the_current_badge_reads_a_server_rendered_translated_attribute():
     """the 'Current' badge's text is server-rendered as a translated data-current-label attribute
     on exactly the --selected chip/card (never on any other), and the French render carries the
     French text"""
-    # The runway cards live on the Location and detection page now; the saved airport's runways render
+    # The runway cards live on the Location page now; the saved airport's runways render
     # without any search.
     rendered = place_page.render({
         "device_config": {"theme": "white", "tracked_runway": "3"},

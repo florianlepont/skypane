@@ -1,4 +1,4 @@
-"""The Location and detection page over a real in-process server: the card
+"""The Location page over a real in-process server: the card
 order, the airport list and the data the map script reads, the controls of the
 details card, and the plain no-script save (`action=save_place`) with its
 refusals, in both languages, plus the policy headers every re-render sends.
@@ -158,14 +158,14 @@ def test_the_cards_come_in_the_specified_order(rig):
              'data-dirty-bar', 'id="place-info"', 'id="place-locate"']
     positions = [page.index(mark) for mark in marks]
     assert positions == sorted(positions)
-    assert "<title>Location and detection" in page
+    assert "<title>Location" in page
     assert ">Save</button>" in page
 
 
 def test_the_page_is_titled_and_labelled_in_french(rig):
     _s, _h, page = rig.get("owner", rig.scope() + "/detection", lang="fr")
     text = _text(page)
-    assert "<title>Lieu et détection" in page
+    assert "<title>Lieu" in page
     for needle in ("Aéroports français", "Filtrer les aéroports", "Aéroport",
                    "Par position", "Piste à suivre", "Rayon (km)",
                    "Coordonnées et fuseau horaire", "Nom du lieu", "Fuseau horaire",

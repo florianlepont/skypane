@@ -543,8 +543,7 @@ def _names():
     rows = []
     for _group, entries in ui_base.NAV_GROUPS:
         for route, label in entries:
-            short = ui_base.NAV_SHORT_LABELS.get(ui_base.nav_slug(route), label)
-            rows.append([_t(short), _t(label)])
+            rows.append([_t(label), _t(label)])
     return [State(_M_STATE_NAMES, ui_components.data_table(
         [_t(_COL_TAB), _t(_COL_PAGE)], rows))]
 

@@ -108,7 +108,7 @@ def test_tab_bar_pill_horizontal_margin_lets_the_longest_label_fit(css_text):
         ui_base.DISPLAY_ROUTE, ui_base.DETECTION_ROUTE)
     labels = dict(layout.NAV_TABS)
     messages = [
-        layout.NAV_SHORT_LABELS.get(layout.nav_slug(route), labels[route])
+        labels[route]
         for route in bar_routes] + [layout.TAB_BAR_MORE_LABEL]
 
     # The app's own contract floor (design_direction: "Minimum supported
@@ -952,7 +952,7 @@ def test_both_tabs_ok_end_to_end(make_app_server):
             # /history added so the served-HTML twin of the render-level
             # History guard above runs against a real running service,
             # not only an in-process render() call.
-            ("/flights", "Flight history")):
+            ("/flights", "Flights")):
         status, _headers, body = get(server, path, cookie=session_cookie)
         assert status == 200, "expected 200 for %s, got %d" % (path, status)
         assert heading.encode() in body, "expected the %r heading in %s's response body" % (heading, path)

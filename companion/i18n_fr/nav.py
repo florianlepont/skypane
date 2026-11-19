@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """French strings for the nav labels and the nav-footer switches.
 
-The nav labels are fixed: Accueil, Historique des vols, Lieu et détection,
-Style, Airlines, État, Appareil, Versions. "FR"/"EN" are identifiers, not
+The nav labels are fixed: Accueil, Vols, Airlines,
+Style, Lieu, État, Appareil, Versions. "FR"/"EN" are identifiers, not
 translated, and therefore have no entry here.
 
 Copy follows sentence case, the typographic apostrophe (U+2019,
@@ -22,10 +22,8 @@ only carries each id's French translation.
 
 MESSAGES = {
     "nav.home": "Accueil",
-    "nav.flight_history": "Historique des vols",
-    "nav.flights_short": "Vols",
-    "nav.detection": "Lieu et détection",
-    "nav.detection_short": "Lieu",
+    "nav.flight_history": "Vols",
+    "nav.detection": "Lieu",
     "nav.personalisation": "Style",
     "nav.airline_collection": "Airlines",
     "nav.airline_editor": "Éditeur de compagnies",
@@ -44,6 +42,7 @@ MESSAGES = {
     "nav.airlines_short": "Éditeur",
     "nav.users_short": "Équipe",
     "nav.my_frame": "Mon cadre",
+    "nav.my_frames": "Mes cadres",
     "nav.console": "Console",
     "nav.settings": "Réglages",
     "nav.console_subtitle": "Flotte, utilisateurs, audit",

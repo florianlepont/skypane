@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Browser checks for the airport pins, the tap-to-place hint and the typed suggestions of the
-Location and detection page, with both external hosts answered by `page.route`
+Location page, with both external hosts answered by `page.route`
 (test-support/place_map_support.py): a fresh page draws a tappable pin for every airport of
 the catalogue and tapping one selects it; My position mode draws none and a tap places the
 pin; typing lists airports from the page's own catalogue without any request, a submitted

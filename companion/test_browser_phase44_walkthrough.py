@@ -119,7 +119,7 @@ def test_display_setting_saves_and_reports_a_keyboard_focusable_control(
         if page.locator('input[name="tracked_runway"]').count():
             raise AssertionError("%s: Display still renders the removed runway control" % lang)
         if page.locator(".detection-card").count():
-            raise AssertionError("%s: Display still renders the Location and detection card" % lang)
+            raise AssertionError("%s: Display still renders the Location card" % lang)
         if page.locator('input[name="quiet_hours_start"], .quiet-timezone-note').count():
             raise AssertionError("%s: Display still renders quiet-hours controls" % lang)
         selector = 'input[name="theme"][value="%s"]' % target

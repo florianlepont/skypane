@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Served Display markup: there is no Time zone select; the Quiet hours card keeps its controls and
-says its hours follow the time zone, linking to the Location and detection page's details card."""
+says its hours follow the time zone, linking to the Location page's details card."""
 import re
 
 import pytest

@@ -110,7 +110,7 @@ def test_the_console_card_is_a_plain_get_link_that_opens_the_console(
         back = page.evaluate(_CARD)
         assert back["href"].startswith("/"), back
         assert back["subtitle"] == "", back
-        assert back["title"] == {"en": "My frame", "fr": "Mon cadre"}[lang], back
+        assert back["title"] == {"en": "My frames", "fr": "Mes cadres"}[lang], back
         assert back["isSpaceLink"] and back["h"] >= MIN_TAP_PX, back
     finally:
         context.close()

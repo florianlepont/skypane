@@ -103,15 +103,9 @@ DETECTION_ROUTE = "/detection"
 # NAV_TABS are the one source of these labels for every renderer.
 _NAV_LABEL_HOME = i18n.msg("nav.home", "Home")
 _NAV_LABEL_DISPLAY = i18n.msg("nav.personalisation", "Style")
-_NAV_LABEL_FLIGHTS = i18n.msg("nav.flight_history", "Flight history")
-_NAV_LABEL_DETECTION = i18n.msg("nav.detection", "Location and detection")
+_NAV_LABEL_FLIGHTS = i18n.msg("nav.flight_history", "Flights")
+_NAV_LABEL_DETECTION = i18n.msg("nav.detection", "Location")
 _NAV_LABEL_AIRLINES = i18n.msg("nav.airline_collection", "Airlines")
-# The short forms the phone tab bar uses where the full label would not fit
-# one of six equal cells.
-NAV_SHORT_LABELS = {
-    "flights": i18n.msg("nav.flights_short", "Flights"),
-    "detection": i18n.msg("nav.detection_short", "Location"),
-}
 # The Console-only destination for editing airlines.
 AIRLINE_EDITOR_ROUTE = "/airlines/manage"
 AIRLINE_EDITOR_LABEL = i18n.msg("nav.airline_editor", "Airline editor")

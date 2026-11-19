@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Browser checks for the per-device Location and detection page: the scripts-blocked flow, the
+"""Browser checks for the per-device Location page: the scripts-blocked flow, the
 submit rule per mode, the Search button's quiet style against the accent Save, and (scripts on)
 the dirty bar, Cancel and leave-guard behaviour. Layout and hit targets are measured in
 test_browser_place_page.py.
@@ -472,7 +472,7 @@ def test_back_forward_cache_rearms_guard(new_context, make_app_server):
         raise AssertionError("a later real leave raised the browser's prompt: %r" % dialogs)
 
 
-# A user's Display page no longer holds the place; the Location and detection page does.
+# A user's Display page no longer holds the place; the Location page does.
 
 USER_VIEWPORTS = (VIEWPORT_MIN_SUPPORTED, VIEWPORT_DESKTOP)
 NOTE_LINK = "dialog#dlg-quiet-hours .quiet-timezone-note a"

@@ -65,7 +65,7 @@ PAGE_STYLES = (layout.LEAFLET_STYLE_HREF,)
 # Airports a browser without scripts lists when no search term narrows it.
 NOSCRIPT_AIRPORTS = 20
 
-PAGE_TITLE = i18n.msg("nav.detection", "Location and detection")
+PAGE_TITLE = i18n.msg("nav.detection", "Location")
 PAGE_PURPOSE = i18n.msg(
     "detection.page_purpose",
     "Detection follows your place: choose an airport to follow a runway, or drop "

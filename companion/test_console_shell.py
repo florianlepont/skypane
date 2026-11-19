@@ -223,7 +223,7 @@ def test_the_switch_is_a_row_of_the_more_panel_for_an_admin_and_absent_for_a_use
     assert "tab-bar__link--switch" not in bar
     panel = bar.split('<div class="tab-bar__more-panel">')[1]
     assert re.search(r'<a class="[^"]*tab-bar__space-link" href="/"[^>]*>', panel)
-    assert "My frame<" in panel
+    assert "My frames<" in panel
     _status, mine = _get(server, cookies["admin"], server.frame_prefix + "/")
     mine_bar = _tab_bar(mine)
     assert "tab-bar__link--switch" not in mine_bar

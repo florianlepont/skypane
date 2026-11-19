@@ -30,7 +30,7 @@ def _bar_labels(role, lang):
 
 _SWITCH_LABEL = {
     "personal": {"en": "Console", "fr": "Console"},
-    "console": {"en": "My frame", "fr": "Mon cadre"},
+    "console": {"en": "My frames", "fr": "Mes cadres"},
 }
 _ACCOUNT_LABEL = {"en": "Account", "fr": "Compte"}
 _CELLS = (
@@ -126,7 +126,7 @@ def test_at_1280_the_bar_is_not_shown_and_the_sidebar_carries_the_pages(
         assert not page.locator(".tab-bar").is_visible()
         names = page.locator(".dashboard-sidebar .sidebar-link").all_inner_texts()
         assert [n.strip() for n in names[:5]] == [
-            "Home", "Flight history", "Location and detection", "Style", "Airlines"], names
+            "Home", "Flights", "Airlines", "Style", "Location"], names
     finally:
         context.close()
 
@@ -191,7 +191,7 @@ def test_the_switch_row_in_the_panel_moves_between_the_spaces(
         page.wait_for_function("() => location.pathname === '/fleet'")
         _settled_cells(page)
         panel = _open_panel(page)
-        assert panel["links"][1]["text"] == "My frame", panel
+        assert panel["links"][1]["text"] == "My frames", panel
         page.locator(".tab-bar__space-link").click()
         page.wait_for_function("() => location.pathname !== '/fleet'")
     finally:

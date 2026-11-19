@@ -391,7 +391,7 @@ def test_hex_only_row_promotes_hex_to_primary(tmp_path):
 
 
 def test_history_has_no_resolve_link_machinery_and_health_keeps_its_own():
-    """the Flight history page carries no resolve link template, text or prefix helper (naming
+    """the Flights page carries no resolve link template, text or prefix helper (naming
     an airline is Console work), and neither does the Health page: unidentified prefixes are
     named in the Airlines table"""
     for name in ("RESOLVE_LINK_HREF_TEMPLATE", "RESOLVE_LINK_TEXT", "UNRESOLVED_LINK_CLASS",
@@ -716,7 +716,7 @@ def test_flights_french_render_translates_headings_not_data(tmp_path):
     finally:
         prefs.set_request_prefs(lang="en")
     for needle in (
-            ">Historique des vols<", ">Quand<", ">Trajet<", ">Avion<", "Image",
+            ">Vols<", ">Quand<", ">Trajet<", ">Avion<", "Image",
             "Filtrer les vols"):
         assert needle in rendered, "expected the French %r in a French Flights render" % (needle,)
     assert "FLT1" in rendered, "expected the seeded callsign 'FLT1' to stay untranslated data"
@@ -740,7 +740,7 @@ def test_flights_full_seeded_render_french_end_to_end(tmp_path):
     finally:
         prefs.set_request_prefs(lang="en")
     for needle in (
-            ">Historique des vols<", "Compagnie inconnue", "aucun indicatif",
+            ">Vols<", "Compagnie inconnue", "aucun indicatif",
             "Au départ", "À l’arrivée", ">Quand<", ">Vol<", ">Trajet<", ">Avion<",
             "Effacer",):
         assert needle in rendered_fr, "expected the French %r in the French Flights render" % (needle,)
@@ -753,7 +753,7 @@ def test_flights_full_seeded_render_french_end_to_end(tmp_path):
 
     rendered_en = history_page.render(vp.history_ctx(tmp_path))
     for needle in (
-            '<h1 class="page-title">Flight history</h1>', history_page.AIRLINE_FALLBACK_TEXT,
+            '<h1 class="page-title">Flights</h1>', history_page.AIRLINE_FALLBACK_TEXT,
             history_page.NO_CALLSIGN_NOTE_TEXT, "Departing", "Arriving",
             ">When<", ">Flight<", ">Route<", ">Aircraft<"):
         assert needle in rendered_en, (

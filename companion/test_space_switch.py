@@ -99,7 +99,7 @@ def test_the_phone_switch_is_a_more_panel_row_and_the_sidebar_keeps_its_own(serv
     panel = bar[bar.index('<div class="tab-bar__more-panel">'):]
     row = panel[panel.index("tab-bar__space-link"):]
     row = row[:row.index("</a>")]
-    assert 'href="/"' in row and (">Mon cadre<" in row or ">My frame<" in row)
+    assert 'href="/"' in row and (">Mes cadres<" in row or ">My frames<" in row)
     sidebar = markup[markup.index("<aside"):markup.index("</aside>")]
     assert sidebar.index('class="space-switch"') < sidebar.index('class="sidebar-nav"')
 

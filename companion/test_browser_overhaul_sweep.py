@@ -1,7 +1,7 @@
 """Cross-page sweep of the reworked companion in a real browser.
 
 Every reworked page (Fleet, Users, Audit log, Releases, Account, Home,
-Location and detection, Personalisation, Airline collection, and the Console
+Location, Personalisation, Airline collection, and the Console
 Health, Device and Airline editor pages) and every dialog it opens (the Fleet
 dialogs, the quiet-hours dialog, the two confirm dialogs for a
 special look and a manual resolution) is loaded at 360 and 1280px, in English

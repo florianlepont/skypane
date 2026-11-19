@@ -1,7 +1,7 @@
 """The Display page no longer carries a location picker and its save never
 assigns a place: the controls are absent for every role, a crafted
 `location_id` posted to the settings form moves nothing and writes no audit
-row, and the frame's place stays reachable on the Location and detection
+row, and the frame's place stays reachable on the Location
 page. Every place here is an obviously generic fake."""
 
 import pytest

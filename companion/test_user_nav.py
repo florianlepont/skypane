@@ -69,8 +69,8 @@ def test_user_sidebar_lists_the_reachable_frame_pages_then_account(monkeypatch):
     sidebar = layout.sidebar_nav("home")
     prefix = "/devices/abc123"
     assert _hrefs(sidebar) == [
-        prefix + "/", prefix + "/flights", prefix + "/detection", prefix + "/display",
-        prefix + "/airlines", "/account"]
+        prefix + "/", prefix + "/flights", prefix + "/airlines", prefix + "/display",
+        prefix + "/detection", "/account"]
     for label in ADMIN_ONLY_LABELS:
         assert label not in sidebar
     assert "nav-group__label" not in sidebar

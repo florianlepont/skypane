@@ -172,7 +172,7 @@ def _config_bytes(device):
 
 
 def _timezone_select(page):
-    """The time zone select of the Location and detection page."""
+    """The time zone select of the Location page."""
     found = re.search(r'<select id="place-timezone".*?</select>', page, re.S)
     assert found, "the time zone select is missing"
     return found.group(0)
