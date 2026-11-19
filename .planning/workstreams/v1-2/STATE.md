@@ -27,7 +27,7 @@ progress:
 Phase: 49 (per-hardware-ota-registry) — ready for verification
 Plan: 11 of 11 (all plans complete)
 Status: Phase complete — ready for verification
-Last activity: 2026-11-18 - Completed quick task 261118-q4d: rear enclosure design reworked with the owner, four STL exported, print-order tables filled; nothing sliced or printed
+Last activity: 2026-11-19 - Phase 69: rear enclosure design reworked with the owner, four STL exported, parts sliced in Bambu Studio (slice check filled), plans 03 to 05 aligned; nothing printed yet
 
 Progress: [████████░░] 84%
 

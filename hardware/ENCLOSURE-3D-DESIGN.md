@@ -1,12 +1,12 @@
 # Rear enclosure for the 7.3 inch frame: 3D design record
 
-**Status (2026-11-18).** The design was reworked with the owner in a Blender session
+**Status (2026-11-19).** The design was reworked with the owner in a Blender session
 and checked on the model; the original text of 2026-11-16 below is updated where it
 had become wrong. The four parts are exported as STL in `hardware/cad/export/`. The
 changes, the checks and the measured values are listed in
 [ENCLOSURE-PRINT-ORDER.md](ENCLOSURE-PRINT-ORDER.md) and
 [ENCLOSURE-MEASUREMENTS.md](ENCLOSURE-MEASUREMENTS.md). Values the owner has not
-reported remain design values, not measured. Nothing has been sliced or printed.
+reported remain design values, not measured. The parts were sliced by the owner on 2026-11-19 (times and masses in the print order); nothing has been printed.
 
 Hand-over of the owner's design work of 2026-11-16, done in a separate
 conversation ("Choix imprimante 3D Bambu Lab") and not yet verified against the
