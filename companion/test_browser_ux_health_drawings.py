@@ -35,7 +35,8 @@ VISIBLE_VIEW = ".battery-chart__view:not([hidden])"
 RING_FIGURE = "#health-row-battery svg.drawing__figure"
 RING_VALUE = "#health-row-battery svg.drawing__figure .drawing-ring-value"
 RING_TRACK = "#health-row-battery svg.drawing__figure .drawing-ring-track"
-RING_PAGES = (("Fleet", "/fleet"),)
+FRAME_ROUTE = "/fleet?frame=live"
+RING_PAGES = (("Fleet", FRAME_ROUTE),)
 
 
 @pytest.fixture(scope="module")
@@ -242,7 +243,7 @@ def test_the_charts_area_mark_and_threshold_paint_real_tokens_in_both_themes(pag
     # resolve to something else, since a judgement painted in the data's own ink is a
     # judgement nobody can see; and every one of them must move when the theme does.
     _login(page, server.base_url())
-    page.goto(server.base_url() + "/fleet")
+    page.goto(server.base_url() + FRAME_ROUTE)
     _open_health_rows(page)
     page.wait_for_selector(CHART_AREA)
     seen = {}
@@ -344,7 +345,7 @@ def test_the_chart_costs_no_width_at_360_in_either_language_and_needs_no_script(
             _login(page, base_url)
             context.add_cookies([{
                 "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
-            page.goto(base_url + "/fleet")
+            page.goto(base_url + FRAME_ROUTE)
             _open_health_rows(page)
             page.wait_for_selector(CHART_LEGEND)
             message = _assert_no_page_overflow(
@@ -440,7 +441,7 @@ def test_the_chart_costs_no_width_at_360_in_either_language_and_needs_no_script(
 
     # All three additions are server-rendered SVG and owe nothing to a script. Measured in
     # the theme+no-JS combination most likely to be wrong.
-    with _no_js_page(new_context, server.base_url(), "/fleet",
+    with _no_js_page(new_context, server.base_url(), FRAME_ROUTE,
                      viewport=VIEWPORT_MIN_SUPPORTED) as blocked:
         _open_health_rows(blocked)
         for label, selector in (("area", CHART_AREA), ("mark", CHART_MARK),
@@ -480,7 +481,7 @@ def test_health_has_no_regularity_grid_and_the_connection_row_still_renders(
         _login(page, server.base_url())
         context.add_cookies([{
             "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": server.base_url()}])
-        page.goto(server.base_url() + "/fleet")
+        page.goto(server.base_url() + FRAME_ROUTE)
         _open_health_rows(page)
         for selector in (".check-in-grid", ".check-in-key", ".check-in-grid__scale",
                          "rect.drawing-cell"):
@@ -520,7 +521,7 @@ def _open_status(context, base_url, lang):
     page = context.new_page()
     _login(page, base_url)
     context.add_cookies([{"name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
-    page.goto(base_url + "/fleet")
+    page.goto(base_url + FRAME_ROUTE)
     _open_health_rows(page)
     page.wait_for_selector(".battery-unit:not([hidden])")
     return page
@@ -622,7 +623,7 @@ def test_the_battery_unit_switch_works_by_touch(new_context, server):
 
 def test_the_battery_chart_stays_on_voltage_without_script(new_context, server):
     """With scripts blocked the control is not offered and the voltage chart stays visible."""
-    with _no_js_page(new_context, server.base_url(), "/fleet") as page:
+    with _no_js_page(new_context, server.base_url(), FRAME_ROUTE) as page:
         _open_health_rows(page)
         assert page.is_hidden(".battery-unit")
         assert page.is_visible('.battery-chart__view[data-unit="mv"] .sparkline__canvas')

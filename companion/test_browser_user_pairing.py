@@ -250,6 +250,7 @@ def test_the_fleet_page_header_has_no_add_a_frame_button(new_context, seeded):
         page.goto(server.base_url() + "/fleet")
         page.locator("main").wait_for(state="visible")
         assert page.locator(".page-header a.page-header__action").count() == 0
-        assert page.locator("a.frame-row--add").count() == 1
+        assert page.locator("a.frame-row--add").count() == 0
+        assert page.locator(".fleet-list .fleet-add-button").count() == 1
     finally:
         context.close()
