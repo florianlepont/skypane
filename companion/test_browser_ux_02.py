@@ -175,16 +175,24 @@ def test_the_live_preview_crossfade_settles_correct_through_its_own_listener(new
             "'[data-look-usage=\"departures\"] img.look-frame__image');"
             " return i.getAttribute('src') === src && i.complete && i.naturalWidth > 0; }",
             arg=target["src"], timeout=10000)
-        # The arrived picture fades in from a blur (about 900ms); it must then rest fully opaque.
-        page.wait_for_function(
-            "() => !document.querySelector("
-            "'[data-look-usage=\"departures\"] img.look-frame__image')"
-            ".classList.contains('is-revealed')", timeout=10000)
-        opacity = page.evaluate(
-            "() => parseFloat(getComputedStyle(document.querySelector("
-            "'[data-look-usage=\"departures\"] img.look-frame__image')).opacity)")
-        if opacity != 1:
-            raise AssertionError("the picture settled at opacity %r, not fully visible" % (opacity,))
+        # The arrived picture fades in from a blur (about 900ms) once the next frame
+        # marks it; it must then rest fully opaque with the marker gone. The marker is
+        # also absent before that frame, so two frames pass first: the load handler
+        # queued the marking for the next one.
+        page.evaluate(
+            "() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))")
+        try:
+            page.wait_for_function(
+                "() => { const i = document.querySelector("
+                "'[data-look-usage=\"departures\"] img.look-frame__image');"
+                " return !i.classList.contains('is-revealed')"
+                " && parseFloat(getComputedStyle(i).opacity) === 1; }", timeout=10000)
+        except Exception:
+            opacity = page.evaluate(
+                "() => parseFloat(getComputedStyle(document.querySelector("
+                "'[data-look-usage=\"departures\"] img.look-frame__image')).opacity)")
+            raise AssertionError(
+                "the picture settled at opacity %r, not fully visible" % (opacity,))
     finally:
         context.close()
 
