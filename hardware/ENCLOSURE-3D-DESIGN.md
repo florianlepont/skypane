@@ -12,7 +12,7 @@ Hand-over of the owner's design work of 2026-11-16, done in a separate
 conversation ("Choix imprimante 3D Bambu Lab") and not yet verified against the
 real parts. It feeds SEED-014 (enclosure and administrator tool, milestone
 v1.4). Every number below is a design value or an estimate unless it says
-"measured". Nothing has been printed or sliced yet.
+"measured". The parts were sliced by the owner on 2026-11-19; nothing has been printed.
 
 ## Goal
 
@@ -32,21 +32,22 @@ powered over USB.
 
 | Subject | State |
 |---|---|
-| Printer | Bambu Lab X2D Combo recommended (749 EUR noted earlier; Black Friday offer until 2026-12-01, to recheck). Purchase: not decided. |
-| Material | PETG, a design assumption. Not formally decided. |
-| Filament (brand, colour) | Not decided. |
-| Nozzle | 0.4 mm, a design assumption. Not formally decided. |
-| Build plate | Not decided. |
+| Printer | Sliced for a P2S profile; printing on the owner's workplace Bambu printers (X1 series, machine recorded per round). Purchase of the X2D not decided and the owner's. |
+| Material | PETG Basic (owner's slice, 2026-11-19), colour open |
+| Filament (brand, colour) | Bambu PETG Basic, spool recorded per round |
+| Nozzle | 0.4 mm |
+| Build plate | Textured PEI (owner's slice) |
 | CAD | Blender, driven by the official Blender MCP connector (`lab.blender.org/mcp-server`). Fusion (personal licence) had been recommended before. |
-| Slicer | Bambu Studio planned, not used yet. |
-| Screws | M2 self-tapping by default. Heat-set inserts: not decided. |
+| Slicer | Bambu Studio 2.9.1.70 (used 2026-11-19) |
+| Screws | M2 self-tapping; the reuse test decides; inserts need a boss redesign |
 
 ## Dimensions and constraints
 
 **Frame** (from the IKEA 3D model, not measured on the real frame):
 
+- Frame of fibreboard with paper foil, front sheet and inner frame of polystyrene (IKEA product page), mat of acid-free paper.
 - Rear rebate about 133.4 x 183.4 mm.
-- Depth available behind the screen: 22.7 mm up to the wooden edge. Nothing may
+- Depth available behind the screen: 22.7 mm up to the fibreboard edge. Nothing may
   stick out.
 - Metal tabs: one per side, about 12.6 mm behind the screen.
 
@@ -86,32 +87,23 @@ powered over USB.
   script `skypane_cassette.py` stored inside the Blender file.
 - Abandoned versions: a plate with a box at the edge and steel weights; a large
   centred box.
-- Tests: no part printed, no part sliced.
-- A Father Christmas figurine was modelled at the start as a connector test.
+- Tests: sliced by the owner on 2026-11-19; nothing printed.
 
 ## Open questions and next steps
 
-1. Check that the Blender file is saved and restart the connector. If it is not
-   saved and Blender is closed, the model has to be regenerated. The file's
-   location is unknown to the assistant.
-2. Export the four parts and check the slicing in Bambu Studio.
-3. Heat-set inserts or self-tapping screws for the lid: not decided.
-4. Measurements to make on the real hardware:
-   - the screen (the shim depends on it);
-   - the rebate and the depth of the frame;
-   - the battery cable length (under 105 mm according to the owner, exact value
-     unknown; a JST-PH extension is likely);
-   - the real ribbon length (24 mm assumed);
-   - the masses of the board and the frame.
-5. Thickness of the mat, ordered elsewhere: 1.2 mm assumed.
-6. Printer purchase, material, filament, plate: not decided.
-7. First test print, to adjust the clearances (stop walls and plate, screws, rebate, tab pads).
+1. Blender file saved: done, reported by the owner on 2026-11-18 (last save 2026-11-17); the owner reported on 2026-11-19 that the exported STL match the final blend, export date still open.
+2. Export of the four parts: done (2026-11-18 per the previous record). Slice check in Bambu Studio: done by the owner on 2026-11-19, nothing printed.
+3. Screws or heat-set inserts for the lid: self-tapping by default; the reuse test decides; inserts need a boss redesign.
+4. Open: calliper survey of five frames (a calliper is not yet in hand), print rounds, battery gate, validation, Wi-Fi baseline.
+5. Open measurements on the real hardware, where not yet reported: the battery cable length (under 105 mm according to the owner, exact value unknown; a JST-PH extension is likely), the real ribbon length (24 mm reported with a tape measure), the mat opening height (90 or 99 mm, asked on 2026-11-19).
+6. Thickness of the mat: 1 mm reported with a tape measure on 2026-11-18.
+7. Printer purchase: not decided. First test print, to adjust the clearances (stop walls and plate, screws, rebate, tab pads).
 8. Cables: the battery cable (95 mm) is shorter than the route inside the box (about 105 to 110 mm, estimated from the owner's photo, not measured on the real board), so the owner will buy a JST-PH extension; the antenna cable is tight at 50 mm (U.FL extension as a fallback).
-9. Storage of the stand plate: none for now; the plate is loose. A storage place is to be found after the first fit.
+9. Storage of the stand plate: two magnets on the lid back (design value); real magnet fit open until they arrive.
 
 ## Product references
 
-- IKEA RÖDALM 13 x 18 cm, black, article 105.488.67.
+- IKEA RÖDALM 13 x 18 cm, article 105.488.67, black per the design record; the IKEA page consulted shows the white 105.488.72 of the same family; confirm the article on the labels of the frames bought. Frame of fibreboard with paper foil, front sheet and inner frame of polystyrene.
 - Seeed XIAO ePaper EE04 board.
 - 7.3 inch Spectra 6 screen, equivalent to Good Display GDEP073E01, 50-pin
   ribbon.
@@ -125,14 +117,14 @@ powered over USB.
 
 Quantities for five cassettes, with a margin. The owner already has the frame, screen, board, antenna and battery for the first one; the others were not counted.
 
-| Item | Quantity | Note |
-|---|---|---|
-| JST-PH 2.0 mm, 2-pin male-to-female extension (about 20 cm), or the same connector as two loose pigtails to solder | 5 (a lot of 20 ordered) | Check the polarity with a multimeter before connecting: the battery plus (red) goes to the board side away from the USB-C |
-| Round neodymium magnets 6 x 2 mm | 20 (a lot of 100 ordered) | Stand plate storage; stick each pair face to face first to keep the polarity |
-| M2 self-tapping pan-head screws, assortment 4 to 20 mm | 20 x 6 or 8 mm (lid), 20 x 4 mm at most (board) | Assortment of 800 ordered; check the heads are pan, not countersunk |
-| Wall screws and plugs for the hook | 5, plus spares | Head up to 9.5 mm, shank 3.0 to 4.3 mm, 2.1 mm or more under the head; type depends on the wall (not known) |
-| PETG filament, 1.75 mm, 1 kg | 1 | Available at the owner's workplace; about 136 g per set of four parts at most (solid) |
-| Fine Phillips screwdriver (PH0 or PH00), multimeter | 1 each | If not already owned |
+| Item | Quantity | Note | Arrival (as reported by the owner) |
+|---|---|---|---|
+| JST-PH 2.0 mm, 2-pin male-to-female extension (about 20 cm), or the same connector as two loose pigtails to solder | 5 (a lot of 20 ordered) | Check the polarity with a multimeter before connecting: the battery plus (red) goes to the board side away from the USB-C | to confirm (asked 2026-11-19) |
+| Round neodymium magnets 6 x 2 mm | 20 (a lot of 100 ordered) | Stand plate storage; stick each pair face to face first to keep the polarity | to confirm (asked 2026-11-19) |
+| M2 self-tapping pan-head screws, assortment 4 to 20 mm | 20 x 6 or 8 mm (lid), 20 x 4 mm at most (board) | Assortment of 800 ordered; check the heads are pan, not countersunk | to confirm (asked 2026-11-19) |
+| Wall screws and plugs for the hook | 5, plus spares | Head up to 9.5 mm, shank 3.0 to 4.3 mm, 2.1 mm or more under the head; type depends on the wall (not known) | to confirm (not asked yet) |
+| PETG filament, 1.75 mm, 1 kg | 1 | Available at the owner's workplace; about 136 g per set of four parts at most (solid) | to confirm (not asked yet) |
+| Fine Phillips screwdriver (PH0 or PH00), multimeter | 1 each | If not already owned | to confirm (not asked yet) |
 
 Fallbacks, only if the first fit asks for them: a U.FL antenna extension, M2 heat-set inserts, 1.8 mm adhesive foam for the battery, a 1.7 mm drill.
 
@@ -147,8 +139,10 @@ In this repository, `hardware/cad/` (added by the owner on 2026-11-17):
 - `ee04_board.stl`: the board, converted from the GrabCAD STEP file (about 12.5 MB).
 - `ikea_rodalm_13x18_noir.glb`: the IKEA 3D model of the frame (about 0.14 MB).
 
+- `skypane_cassette.blend1`: a Blender automatic backup copy, not a design source.
 - `export/skypane_tray.stl`, `export/skypane_lid.stl`, `export/skypane_stand.stl`, `export/skypane_shim.stl`: the four parts to print,
-  exported on 2026-11-18 (details in ENCLOSURE-PRINT-ORDER.md).
+  exported 2026-11-18 per the previous record; the owner's confirmation that they match the final blend is recorded in the print order.
+- `export/skypane_lid.3mf`: present in the export folder; its role is open (asked of the owner on 2026-11-19).
 
 ## Notes for the planning
 

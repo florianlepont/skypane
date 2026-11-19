@@ -776,7 +776,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion; 69-05 has no dependency on any print and runs in parallel with the print plans)*
 
-- [ ] 69-02-PLAN.md — Closeout: reconcile stale design records, record decisions, owner answers the open questions (ENC-01)
+- [x] 69-02-PLAN.md — Closeout: reconcile stale design records, record decisions, owner answers the open questions (ENC-01)
 - [ ] 69-05-PLAN.md — Wi-Fi protocol (interleaved blocks, bootstrap bound) and the bare-frame baseline taken now (ENC-01)
 
 **Wave 3** *(blocked on Wave 2 plan 69-02)*
