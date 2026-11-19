@@ -250,8 +250,8 @@ def page_html(h, query, view):
     if is_system:
         return notice + _split(
             "system", frames_list.list_panel_html(view, is_system=True),
-            frames_list.switch_html(view) + '<h1 class="fleet-head__title">%s</h1>' % _t(
-                _SYSTEM_HEADING) + system_html(h.page_context(device_scope.live_device(root))))
+            frames_list.switch_html(view) + frames_list.title_head_html(_t(_SYSTEM_HEADING))
+            + system_html(h.page_context(device_scope.live_device(root))))
     if selected is not None:
         live = frames_list.find_row(view, selected.id)
         return notice + _split(

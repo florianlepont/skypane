@@ -1862,8 +1862,9 @@ dialog.access-sheet .modal__actions {
   border-radius: var(--radius-card);
 }
 /* The list of frames and the frame switch. A phone shows the list or one frame
- * (the server marks the view on .fleet-split); from 960px the list is a column
- * beside the frame. */
+ * (the server marks the view on .fleet-split); from 1200px the list is a column
+ * beside the frame (a narrower page leaves the frame under 440px, too tight for
+ * its rows). */
 .fleet-split {
   display: block;
   min-width: 0;
@@ -2075,7 +2076,7 @@ a.fleet-action-button {
   margin-top: var(--space-md);
 }
 
-@media (min-width: 960px) {
+@media (min-width: 1200px) {
   .fleet-split {
     display: grid;
     grid-template-columns: minmax(280px, 320px) minmax(0, 1fr);

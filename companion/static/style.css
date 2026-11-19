@@ -6987,7 +6987,7 @@ button.row-menu__item {
 .reveal-appended,
 .reveal-replay,
 .dashboard-main[data-page-open] .reveal,
-.dashboard-main[data-page-open] .group-block:not(.history-day):nth-child(-n + 6),
+.dashboard-main[data-page-open] .group-block:not(.history-day):not(.fleet-list-group):nth-child(-n + 6),
 .dashboard-main[data-page-open] .history-day:nth-child(-n + 3),
 .dashboard-main[data-page-open] .page-section:not(.group-block .page-section):nth-child(-n + 6),
 .dashboard-main[data-page-open] .personalisation-look,
@@ -7194,12 +7194,18 @@ button.row-menu__item {
 }
 
 /* The Fleet page has no page header: the list's title row, or the title of the
- * frame or view in the main column, opens the page on a phone and the blocks
- * count on from it. */
-@media (max-width: 959px) {
-  .dashboard-main[data-page-open] .fleet-list__head,
-  .dashboard-main[data-page-open] .fleet-split__main > .fleet-head__title {
+ * frame or view in the main column, opens the page below 1200px and the
+ * blocks count on from it. */
+@media (max-width: 1199px) {
+  .dashboard-main[data-page-open] .fleet-list__head {
     animation: skypane-reveal-fade var(--motion-enter) var(--ease-out) backwards;
+  }
+
+  .dashboard-main[data-page-open] .fleet-list-group:nth-child(-n + 6) {
+    animation:
+      skypane-reveal var(--motion-enter) steps(12, end) backwards,
+      skypane-reveal-fade var(--motion-enter) var(--ease-out) backwards;
+    animation-delay: calc(var(--reveal-index, 0) * var(--motion-stagger));
   }
 
   .dashboard-main[data-page-open] .fleet-split .fleet-frame > :nth-child(1),
@@ -7210,7 +7216,9 @@ button.row-menu__item {
   .dashboard-main[data-page-open] .fleet-frame > :nth-child(2) {
     --reveal-index: 1;
   }
+}
 
+@media (max-width: 959px) {
   .dashboard-main[data-page-open] .fleet-blocks > .fleet-block--state:nth-child(1 of .fleet-block--state),
   .dashboard-main[data-page-open] .fleet-blocks > .fleet-block--settings:nth-child(1 of .fleet-block--settings),
   .dashboard-main[data-page-open] .fleet-blocks > .fleet-block--access:nth-child(1 of .fleet-block--access) {
@@ -7218,15 +7226,11 @@ button.row-menu__item {
   }
 }
 
-/* From 960px the list is one block that fades in as the header does (its rows
+/* From 1200px the list is one block that fades in as the header does (its rows
  * and title take no entrance of their own), and the frame follows it. */
-@media (min-width: 960px) {
+@media (min-width: 1200px) {
   .dashboard-main[data-page-open] .fleet-split__list {
     animation: skypane-reveal-fade var(--motion-enter) var(--ease-out) backwards;
-  }
-
-  .dashboard-main[data-page-open] .fleet-split__list .fleet-list__body > .group-block:nth-child(n) {
-    animation: none;
   }
 
   .dashboard-main[data-page-open] .fleet-split__main > .fleet-head {
@@ -7235,6 +7239,22 @@ button.row-menu__item {
 
   .dashboard-main[data-page-open] .fleet-split__main > .fleet-other > .group-block {
     --reveal-index: 2;
+  }
+
+  .dashboard-main[data-page-open] .fleet-split .fleet-blocks--system .group-block:nth-child(1) {
+    --reveal-index: 2;
+  }
+
+  .dashboard-main[data-page-open] .fleet-split .fleet-blocks--system .group-block:nth-child(2) {
+    --reveal-index: 3;
+  }
+
+  .dashboard-main[data-page-open] .fleet-split .fleet-blocks--system .group-block:nth-child(3) {
+    --reveal-index: 4;
+  }
+
+  .dashboard-main[data-page-open] .fleet-split .fleet-blocks--system .group-block:nth-child(n + 4) {
+    --reveal-index: 5;
   }
 }
 
@@ -7257,6 +7277,26 @@ button.row-menu__item {
 .dashboard-main[data-page-open] .personalisation > :nth-child(1),
 .dashboard-main[data-page-open] .fleet-frame > :nth-child(1) {
   --reveal-index: 1;
+}
+
+/* Between 960px and 1200px the tabs are gone but the list is not beside the
+ * frame: the frame's title opens the page and its blocks follow one step apart. */
+@media (min-width: 960px) and (max-width: 1199px) {
+  .dashboard-main[data-page-open] .fleet-split .fleet-frame .fleet-blocks > .group-block:nth-child(1) {
+    --reveal-index: 1;
+  }
+
+  .dashboard-main[data-page-open] .fleet-split .fleet-frame .fleet-blocks > .group-block:nth-child(2) {
+    --reveal-index: 2;
+  }
+
+  .dashboard-main[data-page-open] .fleet-split .fleet-frame .fleet-blocks > .group-block:nth-child(3) {
+    --reveal-index: 3;
+  }
+
+  .dashboard-main[data-page-open] .fleet-split .fleet-frame .fleet-blocks > .group-block:nth-child(n + 4) {
+    --reveal-index: 4;
+  }
 }
 
 /* The content of a Style view takes its wrapper's place. */

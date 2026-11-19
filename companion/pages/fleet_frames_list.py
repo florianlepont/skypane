@@ -220,12 +220,17 @@ def head_html(row, view):
             _esc(name), _state_line(row, view), buttons)
 
 
-def plain_head_html(device):
-    """The title block of a frame with no fleet row (the legacy single frame):
-    only its name, so the page keeps its one `<h1>`."""
+def title_head_html(title):
+    """A title block with the page's one `<h1>` and nothing else: the System
+    view, and a frame with no fleet row (the legacy single frame)."""
     return (
         '<div class="fleet-head"><div class="fleet-head__text">'
-        '<h1 class="fleet-head__title">%s</h1></div></div>') % _esc(device.name)
+        '<h1 class="fleet-head__title">%s</h1></div></div>') % title
+
+
+def plain_head_html(device):
+    """The title block of a frame with no fleet row, named by its device."""
+    return title_head_html(_esc(device.name))
 
 
 def other_page_html(row, view):
