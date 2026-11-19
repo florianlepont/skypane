@@ -28,7 +28,7 @@ import companion.page_context as page_context
 import companion.ui_components as ui_components
 from companion import airline_collection
 from companion.pages import airline_known_rows, airline_rows, airline_sheet, airline_table
-from companion.ui_base import AIRLINE_EDITOR_LABEL
+from companion.ui_base import AIRLINE_EDITOR_LABEL, validation_attrs
 from server.plane import airline_default_types, illustrations
 # manual_resolutions, enrich and state_store import this page module in
 # neither direction, so importing them here creates no cycle.
@@ -46,6 +46,13 @@ ILLUSTRATION_ROUTE_PREFIX = "/illustration/"
 # primary picture); the other sections use their fleet-variant shape as
 # identifier.
 ANY_TYPE_ID = "any"
+# The upload address query parameter that carries the aircraft type chosen in
+# the add-first-artwork dialog (the multipart body holds the file alone).
+DEFAULT_TYPE_QUERY_PARAM = "default_type"
+ASK_TYPE_ATTR = "data-view-panel-ask-type"
+ASK_TYPE_ID = "airline_artwork_type"
+ASK_TYPE_CLASS = "upload-type"
+ASK_TYPE_LABEL = i18n.msg("airlines.artwork_aircraft_type", "Aircraft type")
 TYPE_LABEL_TEXT = i18n.msg("airlines.aircraft_type", "Aircraft type")
 # The type label of an owner-named airline: its one picture is used for
 # every aircraft, so it names no single type. A built-in airline always
@@ -206,6 +213,7 @@ FLASH_ILLUSTRATION_NOT_TRANSPARENT = "illustration_not_transparent"
 # storing an otherwise-acceptable upload.
 FLASH_ILLUSTRATION_REPLACE_FAILED = "illustration_replace_failed"
 
+FLASH_ARTWORK_TYPE_INVALID = "artwork_type_invalid"
 FLASH_MANUAL_RESOLVED = "manual_resolved"
 FLASH_MANUAL_NAME_EMPTY = "manual_name_empty"
 FLASH_MANUAL_NAME_TOO_LONG = "manual_name_too_long"
@@ -986,6 +994,21 @@ def _resolve_name_form_html(prefix_value, id_suffix, include_submit=True, hidden
     )
 
 
+def _ask_type_html():
+    """The aircraft-type select of the add-first-artwork step, hidden unless
+    the opening trigger asks for a type. It has no `name`: the multipart body
+    holds the file alone, so panel-lookup.js puts the choice on the upload
+    address as `default_type`."""
+    options = sorted(set(illustrations._TYPE_SHAPE_BUCKETS) | set(illustrations._TYPE_VARIANT_SLUGS))
+    return (
+        '<select id="%s" class="%s" aria-label="%s" hidden%s>'
+        '<option value="">%s</option>%s</select>'
+    ) % (
+        ASK_TYPE_ID, ASK_TYPE_CLASS, escape_html(i18n.t(ASK_TYPE_LABEL)),
+        validation_attrs("select"), escape_html(i18n.t(ASK_TYPE_LABEL)),
+        "".join('<option value="%s">%s</option>' % (escape_html(c), escape_html(c)) for c in options))
+
+
 def _resolve_upload_form_html(action, id_suffix):
     """Step B's upload-zone form — one definition, two call sites: the no-JS
     fallback calls this with the real `/illustration/{key}.png` action and
@@ -1005,7 +1028,7 @@ def _resolve_upload_form_html(action, id_suffix):
         '<label for="%s">%s</label>'
         '<p class="%s">%s</p>'
         '<form id="%s" method="post" enctype="multipart/form-data" action="%s">'
-        "%s"
+        "%s%s"
         '<input type="file" id="%s" name="image" accept="image/png" required>'
         "%s"
         "%s"
@@ -1019,6 +1042,7 @@ def _resolve_upload_form_html(action, id_suffix):
         MANUAL_UPLOAD_FORM_ID + id_suffix,
         action,
         csrf_field(),
+        _ask_type_html() if id_suffix else "",
         upload_input_id,
         ui_components.button_html(i18n.t(REPLACE_BUTTON_TEXT), "secondary", button_type="submit"),
         _upload_drop_html(upload_input_id),

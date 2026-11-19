@@ -68,7 +68,7 @@ def _add_button(page, state_dir, name):
         layout.icon_html("icon-plus", 20), escape_html(i18n.t(ADD_TEXT)))
     return page._type_trigger_html(
         card, page.ANY_TYPE_ID, name, key, "btn btn--secondary airlines-known__add", inner,
-        i18n.t(ADD_ARIA) % name)
+        i18n.t(ADD_ARIA) % name, extra_attrs='%s="" ' % page.ASK_TYPE_ATTR)
 
 
 def group_html(page, index, state_dir, prefix, name):

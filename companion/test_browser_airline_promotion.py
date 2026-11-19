@@ -39,6 +39,14 @@ def test_artwork_uploaded_for_a_known_by_name_airline_gives_it_a_row_of_the_tabl
         upload = page.locator("#manual-illustration-input-dialog")
         upload.wait_for(state="attached")
         upload.set_input_files(_PNG)
+        ask = page.locator("#airline_artwork_type")
+        assert ask.is_visible()
+        page.wait_for_function(_SETTLED, timeout=15000)
+        assert ask.bounding_box()["height"] >= 44
+        # No type chosen: the browser refuses the submission.
+        page.locator("#manual-illustration-form-dialog button[type=submit]").click()
+        assert page.locator(KNOWN + ":has-text('Finnair')").count() == 1
+        ask.select_option("A333")
         with page.expect_navigation():
             page.locator("#manual-illustration-form-dialog button[type=submit]").click()
         page.wait_for_function(_SETTLED, timeout=15000)
@@ -47,6 +55,7 @@ def test_artwork_uploaded_for_a_known_by_name_airline_gives_it_a_row_of_the_tabl
         assert row.count() == 1
         text = row.inner_text()
         assert "Finnair" in text and "FIN" in text
+        assert "A333" in text
         assert row.locator("img").count() >= 1
         assert row.locator(".row-menu__toggle").count() == 1
         captions = page.locator("caption.airlines-label").all_inner_texts()

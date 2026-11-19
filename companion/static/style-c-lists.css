@@ -524,3 +524,15 @@ button.row-menu__item:hover {
 .filter-bar__chips--links .filter-chip__text {
   overflow: visible;
 }
+
+/* The aircraft-type select of the add-first-artwork step: the full width of
+ * the upload zone, its text centred like the zone's own controls. */
+.resolve-upload-zone .upload-type:not([hidden]) {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  min-height: 44px;
+  text-align: center;
+  text-align-last: center;
+}

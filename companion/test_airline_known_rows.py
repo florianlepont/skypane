@@ -10,7 +10,7 @@ import pytest
 import companion.test_companion_app_helpers as cah
 import fleet_console_support as fx
 from companion_app_server import InProcessAppServer, http_request, with_csrf_part
-from server.plane import enrich, illustrations, manual_resolutions
+from server.plane import airline_default_types, enrich, illustrations, manual_resolutions
 
 EDITOR = "/airlines/manage"
 ROW = re.compile(r'<tbody class="airline-group airline-group--known".*?</tbody>', re.S)
@@ -108,3 +108,56 @@ def test_an_upload_for_a_known_by_name_airline_is_accepted_and_an_unknown_key_is
         statuses[key] = status
     assert statuses == {"finnair": 303, "no-such-airline": 404}
     assert os.path.isfile(os.path.join(state_dir, "illustration_overrides", "finnair.png"))
+
+
+def _upload(get, key, query, cookie_png):
+    body, content_type = with_csrf_part(
+        get.cookie, *cah.encode_multipart(cookie_png, field_name="illustration"))
+    return http_request(
+        get.server.url("/illustration/%s.png%s" % (key, query)), method="POST", data=body,
+        cookie=get.cookie, content_type=content_type,
+        extra_headers={"Origin": get.server.base_url()})
+
+
+def _vendored_png():
+    path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "server", "assets", "icons", "illustrations", "vueling-airlines.png")
+    with open(path, "rb") as handle:
+        return handle.read()
+
+
+def test_the_artwork_button_asks_for_an_aircraft_type_in_both_languages(known):
+    _state_dir, get = known
+    for lang, label in (("en", "Aircraft type"), ("fr", "Type d’avion")):
+        page = get(lang)
+        assert 'data-view-panel-ask-type=""' in _rows(page)[0]
+        select = re.search(r'<select id="airline_artwork_type".*?</select>', page, re.S).group(0)
+        assert ' hidden' in select.split(">")[0]
+        assert 'aria-label="%s"' % label in select
+        assert '<option value="A333">A333</option>' in select
+
+
+@pytest.mark.parametrize("code", ("", "a", "A3 30", "A330/../x", "ABCDEFGHIJKLM"))
+def test_an_invalid_aircraft_type_refuses_the_upload_and_stores_nothing(known, code):
+    state_dir, get = known
+    status, headers, _raw = _upload(get, "finnair", "?default_type=%s" % code.replace(" ", "%20"), _vendored_png())
+    assert status == 303
+    assert "flash=artwork_type_invalid" in headers["Location"]
+    assert not os.path.exists(os.path.join(state_dir, "illustration_overrides", "finnair.png"))
+    assert not os.path.exists(os.path.join(state_dir, "airline_default_types.json"))
+    status, _h, raw = http_request(
+        get.server.url(headers["Location"].split("#")[0]), cookie=get.cookie,
+        extra_headers={"Accept-Language": "fr"})
+    assert status == 200
+    page = html.unescape(raw.decode("utf-8"))
+    assert "Impossible d’ajouter l’illustration" in page and "type d’avion valide" in page.lower()
+
+
+def test_a_valid_aircraft_type_becomes_the_default_type_of_the_airline(known):
+    state_dir, get = known
+    status, headers, _raw = _upload(get, "finnair", "?default_type=a330", _vendored_png())
+    assert status == 303
+    assert "flash=illustration_replaced" in headers["Location"]
+    assert os.path.isfile(os.path.join(state_dir, "illustration_overrides", "finnair.png"))
+    assert airline_default_types.load_default_types(state_dir)["finnair"] == "A330"

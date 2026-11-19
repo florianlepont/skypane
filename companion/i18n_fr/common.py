@@ -131,6 +131,8 @@ MESSAGES = {
     "common.illustration_not_transparent":
         "Impossible d’utiliser cette image — son fond n’est pas "
         "transparent. Envoyez un PNG à fond transparent.",
+    "common.artwork_type_invalid":
+        "Impossible d’ajouter l’illustration — choisissez un type d’avion valide.",
     "common.illustration_too_small":
         "Impossible d’utiliser cette image — elle doit être au format "
         "paysage (plus large que haut) et faire au moins 1200 pixels "

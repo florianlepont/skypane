@@ -27,3 +27,35 @@ Owner decisions applied after plan 68-23 (answers open decision 2 of that summar
 ## Captures
 
 `/tmp/claude-0/-home-user-skypane/1ebaf6ab-90c3-5997-a366-609c87d2992c/scratchpad/p23fix/` (full page, phone 360 FR light): 1 before upload (known block of 6), 2 after upload with promotion disabled (old behaviour: Finnair vanishes from the block and has no row), 3 after upload promoted (chip still present, taken before the chip removal), 4 after upload promoted, no chip (final). Captures 1 and 2 were regenerated after the chip removal, so they show no chip either.
+
+## Follow-up 2: the add-artwork dialog asks for the aircraft type
+
+The "Artwork" button of an airline known by name only now opens the shared dialog with an aircraft-type
+select above the image chooser (mockup decision 6). The upload is refused when the type is missing; on
+success the type is stored as the airline's default type (`airline_default_types.json`, the storage the
+type menu already writes), so the promoted table row shows it in place of the dash.
+
+- Type choice travels as `?default_type=` on the upload address (the multipart reader accepts the file part
+  only); `_handle_illustration_replace` validates it with `airline_default_types.normalise_code` (same rules
+  as the existing default-type action) before reading the body. Invalid or empty: redirect with the new
+  `artwork_type_invalid` flash (EN and FR), nothing stored.
+- `panel-lookup.js` shows and requires the select only for triggers carrying `data-view-panel-ask-type`.
+- Options are the curated ICAO type codes of `illustrations`; the server accepts any valid code.
+- Tests: served-HTML (select present and hidden, both languages; five invalid codes refused with no file
+  or default stored; valid code stored) and the phone EN+FR browser round trip (submission blocked without a
+  type, 44 px select, default type visible in the promoted row).
+- Captures (phone FR light, full screen): scratchpad/p23fix2/phone-fr-light-1-dialog-open.png and
+  phone-fr-light-2-table-after-upload.png.
+
+## Design-system divergences
+
+- The select sits inside the existing dashed upload zone of the shared lightbox, not in a separate
+  `ui_modal` card: the dialog is the existing shared lightbox (unchanged shell), so the bottom-sheet / centred
+  card behaviour is that of the lightbox, not re-implemented here.
+- The mockup's explanatory sub-line is omitted (owner: no extra explanatory lines); the type select's own
+  label doubles as its first option.
+- The native file input of the zone still shows its browser-drawn "Choose file" control (pre-existing).
+
+Deferred: `companion/test_sky_contrast.py::test_glass_applies_only_inside_supports_and_keeps_a_solid_base`
+fails on the `.airlines-table .airline-group` rule (backdrop-filter none); it fails identically with this
+follow-up's CSS reverted, so it predates it. Render baseline regenerated once (dialog markup gained the select).
