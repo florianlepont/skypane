@@ -451,14 +451,14 @@ def diff_ci(a, b, n=5000, seed=1):
 | A9 | Calliper price about EUR 10 to 25 | Open decisions | Trivial |
 | A10 | A closed lid does not trap gas because the service bay and USB notch are open | 4 | If the bay is covered later, venting changes |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Which printer physically prints?** Known: P2S slice, X1 in the decision text. Recommendation: owner reports per round.
-2. **Does the exported STL match the final blend?** Both were committed together; the Files table says 2026-11-18 but design changes are dated 2026-11-19. Recommendation: owner re-exports or confirms.
-3. **What is the real mat window height (90 or 99 mm)?** Recommendation: calliper before any image-adaptation decision.
-4. **Second hardware wake cadence** for the Wi-Fi test is not recorded in the files read (live frame 300 s). Recommendation: record the server `sleep_s` used.
-5. **Is the 5.8 N hook load a safety-factor number?** Recommendation: reconcile.
-6. **Do any of the five frames differ in tab geometry?** Unknown until surveyed.
+1. **Which printer physically prints?** Known: P2S slice, X1 in the decision text. Recommendation: owner reports per round. RESOLVED: routed to plan 03 task 3 and plan 04 tasks 1 and 2 (print record per round, machine reported each round; owner answer pending).
+2. **Does the exported STL match the final blend?** Both were committed together; the Files table says 2026-11-18 but design changes are dated 2026-11-19. Recommendation: owner re-exports or confirms. RESOLVED: routed to plan 02 task 2 (owner answer pending).
+3. **What is the real mat window height (90 or 99 mm)?** Recommendation: calliper before any image-adaptation decision. RESOLVED: routed to plan 02 task 2 (owner answer pending); calliper value in plan 03 task 2 survey.
+4. **Second hardware wake cadence** for the Wi-Fi test is not recorded in the files read (live frame 300 s). Recommendation: record the server `sleep_s` used. RESOLVED: routed to plan 05 task 2 (owner answer pending).
+5. **Is the 5.8 N hook load a safety-factor number?** Recommendation: reconcile. RESOLVED: routed to plan 02 task 1 (reconciled in prose, no owner question).
+6. **Do any of the five frames differ in tab geometry?** Unknown until surveyed. RESOLVED: routed to plan 03 task 2, calliper survey of five frames (owner answer pending).
 
 ## Environment Availability
 
