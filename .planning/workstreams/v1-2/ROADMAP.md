@@ -765,30 +765,35 @@ Plans: TBD
   6. The design files (source and printable) and a short assembly note are stored under `hardware/`, the bill of materials (`hardware/BOM.md`) lists the added parts and their cost, and SEED-014 is updated to show what this phase settled.
 
 **Not in this phase**: the administrator tool for initial setup and flashing (SEED-014, v1.4), an enclosure for the 13.3 inch frame, a series production method and costs (SEED-015), battery discharge measurements (SEED-019), and any firmware change.
-**Decisions** (discuss-phase, 2026-11-18): milestone v1.2 MAY CLOSE before this phase is finished; an unfinished phase carries into the next milestone (owner decision). First print is made elsewhere, no printer purchase for now. Measurements by the owner, screen first, then frame, then ribbon, cable and masses. Black PETG, 0.4 mm nozzle, M2 self-tapping screws. Wi-Fi compared by the frame's reported RSSI, same place and access point (see `69-CONTEXT.md`).
+**Decisions** (discuss-phase, 2026-11-18): milestone v1.2 MAY CLOSE before this phase is finished; an unfinished phase carries into the next milestone (owner decision). First print on the owner's workplace Bambu printers (owner update 2026-11-18, replaces the print service), no printer purchase for now. Measurements by the owner, screen first, then frame, then ribbon, cable and masses. PETG any colour (owner update 2026-11-18), 0.4 mm nozzle, M2 self-tapping screws. Wi-Fi compared by the frame's reported RSSI, same place and access point (see `69-CONTEXT.md`).
 **Must not break**: the live frame and its configuration; nothing in this phase changes code or the deployed system.
 
-**Plans**: 5 plans
+**Plans**: 7 plans
 Plans:
 **Wave 1**
 
 - [x] 69-01-PLAN.md — Measurement sheet, owner measures the real parts, owner confirms the Blender file (ENC-01)
 
-**Wave 2** *(blocked on Wave 1 completion)*
+**Wave 2** *(blocked on Wave 1 completion; 69-05 has no dependency on any print and runs in parallel with the print plans)*
 
-- [ ] 69-02-PLAN.md — Design updated from measurements, decisions recorded, export and slice check, print-order spec (ENC-01)
+- [ ] 69-02-PLAN.md — Closeout: reconcile stale design records, record decisions, owner answers the open questions (ENC-01)
+- [ ] 69-05-PLAN.md — Wi-Fi protocol (interleaved blocks, bootstrap bound) and the bare-frame baseline taken now (ENC-01)
 
-**Wave 3** *(blocked on Wave 2 completion)*
+**Wave 3** *(blocked on Wave 2 plan 69-02)*
 
-- [ ] 69-03-PLAN.md — First test print elsewhere, clearance measurements and adjustment log (ENC-01)
+- [ ] 69-03-PLAN.md — Test-print log, calliper survey of five frames, print round A (shim and coupon plate) (ENC-01)
 
-**Wave 4** *(blocked on Wave 3 completion)*
+**Wave 4** *(blocked on Wave 3)*
 
-- [ ] 69-04-PLAN.md — Validation checklist (wall hooks, stand, USB-C, switch, buttons) and Wi-Fi RSSI comparison (ENC-01)
+- [ ] 69-04-PLAN.md — Print rounds B (tray) and C (lid and stand), screw reuse test, battery gate (ENC-01)
 
-**Wave 5** *(blocked on Wave 4 completion)*
+**Wave 5** *(blocked on Waves 2 and 4)*
 
-- [ ] 69-05-PLAN.md — Final files stored, assembly note, BOM update, SEED-014 update (ENC-01)
+- [ ] 69-06-PLAN.md — Mechanical and safety validation (wall hooks, stand, USB-C, switch, RESET, buttons) and the Wi-Fi blocks with the enclosure and verdict (ENC-01)
+
+**Wave 6** *(blocked on Wave 5)*
+
+- [ ] 69-07-PLAN.md — Final files stored, assembly note, BOM update, SEED-014 update (ENC-01)
 
 ### Phase 66: Security Audit
 
