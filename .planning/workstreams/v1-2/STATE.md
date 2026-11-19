@@ -27,7 +27,7 @@ progress:
 Phase: 49 (per-hardware-ota-registry) — ready for verification
 Plan: 11 of 11 (all plans complete)
 Status: Phase complete — ready for verification
-Last activity: 2026-11-16 - Phase 64 criterion 9 closed in the records (partly by owner decision for rows 2, 9, 10, 11); criterion 7 open
+Last activity: 2026-11-19 - Phase 69: rear enclosure design reworked with the owner, four STL exported, parts sliced in Bambu Studio (slice check filled), plans 03 to 05 aligned; nothing printed yet
 
 Progress: [████████░░] 84%
 
@@ -90,6 +90,12 @@ None yet.
 
 - Owner decisions still open (see research/SUMMARY.md): OTA signing, Auth0 app type, shared-password removal date, second board.
 - Research flagged for Phases 49, 50, 52, 53, 54, 55 and 58.
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 1 | Phase 69 rear enclosure: reworked cassette design, exported STL, filled print-order tables | 2026-11-18 | ebef9432 | [261118-q4d-phase-69-rear-enclosure-update-cassette-](./quick/261118-q4d-phase-69-rear-enclosure-update-cassette-/) |
 
 ## Session Continuity
 

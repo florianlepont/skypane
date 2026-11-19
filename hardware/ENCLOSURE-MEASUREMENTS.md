@@ -53,12 +53,16 @@ Filled from the owner's reports only.
 | 10 Battery dimensions and mass | Thickness 8, width 60, length 50 mm; mass 49 g; pack: Kubii 3000 mAh (confirmed by the owner, 2026-11-18) | 2026-11-18 | Tape measure (no calliper) | measured |
 | 11 Masses: board, screen, antenna | Board with antenna and cable 20 g; screen 36 g | 2026-11-18 | Kitchen scale | measured |
 | 12 Masses: frame | Complete frame 173 g; empty frame 149 g | 2026-11-18 | Kitchen scale | measured |
+| 7b Metal tab, height behind the back of the screen, folded | 15 mm (confirmed by the owner) | 2026-11-18 | Reported in the design session; tool not stated | owner-reported |
+| 7c Metal tab, width | 4 mm | 2026-11-18 | Confirmed by the owner in the design session; tool not stated | owner-reported |
+| 7d Metal tabs, position along each side (seen from the back, frame in portrait) | Top tab: its right edge is 48 mm from the right corner of the rebate. Bottom tab: its right edge is 77 mm from the right corner. Left tab: its lower edge is 86 mm from the bottom edge of the rebate. Right tab: 82 mm, same method | 2026-11-18 | Reported in the design session; tool not stated | owner-reported |
+| 13 Wi-Fi antenna cable | 50 mm | 2026-11-18 | Reported in the design session; tool not stated | owner-reported |
 
 ## Design checks to redo after the masses are in
 
 The checks on the model (closed meshes, no support, no wall under 0.8 mm, no
 slot under 1 mm, centre of gravity on the landscape hook axis) used estimated
-masses: tray about 57 g, lid about 48 g, stand about 11 g, shim about 5 g
+masses: tray about 57 g, lid about 48 g, stand about 11 g, shim about 6 g
 (design values, not measured). The owner reruns them after the measurements.
 
 ## Notes
@@ -79,6 +83,13 @@ Points to settle with the owner (nothing here is concluded by the assistant):
   confirmed with the owner.
 - Row 7: tab depth corrected by the owner to 8 mm (design value about 12.6 mm,
   design value, not measured).
+- Row 7, clarification by the owner on 2026-11-18: the 8 mm is the length of the
+  tab (how far it reaches over the back), not its depth behind the screen. The
+  height of the folded tab is row 7b (15 mm). Rows 7b to 7d replace the design
+  value of about 12.6 mm and the "middle of each side" assumption. The owner
+  adds that frames probably vary from one to another, so the lid pads are wide.
+- Row 13: the vendor sheet gives 80 mm for the antenna coaxial cable; the owner's
+  own reading is 50 mm, which is the one used.
 - Row 10: the pack in the enclosure is the Kubii 3000 mAh (owner, 2026-11-18);
   the reported dimensions match its vendor size (8 x 50 x 60 mm). The frame in
   production uses another pack today (see `BATTERY-MODEL.md`).
