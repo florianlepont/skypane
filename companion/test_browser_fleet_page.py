@@ -1,13 +1,11 @@
-"""Real-browser checks of the admin Fleet page's frame list: the Other frames
-block (pending and retired rows) and the selected frame's detail header. No table
-and no sideways scroll at 360 and 1280px, English and French, light and dark; one
-status dot per row with its accessible name; wrapping frame names; 44px hit areas
-on the header action and the actions menus; and the actions menu with and without
-script."""
+"""Real-browser checks of the admin Fleet page's list of frames (live, pending and retired
+rows) and the selected frame's header. No table and no sideways scroll at 360 and 1280px,
+English and French, light and dark; one status dot per row with its accessible name, in the same
+place on every row; wrapping frame names; 44px hit areas on the header's icon buttons and the
+list's Add a frame; and the header links with and without script."""
 import pytest
 
 import fleet_console_support as fx
-from frame_menu_support import open_menu
 from companion import auth
 from companion.test_browser_ux_helpers import (
     VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED, _assert_hit_target,
@@ -19,19 +17,17 @@ MIN_TAP_PX = 44
 LONG_NAME = "Salon with an exceedingly long frame name " + "x" * 60
 
 _ROW_FACTS = (
-    "() => [...document.querySelectorAll('li.entity-row')]"
-    ".filter(row => row.getClientRects().length > 0).map(row => {"
-    " const title = row.querySelector('.entity-row__title');"
-    " const b = row.getBoundingClientRect();"
-    " const kids = [...row.querySelectorAll('.entity-row__title, .entity-row__meta')];"
-    " return {dots: row.querySelectorAll('.dot').length,"
-    "  label: (row.querySelector('[role=img]') || {getAttribute: () => ''})"
-    "    .getAttribute('aria-label'),"
-    "  text: title.textContent,"
-    "  family: getComputedStyle(title).fontFamily,"
-    "  metaFamily: kids.map(k => getComputedStyle(k).fontFamily),"
-    "  clipped: kids.some(k => k.scrollWidth > k.clientWidth + 1"
-    "    || k.getBoundingClientRect().right > b.right + 0.5)}; })")
+    "() => [...document.querySelectorAll('.fleet-list li.fleet-frame-row')]"
+    ".filter(row => row.getClientRects().length > 0 && row.querySelector('.dot')).map(row => {"
+    " const b = row.getBoundingClientRect(); const dot = row.querySelector('.dot');"
+    " const value = row.querySelector('.row__value');"
+    " const kids = [...row.querySelectorAll('.row__label, .row__detail')];"
+    " return {dots: row.querySelectorAll('.dot').length, h: b.height,"
+    "  label: row.querySelector('[role=img]').getAttribute('aria-label'),"
+    "  dotX: Math.round(dot.getBoundingClientRect().left),"
+    "  valueRight: value ? Math.round(value.getBoundingClientRect().right) : null,"
+    "  family: getComputedStyle(kids[0]).fontFamily,"
+    "  clipped: kids.some(k => k.getBoundingClientRect().right > b.right + 0.5)}; })")
 
 _EN_WORDS = {
     "Not seen yet", "No contact", "Overdue", "Low battery", "Resting", "Online",
@@ -56,7 +52,7 @@ def _open(new_context, server, viewport, lang="en", scheme="light", path="/fleet
 @pytest.mark.parametrize("lang", ["en", "fr"])
 @pytest.mark.parametrize(
     "viewport", [VIEWPORT_MIN_SUPPORTED, VIEWPORT_DESKTOP], ids=["360", "1280"])
-def test_the_other_frames_fit_with_one_dot_per_row_and_no_table(
+def test_the_list_rows_fit_with_one_dot_per_row_in_the_same_place_and_no_table(
         new_context, app_server_in_process, viewport, lang, scheme):
     context, page, _seed = _open(
         new_context, app_server_in_process, viewport, lang, scheme)
@@ -64,33 +60,26 @@ def test_the_other_frames_fit_with_one_dot_per_row_and_no_table(
     try:
         assert not _assert_no_page_overflow(page, where, viewport["width"])
         assert page.locator("table").count() == 0
-        # The pending and retired frames are a section of the page, open at every width.
-        assert page.locator("details.fleet-other").count() == 0
-        assert page.locator(".fleet-block--others li.entity-row").count() == 2
-        assert not _assert_no_page_overflow(page, where + "/other", viewport["width"])
         rows = page.evaluate(_ROW_FACTS)
-        assert len(rows) == 2
+        assert len(rows) == 4
         for row in rows:
             assert row["dots"] == 1 and row["label"], (where, row)
-            assert not row["clipped"], (where, row)
+            assert row["h"] >= MIN_TAP_PX and not row["clipped"], (where, row)
             assert "mono" not in row["family"].lower(), (where, row)
-            assert all("mono" not in family.lower() for family in row["metaFamily"])
             if lang == "en":
                 assert row["label"] in _EN_WORDS, (where, row)
-        _assert_hit_target(page, "summary.frame-menu__button", where)
-        open_menu(page)
-        _assert_hit_target(page, "a.frame-row--add", where)
-        assert page.locator(".page-header a.page-header__action").count() == 0
+        # The status dot and the last-seen word stand in the same place on every row.
+        assert len({row["dotX"] for row in rows}) == 1, (where, rows)
+        assert len({row["valueRight"] for row in rows if row["valueRight"]}) <= 1, (where, rows)
+        _assert_hit_target(page, ".fleet-add-button", where)
         assert page.locator(
-            "main h1").evaluate("e => !getComputedStyle(e).fontFamily.includes('mono')")
-        header = page.locator(".page-header")
-        assert header.bounding_box()["height"] < 220, where
+            "main h1:visible").evaluate("e => !getComputedStyle(e).fontFamily.includes('mono')")
     finally:
         context.close()
 
 
 @pytest.mark.parametrize("lang", ["en", "fr"])
-def test_a_long_frame_name_never_overflows_and_the_header_links_stay_in_view_at_360(
+def test_a_long_frame_name_never_overflows_and_the_header_buttons_stay_in_view_at_360(
         new_context, app_server_in_process, lang):
     server = app_server_in_process
     seed = fx.seed_fleet(server.state_dir)
@@ -110,7 +99,7 @@ def test_a_long_frame_name_never_overflows_and_the_header_links_stay_in_view_at_
         page.goto(server.base_url() + "/fleet?frame=" + seed.owned_id)
         page.locator("main").wait_for(state="visible")
         assert not _assert_no_page_overflow(page, "long-name", 360)
-        links = page.locator(".fleet-detail-head a.row-action")
+        links = page.locator(".fleet-head a.fleet-icon-button")
         links.first.wait_for(state="visible")
         assert links.count() == 2
         for index in range(2):
@@ -122,21 +111,23 @@ def test_a_long_frame_name_never_overflows_and_the_header_links_stay_in_view_at_
 
 
 @pytest.mark.parametrize("viewport", [VIEWPORT_MIN_SUPPORTED, VIEWPORT_DESKTOP], ids=["360", "1280"])
-def test_the_header_offers_two_visible_44px_links_not_a_menu(
+def test_the_header_offers_two_44px_icon_buttons_named_for_assistive_technology(
         new_context, app_server_in_process, viewport):
     context, page, seed = _open(
         new_context, app_server_in_process, viewport, path="/fleet?frame={owned}")
     try:
-        links = ".fleet-detail-head a.row-action"
+        links = ".fleet-head a.fleet-icon-button"
         _assert_hit_target(page, links + ":nth-of-type(1)", "personal view")
         _assert_hit_target(page, links + ":nth-of-type(2)", "rename")
-        assert page.locator(links).all_inner_texts() == ["Open personal view", "Rename"]
-        assert page.locator(".fleet-detail-head details").count() == 0
+        assert page.locator(links).evaluate_all("els => els.map(e => e.getAttribute('aria-label'))") == [
+            "Open the personal view of Kitchen", "Rename Kitchen"]
+        assert page.locator(".fleet-head details").count() == 0
         for index in range(2):
-            assert page.locator(links).nth(index).bounding_box()["height"] >= MIN_TAP_PX - 0.5
+            box = page.locator(links).nth(index).bounding_box()
+            assert box["height"] >= MIN_TAP_PX - 0.5 and box["width"] >= MIN_TAP_PX - 0.5
         assert not _assert_no_page_overflow(page, "header-links", viewport["width"])
-        # The header names the frame once less: no repeated heading.
-        assert page.locator(".fleet-detail-head h2").count() == 0
+        assert page.locator("main h1").count() == 1
+        assert page.locator("main h1").inner_text() == "Kitchen"
     finally:
         context.close()
 
@@ -147,7 +138,7 @@ def test_the_header_links_work_without_script(new_context, app_server_in_process
     with _no_js_page(new_context, server.base_url(), "/fleet?frame=" + seed.owned_id,
                      viewport=VIEWPORT_MIN_SUPPORTED) as page:
         with page.expect_navigation():
-            page.locator(".fleet-detail-head a.row-action", has_text="Rename").click()
+            page.locator(".fleet-head a.fleet-icon-button[title=Rename]").click()
         assert "/devices/%s/frame/name?return_to=" % seed.owned_id in page.url
         assert page.locator('input[name="name"]').input_value() == "Kitchen"
 
@@ -177,11 +168,12 @@ _TEXT_INSET = """() => {
 
 _HEAD = """() => {
   const r = (s) => document.querySelector(s).getBoundingClientRect();
-  const title = r('main h1'), head = r('.fleet-detail-head');
-  const links = [...document.querySelectorAll('.fleet-detail-head a.row-action')]
+  const title = r('main h1'), state = r('.fleet-head__state');
+  const links = [...document.querySelectorAll('.fleet-head a.fleet-icon-button')]
       .map((a) => a.getBoundingClientRect());
-  return {titleLeft: title.left, titleBottom: title.bottom, headLeft: head.left,
-          headTop: head.top, links: links.map((l) => [l.left, l.top, l.right, l.bottom])};
+  return {titleLeft: title.left, titleTop: title.top, titleBottom: title.bottom,
+          stateTop: state.top, stateLeft: state.left,
+          links: links.map((l) => [l.left, l.top, l.right, l.bottom])};
 }"""
 
 
@@ -189,7 +181,7 @@ _HEAD = """() => {
 @pytest.mark.parametrize("lang", ["en", "fr"])
 @pytest.mark.parametrize(
     "viewport", [VIEWPORT_MIN_SUPPORTED, VIEWPORT_DESKTOP], ids=["360", "1280"])
-def test_a_frame_that_never_woke_keeps_its_state_text_inside_the_card_and_its_actions_under_the_title(
+def test_a_frame_that_never_woke_keeps_its_state_text_inside_the_card_and_its_buttons_beside_the_title(
         new_context, app_server_in_process, viewport, lang, scheme):
     context, page, _seed = _open(
         new_context, app_server_in_process, viewport, lang, scheme, path="/fleet?frame={owned}")
@@ -204,13 +196,14 @@ def test_a_frame_that_never_woke_keeps_its_state_text_inside_the_card_and_its_ac
             read = page.evaluate(_TEXT_INSET)
             assert read["blocks"] >= 1 and not read["bad"], (where, tab, read)
         head = page.evaluate(_HEAD)
-        # The two actions start at the title's left edge, directly under it, side by side or
-        # stacked, never on a floating row far below.
-        assert abs(head["headLeft"] - head["titleLeft"]) <= 1, (where, head)
-        assert 0 <= head["headTop"] - head["titleBottom"] <= 24, (where, head)
-        assert len(head["links"]) == 2 and abs(head["links"][0][0] - head["titleLeft"]) <= 1, (
+        # The title, then the state line directly under it, both at the same left edge; the two
+        # icon buttons side by side at the right of the title row, inside the viewport.
+        assert abs(head["stateLeft"] - head["titleLeft"]) <= 1, (where, head)
+        assert 0 <= head["stateTop"] - head["titleBottom"] <= 16, (where, head)
+        assert len(head["links"]) == 2 and head["links"][0][2] <= head["links"][1][0] + 1, (
             where, head)
-        assert head["links"][0][1] - head["headTop"] <= 1, (where, head)
+        assert head["links"][0][0] > head["titleLeft"], (where, head)
+        assert abs(head["links"][0][1] - head["titleTop"]) <= 8, (where, head)
         assert all(link[2] <= viewport["width"] for link in head["links"]), (where, head)
     finally:
         context.close()

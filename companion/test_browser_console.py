@@ -13,7 +13,6 @@ import time
 import pytest
 
 import fleet_console_support as fx
-from frame_menu_support import click_add, click_add_without_script, open_menu
 from companion import auth, legacy_pages
 from companion.test_browser_ux_helpers import (
     VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED, _in_both_themes, _login,
@@ -99,6 +98,11 @@ def _user_context(new_context, server, viewport=None):
     return context, seed
 
 
+def click_add(page):
+    """Choose Add a frame in the Fleet list (it opens the pairing dialog)."""
+    page.locator(".fleet-add-button").click()
+
+
 def _flash(page):
     return page.locator('[role="status"], [role="alert"]').first
 
@@ -162,11 +166,9 @@ def test_forms_and_confirm_controls_meet_the_touch_target(
     server = app_server_in_process
     context, page = _admin_page(new_context, server, "/fleet", VIEWPORT_MIN_SUPPORTED)
     try:
-        assert _height(page, "summary.frame-menu__button") >= MIN_TAP_PX
-        assert _height(page, "li.entity-row .row-menu__toggle") >= MIN_TAP_PX
-        open_menu(page)
-        assert _height(page, "a.frame-row--add") >= MIN_TAP_PX
-        page.locator("a.frame-row--add").click()
+        assert _height(page, ".fleet-add-button") >= MIN_TAP_PX
+        assert _height(page, "li.fleet-frame-row > a") >= MIN_TAP_PX
+        click_add(page)
         for selector in (
                 "#pair-code", "#pair-owner", 'form[action="/fleet/pair"] button'):
             assert _height(page, selector) >= MIN_TAP_PX, selector
@@ -214,11 +216,9 @@ def test_console_works_with_scripts_blocked(new_context, app_server_in_process):
         _login(page, server.base_url())
 
         page.goto(server.base_url() + "/fleet")
-        summary = page.locator("details.row-menu > summary:visible").first
-        summary.click()
-        assert page.locator("details.row-menu[open]:visible").count() == 1
-        summary.click()
-        assert page.locator("details.row-menu[open]").count() == 0
+        page.locator("li.fleet-frame-row > a[href*='frame=']").first.click()
+        page.wait_for_url("**/fleet?frame=*")
+        assert page.locator(".fleet-head__title").is_visible()
 
         page.goto(server.base_url() + "/users")
         page.click("a.page-header__action")
@@ -242,7 +242,7 @@ def test_pair_form_posts_and_redirects_with_scripts_blocked(
         page = context.new_page()
         _login(page, server.base_url())
         page.goto(server.base_url() + "/fleet")
-        click_add_without_script(page)
+        click_add(page)
         page.fill("#pair-code", code)
         page.select_option("#pair-owner", str(seed.user_id))
         page.click('form[action="/fleet/pair"] button')

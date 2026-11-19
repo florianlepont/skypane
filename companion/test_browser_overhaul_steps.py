@@ -16,7 +16,7 @@ import re
 import pytest
 
 import fleet_console_support as fx
-from frame_menu_support import ADD, BUTTON, FRAMES
+from frame_menu_support import BUTTON, FRAMES
 from companion import auth, device_scope
 from companion.test_browser_ux_helpers import VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED
 from place_map_support import CLEAR_BOX, Hosts
@@ -29,8 +29,8 @@ MAP_TILES = "() => document.querySelectorAll('#place-map .leaflet-tile-loaded').
 
 # Measured counts, asserted exactly. Targets are in the design record.
 MEASURED = {
-    "U4a": 3, "U4b": 4, "U4c": 3, "L1": 4, "L1-pin": 5, "L2": 4, "L3": 5, "L4": 3,
-    "S1": 2, "S2": 2, "A7": 2, "A8": 5, "A9": 3, "V1-phone": 1, "V1-desktop": 1}
+    "U4a": 3, "U4b": 4, "U4c": 4, "L1": 4, "L1-pin": 5, "L2": 4, "L3": 5, "L4": 3,
+    "S1": 2, "S2": 2, "A7": 1, "A8": 5, "A9": 3, "V1-phone": 1, "V1-desktop": 1}
 _OFFSCREEN = (
     "el => { const r = el.getBoundingClientRect();"
     " return r.top < 0 || r.bottom > window.innerHeight; }")
@@ -167,19 +167,16 @@ def _report_measured(task, steps, target):
 
 
 def _select_frame(steps, page, name):
-    """Makes `name` the selected frame: nothing to do when the frame button
-    already names it, else two taps: the button, then the frame's row (a
-    plain link)."""
-    button = page.locator(BUTTON)
-    button.wait_for(state="visible")
-    if name in button.inner_text():
+    """Makes `name` the selected frame: nothing to do when its page is open,
+    else one tap on its row in the list (a phone lands on the list)."""
+    title = page.locator(".fleet-head__title:visible")
+    if title.count() and name in title.first.inner_text():
         return
-    steps.tap(button, "frame button")
-    row = page.locator(FRAMES, has_text=name).first
+    row = page.locator(".fleet-list li.fleet-frame-row a", has_text=name).first
     row.wait_for(state="visible")
     steps.tap(row, "row of " + name)
     page.wait_for_function(
-        "(n) => (document.querySelector('details.frame-menu > summary')"
+        "(n) => (document.querySelector('.fleet-head__title')"
         " || {textContent: ''}).textContent.includes(n)", arg=name)
     page.wait_for_function("() => document.readyState === 'complete'")
 
@@ -194,15 +191,14 @@ def _access_tab(steps, page, name):
 def test_a1_fleet_state_is_readable_on_landing(world, new_context):
     context, page, steps = _admin(world, new_context)
     try:
-        # Every live frame is a popover row with its status dot (and the button
-        # shows the selected one's); the pending and retired frames wait in the
-        # Other frames section of the Access tab.
-        assert page.locator(BUTTON + " [role=img][aria-label]").count() == 1
-        dots = page.locator(FRAMES + " [role=img][aria-label]")
-        assert dots.count() >= 2
-        assert page.locator(FRAMES + " .dot").count() >= 2
-        assert page.locator("details.fleet-other").count() == 0
-        assert page.locator(".fleet-block--others").count() == 1
+        # The landing screen is the list: every frame is a row with its status dot,
+        # the pending and retired ones in their own groups, no frame button, no
+        # block of other frames.
+        dots = page.locator(".fleet-frame-row [role=img][aria-label]")
+        assert dots.count() >= 4
+        assert page.locator(".fleet-frame-row .dot").count() >= 4
+        assert page.locator(".fleet-block--others").count() == 0
+        assert page.locator("details.frame-menu").count() == 0
         assert page.locator("table").count() == 0
         _report("A1", steps, 0)
     finally:
@@ -234,8 +230,7 @@ def test_a2_invite_a_user(world, new_context):
 def test_a3_pair_a_frame(world, new_context):
     context, page, steps = _admin(world, new_context)
     try:
-        steps.tap(page.locator(BUTTON), "frame button")
-        steps.tap(page.locator(ADD), "Add a frame")
+        steps.tap(page.locator(".fleet-add-button"), "Add a frame")
         steps.type_value(page.locator("#pair-code"), fx.FAKE_CODE, "pairing code")
         steps.choose(page.locator("#pair-owner"), fx.OWNER_EMAIL, "owner")
         steps.tap(page.locator("#dlg-add-frame button[type=submit]"), "Pair frame")
@@ -590,8 +585,10 @@ def test_l4_tap_the_map(world, new_context):
 def test_u4c_the_administrator_changes_the_refresh_interval(world, new_context):
     context, page, steps = _admin(world, new_context)
     try:
-        # On a phone the wake interval sits on the Settings sub-tab of the Fleet view.
+        # On a phone the list lands first: one tap opens a frame, whose wake interval sits
+        # on the Settings sub-tab of the Fleet view.
         page.wait_for_function("() => document.readyState === 'complete'", timeout=10000)
+        _select_frame(steps, page, "Kitchen")
         steps.tap(page.locator("nav.fleet-tabs a", has_text="Settings"), "Settings tab")
         page.wait_for_url("**tab=settings")
         field = page.locator("input[type=number][name=wake_interval_s]")
@@ -602,7 +599,7 @@ def test_u4c_the_administrator_changes_the_refresh_interval(world, new_context):
         page.wait_for_function(
             "t => document.readyState === 'complete' && document.querySelector("
             "'input[type=number][name=wake_interval_s]').value === t", arg=target, timeout=10000)
-        _report_measured("U4c", steps, 3)
+        _report_measured("U4c", steps, 4)
     finally:
         context.close()
 
@@ -627,12 +624,12 @@ def test_s1_the_space_switch_is_one_tap_from_any_page(world, new_context):
 def test_a7_a_frames_health_is_its_fleet_view(world, new_context):
     context, page, steps = _admin(world, new_context)
     try:
-        # The frame's health is the State block of its Fleet view: one tap on
-        # button and its row when it is not the selected frame already.
+        # The frame's health is the State block of its Fleet view: one tap on its row in
+        # the list.
         _select_frame(steps, page, "Kitchen")
         state = page.locator("section.fleet-block", has=page.locator("h2.section-label", has_text="State"))
         state.wait_for(state="visible")
-        assert "Kitchen" in page.locator("summary.frame-menu__button").inner_text()
+        assert "Kitchen" in page.locator(".fleet-head__title").inner_text()
         _report_measured("A7", steps, 2)
     finally:
         context.close()

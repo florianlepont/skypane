@@ -8,8 +8,6 @@ only carries the French.
 MESSAGES = {
     "admin_fleet.new_frame": "Nouveau cadre",
     "admin_fleet.formerly_owner": "Anciennement %s",
-    "admin_fleet.other_frames_n": "Autres cadres (%d)",
-    "admin_fleet.actions_for_frame": "Actions pour %s",
     "admin_fleet.switch_a_frame_on_when_its_pairing_code_appears_choose_add":
         "Allumez un cadre. Quand son code d’association s’affiche à l’écran, "
         "choisissez Ajouter un cadre.",
@@ -25,6 +23,15 @@ MESSAGES = {
         "Aucun cadre n’affiche de code pour l’instant. Allumez le cadre\u00a0; son "
         "code s’affiche à l’écran.",
     "admin_fleet.frames": "Cadres",
+    "admin_fleet.group_live": "En service",
+    "admin_fleet.group_pending": "En attente d’appairage",
+    "admin_fleet.group_retired": "Retirés",
+    "admin_fleet.search_frames": "Rechercher parmi %d cadres",
+    "admin_fleet.all_frames_n": "Tous les cadres (%d)",
+    "admin_fleet.no_frame_found": "Aucun cadre trouvé",
+    "admin_fleet.reactivate_wake_hint":
+        "Le cadre affichera son code à son prochain réveil (24\u00a0h au plus). "
+        "Appuyez sur Reset pour le relancer tout de suite.",
     "admin_fleet.unnamed_frame": "Cadre sans nom",
     "admin_fleet.waiting_for_pairing": "En attente d’association",
     "admin_fleet.unassigned": "Non attribué",
@@ -94,10 +101,7 @@ MESSAGES = {
     "admin_fleet.block_access": "Accès",
     "admin_fleet.system_unavailable":
         "Aucune information système n’est disponible pour l’instant.",
-    "admin_fleet.unknown_frame":
-        "Ce cadre est introuvable \u2014 Affichage de %s à la place.",
-    "admin_fleet.add_screen_first":
-        "Ajoutez un cadre pour voir son état et ses réglages.",
+    "admin_fleet.unknown_frame": "Ce cadre est introuvable.",
     "admin_fleet.retire_this_frame": "Retirer ce cadre",
     "admin_fleet.retire_this_frame_hint":
         "Le cadre n’affiche plus rien et libère son propriétaire.",

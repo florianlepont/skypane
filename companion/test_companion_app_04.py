@@ -47,7 +47,7 @@ ENTRANCE_SELECTORS = (".reveal-appended", ".reveal-replay",
     ".dashboard-main[data-page-open] .personalisation-look",
     ".dashboard-main[data-page-open] .personalisation > .layout-card",
     ".dashboard-main[data-page-open] .personalisation > .personalisation-nav",
-    ".dashboard-main[data-page-open] .fleet-frame > .fleet-detail-head",
+    ".dashboard-main[data-page-open] .fleet-frame > .fleet-head",
     ".dashboard-main[data-page-open] .fleet-frame > .fleet-tabs")
 # A table or an empty state straight on the sky opens like a card, in its place in the order.
 OPENING_CARD_SELECTORS = (

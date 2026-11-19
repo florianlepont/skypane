@@ -1,19 +1,21 @@
-"""The Console Fleet page's frame selector and the views it opens.
+"""The Console Fleet page: the list of frames and the views it opens.
 
-The frame button in the top bar opens a popover that lists every frame
-(picture, name, status dot, last-seen word), a "System" row and a last
-"Add a frame" row that opens the pairing dialog. A row is a plain link to
-`/fleet?frame=<id>` (or `/fleet?view=system`), so the selection needs no
-script. The selected frame opens one column of section cards: State, Device and version
-(the model, the running firmware and the version history), Settings, Access
-(owner, co-managers, reassign, retire) and Other frames. Each section reuses the content of the
-page that used to hold it (Health, Update, Device, Manage access) with the
-same forms and POST routes. The System view holds the platform-wide part of
-the Health page.
+`/fleet` shows the list of frames (live, pending and retired, each a link to
+`/fleet?frame=<id>`). A live frame opens one column of section cards: State,
+Device and version (the model, the running firmware and the version history),
+Settings and Access (owner, co-managers, reassign, retire). Each section reuses
+the content of the page that used to hold it (Health, Update, Device, Manage
+access) with the same forms and POST routes. A pending or retired frame opens
+its own page with only its useful action and appears nowhere else. The System
+view holds the platform-wide part of the Health page.
 
-Selection is read from the query only to pick one of the frames the request
-scope already lists; a value matching none falls back to the first frame, so
-no request text reaches a path, a query or a filesystem call.
+On a phone the list and a frame page are separate screens joined by the frame
+switch (a chip row); from 960 px the list is a column beside the frame. With no
+frame chosen the list shows, and a wide screen also shows the first frame.
+
+Selection is read from the query only to pick one of the rows the request
+scope already lists; a value matching none shows the list, so no request text
+reaches a path, a query or a filesystem call.
 """
 from companion import device_scope, i18n, ui_segmented
 from companion.pages import co_managers_card
@@ -42,14 +44,12 @@ def page_scripts(system=False):
         ui_base.DIRTY_STATE_SCRIPT_SRC, ui_base.FRESHNESS_SCRIPT_SRC,
         ui_base.QUICK_SWITCH_SCRIPT_SRC, ui_base.VALUE_CONTROLS_SCRIPT_SRC)
     if not system:
-        return (ui_base.UPDATE_QUESTION_SCRIPT_SRC,) + base
+        return (ui_base.UPDATE_QUESTION_SCRIPT_SRC, ui_base.LIST_FILTER_SCRIPT_SRC) + base
     return (
         ui_base.COPY_BUTTON_SCRIPT_SRC, ui_base.LIST_FILTER_SCRIPT_SRC,
         ui_base.PANEL_LOOKUP_SCRIPT_SRC) + base
 
 
-_SYSTEM_TEXT = i18n.msg("admin_fleet.system_tile", "System")
-_SYSTEM_SEEN_TEXT = i18n.msg("admin_fleet.system_tile_detail", "Sources and backups")
 _SYSTEM_HEADING = i18n.msg("admin_fleet.system_heading", "System")
 _STATE_HEADING = i18n.msg("admin_fleet.block_state", "State")
 _DEVICE_HEADING = i18n.msg("admin_fleet.block_device_version", "Device and version")
@@ -59,11 +59,7 @@ _TABS_LABEL = i18n.msg("admin_fleet.tabs_label", "Frame sections")
 _SYSTEM_EMPTY = i18n.msg(
     "admin_fleet.system_unavailable",
     "No system information is available yet.")
-_UNKNOWN_FRAME = i18n.msg(
-    "admin_fleet.unknown_frame",
-    "That frame was not found \u2014 Showing %s instead.")
-_ADD_FIRST = i18n.msg(
-    "admin_fleet.add_screen_first", "Add a frame to see its state and settings.")
+_UNKNOWN_FRAME = i18n.msg("admin_fleet.unknown_frame", "That frame was not found.")
 
 _ID_PREFIX_INLINE = "access-inline"
 
@@ -76,17 +72,22 @@ def _t(message):
     return _esc(i18n.t(message))
 
 
+def wanted_frame(query):
+    """The frame id a query names (`frame=`, or an old `access=` link), or ""."""
+    return (query.get(FRAME_QUERY) or query.get("access") or [""])[0]
+
+
 def selection(query, devices):
-    """(selected device or None, is the System view) for a parsed query. The
-    System view is chosen only by the exact `view=system`; a frame is chosen
-    only when its id is one of `devices`; otherwise the first frame."""
+    """(selected live device or None, is the System view) for a parsed query.
+    The System view is chosen only by the exact `view=system`; a frame is
+    chosen only when its id is one of `devices`; otherwise none (the list)."""
     if query.get(VIEW_QUERY) == [VIEW_SYSTEM]:
         return None, True
-    wanted = (query.get(FRAME_QUERY) or query.get("access") or [""])[0]
+    wanted = wanted_frame(query)
     for device in devices:
         if device.id == wanted:
             return device, False
-    return (devices[0] if devices else None), False
+    return None, False
 
 
 def tab_selection(query):
@@ -111,19 +112,6 @@ def tabs_html(frame_id, tab):
         for key, label in labels]
     return ui_segmented.segmented_links_html(
         links, _t(_TABS_LABEL), "fleet-tabs", nav_attrs=' data-tabs="fleet"', carry=True)
-
-
-def frame_menu_html(entries, selected, is_system):
-    """The frame button of the Fleet page: every frame, "System" and a last
-    "Add a frame" row that opens the pairing dialog. Each row is a plain link
-    to `/fleet?frame=<id>` (or `/fleet?view=system`), so the selection needs no
-    script."""
-    from companion import frame_menu
-    from companion.pages import fleet_page
-    return frame_menu.console_menu_html(
-        entries, selected, is_system,
-        (SYSTEM_HREF, _t(_SYSTEM_TEXT), _t(_SYSTEM_SEEN_TEXT)),
-        fleet_page.ADD_DIALOG_ID, lambda device: FRAME_HREF_PREFIX + device.id)
 
 
 def _block(heading_msg, items_html, extra_class="", slug="", heading=""):
@@ -179,19 +167,6 @@ def _access_block(device, access_views, view):
     return _block(_ACCESS_HEADING, rows, " fleet-block--access", "access") + dialogs
 
 
-def others_block(rows):
-    """The Other frames section (pending, then retired frames) as a compact
-    list, or "" when there are none. It shows with the State tab on a phone."""
-    from companion.pages import fleet_page
-    listing = fleet_page.other_frames_list_html(rows)
-    if not listing:
-        return ""
-    count = sum(1 for row in rows if row.kind != fleet_page.KIND_LIVE)
-    return _block(
-        None, _item(listing, True), " fleet-block--state fleet-block--others",
-        "others", heading=fleet_page.other_frames_title(count))
-
-
 def frame_html(ctx, device, view, header_html="", tab=TAB_STATE):
     """The selected frame's header and sections. `ctx` is the page context
     built for `device`, whose state directory the History reads must be scoped
@@ -213,8 +188,7 @@ def frame_html(ctx, device, view, header_html="", tab=TAB_STATE):
             + _block(
                 _SETTINGS_HEADING, _item(settings_html),
                 " fleet-block--settings", "settings")
-            + _access_block(device, view.access, view)
-            + others_block(view.rows))
+            + _access_block(device, view.access, view))
     return (
         '<div class="fleet-frame">' + header_html + tabs_html(device.id, tab)
         + '<div class="fleet-blocks" data-fleet-tab="%s">%s</div></div>' % (tab, blocks)
@@ -236,44 +210,74 @@ def system_html(ctx):
     ) % (blocks, components_page.COMPONENTS_ROUTE, _t(components_page.LINK_TEXT))
 
 
-def _others_alone(view):
-    """The Other frames section on a fleet without a selectable frame."""
-    blocks = others_block(view.rows)
-    return '<div class="fleet-blocks">%s</div>' % blocks if blocks else ""
-
-
-def _unknown_frame_notice(query, selected):
-    """A docked warning when the address names a frame that does not exist
-    and another frame is shown in its place; nothing otherwise."""
-    wanted = (query.get(FRAME_QUERY) or [""])[0]
-    if not wanted or selected is None or selected.id == wanted:
+def _unknown_frame_notice(query, found):
+    """A docked warning when the address names a frame that does not exist;
+    nothing otherwise. The list shows in its place."""
+    wanted = wanted_frame(query)
+    if not wanted or found:
         return ""
-    from companion import ui_components, ui_shell
-    return ui_components.anomaly_banner(
-        i18n.t(_UNKNOWN_FRAME) % ui_shell.device_display_name(selected), "warn")
+    from companion import ui_components
+    return ui_components.anomaly_banner(i18n.t(_UNKNOWN_FRAME), "warn")
+
+
+def _split(mode, list_html, main_html):
+    """The list and the main column side by side (from 960 px; a phone shows
+    one of them, by `mode`)."""
+    return (
+        '<div class="fleet-split" data-fleet-mode="%s"><div class="fleet-split__list">%s'
+        '</div><div class="fleet-split__main">%s</div></div>') % (mode, list_html, main_html)
 
 
 def page_html(h, query, view):
-    """The selected view (the frame button goes to the top bar). Sets the request scope to the
-    selected frame (the embedded forms post to its own /devices/<id> routes)."""
-    from companion.pages import fleet_page
+    """The selected view. Sets the request scope to the selected live frame
+    (the embedded forms post to its own /devices/<id> routes), or to the
+    first one when the list is shown."""
+    from companion.pages import fleet_frames_list as frames_list
     root = h.args.state_dir
     principal = h._safe_principal()
     devices = device_scope.load_devices_for(root, principal)
     selected, is_system = selection(query, devices)
-    scope_device = selected or (devices[0] if devices else None)
+    row = frames_list.find_row(view, wanted_frame(query))
+    if is_system:
+        row = None
+    watch = None if (selected or is_system or row) else frames_list.first_to_watch(view)
+    scope_device = selected or next(
+        (d for d in devices if watch is not None and d.id == watch.frame_id),
+        devices[0] if devices else None)
     device_scope.set_request_scope(
         scope_device, devices, getattr(principal, "user_id", None), root)
-    entries = device_scope.console_frame_entries()
-    from companion import frame_menu
-    frame_menu.stash_console_menu(frame_menu_html(entries, selected, is_system))
+    notice = _unknown_frame_notice(query, selected or row or is_system)
     if is_system:
-        return system_html(h.page_context(device_scope.live_device(root)))
-    if selected is None:
-        return '<p class="text-label">%s</p>' % _t(_ADD_FIRST) + _others_alone(view)
-    return _unknown_frame_notice(query, selected) + frame_html(
-        h.page_context(selected), selected, view,
-        fleet_page.detail_header_html(view, selected.id), tab_selection(query))
+        return notice + _split(
+            "system", frames_list.list_panel_html(view, is_system=True),
+            frames_list.switch_html(view) + '<h1 class="fleet-head__title">%s</h1>' % _t(
+                _SYSTEM_HEADING) + system_html(h.page_context(device_scope.live_device(root))))
+    if selected is not None:
+        live = frames_list.find_row(view, selected.id)
+        return notice + _split(
+            "frame", frames_list.list_panel_html(view, selected.id),
+            frames_list.switch_html(view, selected.id) + frame_html(
+                h.page_context(selected), selected, view,
+                frames_list.head_html(live, view) if live else "", tab_selection(query)))
+    if row is not None:
+        return notice + _split(
+            "other", frames_list.list_panel_html(view, row.frame_id),
+            frames_list.switch_html(view) + frames_list.other_page_html(row, view))
+    return notice + _split(
+        "list", frames_list.list_panel_html(
+            view, landing=True, with_frame=watch is not None),
+        _auto_frame_html(h, view, watch, scope_device, frames_list))
+
+
+def _auto_frame_html(h, view, watch, device, frames_list):
+    """The first frame of the list, which a wide screen shows beside it when
+    no frame is chosen; "" without a live frame. A frame the database does not
+    list as a row (the legacy single frame) shows without a header."""
+    if device is None:
+        return ""
+    return frame_html(
+        h.page_context(device), device, view,
+        frames_list.head_html(watch, view) if watch else "", TAB_STATE)
 
 
 def query_flash_html(h, query):

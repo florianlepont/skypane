@@ -324,14 +324,19 @@ def test_reworked_pages_hold_the_layout_rules(
 
 
 @pytest.mark.parametrize("lang", ["en", "fr"])
-def test_the_fleet_page_is_not_called_cadres_in_french(new_context, server, lang):
+def test_the_fleet_page_keeps_its_name_in_the_navigation_and_the_tab_title(
+        new_context, server, lang):
+    """The page is Fleet / Flotte in the navigation and the tab title; its list of frames is
+    titled Frames / Cadres, as in the approved design."""
     context, page = _open(
         new_context, server, "admin", "/fleet", None, VIEWPORT_MIN_SUPPORTED, lang, "light")
     try:
-        title = page.locator("main h1").inner_text().strip()
-        assert title == ("Flotte" if lang == "fr" else "Fleet")
-        assert title != "Cadres"
+        title = page.locator("main h1:visible").inner_text().strip()
+        assert title == ("Cadres" if lang == "fr" else "Frames")
+        assert ("Flotte" if lang == "fr" else "Fleet") in page.title()
         assert "Cadres" not in page.title()
+        nav = page.locator(".tab-bar a[aria-current='page']").inner_text().strip()
+        assert nav.startswith("Flotte" if lang == "fr" else "Fleet")
     finally:
         context.close()
 
@@ -1224,7 +1229,8 @@ def test_navigation_and_menus_state_what_they_are(new_context, server, case):
           return {current, menus, named: nav.every((n) => n.hasAttribute('aria-label') || n.hasAttribute('aria-labelledby'))};
         }""")
         assert any(count == 1 for count in report["current"]), report
-        assert report["menus"] and all(report["menus"]), report
+        # The Fleet page lists and switches frames in its own body: it has no popover menu.
+        assert (report["menus"] or case[1] == "/fleet") and all(report["menus"]), report
         assert report["named"], report
     finally:
         context.close()

@@ -3,17 +3,15 @@
 A glass button in the top bar of every device-scoped page (phone: the right
 side of the app bar; desktop: the top right of the content area) names the
 frame in view and opens a popover with one row per frame, then an "Add a
-frame" row (and, in the Console, a "System" row). It replaces the strip of
-tiles. The whole control is a native `<details>`, so it opens, closes and
-every row navigates with no script; modal.js adds Escape, outside-tap and
+frame" row. The Console's Fleet page has no such button: it lists and switches
+frames in its own body. It replaces the strip of tiles. The whole control is a
+native `<details>`, so it opens, closes and every row navigates with no script; modal.js adds Escape, outside-tap and
 focus return, and keeps `aria-expanded` in step.
 
 Rows are plain links to the same page of each frame under its own
 /devices/<id> prefix, built from the request scope's own frame list and
 never from request text. A frame has no MAC, token or secret to leak.
 """
-import contextvars
-
 from companion import access, device_scope, frame_status, i18n, prefs
 from companion.ui_base import escape_html
 
@@ -30,11 +28,6 @@ _BUTTON_TEXT = i18n.msg("nav.frame_button", "Choose a frame")
 # Fleet page, anyone else's own Add a frame page.
 _ADMIN_ADD_FRAME_HREF = "/fleet?pair=1"
 _USER_ADD_FRAME_HREF = "/pair-frame"
-
-# The Fleet page builds its own menu while it builds its body; the page shell
-# reads it back when it draws the top bar.
-_CONSOLE_MENU = contextvars.ContextVar("skypane_console_frame_menu", default=None)
-
 
 def _shell():
     # Imported on use: companion.ui_shell imports this module.
@@ -179,46 +172,8 @@ def personal_menu_html(active):
     return menu_html(shell.device_display_name(current), dot, rows, tail)
 
 
-def _system_row_html(href, is_current, label, detail):
-    return _action_row_html(
-        "system", href, label, "<i></i>", detail=detail, is_current=is_current)
-
-
-def console_menu_html(entries, selected, is_system, system, add_dialog_id, frame_href):
-    """The Fleet page's button: every frame of the platform (problems first),
-    then "System" and "Add a frame". `system` is `(href, label, detail)`;
-    `frame_href(device)` gives a frame's row link."""
-    shell = _shell()
-    now = device_scope.now_epoch()
-    rows = "".join(
-        _frame_row_html(
-            e.device, frame_href(e.device),
-            selected is not None and e.device.id == selected.id, now, _note(e))
-        for e in shell.console_ordered(entries, now))
-    tail = _system_row_html(system[0], is_system, system[1], system[2]) + add_row_html(
-        dialog_id=add_dialog_id)
-    if is_system:
-        name, dot = system[1], ""
-    elif selected is not None:
-        name = shell.device_display_name(selected)
-        dot = frame_status.status_dot_html(shell._switcher_status_row(selected, now))
-    else:
-        name, dot = i18n.t(_ADD_TEXT), ""
-    return menu_html(name, dot, rows, tail)
-
-
-def stash_console_menu(html):
-    """Remember the Fleet page's button for the page shell of this request."""
-    _CONSOLE_MENU.set(html)
-
-
 def header_menu_html(active):
     """The button the shell draws in the top bar for the page `active`: the
-    Fleet page's own (taken once), else the device-scoped one."""
-    stashed = _CONSOLE_MENU.get()
-    if stashed is not None and _shell()._device_page_path(active) is None:
-        from companion import console_routes
-        if active == _shell().nav_slug(console_routes.FLEET_ROUTE):
-            _CONSOLE_MENU.set(None)
-            return stashed
+    device-scoped one, or "" on a page without it (the Console pages list and
+    switch frames in their own body)."""
     return personal_menu_html(active)

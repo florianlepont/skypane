@@ -6993,7 +6993,7 @@ button.row-menu__item {
 .dashboard-main[data-page-open] .personalisation-look,
 .dashboard-main[data-page-open] .personalisation > .layout-card,
 .dashboard-main[data-page-open] .personalisation > .personalisation-nav,
-.dashboard-main[data-page-open] .fleet-frame > .fleet-detail-head,
+.dashboard-main[data-page-open] .fleet-frame > .fleet-head,
 .dashboard-main[data-page-open] .fleet-frame > .fleet-tabs {
   animation:
     skypane-reveal var(--motion-enter) steps(12, end) backwards,

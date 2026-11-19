@@ -331,8 +331,8 @@ def rig(tmp_path):
 
 def test_fleet_shows_the_access_section_inline_not_behind_a_menu_or_dialog(rig):
     tree, _body = rig.fleet(query="?frame=" + rig.seed.owned_id)
-    assert [a.text() for a in tree.select("div.fleet-detail-head a")] == [
-        "Open personal view", "Rename"]
+    assert [a.attrs["aria-label"] for a in tree.select("div.fleet-head a.fleet-icon-button")] == [
+        "Open the personal view of Kitchen", "Rename Kitchen"]
     assert not tree.select("dialog#dlg-access-%s" % rig.seed.owned_id.replace("_", "-"))
     section = tree.select("section.fleet-block--access")[0]
     emails = [n.text() for n in section.select("span.co-manager__email")]
@@ -499,7 +499,7 @@ def _check_in(rig, frame_id, age_hours):
 
 def _fleet_word(rig, name):
     tree, _body = rig.fleet()
-    row = [r for r in tree.select("a.frame-row") if name in r.text()][0]
+    row = [r for r in tree.select("li.fleet-frame-row") if name in r.text()][0]
     return row.select_one('[role="img"]').attrs["aria-label"]
 
 

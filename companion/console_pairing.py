@@ -209,7 +209,7 @@ def _render(h, status=200, query=None, **state):
         console_routes.FLEET_ROUTE, None,
         lambda: _page_body(h, query or {}, state),
         None, status=status,
-        page_flash=console_fleet_view.query_flash_html(h, query or {}),
+        page_flash=console_fleet_view.query_flash_html(h, query or {}), omit_title=True,
         scripts=console_fleet_view.page_scripts(
             (query or {}).get(console_fleet_view.VIEW_QUERY) == [console_fleet_view.VIEW_SYSTEM]))
 

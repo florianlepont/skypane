@@ -979,7 +979,7 @@ class Handler(
 
     def _console_page(
             self, route, title_msg, body_html, purpose_msg=None, status=200,
-            action_html=None, scripts=(), page_flash=None):
+            action_html=None, scripts=(), page_flash=None, omit_title=False):
         """Render one admin console page: the page header (the title falls
         back to the console registry when `title_msg` is None), then
         `body_html`, inside the shell with the console route's own nav slug
@@ -1002,7 +1002,8 @@ class Handler(
         purpose = i18n.t(purpose_msg) if purpose_msg else None
         flash_html, clear_cookie = console_flash.take_flash(self.headers.get("Cookie"))
         flash_html = flash_html or page_flash or self._welcome_flash_html()
-        body = layout.page_header(title, purpose, action_html=action_html) + body_html
+        body = layout.page_header(
+            title, purpose, action_html=action_html, omit_title=omit_title) + body_html
         page = layout.page_shell(
             title=title, active=layout.nav_slug(route), body=body,
             ui_theme=ctx.ui_theme, flash=flash_html or None,

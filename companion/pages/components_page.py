@@ -765,6 +765,7 @@ EXEMPT = {
     "ui_components.toast_dismiss_html": "a part of toast_html",
     "ui_components.toast_icon_html": "a part of toast_html",
     "ui_components.toast_text_html": "a part of toast_html",
+    "ui_filter.search_field_html": "the search field of the filter bar above, used on its own by the Fleet list",
     "ui_modal.error_id": "an id builder for field_error_html",
     "ui_modal.validated_slug": "a slug check used by the dialog helpers",
 }
