@@ -538,8 +538,6 @@ table.airlines-table {
   border: 0;
   border-radius: 0;
   box-shadow: none;
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
 }
 
 .airlines-table .airline-group:not([hidden]) ~ .airline-group:not([hidden]) {
