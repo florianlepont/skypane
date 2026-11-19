@@ -2097,7 +2097,7 @@ a.fleet-action-button {
     display: grid;
     grid-template-columns: var(--fleet-list-width) minmax(0, 1fr);
     gap: 0;
-    align-items: start;
+    align-items: flex-start;
   }
 
   .fleet-split > .fleet-split__main,
