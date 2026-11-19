@@ -259,13 +259,13 @@ def other_page_html(row, view):
         label = i18n.t(fleet_page.ACTION_REACTIVATE)
         action = ui_modal.trigger_html(
             fleet_page.slug("dlg-reactivate", row.frame_id), _esc(label),
-            "fleet-action-button")
+            "fleet-action-button row__trailing")
         item = ui_groups.row(label, detail=i18n.t(_REACTIVATE_HINT), trailing_html=action)
         block = ui_groups.group(item, label=label, label_id="fleet-other-action")
     else:
         label = i18n.t(fleet_page.PAIR_SUBMIT)
         action = ui_modal.trigger_html(
-            fleet_page.ADD_DIALOG_ID, _esc(label), "fleet-action-button")
+            fleet_page.ADD_DIALOG_ID, _esc(label), "fleet-action-button row__trailing")
         item = ui_groups.row(label, detail=i18n.t(fleet_page.WAITING_FOR_PAIRING),
                              trailing_html=action)
         block = ui_groups.group(item, label=label, label_id="fleet-other-action")
