@@ -10,7 +10,7 @@ measured, until the owner reports otherwise. Nothing here says a part was
 exported, sliced or printed until the owner reports it.
 
 Centring reference (owner decision, 2026-11-18): everything is centred on the
-opening of the mat (140 x 99 mm today), not on the active area of the screen.
+opening of the mat (140 mm wide; 90 mm high per the owner's report of 2026-11-19, first read as 99 mm, not remeasured), not on the active area of the screen.
 
 ## Decisions
 
@@ -23,15 +23,15 @@ opening of the mat (140 x 99 mm today), not on the active area of the screen.
 | Filament | Bambu PETG Basic profile; colour and spool recorded per round in the test-print log; do not change brand between rounds; dry the spool if it has been open long | decided by the owner (brand); spool open | 2026-11-18 |
 | Build plate | Textured PEI, as read on the owner's slice of 2026-11-19; keep the same plate every round | reported by the owner | 2026-11-19 |
 | Lid fixing | M2 self-tapping screws, pilot holes 1.7 mm, through holes 2.4 mm (design values, not measured). Heat-set inserts would need a redesign of the bosses (standoffs are 4.0 mm across, lid corner wall about 3.2 mm), so they are not a drop-in swap; decided only after the screw reuse test (5 removal and insertion cycles per lid screw, a design value the owner may adjust). Lengths from the model, assuming a pan head: lid corners M2 x 6 to x 8 (pilot 7 mm deep under a 1.5 mm lid); board standoffs M2 x 4 at most (a 6 mm screw would pierce the 0.8 mm pilot floor). Screw head type: open, asked on 2026-11-19 | decided by the owner; lengths computed by the assistant | 2026-11-19 |
-| Magnets | 6 x 2 mm, pocket 6.2 x 2.2 mm (design value, not measured). Arrival: open, asked on 2026-11-19. Real size by calliper, pocket ladder and polarity marking: open, to be filled by the owner | open | 2026-11-19 |
+| Magnets | 6 x 2 mm, pocket 6.2 x 2.2 mm (design value, not measured). Arrival: not yet arrived (reported by the owner on 2026-11-19). Real size by calliper, pocket ladder and polarity marking: open, to be filled by the owner | open | 2026-11-19 |
 | Printer purchase | Not decided; the owner's call. Offer noted until 2026-12-01 to recheck; the first fit result arrives after that date. The X2D Combo (749 EUR noted) is not bought | not decided | 2026-11-19 |
-| Measuring tool | Calliper: none used so far (all readings so far are tape measure). The owner reported on 2026-11-19 that he did not know what a calliper is; it was explained to him on 2026-11-19 (a pied a coulisse, about 0.02 mm reading, 10 to 20 EUR or easy to borrow). He has not said whether he has one, borrows or buys (asked on 2026-11-19). Round A is blocked until a calliper is in hand | open: explained 2026-11-19, no answer on having, borrowing or buying | 2026-11-19 |
+| Measuring tool | Calliper: none used so far (all readings so far are tape measure). The owner reported on 2026-11-19 that he did not know what a calliper is; it was explained to him on 2026-11-19 (a pied a coulisse, about 0.02 mm reading, 10 to 20 EUR or easy to borrow). On 2026-11-19 he reported that he has no calliper; whether he buys or borrows one is not decided (asked on 2026-11-19). Round A is blocked until a calliper is in hand | open: no calliper (reported by the owner on 2026-11-19); to buy or borrow, not decided | 2026-11-19 |
 | Lid opening | No tool-free latch; a PH0 or PH00 screwdriver opens the lid. A recommendation the owner may overrule | proposed | 2026-11-19 |
 | Slicer | Bambu Studio (2.9.1.70, used 2026-11-19) | decided by the owner | 2026-11-18 |
 
 ### Superseded and out-of-scope notes
 
-(a) The mat opening of about 158 x 94 mm to cut, written in the first measurement plan and the first decision record, is superseded by the owner's decision to keep the mat's existing opening (140 x 99 mm as first read, tape measure). The height is to be rechecked (90 or 99 mm): open, asked on 2026-11-19, no answer yet. (b) The pack enclosed in this design is the single Kubii 3000 mAh unit (8 x 50 x 60 mm). The frame in production uses the 10000 mAh Soldered pack (11 x 60 x 100 mm per the battery records), which does not fit this pocket, and a replacement of the Kubii pack may differ in size (the vendor listing showed out of stock on 2026-11-01).
+(a) The mat opening of about 158 x 94 mm to cut, written in the first measurement plan and the first decision record, is superseded by the owner's decision to keep the mat's existing opening (140 x 99 mm as first read, tape measure). The height is 90 mm according to the owner (reported on 2026-11-19: the 99 was a typing error), not remeasured. (b) The pack enclosed in this design is the single Kubii 3000 mAh unit (8 x 50 x 60 mm). The frame in production uses the 10000 mAh Soldered pack (11 x 60 x 100 mm per the battery records), which does not fit this pocket, and a replacement of the Kubii pack may differ in size (the vendor listing showed out of stock on 2026-11-01).
 
 ## Design changes from the measurements
 
@@ -59,7 +59,7 @@ unless a measurement row is given. Nothing has been printed.
 | Tray | Columns under the stop walls (new) | none | 4 columns of 6 mm diameter, centred under the 2.4 mm walls, from the floor to the lid, to carry the lid where the stand pushes | none | 2026-11-18 |
 | Stand | Concept and size | folding stand with hinge pin, about 54 x 68 x 3 mm | one loose plate, 30 x 71 x 4 mm (64.7 mm on the small face), leaning on a stop wall, serves landscape and portrait; no hinge, no clip | none | 2026-11-18 |
 | Stand | Frame tilt | not defined | 20 degrees back, chosen by the owner after the assistant's stability estimate | none | 2026-11-18 |
-| Reference model (not printed) | Mat of the IKEA frame | opening 141.8 x 91.8 mm, 1.84 mm thick, behind the screen | opening 140 x 99 mm, 1.0 mm thick, in front of the screen against the glass (position a design value) | 6 | 2026-11-18 |
+| Reference model (not printed) | Mat of the IKEA frame | opening 141.8 x 91.8 mm, 1.84 mm thick, behind the screen | opening 140 x 99 mm (the owner reported on 2026-11-19 that the real height is 90 mm; the model is unchanged), 1.0 mm thick, in front of the screen against the glass (position a design value) | 6 | 2026-11-18 |
 | Reference model (not printed) | Frame tabs | middle of each side, 12.6 mm behind the screen | owner's positions and 15 mm height | 7b, 7c, 7d | 2026-11-18 |
 
 Values kept, because the model and the owner's tape readings differ by about
