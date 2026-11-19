@@ -2248,33 +2248,109 @@ select.visually-hidden {
   font-weight: var(--weight-semibold);
 }
 
-/* The strip an administrator sees on a personal page of someone else's frame:
- * who owns it and the way back to Fleet. Wraps rather than overflows. */
+/* The foreign-frame marker: a full-width accent slab (graphite in light,
+ * ivory in dark) with an amber edge, shown to an administrator on a personal
+ * page of a frame that is not theirs. It bleeds to the page padding's edges,
+ * stays at the top while the page scrolls, and wraps (a long address is never
+ * cut) rather than overflows. Accent on its inverse is the contrast pair of
+ * every filled control. */
 .frame-notice {
+  --notice-pad-left: max(var(--space-lg), var(--safe-left));
+  --notice-pad-right: max(var(--space-lg), var(--safe-right));
+  position: sticky;
+  top: calc(var(--safe-top) + var(--app-bar-drop));
+  z-index: 14;
   box-sizing: border-box;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  column-gap: var(--space-md);
-  min-height: 44px;
-  margin: 0 0 var(--space-md);
-  padding: var(--space-sm) var(--space-md);
-  background: var(--color-secondary);
-  color: var(--color-text);
-  border-radius: var(--radius-card);
-  font-size: var(--font-label-size);
+  gap: var(--space-sm) var(--space-md);
+  min-height: 56px;
+  margin: 0 calc(-1 * var(--notice-pad-right)) var(--space-md) calc(-1 * var(--notice-pad-left));
+  padding: var(--space-sm) var(--notice-pad-right) var(--space-sm) var(--notice-pad-left);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  border-bottom: 3px solid var(--color-status-warn);
+  font-size: var(--font-body-size);
+  line-height: 1.3;
   overflow-wrap: anywhere;
+}
+
+.frame-notice__msg {
+  flex: 1 1 220px;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.frame-notice__msg > svg {
+  flex: none;
 }
 
 .frame-notice__text {
   min-width: 0;
 }
 
+.frame-notice__text strong {
+  font-weight: var(--weight-title);
+}
+
 .frame-notice__link {
+  flex: none;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  gap: 6px;
   min-height: 44px;
+  padding: 0 var(--space-md);
+  background: var(--color-on-accent);
+  color: var(--color-accent);
+  border-radius: var(--radius-control);
   font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
+  text-align: center;
+  text-decoration: none;
+}
+
+.frame-notice__link:hover {
+  color: var(--color-accent);
+}
+
+.frame-notice__link:focus-visible {
+  outline: 2px solid var(--color-on-accent);
+  outline-offset: 2px;
+}
+
+/* Shown as a catalogue sample: inside its box, not stuck to the page. */
+.components-state__sample > .frame-notice {
+  position: static;
+  flex: 1 1 100%;
+  margin: 0;
+  padding-inline: var(--space-md);
+}
+
+/* On the desktop layout the frame button floats at the top right of the
+ * column: the marker keeps its own button clear of it. */
+@media (min-width: 960px) {
+  .frame-notice {
+    --notice-pad-left: var(--space-3xl);
+    --notice-pad-right: var(--space-3xl);
+  }
+
+  .site-header:has(.frame-menu) ~ .dashboard-main .frame-notice {
+    padding-right: calc(var(--notice-pad-right) + 12rem);
+  }
+
+  /* The frame button sits over the marker's right end: opaque, so it reads
+   * on the slab in both themes. */
+  .dashboard-shell:has(.frame-notice) .site-header .frame-menu__button {
+    background: var(--color-dominant);
+    color: var(--color-text);
+    border-color: var(--color-border);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
 }
 
 .refresh-pill {
@@ -7212,8 +7288,7 @@ button.row-menu__item {
   .runway-card,
   .space-switch,
   .place-modes,
-  .map-ready .place-modes,
-  .frame-notice {
+  .map-ready .place-modes {
     --filter-track-edge: var(--glass-border);
     background: var(--glass-bg);
     border-color: var(--glass-border);

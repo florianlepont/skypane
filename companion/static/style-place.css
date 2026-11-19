@@ -674,6 +674,15 @@ html:not(.map-ready) .place-tap-hint {
   flex: none;
 }
 
+/* The page has no padding for the foreign-frame marker to bleed through: it
+ * spans the width itself. */
+.map-ready .page-content:has(.place-stage) > .frame-notice,
+html.js-early:not(.map-ready) .page-content:has(.place-stage) > .frame-notice {
+  --notice-pad-left: var(--space-lg);
+  --notice-pad-right: var(--space-lg);
+  margin: 0;
+}
+
 .map-ready .page-content:has(.place-stage) > .place-page {
   display: flex;
   flex: 1 1 auto;

@@ -58,6 +58,18 @@ def test_the_page_is_in_french_when_the_reader_chose_french(rig):
     assert "Composants" in html and "Contrôles segmentés" in html
 
 
+def test_the_foreign_frame_marker_is_on_the_page_in_english_and_french(rig):
+    cookie = fx.admin_cookie(rig.state_dir)
+    _status, _headers, html = fx.get(rig, cookie, "/components")
+    assert "Foreign-frame marker" in html
+    assert "You are viewing <strong>camille.durand@example.test</strong>" in html
+    assert "Back to Fleet" in html
+    _status, _headers, html = fx.get(rig, cookie + "; sp_ui_lang=fr", "/components")
+    assert "Repère de cadre étranger" in html
+    assert "Vous consultez le cadre de <strong>camille.durand@example.test</strong>" in html
+    assert "Retour à la flotte" in html
+
+
 def _resolve(dotted):
     module_name, function_name = dotted.split(".")
     module = importlib.import_module("companion." + module_name)

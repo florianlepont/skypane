@@ -71,6 +71,7 @@ MESSAGES = {
     "components.state_toast_offline": "Liste non mise à jour (sans connexion)",
     "components.state_banner_error": "Bandeau, erreur",
     "components.state_banner_warn": "Bandeau, avertissement",
+    "components.state_frame_notice": "Repère de cadre étranger",
     "components.state_empty_compact": "Compact, dans une carte",
     "components.state_empty_search": "Recherche sans résultat",
     "components.state_dialogs": "Boîtes de dialogue (à ouvrir)",
