@@ -19,7 +19,8 @@ from companion import (
     audit, co_managers, console_fleet_view, console_flash, device_scope, frame_state, i18n,
     route_types, throttle, wake)
 from companion.pages import co_managers_card, fleet_page
-from server import device_config, device_dirs, fleet_db, fleet_ops, hardware, state_store
+from server import (
+    device_config, device_dirs, fleet_db, fleet_ops, hardware, pairing_code, state_store)
 
 # Same literals as companion/console_routes.py (which imports this module, so
 # it cannot be imported here); a test pins that the two agree.
@@ -134,6 +135,18 @@ def _device_rows(state_dir, device_rows, now):
     return rows
 
 
+def _epoch(value):
+    """`value` as epoch seconds when the column holds a number, else None."""
+    return value if isinstance(value, int) and not isinstance(value, bool) else None
+
+
+def _code_issued_at(row):
+    """When the pairing code now stored for a pending frame was issued: the
+    expiry minus the fixed code lifetime; None while no code is stored."""
+    expires = _epoch(row["code_expires_at"])
+    return None if expires is None else expires - pairing_code.CODE_TTL_S
+
+
 def _pending_rows(pending_rows, emails):
     rows = []
     for row in pending_rows:
@@ -153,7 +166,9 @@ def _pending_rows(pending_rows, emails):
             last_seen=row["last_seen_at"],
             battery_percent=_percent(
                 row["battery_mv"], _stored_type_curve(str(row["hardware_type"]))),
-            is_live_frame=False, offline=False))
+            is_live_frame=False, offline=False,
+            retired_at=_epoch(row["retired_at"]) if retired else None,
+            code_issued_at=None if retired else _code_issued_at(row)))
     return rows
 
 

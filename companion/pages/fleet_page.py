@@ -133,7 +133,9 @@ REGISTER_HARDWARE_ERROR = i18n.msg(
 class FleetRow(NamedTuple):
     """One frame as the list shows it. `frame_id` is the device id (live
     and retired-from) or the pending id; `previous_owner` marks a retired
-    frame's owner line. `last_seen` is epoch seconds or None."""
+    frame's owner line. `last_seen` is epoch seconds or None; `retired_at`
+    (a retired frame) and `code_issued_at` (a pending frame showing a code) are
+    epoch seconds or None when the database holds no such moment."""
     kind: str
     frame_id: str
     name: str
@@ -147,6 +149,8 @@ class FleetRow(NamedTuple):
     offline: bool
     state: str | None = None
     screen_off: bool = False
+    retired_at: int | None = None
+    code_issued_at: int | None = None
 
 
 class FleetView(NamedTuple):

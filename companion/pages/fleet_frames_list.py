@@ -7,7 +7,9 @@ retired frame opens its own page with only its useful action and never appears
 on another frame's page. The switch is a bounded chip row (a phone) that starts
 with "All frames". Every dynamic part is escaped.
 """
-from companion import frame_status, i18n, ui_filter, ui_groups, ui_modal
+import datetime
+
+from companion import frame_status, i18n, ui_filter, ui_groups, ui_modal, ui_time
 from companion.pages import fleet_page
 from companion.ui_base import escape_html, icon_html
 
@@ -25,6 +27,8 @@ _SEARCH = i18n.msg("admin_fleet.search_frames", "Search %d frames")
 _ALL_FRAMES = i18n.msg("admin_fleet.all_frames_n", "All frames (%d)")
 _NO_MATCH = i18n.msg("admin_fleet.no_frame_found", "No frame found")
 _SWITCH_ARIA = i18n.msg("nav.frame_strip_aria", "Your frames")
+_RETIRED_ON = i18n.msg("admin_fleet.retired_on", "Retired %s")
+_CODE_SHOWN = i18n.msg("admin_fleet.code_shown_ago", "Code shown %s")
 _REACTIVATE_HINT = i18n.msg(
     "admin_fleet.reactivate_wake_hint",
     "The frame shows its pairing code at its next wake (up to 24 h). Press "
@@ -71,18 +75,46 @@ def _seen(row, view):
     return ui_shell.seen_text(row, view.now.timestamp())
 
 
+def _retired_day(row, now):
+    """The day a retired frame was retired as "12 Oct" (the year is added when
+    it is not the current one), on the Paris clock; "" without a stored date."""
+    if row.retired_at is None:
+        return ""
+    try:
+        local = datetime.datetime.fromtimestamp(row.retired_at, ui_time.LOCAL_TZ)
+    except (OverflowError, OSError, ValueError):
+        return ""
+    day = "%d %s" % (local.day, ui_time.month_abbr(local.month))
+    if local.year != now.astimezone(ui_time.LOCAL_TZ).year:
+        day += " %d" % local.year
+    return day
+
+
+def _row_detail(row, view):
+    """The second line of a row: status and owner for a live frame; for a
+    retired frame its owner and retirement day; for a pending frame how long
+    ago its code was shown. A row without the stored moment keeps the plain
+    wording (Formerly owner, Waiting for pairing)."""
+    owner = fleet_page.owner_line(row)
+    if row.kind == fleet_page.KIND_LIVE:
+        return "%s · %s" % (_status_word(row), owner) if row.owner_email else _status_word(row)
+    if row.kind == fleet_page.KIND_PENDING and row.code_issued_at is not None:
+        age = ui_time.relative_age_text(view.now.timestamp() - row.code_issued_at)
+        return i18n.t(_CODE_SHOWN) % age
+    day = _retired_day(row, view.now) if row.kind == fleet_page.KIND_RETIRED else ""
+    if day:
+        retired = i18n.t(_RETIRED_ON) % day
+        return "%s · %s" % (row.owner_email, retired) if row.owner_email else retired
+    return owner
+
+
 def _row_item(row, view, selected_id):
     """One frame as a list row: status dot, name, owner and status word, the
     last-seen word and a chevron; the whole row is a link."""
     name = fleet_page.display_name(row)
-    owner = fleet_page.owner_line(row)
-    if row.kind == fleet_page.KIND_LIVE:
-        detail = "%s · %s" % (_status_word(row), owner) if row.owner_email else _status_word(row)
-    else:
-        detail = owner
     current = row.frame_id == selected_id
     item = ui_groups.row(
-        name, detail=detail, value_html=_esc(_seen(row, view)),
+        name, detail=_row_detail(row, view), value_html=_esc(_seen(row, view)),
         href=frame_href(row.frame_id), lead_html=frame_status.status_dot_html(row),
         extra_class="fleet-frame-row" + (" is-selected" if current else ""),
         attrs='data-filter-text="%s"' % _esc(
