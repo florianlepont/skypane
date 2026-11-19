@@ -55,7 +55,7 @@ Filled by the owner. Leave a row empty if the item was not measured.
 | 3 Busy wait after refresh (min / median / max) | 30.35 s / 30.36 s / 30.62 s | 2026-11-17 | 84:c7:bb:70:b2:7c | Same instrumented build and five cycles as item 2; BUSY wait after the refresh command | measured |
 | 4 Busy wait after power-off (min / median / max) | 0.15 s / 0.15 s / 0.15 s | 2026-11-17 | 84:c7:bb:70:b2:7c | Same instrumented build and five cycles as item 2; BUSY wait after the power-off command | measured |
 | 5 Flash size | 16 MB (quad, 3.3 V, manufacturer 0x85, device 0x2018); chip ESP32-S3 (QFN56) v0.2, 8 MB embedded PSRAM | 2026-11-15 | 84:c7:bb:70:b2:7c | `esptool --chip esp32s3 --port /dev/cu.usbmodem101 flash-id` (esptool v5.4.0), "Detected flash size" line | measured |
-| 6 Battery sense GPIO and ratio | | | | | |
+| 6 Battery sense GPIO and ratio | First reading, one level: multimeter 4.12 V (4120 mV) at the battery connector at 11:07 Europe/Paris; `X-Battery-Mv` 4098 mV on the wake after one RESET (10:07:40 UTC, 11:07:40 Paris); difference -22 mV (-0.5 %), ratio 0.995. Two more levels (about 3.9 V, about 3.7 V) not yet taken. GPIO and divider ratio not derived from one point | 2026-11-18 | 84:c7:bb:70:b2:7c (as reported by the owner) | LiPo, about 3000 mAh (owner's figure from memory, not a measurement), fully charged on USB, USB unplugged, left to rest 10 to 30 minutes, not swollen. Multimeter in DC volts at the battery connector with USB unplugged; then one press of RESET and the `X-Battery-Mv` of that wake read by the owner in the companion console for this frame (the minute of that wake was found afterwards in the frame's battery-history export, see the notes below: the two readings are within the same minute) | provisional, first reading, 1 of 3 levels |
 | 7 Battery ADC enable pin | | | | | |
 | 8 LED pin and polarity | GPIO21, lit when the pin is LOW (active low) | 2026-11-17 | 84:c7:bb:70:b2:7c | Visual check on the unit with the pin level printed in the log (same throwaway bench build) | measured |
 | 9a KEY0 GPIO | GPIO5 (right arrow key); idle high, pressed low | 2026-11-17 | 84:c7:bb:70:b2:7c | Pressed the three keys in turn, left to right, with the log showing each GPIO going 1 -> 0 then 0 -> 1 (internal pull-up, idle high). Silkscreen symbols read by the owner, left to right: circular arrow, left arrow, right arrow | measured |
@@ -86,3 +86,33 @@ Filled by the owner. Leave a row empty if the item was not measured.
   during the key test was the floating battery sense pin with no cell and is
   not a key.
 - Items 6, 7 and 10 are not measured and stay provisional.
+
+## Notes on the 2026-11-18 reading (item 6, item 7)
+
+- Item 6: the owner's first battery-sense reading (values table). The sense agrees
+  with the multimeter within 0.5 % (-22 mV) at this one level, which is within the
+  usual tolerance of a hand multimeter. One level is not a calibration: the method asks for three or more
+  levels across the usable range, so two remain (about 3.9 V and about 3.7 V), to
+  be taken as the cell drops. The row stays `provisional` until then. The cell
+  capacity is the owner's figure from memory, not a measurement.
+- Time of the wake after the RESET (read from the export, read-only, taken by the
+  assistant on 2026-11-18): the export of the frame's own `device_health` history
+  (`GET /api/export/battery-history?since=...&device=d_3d94b8f5`, unit of device
+  id d_3d94b8f5) has the wake after the RESET as the row with `boot_reason`
+  `power-on` at 2026-11-18T10:07:40+00:00 (11:07:40 Europe/Paris, UTC+1),
+  `battery_mv` 4098. The multimeter reading was 4.12 V at 11:07 Paris, so the two
+  readings are within the same minute. The difference stays -22 mV (-0.5 %),
+  ratio 0.995. The neighbouring wakes (about every 31 s, `boot_reason` `rtc`) read
+  4098 mV at 10:07:27 and 4098 mV at 10:08:11, then 4094 to 4098 mV for the
+  following 20 minutes, so the reading is stable to about +/-2 mV.
+- Inference, not a measurement: the reading steps from 4104-4110 mV to 4096 mV at
+  10:05:52 UTC and stays there. This most likely matches the owner unplugging USB
+  (the reading is a little higher with the board powered over USB).
+- Item 7 (ADC enable pin, GPIO6) was NOT measured directly and its row stays empty.
+  Indirect evidence only: with no cell the reading floated between 3630 and
+  4180 mV and changed between wakes (see
+  [SECOND-HARDWARE-BATTERY.md](SECOND-HARDWARE-BATTERY.md)); with the cell it is
+  stable and within 0.5 % of the multimeter. This suggests the sense path works but
+  does not show which GPIO enables it or its level during sampling.
+- Item 10 (discharge profile) is still not measured.
+

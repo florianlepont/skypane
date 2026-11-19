@@ -105,6 +105,10 @@ Runs in parallel with v1.1 Phase 47 (open, untouched). Phase numbering continues
 
 - [ ] **CON-01**: The visual improvements the owner lists for the console and the companion are made within the design system, in English and French and at phone width, with mockups approved first and no behaviour change beyond the list.
 
+### Rear Enclosure
+
+- [ ] **ENC-01**: The second-hardware frame has a printed rear enclosure (tray, lid with wall hooks, loose stand plate, centring shim) that fits an IKEA RÖDALM 13 x 18 cm frame, hangs on a wall and stands on furniture, keeps USB-C, switch and buttons reachable, does not degrade the Wi-Fi signal, and is documented and validated by the owner.
+
 ### Security and Quality
 
 - [ ] **SEC-AUD-01**: The whole platform is audited for security (sign-in, roles, device protocol, firmware update, companion inputs, server and deploy, dependencies, secrets, backups, logs); every finding is fixed and tested, or accepted by the owner in writing.
@@ -178,6 +182,7 @@ Coverage: 47/47 v1.2 requirements mapped, each to exactly one phase.
 | CON-01 | Phase 68 | Pending |
 | SEC-AUD-01 | Phase 66 | Pending |
 | QUAL-01 | Phase 67 | Pending |
+| ENC-01 | Phase 69 | Pending |
 | UX-01 | Phase 61 | Complete |
 | UX-02 | Phase 61 | Complete |
 | UX-03 | Phase 61 | Complete |

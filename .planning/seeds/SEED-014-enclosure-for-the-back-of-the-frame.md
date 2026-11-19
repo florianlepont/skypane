@@ -34,6 +34,10 @@ telemetry (SEED-017), the firmware update policy (SEED-018) and the battery
 discharge and curve validation (SEED-019). See
 `.planning/notes/milestone-plan-v1-3-v1-4.md`.
 
+## Split decided on 2026-11-18
+
+The physical enclosure of the 7.3 inch frame is now **Phase 69 of v1.2** (an owner-driven parallel track, requirement ENC-01). This seed keeps the rest for v1.4: the administrator tool for initial setup and flashing, the enclosure for the 13.3 inch frame if wanted, and the identity label.
+
 ## Design work started (owner, 2026-11-16)
 
 The owner has begun the 3D design: four parts (tray, lid with wall hooks and

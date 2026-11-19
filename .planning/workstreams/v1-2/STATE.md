@@ -27,7 +27,7 @@ progress:
 Phase: 49 (per-hardware-ota-registry) — ready for verification
 Plan: 11 of 11 (all plans complete)
 Status: Phase complete — ready for verification
-Last activity: 2026-11-16 - Phase 64 criterion 9 closed in the records (partly by owner decision for rows 2, 9, 10, 11); criterion 7 open
+Last activity: 2026-11-19 - Phase 69: rear enclosure design reworked with the owner, four STL exported, parts sliced in Bambu Studio (slice check filled), plans 03 to 05 aligned; nothing printed yet
 
 Progress: [████████░░] 84%
 
@@ -76,6 +76,8 @@ Progress: [████████░░] 84%
 - Phase 65 added 2026-11-15 at the owner's request: Detection Robustness (runway 3, then the other Orly runways and other French airports; widened the same day). Its battery half (BAT-01: discharges, curves, thresholds, battery tests) was moved the same day to SEED-019 for v1.4. Runs before Phase 59, which stays last.
 - Phases 66 and 67 added 2026-11-15 at the owner's request: Security Audit, and Project and Code Optimisation for a clean, industrial result. Both run before Phase 59, which stays last.
 - Phase 68 added 2026-11-16 at the owner's request: Console and Companion Visual Improvements, moved up from v1.3 (SEED-020) so that the security audit (Phase 66) and the code cleanup (Phase 67) work on the final code. It runs after Phase 65 and before Phase 66.
+- Phase 69 added 2026-11-18 at the owner's request: Rear Enclosure for the 7.3 Inch Frame (design, print, fit), the physical half of SEED-014, as an owner-driven parallel track (no code, no conflict with Phases 68, 66, 67, 59). The administrator flashing tool stays in v1.4.
+- Phase 69 decision 2026-11-18 (owner): Phase 69 is an owner-driven parallel track; milestone v1.2 may close before it is finished, and an unfinished phase carries into the next milestone.
 - Phase 64 added 2026-11-14 at the owner's request: Second Hardware in Production (build, release, deploy and parity with the first type), HW2-03 to HW2-05. The owner asked whether the second screen could be managed as the first one is; two read-only audits (server and companion, firmware and release pipeline) found the gap in the plan: Phase 57 releases the live frame only and Phase 58 validates the board with throwaway-key bench images, so nothing builds, publishes or deploys a release for the second type. Findings, re-checked against `main`, in `64-AUDIT.md`. Runs before Phase 59, which stays last.
 
 - Phase 58 closed 2026-11-15 by the owner with the battery model provisional: the unit passed cable flash, signed OTA bench, floor refusal and the four pairing checks; no valid discharge sample exists, so no battery value was measured. Real battery data is expected from production use (Phase 64); the discharge validation is SEED-019 (v1.4). Evidence in `58-03-SUMMARY.md`, `58-04-SUMMARY.md` and `hardware/SECOND-HARDWARE-VALIDATION.md`.
@@ -88,6 +90,12 @@ None yet.
 
 - Owner decisions still open (see research/SUMMARY.md): OTA signing, Auth0 app type, shared-password removal date, second board.
 - Research flagged for Phases 49, 50, 52, 53, 54, 55 and 58.
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 1 | Phase 69 rear enclosure: reworked cassette design, exported STL, filled print-order tables | 2026-11-18 | ebef9432 | [261118-q4d-phase-69-rear-enclosure-update-cassette-](./quick/261118-q4d-phase-69-rear-enclosure-update-cassette-/) |
 
 ## Session Continuity
 

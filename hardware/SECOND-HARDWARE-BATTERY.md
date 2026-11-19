@@ -21,6 +21,8 @@ between wakes. That is a floating sense input, not a cell, and none of it is use
 The sense divider, its enable pin and the pin numbers are inherited from the EE02
 board family and have not been checked on an EE04 (`sdkconfig.second.defaults`).
 
+2026-11-18, first reading with a cell (owner, about 3000 mAh LiPo, fully charged, at rest): multimeter 4.12 V at the connector, `X-Battery-Mv` 4098 mV on the wake after the RESET (10:07:40 UTC, 11:07:40 Paris, from the frame's battery-history export; same minute as the multimeter reading), -22 mV (-0.5 %). One level only; two more (about 3.9 V, about 3.7 V) remain, and the enable pin is still unchecked. Detail in [SECOND-HARDWARE-MEASUREMENTS.md](SECOND-HARDWARE-MEASUREMENTS.md).
+
 ## Method
 
 1. **Hardware.** A 3.7 V single-cell LiPo with a JST 2.0 mm connector of the right
