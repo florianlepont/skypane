@@ -258,26 +258,28 @@ def page_html(h, query, view):
             "frame", frames_list.list_panel_html(view, selected.id),
             frames_list.switch_html(view, selected.id) + frame_html(
                 h.page_context(selected), selected, view,
-                frames_list.head_html(live, view) if live else "", tab_selection(query)))
+                frames_list.head_html(live, view) if live else frames_list.plain_head_html(selected),
+                tab_selection(query)))
     if row is not None:
         return notice + _split(
             "other", frames_list.list_panel_html(view, row.frame_id),
             frames_list.switch_html(view) + frames_list.other_page_html(row, view))
     return notice + _split(
         "list", frames_list.list_panel_html(
-            view, landing=True, with_frame=watch is not None),
+            view, landing=True, with_frame=scope_device is not None),
         _auto_frame_html(h, view, watch, scope_device, frames_list))
 
 
 def _auto_frame_html(h, view, watch, device, frames_list):
     """The first frame of the list, which a wide screen shows beside it when
     no frame is chosen; "" without a live frame. A frame the database does not
-    list as a row (the legacy single frame) shows without a header."""
+    list as a row (the legacy single frame) shows a header of its name only."""
     if device is None:
         return ""
     return frame_html(
         h.page_context(device), device, view,
-        frames_list.head_html(watch, view) if watch else "", TAB_STATE)
+        frames_list.head_html(watch, view) if watch else frames_list.plain_head_html(device),
+        TAB_STATE)
 
 
 def query_flash_html(h, query):

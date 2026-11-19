@@ -220,6 +220,14 @@ def head_html(row, view):
             _esc(name), _state_line(row, view), buttons)
 
 
+def plain_head_html(device):
+    """The title block of a frame with no fleet row (the legacy single frame):
+    only its name, so the page keeps its one `<h1>`."""
+    return (
+        '<div class="fleet-head"><div class="fleet-head__text">'
+        '<h1 class="fleet-head__title">%s</h1></div></div>') % _esc(device.name)
+
+
 def other_page_html(row, view):
     """The page of a pending or retired frame: its title and the one useful
     action (Re-activate with what happens next, or Pair frame)."""

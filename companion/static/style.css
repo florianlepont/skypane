@@ -6994,6 +6994,7 @@ button.row-menu__item {
 .dashboard-main[data-page-open] .personalisation > .layout-card,
 .dashboard-main[data-page-open] .personalisation > .personalisation-nav,
 .dashboard-main[data-page-open] .fleet-frame > .fleet-head,
+.dashboard-main[data-page-open] .fleet-split__main > .fleet-head,
 .dashboard-main[data-page-open] .fleet-frame > .fleet-tabs {
   animation:
     skypane-reveal var(--motion-enter) steps(12, end) backwards,
@@ -7176,18 +7177,64 @@ button.row-menu__item {
 }
 
 /* A phone shows the blocks of one Fleet tab: they count among themselves,
- * after the frame's header row and the tabs. */
+ * after the frame's header row and the tabs, one step earlier than they would after
+ * a page header (the Fleet page has none on a phone). */
 @media (max-width: 959px) {
   .dashboard-main[data-page-open] .fleet-blocks > .fleet-block--state:nth-child(2 of .fleet-block--state),
   .dashboard-main[data-page-open] .fleet-blocks > .fleet-block--settings:nth-child(2 of .fleet-block--settings),
   .dashboard-main[data-page-open] .fleet-blocks > .fleet-block--access:nth-child(2 of .fleet-block--access) {
-    --reveal-index: 4;
+    --reveal-index: 3;
   }
 
   .dashboard-main[data-page-open] .fleet-blocks > .fleet-block--state:nth-child(n + 3 of .fleet-block--state),
   .dashboard-main[data-page-open] .fleet-blocks > .fleet-block--settings:nth-child(n + 3 of .fleet-block--settings),
   .dashboard-main[data-page-open] .fleet-blocks > .fleet-block--access:nth-child(n + 3 of .fleet-block--access) {
-    --reveal-index: 5;
+    --reveal-index: 4;
+  }
+}
+
+/* The Fleet page has no page header: the list's title row, or the title of the
+ * frame or view in the main column, opens the page on a phone and the blocks
+ * count on from it. */
+@media (max-width: 959px) {
+  .dashboard-main[data-page-open] .fleet-list__head,
+  .dashboard-main[data-page-open] .fleet-split__main > .fleet-head__title {
+    animation: skypane-reveal-fade var(--motion-enter) var(--ease-out) backwards;
+  }
+
+  .dashboard-main[data-page-open] .fleet-split .fleet-frame > :nth-child(1),
+  .dashboard-main[data-page-open] .fleet-split__main > .fleet-head {
+    --reveal-index: 0;
+  }
+
+  .dashboard-main[data-page-open] .fleet-frame > :nth-child(2) {
+    --reveal-index: 1;
+  }
+
+  .dashboard-main[data-page-open] .fleet-blocks > .fleet-block--state:nth-child(1 of .fleet-block--state),
+  .dashboard-main[data-page-open] .fleet-blocks > .fleet-block--settings:nth-child(1 of .fleet-block--settings),
+  .dashboard-main[data-page-open] .fleet-blocks > .fleet-block--access:nth-child(1 of .fleet-block--access) {
+    --reveal-index: 2;
+  }
+}
+
+/* From 960px the list is one block that fades in as the header does (its rows
+ * and title take no entrance of their own), and the frame follows it. */
+@media (min-width: 960px) {
+  .dashboard-main[data-page-open] .fleet-split__list {
+    animation: skypane-reveal-fade var(--motion-enter) var(--ease-out) backwards;
+  }
+
+  .dashboard-main[data-page-open] .fleet-split__list .fleet-list__body > .group-block:nth-child(n) {
+    animation: none;
+  }
+
+  .dashboard-main[data-page-open] .fleet-split__main > .fleet-head {
+    --reveal-index: 1;
+  }
+
+  .dashboard-main[data-page-open] .fleet-split__main > .fleet-other > .group-block {
+    --reveal-index: 2;
   }
 }
 
