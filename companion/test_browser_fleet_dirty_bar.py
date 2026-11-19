@@ -78,7 +78,12 @@ def test_the_bar_is_docked_inside_the_viewport_and_never_overlaps_the_tab_bar(
         main = page.evaluate(_RECT, "main")
         if viewport["width"] >= 960:
             assert bar["bottom"] > bar["vh"] - 48, bar
-            assert bar["width"] >= 600, bar
+            # Under the frame column (the list of frames is a column of its own beside it).
+            title = page.evaluate(_RECT, ".fleet-head__title")
+            listing = page.evaluate(_RECT, ".fleet-split__list")
+            assert bar["width"] >= 560, bar
+            assert abs(bar["left"] - title["left"]) <= 2 and bar["left"] >= listing["right"], (
+                bar, title, listing)
             assert bar["left"] >= main["left"] - 1 and bar["right"] <= main["right"] + 1, (bar, main)
         else:
             tab_bar = page.evaluate(_RECT, ".tab-bar")

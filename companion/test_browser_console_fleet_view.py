@@ -79,7 +79,7 @@ def test_the_blocks_lay_out_and_nothing_overflows(
         assert abs(blocks[0]["x"] - title["x"]) <= 2, (where, blocks[0], title)
         if wide:
             rows = page.evaluate(_ROWS)
-            assert len(rows) >= 5, where
+            assert len(rows) >= 4, where
             for row in rows:
                 assert row["h"] >= 44, (where, row)
             assert rows[0]["w"] < blocks[0]["x"], (where, rows[0], blocks[0])
@@ -157,13 +157,16 @@ def test_a_list_row_is_a_plain_link_that_selects_the_frame_on_desktop(
         assert page.locator(".fleet-list [aria-current='page']").count() == 1
         assert page.locator(target).get_attribute("aria-current") == "page"
         assert page.locator("section.fleet-block").count() == 4
-        page.locator(".fleet-list a[href='/fleet?view=system']").click()
+        assert page.locator(".fleet-list a[href='/fleet?view=system']").count() == 0
+        page.locator("nav.sidebar-nav a[href='/fleet?view=system']").click()
         page.wait_for_url("**/fleet?view=system")
         page.wait_for_function(_SETTLED, timeout=15000)
         # The System view is one group per topic (flight data, sources, identification).
         assert page.locator("section.fleet-block").count() == 3
         assert page.locator("main h1").inner_text() == "System"
-        assert page.locator(".fleet-list [aria-current='page']").count() == 1
+        assert page.locator(".fleet-list [aria-current='page']").count() == 0
+        current = page.locator("nav.sidebar-nav a[aria-current='page']")
+        assert current.count() == 1 and current.get_attribute("href") == "/fleet?view=system"
     finally:
         context.close()
 
@@ -218,6 +221,93 @@ def test_thirty_frames_stay_usable_and_the_search_filters_the_list(
         # A group with no visible row is hidden with it, and nothing matching shows the note.
         search.fill("zzzz")
         page.locator("[data-filter-empty]").wait_for(state="visible")
-        assert not page.evaluate(_VISIBLE, ".fleet-list-group:not(.fleet-list-group--system) li")
+        assert not page.evaluate(_VISIBLE, ".fleet-list-group li")
+    finally:
+        context.close()
+
+
+_COLUMNS = (
+    "() => { const box = s => { const e = document.querySelector(s); if (!e) return null;"
+    " const b = e.getBoundingClientRect();"
+    " return {x: b.left, y: b.top, w: b.width, h: b.height, r: b.right}; };"
+    " return {side: box('.dashboard-sidebar'), list: box('.fleet-split__list'),"
+    "  head: box('.fleet-list__head'), body: box('.fleet-list__body'),"
+    "  main: box('.fleet-split__main'), title: box('.fleet-head__title'),"
+    "  vh: window.innerHeight, vw: document.documentElement.clientWidth}; }")
+
+
+@pytest.mark.parametrize("viewport", [
+    {"width": 1200, "height": 800}, {"width": 1440, "height": 900},
+    {"width": 1920, "height": 1000}], ids=["1200", "1440", "1920"])
+def test_the_list_is_a_full_height_column_attached_to_the_sidebar(
+        new_context, app_server_in_process, viewport):
+    context, page, seed = _open(
+        new_context, app_server_in_process, viewport, "en", "light",
+        "/fleet?frame={owned}", extra=28)
+    where = "fleet-column/%d" % viewport["width"]
+    try:
+        box = page.evaluate(_COLUMNS)
+        side, listing = box["side"], box["list"]
+        assert abs(listing["w"] - 350) <= 1, (where, listing)
+        # Against the sidebar: same top, same height, a small gap and not the page's centred column.
+        assert 0 <= listing["x"] - side["r"] <= 24, (where, side, listing)
+        assert abs(listing["y"] - side["y"]) <= 1 and abs(listing["h"] - side["h"]) <= 1, (
+            where, side, listing)
+        assert abs(listing["h"] - (box["vh"] - 2 * side["y"])) <= 2, (where, listing, box["vh"])
+        # The selected frame fills the rest: it starts after the list and its title is inside it.
+        assert box["main"]["x"] >= listing["r"] - 1, (where, box)
+        assert box["title"]["x"] >= box["main"]["x"] and box["title"]["r"] <= box["vw"], where
+        assert box["main"]["r"] <= box["vw"] + 0.5, (where, box)
+        assert page.locator("main h1:visible").count() == 1
+        assert not _assert_no_page_overflow(page, where, viewport["width"])
+        # A fixed header (title, Add, search) above a body that scrolls on its own.
+        assert box["head"]["y"] - listing["y"] <= 2 and box["head"]["h"] >= 100, (where, box)
+        assert page.evaluate(
+            "() => { const b = document.querySelector('.fleet-list__body');"
+            " return b.scrollHeight > b.clientHeight && getComputedStyle(b).overflowY === 'auto'; }")
+        page.evaluate("() => { document.querySelector('.fleet-list__body').scrollTop = 400; }")
+        # The frame column scrolls the page; the list stays where the sidebar is.
+        page.evaluate("() => window.scrollTo(0, document.documentElement.scrollHeight)")
+        after = page.evaluate(_COLUMNS)
+        assert abs(after["list"]["y"] - listing["y"]) <= 1, (where, after["list"], listing)
+        assert abs(after["head"]["y"] - box["head"]["y"]) <= 1, (where, after["head"], box["head"])
+        assert abs(after["side"]["y"] - side["y"]) <= 1, (where, after["side"], side)
+        for control in (".fleet-add-button", "#fleet-frame-search"):
+            top = page.locator(control).bounding_box()
+            assert listing["y"] <= top["y"] and top["y"] + top["height"] <= listing["y"] + listing["h"], (
+                where, control, top)
+    finally:
+        context.close()
+
+
+def test_below_1200px_the_list_is_not_a_column_beside_the_frame(
+        new_context, app_server_in_process):
+    context, page, seed = _open(
+        new_context, app_server_in_process, {"width": 1199, "height": 800}, "en", "light",
+        "/fleet?frame={owned}", extra=4)
+    try:
+        assert not page.evaluate(_VISIBLE, ".fleet-list")
+        assert page.evaluate(_VISIBLE, ".fleet-switch")
+        assert page.locator("main h1:visible").count() == 1
+    finally:
+        context.close()
+
+
+def test_the_unsaved_changes_bar_docks_under_the_frame_column_clear_of_the_list(
+        new_context, app_server_in_process):
+    context, page, _seed = _open(
+        new_context, app_server_in_process, VIEWPORT_DESKTOP, "en", "light",
+        "/fleet?frame={owned}", extra=8)
+    try:
+        page.locator("#wake-interval-s").fill("120")
+        bar = page.locator(".dirty-bar")
+        bar.wait_for(state="visible")
+        # Let the bar's own entrance end before it is measured.
+        page.wait_for_function(
+            "() => getComputedStyle(document.querySelector('.dirty-bar')).opacity === '1'")
+        box = bar.bounding_box()
+        listing = page.locator(".fleet-split__list").bounding_box()
+        assert box["x"] >= listing["x"] + listing["width"], (box, listing)
+        assert box["x"] + box["width"] <= VIEWPORT_DESKTOP["width"], box
     finally:
         context.close()

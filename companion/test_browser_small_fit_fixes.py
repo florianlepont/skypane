@@ -183,7 +183,10 @@ def test_the_system_cards_fill_the_page_column(new_context, rig):
         edges = page.evaluate(
             "() => { const right = (s) => Math.round(document.querySelector(s)"
             ".getBoundingClientRect().right);"
-            " return {column: right('.fleet-split__main'), topics: right('.system-topics'),"
+            " const main = document.querySelector('.fleet-split__main');"
+            " const inner = right('.fleet-split__main')"
+            " - parseFloat(getComputedStyle(main).paddingRight);"
+            " return {column: Math.round(inner), topics: right('.system-topics'),"
             " card: right('.system-topics .group-block')}; }")
         assert edges["topics"] == edges["column"] == edges["card"], edges
         assert not _assert_no_page_overflow(page, "System", 1280)

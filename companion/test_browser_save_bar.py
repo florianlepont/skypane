@@ -163,7 +163,9 @@ def test_every_page_shows_the_same_save_bar(new_context, server, viewport, lang,
             measured[name] = page.evaluate(_MEASURE)
         finally:
             context.close()
-    reference = measured["fleet"]
+    # The Fleet page's bar sits under its frame column beside the list on a wide screen, so
+    # the other pages are measured against the first of them there.
+    reference = measured["departures" if viewport["width"] >= 1200 else "fleet"]
     cancel, save = WORDS[lang]
     for name, m in measured.items():
         where = "%s at %dpx (%s, %s)" % (name, viewport["width"], lang, scheme)
@@ -180,9 +182,16 @@ def test_every_page_shows_the_same_save_bar(new_context, server, viewport, lang,
         # The Location page on a phone draws the same bar as the actions of its compact card, at
         # the card's top right, not as a strip of its own.
         compact = name == "location" and viewport["width"] < 960
+        # On a wide screen the Fleet page's list is a column of its own beside the sidebar, so
+        # its bar docks under the frame column: the same bar, at the same height and distance
+        # from the bottom, but narrower and further right (checked against the list in
+        # test_browser_console_fleet_view).
+        beside_list = name == "fleet" and viewport["width"] >= 1200
         for key in ("width", "height", "left", "right", "fromBottom"):
             if compact:
                 break
+            if beside_list and key in ("width", "left", "right"):
+                continue
             assert abs(m[key] - reference[key]) <= SUBPIXEL, (
                 where, key, m[key], "differs from the fleet page's", reference[key])
         if compact:
