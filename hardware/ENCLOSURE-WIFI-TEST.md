@@ -60,10 +60,10 @@ Asked of the owner on 2026-11-19, reported by the owner where stated:
   `hardware/SECOND-HARDWARE-BATTERY.md` (not re-read from the server). Block
   duration at 300 s is arithmetic: 15 kept wakes plus the discarded wake is 16
   wakes, 4800 s, 80 minutes.
-- Room and orientation: the spot is the owner's desk (reported by the owner on 2026-11-19); the orientation, landscape or portrait, is unknown, asked on 2026-11-19. The place where the frame will hang later is not stated.
+- Room and orientation: the spot is the owner's desk (reported by the owner on 2026-11-19); the owner also reported on 2026-11-19 that the bare frame (board and screen, not in the frame) lies in landscape. The place where the frame will hang later is not stated.
 - Spot marked with tape: unknown, asked on 2026-11-19.
-- Access point name: unknown, asked on 2026-11-19.
-- Power state (USB or battery, battery charge): unknown, asked on 2026-11-19.
+- Access point name: Rales Of The City (reported by the owner on 2026-11-19; the name only, no password).
+- Power state: battery (reported by the owner on 2026-11-19). The battery charge state is unknown, asked on 2026-11-19.
 - Planned start of block A1: unknown, asked on 2026-11-19.
 
 ### Protocol change
