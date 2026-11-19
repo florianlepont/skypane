@@ -140,12 +140,12 @@ def test_each_frame_state_offers_only_its_useful_action(fleet):
     _status, _headers, pending_page = fx.get(
         server, cookie, "/fleet?frame=%s" % seed.pending_id)
     pending = _main(pending_page)
-    assert re.findall(r'class="fleet-action-button"[^>]*>([^<]*)<', pending) == ["Pair frame"]
+    assert re.findall(r'class="fleet-action-button row__trailing"[^>]*>([^<]*)<', pending) == ["Pair frame"]
     assert 'href="#dlg-add-frame"' in pending
     _status, _headers, retired_page = fx.get(
         server, cookie, "/fleet?frame=%s" % seed.retired_id)
     retired = _main(retired_page)
-    assert re.findall(r'class="fleet-action-button"[^>]*>([^<]*)<', retired) == ["Re-activate"]
+    assert re.findall(r'class="fleet-action-button row__trailing"[^>]*>([^<]*)<', retired) == ["Re-activate"]
     assert 'href="#dlg-reactivate-%s"' % _slug(seed.retired_id) in retired
     assert "dlg-retire" not in retired and "dlg-reassign" not in retired
     assert "{owner_email}" not in page
