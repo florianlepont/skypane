@@ -267,7 +267,8 @@ def test_a_card_opens_its_read_only_sheet_and_escape_returns_to_the_card(
             " return d.open && d.contains(document.activeElement); }", arg=target, timeout=10000)
         sheet = page.locator("#" + target)
         assert sheet.locator("form, input, button, a[href*='/airlines/']").count() == 0
-        assert "Times seen" in sheet.inner_text() and "Rarity" in sheet.inner_text()
+        assert "Seen" in sheet.inner_text() and "Last seen" in sheet.inner_text()
+        assert sheet.locator(".rarity-pill").count() == 1
         page.keyboard.press("Escape")
         page.wait_for_function(
             "([id, href]) => { const d = document.getElementById(id);"
@@ -471,17 +472,18 @@ def test_rare_and_occasional_airlines_and_aircraft_stand_out_by_colour_and_by_wo
     try:
         probe = (
             "sel => { const el = document.querySelector(sel); const s = getComputedStyle(el);"
-            " let bg = el.closest('.collection-card') || document.body;"
-            " return {text: el.textContent.trim(), color: s.color,"
-            " border: s.borderTopColor, bg: getComputedStyle(document.documentElement).backgroundColor}; }")
-        rare = page.evaluate(probe, ".collection-card--rare .collection-card__rarity--rare")
-        occasional = page.evaluate(
-            probe, ".collection-card--occasional .collection-card__rarity--occasional")
-        regular = page.evaluate(probe, ".collection-card--regular .collection-card__rarity")
+            " return {text: el.textContent.trim(), color: s.color, bg: s.backgroundColor,"
+            " dot: getComputedStyle(el.querySelector('.rarity-dot')).backgroundColor}; }")
+        rare = page.evaluate(probe, ".collection-card--rare .rarity-pill:not(.rarity-pill--new)")
+        occasional = page.evaluate(probe, ".collection-card--occasional .rarity-pill:not(.rarity-pill--new)")
+        regular = page.evaluate(probe, ".collection-card--regular .rarity-pill:not(.rarity-pill--new)")
         assert rare["text"] == "Rare" and occasional["text"] == "Occasional"
+        assert regular["text"] == "Regular"
         assert len({rare["color"], occasional["color"], regular["color"]}) == 3
-        for word in (rare, occasional):
-            assert _contrast(word["color"], word["bg"]) >= 4.5, (theme, word)
+        assert len({rare["bg"], occasional["bg"], regular["bg"]}) == 3
+        for pill in (rare, occasional, regular):
+            assert pill["dot"] == pill["color"]
+            assert _contrast(pill["color"], pill["bg"]) >= 4.5, (theme, pill)
         assert not page.locator(".rarity-legend").is_visible()
         page.locator(".collection-legend > summary").click()
         page.locator(".rarity-legend").wait_for(state="visible")
@@ -494,8 +496,7 @@ def test_rare_and_occasional_airlines_and_aircraft_stand_out_by_colour_and_by_wo
             "() => !document.querySelector('.collection-legend').open", timeout=10000)
         page.locator(SEEN_CARD).first.click()
         page.wait_for_function(
-            "() => !!document.querySelector('dialog[open] .type-chip')", timeout=10000)
-        assert page.locator("dialog[open] .type-chip").count() >= 1
+            "() => !!document.querySelector('dialog[open] .rarity-pill')", timeout=10000)
     finally:
         context.close()
 
@@ -514,7 +515,7 @@ def test_a_card_opens_its_sheet_through_the_hash_link_without_script(
             "id => { const d = document.getElementById(id);"
             " return d && getComputedStyle(d).display !== 'none'"
             " && d.getBoundingClientRect().height > 0; }", arg=target, timeout=10000)
-        assert page.locator("#" + target + " a.modal__dismiss").is_visible()
+        assert page.locator("#" + target + " a.modal__close").is_visible()
 
 
 def test_the_text_filter_hides_cards_instantly_with_script(new_context, make_app_server):
@@ -624,25 +625,24 @@ def test_the_detail_sheet_fits_the_screen_with_its_head_and_close_in_reach(
             "() => { const d = document.querySelector('dialog.collection-sheet[open]');"
             " const box = sel => d.querySelector(sel).getBoundingClientRect();"
             " const r = d.getBoundingClientRect();"
+            " const close = d.querySelector('a.modal__close');"
             " const facts = Array.from(d.querySelectorAll('.collection-facts > div'))"
-            ".filter(f => !f.classList.contains('collection-facts__wide'))"
             ".map(f => f.getBoundingClientRect().top);"
             " return {dialog: [r.top, r.bottom], vh: window.innerHeight,"
-            " head: box('.modal__head'), close: box('.modal__close'), dismiss: box('.modal__dismiss'),"
-            " art: box('.collection-sheet__art .collection-card__image'),"
-            " body: [d.querySelector('.modal__body').scrollHeight,"
-            " d.querySelector('.modal__body').clientHeight], facts: facts}; }")
+            " scroll: [d.scrollHeight, d.clientHeight], close: box('a.modal__close'),"
+            " closeBg: getComputedStyle(close).backgroundColor,"
+            " closeLabel: close.getAttribute('aria-label'),"
+            " dismiss: getComputedStyle(d.querySelector('.modal__actions')).display,"
+            " facts: facts}; }")
         assert geometry["dialog"][0] >= -0.5 and geometry["dialog"][1] <= geometry["vh"] + 0.5, geometry
-        assert geometry["dialog"][1] - geometry["dialog"][0] <= geometry["vh"] * 0.85 + 1, geometry
-        for part in ("head", "close", "dismiss"):
-            box = geometry[part]
-            assert box["top"] >= geometry["dialog"][0] - 0.5, (part, geometry)
-            assert box["bottom"] <= geometry["dialog"][1] + 0.5, (part, geometry)
-        assert geometry["close"]["height"] >= 44 - 0.5 and geometry["dismiss"]["height"] >= 44 - 0.5
+        assert geometry["scroll"][0] <= geometry["scroll"][1] + 1, geometry
+        close = geometry["close"]
+        assert close["height"] >= 44 - 0.5 and close["width"] >= 44 - 0.5, geometry
+        assert close["top"] >= geometry["dialog"][0] - 0.5, geometry
+        assert geometry["closeBg"] not in ("rgba(0, 0, 0, 0)", "transparent"), geometry
+        assert geometry["closeLabel"] == ("Close" if lang == "en" else "Fermer")
         tops = sorted(geometry["facts"])
-        assert all(b - a >= 54 - 0.5 for a, b in zip(tops, tops[1:])), geometry
-        if viewport["width"] < 700:
-            assert geometry["art"]["height"] <= 80, geometry
+        assert len(tops) == 3 and all(b - a >= 54 - 0.5 for a, b in zip(tops, tops[1:])), geometry
     finally:
         context.close()
 
@@ -703,9 +703,12 @@ def test_the_new_pill_sits_in_the_card_corner_clear_of_the_picture_and_only_a_ne
             " && p.top < img.bottom && p.bottom > img.top;"
             " return inCard && !overPicture; }")
         assert clear
-        # Each seen card reads on one line: the count, then the rarity in words.
-        assert page.locator(SEEN_CARD + " .collection-card__seen").first.inner_text().count(
-            "·") == 1
+        # Each seen card carries the count, then the rarity pill at the same place on every card.
+        gaps = page.evaluate(
+            "() => Array.from(document.querySelectorAll('a.collection-card:not(.collection-card--unseen)'))"
+            ".map(c => c.getBoundingClientRect().bottom"
+            " - c.querySelector('.rarity-pill:not(.rarity-pill--new)').getBoundingClientRect().bottom)")
+        assert len(gaps) >= 3 and max(gaps) - min(gaps) <= 1, gaps
         assert page.locator(UNSEEN_CARD + " .collection-card__seen").count() == 0
     finally:
         context.close()

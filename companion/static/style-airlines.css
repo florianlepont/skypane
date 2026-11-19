@@ -281,6 +281,9 @@
 }
 
 .collection-card > .rarity-pill--new {
+  min-height: 20px;
+  height: 20px;
+  padding: 0 8px;
   position: absolute;
   top: var(--space-xs);
   right: var(--space-sm);
@@ -326,112 +329,150 @@
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-.collection-card__rarity {
-  font-weight: var(--weight-semibold);
-  color: var(--color-text);
+:root,
+html[data-ui-theme="light"] {
+  --rarity-tint: 10%;
 }
 
-.collection-card__rarity--occasional {
-  color: var(--color-rarity-occasional);
+@media (prefers-color-scheme: dark) {
+  :root {
+    --rarity-tint: 28%;
+  }
+
+  html[data-ui-theme="light"] {
+    --rarity-tint: 10%;
+  }
 }
 
-.collection-card__rarity--rare {
-  color: var(--color-rarity-rare);
+html[data-ui-theme="dark"] {
+  --rarity-tint: 28%;
 }
 
+.collection-card__pill {
+  display: flex;
+  margin-top: auto;
+  padding-top: var(--space-xs);
+}
+
+/* The rarity as a filled pill: a dot and the word, three tones that keep the
+ * names (Regular neutral, Occasional green, Rare violet). */
 .rarity-pill {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
-  height: 20px;
-  padding: 0 8px;
-  border: 1px solid color-mix(in srgb, var(--color-text) 30%, transparent);
+  min-height: 26px;
+  padding: 0 10px;
   border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--color-text) 9%, var(--color-dominant));
   font-size: var(--font-caption-size);
-  font-weight: var(--weight-semibold);
+  font-weight: var(--weight-bold);
+  line-height: 1;
+  text-align: center;
   color: var(--color-text);
+  white-space: nowrap;
 }
 
 .rarity-pill--occasional {
   color: var(--color-rarity-occasional);
-  border-color: var(--color-rarity-occasional);
-  background: color-mix(in srgb, var(--color-rarity-occasional) 10%, var(--color-dominant));
+  background: color-mix(in srgb, var(--color-rarity-occasional) var(--rarity-tint), var(--color-dominant));
 }
 
 .rarity-pill--rare {
   color: var(--color-rarity-rare);
-  border-color: var(--color-rarity-rare);
-  background: color-mix(in srgb, var(--color-rarity-rare) 10%, var(--color-dominant));
-}
-
-.rarity-pill--occasional .rarity-dot {
-  background: var(--color-rarity-occasional);
-}
-
-.rarity-pill--rare .rarity-dot {
-  background: var(--color-rarity-rare);
-}
-
-.type-chips {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: var(--space-xs);
-}
-
-.type-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 2px 8px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-pill);
-}
-
-.type-chip__tag {
-  font-size: var(--font-caption-size);
-  font-weight: var(--weight-semibold);
-}
-
-.type-chip--occasional {
-  color: var(--color-rarity-occasional);
-  border-color: var(--color-rarity-occasional);
-}
-
-.type-chip--rare {
-  color: var(--color-rarity-rare);
-  border-color: var(--color-rarity-rare);
-}
-
-.rarity-dots {
-  display: inline-flex;
-  gap: 3px;
+  background: color-mix(in srgb, var(--color-rarity-rare) var(--rarity-tint), var(--color-dominant));
 }
 
 .rarity-dot {
   display: block;
-  width: 6px;
-  height: 6px;
+  flex: none;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
-  background: var(--color-text);
+  background: currentColor;
+}
+
+/* The detail sheet is one grid: the picture, the name (the dialog's title)
+ * over the rarity pill, the round Close at the corner, then the facts in one
+ * card. Everything shows at once, so nothing scrolls inside it, and the
+ * Close at the top is the only closing control (the foot strip is hidden). */
+dialog.collection-sheet.modal[open],
+.collection-sheet.modal:target:not(.is-modal) {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "art title close"
+    "art pill close"
+    "facts facts facts";
+  align-items: center;
+  gap: 0;
+  padding-bottom: calc(var(--space-lg) + var(--safe-bottom, 0px));
+  overflow: visible;
+}
+
+.collection-sheet .modal__head,
+.collection-sheet .modal__head > div,
+.collection-sheet .modal__body {
+  display: contents;
+}
+
+.collection-sheet .modal__actions {
+  display: none;
+}
+
+.collection-sheet .modal__title {
+  grid-area: title;
+  align-self: end;
+  padding-top: 0;
+}
+
+.collection-sheet a.modal__close {
+  grid-area: close;
+  align-self: start;
+  width: 44px;
+  height: 44px;
+  margin: 0 0 0 var(--space-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-dominant);
+  color: var(--color-text);
 }
 
 .collection-sheet__art {
+  grid-area: art;
   display: flex;
-  justify-content: center;
+  margin-right: var(--space-md);
 }
 
 .collection-sheet__art .collection-card__image {
-  width: auto;
+  display: block;
+  width: 110px;
   max-width: 100%;
-  max-height: 160px;
+  height: auto;
+  border-radius: var(--radius-control);
   background: var(--picture-placeholder);
 }
 
-/* The facts read as rows: the label at the left, the value at the right,
- * a hairline between them; the wide facts stack. */
+.collection-sheet__rarity {
+  grid-area: pill;
+  align-self: start;
+  display: flex;
+  margin-top: var(--space-xs);
+}
+
+.collection-sheet__unseen {
+  grid-area: facts;
+  margin: var(--space-md) 0 0;
+}
+
+/* The facts read as rows in one card: the label at the left, the value at
+ * the right, a hairline between them. */
 .collection-facts {
+  grid-area: facts;
   display: block;
-  margin: 0;
+  margin: var(--space-md) 0 0;
+  padding: 0 var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
 }
 
 .collection-facts > div {
@@ -445,14 +486,7 @@
 }
 
 .collection-facts > div + div {
-  border-top: 1px solid var(--glass-hairline);
-}
-
-.collection-facts > .collection-facts__wide {
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: center;
-  gap: var(--space-xs);
+  border-top: 1px solid var(--color-border);
 }
 
 .collection-facts dt {
@@ -464,18 +498,9 @@
 .collection-facts dd {
   margin: 0;
   min-width: 0;
+  font-weight: var(--weight-semibold);
   text-align: right;
   overflow-wrap: anywhere;
-}
-
-@media (max-width: 699.98px) {
-  .collection-sheet__art .collection-card__image {
-    max-height: 72px;
-  }}
-
-.collection-sheet__note {
-  margin: 0;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
 @media (min-width: 700px) {
@@ -1311,10 +1336,6 @@ table.airlines-table {
   .airlines-col--seen { width: 23%; }
   .airlines-col--menu { width: 72px; }
 
-}
-
-.collection-facts > .collection-facts__wide dd {
-  text-align: left;
 }
 
 /* Airline card unlock: a card the script plays once gets a glint layer and

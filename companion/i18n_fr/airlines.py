@@ -169,14 +169,9 @@ MESSAGES = {
     "airlines.collection_rarity_regular": "Habituelle",
     "airlines.collection_rarity_occasional": "Occasionnelle",
     "airlines.collection_rarity_rare": "Rare",
-    "airlines.collection_rarity_sentence":
-        "La rareté dépend du nombre de fois où votre cadre a vu une compagnie.",
-    "airlines.collection_fact_times": "Nombre de passages",
-    "airlines.collection_fact_first": "Première observation",
-    "airlines.collection_fact_last": "Dernière observation",
-    "airlines.collection_fact_types": "Types d’appareil observés",
-    "airlines.collection_fact_rarity": "Rareté",
-    "airlines.collection_fact_callsigns": "Indicatifs récents",
+    "airlines.collection_fact_times": "Vue",
+    "airlines.collection_fact_last": "Dernière fois",
+    "airlines.collection_fact_types": "Avion",
     "airlines.collection_empty_heading": "Votre collection commence avec le premier avion",
     "airlines.collection_empty_body":
         "Les compagnies apparaissent ici dès que votre cadre les voit.",
