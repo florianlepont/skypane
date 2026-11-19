@@ -747,6 +747,15 @@ _ICAO_AIRLINE_NAMES_WITHOUT_ARTWORK = {
 }
 
 
+def names_without_artwork():
+    """The `(ICAO prefix, airline name)` pairs known by name only (no
+    vendored artwork), sorted by name then prefix. A fresh tuple, so a
+    caller can never change the lookup table."""
+    return tuple(sorted(
+        _ICAO_AIRLINE_NAMES_WITHOUT_ARTWORK.items(),
+        key=lambda pair: (pair[1].casefold(), pair[0])))
+
+
 def airline_source_from_callsign(callsign, manual_registry=None):
     """Return `(airline_name, source)` for `callsign`'s ICAO prefix,
     where `source` is `"static"`, `"manual"`, or `None`.

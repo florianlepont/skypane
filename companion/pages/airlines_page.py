@@ -27,7 +27,7 @@ import companion.layout as layout
 import companion.page_context as page_context
 import companion.ui_components as ui_components
 from companion import airline_collection
-from companion.pages import airline_rows, airline_sheet, airline_table
+from companion.pages import airline_known_rows, airline_rows, airline_sheet, airline_table
 from companion.ui_base import AIRLINE_EDITOR_LABEL
 from server.plane import airline_default_types, illustrations
 # manual_resolutions, enrich and state_store import this page module in
@@ -1234,7 +1234,8 @@ def _table_data(ctx):
     data = airline_table.TableData(
         pairs=pairs, state_dir=state_dir, now=now, sheets_by_name=sheets_by_name,
         manual_info_by_name=manual_info_by_name, entries_by_slug=_entries_by_slug(ctx, now),
-        gap_rows=gap_shown, focus_key=focus_key,
+        gap_rows=gap_shown, known_rows=airline_known_rows.rows(state_dir, registry),
+        focus_key=focus_key,
         default_types=airline_default_types.load_default_types(state_dir),
         types_open=ctx.types_open == airline_table.TYPES_ALL)
     return data, gap_overflow_count
@@ -1274,7 +1275,8 @@ def render(ctx):
     pairs, gap_shown = table_data.pairs, table_data.gap_rows
     lightbox_html = _lightbox_html() if (pairs or gap_shown) else ""
     table_html, chips = airline_table.table_and_chips(table_data)
-    filter_html = _filter_bar_html(len(gap_shown) + len(pairs), chips) if (pairs or gap_shown) else ""
+    filter_html = _filter_bar_html(
+        len(gap_shown) + len(table_data.known_rows) + len(pairs), chips) if (pairs or gap_shown) else ""
     return (
         layout.page_header(i18n.t(AIRLINE_EDITOR_LABEL))
         + filter_html

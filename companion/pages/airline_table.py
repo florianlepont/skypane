@@ -23,7 +23,7 @@ import companion.i18n as i18n
 import companion.illustration_normalize as illustration_normalize
 import companion.layout as layout
 from companion.layout import csrf_field, escape_html
-from companion.pages import airline_rows, airline_sheet
+from companion.pages import airline_known_rows, airline_rows, airline_sheet
 from server.plane import airline_default_types
 from server.plane import illustrations
 from server.plane import render as panel_render
@@ -77,6 +77,7 @@ class TableData:
     manual_info_by_name: dict = field(default_factory=dict)
     entries_by_slug: dict = field(default_factory=dict)
     gap_rows: list = field(default_factory=list)
+    known_rows: tuple = ()
     focus_key: str = ""
     default_types: dict = field(default_factory=dict)
     # True when the aircraft-type rows are part of the table itself (the
@@ -534,7 +535,8 @@ def table_and_chips(data):
         _gap_group_html(page, index, gap_row, data.now)
         for index, gap_row in enumerate(data.gap_rows))
     groups = []
-    counts = {airline_rows.KIND_UNIDENTIFIED: len(data.gap_rows)}
+    counts = {airline_rows.KIND_UNIDENTIFIED: len(data.gap_rows),
+              airline_rows.KIND_KNOWN: len(data.known_rows)}
     for index, (builtin_name, shapes) in enumerate(data.pairs):
         row = _row_facts(page, data, index, builtin_name, shapes)
         if row is not None:
@@ -548,8 +550,10 @@ def table_and_chips(data):
     table = (
         '<table class="airlines-table"><caption class="airlines-label">%s</caption>%s%s</table>'
     ) % (escape_html("%s · %d" % (i18n.t(CAPTION_TEXT), len(groups))), _head_html(), "".join(groups))
-    table = gap_table + table
-    return table, airline_rows.chips(counts, len(data.gap_rows) + len(groups))
+    known = airline_known_rows.table_html(page, data.state_dir, data.known_rows)
+    table = gap_table + known + table
+    return table, airline_rows.chips(
+        counts, len(data.gap_rows) + len(data.known_rows) + len(groups))
 
 
 def table_html(data):

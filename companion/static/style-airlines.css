@@ -1012,6 +1012,49 @@ table.airlines-table {
   flex: none;
 }
 
+/* An airline known by name only: its name over its prefix, and the button
+ * that adds its first artwork. Read-only: the row holds no form. */
+.airlines-known {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm) var(--space-md);
+  min-width: 0;
+  min-height: 60px;
+  padding: var(--space-sm) var(--space-md);
+}
+
+.airline-group--known:not([hidden]) ~ .airline-group--known:not([hidden]) {
+  border-top: 1px solid var(--color-border);
+}
+
+.airlines-known__who {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.airlines-known__name {
+  font-weight: var(--weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.airlines-known__prefix {
+  font-size: var(--font-caption-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.airlines-known > .airlines-known__add {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  min-height: 44px;
+  min-width: 44px;
+  text-align: center;
+}
+
 /* The filter chips: five segments do not fit a phone's line, so they wrap
  * onto a second row there instead of pushing the page sideways. */
 .filter-bar--chips .filter-bar__chips {

@@ -198,3 +198,50 @@ def test_renaming_an_airline_through_the_editor_works_end_to_end(new_context, ma
         assert taps == 4
     finally:
         context.close()
+
+
+KNOWN_ROW = "tbody.airline-group--known"
+KNOWN_ADD = KNOWN_ROW + " .airlines-known__add"
+_CENTRED_TEXT = (
+    "el => { const range = document.createRange(); range.selectNodeContents(el.querySelector('.airlines-known__text'));"
+    " const text = range.getBoundingClientRect(); const box = el.getBoundingClientRect();"
+    " return Math.abs((text.top + text.height / 2) - (box.top + box.height / 2)); }")
+
+
+@pytest.mark.parametrize("lang", ("en", "fr"))
+@pytest.mark.parametrize("name,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
+def test_airlines_known_by_name_are_read_only_rows_with_an_artwork_button_and_a_chip(
+        new_context, server, name, viewport, lang):
+    context, page = _open(new_context, server, viewport, lang, ready=KNOWN_ROW)
+    try:
+        rows = page.locator(KNOWN_ROW)
+        assert rows.count() >= 4
+        assert rows.first.locator("input, form").count() == 0
+        for index in range(rows.count()):
+            button = page.locator(KNOWN_ADD).nth(index)
+            box = button.bounding_box()
+            assert box["height"] >= 44 and box["width"] >= 44
+            assert button.evaluate(_CENTRED_TEXT) <= 2
+        chip_text = "Known by name only" if lang == "en" else "Connues par leur nom"
+        chips = page.locator(".filter-bar__chips")
+        assert chips.evaluate("el => getComputedStyle(el).flexWrap") == "nowrap" or viewport["width"] > 500
+        chip = page.locator(".filter-chip", has_text=chip_text)
+        chip.click()
+        page.wait_for_function(
+            "n => document.querySelectorAll('tbody.airline-group:not([hidden])').length === n",
+            arg=rows.count())
+        assert page.locator("tbody.airline-group--gap:not([hidden])").count() == 0
+        assert not _assert_no_page_overflow(page, "known", viewport["width"])
+    finally:
+        context.close()
+
+
+def test_the_artwork_button_opens_the_shared_add_artwork_step(new_context, server):
+    context, page = _open(new_context, server, VIEWPORT_DESKTOP, ready=KNOWN_ROW)
+    try:
+        _settle(page, KNOWN_ADD)
+        page.locator(KNOWN_ADD).first.click()
+        page.locator("dialog[open]").wait_for(state="visible")
+        assert page.locator('dialog[open] input[type="file"]').count() >= 1
+    finally:
+        context.close()
