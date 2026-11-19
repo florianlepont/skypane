@@ -44,6 +44,8 @@ unless a measurement row is given. Nothing has been printed.
 | Tray | Antenna position | top left, on a 41 x 21 mm platform with ribs and a 0.6 mm top plate | above the board: 40 x 20 mm footprint at x 12 to 52 mm and y 65 to 85 mm, on a solid block; moved instead of buying an extension | 13 | 2026-11-18 |
 | Tray | Interior layout | scattered stops and ribs, L-shaped bay with filler blocks | one continuous partition, battery pocket with solid walls, service well with 1.2 mm walls and rounded corners, free area under the partition; names and outlines of the components engraved 0.4 mm | none | 2026-11-18 |
 | Shim | Thickness (audit, owner choice) | 0.8 mm, 0.12 mm lower than the screen (0.92 in the model), so the mat would rest on the glass | 1.0 mm (5 layers of 0.2 mm), 0.08 mm higher than the screen, 0.1 mm below the mat; screen and mat thicknesses read with a tape measure, about 0.1 to 0.2 mm uncertain, so the value stays a design value; at the first fit, check with a strip of paper between mat and shim | 2, 6 (tape measure) | 2026-11-18 |
+| Tray | Battery pocket position (owner request: the cable could not leave the corner) | pocket centre y = -1.65 mm; the lower wall of the service well sat 0.5 mm above the cell, 0.6 mm of room for the cable at the top-right corner | pocket centre y = -11.65 mm (10 mm lower); the service-well wall stays where it was, so the lid opening is unchanged; the short top wall stops at x = -25 mm, which leaves about 10 mm free above the corner where the wires leave; the cable then runs west of the well and along the strip above it, staying inside the box | 10 (cable on the owner's photo) | 2026-11-18 |
+| Lid, stand | Stand storage (new, owner request) | none | two round bosses 10 mm diameter, 3 mm high, at x = 31 mm, y = 11 and 39 mm on the wall side, each with a 6.2 x 2.2 mm magnet pocket; two matching pockets on the small face of the stand plate, 28 mm apart; the plate is stored flat, small face down, 3.6 mm from the wall; four 6 x 2 mm magnets to buy | none | 2026-11-18 |
 | Tray | Board standoffs | 5.2 mm diameter, pilot hole 0.6 mm above the floor | 4.0 mm diameter, pilot floor 0.8 mm (no wall under 0.8 mm) | none | 2026-11-18 |
 | Tray | Columns under the stop walls (new) | none | 4 columns of 6 mm diameter, centred under the 2.4 mm walls, from the floor to the lid, to carry the lid where the stand pushes | none | 2026-11-18 |
 | Stand | Concept and size | folding stand with hinge pin, about 54 x 68 x 3 mm | one loose plate, 30 x 71 x 4 mm (64.7 mm on the small face), leaning on a stop wall, serves landscape and portrait; no hinge, no clip | none | 2026-11-18 |
@@ -71,7 +73,7 @@ not reported any check of his own yet.
 | No wall under 0.8 mm | No wall under 0.8 mm outside the engraved letters. 31 faces of 0.24 mm in the tray labels and 22 in the lid signature and logo: thin ridges between letter strokes and between the logo grooves, decorative, slicers drop them | 2026-11-18 |
 | No slot under 1 mm | Narrowest slot: tray 1.09 mm, lid 1.0 mm, stand none, shim none | 2026-11-18 |
 | Bridges 4.5 mm at most | Longest bridge 4.5 mm (lid hook cavity); 3.0 mm for the lug holes | 2026-11-18 |
-| Centre of gravity against the landscape hook axis (with the measured masses) | With the owner's masses (frame 173 g, screen 36 g, battery 49 g, board with antenna and cable 20 g) and the printed parts solid or at 40 % of solid (PETG 1.27 g/cm3, design value): x -3.6 to -2.6 mm, y +1.5 to +5.1 mm, total 328 to 403 g, without the stand plate. The landscape hook axis is at y = 0 with +-12 mm of adjustment | 2026-11-18 |
+| Centre of gravity against the landscape hook axis (with the measured masses) | With the owner's masses (frame 173 g, screen 36 g, battery 49 g, board with antenna and cable 20 g) and the printed parts solid or at 40 % of solid (PETG 1.27 g/cm3, design value): x -3.6 to -2.6 mm, y +1.5 to +5.1 mm before the battery pocket was moved 10 mm (about -1.2 to -1.5 mm in y after it: roughly 0 to +3.9 mm, computed, not measured), total 328 to 403 g, without the stand plate. The landscape hook axis is at y = 0 with +-12 mm of adjustment | 2026-11-18 |
 | Stand: foot on the desk at 20 degrees | Both lower corners of the plate at 0.00 mm above the desk, in landscape and in portrait; the top end lies flat on the lid against the stop wall | 2026-11-18 |
 | Stand: forward-tipping margin | 7.5 degrees in landscape and 10.5 degrees in portrait, assuming the frame mass centre at 6 mm depth and the wood edge at 74 mm from the lid origin (IKEA model, not measured); 5.4 and 8.9 degrees if the mass centre is at 3 mm depth. 1 mm of plate length changes the tilt by about 1.4 degrees | 2026-11-18 |
 
@@ -110,10 +112,10 @@ in millimetres, each part lying in its printing pose (lowest point at z = 0):
 
 | File | Size of the part | Triangles |
 |---|---|---|
-| `skypane_tray.stl` | 132.0 x 182.0 x 11.0 mm | 7346 |
-| `skypane_lid.stl` | 132.0 x 182.0 x 11.2 mm | 5716 |
-| `skypane_stand.stl` | 71.0 x 30.0 x 4.0 mm | 12 |
+| `skypane_tray.stl` | 132.0 x 182.0 x 11.0 mm | 7298 |
+| `skypane_lid.stl` | 132.0 x 182.0 x 11.2 mm | 6490 |
+| `skypane_stand.stl` | 71.0 x 30.0 x 4.0 mm | 396 |
 | `skypane_shim.stl` | 132.0 x 182.0 x 1.0 mm | 208 |
 
-The files were checked in Python for size, bounding box and watertightness (every edge is shared by exactly two triangles); 2 triangles in the lid and 10 in the tray have a
+The files were checked in Python for size, bounding box and watertightness (every edge is shared by exactly two triangles); 2 triangles in the lid and 12 in the tray have a
 near-zero area (under 1e-6 mm2), which slicers ignore. They have not been opened in a slicer and nothing has been printed.

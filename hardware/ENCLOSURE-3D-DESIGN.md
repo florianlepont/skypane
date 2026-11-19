@@ -106,7 +106,7 @@ powered over USB.
 5. Thickness of the mat, ordered elsewhere: 1.2 mm assumed.
 6. Printer purchase, material, filament, plate: not decided.
 7. First test print, to adjust the clearances (stop walls and plate, screws, rebate, tab pads).
-8. Cables: the battery cable (95 mm) is shorter than the route inside the box (about 105 mm), so the owner will buy a JST-PH extension; the antenna cable is tight at 50 mm (U.FL extension as a fallback).
+8. Cables: the battery cable (95 mm) is shorter than the route inside the box (about 105 to 110 mm, estimated from the owner's photo, not measured on the real board), so the owner will buy a JST-PH extension; the antenna cable is tight at 50 mm (U.FL extension as a fallback).
 9. Storage of the stand plate: none for now; the plate is loose. A storage place is to be found after the first fit.
 
 ## Product references
@@ -117,6 +117,8 @@ powered over USB.
   ribbon.
 - Kubii LiPo battery 3000 mAh, 8 x 50 x 60 mm, JST-PH connector.
 - Seeed XIAO FPC antenna A-01, 40 x 20 mm, 80 mm coaxial cable.
+- JST-PH 2.0 mm, 2-pin battery extension cable (to buy; check the polarity with a multimeter before connecting).
+- Four round magnets, 6 mm diameter x 2 mm thick, for the stand plate storage (to buy; stick each pair face to face first to get the polarity right).
 - Blender connector: `lab.blender.org/mcp-server`.
 
 ## Files
