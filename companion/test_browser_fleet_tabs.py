@@ -31,8 +31,6 @@ _PROBE = """() => {
     }),
     blocks: [...document.querySelectorAll('.fleet-block')].filter(shown).map(
       (b) => b.querySelector('ul.group').parentElement.className.match(/fleet-block--(\\w+)/)[1]),
-    other: !!document.querySelector('.fleet-block--others') &&
-      shown(document.querySelector('.fleet-block--others')),
     pageOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
   };
 }"""
@@ -69,8 +67,6 @@ def test_each_tab_fits_and_shows_only_its_own_groups(
             assert [link["current"] for link in probe["links"]] == [
                 "page" if name == tab else None for name in TABS]
             assert set(probe["blocks"]) == {tab}, probe
-            # The pending and retired frames show on the State tab, the landing one.
-            assert probe["other"] is (tab == "state")
         finally:
             context.close()
 
@@ -99,7 +95,6 @@ def test_a_desktop_shows_every_section_in_one_column_and_no_tabs(
         probe = page.evaluate(_PROBE)
         assert probe["nav"] is False
         assert set(probe["blocks"]) == {"state", "settings", "access"}
-        assert probe["other"] is True
         assert page.locator("a.fleet-sum").count() == 0
     finally:
         context.close()
@@ -134,19 +129,28 @@ def test_a_frame_with_no_picture_shows_a_designed_empty_state(
         context.close()
 
 
-def test_the_other_frames_section_is_evenly_padded_and_a_pending_frame_offers_pairing(
+def test_a_pending_frames_page_offers_pairing_with_an_evenly_padded_centred_button(
         new_context, app_server_in_process):
-    context, page = _open(new_context, app_server_in_process, PHONE, "en", "state")
+    seed = fx.seed_fleet(app_server_in_process.state_dir)
+    context = new_context(viewport=PHONE)
+    context.add_cookies([{
+        "name": auth.UI_LANG_COOKIE_NAME, "value": "en", "url": app_server_in_process.base_url()}])
+    page = context.new_page()
     try:
+        _login(page, app_server_in_process.base_url())
+        page.goto(app_server_in_process.base_url() + "/fleet?frame=" + seed.pending_id)
+        page.wait_for_function(_SETTLED, timeout=15000)
         gaps = page.evaluate(
-            "() => { const s = document.querySelector('.fleet-block--others > .group');"
+            "() => { const s = document.querySelector('.fleet-other .group');"
             " const a = s.getBoundingClientRect();"
-            " const f = s.querySelector('.entity-row').getBoundingClientRect();"
-            " const l = [...s.querySelectorAll('.entity-row')].pop().getBoundingClientRect();"
-            " return [f.top - a.top, a.bottom - l.bottom]; }")
+            " const b = s.querySelector('a.fleet-action-button').getBoundingClientRect();"
+            " return [b.top - a.top, a.bottom - b.bottom]; }")
         assert abs(gaps[0] - gaps[1]) <= 2, gaps
-        row = page.locator(".fleet-block--others .entity-row", has_text="Waiting for pairing")
-        row.locator("summary.row-menu__toggle").click()
-        assert row.locator(".row-menu__list, .row-menu").get_by_text("Pair frame").count() >= 1
+        button = page.locator(".fleet-other a.fleet-action-button")
+        assert button.inner_text() == "Pair frame"
+        style = button.evaluate(
+            "e => { const c = getComputedStyle(e); return [c.justifyContent, c.textAlign]; }")
+        assert style == ["center", "center"]
+        assert button.bounding_box()["height"] >= 44
     finally:
         context.close()

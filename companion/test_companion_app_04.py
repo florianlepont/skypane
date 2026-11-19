@@ -41,13 +41,14 @@ _EXPECTED_REDUCED_MOTION_NO_PREFERENCE_BLOCKS = 1
 # The selectors that spend the card entrance: the one shared definition.
 ENTRANCE_SELECTORS = (".reveal-appended", ".reveal-replay",
     ".dashboard-main[data-page-open] .reveal",
-    ".dashboard-main[data-page-open] .group-block:not(.history-day):nth-child(-n + 6)",
+    ".dashboard-main[data-page-open] .group-block:not(.history-day):not(.fleet-list-group):nth-child(-n + 6)",
     ".dashboard-main[data-page-open] .history-day:nth-child(-n + 3)",
     ".dashboard-main[data-page-open] .page-section:not(.group-block .page-section):nth-child(-n + 6)",
     ".dashboard-main[data-page-open] .personalisation-look",
     ".dashboard-main[data-page-open] .personalisation > .layout-card",
     ".dashboard-main[data-page-open] .personalisation > .personalisation-nav",
-    ".dashboard-main[data-page-open] .fleet-frame > .fleet-detail-head",
+    ".dashboard-main[data-page-open] .fleet-frame > .fleet-head",
+    ".dashboard-main[data-page-open] .fleet-split__main > .fleet-head",
     ".dashboard-main[data-page-open] .fleet-frame > .fleet-tabs")
 # A table or an empty state straight on the sky opens like a card, in its place in the order.
 OPENING_CARD_SELECTORS = (
@@ -79,6 +80,13 @@ OPENING_BLOCK_SELECTORS = (
     ".dashboard-main[data-page-open] > .components-index",
     ".dashboard-main[data-page-open] > .error-actions",
     ".dashboard-main[data-page-open] .personalisation__view > .form-view")
+
+# The Fleet page has no page header: below 1200px its list title row only fades in, and each
+# group of the list enters like a card; from 1200px the list is one block that fades in.
+OPENING_FLEET_LIST_HEAD_SELECTORS = (".dashboard-main[data-page-open] .fleet-list__head",)
+OPENING_FLEET_LIST_GROUP_SELECTORS = (
+    ".dashboard-main[data-page-open] .fleet-list-group:nth-child(-n + 6)",)
+OPENING_FLEET_LIST_SELECTORS = (".dashboard-main[data-page-open] .fleet-split__list",)
 
 # The two motion durations, plus the one documented exception: the
 # toast's two dwells (how long a success/info toast and a pending toast
@@ -316,7 +324,10 @@ def test_motion_tokens_are_two_durations_plus_the_documented_exceptions(served_c
         (OPENING_BLOCK_SELECTORS, "animation"),
         (OPENING_CARD_SELECTORS, "animation"),
         (OPENING_LIST_SELECTORS, "animation"),
-        (OPENING_GRID_SELECTORS, "animation")], (
+        (OPENING_GRID_SELECTORS, "animation"),
+        (OPENING_FLEET_LIST_HEAD_SELECTORS, "animation"),
+        (OPENING_FLEET_LIST_GROUP_SELECTORS, "animation"),
+        (OPENING_FLEET_LIST_SELECTORS, "animation")], (
         "--motion-enter must drive only the card entrance animation, got %r" % (entrance,))
     stagger = [
         (selectors, prop) for selectors, prop, _value in _spenders(served_css, "--motion-stagger")]
@@ -327,7 +338,8 @@ def test_motion_tokens_are_two_durations_plus_the_documented_exceptions(served_c
         (OPENING_LIST_SELECTORS, "animation-delay"),
         (OPENING_GRID_SELECTORS, "animation-delay"),
         (OPENING_AFTER_GAPS_SELECTORS, "animation-delay"),
-        (OPENING_AFTER_KNOWN_SELECTORS, "animation-delay")], (
+        (OPENING_AFTER_KNOWN_SELECTORS, "animation-delay"),
+        (OPENING_FLEET_LIST_GROUP_SELECTORS, "animation-delay")], (
         "--motion-stagger must scale only the card entrance delay, got %r" % (stagger,))
     # The placeholder sweep and the blur-up are each spent by one animation, on the rule that
     # marks the loading container and the one that fades the arrived picture in.

@@ -1,9 +1,8 @@
-"""Real-browser check that the last row's actions menu on the Fleet page is reachable.
+"""Real-browser check that the action of a retired frame's page on the Fleet page is reachable.
 
-The Other frames list ends with a retired frame whose menu offers Re-activate. Opening that menu
-must show every option fully (no ancestor clips the popover) and a click on each option's centre
-and corners must land on the option, at desktop and phone width, in English and French and in
-both themes."""
+A retired frame opens its own page whose one action is Re-activate. The button must be fully in
+reach (a click on its centre and corners lands on it), at least 44px, and open its confirmation,
+at desktop and phone width, in English and French and in both themes."""
 import pytest
 
 import fleet_console_support as fx
@@ -14,11 +13,11 @@ pytestmark = pytest.mark.browser
 
 DESKTOP = {"width": 1280, "height": 800}
 PHONE = {"width": 390, "height": 844}
-_LAST_ROW = ".fleet-block--others li.entity-row:last-child"
+_ACTION = ".fleet-other a.fleet-action-button"
 _SETTLED = (
     "() => document.readyState === 'complete' && document.getAnimations().every("
     "a => !a.effect || a.effect.getTiming().iterations === Infinity || a.playState !== 'running')")
-# Per option: every sample point (centre and the four corners, inset 2px) is inside the
+# Per button: every sample point (centre and the four corners, inset 16px: the radius) is inside the
 # viewport and the element found there is the option or one of its descendants.
 _REACHABLE = """
 items => items.map(el => {
@@ -27,8 +26,8 @@ items => items.map(el => {
   window.scrollBy(0, before.top + before.height / 2 - document.documentElement.clientHeight / 2);
   const r = el.getBoundingClientRect();
   const w = document.documentElement.clientWidth, h = document.documentElement.clientHeight;
-  const points = [[r.left + r.width / 2, r.top + r.height / 2], [r.left + 2, r.top + 2],
-    [r.right - 2, r.top + 2], [r.left + 2, r.bottom - 2], [r.right - 2, r.bottom - 2]];
+  const points = [[r.left + r.width / 2, r.top + r.height / 2], [r.left + 16, r.top + 16],
+    [r.right - 16, r.top + 16], [r.left + 16, r.bottom - 16], [r.right - 16, r.bottom - 16]];
   const hits = points.map(([x, y]) => {
     if (x < 0 || y < 0 || x > w || y > h) return false;
     const hit = document.elementFromPoint(x, y);
@@ -46,7 +45,7 @@ def _open(new_context, server, viewport, lang, theme):
         "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": server.base_url()}])
     page = context.new_page()
     _login(page, server.base_url())
-    page.goto(server.base_url() + "/fleet?tab=state&frame=" + seed.owned_id)
+    page.goto(server.base_url() + "/fleet?frame=" + seed.retired_id)
     page.locator("main").wait_for(state="visible")
     page.wait_for_function(_SETTLED, timeout=15000)
     _set_ui_theme(page, theme)
@@ -56,19 +55,19 @@ def _open(new_context, server, viewport, lang, theme):
 @pytest.mark.parametrize("viewport", [DESKTOP, PHONE], ids=["desktop", "phone"])
 @pytest.mark.parametrize("lang", ["en", "fr"])
 @pytest.mark.parametrize("theme", ["light", "dark"])
-def test_the_last_other_frame_menu_options_are_reachable(
+def test_the_retired_frames_action_is_reachable_and_opens_its_confirmation(
         new_context, app_server_in_process, viewport, lang, theme):
     context, page = _open(new_context, app_server_in_process, viewport, lang, theme)
     try:
-        row = page.locator(_LAST_ROW)
-        row.scroll_into_view_if_needed()
-        row.locator("summary.row-menu__toggle").click()
-        panel = row.locator(".row-menu__panel")
-        panel.wait_for(state="visible")
-        items = row.locator("a.row-menu__item")
-        assert items.count() >= 1
-        results = items.evaluate_all(_REACHABLE)
+        action = page.locator(_ACTION)
+        action.scroll_into_view_if_needed()
+        results = action.evaluate_all(_REACHABLE)
+        assert len(results) == 1
         for result in results:
             assert all(result["hits"]), result
+        box = action.bounding_box()
+        assert box["height"] >= 44 and box["width"] >= 44
+        action.click()
+        page.locator("dialog[open]").wait_for(state="visible")
     finally:
         context.close()

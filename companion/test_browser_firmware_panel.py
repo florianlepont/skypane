@@ -23,7 +23,7 @@ from skypane_fw_image import build_image
 
 pytestmark = pytest.mark.browser
 
-FLEET_ROUTE = "/fleet"
+FLEET_ROUTE = "/fleet?frame=live"
 WIDTHS = (360, 1280)
 THEMES = ("light", "dark")
 LANGS = ("en", "fr")

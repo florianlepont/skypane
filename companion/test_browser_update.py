@@ -188,7 +188,7 @@ def _seed_many_releases(state_dir, scenario=None):
     atomic_io.atomic_write(fr.device_report_path(str(state_dir)), json.dumps(device_report))
 
 
-FLEET_ROUTE = "/fleet"
+FLEET_ROUTE = "/fleet?frame=live"
 
 
 def _reveal(page, which):

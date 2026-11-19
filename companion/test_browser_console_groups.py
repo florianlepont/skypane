@@ -88,7 +88,7 @@ def test_fleet_blocks_are_flat_glass_groups(new_context, server, viewport, lang,
         assert not _assert_no_page_overflow(page, "fleet", viewport["width"])
         out = page.evaluate(_FLEET)
         # State, Device and version, Settings, Access and Other frames.
-        assert out["count"] == 5 and out["bad"] == [], out
+        assert out["count"] == 4 and out["bad"] == [], out
     finally:
         context.close()
 

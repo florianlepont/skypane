@@ -179,13 +179,10 @@ def test_live_frame_is_current_by_default_with_its_default_name(fleet_app):
     assert current[0].select_one(".frame-row__name").text().strip() == "Orly frame"
 
 
-def test_add_tile_for_an_administrator_opens_the_pairing_dialog_on_the_fleet_page(fleet_app):
+def test_the_fleet_page_has_no_frame_button_and_adds_a_frame_from_its_list(fleet_app):
     _, _, page = _fleet_get(fleet_app, "/fleet")
-    _, switcher = _switcher(page)
-    add = switcher.select("a.frame-row--add")
-    assert [(a.attrs["href"], a.text().strip()[-12:]) for a in add] == [
-        ("#dlg-add-frame", "+Add a frame")]
-    assert "All frames" not in page
+    assert "frame-menu" not in page
+    assert re.findall(r'<a href="(#dlg-add-frame)" class="fleet-add-button" data-modal-open>', page)
 
 
 def test_each_tile_reads_a_last_seen_word_from_the_shared_status(fleet_app):

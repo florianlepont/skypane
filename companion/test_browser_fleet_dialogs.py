@@ -6,7 +6,6 @@ holds at 360 and 1280px, in English and French, in both themes."""
 import pytest
 
 import fleet_console_support as fx
-from frame_menu_support import BUTTON, click_add, open_menu
 from companion import auth
 from companion.test_browser_ux_helpers import (
     VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED, _assert_hit_target,
@@ -38,8 +37,8 @@ def _seed(server):
 
 
 def _open(new_context, server, viewport=VIEWPORT_DESKTOP, lang="en", scheme="light"):
-    """The Fleet page with the Kitchen frame selected (its detail header
-    carries the actions menu)."""
+    """The Fleet page with the Kitchen frame selected (its Access section holds
+    Reassign and Retire; the list of frames holds Add a frame)."""
     seed = _seed(server)
     context = new_context(viewport=viewport, color_scheme=scheme)
     context.add_cookies([{
@@ -52,17 +51,16 @@ def _open(new_context, server, viewport=VIEWPORT_DESKTOP, lang="en", scheme="lig
     return context, page, seed
 
 
-_HEADER = ".fleet-detail-head"
 _RETIRE_LINK = "a.fleet-retire__link"
-_OTHERS = ".fleet-block--others"
+_ADD_BUTTON = ".fleet-add-button"
 
 
-def _open_menu_item(page, label, scope):
-    """Two actions: the actions menu button of `scope` (a row of the Other frames
-    section), then the named item."""
-    holder = page.locator(scope).first
-    holder.locator("summary.row-menu__toggle").click()
-    holder.locator("a.row-menu__item", has_text=label).click()
+def click_add(page):
+    """Choose Add a frame in the list of frames (a phone shows the list on /fleet only)."""
+    if not page.locator(_ADD_BUTTON).is_visible():
+        page.goto(page.url.split("/fleet")[0] + "/fleet")
+        page.locator(_ADD_BUTTON).wait_for(state="visible")
+    page.locator(_ADD_BUTTON).click()
 
 
 def _device(server, device_id):
@@ -93,9 +91,8 @@ def test_pair_a_frame_in_four_actions(new_context, app_server_in_process):
         finally:
             conn.close()
         assert device is not None and device["owner_user_id"] == seed.owner_id
-        open_menu(page)
         assert page.locator(
-            "a.frame-row[href='/fleet?frame=%s']" % device["id"]).count() == 1
+            ".fleet-list a[href='/fleet?frame=%s']" % device["id"]).count() == 1
     finally:
         context.close()
 
@@ -150,8 +147,8 @@ def test_retire_in_two_actions_with_focus_on_the_dismiss_control(
         page.wait_for_url("**/fleet")
         assert _device(server, seed.owned_id) is None
         page.wait_for_function(
-            "() => document.querySelector('.fleet-block--others > h2').textContent"
-            ".trim().endsWith('(3)')", timeout=10000)
+            "() => document.querySelector('#fleet-list-retired').textContent"
+            ".trim().endsWith('2')", timeout=10000)
     finally:
         context.close()
 
@@ -191,7 +188,7 @@ def test_tab_stays_inside_the_dialog_and_escape_returns_focus_to_the_trigger(
         page.keyboard.press("Escape")
         assert not page.locator(ADD).evaluate("d => d.open")
         page.wait_for_function(
-            "() => document.activeElement.classList.contains('frame-menu__button')",
+            "() => document.activeElement.classList.contains('fleet-add-button')",
             timeout=5000)
     finally:
         context.close()
@@ -250,17 +247,18 @@ def test_the_reassign_sheet_is_short_with_a_cancel_button(
         context.close()
 
 
-def test_reactivate_from_the_other_frames_section(new_context, app_server_in_process):
+def test_reactivate_from_the_retired_frames_page(new_context, app_server_in_process):
     server = app_server_in_process
     context, page, seed = _open(new_context, server)
     try:
-        _open_menu_item(page, "Re-activate", _OTHERS + " li.entity-row:has-text('Attic')")
+        page.locator(".fleet-list a[href='/fleet?frame=%s']" % seed.retired_id).click()
+        page.locator(".fleet-other a.fleet-action-button").click()
         dialog = page.locator("#dlg-reactivate-%s" % _slug(seed.retired_id))
         assert dialog.evaluate("d => d.open")
         assert page.evaluate(_ACTIVE) == "Keep retired"
         dialog.locator("button[type=submit]").click()
         page.wait_for_url("**/fleet")
-        assert "Attic" not in page.locator(_OTHERS).text_content()
+        assert "Attic" not in page.locator(".fleet-list").inner_text()
     finally:
         context.close()
 
@@ -272,8 +270,7 @@ def test_the_add_dialog_pairs_through_the_hash_link_without_script(
     with _no_js_page(new_context, server.base_url(), "/fleet",
                      viewport=VIEWPORT_MIN_SUPPORTED) as page:
         assert not page.locator(ADD).is_visible()
-        page.locator(BUTTON).click()
-        page.locator("a.frame-row--add").click()
+        page.locator(_ADD_BUTTON).click()
         dialog = page.locator(ADD)
         assert dialog.is_visible()
         page.fill("#pair-code", fx.FAKE_CODE)
@@ -326,6 +323,8 @@ def test_dialogs_fit_and_every_control_is_44px(
             if opener:
                 click_add(page)
             else:
+                if not page.locator(_RETIRE_LINK).is_visible():
+                    page.goto(server.base_url() + "/fleet?tab=access&frame=" + seed.owned_id)
                 page.locator(_RETIRE_LINK).click()
             dialog = page.locator("#" + dialog_id)
             assert dialog.evaluate("d => d.open"), where

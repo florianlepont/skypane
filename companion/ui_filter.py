@@ -125,6 +125,12 @@ def _search_html(input_id, label, placeholder, server=None):
         icon_html("icon-search", 20), clear)
 
 
+def search_field_html(input_id, label, placeholder):
+    """The search control alone (label, magnifier, field, clear button) for a
+    list that filters in the page."""
+    return _search_html(input_id, label, placeholder)
+
+
 def list_offline_template_html():
     """The translated error toast a list that asks the server for its rows
     shows when the request never got an answer. It has no role of its own:

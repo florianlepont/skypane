@@ -9,7 +9,6 @@ Focus, layout and DOM state is always waited for, never read straight after a ke
 import pytest
 
 import fleet_console_support as fx
-from frame_menu_support import click_add
 from companion import auth
 from companion.test_browser_ux_helpers import (
     VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED, VIEWPORT_PHONE, _login, seed_state_dir)
@@ -157,10 +156,10 @@ def test_a_refused_pairing_code_is_shown_once(new_context, app_server_in_process
     fx.issue_code(server.state_dir, seed.pending_id)
     context, page = _context(new_context, server, VIEWPORT_PHONE)
     try:
-        page.goto(server.base_url() + "/fleet?frame=" + seed.owned_id)
+        page.goto(server.base_url() + "/fleet")
         page.locator("main").wait_for(state="visible")
         page.wait_for_function(_SETTLED, timeout=10000)
-        click_add(page)
+        page.locator(".fleet-add-button").click()
         page.fill("#pair-code", "kkkk-2222")
         page.select_option("#pair-owner", label=fx.OWNER_EMAIL)
         page.locator(ADD + " button[type=submit]").click()

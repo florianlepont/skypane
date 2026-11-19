@@ -11,7 +11,7 @@ code, escaped into the input's `value` on the immediate response.
 import datetime
 from typing import NamedTuple
 
-from companion import device_scope, frame_status, i18n, ui_entity_list, ui_modal
+from companion import device_scope, frame_status, i18n, ui_modal
 from companion.ui_base import escape_html, validation_attrs
 
 KIND_LIVE = frame_status.KIND_LIVE
@@ -37,8 +37,6 @@ _NEW_FRAME = i18n.msg("admin_fleet.new_frame", "New frame")
 _WAITING_FOR_PAIRING = i18n.msg("admin_fleet.waiting_for_pairing", "Waiting for pairing")
 _FORMERLY = i18n.msg("admin_fleet.formerly_owner", "Formerly %s")
 _UNASSIGNED = i18n.msg("admin_fleet.unassigned", "Unassigned")
-_OTHER_FRAMES = i18n.msg("admin_fleet.other_frames_n", "Other frames (%d)")
-_ROW_MENU_ARIA = i18n.msg("admin_fleet.actions_for_frame", "Actions for %s")
 _EMPTY_HEADING = i18n.msg("admin_fleet.no_frames_yet", "No frames yet")
 _EMPTY_BODY = i18n.msg(
     "admin_fleet.switch_a_frame_on_when_its_pairing_code_appears_choose_add",
@@ -234,75 +232,6 @@ def _owner_line(row):
     return row.owner_email
 
 
-def _menu_items(row):
-    """The actions menu's (label, target, destructive) items by state: an
-    active frame offers its personal view; a retired frame re-activates; a
-    pending frame offers the pairing dialog. Every address is built from the
-    frame id."""
-    if row.kind == KIND_RETIRED:
-        return [(i18n.t(_ACTION_REACTIVATE), _slug("dlg-reactivate", row.frame_id), True)]
-    if row.kind == KIND_PENDING:
-        return [(i18n.t(_PAIR_SUBMIT), ADD_DIALOG_ID, False)]
-    if row.kind != KIND_LIVE:
-        return []
-    return [(i18n.t(_ACTION_PERSONAL_VIEW), "/devices/%s/" % row.frame_id, False)]
-
-
-def _actions_menu(row):
-    items = _menu_items(row)
-    return (
-        ui_entity_list.row_menu_html(i18n.t(_ROW_MENU_ARIA) % _display_name(row), items)
-        if items else "")
-
-
-def row_html(row):
-    """One frame as a list row (status dot, name, owner line, actions menu)."""
-    return ui_entity_list.entity_row_html(
-        frame_status.status_dot_html(row), _display_name(row), _owner_line(row), "",
-        _actions_menu(row), None)
-
-
-def detail_header_html(view, frame_id):
-    """The selected frame's header: two visible link buttons, its personal
-    view and Rename. The frame's name is the frame button's label above, not
-    repeated here. Empty when `frame_id` is not a live row of `view`."""
-    row = next(
-        (r for r in view.rows if r.kind == KIND_LIVE and r.frame_id == frame_id), None)
-    if row is None:
-        return ""
-    from companion.pages import frame_name_page
-    name = _display_name(row)
-    return (
-        '<div class="fleet-detail-head">'
-        '<a class="row-action" href="/devices/%s/" aria-label="%s">%s</a>'
-        '<a class="row-action" href="%s" aria-label="%s">%s</a></div>' % (
-            _esc(frame_id), _esc(i18n.t(_OPEN_PERSONAL_ARIA) % name),
-            _t(_ACTION_PERSONAL_VIEW),
-            _esc(frame_name_page.device_route(frame_id, "/fleet?frame=" + frame_id)),
-            _esc(i18n.t(frame_name_page.ACTION_ARIA) % name),
-            _t(frame_name_page.ACTION_TEXT)))
-
-
-def _other_rows(rows):
-    """The pending frames, then the retired ones."""
-    others = [row for row in rows if row.kind != KIND_LIVE]
-    pending = [row for row in others if row.kind == KIND_PENDING]
-    return pending + [row for row in others if row.kind == KIND_RETIRED]
-
-
-def other_frames_title(count):
-    return i18n.t(_OTHER_FRAMES) % count
-
-
-def other_frames_list_html(rows):
-    """The pending frames, then the retired ones, as one compact list; empty
-    without any."""
-    ordered = _other_rows(rows)
-    if not ordered:
-        return ""
-    return ui_entity_list.entity_list_html("".join(row_html(row) for row in ordered))
-
-
 def _owner_options(view, placeholder=True):
     options = (
         ['<option value="">%s</option>' % _t(_PAIR_OWNER_CHOOSE)] if placeholder else [])
@@ -451,3 +380,15 @@ def render(view):
             _t(_FRAMES_TEXT), empty) if empty else "")
     dialogs = _add_dialog(view) + "".join(_row_dialogs(row) for row in view.rows)
     return _register_errors_html(view) + section + dialogs
+
+
+# The names the list of frames (fleet_frames_list) shares.
+ACTION_PERSONAL_VIEW = _ACTION_PERSONAL_VIEW
+OPEN_PERSONAL_ARIA = _OPEN_PERSONAL_ARIA
+ACTION_REACTIVATE = _ACTION_REACTIVATE
+PAIR_SUBMIT = _PAIR_SUBMIT
+WAITING_FOR_PAIRING = _WAITING_FOR_PAIRING
+ADD_TITLE = _ADD_TITLE
+slug = _slug
+display_name = _display_name
+owner_line = _owner_line

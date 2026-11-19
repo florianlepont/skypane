@@ -35,13 +35,6 @@
   border-top: 1px solid var(--glass-hairline);
 }
 
-/* The Other frames group holds only rows with an actions menu whose popover opens below
- * the row: the group must not clip it, or the last row's options cannot be reached. The
- * rows paint no background, so nothing needs the card's rounded clip. */
-.fleet-block--others > .group {
-  overflow: visible;
-}
-
 .fleet-group ul.data-cards {
   padding: 0;
   list-style: none;
@@ -968,7 +961,7 @@ a.pair-form__cancel {
   }}
 
 /* The frame's sections as one centred column from 960px: every section card
- * (State, Device and version, Settings, Access, Other frames) follows the
+ * (State, Device and version, Settings, Access) follows the
  * same pattern, a label above one glass group, and every control is inline.
  * A phone keeps its sub-tabs above (the rules above). */
 @media (min-width: 960px) {
@@ -981,7 +974,7 @@ a.pair-form__cancel {
     gap: var(--space-lg);
   }
 
-  /* Five cards stand on the page at once: they are opaque instead of blurred, which
+  /* Four cards stand on the page at once: they are opaque instead of blurred, which
    * keeps the page's blurred surfaces few. */
   .fleet-frame .group {
     background: var(--glass-solid);
@@ -1080,23 +1073,6 @@ a.row-action {
 
 .group > .row.access-person > .row__main + * {
   margin-left: auto;
-}
-
-/* The selected frame's header: its personal view and Rename as two link
- * buttons (the frame's name is the frame button's label), directly under the
- * page title and starting at its left edge; the negative top margin takes back
- * most of the title row's own bottom space. */
-.fleet-detail-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-start;
-  gap: var(--space-sm);
-  margin: calc(var(--space-sm) - var(--space-lg)) 0 var(--space-md);
-}
-
-.fleet-detail-head a.row-action {
-  margin-right: 0;
 }
 
 .users-table thead {
@@ -1884,4 +1860,267 @@ dialog.access-sheet .modal__actions {
   background: var(--color-dominant);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
+}
+/* The list of frames and the frame switch. A phone shows the list or one frame
+ * (the server marks the view on .fleet-split); from 1200px the list is a column
+ * beside the frame (a narrower page leaves the frame under 440px, too tight for
+ * its rows). */
+.fleet-split {
+  display: block;
+  min-width: 0;
+}
+
+.fleet-split__main,
+.fleet-split__list {
+  min-width: 0;
+}
+
+.fleet-split[data-fleet-mode="list"] > .fleet-split__main,
+.fleet-split:not([data-fleet-mode="list"]) > .fleet-split__list {
+  display: none;
+}
+
+.dashboard-main > .page-header:empty {
+  display: none;
+}
+
+.fleet-list__head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  margin-bottom: var(--space-md);
+}
+
+.fleet-list__title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.fleet-list__heading,
+.fleet-head__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--font-page-title-size);
+  font-weight: var(--weight-title);
+  letter-spacing: var(--tracking-title);
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}
+
+.fleet-list__heading--wide {
+  display: none;
+}
+
+.fleet-list__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.fleet-list__body > .group-block {
+  margin: 0;
+}
+
+.fleet-search {
+  margin: 0;
+}
+
+.fleet-frame-row .row__main {
+  min-height: 56px;
+}
+
+.fleet-frame-row .row__value {
+  font-size: var(--font-caption-size);
+}
+
+.fleet-frame-row .row__label {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: var(--weight-semibold);
+}
+
+.fleet-frame-row .row__detail {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-caption-size);
+}
+
+.fleet-frame-row.is-selected .row__main {
+  background: var(--color-secondary);
+}
+
+.fleet-add-button,
+a.fleet-action-button {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  box-sizing: border-box;
+  min-height: 44px;
+  padding: 0 18px;
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-control);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
+  line-height: 1.2;
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.fleet-switch {
+  position: relative;
+  display: flex;
+  gap: var(--space-sm);
+  box-sizing: border-box;
+  width: calc(100% + 2 * var(--space-lg));
+  max-width: calc(100vw - var(--safe-left) - var(--safe-right));
+  margin: 0 calc(-1 * var(--space-lg)) var(--space-md);
+  padding: 0 var(--space-lg) var(--space-xs);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.fleet-switch::-webkit-scrollbar {
+  display: none;
+}
+
+.fleet-chip {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  box-sizing: border-box;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--glass-solid);
+  color: var(--color-text);
+  font-size: 14px;
+  line-height: 1.2;
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.fleet-chip--all {
+  background: var(--color-secondary);
+}
+
+.fleet-chip[aria-current="page"] {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+
+.fleet-split__main > .fleet-head__title {
+  margin-bottom: var(--space-md);
+}
+
+.fleet-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin: 0 0 var(--space-md);
+}
+
+.fleet-head__text {
+  min-width: 0;
+}
+
+.fleet-head__state {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+  margin: 6px 0 0;
+  font-weight: var(--weight-semibold);
+}
+
+.fleet-head__seen {
+  font-weight: var(--weight-regular);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.fleet-head__buttons {
+  display: flex;
+  flex: none;
+  gap: var(--space-sm);
+}
+
+.fleet-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--glass-solid);
+  color: var(--color-text);
+}
+
+.fleet-other {
+  margin-top: var(--space-md);
+}
+
+@media (min-width: 1200px) {
+  .fleet-split {
+    display: grid;
+    grid-template-columns: minmax(280px, 320px) minmax(0, 1fr);
+    gap: var(--space-lg);
+    align-items: flex-start;
+  }
+
+  .fleet-split > .fleet-split__main,
+  .fleet-split > .fleet-split__list,
+  .fleet-split[data-fleet-mode="list"] > .fleet-split__main,
+  .fleet-split:not([data-fleet-mode="list"]) > .fleet-split__list {
+    display: block;
+  }
+
+  .fleet-split__list {
+    position: sticky;
+    top: var(--space-lg);
+    max-height: calc(100dvh - 2 * var(--space-lg));
+    overflow-y: auto;
+  }
+
+  .fleet-split__main {
+    max-width: 760px;
+  }
+
+  .fleet-switch {
+    display: none;
+  }
+
+  .fleet-list__heading {
+    font-size: var(--font-heading-size);
+  }
+
+  .fleet-list__heading--narrow {
+    display: none;
+  }
+
+  .fleet-list__heading--wide {
+    display: block;
+  }
+
+  .fleet-list .group {
+    background: var(--glass-solid);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
 }

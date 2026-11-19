@@ -887,7 +887,8 @@ def page_header(title, purpose=None, freshness_html=None, action_html=None,
     header. `title_html` (already-safe markup) replaces the `<h1>` element
     entirely; `title` is then only the page's plain name for callers that read it.
     `omit_title` emits no heading at all, for a page whose one `<h1>` lives
-    elsewhere in its body; the freshness marker and the flash slot remain.
+    elsewhere in its body; the freshness marker and the flash slot remain, and a header
+    left with nothing but the flash slot is not emitted at all (an empty box would never open).
     The returned string ends with FLASH_SLOT_MARKER, which page_shell()
     is the only consumer of.
     """
@@ -896,6 +897,8 @@ def page_header(title, purpose=None, freshness_html=None, action_html=None,
         if purpose else "")
     freshness_block = freshness_html if freshness_html else ""
     action_block = action_html if action_html else ""
+    if omit_title and not (freshness_block or action_block or purpose_html or trail_html):
+        return FLASH_SLOT_MARKER
     return (
         '<div class="page-header">'
         "%s%s%s%s%s"

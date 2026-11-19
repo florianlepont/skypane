@@ -137,18 +137,19 @@ def test_the_phone_tab_bar_more_dots_are_centred_and_every_label_is_whole(
 
 @pytest.mark.parametrize("viewport", [{"width": 1280, "height": 900}, {"width": 390, "height": 844}],
                          ids=["1280", "390"])
-def test_a_single_line_frame_row_centres_its_status_dot_on_the_title(new_context, app, viewport):
-    context, page = _open(new_context, app, "/fleet?frame=LIVE", viewport)
+def test_a_frame_row_centres_its_status_dot_on_the_row(new_context, app, viewport):
+    context, page = _open(new_context, app, "/fleet", viewport)
     try:
-        page.locator("li.entity-row").first.wait_for(state="attached")
+        page.locator("li.fleet-frame-row").first.wait_for(state="attached")
         dots = page.evaluate(
-            "() => [...document.querySelectorAll('li.entity-row')].map(row => {"
-            " const d = row.querySelector('.entity-row__dot').getBoundingClientRect();"
-            " const t = row.querySelector('.entity-row__title').getBoundingClientRect();"
-            " return [d.top + d.height / 2, t.top + t.height / 2]; })")
+            "() => [...document.querySelectorAll('li.fleet-frame-row')]"
+            ".filter(row => row.querySelector('.dot') && row.getClientRects().length).map(row => {"
+            " const d = row.querySelector('.dot').getBoundingClientRect();"
+            " const r = row.getBoundingClientRect();"
+            " return [d.top + d.height / 2, r.top + r.height / 2]; })")
         assert dots
-        for dot, title in dots:
-            assert abs(dot - title) < 2.5, dots
+        for dot, row in dots:
+            assert abs(dot - row) < 2.5, dots
     finally:
         context.close()
 

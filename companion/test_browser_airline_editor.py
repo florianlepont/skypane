@@ -110,7 +110,9 @@ def test_the_editor_is_reached_from_the_console_bar_on_a_phone(new_context, serv
 
 
 def test_the_editor_is_reached_from_the_sidebar_on_desktop(new_context, server):
-    context, page = _open(new_context, server, VIEWPORT_DESKTOP, path="/fleet", ready="main h1")
+    # The Fleet landing carries a phone and a wide variant of the list title: wait for the frame title, which is always shown.
+    context, page = _open(
+        new_context, server, VIEWPORT_DESKTOP, path="/fleet", ready="main h1.fleet-head__title")
     try:
         link = page.locator('nav.sidebar-nav a[href$="/airlines/manage"]')
         link.wait_for(state="visible")

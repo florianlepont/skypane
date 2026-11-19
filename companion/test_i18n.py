@@ -221,8 +221,6 @@ _UNCHANGED_IN_FRENCH = frozenset({
     "admin_users.actions",
     # "Action" is the French word too, for the audit table's column heading.
     "admin_lifecycle.action",
-    # The French UI keeps the English word "Airlines" for the table caption.
-    "airlines.table_caption",
 })
 
 
@@ -255,6 +253,19 @@ def test_every_catalog_value_is_non_empty():
         identifier for identifier, _english, french in _sweep_entries()
         if not french.strip()]
     assert not empty, "empty French value for: %r" % (empty,)
+
+
+def test_no_french_value_names_the_airlines_page_in_english():
+    """The French UI calls the page Compagnies; the English word never shows in a
+    French sentence, the back link, the count or the table caption."""
+    english = [
+        identifier for identifier, _english, french in _sweep_entries()
+        if re.search(r"\bAirlines\b", french)]
+    assert not english, "French value naming Airlines in English: %r" % (english,)
+    by_id = {identifier: french for identifier, _english, french in _sweep_entries()}
+    assert by_id["airlines.back_to_airlines"] == "\u2190 Retour aux compagnies"
+    assert by_id["airlines.collection_count"] == "Compagnies\u00a0: %d"
+    assert by_id["airlines.table_caption"] == "Compagnies"
 
 
 _PLACEHOLDER_RE = re.compile(r"%[sd]|\{[^}]*\}")

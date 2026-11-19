@@ -1,5 +1,5 @@
 """Real-browser checks of the Fleet page from 960px: one centred column of section cards (State,
-Device and version, Settings, Access, Other frames), each present once and in that order at 1280
+Device and version, Settings, Access), each present once and in that order at 1280
 and 1440px, every fact shown once, every setting edited inline (no dialog) and saved through the
 page's unsaved-changes bar, the version history collapsed in a native disclosure, and Retire this
 frame as the only confirmation dialog. A phone keeps its State / Settings / Access tabs.
@@ -21,8 +21,8 @@ DESKTOP_1280 = {"width": 1280, "height": 900}
 DESKTOP_1440 = {"width": 1440, "height": 900}
 PHONE = {"width": 390, "height": 844}
 HEADINGS = {
-    "en": ["State", "Device and version", "Settings", "Access", "Other frames (2)"],
-    "fr": ["État", "Appareil et version", "Réglages", "Accès", "Autres cadres (2)"]}
+    "en": ["State", "Device and version", "Settings", "Access"],
+    "fr": ["État", "Appareil et version", "Réglages", "Accès"]}
 MODEL = "XIAO ePaper EE02 13.3in Spectra 6"
 COLUMN = ".fleet-frame"
 BAR = "[data-dirty-bar]"
@@ -77,15 +77,15 @@ def test_the_sections_are_one_content_wide_column_present_once_and_in_order(
         for upper, lower in zip(sections, sections[1:]):
             assert abs(lower["x"] - upper["x"]) < 1 and lower["y"] > upper["y"], (where, sections)
             assert abs(lower["w"] - upper["w"]) < 1, (where, sections)
-        assert sections[0]["w"] >= 640, (where, sections[0])
-        # The column runs the width of the page's content: it starts where the title starts and
-        # ends where the frame button ends, like every other page.
+        assert sections[0]["w"] >= 480, (where, sections[0])
+        # The column starts where the frame's title starts, beside the list of frames (which
+        # ends before it) and not under a frame button.
         column = page.locator(COLUMN).bounding_box()
         title = page.locator("main h1").first.bounding_box()
-        button = page.locator("details.frame-menu > summary").bounding_box()
+        listing = page.locator(".fleet-list").bounding_box()
         assert abs(column["x"] - title["x"]) <= 2, (where, column, title)
-        assert abs(column["x"] + column["width"] - (button["x"] + button["width"])) <= 2, (
-            where, column, button)
+        assert listing["x"] + listing["width"] <= column["x"], (where, listing, column)
+        assert page.locator("details.frame-menu").count() == 0
         # No summary row and no tab bar of sub-tabs: the groups are on the page.
         assert page.locator("a.fleet-sum").count() == 0
         assert page.locator("nav.fleet-tabs").is_hidden()
@@ -101,8 +101,8 @@ def test_no_fact_is_shown_twice_in_the_column(new_context, app_server_in_process
     try:
         text = page.locator(COLUMN).inner_text()
         assert MODEL not in text, text
-        # The frame's name is the frame button's label above the column, not repeated in it.
-        assert text.count("Orly frame") == 0, text
+        # The frame's name is the column's title and appears once.
+        assert text.count("Orly frame") == 1, text
         for heading in ("Wake interval", "Diagnostic LED"):
             assert page.locator(COLUMN).get_by_role("heading", name=heading).count() == 1
         # The owner is named once (the Reassign picker's options are choices, not facts).
@@ -238,9 +238,8 @@ def test_a_phone_keeps_its_three_tabs_with_the_same_sections(
         labels = {"en": ["State", "Settings", "Access"], "fr": ["État", "Réglages", "Accès"]}
         assert page.locator("nav.fleet-tabs a span").all_inner_texts() == labels[lang]
         shown = page.evaluate(_SECTIONS)
-        # State tab: State, Device and version, and the pending and retired frames.
-        assert [s["title"] for s in shown] == [
-            HEADINGS[lang][0], HEADINGS[lang][1], HEADINGS[lang][4]]
+        # State tab: State, Device and version.
+        assert [s["title"] for s in shown] == [HEADINGS[lang][0], HEADINGS[lang][1]]
         assert not _assert_no_page_overflow(page, "phone-tabs", PHONE["width"])
         page.locator("nav.fleet-tabs a").nth(2).click()
         page.wait_for_url("**tab=access")

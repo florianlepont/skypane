@@ -1,5 +1,5 @@
 """Real-browser flow of an administrator opening someone else's frame from
-Fleet: the detail header's actions menu, Open personal view, the Viewing-owner strip, the personal
+Fleet: the detail header's icon buttons, Open personal view, the Viewing-owner strip, the personal
 pages keeping the frame's address, and Back to Fleet. At 360 and 1280 px, in
 English and French, light and dark, with 44px hit areas and no sideways
 overflow."""
@@ -94,11 +94,12 @@ def _open_fleet(new_context, server, viewport, lang, scheme):
 
 
 def _open_personal_view(page, server, seed, words, viewport):
-    row = page.locator(".fleet-detail-head")
-    item = row.locator("a.row-action", has_text=words["personal"])
+    row = page.locator(".fleet-head")
+    item = row.locator('a.fleet-icon-button[title="%s"]' % words["personal"])
     item.wait_for(state="visible")
-    for link in row.locator("a.row-action").all():
-        assert link.bounding_box()["height"] >= MIN_TAP_PX - 0.5
+    for link in row.locator("a.fleet-icon-button").all():
+        box = link.bounding_box()
+        assert box["height"] >= MIN_TAP_PX - 0.5 and box["width"] >= MIN_TAP_PX - 0.5
     assert not _assert_no_page_overflow(page, "fleet-header", viewport["width"])
     with page.expect_navigation():
         item.click()
@@ -145,8 +146,8 @@ def test_fleet_to_a_foreign_frame_and_back(
             page.locator(".frame-notice a", has_text=words["back"]).click()
         page.wait_for_url(server.base_url() + "/fleet?frame=" + seed.owned_id)
         assert re.search(r"/fleet\?frame=%s$" % re.escape(seed.owned_id), page.url)
-        page.locator(".fleet-detail-head").wait_for(state="visible")
-        assert page.locator(".frame-menu__name").first.inner_text().strip() == viewed_name, where
+        page.locator(".fleet-head").wait_for(state="visible")
+        assert page.locator(".fleet-head__title").inner_text().strip() == viewed_name, where
     finally:
         context.close()
 

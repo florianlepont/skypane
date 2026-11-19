@@ -49,6 +49,8 @@ PAGES = (
     ("/credits", True),
     ("/not-a-page", False),
 )
+# A frame's own page (it redirects to the live frame): a phone opens /fleet on the list of frames.
+FRAME_PAGE = "/update"
 TALL_LIMIT = 6
 PAGE_LIMIT = 8
 
@@ -98,6 +100,15 @@ _KEYFRAME_PROPERTIES = """(names) => {
 }"""
 
 
+# The Fleet page has no page header: its list (a block of its own from 960 px, a title row on a
+# phone) or the title of the frame or view it shows opens the page instead.
+_OPENING_HEADERS = ("page-header", "fleet-split__list", "fleet-list__head", "fleet-head")
+
+
+def _is_header(cls):
+    return any(name in cls for name in _OPENING_HEADERS)
+
+
 def _seed(state_dir):
     seed_state_dir(state_dir)
     fx.seed_fleet(state_dir)
@@ -140,7 +151,7 @@ def test_every_page_opens_with_the_shared_entrance(new_context, server, path, ta
         page.wait_for_function(_OPENING_OVER, timeout=10000)
         events = page.evaluate("() => window.__anim")
         entering = [e for e in events if e["name"] == "skypane-reveal-fade"]
-        assert any("page-header" in e["cls"] for e in entering), (path, events)
+        assert any(_is_header(e["cls"]) for e in entering), (path, events)
         assert not [e for e in entering if e["row"]], (path, "a row animates", entering)
         limit = TALL_LIMIT if tall else PAGE_LIMIT
         assert len(entering) <= limit, (path, len(entering), entering)
@@ -236,7 +247,7 @@ def test_the_blocks_of_a_page_enter_one_step_after_another(new_context, server, 
         blocks = page.evaluate("() => window.__blocks")
         step = page.evaluate("() => window.__step")
         assert step == 60, step
-        assert blocks and "page-header" in blocks[0]["cls"] and blocks[0]["delay"] == 0, blocks
+        assert blocks and _is_header(blocks[0]["cls"]) and blocks[0]["delay"] == 0, blocks
         assert not [b for b in blocks if b["nested"]], blocks
         first_screen = [b for b in blocks[1:] if b["top"] < viewport["height"] and b["height"]]
         assert first_screen, blocks
@@ -255,7 +266,7 @@ def test_each_fleet_tab_opens_in_the_same_order_on_a_phone(new_context, server):
     context.add_init_script(_BLOCKS_AT_OPEN)
     try:
         page = context.new_page()
-        _open(page, server, "/fleet")
+        _open(page, server, FRAME_PAGE)
         hrefs = page.evaluate(
             "() => [...document.querySelectorAll('[data-tabs=\"fleet\"] a')]"
             ".map((a) => a.getAttribute('href'))")
@@ -265,7 +276,7 @@ def test_each_fleet_tab_opens_in_the_same_order_on_a_phone(new_context, server):
             page.wait_for_function("() => window.__blocks !== undefined", timeout=10000)
             blocks = [b for b in page.evaluate("() => window.__blocks") if b["height"]]
             delays = [b["delay"] for b in blocks]
-            assert len(delays) >= 4, (href, blocks)
+            assert len(delays) >= 3, (href, blocks)
             assert delays == [min(k, 5) * 60 for k in range(len(delays))], (
                 href, [(b["cls"][:50], b["delay"]) for b in blocks])
     finally:
@@ -277,7 +288,7 @@ def test_each_fleet_tab_opens_in_the_same_order_on_a_phone(new_context, server):
 _TAKING_PART = (
     ("/display", VIEWPORT_MIN_SUPPORTED, (".layout-card", ".personalisation-nav"), ()),
     ("/display", VIEWPORT_DESKTOP, (".layout-card", ".personalisation-nav"), ()),
-    ("/fleet", VIEWPORT_MIN_SUPPORTED, (".fleet-detail-head", ".fleet-tabs"), ()),
+    (FRAME_PAGE, VIEWPORT_MIN_SUPPORTED, (".fleet-head", ".fleet-tabs"), ()),
     ("/audit", VIEWPORT_MIN_SUPPORTED, (), (".filter-bar__count", ".audit-cards")),
     ("/audit", VIEWPORT_DESKTOP, (), (".filter-bar__count", ".audit-cards")),
     ("/airlines", VIEWPORT_MIN_SUPPORTED, (), ("#collection-grid",)),
@@ -414,7 +425,7 @@ def test_the_fleet_tabs_carry_the_selection_through_the_page_change(new_context,
     context = _strip_context(new_context, server, VIEWPORT_MIN_SUPPORTED)
     try:
         page = context.new_page()
-        _open(page, server, "/fleet")
+        _open(page, server, FRAME_PAGE)
         strip = '[data-tabs="fleet"]'
         assert _thumb_matches_current(page, strip)
         probe = _follow(page, strip + " a:not([aria-current]) >> nth=0")
@@ -1009,7 +1020,7 @@ def test_a_disclosure_row_fades_its_content_in_when_it_opens(new_context, server
                              reduced_motion="no-preference")
     try:
         page = context.new_page()
-        _open(page, server, "/fleet")
+        _open(page, server, FRAME_PAGE)
         page.wait_for_function(_SETTLED_PAGE, timeout=10000)
         first = page.evaluate("""() => {
           const out = [];

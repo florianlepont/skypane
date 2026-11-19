@@ -1,0 +1,35 @@
+# Phase 68 Plan 26: CI fix summary
+
+Fixes for the CI failures of PR 486 introduced by plan 68-26 (Fleet frame list and switch). No test was skipped, disabled or loosened to get green: each change below is either a product fix or a test updated to the owner-approved behaviour (a phone lands on the list of frames; no Fleet page header).
+
+## Per-failure cause and fix
+
+| Failure | Cause | Resolution |
+| --- | --- | --- |
+| `test_browser_page_title_phone` (all widths, `/health` redirect to `/fleet?frame=live`; "undefined.getBoundingClientRect") | Product defect: a frame without a fleet row (the legacy single frame) rendered with no header, so the page had no `h1` at all. | Product fix: `title_head_html` / `plain_head_html` give it a header with its name. The list heading takes the phone/wide pair whenever a frame shows beside the list, so there is one visible `h1` (the other variant is `display: none`). |
+| same test, 390/360 gap 88 > 32 | The owner layout puts the chip row above the frame title (`68-MOCKUP-frame-list.html`), so the title is not under the app bar. | Test updated to the approved layout: the title is measured from the chip row, and the chip row is measured from the app bar (both <= 32). |
+| `test_browser_page_opening` (`/fleet`, `/fleet?view=system`, `/update`, 360 and 1280: opening never ended) | Product defect: `omit_title=True` emitted an empty `<div class="page-header">` with no box; `motion.js` waits for the page header to get a box, so `data-page-open` never left. | Product fix: `page_header` emits nothing but the flash slot when the title is omitted and no freshness, action, purpose or trail is given (Home still has its marker). |
+| `test_the_blocks_of_a_page_enter_one_step_after_another`, `test_each_fleet_tab_opens_in_the_same_order_on_a_phone`, `test_every_block_of_the_first_screen_takes_part_in_the_opening` | The Fleet page lost its header block, so there was no entrance at index 0 and the old indexes were off by one. | CSS: the list title row (below 1200px) or the list as one block (from 1200px) or the frame / System title opens the page at 0; blocks count on from it (phone tab indexes shifted by one; a 960-1199px band added). List groups are excluded from the generic block entrance and take their own below 1200px. The three new rules are pinned in `test_companion_app_04` (motion budget). Opening tests accept the Fleet list or frame title as the opening header and open a frame through its own page (`/update` redirects to the live frame); the tab test needs 3 animated blocks (header, tabs, one block) instead of 4. |
+| `test_the_fleet_tabs_carry_the_selection_through_the_page_change`, `test_a_disclosure_row_fades_its_content_in_when_it_opens` (hidden tab link, no disclosure) | They assumed `/fleet` is a frame page on a phone. | Tests open the frame page. |
+| `test_browser_motion` (reduced motion; switch springs, `#quick-switch-led-label` hidden), `test_browser_ux_quiet_wake` (wake slider zero-size, fill timeout, never reveals), `test_browser_device_led_switch` | `/fleet?tab=settings` has no frame, so a phone shows the list and the settings controls are not on the page. The product never links to a tab without a frame (every link carries `frame=`), so the controls are reachable; the test URL was the shortcut. | Tests open `/fleet?frame=live&tab=settings`. |
+| `test_browser_home_title::test_an_administrator_from_fleet_ends_on_fleet` | Used the removed `.fleet-detail-head a.row-action` Rename. | Test uses the new Rename icon button of the frame header. |
+| `test_browser_update`, `test_browser_firmware_panel`, `test_browser_ux_health_drawings`, `test_browser_charging_pill` | Opened `/fleet` on a phone and expected the frame sections. | Tests open `/fleet?frame=live`. |
+| `test_browser_user_pairing::test_the_fleet_page_header_has_no_add_a_frame_button` | The Add a frame row moved from the (removed) console popover to the list panel. | Test asserts no page header action, no popover add row and one `.fleet-list .fleet-add-button`. |
+| `test_browser_airline_editor::test_the_editor_is_reached_from_the_sidebar_on_desktop` | `main h1` first matched the hidden phone variant of the list title. | Test waits for the frame title (`main h1.fleet-head__title`). |
+| `test_update` (twelve releases at 1024, version tags broke) and `test_ux_health_drawings` row alignment at 960 (row name wrapped, frame column 200px) | Product defect: the list column plus the frame column left the frame 200px wide at 960px and 264px at 1024px. | Product fix: the two-column layout starts at 1200px (frame column 440px at 1200, 520px at 1280). From 960 to 1199px the page uses the phone layout (list or frame, chip row) with every section shown (no tabs), as before. |
+| `test_companion_app_04` motion budget (found locally) | New entrance rules spend `--motion-enter` and `--motion-stagger`. | Pinned in the test (`OPENING_FLEET_*` selectors); no `animation: none` used. |
+| `test_render_baseline` | Stylesheet hash and Fleet captures changed. | Regenerated once at the end (`companion_render_snapshot.py --write`). |
+| `test_a_preset_reaches_disk_through_the_dialog` (known flaky), `test_browser_place_search*`, `test_browser_sky_motion`, `test_browser_space_switch` (seen once in full-suite runs under 9 workers on 4 cores) | Timeouts under load; all pass alone and in the targeted runs. | No change. |
+
+## Design-system divergences
+
+- Two columns from 1200px, not 960px: the list column is fixed at about 320px and a frame needs about 440px; between 960 and 1199px the Fleet page keeps the phone layout (list or frame, chip row, no tabs). The owner's phone layout of the list (`68-MOCKUP-frame-list.html`: chip row first, then the frame title) is unchanged.
+- The Fleet page has no page header: its opening starts from the list title row (below 1200px), the list block (from 1200px) or the frame / System title block, so those fade or rise at index 0 like a header; the blocks follow one stagger step apart.
+- On the wide landing the list title has a phone and a wide variant (`h1` / `h2`, one hidden by CSS), so the first `h1` in the document order can be the hidden one; one is visible at every width.
+- The System title is now a `.fleet-head` block (same entrance and spacing as the frame title).
+
+## Results
+
+- Browser suite in 3 chunks (fresh run after the product fixes): 1994 passed; 935 passed with 3 failures (place search x2, space switch, all green in targeted reruns); 888 passed with 32 failures, all in files fixed afterwards (charging pill, LED switch, firmware panel, airline editor) and then rerun green. Changed and affected files rerun: page opening, title, motion, quiet wake, home title, update, health drawings, console fleet view, fleet page, user pairing, firmware panel, charging pill, LED switch, airline editor, space switch, place search: all passed.
+- Non-browser companion tests: 7050 passed, 3 skipped (root permission tests).
+- Gates: ruff, mypy (46 files), function size (1140 functions, none over 80), comment history, `app.py` 1491 lines, largest JS 1227 lines.
