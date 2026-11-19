@@ -36,9 +36,8 @@ MESSAGES = {
     # destinations that do not fit in the bar.
     "nav.more": "Plus",
 
-    # The Console bar's short label for the Audit log page, and the space
+    # The Console bar's short labels, and the space
     # switch between the Console and the administrator's own views.
-    "nav.audit_short": "Journal",
     "nav.airlines_short": "Éditeur",
     "nav.users_short": "Équipe",
     "nav.my_frames": "Mes cadres",

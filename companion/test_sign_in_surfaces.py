@@ -347,9 +347,9 @@ def test_unrecognised_principal_clears_to_default():
 
 
 # Only the pages in the Console space (health, device, update) moved from the earlier digest,
-# by the System entry of the console navigation; every personal page is byte-identical.
+# by the System cell and the Audit log sheet row of the console tab bar; every personal page is byte-identical.
 _SHELL_BASELINE_DIGEST = (
-    "22f4b24321d07694b2da3bb7dd80f0bfca7db9f03014689b4fd30a7e28abd8a5")
+    "95423ebf22d797539bb3d453b24336fbe78a32894a88dfaafa2cc5f0aa19679d")
 
 
 def test_shell_without_a_principal_is_byte_identical_to_before():

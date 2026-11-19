@@ -752,8 +752,9 @@ def test_console_sidebar_holds_fleet_users_editor_and_audit_and_no_per_frame_ent
 
 
 def test_tab_bar_more_sheets_list_the_overflow_destinations():
-    """the personal More sheet holds Account alone (the space switch aside), as does the Console
-    More sheet; the personal bar has five destination cells and the Console bar four of its own"""
+    """the personal More sheet holds Account alone (the space switch aside), while the Console
+    More sheet holds Account and the Audit log; the personal bar has five destination cells and
+    the Console bar four of its own (Fleet, Users, Editor, System)"""
     device_cfg = {"display_enabled": True, "quiet_hours_enabled": False}
     doc = layout.page_shell(
         title="T", active="flights", body="<p>b</p>", device_config=device_cfg)
@@ -774,9 +775,9 @@ def test_tab_bar_more_sheets_list_the_overflow_destinations():
     console_bar = console_bar[:console_bar.index("</nav>")]
     console_sheet = console_bar[console_bar.index('<div class="tab-bar__more-panel">'):]
     assert re.findall(r'<a class="mobile-nav__link[^"]*" href="([^"]+)"', console_sheet) == [
-        layout.ACCOUNT_ROUTE, "/fleet?view=system"]
+        layout.ACCOUNT_ROUTE, "/audit"]
     assert re.findall(r'<a class="tab-bar__link[^"]*" href="([^"]+)"', console_bar) == [
-        "/fleet", "/users", "/airlines/manage", "/audit"]
+        "/fleet", "/users", "/airlines/manage", "/fleet?view=system"]
 
 
 def test_update_page_marks_fleet_as_the_current_destination_and_has_no_update_link():

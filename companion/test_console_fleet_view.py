@@ -281,15 +281,18 @@ def test_the_system_view_is_reached_from_the_console_navigation(fleet, lang, lab
     assert [href for href, _label, current in on_fleet if current] == ["/fleet"]
 
 
-def test_the_system_entry_is_in_the_phone_more_sheet_and_marked_on_its_view(fleet):
+def test_the_system_entry_is_a_phone_bar_cell_and_marked_on_its_view(fleet):
     server, _seed, cookie = fleet
     page = fx.get(server, cookie, "/fleet?view=system")[2]
     bar = page[page.index('<nav class="tab-bar"'):]
-    sheet = bar[bar.index('<div class="tab-bar__more-panel">'):]
-    link = re.search(r'<a class="[^"]*" href="/fleet\?view=system"([^>]*)>', sheet)
-    assert link and 'aria-current="page"' in link.group(1)
+    bar = bar[:bar.index("</nav>")]
     cells = bar[:bar.index('<details class="tab-bar__more')]
-    assert "/fleet?view=system" not in cells
+    link = re.search(r'<a class="[^"]*" href="/fleet\?view=system"([^>]*)>', cells)
+    assert link and 'aria-current="page"' in link.group(1)
+    fleet_cell = re.search(r'<a class="[^"]*" href="/fleet"([^>]*)>', cells)
+    assert fleet_cell and "aria-current" not in fleet_cell.group(1)
+    sheet = bar[bar.index('<div class="tab-bar__more-panel">'):]
+    assert "/fleet?view=system" not in sheet and 'href="/audit"' in sheet
 
 
 def _set_stored(server, table_column, pending_id, value):

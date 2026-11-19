@@ -33,7 +33,7 @@ _SWITCH_LABEL = {
     "console": {"en": "My frames", "fr": "Mes cadres"},
 }
 _ACCOUNT_LABEL = {"en": "Account", "fr": "Compte"}
-_SYSTEM_LABEL = {"en": "System", "fr": "Système"}
+_AUDIT_LABEL = {"en": "Audit log", "fr": "Journal d’audit"}
 _CELLS = (
     "() => [...document.querySelectorAll('.tab-bar > a, .tab-bar > details')].map(e => ({"
     " label: e.querySelector('.tab-bar__label').textContent.trim(),"
@@ -143,8 +143,8 @@ def test_an_administrators_plus_panel_holds_the_space_switch_beside_account(
         _settled_cells(page)
         panel = _open_panel(page)
         texts = [link["text"] for link in panel["links"]]
-        system = [_SYSTEM_LABEL[lang]] if space == "console" else []
-        assert texts == [_ACCOUNT_LABEL[lang], *system, _SWITCH_LABEL[space][lang]], panel
+        audit = [_AUDIT_LABEL[lang]] if space == "console" else []
+        assert texts == [_ACCOUNT_LABEL[lang], *audit, _SWITCH_LABEL[space][lang]], panel
         switch = panel["links"][-1]
         assert switch["space"] and switch["href"] == ("/fleet" if space == "personal" else "/"), panel
         assert switch["aria"], panel

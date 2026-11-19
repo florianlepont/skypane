@@ -24,8 +24,8 @@ PERSONAL_BAR_EN = ["Home", "Flights", "Airlines", "Style", "Location"]
 PERSONAL_BAR_FR = ["Accueil", "Vols", "Compagnies", "Style", "Lieu"]
 PERSONAL_SIDEBAR_EN = PERSONAL_BAR_EN + ["Account"]
 PERSONAL_SIDEBAR_FR = PERSONAL_BAR_FR + ["Compte"]
-CONSOLE_BAR_EN = ["Fleet", "Users", "Editor", "Audit"]
-CONSOLE_BAR_FR = ["Flotte", "Équipe", "Éditeur", "Journal"]
+CONSOLE_BAR_EN = ["Fleet", "Users", "Editor", "System"]
+CONSOLE_BAR_FR = ["Flotte", "Équipe", "Éditeur", "Système"]
 SWITCH_TO_CONSOLE = {"en": "Console", "fr": "Console"}
 SWITCH_TO_PERSONAL = {"en": "My frames", "fr": "Mes cadres"}
 CONSOLE_SIDEBAR_EN = ["Fleet", "Users", "Editor", "Audit log", "System", "Account"]
@@ -151,11 +151,11 @@ def test_the_console_navigation_lists_the_console_pages_for_the_frame_in_view(
     cells, sheet, _bar = _bar_parts(page)
     assert [text for _href, text in cells] == bar_labels
     assert [href for href, _text in _unscoped(cells)] == [
-        "/fleet", "/users", "/airlines/manage", "/audit"]
+        "/fleet", "/users", "/airlines/manage", "/fleet?view=system"]
     assert [href for href, _text in _unscoped(sheet)] == [
-        "/account", "/fleet?view=system", "/"]
+        "/account", "/audit", "/"]
     assert [text for _href, text in sheet] == [
-        sidebar_labels[5], sidebar_labels[4], SWITCH_TO_PERSONAL[lang]]
+        sidebar_labels[5], sidebar_labels[3], SWITCH_TO_PERSONAL[lang]]
 
     sidebar = _sidebar_anchors(page)
     assert [text for _href, text in sidebar] == sidebar_labels

@@ -83,11 +83,11 @@ def is_admin_principal():
 CONSOLE_SPACE = "console"
 PERSONAL_SPACE = "personal"
 
-_AUDIT_BAR_LABEL = i18n.msg("nav.audit_short", "Audit")
 _AIRLINES_BAR_LABEL = i18n.msg("nav.airlines_short", "Editor")
 _USERS_BAR_LABEL = i18n.msg("nav.users_short", "Users")
 _CONSOLE_BAR_LABELS = {
-    "editor": _AIRLINES_BAR_LABEL, "audit": _AUDIT_BAR_LABEL, "users": _USERS_BAR_LABEL}
+    "editor": _AIRLINES_BAR_LABEL, "users": _USERS_BAR_LABEL}
+_CONSOLE_BAR_KEYS = ("fleet", "users", "editor", "system")
 _PERSONAL_SHORTCUT_LABEL = i18n.msg("nav.my_frames", "My frames")
 _PERSONAL_LABEL = _PERSONAL_SHORTCUT_LABEL
 _CONSOLE_LABEL = i18n.msg("nav.console", "Console")
@@ -577,16 +577,16 @@ def _tab_bar_cell_link(entry, label=None, extra_html=""):
 
 def _console_bar(active, health_alert):
     """(cells, sheet entries) of the Console bar: Fleet (carrying the severity
-    dot), Users, the airline editor and the audit log, with Account and the
-    switch back to the personal space in More after the System view's row."""
+    dot), Users, the airline editor and System, with Account and the audit log
+    in More, followed by the switch back to the personal space."""
     entries = _console_entries(active)
     cells = [
         _tab_bar_cell_link(
             entries[key], _CONSOLE_BAR_LABELS.get(key),
             extra_html=_health_dot(health_alert) if key == "fleet" else "")
-        for key in ("fleet", "users", "editor", "audit") if key in entries]
-    system = [entries["system"]] if "system" in entries else []
-    return cells, [_account_entry(active)] + system
+        for key in _CONSOLE_BAR_KEYS if key in entries]
+    audit = [entries["audit"]] if "audit" in entries else []
+    return cells, [_account_entry(active)] + audit
 
 
 def _personal_bar(active):
