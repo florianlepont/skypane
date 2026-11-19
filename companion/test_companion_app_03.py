@@ -210,7 +210,8 @@ def test_panel_lookup_optional_replace_lookup_stays_outside_mandatory_guard(app0
     required) appears exactly once and never mentions the optional
     replace-form lookup on its own line, that lookup's first occurrence in the source comes
     after the guard's, it appears exactly once, and the action-attribute setAttribute write
-    appears exactly 3 times — pinning the
+    appears exactly 4 times (the replace, upload and delete forms, plus the
+    artwork dialog type field written on submit, itself guarded) — pinning the
     single line that keeps History's lightbox alive"""
     src = served_asset(app03_server, "/static/panel-lookup.js")
     guard_needle = "if (!image || !caption)"
@@ -226,8 +227,8 @@ def test_panel_lookup_optional_replace_lookup_stays_outside_mandatory_guard(app0
     assert src.index(lookup_needle) > src.index(guard_needle), (
         "expected the optional replace-form lookup's first occurrence after the mandatory "
         "guard's")
-    assert src.count('setAttribute("action"') == 3, (
-        "expected the action-attribute setAttribute write exactly 3 times, got %d"
+    assert src.count('setAttribute("action"') == 4, (
+        "expected the action-attribute setAttribute write exactly 4 times, got %d"
         % src.count('setAttribute("action"'))
 
 
