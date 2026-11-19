@@ -713,6 +713,13 @@ ICON_IDS = ICON_IDS + (
     "icon-logo",
 )
 
+# The foreign-frame marker's two glyphs: an eye (looking at someone else's
+# frame) and a back chevron on its Back to Fleet button.
+ICON_IDS = ICON_IDS + (
+    "icon-eye",
+    "icon-chevron-left",
+)
+
 # The brand mark's geometry on a 32x32 box, shared by the `icon-logo` sprite
 # symbol and the login page's inline copy (login_shell() carries no sprite).
 # Ink is currentColor; the flick carries LOGO_ACCENT_CLASS, which
@@ -911,6 +918,15 @@ ICON_DEFS_HTML = (
     '<symbol id="icon-chevron-right" viewBox="0 0 20 20" fill="none" '
     'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
     '<path d="M8 5l5 5-5 5"/>'
+    "</symbol>"
+    '<symbol id="icon-eye" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M1.7 10S4.7 4.2 10 4.2 18.3 10 18.3 10 15.3 15.8 10 15.8 1.7 10 1.7 10z"/>'
+    '<circle cx="10" cy="10" r="2.5"/>'
+    "</symbol>"
+    '<symbol id="icon-chevron-left" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M12 5l-5 5 5 5"/>'
     "</symbol>"
     '<symbol id="icon-pencil" viewBox="0 0 20 20" fill="none" '
     'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'

@@ -511,7 +511,7 @@ def test_french_shell_nav_reads_the_locked_french_labels():
     finally:
         prefs.set_request_prefs(lang="en")
     for label in ("Accueil", "Vols", "Lieu", "Style",
-                  "Airlines"):
+                  "Compagnies"):
         assert label in personal, "expected the French nav label %r in the personal shell" % (label,)
     for label in ("Flotte", "Utilisateurs", "Éditeur"):
         assert label in console, "expected the French nav label %r in the Console shell" % (label,)

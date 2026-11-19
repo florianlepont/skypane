@@ -967,3 +967,30 @@ def data_table(headers, rows, mono_columns=(), raw_columns=(), desc_columns=(), 
         "</table>"
         "</div>"
     ) % (table_class, header_cells, "".join(body_rows))
+
+
+# The foreign-frame marker shown to an administrator on a personal page of a
+# frame they neither own nor co-manage (built by companion/ui_shell.py).
+_FRAME_NOTICE_VIEWING_TEXT = i18n.msg(
+    "nav.frame_notice_viewing", "You are viewing %s\u2019s frame")
+_FRAME_NOTICE_BACK_TEXT = i18n.msg("nav.frame_notice_back", "Back to Fleet")
+FRAME_NOTICE_CLASS = "frame-notice"
+
+
+def frame_notice_markup(email, href):
+    """The marker for the owner `email` with a Back to Fleet link to `href`.
+    The email and the href are escaped here. One <div> only: nothing nests
+    another block."""
+    text = escape_html(i18n.t(_FRAME_NOTICE_VIEWING_TEXT)) % (
+        "<strong>%s</strong>" % escape_html(email))
+    return (
+        '<div class="%(cls)s"><span class="%(cls)s__msg">%(eye)s'
+        '<span class="%(cls)s__text">%(text)s</span></span>'
+        '<a class="%(cls)s__link" href="%(href)s">%(back)s%(back_text)s</a></div>\n') % {
+            "cls": FRAME_NOTICE_CLASS,
+            "eye": icon_html("icon-eye", size=22),
+            "text": text,
+            "href": escape_html(href),
+            "back": icon_html("icon-chevron-left", size=20),
+            "back_text": escape_html(i18n.t(_FRAME_NOTICE_BACK_TEXT)),
+        }

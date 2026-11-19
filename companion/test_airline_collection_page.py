@@ -296,7 +296,7 @@ def test_hostile_stored_text_is_escaped(rig):
 def test_the_page_is_french_with_french_strings(rig):
     rig.seed_history()
     body = rig.page(lang="fr")
-    for text in (">Airlines</h1>", "encore 1 pour le badge 5",
+    for text in (">Compagnies</h1>", "encore 1 pour le badge 5",
                  "4 compagnies repérées sur %d" % (len(CURATED) + 1), "Vue 12 fois", "Vue une fois",
                  "Habituelle", "Occasionnelle", "Nouveau",
                  "Première observation", "Appliquer", "Les plus vues", "Pas encore vues"):

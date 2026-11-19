@@ -177,7 +177,7 @@ def test_french_tab_bar_labels_and_landmark():
     for english, french in (
             ("Home", "Accueil"), ("Flights", "Vols"), ("Location", "Lieu"),
             ("Style", "Style"), ("More", "Plus"),
-            ("Airlines", "Airlines"), ("Account", "Compte")):
+            ("Airlines", "Compagnies"), ("Account", "Compte")):
         assert ">%s<" % french in bar, (
             "expected the %r cell to read %r in French, got %r" % (english, french, bar))
         if english != french:
