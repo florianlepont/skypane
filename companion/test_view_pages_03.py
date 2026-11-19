@@ -194,7 +194,7 @@ def test_airlines_rows_carry_no_badge_or_per_row_control_but_full_vocabulary():
 
     assert "banner__pill" not in rendered, (
         "expected no Editing badge anywhere — the page-wide editing mode is gone")
-    assert not re.search(r'class="btn[^"]*"[^>]*data-view-panel-src|data-view-panel-src[^>]*class="btn', rendered), (
+    assert not re.search(r'class="btn(?![^"]*airlines-known__add)[^"]*"[^>]*data-view-panel-src|data-view-panel-src[^>]*class="btn', rendered), (
         "expected zero per-card Replace controls anywhere — the affordance moved into the "
         "dialog (CFG-81)")
 

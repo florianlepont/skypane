@@ -7,8 +7,9 @@ import re
 
 import pytest
 
+import companion.test_companion_app_helpers as cah
 import fleet_console_support as fx
-from companion_app_server import InProcessAppServer, http_request
+from companion_app_server import InProcessAppServer, http_request, with_csrf_part
 from server.plane import enrich, illustrations, manual_resolutions
 
 EDITOR = "/airlines/manage"
@@ -28,6 +29,7 @@ def known(tmp_path):
         assert status == 200
         return raw.decode("utf-8")
 
+    get.server, get.cookie = server, cookie
     yield state_dir, get
     server.stop()
 
@@ -83,3 +85,23 @@ def test_an_airline_named_by_hand_leaves_the_block(known):
     assert "KLM Royal" in " ".join(_rows(get()))
     manual_resolutions.add_entry(state_dir, "KLM", "KLM Royal Dutch Airlines")
     assert "KLM Royal" not in " ".join(_rows(get()))
+
+
+def test_an_upload_for_a_known_by_name_airline_is_accepted_and_an_unknown_key_is_not(known):
+    state_dir, get = known
+    vendored = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "server", "assets", "icons", "illustrations", "vueling-airlines.png")
+    with open(vendored, "rb") as handle:
+        good = handle.read()
+    statuses = {}
+    for key in ("finnair", "no-such-airline"):
+        body, content_type = with_csrf_part(
+            get.cookie, *cah.encode_multipart(good, field_name="illustration"))
+        status, _headers, _raw = http_request(
+            get.server.url("/illustration/%s.png" % key), method="POST", data=body,
+            cookie=get.cookie, content_type=content_type,
+            extra_headers={"Origin": get.server.base_url()})
+        statuses[key] = status
+    assert statuses == {"finnair": 303, "no-such-airline": 404}
+    assert os.path.isfile(os.path.join(state_dir, "illustration_overrides", "finnair.png"))

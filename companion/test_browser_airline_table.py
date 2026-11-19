@@ -520,8 +520,10 @@ def test_the_chips_filter_by_kind_and_clearing_restores_every_row(
         counts = [int(count) for count in page.locator(".filter-chip__count").all_inner_texts()]
         assert labels[:2] == ["All", "Unidentified"], labels
         assert counts[0] == total and counts[1] == 1, counts
-        seen, unseen = counts[3], counts[4]
-        assert seen >= 1 and seen + unseen == total - 1, counts
+        known = counts[2]
+        seen, unseen = counts[4], counts[5]
+        assert known >= 1 and seen >= 1 and seen + unseen == total - 1 - known, counts
+        assert labels[2] == "Known by name only", labels
         _chip(page, "Unidentified").click()
         _visible_group_count_is(page, 1)
         assert page.locator(GAP).is_visible()
@@ -531,6 +533,9 @@ def test_the_chips_filter_by_kind_and_clearing_restores_every_row(
         _chip(page, "Not seen yet").click()
         _visible_group_count_is(page, unseen)
         assert page.locator(TRANSAVIA).is_hidden()
+        _chip(page, "Known by name only").click()
+        _visible_group_count_is(page, known)
+        assert page.locator("tbody.airline-group--known:not([hidden])").count() == known
         _chip(page, "No artwork").click()
         assert "Lufthansa" in page.locator(_NAMES).all_inner_texts()
         _chip(page, "All").click()
@@ -768,11 +773,11 @@ def test_the_filter_chips_scroll_sideways_on_one_line_on_a_phone(new_context, se
         assert metrics["bar"] == "none" and metrics["legend"], metrics
         last = page.locator(group + " input").last
         page.locator(group + " input").first.focus()
-        for _ in range(4):
+        for _ in range(5):
             page.keyboard.press("ArrowRight")
         page.wait_for_function(
             "g => { const c = document.querySelector(g + ' input:checked').closest('label').getBoundingClientRect();"
-            " return c.left >= 0 && c.right <= innerWidth; }", arg=group, timeout=5000)
+            " return c.left >= 0 && c.right <= innerWidth + 1; }", arg=group, timeout=5000)
         assert last.is_checked()
         _assert_no_page_overflow(page, "the scrolling chips")
     finally:

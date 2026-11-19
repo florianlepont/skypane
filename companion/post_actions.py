@@ -97,6 +97,10 @@ def _illustration_filenames(state_dir=None):
     since that manual state is mutable.
     """
     filenames = set(illustrations.target_filenames())
+    for _prefix, name in enrich.names_without_artwork():
+        key = manual_resolutions.illustration_key_for_name(name)
+        if key:
+            filenames.add(key + ".png")
     if state_dir:
         for entry in manual_resolutions.load_manual_resolutions(state_dir).values():
             key = manual_resolutions.illustration_key_for_name(entry["airline_name"])

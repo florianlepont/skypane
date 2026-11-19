@@ -21,7 +21,7 @@ import health_page_composition
 from companion_app_server import served_stylesheet
 from companion_markup import css_rules, declarations_for, parse_html, rules_with_selector
 from server import history_db
-from server.plane import illustrations
+from server.plane import enrich, illustrations, manual_resolutions
 
 _RELATIVE_ELEMENT_RE = re.compile(r'<time datetime="([^"]*)" data-relative>([^<]*)</time>')
 
@@ -454,9 +454,11 @@ def test_gallery_filter_bar_carries_all_four_contract_markers_exactly_once(tmp_p
         "expected two Clear buttons, the second one also carrying data-filter-clear-all")
     assert 'data-filter-clear-all' in rendered
     labels = re.findall(r'<span class="filter-chip__text">([^<]*)</span>', rendered)
-    assert labels == ["All", "Unidentified", "No artwork", "Seen", "Not seen yet"]
+    assert labels == [
+        "All", "Unidentified", "Known by name only", "No artwork", "Seen", "Not seen yet"]
     counts = re.findall(r'<span class="filter-chip__count">([^<]*)</span>', rendered)
-    assert counts == ["36", "0", "0", "0", "36"]
+    known = len(enrich.names_without_artwork())
+    assert counts == [str(36 + known), "0", str(known), "0", "0", "36"]
 
 
 def test_gallery_filter_clear_controls_are_real_buttons(tmp_path):
@@ -549,7 +551,7 @@ def test_gallery_filter_count_and_empty_body_name_the_real_total(tmp_path):
     """the gallery filter bar's count text and empty-state body both name the real (36) card
     total"""
     rendered = airlines_page.render(shp.ctx(str(tmp_path)))
-    total = len(illustrations.target_airline_names())
+    total = len(illustrations.target_airline_names()) + len(enrich.names_without_artwork())
     count_text = "%d of %d shown" % (total, total)
     assert count_text in rendered
     empty_body = airlines_page._FILTER_EMPTY_BODY_TEMPLATE % total
@@ -738,10 +740,12 @@ def test_replace_form_action_matches_trigger_attribute_membership(tmp_path):
     rendered = airlines_page.render(shp.ctx(str(tmp_path)) | {"types_open": "all"})
     form_count = rendered.count('<form class="%s"' % airlines_page.LIGHTBOX_REPLACE_FORM_CLASS)
     assert form_count == 1, "expected exactly one lightbox replace form, got %d" % form_count
-    targets = set(illustrations.target_filenames())
+    known_names = enrich.names_without_artwork()
+    targets = set(illustrations.target_filenames()) | {
+        manual_resolutions.illustration_key_for_name(name) + ".png" for _prefix, name in known_names}
     prefix = airlines_page.ILLUSTRATION_ROUTE_PREFIX
     actions = re.findall(r'data-view-panel-replace-action="([^"]+)"', rendered)
-    expected = len(illustrations.target_variants_by_airline())
+    expected = len(illustrations.target_variants_by_airline()) + len(known_names)
     typed_with_art = sum(
         1 for name, shapes in illustrations.target_variants_by_airline() for shape in shapes
         if illustrations.illustration_path_for_key(

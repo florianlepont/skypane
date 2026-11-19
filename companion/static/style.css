@@ -304,10 +304,12 @@
   /* Without color-scheme, the browser paints native form-control chrome
    * (e.g. <input type="time">) using its own light/dark heuristic
    * instead of following the OS scheme this default case follows. */
+  --rarity-tint: 10%;
   color-scheme: light dark;
 }
 @media (prefers-color-scheme: dark) {
   :root {
+    --rarity-tint: 28%;
     --sky-top: #12151D;
     --sky-mid: #161A24;
     --sky-bottom: #1A1F2B;
@@ -405,10 +407,12 @@ html[data-ui-theme="light"] {
   --color-toast-warning: #FBBF24;
   --color-toast-error: #FB7185;
   --color-toast-pending: #FF9A70;
+  --rarity-tint: 10%;
   color-scheme: light;
 }
 
 html[data-ui-theme="dark"] {
+  --rarity-tint: 28%;
   --sky-top: #12151D;
   --sky-mid: #161A24;
   --sky-bottom: #1A1F2B;
@@ -6976,6 +6980,10 @@ button.row-menu__item {
 /* The editor table that follows the gaps table enters one step after it. */
 .dashboard-main[data-page-open] > .airlines-table--gaps ~ .airlines-table {
   animation-delay: calc(3 * var(--motion-stagger));
+}
+
+.dashboard-main[data-page-open] > .airlines-table--known ~ .airlines-table:not(.airlines-table--known) {
+  animation-delay: calc(4 * var(--motion-stagger));
 }
 
 /* A filter that only hides rows replays a fade of its list, nothing else:

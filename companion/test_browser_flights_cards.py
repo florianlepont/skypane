@@ -522,7 +522,7 @@ def test_the_controls_work_as_a_plain_form_without_scripts(new_context, server):
 
 
 def test_airlines_search_pill_has_kind_chips_and_both_clears_work(new_context, server):
-    """The Airlines editor shares the component with its five kind chips; the inline clear and
+    """The Airlines editor shares the component with its six kind chips; the inline clear and
     the empty state's Clear both empty the field."""
     context = new_context(viewport=VIEWPORT_PHONE)
     try:
@@ -530,8 +530,8 @@ def test_airlines_search_pill_has_kind_chips_and_both_clears_work(new_context, s
         _login(page, server.base_url())
         page.goto(server.base_url() + "/airlines/manage")
         page.locator("[data-filter-input]").wait_for(state="visible")
-        if page.locator(".filter-chip").count() != 5:
-            raise AssertionError("expected the five kind chips on the Airlines filter bar")
+        if page.locator(".filter-chip").count() != 6:
+            raise AssertionError("expected the six kind chips on the Airlines filter bar")
         page.fill("[data-filter-input]", "zzzzq")
         page.locator("[data-filter-empty]").wait_for(state="visible")
         page.locator("[data-filter-empty] [data-filter-clear]").click()
