@@ -34,7 +34,7 @@ Status: incomplete. The design, the export and the tables are done; the slice ch
 - `hardware/ENCLOSURE-PRINT-ORDER.md`: design changes, design checks redone (computed in Blender, not printed), print-order spec; `hardware/ENCLOSURE-AUDIT.md` with 16 findings.
 
 ## Not done
-- No slice in Bambu Studio and no print: the slice check table is empty and must be filled from what the owner sees.
+- Sliced by the owner on 2026-11-19 (Bambu Studio 2.9.1.70, P2S, PETG, 0.20 mm, 3 walls, 20 % infill, no supports): times 1 h 32 (tray), 1 h 22 (lid), 29 min (stand and shim). Masses, thinnest wall and slot, and any slicer warning were not reported; no print yet.
 - Nothing is measured on a printed part. The IKEA wood edge (74 mm), the mass centre depth (6 mm) and the tab grip are model values.
 
 ## Deviations from Plan

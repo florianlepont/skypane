@@ -95,15 +95,18 @@ address or secret.
 
 ## Slice check
 
-Not done: nothing has been sliced or printed as of 2026-11-18. Only the file names are
-filled in, and they were exported by the assistant.
+Sliced by the owner on 2026-11-19 in Bambu Studio 2.9.1.70 for a Bambu Lab P2S, 0.4 mm nozzle,
+textured PEI plate, PETG Basic, profile "0.20mm Standard @BBL P2S" with 3 walls and 20 % grid infill
+(read on the owner's screenshots), supports switched off. Nothing has been printed. The tray, lid and
+the stand and shim each went on their own plate. Times and costs are the owner's readings from the slicer;
+the masses, the thinnest wall and slot, and any slicer warning were not reported, so those cells stay empty.
 
 | Part | File | Slicer and version | Layer height | Walls | Infill | Supports needed | Thinnest wall (mm) | Thinnest slot (mm) | Estimated mass (g) | Estimated print time |
 |---|---|---|---|---|---|---|---|---|---|---|
-| Tray | `skypane_tray.stl` | | | | | | | | | |
-| Lid | `skypane_lid.stl` | | | | | | | | | |
-| Stand | `skypane_stand.stl` | | | | | | | | | |
-| Shim | `skypane_shim.stl` | | | | | | | | | |
+| Tray | `skypane_tray.stl` | Bambu Studio 2.9.1.70 | 0.20 mm | 3 | 20 % grid | no (switched off) | | | | 1 h 32 min (cost 0.79) |
+| Lid | `skypane_lid.stl` | Bambu Studio 2.9.1.70 | 0.20 mm | 3 | 20 % grid | no (switched off) | | | | 1 h 22 min (cost 0.72) |
+| Stand | `skypane_stand.stl` | Bambu Studio 2.9.1.70 | 0.20 mm | 3 | 20 % grid | no (switched off) | | | | 29 min 8 s for stand and shim together (cost 0.16) |
+| Shim | `skypane_shim.stl` | Bambu Studio 2.9.1.70 | 0.20 mm | 3 | 20 % grid | no (switched off) | | | | (with the stand, see above) |
 
 ## Files
 
