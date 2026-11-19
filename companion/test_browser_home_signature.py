@@ -175,6 +175,92 @@ def test_ring_fills_as_time_passes_without_a_reload(new_context, make_app_server
         context.close()
 
 
+_MS_TO_NEXT = ("() => new Date(document.querySelector('%s').getAttribute('data-ring-next'))"
+               ".getTime() - Date.now()" % RING)
+
+
+def _run_to_next_update(page, after_ms=1500):
+    """Move the page's clock to `after_ms` past the next-update instant."""
+    page.clock.run_for(int(page.evaluate(_MS_TO_NEXT)) + after_ms)
+
+
+_STROKE = "() => getComputedStyle(document.querySelector('%s')).stroke" % BAR
+_OK_COLOUR = ("() => { const p = document.createElement('i'); p.style.color = "
+              "'var(--color-status-ok)'; document.body.appendChild(p);"
+              " const c = getComputedStyle(p).color; p.remove(); return c; }")
+_RING_IS_DONE = "() => document.querySelector('%s').classList.contains('is-ring-done')" % RING
+_SWAP_THE_RING = (
+    "() => { const old = document.querySelector('%s'); const fresh = old.cloneNode(true);"
+    " fresh.classList.remove('is-ring-done', 'is-ring-resumed'); old.replaceWith(fresh);"
+    " document.dispatchEvent(new CustomEvent('skypane-regions-swapped')); }" % RING)
+
+
+@pytest.mark.parametrize("lang", ["en", "fr"])
+@pytest.mark.parametrize("scheme", ["light", "dark"])
+def test_ring_flashes_green_at_one_hundred_percent_then_returns(
+        new_context, make_app_server, lang, scheme):
+    """at the next-update instant the bar turns the success colour, and goes back to the
+    accent colour once the flourish is over"""
+    server = make_app_server(seed=_seed_checkin(4), fake_providers=True)
+    context = new_context(viewport=VIEWPORT_PHONE, color_scheme=scheme)
+    context.add_cookies([{"name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": server.base_url()}])
+    page = context.new_page()
+    try:
+        _login(page, server.base_url())
+        page.clock.install(time=datetime.now(timezone.utc))
+        page.goto(server.base_url() + layout.HOME_ROUTE)
+        page.locator(RING).wait_for(state="attached")
+        normal = page.evaluate(_STROKE)
+        ok = page.evaluate(_OK_COLOUR)
+        assert normal != ok
+        page.clock.run_for(30_000)
+        assert not page.evaluate(_RING_IS_DONE)
+        _run_to_next_update(page)
+        assert page.evaluate(_RING_IS_DONE) and _progress(page) == 1.0
+        assert page.evaluate(_STROKE) == ok
+        page.clock.run_for(5_000)
+        assert not page.evaluate(_RING_IS_DONE)
+        assert page.evaluate(_STROKE) == normal
+    finally:
+        context.close()
+
+
+def test_ring_flourish_happens_once_per_cycle_even_across_a_region_swap(
+        new_context, make_app_server):
+    """a ring swapped in during the flourish keeps it green without replaying the animation,
+    and a swap after it never brings it back"""
+    server = make_app_server(seed=_seed_checkin(4), fake_providers=True)
+    context, page = _open_home_on_a_fake_clock(new_context, server)
+    try:
+        _run_to_next_update(page)
+        assert page.evaluate(_RING_IS_DONE)
+        assert page.evaluate(
+            "() => document.querySelector('%s').getAnimations().length" % BAR) == 1
+        page.evaluate(_SWAP_THE_RING)
+        assert page.evaluate(_RING_IS_DONE)
+        assert page.evaluate(
+            "() => document.querySelector('%s').getAnimations().length" % BAR) == 0
+        page.clock.run_for(5_000)
+        assert not page.evaluate(_RING_IS_DONE)
+        page.evaluate(_SWAP_THE_RING)
+        assert not page.evaluate(_RING_IS_DONE)
+    finally:
+        context.close()
+
+
+def test_ring_does_not_flash_under_reduced_motion(new_context, make_app_server):
+    """with reduced motion the ring never turns green and never animates"""
+    server = make_app_server(seed=_seed_checkin(4), fake_providers=True)
+    context, page = _open_home_on_a_fake_clock(new_context, server, reduced_motion="reduce")
+    try:
+        _run_to_next_update(page)
+        assert not page.evaluate(_RING_IS_DONE)
+        assert page.evaluate(
+            "() => document.querySelector('%s').getAnimations({subtree: true}).length" % RING) == 0
+    finally:
+        context.close()
+
+
 def test_ring_is_static_under_reduced_motion(new_context, make_app_server):
     """with reduced motion the ring has no animation and stays where the server drew it"""
     server = make_app_server(seed=_seed_checkin(1), fake_providers=True)

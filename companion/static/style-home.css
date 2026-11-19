@@ -251,6 +251,24 @@
   stroke-linecap: round;
 }
 
+/* The done flourish: when the countdown reaches 100% the bar turns the
+ * success colour for a moment (relative-time.js sets and removes the class).
+ * A ring re-rendered mid-flourish carries is-ring-resumed and stays green
+ * without replaying the animation. Not played under reduced motion. */
+.home-ring.is-ring-done .home-ring__bar {
+  stroke: var(--color-status-ok);
+}
+
+.home-ring.is-ring-done:not(.is-ring-resumed) .home-ring__bar {
+  animation: skypane-ring-done var(--motion-slow) var(--ease-out);
+}
+
+@keyframes skypane-ring-done {
+  15% {
+    stroke-width: 4;
+  }
+}
+
 .home-flight__picture .preview-frame {
   margin: 0;
 }

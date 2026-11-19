@@ -210,12 +210,48 @@
     return Math.min(1, Math.max(0, 1 - (nextMs - nowMs) / cycleMs));
   }
 
+  // When the countdown reaches 100% the ring turns green for RING_DONE_MS
+  // and then returns to normal. The state is keyed on the next-update
+  // instant (data-ring-next), not on the element: a refresh that swaps in a
+  // fresh ring while the effect is running continues it as a static green
+  // state (is-ring-resumed, no second animation) and never replays it. The
+  // effect only fires for a cycle the page watched count down.
+  var RING_DONE_CLASS = "is-ring-done";
+  var RING_RESUMED_CLASS = "is-ring-resumed";
+  var RING_DONE_MS = 2000;
+  var armedKey = null;
+  var flashedKey = null;
+
+  function ringFlourish(ring, nowMs, progress) {
+    var key = ring.getAttribute("data-ring-next");
+    var sinceMs = nowMs - new Date(key).getTime();
+    var has = ring.classList.contains(RING_DONE_CLASS);
+    if (progress < 1) {
+      armedKey = key;
+    }
+    if (progress < 1 || armedKey !== key || sinceMs >= RING_DONE_MS) {
+      if (has) {
+        ring.classList.remove(RING_DONE_CLASS, RING_RESUMED_CLASS);
+      }
+      return;
+    }
+    if (has) {
+      return;
+    }
+    if (flashedKey === key) {
+      ring.classList.add(RING_RESUMED_CLASS);
+    }
+    flashedKey = key;
+    ring.classList.add(RING_DONE_CLASS);
+  }
+
   function repaintRing(ring, nowMs) {
     var progress = ringProgress(ring, nowMs);
     var bar = ring.querySelector(".home-ring__bar");
     if (progress === null || !bar) {
       return;
     }
+    ringFlourish(ring, nowMs, progress);
     var offset = (100 * (1 - progress)).toFixed(2);
     if (bar.getAttribute("stroke-dashoffset") !== offset) {
       bar.setAttribute("stroke-dashoffset", offset);
