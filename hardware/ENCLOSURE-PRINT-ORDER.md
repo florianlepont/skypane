@@ -99,14 +99,14 @@ Sliced by the owner on 2026-11-19 in Bambu Studio 2.9.1.70 for a Bambu Lab P2S, 
 textured PEI plate, PETG Basic, profile "0.20mm Standard @BBL P2S" with 3 walls and 20 % grid infill
 (read on the owner's screenshots), supports switched off. Nothing has been printed. The tray, lid and
 the stand and shim each went on their own plate. Times and costs are the owner's readings from the slicer;
-the masses are the owner's readings too. The thinnest wall and slot and any slicer warning were not reported, so those cells stay empty.
+the masses are the owner's readings too. The thinnest wall and slot are not shown by the slicer: they are the values computed by the assistant on the model in Blender (2026-11-18), not read from Bambu Studio. Any slicer warning was not reported.
 
 | Part | File | Slicer and version | Layer height | Walls | Infill | Supports needed | Thinnest wall (mm) | Thinnest slot (mm) | Estimated mass (g) | Estimated print time |
 |---|---|---|---|---|---|---|---|---|---|---|
-| Tray | `skypane_tray.stl` | Bambu Studio 2.9.1.70 | 0.20 mm | 3 | 20 % grid | no (switched off) | | | 56.29 | 1 h 32 min (cost 0.79) |
-| Lid | `skypane_lid.stl` | Bambu Studio 2.9.1.70 | 0.20 mm | 3 | 20 % grid | no (switched off) | | | 51.56 | 1 h 22 min (cost 0.72) |
-| Stand | `skypane_stand.stl` | Bambu Studio 2.9.1.70 | 0.20 mm | 3 | 20 % grid | no (switched off) | | | 11.70 for stand and shim together | 29 min 8 s for stand and shim together (cost 0.16) |
-| Shim | `skypane_shim.stl` | Bambu Studio 2.9.1.70 | 0.20 mm | 3 | 20 % grid | no (switched off) | | | | (with the stand, see above) |
+| Tray | `skypane_tray.stl` | Bambu Studio 2.9.1.70 | 0.20 mm | 3 | 20 % grid | no (switched off) | 1.2 (service well and partition; letter ridges down to 0.24 excluded) | 1.09 | 56.29 | 1 h 32 min (cost 0.79) |
+| Lid | `skypane_lid.stl` | Bambu Studio 2.9.1.70 | 0.20 mm | 3 | 20 % grid | no (switched off) | 0.4 (ridges between the hook notches; letters excluded) | 1.0 (0.71 for the engraved indications) | 51.56 | 1 h 22 min (cost 0.72) |
+| Stand | `skypane_stand.stl` | Bambu Studio 2.9.1.70 | 0.20 mm | 3 | 20 % grid | no (switched off) | 4.0 (plate thickness) | none | 11.70 for stand and shim together | 29 min 8 s for stand and shim together (cost 0.16) |
+| Shim | `skypane_shim.stl` | Bambu Studio 2.9.1.70 | 0.20 mm | 3 | 20 % grid | no (switched off) | 5.4 (narrowest bar of the frame, 1.0 thick) | none | (with the stand) | (with the stand, see above) |
 
 ## Files
 
