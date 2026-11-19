@@ -589,8 +589,9 @@ def test_aspect_display_render_has_exactly_one_live_preview_figure_eager_with_di
     assert len(images) == 3, images
     width, height = theme_preview.FRAME_PREVIEW_PIXEL_SIZES[theme_preview.FRAME_PREVIEW_SIZE_LARGE]
     for tag, state in zip(images, ("departing", "arriving", "departing")):
-        assert 'src="%s"' % escape_html(
-            "%sblue.png?state=%s&size=large" % (config_page.FRAME_PREVIEW_ROUTE_PREFIX, state)) in tag
+        prefix = escape_html(
+            "%sblue.png?state=%s&size=large" % (config_page.FRAME_PREVIEW_ROUTE_PREFIX, state))
+        assert re.search(r'src="%s&amp;v=[0-9a-f]{12}"' % re.escape(prefix), tag), tag
         assert 'width="%d"' % width in tag and 'height="%d"' % height in tag
         assert 'loading="lazy"' not in tag
 

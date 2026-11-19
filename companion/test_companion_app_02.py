@@ -277,7 +277,7 @@ def test_tab_bar_is_six_cells_from_the_one_shared_nav_iteration():
         "expected the tab bar's destinations to equal the sidebar's; got %r vs %r"
         % (bar_routes, sidebar_routes))
     assert sidebar_routes == [
-        "/", "/flights", "/detection", "/display", "/airlines", "/account"], (
+        "/", "/flights", "/airlines", "/display", "/detection", "/account"], (
         "expected the personal sidebar order, got %r" % (sidebar_routes,))
 
     tab_links = re.findall(r'<a class="tab-bar__link[^"]*" href="([^"]+)"', bar)
