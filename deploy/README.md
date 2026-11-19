@@ -901,6 +901,23 @@ at most 400 days old and at most a day ahead; any other query parameter is
 refused with 400. More than 100000 matching rows answers 413. Ten failed
 attempts in a minute from one client address answer 429 for that client.
 
+To read another frame's battery history (each frame keeps its own
+`history.db` under `devices/<id>/`), add one optional parameter to this
+route only: `GET /api/export/battery-history?since=<UTC time>&device=<device id>`,
+for example `device=d_1a2b3c4d`. Without `device` the answer is the primary
+frame's, exactly as before. With it, the rows, columns, `since` rules, 413
+cap and line format are the same, read from that frame's own `history.db`
+(read-only; nothing is created or written). The id must be a registered
+frame in `fleet.db`; a retired frame whose data is still kept stays readable.
+Errors: 400 for an id that is not `d_` plus eight lowercase hex digits
+(empty, too long, `..`, slashes and encoded forms included), for a missing
+`since`, a repeated `device` or any other parameter; 404 for a well-formed id
+that is not registered (the body names no id, and no route lists ids); 503
+when that frame has no readable `history.db` yet. The same bearer token, a
+session cookie that never grants access, and the same failed-attempt
+throttle apply. `flights`, `poll-cycles` and `status` still refuse `device`
+with 400.
+
 ### Debugging exports
 
 The same token also opens three more read-only routes under `/api/export/`,
