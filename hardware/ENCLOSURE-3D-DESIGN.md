@@ -54,10 +54,10 @@ powered over USB.
 
 | Part | Dimensions | Estimated mass |
 |---|---|---|
-| Tray | 132.0 x 182.0 x 11 mm, floor 1.2, walls 1.6 | about 66 g |
-| Lid | 132.0 x 182.0 x 1.5 mm, hooks up to 22.2 mm | about 54 g |
+| Tray | 132.0 x 182.0 x 11 mm, floor 1.2, walls 1.6 | about 66 g solid; 56.3 g in the slicer (owner, 2026-11-19) |
+| Lid | 132.0 x 182.0 x 1.5 mm, hooks up to 22.2 mm | about 54 g solid; 51.6 g in the slicer |
 | Stand | 71.0 x 30.0 x 4 mm plate (64.7 mm on the small face) | about 10 g |
-| Shim | 132.0 x 182.0 x 1.0 mm | about 6 g |
+| Shim | 132.0 x 182.0 x 1.0 mm | about 6 g solid; stand and shim together 11.7 g in the slicer |
 
 **Openings:**
 
