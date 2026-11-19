@@ -25,8 +25,6 @@ _SEARCH = i18n.msg("admin_fleet.search_frames", "Search %d frames")
 _ALL_FRAMES = i18n.msg("admin_fleet.all_frames_n", "All frames (%d)")
 _NO_MATCH = i18n.msg("admin_fleet.no_frame_found", "No frame found")
 _SWITCH_ARIA = i18n.msg("nav.frame_strip_aria", "Your frames")
-_SYSTEM = i18n.msg("admin_fleet.system_tile", "System")
-_SYSTEM_DETAIL = i18n.msg("admin_fleet.system_tile_detail", "Sources and backups")
 _REACTIVATE_HINT = i18n.msg(
     "admin_fleet.reactivate_wake_hint",
     "The frame shows its pairing code at its next wake (up to 24 h). Press "
@@ -104,16 +102,6 @@ def _group(label_msg, rows, view, selected_id, slug):
         attrs="data-filter-day-group")
 
 
-def _system_group(is_system):
-    row = ui_groups.row(
-        i18n.t(_SYSTEM), detail=i18n.t(_SYSTEM_DETAIL),
-        href="/fleet?view=system",
-        extra_class="fleet-frame-row" + (" is-selected" if is_system else ""))
-    if is_system:
-        row = row.replace('<a class="row__main"', '<a class="row__main" aria-current="page"', 1)
-    return ui_groups.group(row, extra_class="fleet-list-group fleet-list-group--system")
-
-
 def _heading_html(landing, with_frame):
     """The list's title. Beside a frame it is an `<h2>`. On the landing view
     a phone shows it as the page's `<h1>`; when a frame is shown beside the list
@@ -128,7 +116,7 @@ def _heading_html(landing, with_frame):
         '<h2 class="fleet-list__heading fleet-list__heading--wide">%s</h2>' % (text, text))
 
 
-def list_panel_html(view, selected_id="", is_system=False, landing=False, with_frame=False):
+def list_panel_html(view, selected_id="", landing=False, with_frame=False):
     """The list of frames: a header (title, Add a frame, search from
     `SEARCH_FROM` frames), then the Live, Waiting and Retired groups. `landing`
     is the view with no frame chosen; `with_frame` says a frame shows beside it."""
@@ -155,9 +143,8 @@ def list_panel_html(view, selected_id="", is_system=False, landing=False, with_f
     return (
         '<div class="fleet-list"><div class="fleet-list__head">'
         '<div class="fleet-list__title">%s%s</div>%s'
-        '</div><div class="fleet-list__body">%s%s%s</div></div>') % (
-            _heading_html(landing, with_frame), add, search, body, empty,
-            _system_group(is_system))
+        '</div><div class="fleet-list__body">%s%s</div></div>') % (
+            _heading_html(landing, with_frame), add, search, body, empty)
 
 
 def switch_html(view, selected_id=""):

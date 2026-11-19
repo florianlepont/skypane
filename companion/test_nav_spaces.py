@@ -58,7 +58,7 @@ def test_admin_console_sidebar_follows_the_spec():
     _as_admin()
     sidebar = layout.sidebar_nav("users", health_alert="error", device_config={})
     assert _hrefs(sidebar) == [
-        "/fleet", "/users", "/airlines/manage", "/audit", "/account"]
+        "/fleet", "/users", "/airlines/manage", "/audit", "/fleet?view=system", "/account"]
     assert "space-switch" not in sidebar and ">Administration<" in sidebar
     assert ">Frame tools<" not in sidebar and "Advanced" not in sidebar
     assert sidebar.count("sidebar-link--active") == 1
@@ -76,7 +76,8 @@ def test_admin_bars_follow_the_spec():
     assert _hrefs(cells) == ["/fleet", "/users", "/airlines/manage", "/audit"]
     assert "Audit" in console and "Admin<" not in console and "tab-bar__link--switch" not in console
     sheet = console.split('<div class="tab-bar__more-panel">')[1]
-    assert re.findall(r'<a [^>]*href="([^"]+)"', sheet) == ["/account", "/"]
+    assert re.findall(r'<a [^>]*href="([^"]+)"', sheet) == [
+        "/account", "/fleet?view=system", "/"]
     fleet_cell = cells[cells.index('href="/fleet"'):]
     assert "nav-notification" in fleet_cell[:fleet_cell.index("</a>")]
     summary = console[console.index("<summary"):console.index("</summary>")]

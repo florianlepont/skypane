@@ -15,8 +15,10 @@ from companion_app_server import http_request
 from server import fleet_db, fleet_sessions
 
 PERSONAL_PAGES = ("/", "/flights", "/detection", "/display", "/airlines")
-ADMIN_WORDS = ("Admin", "Console", "Fleet", "Releases", "Health", "Device", "Update")
-ADMIN_WORDS_FR = ("Flotte", "Versions", "État", "Appareil", "Console", "Administration")
+ADMIN_WORDS = (
+    "Admin", "Console", "Fleet", "Releases", "Health", "Device", "Update", "System", "view=system")
+ADMIN_WORDS_FR = (
+    "Flotte", "Versions", "État", "Appareil", "Console", "Administration", "Système")
 
 PERSONAL_BAR_EN = ["Home", "Flights", "Airlines", "Style", "Location"]
 PERSONAL_BAR_FR = ["Accueil", "Vols", "Compagnies", "Style", "Lieu"]
@@ -26,9 +28,9 @@ CONSOLE_BAR_EN = ["Fleet", "Users", "Editor", "Audit"]
 CONSOLE_BAR_FR = ["Flotte", "Équipe", "Éditeur", "Journal"]
 SWITCH_TO_CONSOLE = {"en": "Console", "fr": "Console"}
 SWITCH_TO_PERSONAL = {"en": "My frames", "fr": "Mes cadres"}
-CONSOLE_SIDEBAR_EN = ["Fleet", "Users", "Editor", "Audit log", "Account"]
+CONSOLE_SIDEBAR_EN = ["Fleet", "Users", "Editor", "Audit log", "System", "Account"]
 CONSOLE_SIDEBAR_FR = [
-    "Flotte", "Utilisateurs", "Éditeur", "Journal d’audit", "Compte"]
+    "Flotte", "Utilisateurs", "Éditeur", "Journal d’audit", "Système", "Compte"]
 
 
 @pytest.fixture
@@ -150,8 +152,10 @@ def test_the_console_navigation_lists_the_console_pages_for_the_frame_in_view(
     assert [text for _href, text in cells] == bar_labels
     assert [href for href, _text in _unscoped(cells)] == [
         "/fleet", "/users", "/airlines/manage", "/audit"]
-    assert [href for href, _text in _unscoped(sheet)] == ["/account", "/"]
-    assert [text for _href, text in sheet] == [sidebar_labels[4], SWITCH_TO_PERSONAL[lang]]
+    assert [href for href, _text in _unscoped(sheet)] == [
+        "/account", "/fleet?view=system", "/"]
+    assert [text for _href, text in sheet] == [
+        sidebar_labels[5], sidebar_labels[4], SWITCH_TO_PERSONAL[lang]]
 
     sidebar = _sidebar_anchors(page)
     assert [text for _href, text in sidebar] == sidebar_labels
@@ -179,7 +183,8 @@ def test_console_frame_pages_render_in_the_console_chrome_for_each_frame(served,
         # address the page was opened under.
         assert list(tools.values()) == ["/airlines/manage"]
         active = re.findall(r'sidebar-link--active" href="([^"]+)"', sidebar)
-        expected_active = page if page == "/airlines/manage" else "/fleet"
+        # The System view is its own navigation entry; every other Fleet view marks Fleet.
+        expected_active = page if page in ("/airlines/manage", "/fleet?view=system") else "/fleet"
         assert [re.sub(r"^/devices/[^/]+", "", href) for href in active] == [expected_active]
 
 

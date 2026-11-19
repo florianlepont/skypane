@@ -51,8 +51,15 @@ USERS_LABEL = i18n.msg("nav.users", "Users")
 HEALTH_LABEL = i18n.msg("nav.health", "Health")
 DEVICE_LABEL = i18n.msg("nav.device", "Device")
 AUDIT_LABEL = i18n.msg("nav.audit_log", "Audit log")
+SYSTEM_LABEL = i18n.msg("nav.system", "System")
 RELEASES_LABEL = i18n.msg("nav.releases", "Releases")
 SECTION_NAV_LABEL = i18n.msg("nav.administration_sections", "Administration sections")
+
+# The System view is a view of the Fleet page, named by a query: its entry
+# path carries it, and its route (the part before the query) is the Fleet one.
+SYSTEM_VIEW_QUERY = "view"
+SYSTEM_VIEW_VALUE = "system"
+SYSTEM_ROUTE = "%s?%s=%s" % (FLEET_ROUTE, SYSTEM_VIEW_QUERY, SYSTEM_VIEW_VALUE)
 
 # (key, path, label) in display order. A link is rendered only when a GET
 # route for its path exists. Health, Device and the Airline editor are
@@ -65,6 +72,7 @@ CONSOLE_NAV_ENTRIES = (
     ("editor", AIRLINE_EDITOR_ROUTE, AIRLINE_EDITOR_LABEL),
     ("audit", AUDIT_ROUTE, AUDIT_LABEL),
     ("releases", UPDATE_ROUTE, RELEASES_LABEL),
+    ("system", SYSTEM_ROUTE, SYSTEM_LABEL),
 )
 
 # Page title per console page path.
@@ -81,7 +89,7 @@ ADMIN_TAB_ROUTE = FLEET_ROUTE
 def _get_route_exists(path):
     # Imported here: companion.routes imports this module.
     from companion import routes
-    return routes.match("GET", path, "") is not None
+    return routes.match("GET", path.partition("?")[0], "") is not None
 
 
 def available_nav_entries():

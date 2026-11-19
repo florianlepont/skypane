@@ -406,8 +406,8 @@ _OVERFLOW_PROBE = (
 def test_more_sheet_fits_the_console_overflow_links_at_phone_widths(
         new_context, server, viewport, lang):
     """At 375px and 390px, in English and French: the Console tab bar's More
-    sheet on the Releases page holds exactly the Account row and the switch back to
-    the personal space (every Console page is in the bar), with a measured hit box
+    sheet on the Releases page holds exactly the Account row, the System view and the
+    switch back to the personal space (every other Console page is in the bar), with a measured hit box
     at least 44px tall, no wrapping or truncated text, the "More" summary
     cell's own box unchanged from another tab-bar cell's, and the header
     dropdown's preferences panel gains no /update link.
@@ -428,8 +428,8 @@ def test_more_sheet_fits_the_console_overflow_links_at_phone_widths(
 
         links = page.locator(_MORE_SHEET_LINK_SELECTOR)
         count = links.count()
-        assert count == 2, (
-            "expected exactly 2 links (Account, the space switch) in "
+        assert count == 3, (
+            "expected exactly 3 links (Account, System, the space switch) in "
             "the More sheet at %dpx/%s, got %d" % (viewport["width"], lang, count))
 
         heights = []
@@ -808,8 +808,8 @@ def test_in_flight_states_fit_and_offer_only_what_the_server_would_accept(
 
 def test_desktop_sidebar_frame_tools_group_fits_with_no_overlap(new_context, server):
     """At 1280px, the Console sidebar has no Frame tools group (Health, Device and
-    Releases are in the Fleet view) and its five links (Fleet, Users, Airline editor,
-    Audit log, Account) stack with no overlap.
+    Releases are in the Fleet view) and its six links (Fleet, Users, Airline editor,
+    Audit log, System, Account) stack with no overlap.
     """
     context = new_context(viewport=VIEWPORT_DESKTOP)
     try:
@@ -819,7 +819,7 @@ def test_desktop_sidebar_frame_tools_group_fits_with_no_overlap(new_context, ser
         assert page.locator(".nav-group--frame-tools").count() == 0
         links = page.locator(".sidebar-nav a.sidebar-link")
         count = links.count()
-        assert count == 5, "expected exactly 5 Console sidebar links, got %d" % (count,)
+        assert count == 6, "expected exactly 6 Console sidebar links, got %d" % (count,)
         boxes = [links.nth(i).bounding_box() for i in range(count)]
         for index in range(count - 1):
             upper, lower = boxes[index], boxes[index + 1]

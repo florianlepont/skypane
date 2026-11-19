@@ -1,5 +1,5 @@
 """The Console Fleet view: the list of frames (live, pending, retired) with its
-Add a frame control and System row, the frame switch, the four blocks of the
+Add a frame control, the frame switch, the four blocks of the
 selected frame (State, Device and version, Settings, Access) and the System
 view, plus the navigation that no longer lists Status, Version or Device."""
 import re
@@ -55,7 +55,8 @@ def test_no_frame_chosen_shows_the_list_of_every_frame(fleet):
     # Pending and retired frames are in the list, each with its own page.
     assert "/fleet?frame=%s" % seed.pending_id in hrefs
     assert "/fleet?frame=%s" % seed.retired_id in hrefs
-    assert hrefs[-1] == "/fleet?view=system"
+    # The System view is not a row of the list: it has its own navigation entry.
+    assert "/fleet?view=system" not in hrefs
     assert 'data-fleet-mode="list"' in page
     # A phone's title is the list's h1; a wide screen's h1 is the first frame's name.
     assert re.search(r'<h1 class="fleet-list__heading fleet-list__heading--narrow">Frames</h1>', page)
@@ -149,15 +150,14 @@ def test_an_unknown_frame_value_shows_the_list_and_the_first_frame(fleet):
     assert _blocks(page)[:1] == ["State"]
 
 
-def test_the_system_tile_opens_the_platform_wide_view(fleet):
+def test_the_system_view_shows_the_platform_wide_blocks(fleet):
     server, _seed, cookie = fleet
     status, _headers, page = fx.get(server, cookie, "/fleet?view=system")
     assert status == 200
     # One glass group per topic: flight data, sources and identification.
     assert _blocks(page) == ["Flight data", "Data sources", "Flight identification"]
-    assert [h for h, mark in _tiles(page) if mark] == ["/fleet?view=system"]
+    assert not [h for h, mark in _tiles(page) if mark]
     assert '<h1 class="fleet-head__title">System</h1>' in page
-    assert "Backup" in page or "backup" in page
 
 
 def test_the_console_navigation_no_longer_lists_status_version_or_device(fleet):
@@ -252,3 +252,38 @@ def test_an_address_naming_a_frame_that_does_not_exist_says_so(fleet, lang, word
             "/fleet", "/fleet?frame=%s" % seed.owned_id, "/fleet?frame=%s" % seed.retired_id,
             "/fleet?view=system"):
         assert words not in fx.get(server, cookie, path)[2], path
+
+
+def _sidebar_links(page):
+    """(href, label, is current) of every link of the sidebar navigation."""
+    sidebar = page[page.index('<nav class="sidebar-nav"'):]
+    sidebar = sidebar[:sidebar.index("</nav>")]
+    return [
+        (href, re.sub(r"<[^>]+>", "", inner).strip(), bool(current.strip()))
+        for href, current, inner in re.findall(
+            r'<a class="sidebar-link[^"]*" href="([^"]+)"( aria-current="page")?[^>]*>(.*?)</a>',
+            sidebar, re.S)]
+
+
+@pytest.mark.parametrize("lang,label", [("en", "System"), ("fr", "Système")])
+def test_the_system_view_is_reached_from_the_console_navigation(fleet, lang, label):
+    server, seed, cookie = fleet
+    cookie = "%s; %s=%s" % (cookie, auth.UI_LANG_COOKIE_NAME, lang)
+    for path in ("/fleet", "/fleet?frame=%s" % seed.owned_id, "/users"):
+        links = _sidebar_links(fx.get(server, cookie, path)[2])
+        assert ("/fleet?view=system", label, False) in links, path
+    on_system = _sidebar_links(fx.get(server, cookie, "/fleet?view=system")[2])
+    assert [href for href, _label, current in on_system if current] == ["/fleet?view=system"]
+    on_fleet = _sidebar_links(fx.get(server, cookie, "/fleet")[2])
+    assert [href for href, _label, current in on_fleet if current] == ["/fleet"]
+
+
+def test_the_system_entry_is_in_the_phone_more_sheet_and_marked_on_its_view(fleet):
+    server, _seed, cookie = fleet
+    page = fx.get(server, cookie, "/fleet?view=system")[2]
+    bar = page[page.index('<nav class="tab-bar"'):]
+    sheet = bar[bar.index('<div class="tab-bar__more-panel">'):]
+    link = re.search(r'<a class="[^"]*" href="/fleet\?view=system"([^>]*)>', sheet)
+    assert link and 'aria-current="page"' in link.group(1)
+    cells = bar[:bar.index('<details class="tab-bar__more')]
+    assert "/fleet?view=system" not in cells

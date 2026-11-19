@@ -91,8 +91,6 @@ MESSAGES = {
         "Allumez-le. Il affichera un code d’association dans les 5 minutes.",
     "admin_fleet.flash_frame_duplicate":
         "Un cadre avec cette adresse est déjà enregistré.",
-    "admin_fleet.system_tile": "Système",
-    "admin_fleet.system_tile_detail": "Sources et sauvegardes",
     "admin_fleet.system_heading": "Système",
     "admin_fleet.block_state": "État",
     "admin_fleet.tabs_label": "Sections du cadre",

@@ -41,16 +41,23 @@ PRINCIPAL_KINDS = ("user", "admin")
 # the account row and to scope per-person browser state.
 _EMAIL_CTX = contextvars.ContextVar("skypane_principal_email", default="")
 _PATH_CTX = contextvars.ContextVar("skypane_request_path", default="")
+_QUERY_CTX = contextvars.ContextVar("skypane_request_query", default="")
 
 
-def set_request_path(path):
-    """Store the path of this request (page_styles picks the page's
-    stylesheets from it)."""
+def set_request_path(path, query=""):
+    """Store the path and the raw query string of this request (page_styles
+    picks the page's stylesheets from the path; the navigation marks the Fleet
+    page's System view from the query)."""
     _PATH_CTX.set(path or "")
+    _QUERY_CTX.set(query or "")
 
 
 def current_request_path():
     return _PATH_CTX.get()
+
+
+def current_request_query():
+    return _QUERY_CTX.get()
 
 
 def set_request_principal(kind=None, role=None, email=""):

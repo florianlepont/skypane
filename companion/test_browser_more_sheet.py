@@ -158,7 +158,7 @@ def test_the_sheet_holds_the_other_rows_and_the_account_row_names_the_person(
         assert page.eval_on_selector_all(
             ".tab-bar__more-panel a",
             "els => els.map(e => (e.querySelector('.link-card__title, .tab-bar__account-name') || e).textContent.trim())") == [
-            "Account", "My frames"]
+            "Account", "System", "My frames"]
         assert page.locator(".tab-bar__account-email").inner_text() == OWNER_EMAIL
         for selector in (".tab-bar__more-panel a", ".tab-bar__sign-out button",
                          ".tab-bar__more-panel .theme-option"):
