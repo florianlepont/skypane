@@ -300,7 +300,7 @@ def test_quiet_hours_dialog_shows_the_saved_window_when_it_opens_again(new_conte
     try:
         page.goto(server.base_url() + layout.HOME_ROUTE)
         page.wait_for_function("() => document.readyState === 'complete'")
-        opener = page.locator("a.home-switch__window")
+        opener = page.locator("a.home-pill--quiet")
         field = "#quiet-window-start"
         opener.click()
         page.wait_for_function(

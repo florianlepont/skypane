@@ -5,9 +5,11 @@ description: The companion web app's current design-system reference — colour 
 
 # SkyPane companion design system
 
-**As of:** commit `c9ce584` (origin/main), 2026-11-13, after Phase 61 round 39. Everything below
-was checked against the code at that commit. `.planning/workstreams/v1-2/ROADMAP.md` and the
-Phase 61 summaries are the live record of plan status.
+**As of:** 2026-11-18, after origin/main was merged into the Phase 68 branch (last full check
+against the code: commit `c9ce584`, 2026-11-13, after Phase 61 round 39).
+`.planning/workstreams/v1-2/ROADMAP.md` and the Phase 61 summaries are the live record of plan
+status. Phase 68 is changing the design system page by page; a later plan of that phase brings
+every reference file up to date, so until then the code wins where it disagrees with a reference.
 
 **Keeping it current.** This skill is not updated automatically. Any PR that changes companion CSS
 tokens, navigation, a component or a page layout (`companion/static/style*.css`, `companion/ui_*.py`,

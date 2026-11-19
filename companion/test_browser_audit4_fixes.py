@@ -215,7 +215,7 @@ def test_a_hand_named_airline_keeps_its_row_one_line_tall(new_context, app_serve
     try:
         sizes = page.evaluate("""() => { const rows = [...document.querySelectorAll('tr.airlines-row')];
             const mine = rows.find(r => r.textContent.includes('Ryanair'));
-            const other = rows.find(r => r.querySelector('.airlines-name input'));
+            const other = rows.find(r => !r.textContent.includes('Ryanair') && r.querySelector('.airlines-name'));
             const left = el => el.querySelector('.airlines-name').getBoundingClientRect().left;
             return [mine.getBoundingClientRect().height, other.getBoundingClientRect().height,
                     left(mine), left(other)]; }""")
@@ -264,18 +264,19 @@ def test_the_back_link_sits_the_same_way_on_the_rename_and_special_look_pages(
 
 
 @pytest.mark.parametrize("viewport", [VIEWPORT_PHONE, VIEWPORT_DESKTOP], ids=["390", "1280"])
-def test_the_hero_picture_leaves_room_for_its_ring_inside_the_page_column(
+def test_the_flight_card_picture_sits_inside_its_card_and_the_page_column(
         new_context, app_server_in_process, viewport):
     server = app_server_in_process
     context, page, _seed = _open(
         new_context, server, "/devices/{owned}/", viewport, who="owner")
     try:
-        # The ring sits 5px outside the picture and strokes 2px: 6px of margin keeps
-        # its outer edge on the column instead of beside the cards.
-        gap = page.evaluate("""() => { const picture = document.querySelector('.hero__picture');
-            const hero = picture.closest('.hero');
-            return picture.getBoundingClientRect().left - hero.getBoundingClientRect().left; }""")
-        assert gap >= 6, gap
+        # The picture keeps the card's padding on every side, so it never touches the card's edge
+        # or reaches past the column.
+        gap = page.evaluate("""() => { const picture = document.querySelector('.home-flight__picture');
+            const card = picture.closest('.home-flight');
+            const p = picture.getBoundingClientRect(), c = card.getBoundingClientRect();
+            return {left: p.left - c.left, top: p.top - c.top, right: c.right - p.right}; }""")
+        assert gap["left"] >= 12 and gap["top"] >= 12 and gap["right"] >= 12, gap
     finally:
         context.close()
 

@@ -270,8 +270,7 @@ def test_pending_and_retired_frames_do_not_exist_for_a_user(rig):
 
 ADMIN_ONLY_KEYS = tuple(SEEDED_ADMIN_ONLY)
 _ADMIN_LINK_PATHS = (
-    "/fleet", "/users", "/audit", "/update", "/device", "/health", "/airlines/manage",
-    "/locations")
+    "/fleet", "/users", "/audit", "/update", "/device", "/health", "/airlines/manage")
 _FRAME_PAGES = ("/", "/display", "/flights", "/airlines")
 
 

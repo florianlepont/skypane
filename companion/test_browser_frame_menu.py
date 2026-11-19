@@ -54,7 +54,7 @@ def _live_path(app, route):
 
 @pytest.mark.parametrize("route", ["/display", "/flights", "/"])
 def test_choosing_a_row_keeps_the_page_for_the_other_frame(new_context, app, route):
-    """on Personalisation, Flight history and Home the other frame's row goes to the same page
+    """on Personalisation, Flights and Home the other frame's row goes to the same page
     of that frame, and the current row carries aria-current and the check"""
     other = app.fleet.dev_a.id
     context, page = _open(

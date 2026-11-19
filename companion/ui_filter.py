@@ -35,27 +35,33 @@ COUNT_PLACEHOLDER = "#"
 FILTER_CHIP_GROUP_NAME = "filter_kind"
 
 
-def _chips_html(chips, legend):
+def _chips_html(chips, legend, scroll=False):
     """The segmented chip group: one visually-hidden radio per segment
     inside a whole-segment label and a short label. The
     first chip is checked and carries the empty kind (every row).
-    `chips` is a sequence of `(kind, label_text)`.
+    `chips` is a sequence of `(kind, label_text)`; a third item is a count
+    shown after the label in a quieter weight. With `scroll` the group is the
+    scrolling pill row (`filter-bar__chips--scroll`): separate pills on one
+    line that scrolls sideways when they do not fit.
     """
     parts = []
-    for position, (kind, text) in enumerate(chips):
+    for position, chip in enumerate(chips):
+        kind, text = chip[0], chip[1]
+        count = ('<span class="filter-chip__count">%s</span>' % escape_html(str(chip[2]))
+                 if len(chip) > 2 else "")
         parts.append(
             '<label class="filter-chip">'
             '<input type="radio" class="visually-hidden" name="%s" '
             'value="%s" data-filter-chip%s>'
             '<span class="filter-chip__box">'
-            '<span class="filter-chip__text">%s</span>'
+            '<span class="filter-chip__text">%s</span>%s'
             "</span></label>" % (
                 FILTER_CHIP_GROUP_NAME, escape_html(kind),
-                " checked" if position == 0 else "", escape_html(text)))
+                " checked" if position == 0 else "", escape_html(text), count))
     return (
-        '<fieldset class="filter-bar__chips js-gate">'
+        '<fieldset class="filter-bar__chips%s js-gate">'
         '<legend class="visually-hidden">%s</legend>%s</fieldset>'
-    ) % (escape_html(legend), "".join(parts))
+    ) % (" filter-bar__chips--scroll" if scroll else "", escape_html(legend), "".join(parts))
 
 
 def chip_links_html(chips, aria_label, tabs=""):
@@ -170,11 +176,12 @@ def filter_empty_html(heading, body, action_html, attrs):
 def filter_bar_html(
         input_id, label, placeholder, count_template, count_total,
         shown, empty_heading, empty_body, chips=None, chips_legend="",
-        search_in_bar=True):
+        search_in_bar=True, chips_scroll=False):
     """The filter bar plus its empty state, as one markup string.
 
     `chips` (optional) adds the segmented group and switches the search
     field to its collapsing form; omit it for the plain search pill.
+    `chips_scroll=True` renders the chips as the scrolling pill row.
     `search_in_bar=False` leaves the search field out: the page places it
     itself with `filter_title_search_html()` under the same `input_id`.
     `count_total` and `shown` seed the live count the script rewrites
@@ -183,8 +190,10 @@ def filter_bar_html(
     Every argument is escaped here, never by the caller.
     """
     count_text = count_template % (shown, count_total)
-    chips_markup = _chips_html(chips, chips_legend) if chips else ""
+    chips_markup = _chips_html(chips, chips_legend, chips_scroll) if chips else ""
     modifier = " filter-bar--chips" if chips else ""
+    if chips and chips_scroll:
+        modifier += " filter-bar--scroll-chips"
     search_markup = _search_html(input_id, label, placeholder) if search_in_bar else ""
     return (
         '<div class="filter-bar%s">'

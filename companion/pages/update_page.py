@@ -43,12 +43,11 @@ TYPE_FORM_FIELD = "hardware_type"
 # Names the group of type buttons (a form's accessible name).
 TYPE_CHOOSER_LABEL_TEXT = i18n.msg("update.hardware_type", "Hardware type")
 # "%s" is the hardware type's label, on the install confirmation page.
-CONFIRM_TYPE_TEMPLATE = i18n.msg("update.for_hardware_type_s", "For %s")
 
 HISTORY_HEADING_TEXT = i18n.msg("update.version_history", "Versions")
-# The history's status chips: the newest release, and the one the frame runs.
+# The history's status chip on the latest release; the one the frame runs
+# carries RUNNING_BADGE_TEXT.
 STATE_NEWEST_TEXT = i18n.msg("update.state_newest", "Newest")
-STATE_INSTALLED_TEXT = i18n.msg("update.state_installed", "Installed")
 NOTES_TEXT = i18n.msg("update.notes_n", "Notes (%d)")
 NO_VERSION_REPORTED_TEXT = i18n.msg(
     "update.no_version_reported_yet", "No version reported yet")
@@ -58,11 +57,6 @@ STATE_LABELS = {
     "scheduled": i18n.msg("update.scheduled", "Scheduled"),
     "in_progress": i18n.msg("update.in_progress", "In progress"),
 }
-
-# The summary that opens the Fleet panel: the label over the installed
-# version, and the state chip beside it when no update is on offer.
-ON_THE_FRAME_LABEL_TEXT = i18n.msg("update.on_the_frame", "On the frame")
-UP_TO_DATE_CHIP_TEXT = i18n.msg("update.up_to_date", "Up to date")
 
 # The call-to-action card's headline, one per situation.
 CTA_UP_TO_DATE_TEXT = i18n.msg("update.cta_up_to_date", "The frame is up to date")
@@ -78,17 +72,11 @@ CTA_INSTALLING_BODY_TEMPLATE = i18n.msg(
 CTA_FAILED_BODY_TEMPLATE = i18n.msg(
     "update.cta_failed_body", "%s could not be installed.")
 CTA_STAYS_ON_TEMPLATE = i18n.msg("update.cta_stays_on", "The frame stays on %s.")
-# The card's footer while something other than "up to date" is shown:
-# "%s" is the version the frame runs now.
-ON_THE_FRAME_TEMPLATE = i18n.msg("update.on_the_frame_s", "On the frame: %s")
 # "%s" is a relative age (`<time data-relative>`) or an absolute local
 # date and time (`<time>`), each its own element.
 INSTALLED_AGO_TEMPLATE = i18n.msg("update.installed_ago_s", "Installed %s")
 INSTALLED_ON_TEMPLATE = i18n.msg("update.installed_on_s", "Installed %s")
 RELEASED_AGO_TEMPLATE = i18n.msg("update.released_ago_s", "Released %s")
-RELEASED_ON_TEMPLATE = i18n.msg("update.released_on_s", "Released %s")
-# "%s" is a past OTA install time of a release the frame no longer runs.
-LAST_INSTALLED_TEMPLATE = i18n.msg("update.last_installed_s", "Last installed %s")
 
 # The same sentences without a clock time, for a frame whose next wake cannot
 # be named (overdue, or never seen): no made-up or past time is shown.
@@ -122,19 +110,26 @@ ROLLBACK_BUTTON_TEMPLATE = i18n.msg("update.roll_back_to_s", "Roll back to %s")
 ROLLBACK_SHORT_TEXT = i18n.msg("update.roll_back", "Roll back")
 NOT_INSTALLABLE_TEXT = i18n.msg("update.not_installable", "Not installable")
 # publish_release(..., bench=True) admits a non-tag version such as
-# fw-v1.2.0-bench1. It is never listed for installation; the badge
-# marks it only when it is the release the frame currently runs. It
-# composes .banner__pill (settings/rules.py's own
-# "<scope>__kind banner__pill" pattern).
+# fw-v1.2.0-bench1. It is never listed for installation; the pill
+# marks it only when it is the release the frame currently runs.
 BENCH_BADGE_TEXT = i18n.msg("update.bench", "Bench")
-# The running release's own badge.
+# The running release's own chip.
 RUNNING_BADGE_TEXT = i18n.msg("update.running_badge", "Running")
-INSTALL_CONFIRM_QUESTION_TEMPLATE = i18n.msg(
-    "update.install_s_now",
-    "Install %s now? It will apply at the next wake.")
+# The dialog (and the page without script) that asks once before a release
+# is scheduled: "%s" is the release version. A rollback has its own words.
+ROLLBACK_CONFIRM_HEADING_TEMPLATE = i18n.msg("update.roll_back_to_s_question", "Roll back to %s?")
+ROLLBACK_CONFIRM_SENTENCE_TEMPLATE = i18n.msg(
+    "update.rollback_confirm_around_s",
+    "The frame goes back to %s at its next wake, around %s. Its settings are kept.")
+ROLLBACK_CONFIRM_SENTENCE_HELD_TEMPLATE = i18n.msg(
+    "update.rollback_confirm_held_around_s",
+    "The frame goes back to %s when quiet hours end, around %s. Its settings are kept.")
+ROLLBACK_CONFIRM_SENTENCE_NO_TIME = i18n.msg(
+    "update.rollback_confirm_no_time",
+    "The frame goes back to %s at its next wake. Its settings are kept.")
 
 # The server-side confirmation page's own copy (the real install gate,
-# not the data-confirm misclick guard above) -- companion/app.py's
+# not the question dialog) -- companion/app.py's
 # _handle_update_install_post() interpolates the version/next-wake time.
 INSTALL_CONFIRM_HEADING_TEMPLATE = i18n.msg(
     "update.install_firmware_s", "Install firmware %s?")
@@ -191,6 +186,9 @@ EMPTY_RELEASES_BODY_TEXT = i18n.msg(
 # never the accent-styled primary. The accent primary is spent only on
 # installing a release newer than the one the frame runs.
 _QUIET_BUTTON_CLASS = "btn btn--secondary"
+# The accent primary, spent only on installing a release newer than the one
+# the frame runs.
+_PRIMARY_BUTTON_CLASS = "btn btn--primary"
 # The text-style variant of it for a rare action in a flat list row.
 _TEXT_BUTTON_CLASS = "btn btn--ghost"
 
@@ -306,10 +304,51 @@ def _owner_releases(view):
     return [release for release in (view.get("releases") or []) if not release.get("bench")]
 
 
+def confirm_copy(version, rollback, next_wake_text, wake_held):
+    """`(heading, sentence, button label)` of the question asked once before a
+    release is scheduled (the dialog with script, the page without): an
+    install, or a rollback to an older release. An empty `next_wake_text`
+    leaves the time out."""
+    if rollback:
+        heading = i18n.t(ROLLBACK_CONFIRM_HEADING_TEMPLATE) % version
+        if not next_wake_text:
+            sentence = i18n.t(ROLLBACK_CONFIRM_SENTENCE_NO_TIME) % version
+        else:
+            template = (ROLLBACK_CONFIRM_SENTENCE_HELD_TEMPLATE if wake_held
+                        else ROLLBACK_CONFIRM_SENTENCE_TEMPLATE)
+            sentence = i18n.t(template) % (version, next_wake_text)
+        return heading, sentence, i18n.t(ROLLBACK_SHORT_TEXT)
+    template = (INSTALL_CONFIRM_SENTENCE_HELD_TEMPLATE if wake_held
+                else INSTALL_CONFIRM_SENTENCE_TEMPLATE)
+    sentence = (
+        i18n.t(template) % next_wake_text if next_wake_text
+        else i18n.t(INSTALL_CONFIRM_SENTENCE_NO_TIME))
+    return (i18n.t(INSTALL_CONFIRM_HEADING_TEMPLATE) % version, sentence,
+            i18n.t(INSTALL_BUTTON_TEXT))
+
+
+def release_flags(view, version):
+    """`(is_bench, is_rollback)` of `version` in `view`'s release list."""
+    release = next((r for r in view.get("releases") or [] if r.get("version") == version), {})
+    return bool(release.get("bench")), release.get("direction") == _DIRECTION_OLDER
+
+
+def _question_attrs_html(version, rollback, wake):
+    """The data attributes update-question.js builds the question dialog from,
+    in the same words as the confirmation page. `wake` is
+    `(next_wake_text, wake_held)`."""
+    heading, sentence, go = confirm_copy(version, rollback, *wake)
+    return (
+        ' data-question-title="%s" data-question-body="%s" data-question-go="%s"'
+        ' data-question-cancel="%s"') % (
+            escape_html(heading), escape_html(sentence), escape_html(go),
+            escape_html(i18n.t(CANCEL_BUTTON_TEXT)))
+
+
 def _install_form_html(
         version, label_template=None, quiet=False, type_html="", short_label=None,
-        button_class=_QUIET_BUTTON_CLASS):
-    """The Install form for `version`: `data-confirm` misclick guard, the
+        button_class=_QUIET_BUTTON_CLASS, rollback=False, wake=("", False)):
+    """The Install form for `version`: the question attributes, the
     hidden `version` field and no `confirm` field (the server
     confirmation page is the real gate).
 
@@ -319,7 +358,6 @@ def _install_form_html(
     the visible text while the accessible name still names it. `quiet`
     selects the secondary button treatment.
     """
-    confirm_question = i18n.t(INSTALL_CONFIRM_QUESTION_TEMPLATE) % version
     if label_template is None:
         label = i18n.t(INSTALL_BUTTON_TEXT)
         aria_html = ' aria-label="%s"' % escape_html(
@@ -330,20 +368,21 @@ def _install_form_html(
         if short_label is not None:
             label = i18n.t(short_label)
             aria_html = ' aria-label="%s"' % escape_html(i18n.t(label_template) % version)
-    class_html = ' class="%s"' % button_class if quiet else ""
+    class_html = ' class="%s"' % (button_class if quiet else _PRIMARY_BUTTON_CLASS)
     return (
-        '<form method="post" action="%s" data-confirm="%s">'
+        '<form method="post" action="%s"%s>'
         '<input type="hidden" name="version" value="%s">%s%s'
         '<button type="submit"%s%s>%s</button>'
         "</form>"
     ) % (
-        INSTALL_ROUTE, escape_html(confirm_question), escape_html(version), type_html,
+        INSTALL_ROUTE, _question_attrs_html(version, rollback, wake), escape_html(version),
+        type_html,
         csrf_field(), class_html, aria_html, escape_html(label),
     )
 
 
 def _release_install_form_html(
-        release, with_version_label=False, type_html="", compact=False):
+        release, with_version_label=False, type_html="", compact=False, wake=("", False)):
     """The Install form for `release`, worded and styled by where it sits
     against the running release: a newer one is "Install" on the accent
     primary button; an older one is "Roll back to <version>" on the quiet
@@ -357,14 +396,16 @@ def _release_install_form_html(
         return _install_form_html(
             version, ROLLBACK_BUTTON_TEMPLATE, quiet=True, type_html=type_html,
             short_label=ROLLBACK_SHORT_TEXT if compact else None,
-            button_class=_TEXT_BUTTON_CLASS if compact else _QUIET_BUTTON_CLASS)
+            button_class=_TEXT_BUTTON_CLASS if compact else _QUIET_BUTTON_CLASS,
+            rollback=True, wake=wake)
     if direction == _DIRECTION_NEWER:
         return _install_form_html(
             version, INSTALL_VERSION_BUTTON_TEMPLATE if with_version_label else None,
-            quiet=compact, type_html=type_html, button_class=_TEXT_BUTTON_CLASS)
+            quiet=compact, type_html=type_html, button_class=_TEXT_BUTTON_CLASS, wake=wake)
     return _install_form_html(
         version, INSTALL_VERSION_BUTTON_TEMPLATE if with_version_label else None, quiet=True,
-        type_html=type_html, button_class=_TEXT_BUTTON_CLASS if compact else _QUIET_BUTTON_CLASS)
+        type_html=type_html, button_class=_TEXT_BUTTON_CLASS if compact else _QUIET_BUTTON_CLASS,
+        wake=wake)
 
 
 def _cancel_form_html(view):
@@ -429,8 +470,7 @@ def _running_line_html(view):
            for release in view.get("releases") or []):
         # A bench build is hidden from the owner's release list but is
         # still what the frame runs, so the card names it plainly.
-        bench_html = ' <span class="update-cta__bench banner__pill">%s</span>' % escape_html(
-            i18n.t(BENCH_BADGE_TEXT))
+        bench_html = " " + ui_components.pill_html(i18n.t(BENCH_BADGE_TEXT))
     return _mono_html(running_version) + bench_html
 
 
@@ -447,15 +487,16 @@ def _cta_up_to_date(view, now):
     return (_CTA_TONE_OK, "icon-check", CTA_UP_TO_DATE_TEXT, details, "")
 
 
-def _cta_available(release, now, type_html=""):
+def _cta_available(release, now, type_html="", wake=("", False)):
     details = [
         _mono_html(release["version"]) + " · "
         + _fill_html(RELEASED_AGO_TEMPLATE, _ago_html(release.get("released_at"), now))]
-    note = _first_note(release)
+    note = _release_title(release)
     if note:
         details.append('<span class="update-cta__note">%s</span>' % escape_html(note))
     return (_CTA_TONE_NEUTRAL, "icon-upload", CTA_AVAILABLE_TEXT, details,
-            _release_install_form_html(release, with_version_label=True, type_html=type_html))
+            _release_install_form_html(
+                release, with_version_label=True, type_html=type_html, wake=wake))
 
 
 def _cta_for_state(view, releases, now, next_wake_text, wake_held):
@@ -486,91 +527,30 @@ def _cta_for_state(view, releases, now, next_wake_text, wake_held):
         retry = next((release for release in releases
                       if release.get("version") == target and release.get("installable")), None)
         action_html = _release_install_form_html(
-            retry, with_version_label=True, type_html=type_html) if retry else ""
+            retry, with_version_label=True, type_html=type_html,
+            wake=(next_wake_text, wake_held)) if retry else ""
         return (_CTA_TONE_ERROR, "icon-warning", CTA_FAILED_TEXT, details, action_html)
     newer = _newer_release_to_offer(view, releases)
     if newer is not None:
-        return _cta_available(newer, now, type_html)
+        return _cta_available(newer, now, type_html, (next_wake_text, wake_held))
     return _cta_up_to_date(view, now)
 
 
-def _on_the_frame_html(view, now):
-    """The footer naming what the frame runs while the card is about
-    something else (an update on offer, scheduled or installing)."""
-    running = next((release for release in view.get("releases") or []
-                    if release.get("running")), {})
-    line = _fill_html(ON_THE_FRAME_TEMPLATE, _running_line_html(view))
-    if running.get("installed_now_at"):
-        line += " · " + _fill_html(
-            INSTALLED_AGO_TEMPLATE, _ago_html(running["installed_now_at"], now))
-    return '<p class="update-cta__on">%s</p>' % line
-
-
-def _cta_card_html(ctx, view, releases, next_wake_text, wake_held=False, summarised=False):
+def _cta_card_html(ctx, view, releases, next_wake_text, wake_held=False):
+    """The one card of the Device and version block: a headline with its
+    icon, the running or offered version, up to two lines of the release
+    note, and the one action on the right (under the text on a phone)."""
     tone, icon_id, headline, details, action_html = _cta_for_state(
         view, releases, ctx.now, next_wake_text, wake_held)
     details_html = "".join('<p class="update-cta__detail">%s</p>' % line for line in details)
     action_block = '<div class="update-actions">%s</div>' % action_html if action_html else ""
-    # "Up to date" and "failed" already name the running release.
-    shows_running = not summarised and (
-        view.get("running_version") and tone in (_CTA_TONE_NEUTRAL, _CTA_TONE_WARN))
     return (
-        '<section class="page-section update-cta update-cta--%s" aria-labelledby="update-cta-title">'
-        '<div class="update-cta__top">'
-        '<span class="update-cta__icon">%s</span>'
-        '<div class="update-cta__text">'
-        '<h2 class="update-cta__title" id="update-cta-title">%s</h2>%s'
-        "</div></div>%s%s</section>"
+        '<section class="update-cta update-cta--%s" aria-labelledby="update-cta-title">'
+        '<div class="update-cta__row"><div class="update-cta__text">'
+        '<h2 class="update-cta__title" id="update-cta-title">%s<span>%s</span></h2>%s</div>%s'
+        "</div></section>"
     ) % (tone, layout.icon_html(icon_id, size=22), escape_html(i18n.t(headline)),
-         details_html, action_block,
-         _on_the_frame_html(view, ctx.now) if shows_running else "")
-
-
-# --- the Fleet panel's summary --------------------------------------------
-
-def _summary_chip_html(view, releases):
-    """The one state chip of the summary: what the frame is doing about an
-    update, an update on offer, or a calm "Up to date". "" when no version
-    has been reported."""
-    state = view.get("state")
-    if state in _STATES_WITH_A_TARGET_VERSION and view.get("target_version"):
-        headline, tone = {
-            "scheduled": (CTA_SCHEDULED_TEXT, "info"),
-            "in_progress": (CTA_INSTALLING_TEXT, "info"),
-            "failed": (CTA_FAILED_TEXT, "warn"),
-        }[state]
-    elif _newer_release_to_offer(view, releases) is not None:
-        headline, tone = CTA_AVAILABLE_TEXT, "info"
-    elif view.get("running_version"):
-        headline, tone = UP_TO_DATE_CHIP_TEXT, "ok"
-    else:
-        return ""
-    return ui_components.pill_html(i18n.t(headline), tone=tone)
-
-
-def _summary_html(ctx, view, releases, model_text):
-    """What is on the frame, large: the label, the installed version in
-    monospace, when it was installed and the model, with the state chip on
-    the right. `model_text` is the model line ("" when not known)."""
-    running = next((release for release in view.get("releases") or []
-                    if release.get("running")), {})
-    meta = []
-    if running.get("installed_now_at"):
-        meta.append(_fill_html(INSTALLED_AGO_TEMPLATE, _ago_html(running["installed_now_at"], ctx.now)))
-    if model_text:
-        meta.append(escape_html(model_text))
-    if view.get("running_version"):
-        version_html = '<p class="update-sum__version">%s</p>' % _running_line_html(view)
-    else:
-        version_html = '<p class="update-sum__version">%s</p>' % escape_html(
-            i18n.t(NO_VERSION_REPORTED_TEXT))
-    meta_html = '<p class="update-sum__meta">%s</p>' % " · ".join(meta) if meta else ""
-    return (
-        '<section class="update-sum" aria-labelledby="update-sum-label">'
-        '<div class="update-sum__text"><h3 class="update-sum__label" id="update-sum-label">%s</h3>'
-        "%s%s</div>%s</section>"
-    ) % (escape_html(i18n.t(ON_THE_FRAME_LABEL_TEXT)), version_html, meta_html,
-         _summary_chip_html(view, releases))
+         details_html, action_block)
 
 
 _DRAFT_SUFFIX = re.compile(r"\s*\((?:draft|wip)\b[^)]*\)\s*$", re.IGNORECASE)
@@ -581,36 +561,6 @@ def _release_title(release):
     GitHub release text carries is dropped here; the notes keep the full text."""
     note = _first_note(release)
     return _DRAFT_SUFFIX.sub("", note) or note
-
-
-def _offer_card_html(ctx, release, type_html):
-    """The one update card: the offered version and its release age, the
-    release title and the single primary Install button."""
-    title = _release_title(release)
-    note_html = '<p class="update-offer__note">%s</p>' % escape_html(title) if title else ""
-    return (
-        '<section class="update-offer" aria-labelledby="update-offer-title">'
-        '<div class="update-offer__text"><h3 class="update-offer__title" id="update-offer-title">'
-        "%s · %s</h3>%s</div>"
-        '<div class="update-actions">%s</div></section>'
-    ) % (_mono_html(release["version"]),
-         _fill_html(RELEASED_AGO_TEMPLATE, _ago_html(release.get("released_at"), ctx.now)),
-         note_html,
-         _release_install_form_html(release, with_version_label=True, type_html=type_html))
-
-
-def _embedded_cta_html(ctx, view, releases, next_wake_text, wake_held):
-    """The card under the summary: only while something is going on (an
-    update on offer, scheduled, installing or failed); "" when the frame is
-    up to date, which the summary's chip already says."""
-    in_flight = (view.get("state") in _STATES_WITH_A_TARGET_VERSION
-                 and view.get("target_version"))
-    offered = _newer_release_to_offer(view, releases)
-    if not in_flight and offered is None:
-        return ""
-    if not in_flight:
-        return _offer_card_html(ctx, offered, view.get("type_field_html", ""))
-    return _cta_card_html(ctx, view, releases, next_wake_text, wake_held, summarised=True)
 
 
 # --- the version list ----------------------------------------------------
@@ -639,90 +589,20 @@ def _row_action_html(release, view, compact=False, offered_version=None):
             i18n.t(STATE_LABELS["scheduled"]))
     if release.get("installable"):
         return _release_install_form_html(
-            release, type_html=view.get("type_field_html", ""), compact=compact)
+            release, type_html=view.get("type_field_html", ""), compact=compact,
+            wake=view.get("wake", ("", False)))
     return '<span class="text-label">%s</span>' % escape_html(i18n.t(NOT_INSTALLABLE_TEXT))
 
 
-def _row_meta_html(release):
-    """The opened row's absolute dates: when it was released and when it
-    was installed (the running release's OTA install time only while that
-    is still honest, otherwise the last OTA install of a past release)."""
-    lines = []
-    if release.get("released_at"):
-        lines.append(_fill_html(
-            RELEASED_ON_TEMPLATE, layout.absolute_time_html(release["released_at"])))
-    if release.get("running"):
-        if release.get("installed_now_at"):
-            lines.append(_fill_html(
-                INSTALLED_ON_TEMPLATE, layout.absolute_time_html(release["installed_now_at"])))
-    elif release.get("installed_at"):
-        lines.append(_fill_html(
-            LAST_INSTALLED_TEMPLATE, layout.absolute_time_html(release["installed_at"][-1])))
-    return "".join('<p class="update-row__meta">%s</p>' % line for line in lines)
-
-
-def _row_html(release, view, now):
-    """One release: a native `<details>` whose summary is the one-line row
-    (version, running badge, first note, relative date) and whose body
-    holds every note, the absolute dates and the action -- all without
-    script. Notes are untrusted CI text, escaped here."""
-    version = release.get("version")
-    notes = [str(note) for note in (release.get("notes") or []) if note]
-    badge_html = (
-        ' <span class="update-row__badge banner__pill">%s</span>'
-        % escape_html(i18n.t(RUNNING_BADGE_TEXT))) if release.get("running") else ""
-    notes_html = (
-        '<ul class="update-row__notes">%s</ul>'
-        % "".join("<li>%s</li>" % escape_html(note) for note in notes)) if notes else ""
-    action_html = _row_action_html(release, view)
-    action_block = '<div class="update-actions">%s</div>' % action_html if action_html else ""
-    return (
-        '<li><details class="update-row%s"><summary>'
-        '<span class="update-row__version">%s%s</span>'
-        '<span class="update-row__when">%s</span>'
-        '<span class="update-row__note">%s</span>'
-        "%s</summary>"
-        '<div class="update-row__body">%s%s%s</div></details></li>'
-    ) % (
-        " update-row--running" if release.get("running") else "",
-        _mono_html(version), badge_html, _ago_html(release.get("released_at"), now),
-        escape_html(notes[0]) if notes else "",
-        layout.icon_html("icon-chevron-right", size=16, extra_class="update-row__chevron"),
-        notes_html, _row_meta_html(release), action_block)
-
-
-def _versions_group_html(ctx, view, releases):
-    """The standalone Releases page's version list: the section label above
-    one glass group of version rows (an empty list is one panel)."""
-    from companion import ui_groups
-    heading = i18n.t(HISTORY_HEADING_TEXT)
-    if not releases:
-        return ui_groups.group_panel(
-            layout.empty_state(
-                i18n.t(EMPTY_RELEASES_HEADING_TEXT), i18n.t(EMPTY_RELEASES_BODY_TEXT),
-                compact=True),
-            label=heading, label_id="update-versions-title",
-            extra_class="update-versions-group")
-    rows = "".join(_row_html(release, view, ctx.now) for release in releases)
-    block = ui_groups.group(
-        rows, label=heading, label_id="update-versions-title",
-        extra_class="update-versions-group")
-    return block.replace(
-        "%s</h2>" % escape_html(heading),
-        '%s <span class="update-versions__count">%d</span></h2>' % (
-            escape_html(heading), len(releases)), 1).replace(
-        '<ul class="group">', '<ul class="group update-group">', 1)
-
-
-def _versions_card_html(ctx, view, releases, embedded=False):
-    if not embedded:
-        return _versions_group_html(ctx, view, releases)
+def _versions_card_html(ctx, view, releases):
+    """The Versions label above one card holding a flat row per release (an
+    empty list is one empty-state panel)."""
     heading = escape_html(i18n.t(HISTORY_HEADING_TEXT))
     if not releases:
         return (
-            '<section class="page-section update-versions" '
-            'aria-labelledby="update-versions-title"><div class="update-hist__head">'
-            '<h3 class="update-hist__title" id="update-versions-title">%s</h3></div>%s</section>') % (
+            '<section class="update-versions" aria-labelledby="update-versions-title">'
+            '<h2 class="update-hist__title" id="update-versions-title">%s</h2>'
+            '<div class="update-hist__empty">%s</div></section>') % (
                 heading,
                 layout.empty_state(
                     i18n.t(EMPTY_RELEASES_HEADING_TEXT), i18n.t(EMPTY_RELEASES_BODY_TEXT),
@@ -730,37 +610,44 @@ def _versions_card_html(ctx, view, releases, embedded=False):
     offered = _newer_release_to_offer(view, releases)
     offered_version = offered["version"] if offered else None
     return (
-        '<section class="page-section update-versions" aria-labelledby="update-versions-title">'
-        '<div class="update-hist__head"><h3 class="update-hist__title" id="update-versions-title">'
-        "%s</h3>%s</div>"
+        '<section class="update-versions" aria-labelledby="update-versions-title">'
+        '<h2 class="update-hist__title" id="update-versions-title">%s</h2>'
         '<ul class="update-hist__list">%s</ul></section>'
-    ) % (heading, ui_components.pill_html(str(len(releases))),
-         "".join(_history_row_html(release, view, ctx.now, offered_version, index == 0)
-                 for index, release in enumerate(releases)))
+    ) % (heading, "".join(
+        _history_row_html(release, view, ctx.now, offered_version, index == 0)
+        for index, release in enumerate(releases)))
 
 
 def _status_chip_html(release, newest):
-    """The row's chip: "Installed" on the release the frame runs, "Newest" on
+    """The row's chip: "Running" on the release the frame runs, "Newest" on
     the latest release otherwise, nothing for the rest."""
     if release.get("running"):
-        return ui_components.pill_html(i18n.t(STATE_INSTALLED_TEXT), tone="ok")
+        return ui_components.pill_html(i18n.t(RUNNING_BADGE_TEXT))
     if newest:
-        return ui_components.pill_html(i18n.t(STATE_NEWEST_TEXT), tone="info")
+        return ui_components.pill_html(i18n.t(STATE_NEWEST_TEXT), tone="ok")
     return ""
 
 
-def _history_row_html(release, view, now, offered_version, newest):
-    """One release as a flat list row: a status dot, the version, a line with
-    its date, age and notes count, a status chip and, for a rollback, the quiet
-    action. Notes sit behind one disclosure; the action is always in view."""
-    notes = [str(note) for note in (release.get("notes") or []) if note]
+def _history_facts(release, now):
+    """The row's second line: when it was installed (the running release) or
+    released and its age."""
     released_at = release.get("released_at")
+    installed_at = release.get("installed_now_at") if release.get("running") else None
     facts = []
-    if released_at:
+    if installed_at:
+        facts.append(_fill_html(INSTALLED_ON_TEMPLATE, layout.absolute_time_html(installed_at)))
+    elif released_at:
         facts.append(layout.absolute_time_html(released_at))
+    if released_at and not installed_at:
         facts.append(_ago_html(released_at, now))
-    if notes:
-        facts.append(escape_html(i18n.t(NOTES_TEXT) % len(notes)))
+    return facts
+
+
+def _history_row_html(release, view, now, offered_version, newest):
+    """One release as a flat list row: a status dot, the version with its
+    chip over a line of facts and, for a rollback, the quiet action. Notes sit
+    behind one disclosure; the action is always in view."""
+    notes = [str(note) for note in (release.get("notes") or []) if note]
     action_html = _row_action_html(
         release, view, compact=True, offered_version=offered_version)
     classes = "update-item"
@@ -768,48 +655,57 @@ def _history_row_html(release, view, now, offered_version, newest):
         classes += " update-item--running"
     elif newest:
         classes += " update-item--newest"
+    # Every row counts its notes, with the disclosure chevron, on its own line
+    # under the date: the version line has the same room (version, then its
+    # chip) on every row and the chevron sits at one place on every row.
+    notes_count_html = (
+        '<span class="update-item__count">%s%s</span>' % (
+            escape_html(i18n.t(NOTES_TEXT) % len(notes)),
+            layout.icon_html("icon-chevron-right", size=16, extra_class="update-item__chevron"))
+        if notes else "")
     head_html = (
         '<span class="update-item__dot"></span>'
-        '<span class="update-item__text"><span class="update-item__version mono">%s</span>'
-        '<span class="update-item__meta">%s</span></span>%s'
-    ) % (escape_html(release.get("version")), " · ".join(facts),
-         _status_chip_html(release, newest))
+        '<span class="update-item__text"><span class="update-item__head">'
+        '<span class="update-item__version mono">%s</span>%s</span>'
+        '<span class="update-item__meta">%s%s</span></span>'
+    ) % (escape_html(release.get("version")), _status_chip_html(release, newest),
+         " · ".join(_history_facts(release, now)), notes_count_html)
     if notes:
         row_html = (
             '<details class="update-item__details"><summary class="update-item__summary">'
-            '%s%s</summary><ul class="update-item__notes">%s</ul></details>'
+            '%s</summary><ul class="update-item__notes">%s</ul></details>'
         ) % (head_html,
-             layout.icon_html("icon-chevron-right", size=16, extra_class="update-item__chevron"),
              "".join("<li>%s</li>" % escape_html(note) for note in notes))
     else:
         row_html = (
-            '<div class="update-item__summary">%s'
-            '<span class="update-item__chevron-space"></span></div>') % head_html
+            '<div class="update-item__summary">%s</div>') % head_html
     return '<li class="%s">%s<div class="update-item__action">%s</div></li>' % (
         classes, row_html, action_html)
 
 
-def _install_confirm_form_html(version, type_html=""):
+def _install_confirm_form_html(version, label, type_html=""):
     return (
         '<form method="post" action="%s">'
         '<input type="hidden" name="version" value="%s">%s%s'
         '<input type="hidden" name="confirm" value="yes">'
-        '<button type="submit">%s</button>'
+        '<button type="submit" class="%s">%s</button>'
         "</form>"
     ) % (INSTALL_ROUTE, escape_html(version), type_html, csrf_field(),
-        escape_html(i18n.t(INSTALL_BUTTON_TEXT)))
+         _PRIMARY_BUTTON_CLASS, escape_html(label))
 
 
 def update_install_confirm_page(
         ctx, version, next_wake_text, wake_held=False, is_bench=False, type_choice=None,
-        back_href=None):
+        back_href=None, rollback=False):
     """Two-step install confirmation: rendered whenever the posted
     `confirm` field is not exactly "yes", including a bare POST with
     none. This page is the actual security control -- it works with
     JavaScript disabled, blocked by CSP, or against a hand-crafted
-    request that skips the client-side `data-confirm` dialog -- the same
+    request that skips the client-side question dialog -- the same
     control-flow shape as
     `companion/settings/calendar.py`'s `calendar_disconnect_confirm_page()`.
+    It is one card with the question, what will happen and a Cancel and an
+    Install (or Roll back) button.
 
     `version` has already been validated (the registry's own version
     pattern and length cap) by the caller before this page is ever
@@ -819,7 +715,8 @@ def update_install_confirm_page(
     `compute_next_wake_text()`'s own resolved state. `is_bench` adds one
     extra sentence naming the release as a bench build -- the version
     tag alone (e.g. "fw-v1.2.0-bench1") is the only other hint, and an
-    operator has to already know that convention. `type_choice` (a
+    operator has to already know that convention. `rollback` words the
+    question as a rollback to an older release. `type_choice` (a
     `TypeChoice`, None for the single-type page) adds the hidden type
     field to the confirming form and, when the chooser is shown, names
     the hardware type; with None the page is the one-type page. `back_href`
@@ -827,35 +724,25 @@ def update_install_confirm_page(
     the Update page of the type.
     """
     ctx = page_context.coerce(ctx)
-    heading = i18n.t(INSTALL_CONFIRM_HEADING_TEMPLATE) % version
-    template = (
-        INSTALL_CONFIRM_SENTENCE_HELD_TEMPLATE if wake_held
-        else INSTALL_CONFIRM_SENTENCE_TEMPLATE)
-    sentence = (
-        i18n.t(template) % next_wake_text if next_wake_text
-        else i18n.t(INSTALL_CONFIRM_SENTENCE_NO_TIME))
+    heading, sentence, go_label = confirm_copy(version, rollback, next_wake_text, wake_held)
     bench_note_html = (
         '<p class="text-label">%s</p>' % escape_html(i18n.t(BENCH_CONFIRM_NOTE_TEXT))
     ) if is_bench else ""
-    type_html = type_note_html = ""
+    type_html = ""
     back_route = layout.UPDATE_ROUTE
     if type_choice is not None and type_choice.carries_field:
         type_html = _type_field_html(type_choice.selected)
         back_route = escape_html(page_route(type_choice.selected))
     if back_href is not None:
         back_route = escape_html(back_href)
-    if type_choice is not None and type_choice.chooser:
-        type_note_html = '<p class="text-label">%s</p>' % escape_html(
-            i18n.t(CONFIRM_TYPE_TEMPLATE) % _type_label(type_choice.selected))
     return (
-        layout.page_header(heading)
-        + '<p class="text-body">%s</p>' % escape_html(sentence)
-        + type_note_html
-        + bench_note_html
-        + _install_confirm_form_html(version, type_html)
-        + '<p><a class="text-label" href="%s">%s</a></p>'
-        % (back_route, escape_html(i18n.t(CANCEL_BUTTON_TEXT)))
-    )
+        '<section class="update-confirm" aria-labelledby="update-confirm-title">'
+        '<h1 class="update-confirm__title" id="update-confirm-title">%s</h1>'
+        '<p class="text-body">%s</p>%s'
+        '<div class="update-confirm__actions"><a class="%s" href="%s">%s</a>%s</div></section>'
+    ) % (escape_html(heading), escape_html(sentence), bench_note_html,
+         _QUIET_BUTTON_CLASS, back_route, escape_html(i18n.t(CANCEL_BUTTON_TEXT)),
+         _install_confirm_form_html(version, go_label, type_html))
 
 
 def compute_next_wake_text(ctx):
@@ -893,55 +780,48 @@ def compute_next_wake_text(ctx):
     return text, state == frame_state.STATE_HELD
 
 
-def update_parts(
-        ctx, view, next_wake_text, wake_held=False, type_choice=None, embedded=False,
-        model_text=""):
+def update_parts(ctx, view, next_wake_text, wake_held=False, type_choice=None):
     """(device section html, versions section html, summary) of the page: the
-    type chooser, the rollback warning and the call-to-action card, then the
-    Versions card. `summary` is (running version or None, number of releases
-    shown)."""
+    type chooser, the rollback warning and the one card,
+    then the Versions list. `summary` is (running version or None, number of
+    releases shown)."""
     ctx = page_context.coerce(ctx)
     releases = _owner_releases(view)
     chooser_html = ""
+    view = dict(view, wake=(next_wake_text, wake_held))
     if type_choice is not None:
         if type_choice.carries_field:
             view = dict(view, type_field_html=_type_field_html(type_choice.selected))
         if type_choice.chooser:
             chooser_html = _type_chooser_html(type_choice)
-    if embedded:
-        cards_html = _summary_html(ctx, view, releases, model_text) + _embedded_cta_html(
-            ctx, view, releases, next_wake_text, wake_held)
-    else:
-        cards_html = _cta_card_html(ctx, view, releases, next_wake_text, wake_held)
-    device_html = chooser_html + _rollback_banner_html(view) + cards_html
+    device_html = (
+        chooser_html + _rollback_banner_html(view)
+        + _cta_card_html(ctx, view, releases, next_wake_text, wake_held))
     return (
-        device_html, _versions_card_html(ctx, view, releases, embedded),
+        device_html, _versions_card_html(ctx, view, releases),
         (view.get("running_version"), len(releases)))
 
 
-def update_page(
-        ctx, view, next_wake_text, wake_held=False, type_choice=None, embedded=False):
+def update_page(ctx, view, next_wake_text, wake_held=False, type_choice=None, embedded=False):
     """The page body: `layout.page_header()`, then the rollback warning
-    (when the last outcome was a rollback), the call-to-action card
-    (running version and its install time, or the newer release to
-    install, or the schedule in flight) and the Versions card holding
-    every release, in that order.
+    (when the last outcome was a rollback), the card (running version and
+    its install time, or the newer release to install, or the schedule in
+    flight) and the Versions list holding every release, in that order.
     `view` is `server.firmware_registry.update_view()`'s own return
     value; `next_wake_text` is the caller's own formatted clock string
     (or "" when no next-wake time could be computed); `wake_held`
     selects the quiet-hours wording for that sentence. `type_choice` (a
     `TypeChoice`) adds the type chooser when it is shown and the hidden
-    type field to every action form when needed; None renders the
-    single-type page, byte for byte. `embedded` drops the page header (the
-    Console Fleet view supplies its own block heading).
+    type field to every action form when needed. `embedded` drops the page
+    header (the Console Fleet view supplies its own block heading).
     """
     device_html, versions_html, _summary = update_parts(
-        ctx, view, next_wake_text, wake_held, type_choice, embedded)
+        ctx, view, next_wake_text, wake_held, type_choice)
     return ("" if embedded else layout.page_header(i18n.t(_NAV_UPDATE_TEXT))) + (
         device_html + versions_html)
 
 
-def _loaded_parts(ctx, requested_type, embedded, model_text="", pinned=False):
+def _loaded_parts(ctx, requested_type, pinned=False):
     ctx = page_context.coerce(ctx)
     # The registry and the device report are fleet-wide documents kept in the
     # root state directory; a non-live frame's own directory does not hold them.
@@ -956,15 +836,14 @@ def _loaded_parts(ctx, requested_type, embedded, model_text="", pinned=False):
     registry = firmware_registry.load_registry(state_dir, choice.selected)
     view = firmware_registry.update_view(registry, device_report, now)
     next_wake_text, wake_held = compute_next_wake_text(ctx)
-    return update_parts(ctx, view, next_wake_text, wake_held, choice, embedded, model_text)
+    return update_parts(ctx, view, next_wake_text, wake_held, choice)
 
 
-def render_parts(ctx, requested_type=None, model_text=""):
+def render_parts(ctx, requested_type=None):
     """The embedded page as (device html, versions html, summary): the Fleet
-    page places the summary, the update card and the version history in one
-    section. `model_text` is the model line the summary shows. `requested_type`
+    page places the card and the version list in one block. `requested_type`
     is the frame's own hardware type and is always honoured, without a chooser."""
-    return _loaded_parts(ctx, requested_type, True, model_text, pinned=True)
+    return _loaded_parts(ctx, requested_type, pinned=True)
 
 
 def render(ctx, requested_type=None, embedded=False):
@@ -974,6 +853,6 @@ def render(ctx, requested_type=None, embedded=False):
     `requested_type` is the untrusted `type` query value: it picks among
     the relevant hardware types only when more than one exists.
     """
-    device_html, versions_html, _summary = _loaded_parts(ctx, requested_type, embedded)
+    device_html, versions_html, _summary = _loaded_parts(ctx, requested_type)
     return ("" if embedded else layout.page_header(i18n.t(_NAV_UPDATE_TEXT))) + (
         device_html + versions_html)

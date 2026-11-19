@@ -127,6 +127,6 @@ uses it (settings, Fleet settings, Place, the Style form pages).
 
 A bare `button { height: 30px }` and `button[type="submit"]` accent fill remain as a base
 that `.btn` overrides. Some pages still render raw buttons (`airlines_page.py`,
-`co_managers_card.py`, `locations_page.py`, `pair_frame_page.py`, `update_page.py`) and
+`co_managers_card.py`, `pair_frame_page.py`, `update_page.py`) and
 legacy class names (`.runway-card` for the Style look picker, `.mobile-nav__link` for the
 More Account row). New code uses `.btn` and the helpers above.

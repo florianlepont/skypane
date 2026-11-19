@@ -120,7 +120,8 @@ def test_install_without_confirm_renders_confirm_page_registry_unchanged(server,
         server, update_page.INSTALL_ROUTE, cookie, {"version": _DOWNGRADE_VERSION})
     assert status == 200
     text = body.decode("utf-8")
-    assert (i18n.t(update_page.INSTALL_CONFIRM_HEADING_TEMPLATE) % _DOWNGRADE_VERSION) in text
+    assert (i18n.t(update_page.ROLLBACK_CONFIRM_HEADING_TEMPLATE) % _DOWNGRADE_VERSION) in text
+    assert i18n.t(update_page.INSTALL_CONFIRM_HEADING_TEMPLATE) % _DOWNGRADE_VERSION not in text
     assert 'name="version" value="%s"' % _DOWNGRADE_VERSION in text
     assert 'name="confirm" value="yes"' in text
     assert fr.load_registry(server.state_dir)["schedule"] == before
@@ -133,7 +134,7 @@ def test_install_confirm_page_offers_a_plain_cancel_link_not_a_second_form(serve
     text = body.decode("utf-8")
     assert text.count('action="%s"' % update_page.INSTALL_ROUTE) == 1, (
         "expected exactly one form posting to %r" % (update_page.INSTALL_ROUTE,))
-    assert '<a class="text-label" href="%s">' % _FLEET_LIVE in text
+    assert '<a class="%s" href="%s">' % (update_page._QUIET_BUTTON_CLASS, _FLEET_LIVE) in text
 
 
 # ==========================================================================
@@ -335,7 +336,7 @@ def test_confirm_page_renders_in_french(server, cookie):
     assert status == 200
     try:
         prefs.set_request_prefs(lang="fr")
-        expected_heading = i18n.t(update_page.INSTALL_CONFIRM_HEADING_TEMPLATE) % _DOWNGRADE_VERSION
+        expected_heading = i18n.t(update_page.ROLLBACK_CONFIRM_HEADING_TEMPLATE) % _DOWNGRADE_VERSION
     finally:
         prefs.set_request_prefs(lang="en")
     assert expected_heading in body.decode("utf-8")
@@ -552,7 +553,7 @@ def test_an_unavailable_type_is_rejected_without_the_simulation_gate(server, coo
     assert fr.load_registry(server.state_dir)["schedule"] is None
 
 
-def test_confirm_page_names_the_type_and_carries_it_only_with_the_chooser(
+def test_confirm_page_carries_the_type_only_with_the_chooser(
         two_type_server, two_type_cookie, server, cookie):
     status, _headers, body = _post(
         two_type_server, update_page.INSTALL_ROUTE, two_type_cookie,
@@ -560,7 +561,7 @@ def test_confirm_page_names_the_type_and_carries_it_only_with_the_chooser(
     html = body.decode("utf-8")
     assert status == 200
     assert _hidden_types(html) == [_OTHER]
-    assert fr.hardware.get_profile(_OTHER, _SIM_ENV).label in html
+    assert fr.hardware.get_profile(_OTHER, _SIM_ENV).label not in html
     _status, _headers, one_type = _post(
         server, update_page.INSTALL_ROUTE, cookie, {"version": _DOWNGRADE_VERSION})
     assert _hidden_types(one_type.decode("utf-8")) == []

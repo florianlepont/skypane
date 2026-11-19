@@ -218,15 +218,11 @@ _UNCHANGED_IN_FRENCH = frozenset({
     # spelled identically: real cognates for the console's nav labels.
     "nav.administration", "nav.audit_short", "nav.console", "nav.personalisation",
     # The French column heading for a list of row actions is the same word.
-    "admin_users.actions", "admin_locations.actions",
-    # "Latitude" and "Longitude" are the French words too, spelled identically.
-    "admin_locations.latitude", "admin_locations.longitude",
-    "admin_locations.latitude_longitude",
+    "admin_users.actions",
     # "Action" is the French word too, for the audit table's column heading.
     "admin_lifecycle.action",
-    # The French UI keeps the English word "Airlines" for the nav entry and the
-    # page it names: "Compagnies" does not fit the six-tab phone bar.
-    "nav.airline_collection", "airlines.table_caption",
+    # The French UI keeps the English word "Airlines" for the table caption.
+    "airlines.table_caption",
 })
 
 
@@ -420,7 +416,7 @@ _FRENCH_PAGE_CASES = (
     ("/", "Accueil", "Home"),
     ("/display", "Style", "Display"),
     ("/flights", "Vols", "Flights"),
-    ("/airlines", "Airlines", "Airlines"),
+    ("/airlines", "Compagnies", "Airlines"),
     ("/fleet", "Flotte", "Fleet"),
     ("/fleet?view=system", "Système", "System"),
 )

@@ -19,17 +19,13 @@ ADMIN_WORDS = ("Admin", "Console", "Fleet", "Releases", "Health", "Device", "Upd
 ADMIN_WORDS_FR = ("Flotte", "Versions", "État", "Appareil", "Console", "Administration")
 
 PERSONAL_BAR_EN = ["Home", "Flights", "Airlines", "Style", "Location"]
-PERSONAL_BAR_FR = ["Accueil", "Vols", "Airlines", "Style", "Lieu"]
-PERSONAL_SIDEBAR_EN = [
-    "Home", "Flight history", "Location and detection", "Style",
-    "Airlines", "Account"]
-PERSONAL_SIDEBAR_FR = [
-    "Accueil", "Historique des vols", "Lieu et détection", "Style",
-    "Airlines", "Compte"]
+PERSONAL_BAR_FR = ["Accueil", "Vols", "Compagnies", "Style", "Lieu"]
+PERSONAL_SIDEBAR_EN = PERSONAL_BAR_EN + ["Account"]
+PERSONAL_SIDEBAR_FR = PERSONAL_BAR_FR + ["Compte"]
 CONSOLE_BAR_EN = ["Fleet", "Users", "Editor", "Audit"]
 CONSOLE_BAR_FR = ["Flotte", "Équipe", "Éditeur", "Journal"]
 SWITCH_TO_CONSOLE = {"en": "Console", "fr": "Console"}
-SWITCH_TO_PERSONAL = {"en": "My frame", "fr": "Mon cadre"}
+SWITCH_TO_PERSONAL = {"en": "My frames", "fr": "Mes cadres"}
 CONSOLE_SIDEBAR_EN = ["Fleet", "Users", "Editor", "Audit log", "Account"]
 CONSOLE_SIDEBAR_FR = [
     "Flotte", "Utilisateurs", "Éditeur", "Journal d’audit", "Compte"]
@@ -136,7 +132,7 @@ def test_the_personal_navigation_never_links_console_pages_or_locations(served):
             hrefs += [href for href, _text in _anchors(bar)]
             for href in hrefs:
                 path = re.sub(r"^/devices/[^/]+", "", href)
-                assert path not in ("/health", "/device", "/update", "/locations",
+                assert path not in ("/health", "/device", "/update",
                                     "/airlines/manage", "/users", "/audit"), (who, page, href)
             assert "nav-notification" not in markup
 
@@ -172,7 +168,7 @@ def test_console_frame_pages_render_in_the_console_chrome_for_each_frame(served,
         assert "Administration" in sidebar and "Frame tools" not in sidebar
         aside = markup[markup.index("<aside"):markup.index("</aside>")]
         assert 'class="space-switch__segment" href="/"' in aside
-        assert ">My frame<" in aside
+        assert ">My frames<" in aside
         tools = {
             text: href for href, text in _anchors(sidebar)
             if re.sub(r"^/devices/[^/]+", "", href) in (
@@ -212,27 +208,28 @@ def test_the_old_space_name_and_group_are_gone_from_every_served_page(served, wh
             assert gone not in markup, (who, lang, path, gone)
 
 
-def test_flight_history_is_the_navigation_label_and_the_page_title(served):
+def test_flights_is_the_navigation_label_and_the_page_title(served):
     server, cookies = served
     for who in ("admin", "owner"):
         _status, page = _get(server, cookies[who], server.frame_prefix + "/flights")
         labels = [text for _href, text in _sidebar_anchors(page)]
-        assert "Flight history" in labels and "Flights" not in labels
-        assert "<title>Flight history" in page
+        assert "Flights" in labels and "Flight history" not in labels
+        assert "<title>Flights" in page
         _status, page = _get(server, cookies[who], server.frame_prefix + "/flights", "fr")
-        assert "Historique des vols" in [text for _href, text in _sidebar_anchors(page)]
-        assert "<title>Historique des vols" in page
+        assert "Vols" in [text for _href, text in _sidebar_anchors(page)]
+        assert "<title>Vols" in page
 
 
 @pytest.mark.parametrize("lang", ["en", "fr"])
-def test_the_location_tab_is_named_by_the_first_word_of_its_page_title(served, lang):
-    """the short tab label is the page's own name cut short, not another word for it"""
+def test_the_bar_and_the_sidebar_name_every_page_alike(served, lang):
+    """one name per page: the tab labels equal the sidebar labels, in the same order"""
     server, cookies = served
-    _status, page = _get(server, cookies["owner"], server.frame_prefix + "/detection", lang)
-    title = re.search(r"<title>([^<]*?) -", page).group(1)
-    bar = _nav(page, '<nav class="tab-bar"')
-    labels = [text for _href, text in _anchors(bar.split('<div class="tab-bar__more-panel">')[0])]
-    assert any(title.startswith(label) and label != title for label in labels), (title, labels)
+    for who in ("admin", "owner"):
+        _status, page = _get(server, cookies[who], server.frame_prefix + "/detection", lang)
+        bar = _nav(page, '<nav class="tab-bar"').split('<div class="tab-bar__more-panel">')[0]
+        bar_labels = [text for _href, text in _anchors(bar)][:5]
+        side_labels = [text for _href, text in _sidebar_anchors(page)][:5]
+        assert bar_labels == side_labels, (who, bar_labels, side_labels)
 
 
 def test_a_user_with_no_frame_has_no_bar_and_an_account_only_sidebar(served):

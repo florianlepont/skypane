@@ -627,7 +627,7 @@ def test_style_css_carries_theme_status_runway_row_and_settings_checkbox_selecto
 
 def test_theme_chip_preview_src_points_at_the_real_route_prefix_for_every_theme():
     """every theme radio in the departures table carries a data-preview-src pointing at
-    FRAME_PREVIEW_ROUTE_PREFIX + its own registry id, departing state and large size, and the
+    FRAME_PREVIEW_ROUTE_PREFIX + its own registry id, departing state and large size and a 12-hex content signature (v=), and the
     big departures picture's <img src> is that same URL for the saved theme"""
     rendered = config_page.render({
         "device_config": {"layout": "classic", "theme": "blue", "tracked_runway": "3"},
@@ -635,13 +635,15 @@ def test_theme_chip_preview_src_points_at_the_real_route_prefix_for_every_theme(
     }, scope=config_page.SCOPE_DISPLAY)
     start, end = cp.aspect_usage_row_bounds(rendered, config_page.COLOUR_USAGE_DEPARTURES)
     segment = rendered[start:end]
+    signature = r"&amp;v=[0-9a-f]{12}"
     for theme_id in device_config.THEME_IDS:
-        expected_src = escape_html(
+        prefix = escape_html(
             "%s%s.png?state=departing&size=large" % (config_page.FRAME_PREVIEW_ROUTE_PREFIX, theme_id))
-        assert 'data-preview-src="%s"' % expected_src in segment, (
-            "expected the %r radio to carry %r" % (theme_id, expected_src))
-    assert 'data-look-image src="%s"' % escape_html(
-        "%sblue.png?state=departing&size=large" % config_page.FRAME_PREVIEW_ROUTE_PREFIX) in segment
+        assert re.search(r'data-preview-src="%s%s"' % (re.escape(prefix), signature), segment), (
+            "expected the %r radio to carry %r then a content signature" % (theme_id, prefix))
+    blue_prefix = escape_html(
+        "%sblue.png?state=departing&size=large" % config_page.FRAME_PREVIEW_ROUTE_PREFIX)
+    assert re.search(r'data-look-image src="%s%s"' % (re.escape(blue_prefix), signature), segment)
 
 
 def test_theme_chip_swatch_dots_carry_real_palette_hex_values():

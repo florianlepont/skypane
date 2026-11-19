@@ -18,7 +18,7 @@ from server import device_config, history_db
 pytestmark = pytest.mark.browser
 
 COUNTDOWN = ".home-state__next [data-relative-countdown]"
-HOME_ROWS = 'section[aria-labelledby="home-flights"] li.recent-flight'
+HOME_ROWS = 'section[aria-labelledby="home-flights"] .home-strip__tile'
 
 # Records what the page's script does, from the first line of the document: every text the
 # countdown shows and every Element.animate call (target, keyframes, options).
@@ -143,7 +143,7 @@ def test_the_countdown_ticks_down_in_its_last_minute_without_any_roll(
         _wait(page, "(() => { const n = window.__texts.map(t => parseInt(t.match(/\\d+/)[0], 10));"
                     " let falls = 0; for (let i = 1; i < n.length; i++) { if (n[i] < n[i - 1]) falls++; }"
                     " return falls >= 1; })()", timeout=25000)
-        info = ".home-state__next-row .info-tip"
+        info = ".home-state__next .info-tip"
         lefts = []
         figures = []
         for _ in range(3):
@@ -259,10 +259,10 @@ def _record_a_detection(state_dir, callsign, hex_value, stamp):
             tracked_runway=device_config.RUNWAY_IDS[0])
 
 
-_ROW_BOXES = """() => [...document.querySelectorAll('%s, .recent-flight-all')].map(el => {
+_ROW_BOXES = """() => [...document.querySelectorAll('%s')].map(el => {
   const box = el.getBoundingClientRect();
-  return {name: (el.querySelector('.mono') || el).textContent.trim(),
-          top: box.top, height: box.height};
+  return {name: el.querySelector('figcaption').firstChild.textContent.trim(),
+          left: box.left, width: box.width};
 })""" % HOME_ROWS
 
 
@@ -270,11 +270,11 @@ def _request_refresh(page):
     page.evaluate("() => document.dispatchEvent(new Event('skypane-refresh-request'))")
 
 
-def test_a_new_flight_slides_in_at_the_top_and_everything_ends_in_place(
+def test_a_new_flight_slides_in_at_the_start_and_everything_ends_in_place(
         new_context, make_app_server):
-    """A flight the refresh brings to Recent flights slides in at the top while the rows below
-    glide down by whole pixels from where they were; when the motion ends every row sits where a
-    page rendered in one go puts it, and the list below the insertion has not moved."""
+    """A flight the refresh brings to the Recent flights strip slides in at its start while the
+    tiles after it glide along by whole pixels from where they were; when the motion ends every
+    tile sits where a page rendered in one go puts it."""
     server = make_app_server(seed=_seed_checkin(1), fake_providers=True)
     context, page = _open(new_context, server, "/")
     try:
@@ -284,27 +284,23 @@ def test_a_new_flight_slides_in_at_the_top_and_everything_ends_in_place(
         _record_a_detection(server.tmpdir, "NEWDET", "39ffff", "2026-08-01T23:30:00+00:00")
         _request_refresh(page)
         _wait(page, "document.querySelector(a).textContent.includes('NEWDET')", HOME_ROWS)
-        moves = [a for a in _eval(page, "window.__animations") if a["tag"] == "LI"]
-        entering = [a for a in moves if "translateY(-14px)" in a["frames"]]
+        moves = [a for a in _eval(page, "window.__animations") if a["tag"] == "FIGURE"]
+        entering = [a for a in moves if "translateX(-14px)" in a["frames"]]
         assert len(entering) == 1 and "NEWDET" in entering[0]["first"], moves
-        gliding = [a for a in moves if "translateY(-14px)" not in a["frames"]]
-        assert gliding, "the rows below did not glide: %r" % (moves,)
+        gliding = [a for a in moves if "translateX(-14px)" not in a["frames"]]
+        assert gliding, "the tiles after it did not glide: %r" % (moves,)
         for glide in gliding:
-            shift = re.search(r"translateY\((-?[\d.]+)px\)", glide["frames"]).group(1)
+            shift = re.search(r"translateX\((-?[\d.]+)px\)", glide["frames"]).group(1)
             assert float(shift) == int(float(shift)) and float(shift) < 0, glide
         _wait(page, "document.getAnimations().every(a => !Number.isFinite(a.effect.getComputedTiming().endTime) || a.playState !== 'running')")
         after = page.evaluate(_ROW_BOXES)
         assert after[0]["name"] == "NEWDET"
         assert len(after) == len(before)
-        assert after[0]["top"] == before[0]["top"]
-        assert after[-1]["top"] == before[-1]["top"], "the list below moved"
-        rows = [row for row in after[1:-1]]
-        olds = [row for row in before[:-1]]
-        for now, was in zip(rows, olds):
-            assert now["name"] == was["name"]
-            assert abs(now["top"] - (was["top"] + after[0]["height"])) <= 1, (now, was)
+        assert [row["name"] for row in after[1:]] == [row["name"] for row in before[:-1]]
+        for now, was in zip(after, before):
+            assert abs(now["left"] - was["left"]) <= 1, (now, was)
         assert _eval(page, "document.getAnimations().filter("
-                          "a => a.effect.target.tagName === 'LI').length") == 0
+                          "a => a.effect.target.tagName === 'FIGURE').length") == 0
     finally:
         context.close()
 
@@ -352,12 +348,12 @@ def test_a_live_update_of_home_never_replays_the_page_opening(new_context, make_
         assert _eval(page, _ENTRANCES_SINCE, mark) == []
 
         mark = _eval(page, "window.__css.length")
-        button = page.locator(".home-switch button[role='switch']").first
+        button = page.locator(".home-pill--switch button[role='switch']").first
         was = button.get_attribute("aria-checked")
         with page.expect_response(lambda r: r.request.method == "GET"
                                   and r.url.rstrip("/") == server.base_url()):
             button.click()
-        _wait(page, "document.querySelector(\".home-switch button[role='switch']\")"
+        _wait(page, "document.querySelector(\".home-pill--switch button[role='switch']\")"
                     ".getAttribute('aria-checked') !== a"
                     " && !document.querySelector('[data-quick-region][data-pending]')", was)
         _wait(page, _QUIET)

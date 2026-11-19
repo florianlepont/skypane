@@ -107,7 +107,8 @@ def test_the_map_covers_the_whole_phone_viewport_with_no_pale_band(
             " return {map: map.backgroundColor, html: html.backgroundColor, image: html.backgroundImage}; }")
         # The page behind the map is the theme's secondary surface (a placeholder colour, never
         # the sky); the fixed map box itself shows the tile ground colour.
-        assert page_colours["map"] == "rgb(242, 239, 233)", page_colours
+        assert page_colours["map"] == (
+            "rgb(22, 20, 15)" if theme == "dark" else "rgb(242, 239, 233)"), page_colours
         assert page_colours["html"] == page.evaluate(
             "() => { const p = document.createElement('i'); p.style.color = 'var(--color-secondary)';"
             " document.body.appendChild(p); const c = getComputedStyle(p).color; p.remove(); return c; }"

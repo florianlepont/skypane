@@ -304,10 +304,12 @@
   /* Without color-scheme, the browser paints native form-control chrome
    * (e.g. <input type="time">) using its own light/dark heuristic
    * instead of following the OS scheme this default case follows. */
+  --rarity-tint: 10%;
   color-scheme: light dark;
 }
 @media (prefers-color-scheme: dark) {
   :root {
+    --rarity-tint: 28%;
     --sky-top: #12151D;
     --sky-mid: #161A24;
     --sky-bottom: #1A1F2B;
@@ -405,10 +407,12 @@ html[data-ui-theme="light"] {
   --color-toast-warning: #FBBF24;
   --color-toast-error: #FB7185;
   --color-toast-pending: #FF9A70;
+  --rarity-tint: 10%;
   color-scheme: light;
 }
 
 html[data-ui-theme="dark"] {
+  --rarity-tint: 28%;
   --sky-top: #12151D;
   --sky-mid: #161A24;
   --sky-bottom: #1A1F2B;
@@ -453,6 +457,9 @@ html[data-ui-theme="dark"] {
   --color-toast-warning: #92400E;
   --color-toast-error: #BE123C;
   --color-toast-pending: #B13F16;
+  --color-map-ground: #16140F;
+  --map-control-bg: #2B3345;
+  --map-control-edge: rgba(241, 243, 246, 0.55);
   color-scheme: dark;
 }
 @media (prefers-reduced-motion: reduce) {
@@ -986,6 +993,10 @@ a:hover {
 /* The sidebar's segments are too narrow for check, space glyph and label
  * together: the space glyph gives way there, the check (the non-colour cue
  * for the current space) and the label stay. */
+.dashboard-sidebar .space-switch {
+  padding-inline: var(--space-xs);
+}
+
 .dashboard-sidebar .space-switch__segment {
   padding: 0 2px;
   gap: 2px;
@@ -2204,8 +2215,6 @@ select.visually-hidden {
 }
 
 .fleet-group .page-section,
-.fleet-group .update-cta,
-.fleet-group .update-versions,
 .fleet-group .theme-status,
 .fleet-group .data-card,
 .fleet-group .data-cards,
@@ -2239,33 +2248,109 @@ select.visually-hidden {
   font-weight: var(--weight-semibold);
 }
 
-/* The strip an administrator sees on a personal page of someone else's frame:
- * who owns it and the way back to Fleet. Wraps rather than overflows. */
+/* The foreign-frame marker: a full-width accent slab (graphite in light,
+ * ivory in dark) with an amber edge, shown to an administrator on a personal
+ * page of a frame that is not theirs. It bleeds to the page padding's edges,
+ * stays at the top while the page scrolls, and wraps (a long address is never
+ * cut) rather than overflows. Accent on its inverse is the contrast pair of
+ * every filled control. */
 .frame-notice {
+  --notice-pad-left: max(var(--space-lg), var(--safe-left));
+  --notice-pad-right: max(var(--space-lg), var(--safe-right));
+  position: sticky;
+  top: calc(var(--safe-top) + var(--app-bar-drop));
+  z-index: 14;
   box-sizing: border-box;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  column-gap: var(--space-md);
-  min-height: 44px;
-  margin: 0 0 var(--space-md);
-  padding: var(--space-sm) var(--space-md);
-  background: var(--color-secondary);
-  color: var(--color-text);
-  border-radius: var(--radius-card);
-  font-size: var(--font-label-size);
+  gap: var(--space-sm) var(--space-md);
+  min-height: 56px;
+  margin: 0 calc(-1 * var(--notice-pad-right)) var(--space-md) calc(-1 * var(--notice-pad-left));
+  padding: var(--space-sm) var(--notice-pad-right) var(--space-sm) var(--notice-pad-left);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  border-bottom: 3px solid var(--color-status-warn);
+  font-size: var(--font-body-size);
+  line-height: 1.3;
   overflow-wrap: anywhere;
+}
+
+.frame-notice__msg {
+  flex: 1 1 220px;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.frame-notice__msg > svg {
+  flex: none;
 }
 
 .frame-notice__text {
   min-width: 0;
 }
 
+.frame-notice__text strong {
+  font-weight: var(--weight-title);
+}
+
 .frame-notice__link {
+  flex: none;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  gap: 6px;
   min-height: 44px;
+  padding: 0 var(--space-md);
+  background: var(--color-on-accent);
+  color: var(--color-accent);
+  border-radius: var(--radius-control);
   font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
+  text-align: center;
+  text-decoration: none;
+}
+
+.frame-notice__link:hover {
+  color: var(--color-accent);
+}
+
+.frame-notice__link:focus-visible {
+  outline: 2px solid var(--color-on-accent);
+  outline-offset: 2px;
+}
+
+/* Shown as a catalogue sample: inside its box, not stuck to the page. */
+.components-state__sample > .frame-notice {
+  position: static;
+  flex: 1 1 100%;
+  margin: 0;
+  padding-inline: var(--space-md);
+}
+
+/* On the desktop layout the frame button floats at the top right of the
+ * column: the marker keeps its own button clear of it. */
+@media (min-width: 960px) {
+  .frame-notice {
+    --notice-pad-left: var(--space-3xl);
+    --notice-pad-right: var(--space-3xl);
+  }
+
+  .site-header:has(.frame-menu) ~ .dashboard-main .frame-notice {
+    padding-right: calc(var(--notice-pad-right) + 12rem);
+  }
+
+  /* The frame button sits over the marker's right end: opaque, so it reads
+   * on the slab in both themes. */
+  .dashboard-shell:has(.frame-notice) .site-header .frame-menu__button {
+    background: var(--color-dominant);
+    color: var(--color-text);
+    border-color: var(--color-border);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
 }
 
 .refresh-pill {
@@ -2450,7 +2535,7 @@ button:not(.value-control__handle):active {
 }
 
 .dirty-bar > .btn {
-  padding: 0 var(--space-lg);
+  padding-inline: var(--space-lg);
 }
 @media (max-width: 959.98px) {
   :root {
@@ -2470,7 +2555,7 @@ button:not(.value-control__handle):active {
   }
 
   .dirty-bar--inline > .btn {
-    padding: 0 var(--space-sm);
+    padding-inline: var(--space-sm);
   }
 
   .dirty-bar--inline .dirty-bar__message {
@@ -2976,10 +3061,6 @@ table.data-table--readings {
   border-bottom: 1px solid var(--glass-hairline);
 }
 
-.data-table--flights td {
-  height: 56px;
-}
-
 /* The users phone cards: the solid glass base outside @supports. */
 .users-row {
   background: var(--glass-solid);
@@ -3003,14 +3084,6 @@ table.data-table--readings {
   --audit-columns: 11rem minmax(0, 1fr) minmax(0, 1.4fr) 7rem 20px;
 }
 
-/* Scoped to Flights' own table only. Tokens only (no literal px), so
- * this rule tracks --space-sm/--space-md automatically if either token
- * ever changes. */
-table.data-table--flights td,
-table.data-table--flights th {
-  padding: var(--space-sm) var(--space-sm);
-}
-
 /* .data-table's own min-width: max-content sizes every column to its
  * widest UNWRAPPED line, so inline primary+secondary spans blow through
  * the column budget. Making them block-level (stacked) makes each
@@ -3023,50 +3096,6 @@ table.data-table--flights .cell-secondary {
 
 table.data-table--flights .cell-inline-sep {
   display: none;
-}
-
-/* Fixed column widths: with automatic widths every row that streams in
- * re-divides the table between its columns, so the cells jump after the
- * first paint. The cells wrap inside their column instead. */
-table.data-table--flights {
-  table-layout: fixed;
-  min-width: 0;
-}
-
-table.data-table--flights .col-when {
-  width: 20%;
-}
-
-table.data-table--flights .col-flight {
-  width: 22%;
-}
-
-table.data-table--flights .col-route {
-  width: 22%;
-}
-
-table.data-table--flights .col-state {
-  width: 14%;
-}
-
-table.data-table--flights .col-picture {
-  /* Wide enough for the picture button at its natural width. */
-  width: 9rem;
-}
-
-.update-cta__icon .icon {
-  width: 22px;
-  height: 22px;
-}
-
-.update-cta .mono {
-  white-space: nowrap;
-}
-
-.update-row__version .mono {
-  font-size: var(--font-body-size);
-  font-weight: var(--weight-semibold);
-  white-space: nowrap;
 }
 
 /* 70% muted strength, matching .section-caption/.data-table th. color,
@@ -5097,7 +5126,11 @@ html:not(.map-ready) .place-details__close {
 .quiet-timezone-note a::after {
   content: "";
   position: absolute;
-  inset: -13px -4px;
+  top: 50%;
+  left: 50%;
+  width: max(calc(100% + 8px), 44px);
+  height: max(calc(100% + 26px), 44px);
+  transform: translate(-50%, -50%);
 }
 
 /* Without the battery dial (a plain user's Home) the status zone and the
@@ -5488,6 +5521,47 @@ input[name="radius_km"] {
 .btn.btn--icon {
   width: 44px;
   padding: 0;
+}
+
+/* Text centring in a button, chip or pill. A line box centres the font's
+ * content area (its ascent plus descent), and that area is not symmetric
+ * about the capitals for every system font, so a label sat 1 to 2px high or
+ * low in its box depending on the platform. Trimming the text block to the
+ * cap height (baseline to capital top) and padding by the box's own height
+ * puts the capitals on the box's exact middle whatever the font. Only a
+ * box whose text is its own block can be trimmed (a flex or grid container
+ * cannot), so these are inline-block with the padding standing in for the
+ * old flex centring; a button with an icon or a nested element keeps its
+ * flex layout. A browser without text-box or the cap unit keeps the flex
+ * centring above. */
+@supports (text-box: trim-both cap alphabetic) and (padding: 1cap) {
+  .btn:not(:has(> *)) {
+    display: inline-block;
+    padding-block: calc((44px - 1cap) / 2 - var(--btn-border, 1px));
+    text-box: trim-both cap alphabetic;
+  }
+
+  .btn.btn--ghost {
+    --btn-border: 0px;
+  }
+
+  .airlines-pill:not(:has(> *)),
+  .airline-card__chip:not(:has(> *)),
+  .airlines-gap__prefix:not(:has(> *)) {
+    display: inline-block;
+    box-sizing: border-box;
+    height: var(--pill-h);
+    padding-block: calc((var(--pill-h) - 1cap) / 2 - var(--pill-bw, 0px));
+    text-align: center;
+    text-box: trim-both cap alphabetic;
+    white-space: nowrap;
+  }
+
+  .airlines-pill { --pill-h: 24px; }
+  .airline-card__chip { --pill-h: 20px; --pill-bw: 1px; }
+  .airlines-gap__prefix { --pill-h: 32px; }
+  .filter-chip__text,
+  .filter-chip__count { text-box: trim-both cap alphabetic; }
 }
 
 /* The highlighted link card (ui_components.link_card_html): a tinted card with
@@ -5918,13 +5992,15 @@ a.btn[aria-disabled="true"] {
     background-size: 100% 100%;
   }
 
+  /* The visible handle: a 44px by 5px pill, decorative. The sheet closes from
+   * the keyboard (Escape), from the More cell and from a tap outside it. */
   .tab-bar__grab {
     flex: none;
     align-self: center;
-    width: 40px;
-    height: 4px;
+    width: 44px;
+    height: 5px;
     margin-bottom: var(--space-xs);
-    border-radius: 2px;
+    border-radius: 3px;
     background: var(--color-border);
   }
 
@@ -6985,6 +7061,15 @@ button.row-menu__item {
   animation-delay: calc(2 * var(--motion-stagger));
 }
 
+/* The editor table that follows the gaps table enters one step after it. */
+.dashboard-main[data-page-open] > .airlines-table--gaps ~ .airlines-table {
+  animation-delay: calc(3 * var(--motion-stagger));
+}
+
+.dashboard-main[data-page-open] > .airlines-table--known ~ .airlines-table:not(.airlines-table--known) {
+  animation-delay: calc(4 * var(--motion-stagger));
+}
+
 /* A filter that only hides rows replays a fade of its list, nothing else:
  * opacity alone, so a tall list costs the compositor one layer. The
  * page-opening rules above must not win over it while the page is still
@@ -7203,8 +7288,7 @@ button.row-menu__item {
   .runway-card,
   .space-switch,
   .place-modes,
-  .map-ready .place-modes,
-  .frame-notice {
+  .map-ready .place-modes {
     --filter-track-edge: var(--glass-border);
     background: var(--glass-bg);
     border-color: var(--glass-border);
@@ -7541,54 +7625,6 @@ button.row-menu__item {
   animation: skypane-glint var(--motion-glint) cubic-bezier(0.45, 0, 0.3, 1) infinite;
 }
 
-/* The frame cycle (wake, poll, display, sleep) as a thin ring around the
- * picture: the bar's stroke-dashoffset is the share of the cycle already
- * elapsed (it steps once a second; no transition, so the page never has a
- * running animation to wait out), the four dots mark the quarters. It sits 5px outside the box and
- * takes no room. */
-.hero__ring {
-  position: absolute;
-  inset: -5px;
-  width: calc(100% + 10px);
-  height: calc(100% + 10px);
-  overflow: visible;
-  pointer-events: none;
-  transform-origin: 50% 50%;
-}
-
-.hero__ring rect {
-  fill: none;
-}
-
-.hero__ring-track {
-  stroke: color-mix(in srgb, var(--color-text) 14%, transparent);
-  stroke-width: 1;
-}
-
-.hero__ring-ticks {
-  stroke: color-mix(in srgb, var(--color-text) 38%, transparent);
-  stroke-width: 4;
-  stroke-linecap: round;
-}
-
-.hero__ring-bar {
-  stroke: var(--color-accent);
-  stroke-width: 2;
-  stroke-linecap: round;
-}
-
-.hero__ring-done {
-  stroke: var(--home-tone);
-  stroke-width: 3;
-  opacity: 0;
-}
-
-/* The small flourish when a refresh starts a new cycle: the ring lights up
- * once and gives a quick spring. */
-.hero__ring.is-ring-done {
-  animation: skypane-ring-pop var(--motion-spring-duration) var(--motion-spring);
-}
-
 /* After a minute without a touch (motion.js sets data-ambient="rest") the
  * ambient loops stop, so a wall tablet's compositor is idle. */
 html[data-ambient="rest"] .home-state__dot--pulse,
@@ -7605,10 +7641,6 @@ html:has(.tab-bar__more[open]) .hero__picture::before,
 html:has(.tab-bar__more[open]) .hero__glass::after,
 html:has(.tab-bar__more[open]) .is-breathing {
   animation-iteration-count: 0;
-}
-
-.hero__ring.is-ring-done .hero__ring-done {
-  animation: skypane-ring-glow var(--motion-spring-duration) ease-out;
 }
 
 @keyframes skypane-picture-breathe {
@@ -7642,18 +7674,6 @@ html:has(.tab-bar__more[open]) .is-breathing {
   50%, 100% {
     opacity: 0;
     transform: translateX(330%) skewX(-18deg);
-  }
-}
-
-@keyframes skypane-ring-pop {
-  30% {
-    transform: scale(1.045);
-  }
-}
-
-@keyframes skypane-ring-glow {
-  25% {
-    opacity: 1;
   }
 }
 
@@ -7796,17 +7816,6 @@ html:has(.tab-bar__more[open]) .is-breathing {
 
 .recent-flight[data-filter-kind="arriving"] .row__chip .icon {
   transform: rotate(45deg);
-}
-
-/* Two fixed lines: the airline, then the route (a line is reserved when a
- * flight has none). Each line is cut with an ellipsis instead of wrapping, so
- * every card has the one height the Flights sheet declares. */
-.history-card .row__label {
-  display: block;
-  overflow: visible;
-  min-height: calc(var(--font-body-size) * 2.6);
-  white-space: normal;
-  font-weight: var(--weight-semibold);
 }
 
 /* The one lead control of a row with a render: its 40px thumbnail (inside a 44px target)

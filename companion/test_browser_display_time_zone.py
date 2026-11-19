@@ -17,13 +17,13 @@ from companion.test_browser_ux_helpers import (
 
 pytestmark = pytest.mark.browser
 
-WINDOW_LINK = "a.home-switch__window"
+WINDOW_LINK = "a.home-pill--quiet"
 DIALOG = "dialog#dlg-quiet-hours"
 NOTE_LINK = DIALOG + " .quiet-timezone-note a"
 QUIET_FIELDS = ("#quiet-window-start", "#quiet-window-end")
 VIEWPORTS = [VIEWPORT_MIN_SUPPORTED, VIEWPORT_DESKTOP]
 VIEWPORT_IDS = ["360", "1280"]
-LINK_TEXT = {"en": "Location and detection", "fr": "Lieu et détection"}
+LINK_TEXT = {"en": "Location", "fr": "Lieu"}
 
 # Finite animations only: the live pulse never ends and must not hold the test.
 _ANIMATIONS_DONE = (

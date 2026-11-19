@@ -61,6 +61,13 @@ OPENING_LIST_SELECTORS = (
 OPENING_GRID_SELECTORS = (
     ".dashboard-main[data-page-open] > .collection-grid",
     ".dashboard-main[data-page-open] > .airlines-table")
+# The editor table that follows the gaps table opens one step after it.
+OPENING_AFTER_GAPS_SELECTORS = (
+    ".dashboard-main[data-page-open] > .airlines-table--gaps ~ .airlines-table",)
+# The editor table that follows the known-by-name block opens one step after that block.
+OPENING_AFTER_KNOWN_SELECTORS = (
+    ".dashboard-main[data-page-open] > .airlines-table--known ~ .airlines-table"
+    ":not(.airlines-table--known)",)
 # The page header only fades in.
 OPENING_HEADER_SELECTORS = (".dashboard-main[data-page-open] > .page-header",)
 # The controls and blocks that follow the page header enter in their place in the page.
@@ -248,12 +255,10 @@ def test_every_transition_takes_its_duration_from_a_motion_token(served_css):
     assert not offenders, offenders
 
 
-# Entrances and exits all share the one --ease-out curve. The three below are loops or
-# flourishes that keep the plain keyword: the status halo's decay, the switch ring's glow and
-# a press.
+# Entrances and exits all share the one --ease-out curve. The two below are loops or
+# flourishes that keep the plain keyword: the status halo's decay and a press.
 _PLAIN_EASE_OUT_RULES = frozenset((
-    ".home-state__dot--pulse::after", ".hero__ring.is-ring-done .hero__ring-done",
-    ".sidebar-link:active"))
+    ".home-state__dot--pulse::after", ".sidebar-link:active"))
 
 
 def test_every_entrance_and_exit_shares_the_one_ease_out_token(served_css):
@@ -320,7 +325,9 @@ def test_motion_tokens_are_two_durations_plus_the_documented_exceptions(served_c
         (OPENING_BLOCK_SELECTORS, "animation-delay"),
         (OPENING_CARD_SELECTORS, "animation-delay"),
         (OPENING_LIST_SELECTORS, "animation-delay"),
-        (OPENING_GRID_SELECTORS, "animation-delay")], (
+        (OPENING_GRID_SELECTORS, "animation-delay"),
+        (OPENING_AFTER_GAPS_SELECTORS, "animation-delay"),
+        (OPENING_AFTER_KNOWN_SELECTORS, "animation-delay")], (
         "--motion-stagger must scale only the card entrance delay, got %r" % (stagger,))
     # The placeholder sweep and the blur-up are each spent by one animation, on the rule that
     # marks the loading container and the one that fades the arrived picture in.
@@ -471,7 +478,7 @@ def test_both_shells_agree_on_document_language():
 
 @pytest.mark.parametrize(
     "tab_path,heading",
-    [("/", "Home"), ("/display", "Style"), ("/flights", "Flight history"),
+    [("/", "Home"), ("/display", "Style"), ("/flights", "Flights"),
      ("/airlines", "Airlines"), ("/fleet", "Fleet")])
 def test_authenticated_tab_returns_200_with_its_own_heading(app04_server, session_cookie, tab_path, heading):
     """authenticated GET %s returns 200 and contains its own %r heading"""
@@ -577,21 +584,22 @@ def test_rejected_settings_save_rerenders_200_with_input_and_error_persists_noth
 
 def test_home_page_renders_widgets(app04_server, session_cookie):
     """authenticated GET / renders the approved frame-signal-first Home page:
-    its hero (the current image beside the state), the recent-flights group, then the Frame group
-    carrying the screen and quiet-hours POST controls, and one compact battery fact, while retired
+    its title block (the name and the state), the flight card (the current image beside its
+    flight), the pills (the screen POST control, the quiet-hours opener, the place and the
+    battery) and the recent-flights strip, while retired
     configuration, healthy diagnostics, and activity-band dashboard material stay absent."""
     status, _headers, body = http_request(app04_server.base_url() + "/", cookie=session_cookie)
     assert status == 200, "expected 200 for GET /, got %d" % status
     text = body.decode("utf-8", errors="replace")
     for needle in (
             '<div class="title-action">',
-            'class="hero home-state ',
-            'class="group-block home-section"',
+            'class="home-state home-state--',
+            'class="home-strip reveal"',
             "Recent flights", 'href="/flights"',
             'class="nav-group"',
             'aria-labelledby="home-frame-state"',
             'action="%s"' % app_module.QUICK_DISPLAY_ROUTE,
-            'action="%s"' % app_module.QUICK_QUIET_HOURS_ROUTE,
+            'href="#dlg-quiet-hours"',
             "data-loaded-at="):
         assert needle in text, "expected %r in the Home page" % needle
     assert 'class="home-battery' not in text and 'class="home-action' not in text, (

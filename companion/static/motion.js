@@ -111,9 +111,19 @@
           && link.classList.contains("tab-bar__link"))) {
         link = link.parentNode;
       }
-      if (!link || link === bar || link.classList.contains("tab-bar__link--active")
-          || evt.button !== 0 || evt.metaKey || evt.ctrlKey || evt.shiftKey || evt.altKey
-          || link.hasAttribute("target")) {
+      if (!link || link === bar || evt.button !== 0 || evt.metaKey || evt.ctrlKey
+          || evt.shiftKey || evt.altKey || link.hasAttribute("target")) {
+        return;
+      }
+      if (link.classList.contains("tab-bar__link--active")) {
+        // The tab of the page already open: scroll to the top instead of
+        // loading the same page again. A sub-page of the tab keeps the link's
+        // normal navigation back to the tab's own page.
+        if (link.pathname === window.location.pathname
+            && link.search === window.location.search) {
+          evt.preventDefault();
+          window.scrollTo({top: 0, behavior: reducedMotion() ? "auto" : "smooth"});
+        }
         return;
       }
       // The glide waits until every other click handler has run: an
@@ -249,8 +259,8 @@
       // Both edges are rounded, not the left edge and the width, so the first
       // and last choices keep the same inset from the track whatever the
       // fractional layout.
-      var left = Math.round(box.left - host.left - strip.clientLeft);
-      var right = Math.round(box.right - host.left - strip.clientLeft);
+      var left = Math.round(box.left - host.left - strip.clientLeft + strip.scrollLeft);
+      var right = Math.round(box.right - host.left - strip.clientLeft + strip.scrollLeft);
       var top = Math.round(box.top - host.top - strip.clientTop);
       var bottom = Math.round(box.bottom - host.top - strip.clientTop);
       thumb.style.width = (right - left) + "px";
@@ -261,6 +271,12 @@
     }
 
     var index = stripCurrent(items);
+    // A strip that scrolls sideways (the phone's one-line chip row) opens with
+    // the current segment in view.
+    if (index !== -1 && strip.scrollWidth > strip.clientWidth) {
+      var current = items[index];
+      strip.scrollLeft = current.offsetLeft - (strip.clientWidth - current.offsetWidth) / 2;
+    }
     if (thumb && index !== -1) {
       if (carried && !reducedMotion()) {
         thumb.style.width = carried.width;
@@ -568,22 +584,24 @@
     });
   }
 
-  // A new flight row brought in by the freshness swap slides in at the top
-  // while the rows below glide down from where they were (FLIP, whole
-  // pixels, transform and opacity only).
-  var HOME_ROWS = 'section[aria-labelledby="home-flights"] li.row';
+  // A new flight tile brought in by the freshness swap slides in at the start
+  // of the Recent flights strip while the tiles after it glide along from
+  // where they were (FLIP, whole pixels, transform and opacity only).
+  var HOME_ROWS = 'section[aria-labelledby="home-flights"] .home-strip__tile';
 
-  function rowKey(li) {
-    var name = li.querySelector(".mono");
-    var detail = li.querySelector(".row__detail");
-    return (name ? name.textContent : "") + "|" + (detail ? detail.textContent : "");
+  // A tile is told apart by its call sign, the caption's own text: the age
+  // beside it changes on every repaint.
+  function rowKey(tile) {
+    var caption = tile.querySelector("figcaption");
+    var first = caption && caption.firstChild;
+    return first ? first.textContent.replace(/\s+$/, "") : "";
   }
 
   function readRows() {
     var rows = {};
     var nodes = document.querySelectorAll(HOME_ROWS);
     for (var i = 0; i < nodes.length; i++) {
-      rows[rowKey(nodes[i])] = Math.round(nodes[i].getBoundingClientRect().top);
+      rows[rowKey(nodes[i])] = Math.round(nodes[i].getBoundingClientRect().left);
     }
     return rows;
   }
@@ -605,14 +623,14 @@
       for (var i = 0; i < nodes.length; i++) {
         var key = rowKey(nodes[i]);
         if (!Object.prototype.hasOwnProperty.call(was, key)) {
-          play(nodes[i], [{opacity: 0, transform: "translateY(-14px)"},
+          play(nodes[i], [{opacity: 0, transform: "translateX(-14px)"},
                           {opacity: 1, transform: "none"}],
                {duration: duration, easing: ease});
           continue;
         }
-        var shift = was[key] - Math.round(nodes[i].getBoundingClientRect().top);
+        var shift = was[key] - Math.round(nodes[i].getBoundingClientRect().left);
         if (shift !== 0) {
-          play(nodes[i], [{transform: "translateY(" + shift + "px)"},
+          play(nodes[i], [{transform: "translateX(" + shift + "px)"},
                           {transform: "none"}],
                {duration: duration, easing: ease});
         }

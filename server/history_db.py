@@ -914,6 +914,148 @@ def daily_battery_averages(conn, since=None):
     ]
 
 
+# --- Home statistics (read-only aggregates) ------------------------------
+#
+# Each function reads the one frame's own history database (`conn`), never
+# writes, and takes the frame's IANA time zone and an explicit `now` (an
+# aware datetime or an ISO string) instead of reading the clock.
+
+# Two stored events of one pass within this many seconds count once, the same
+# window the Flights and Home lists fold on (companion/flight_card.py).
+PASS_DUPLICATE_WINDOW_S = 60
+HOME_STATS_DIRECTIONS = ("arriving", "departing")
+HOME_STATS_DAYS = 7
+_FALLBACK_TIMEZONE = "Europe/Paris"
+
+
+def _frame_zone(tz_name):
+    try:
+        return ZoneInfo(tz_name)
+    except (KeyError, ValueError, TypeError, OSError):
+        return ZoneInfo(_FALLBACK_TIMEZONE)
+
+
+def _local_today(tz_name, now):
+    """`(zone, today)`: the frame's zone and the local calendar date of `now`."""
+    instant = instant_or_none(now) if isinstance(now, str) else now
+    if instant is None:
+        instant = datetime.now(timezone.utc)
+    if instant.tzinfo is None:
+        instant = instant.replace(tzinfo=timezone.utc)
+    zone = _frame_zone(tz_name)
+    return zone, instant.astimezone(zone).date()
+
+
+def _day_window(zone, first_day, last_day):
+    """The stored-`ts` text bounds `[start, end)` of the local days
+    `first_day..last_day` inclusive, spelled as the poll loop stores them."""
+    start = datetime.combine(first_day, datetime.min.time(), tzinfo=zone)
+    end = datetime.combine(last_day + timedelta(days=1), datetime.min.time(), tzinfo=zone)
+    return (start.astimezone(timezone.utc).isoformat(timespec="seconds"),
+            end.astimezone(timezone.utc).isoformat(timespec="seconds"))
+
+
+def _direction_events(conn, zone, first_day, last_day, columns="ts, hex, callsign, origin, "
+                      "destination, confirmed_state"):
+    """The arrivals and departures between two local days as dicts, oldest
+    first, with a pass stored twice folded to one and each row's local
+    `moment` (an aware datetime). One range scan of `idx_runway_events_ts`."""
+    start, end = _day_window(zone, first_day, last_day)
+    rows = conn.execute(
+        "SELECT %s FROM runway_events WHERE ts >= ? AND ts < ? "
+        "AND confirmed_state IN (?, ?) ORDER BY ts ASC, id ASC" % columns,
+        (start, end) + HOME_STATS_DIRECTIONS,
+    ).fetchall()
+    events = []
+    last_seen = {}
+    for row in rows:
+        moment = instant_or_none(row["ts"])
+        if moment is None:
+            continue
+        key = tuple(row[name] for name in (
+            "hex", "callsign", "origin", "destination", "confirmed_state"))
+        earlier = last_seen.get(key)
+        last_seen[key] = moment
+        if earlier is not None and (moment - earlier).total_seconds() < PASS_DUPLICATE_WINDOW_S:
+            continue
+        event = dict(row)
+        event["moment"] = moment.astimezone(zone)
+        events.append(event)
+    return events
+
+
+def home_day_timeline(conn, tz_name, now):
+    """Today's arrivals and departures in the frame's local day:
+    `{"day": "YYYY-MM-DD", "arriving": n, "departing": n, "hours": [24 x
+    {"hour", "arriving", "departing"}], "ticks": [{"at": local hour as a
+    float, "state"}]}`. Every hour of the day is present, zero when quiet."""
+    zone, today = _local_today(tz_name, now)
+    hours = [{"hour": hour, "arriving": 0, "departing": 0} for hour in range(24)]
+    ticks = []
+    for event in _direction_events(conn, zone, today, today):
+        moment, state = event["moment"], event["confirmed_state"]
+        hours[moment.hour][state] += 1
+        ticks.append({"at": moment.hour + moment.minute / 60.0, "state": state})
+    return {
+        "day": today.isoformat(),
+        "arriving": sum(h["arriving"] for h in hours),
+        "departing": sum(h["departing"] for h in hours),
+        "hours": hours,
+        "ticks": ticks,
+    }
+
+
+def home_week_totals(conn, tz_name, now):
+    """The last seven local days, oldest first and ending today, zero-filled:
+    `[{"day": "YYYY-MM-DD", "arriving": n, "departing": n, "total": n}]`."""
+    zone, today = _local_today(tz_name, now)
+    first = today - timedelta(days=HOME_STATS_DAYS - 1)
+    days = {
+        (first + timedelta(days=i)): {"arriving": 0, "departing": 0}
+        for i in range(HOME_STATS_DAYS)}
+    for event in _direction_events(conn, zone, first, today):
+        days[event["moment"].date()][event["confirmed_state"]] += 1
+    return [
+        {"day": day.isoformat(), "arriving": c["arriving"], "departing": c["departing"],
+         "total": c["arriving"] + c["departing"]}
+        for day, c in sorted(days.items())]
+
+
+def _airline_of(event, airline_names):
+    override = override_airline_name(event, airline_names) if airline_names else None
+    return override or (event.get("airline") or "").strip()
+
+
+def home_airline_highlights(conn, tz_name, now, airline_names=None):
+    """Over the last seven local days: `{"most_seen": {"airline", "count"} or
+    None, "new_airlines": [names]}`. The most seen airline has the highest
+    count, ties broken alphabetically; a new airline is one first seen
+    inside the window (no earlier row names it). A flight without an airline
+    counts for none. `airline_names` is the owner's `{prefix: name}` override
+    applied to what is read, never written back."""
+    zone, today = _local_today(tz_name, now)
+    first = today - timedelta(days=HOME_STATS_DAYS - 1)
+    counts = {}
+    for event in _direction_events(
+            conn, zone, first, today,
+            columns="ts, hex, callsign, origin, destination, confirmed_state, airline"):
+        name = _airline_of(event, airline_names)
+        if name:
+            counts[name] = counts.get(name, 0) + 1
+    if not counts:
+        return {"most_seen": None, "new_airlines": []}
+    best = min(counts, key=lambda name: (-counts[name], name))
+    start, _ = _day_window(zone, first, today)
+    earlier = {
+        _airline_of(dict(row), airline_names) for row in conn.execute(
+            "SELECT DISTINCT airline, callsign FROM runway_events "
+            "WHERE ts < ? AND airline IS NOT NULL", (start,))}
+    return {
+        "most_seen": {"airline": best, "count": counts[best]},
+        "new_airlines": sorted(name for name in counts if name not in earlier),
+    }
+
+
 def get_meta(conn, key):
     row = conn.execute("SELECT value FROM meta WHERE key = ?", (key,)).fetchone()
     return row["value"] if row is not None else None

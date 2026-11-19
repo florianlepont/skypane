@@ -124,7 +124,7 @@ def test_the_background_sits_on_the_root_and_causes_no_overflow(
 
 def _section_motion(page):
     return page.evaluate(
-        """() => Array.from(document.querySelectorAll('.dashboard-main .page-section, .dashboard-main .group-block')).map(el => {
+        """() => Array.from(document.querySelectorAll('.dashboard-main .reveal')).map(el => {
             const style = getComputedStyle(el);
             return {duration: style.animationDuration, delay: style.animationDelay,
                     name: style.animationName};
@@ -139,12 +139,13 @@ def test_cards_enter_in_a_short_stagger_and_end_in_their_layout_state(
     # A whole-pixel rise and a smooth fade, two finite animations of one duration.
     assert {item["name"] for item in motion} == {"skypane-reveal, skypane-reveal-fade"}
     assert {item["duration"] for item in motion} == {"0.4s, 0.4s"}
-    # Home's facts row and hero (neither a section nor a group) come first, each a step after
-    # the one before, so the groups start three steps in.
-    assert [item["delay"] for item in motion[:2]] == ["0.18s", "0.24s"]
+    # Home's blocks (state card, latest flight, pills, statistics, recent strip) enter one step
+    # after another, the first one a step after the header, capped at five steps.
+    delays = [float(item["delay"].split(", ")[0].rstrip("s")) for item in motion]
+    assert delays == [0.06, 0.12, 0.18, 0.24, 0.3], delays
     page.wait_for_timeout(1200)
     settled = page.evaluate(
-        """() => Array.from(document.querySelectorAll('.dashboard-main .page-section, .dashboard-main .group-block')).map(el => {
+        """() => Array.from(document.querySelectorAll('.dashboard-main .reveal')).map(el => {
             const style = getComputedStyle(el);
             return {transform: style.transform, opacity: style.opacity,
                     running: el.getAnimations().length};
@@ -160,7 +161,7 @@ def test_reduced_motion_zeroes_the_entrance(new_context, make_app_server):
         assert max(durations) <= 0.0001 and set(item["delay"].split(", ")) == {"0s"}, item
     page.wait_for_timeout(100)
     opacity = page.evaluate(
-        "() => getComputedStyle(document.querySelector('.dashboard-main .group-block')).opacity")
+        "() => getComputedStyle(document.querySelector('.dashboard-main .reveal')).opacity")
     assert opacity == "1"
 
 

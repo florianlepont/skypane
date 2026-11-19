@@ -1,6 +1,6 @@
 """The per-tab page-builder contract every module in this package follows.
 
-Tabs are grouped into the personal pages (Home, Flight history, Location
+Tabs are grouped into the personal pages (Home, Flights, Location
 and detection, Personalisation, Airline collection) and the Console frame
 tools (Health, Device), declared once in companion/layout.py's
 NAV_GROUPS. Which settings land on Display versus Device is declared per

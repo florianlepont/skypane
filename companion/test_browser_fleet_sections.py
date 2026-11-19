@@ -100,7 +100,7 @@ def test_no_fact_is_shown_twice_in_the_column(new_context, app_server_in_process
         new_context, app_server_in_process, viewport, releases=True)
     try:
         text = page.locator(COLUMN).inner_text()
-        assert text.count(MODEL) == 1, text
+        assert MODEL not in text, text
         # The frame's name is the frame button's label above the column, not repeated in it.
         assert text.count("Orly frame") == 0, text
         for heading in ("Wake interval", "Diagnostic LED"):
@@ -108,14 +108,13 @@ def test_no_fact_is_shown_twice_in_the_column(new_context, app_server_in_process
         # The owner is named once (the Reassign picker's options are choices, not facts).
         owners = page.locator(COLUMN + " .co-manager__email").all_inner_texts()
         assert owners == [fx.ADMIN_EMAIL], owners
-        # A firmware version is named once as a fact: what the frame runs in the summary, what
-        # is on offer in the update card (the Install button's label repeats the version it
-        # installs, and the seeded release note quotes it); the history rows list them again.
+        # A firmware version is named once as a fact in the update card: what is on offer (the
+        # Install button's label repeats the version it installs, and the seeded release note
+        # quotes it); the history rows list every version again, the running one with its chip.
         facts = page.locator(COLUMN + " .mono:not(.update-hist__list .mono)").all_inner_texts()
-        for version in (RELEASE_SEED_RUNNING_VERSION, RELEASE_SEED_AVAILABLE_VERSION):
-            assert facts.count(version) == 1, (version, facts)
-        # The summary names it once as what the frame runs and the history once as a row.
-        assert text.count(RELEASE_SEED_RUNNING_VERSION) == 2, text
+        assert facts.count(RELEASE_SEED_AVAILABLE_VERSION) == 1, facts
+        assert RELEASE_SEED_RUNNING_VERSION not in facts, facts
+        assert text.count(RELEASE_SEED_RUNNING_VERSION) == 1, text
     finally:
         context.close()
 
@@ -128,13 +127,12 @@ def test_the_version_history_is_a_flat_list_with_the_action_in_every_row(
         assert page.locator(".fleet-block--device table").count() == 0
         heading = page.locator(".update-versions .update-hist__title")
         assert heading.text_content().strip() == "Versions"
-        assert page.locator(".update-hist__head .banner__pill").inner_text().strip() == "2"
         rows = page.locator("li.update-item")
         assert rows.count() == 2 and rows.first.is_visible()
         running = page.locator("li.update-item--running")
         assert running.count() == 1 and running.locator("form").count() == 0
         # The newer version is installed from the update card above; its row repeats no button.
-        card_button = page.locator(".update-offer form button[type=submit]")
+        card_button = page.locator(".update-cta form button[type=submit]")
         assert card_button.is_visible() and card_button.inner_text() == "Install fw-v1.1.0"
         assert card_button.bounding_box()["height"] >= 44 - 0.5
         assert page.locator("main form[action='/update/install']").count() == 1
@@ -146,12 +144,12 @@ def test_the_version_history_and_summary_are_in_french(new_context, app_server_i
     context, page, _seed = _open(new_context, app_server_in_process, lang="fr", releases=True)
     try:
         assert page.locator(".update-hist__title").text_content().strip() == "Versions"
-        assert page.locator(".update-sum__label").text_content().strip() == "Sur le cadre"
+        assert page.locator(".update-cta h2").text_content().strip() == "Mise à jour disponible"
         chips = page.locator(".update-item .banner__pill").all_inner_texts()
         # Both releases share one publication time: the one that sorts first is the newest.
-        assert "Installée" in [chip.strip() for chip in chips]
-        assert set(chip.strip() for chip in chips) <= {"Installée", "Plus récente"}
-        assert page.locator(".update-offer form button").inner_text() == "Installer fw-v1.1.0"
+        assert "En cours" in [chip.strip() for chip in chips]
+        assert set(chip.strip() for chip in chips) <= {"En cours", "Plus récente"}
+        assert page.locator(".update-cta form button").inner_text() == "Installer fw-v1.1.0"
     finally:
         context.close()
 

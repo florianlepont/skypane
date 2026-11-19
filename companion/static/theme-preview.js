@@ -178,6 +178,25 @@
     return carried && model.axes[carried] ? carried : null;
   }
 
+  // The server addresses each preview by its content (a `v` parameter) on the
+  // radio's own label, but a template cannot hold one version for every theme:
+  // the picture takes the label's address when it is the same URL, so a
+  // preview already fetched stays cached.
+  function versionedSrc(target, src, theme) {
+    var radios = target.querySelectorAll('input[type="radio"]');
+    for (var i = 0; i < radios.length; i++) {
+      if (radios[i].value !== theme) {
+        continue;
+      }
+      var label = radios[i].closest("[data-preview-src]");
+      var addressed = label && label.getAttribute("data-preview-src");
+      if (addressed && addressed.replace(/([?&])v=[^&]*&?/, "$1").replace(/[?&]$/, "") === src) {
+        return addressed;
+      }
+    }
+    return src;
+  }
+
   function renderTarget(target) {
     var theme = effectiveTheme(target);
     if (!theme) {
@@ -186,7 +205,9 @@
     var value = checkedValue(target);
     var sentence = (value === "" && target.getAttribute("data-look-same-label"))
       || model.sentences[theme];
-    var src = target.getAttribute("data-preview-src-template").split(THEME_TOKEN).join(theme);
+    var src = versionedSrc(
+      target, target.getAttribute("data-preview-src-template").split(THEME_TOKEN).join(theme),
+      theme);
     var images = target.querySelectorAll("[data-look-image]");
     var i;
     for (i = 0; i < images.length; i++) {

@@ -469,18 +469,19 @@ def test_the_charging_pill_going_stale_changes_the_home_token_and_leaves_the_fle
         app_server_in_process, monkeypatch):
     """the Fleet page shows the pill and drops it when the clock alone makes the reading stale
     (a refetch of the page removes it, without a new reading), and the Home token changes with
-    it; the personal Home never shows the pill at all"""
+    it; Home shows the same pill inside its battery pill while the reading is fresh"""
     server = app_server_in_process
     session = login(server)
     now = _seed_charging_ramp(server.state_dir)
     before = _token(server, layout.HOME_ROUTE, session)
     assert "charging-pill" in _get(server, "/fleet", session)[2].decode("utf-8")
-    assert "charging-pill" not in _get(server, layout.HOME_ROUTE, session)[2].decode("utf-8")
+    assert "charging-pill" in _get(server, layout.HOME_ROUTE, session)[2].decode("utf-8")
 
     later = (now + timedelta(seconds=2 * 300 + 120)).isoformat(timespec="seconds")
     monkeypatch.setattr(history_db, "utc_now_iso", lambda: later)
     assert _token(server, layout.HOME_ROUTE, session) != before
     assert "charging-pill" not in _get(server, "/fleet", session)[2].decode("utf-8")
+    assert "charging-pill" not in _get(server, layout.HOME_ROUTE, session)[2].decode("utf-8")
 
 
 def test_pipeline_run_meta_advance_changes_the_home_token(app_server_in_process):

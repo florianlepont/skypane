@@ -18,7 +18,7 @@ no request text reaches a path, a query or a filesystem call.
 from companion import device_scope, i18n, ui_segmented
 from companion.pages import co_managers_card
 from companion.ui_base import escape_html
-from server import hardware, history_db
+from server import history_db
 
 FRAME_QUERY = "frame"
 VIEW_QUERY = "view"
@@ -34,14 +34,15 @@ FRAME_HREF_PREFIX = "/fleet?%s=" % FRAME_QUERY
 
 def page_scripts(system=False):
     """The scripts the embedded blocks need: the settings form's dirty bar, value
-    controls and the Diagnostic LED quick switch, plus the Health registry table's copy, filter and lookup
-    helpers on the System view only."""
+    controls and the Diagnostic LED quick switch, plus the Install and Roll back
+    question dialog on a frame's page, or the Health registry table's copy, filter and
+    lookup helpers on the System view."""
     from companion import ui_base
     base = (
         ui_base.DIRTY_STATE_SCRIPT_SRC, ui_base.FRESHNESS_SCRIPT_SRC,
         ui_base.QUICK_SWITCH_SCRIPT_SRC, ui_base.VALUE_CONTROLS_SCRIPT_SRC)
     if not system:
-        return base
+        return (ui_base.UPDATE_QUESTION_SCRIPT_SRC,) + base
     return (
         ui_base.COPY_BUTTON_SCRIPT_SRC, ui_base.LIST_FILTER_SCRIPT_SRC,
         ui_base.PANEL_LOOKUP_SCRIPT_SRC) + base
@@ -55,7 +56,6 @@ _DEVICE_HEADING = i18n.msg("admin_fleet.block_device_version", "Device and versi
 _SETTINGS_HEADING = i18n.msg("admin_fleet.block_settings", "Settings")
 _ACCESS_HEADING = i18n.msg("admin_fleet.block_access", "Access")
 _TABS_LABEL = i18n.msg("admin_fleet.tabs_label", "Frame sections")
-_MODEL_LABEL = i18n.msg("admin_fleet.block_model", "Model")
 _SYSTEM_EMPTY = i18n.msg(
     "admin_fleet.system_unavailable",
     "No system information is available yet.")
@@ -148,15 +148,6 @@ def _item(content_html, flush=False):
         " fleet-group__item--flush" if flush else "", content_html)
 
 
-def _model_label(device):
-    profile = hardware.REGISTRY.get(device.hardware_type)
-    return profile.label if profile is not None else device.hardware_type
-
-
-def _model_text(device):
-    return "%s %s" % (i18n.t(_MODEL_LABEL), _model_label(device))
-
-
 def _access_html(device, access_views, row, view):
     """The Access rows and the dialogs they open: the owner row carries the
     Reassign control and the Add co-manager row opens its own dialog."""
@@ -208,7 +199,7 @@ def frame_html(ctx, device, view, header_html="", tab=TAB_STATE):
     from companion.pages import config_page, health_page, update_page
     with history_db.connection_scope(device.state_dir):
         device_html, versions_html, _parts = update_page.render_parts(
-            ctx, device.hardware_type, _model_text(device))
+            ctx, device.hardware_type)
         settings_html = config_page.render(
             ctx, scope=config_page.SCOPE_DEVICE, embedded=True)
         blocks = (

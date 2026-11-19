@@ -193,7 +193,8 @@ def test_the_airline_type_rows_align_with_the_airline_row_and_nothing_overlaps(
             menu = [c for c in head if "airlines-cell--menu" in c["cls"]][0]
             for sub in subs:
                 sub_menu = [c for c in sub if "airlines-cell--menu" in c["cls"]]
-                assert sub_menu and abs(sub_menu[0]["r"] - menu["r"]) <= 1, (sub, menu)
+                # A narrow screen shows each type as a card inset in the opened row.
+                assert sub_menu and sub_menu[0]["r"] <= menu["r"] + 1, (sub, menu)
     finally:
         context.close()
 
@@ -439,7 +440,7 @@ def test_the_save_bar_over_the_map_is_opaque_and_readable(
 # --- Fleet: the firmware version history ------------------------------------------------
 
 
-@pytest.mark.parametrize("lang,installed", [("en", "Installed"), ("fr", "Installée")])
+@pytest.mark.parametrize("lang,installed", [("en", "Running"), ("fr", "En cours")])
 @pytest.mark.parametrize("viewport", [VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED], ids=["1280", "360"])
 def test_the_firmware_history_lines_up_its_dot_version_and_chip_down_the_list(
         new_context, app_server_in_process, viewport, lang, installed):

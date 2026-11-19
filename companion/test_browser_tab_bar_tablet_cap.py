@@ -136,3 +136,93 @@ def test_the_sidebar_layout_shows_no_tab_bar(new_context, app):
         assert not page.locator(".tab-bar").is_visible()
     finally:
         context.close()
+
+
+_SCRIM = """() => {
+  const s = getComputedStyle(document.body, '::after');
+  const hit = document.elementFromPoint(window.innerWidth / 2, 4);
+  return {content: s.content, position: s.position, standard: s.backdropFilter,
+          webkit: s.webkitBackdropFilter, background: s.backgroundColor,
+          htmlRoot: document.documentElement.classList.contains('web-app'),
+          covered: hit === document.body || hit === document.documentElement}; }"""
+
+
+_SCRIM_RULE = """async () => {
+  for (const link of document.querySelectorAll('link[rel=stylesheet]')) {
+    const css = await (await fetch(link.href)).text();
+    const at = css.indexOf('body:has(.tab-bar__more[open])::after');
+    if (at >= 0) return css.slice(at, css.indexOf('}', at));
+  }
+  return ''; }"""
+
+
+@pytest.mark.parametrize("web_app", [False, True], ids=["tab", "home-screen-app"])
+@pytest.mark.parametrize("scheme", ["light", "dark"])
+def test_the_open_sheet_dims_and_blurs_the_page_in_a_tab_and_in_a_web_app(
+        new_context, app, scheme, web_app):
+    """Both the standard and the -webkit- blur are computed on the scrim, in a browser tab and
+    in an iPhone Home Screen app (navigator.standalone true), and the dim is not transparent."""
+    context = new_context(viewport=VIEWPORT_PHONE, color_scheme=scheme)
+    if web_app:
+        context.add_init_script(
+            "Object.defineProperty(navigator, 'standalone', {get: () => true});")
+    base = app.server.base_url()
+    name, value = app.cookie.split("=", 1)
+    context.add_cookies([
+        {"name": name, "value": value, "url": base, "httpOnly": True, "sameSite": "Strict"}])
+    page = context.new_page()
+    try:
+        page.goto(base + "/devices/%s/" % app.fleet.live.id)
+        page.locator(".tab-bar").wait_for(state="visible")
+        page.wait_for_function(_SETTLED)
+        page.wait_for_function(_MORE_OWNS_CENTRE, timeout=10000)
+        assert page.evaluate("() => document.documentElement.classList.contains('web-app')") is web_app
+        before = page.evaluate(_SCRIM)
+        assert before["content"] in ("none", "normal"), before
+        _open_sheet(page)
+        scrim = page.evaluate(_SCRIM)
+        assert scrim["position"] == "fixed" and scrim["content"] != "none", scrim
+        assert scrim["standard"] == "blur(8px)", scrim
+        # Chromium computes only the standard property; Safari reads the -webkit- one, so
+        # the served rule must carry both.
+        rule = page.evaluate(_SCRIM_RULE)
+        assert "-webkit-backdrop-filter: blur(8px)" in rule, rule
+        assert "backdrop-filter: blur(8px)" in rule.replace("-webkit-backdrop-filter", ""), rule
+        assert scrim["background"] not in ("rgba(0, 0, 0, 0)", "transparent"), scrim
+    finally:
+        context.close()
+
+
+def _scroll_page(page, y):
+    page.evaluate("y => window.scrollTo(0, y)", y)
+    page.wait_for_function("y => Math.abs(window.scrollY - y) < 2", arg=y)
+
+
+def test_tapping_the_active_tab_scrolls_to_the_top_without_loading_the_page_again(
+        new_context, app):
+    context, page = _open(new_context, app, {"width": 390, "height": 480})
+    try:
+        page.evaluate("() => { window.__sameDocument = true; }")
+        height = page.evaluate("() => document.documentElement.scrollHeight")
+        assert height > 700, height
+        _scroll_page(page, 300)
+        page.locator(".tab-bar__link--active").click()
+        page.wait_for_function("() => window.scrollY < 2", timeout=10000)
+        assert page.evaluate("() => window.__sameDocument === true")
+        assert page.url.rstrip("/").endswith("/devices/%s" % app.fleet.live.id)
+    finally:
+        context.close()
+
+
+def test_tapping_another_tab_still_navigates(new_context, app):
+    context, page = _open(new_context, app, VIEWPORT_PHONE)
+    try:
+        page.evaluate("() => { window.__sameDocument = true; }")
+        other = page.locator(".tab-bar__link:not(.tab-bar__link--active)[href]").first
+        href = other.get_attribute("href")
+        other.click()
+        page.wait_for_url("**" + href.split("?")[0])
+        page.locator(".tab-bar").wait_for(state="visible")
+        assert page.evaluate("() => window.__sameDocument === undefined")
+    finally:
+        context.close()

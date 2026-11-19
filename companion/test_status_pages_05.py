@@ -137,7 +137,7 @@ def test_23_06_home_declares_the_regions_it_actually_renders(tmp_path):
         "a region that silently never refreshes" % (missing,))
     home_list = registry[layout.REFRESH_PAGE_HOME]
     for needle in (
-            "preview-frame", "home-flights", "home-facts", "home-frame-state",
+            "home-flight", "home-flights", "home-facts", "home-frame-state",
             "page-header__freshness"):
         assert any(needle in selector for selector in home_list), (
             "expected Home's swap regions to cover %r, got %r" % (needle, home_list))
@@ -501,7 +501,7 @@ def test_shell_has_no_theme_or_language_form_and_account_has_both_in_order():
 
 
 def test_french_shell_nav_reads_the_locked_french_labels():
-    """under lang='fr' the personal nav reads Accueil/Historique des vols/Lieu et détection/
+    """under lang='fr' the personal nav reads Accueil/Vols/Lieu/
     Style/Compagnies and the Console nav reads Flotte/Utilisateurs/
     Éditeur (the page itself is titled Éditeur de compagnies)"""
     try:
@@ -510,8 +510,8 @@ def test_french_shell_nav_reads_the_locked_french_labels():
         console = layout.page_shell(title="Fleet", active="fleet", body="", ui_theme="auto")
     finally:
         prefs.set_request_prefs(lang="en")
-    for label in ("Accueil", "Historique des vols", "Lieu et détection", "Style",
-                  "Airlines"):
+    for label in ("Accueil", "Vols", "Lieu", "Style",
+                  "Compagnies"):
         assert label in personal, "expected the French nav label %r in the personal shell" % (label,)
     for label in ("Flotte", "Utilisateurs", "Éditeur"):
         assert label in console, "expected the French nav label %r in the Console shell" % (label,)

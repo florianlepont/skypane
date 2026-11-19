@@ -6,8 +6,7 @@ agree. Nothing here reads storage: callers pass the selection
 (`server.detection.current_selection()`) and the name of the device's
 usable location, if it has one.
 """
-from companion import i18n, prefs, ui_groups
-from companion.layout import escape_html
+from companion import i18n, prefs, ui_components
 from companion.pages import detection_page
 from server import airports, detection
 
@@ -21,14 +20,9 @@ SUMMARY_POSITION_DETAIL = i18n.msg(
     "detection.summary_position_detail", "In the air, lowest first.")
 LEGACY_PILL = i18n.msg("detection.legacy_runway_pill", "Runway %(number)s")
 
-CARD_POSITION_TITLE = i18n.msg("detection.card_position_title", "Position mode")
-CARD_RUNWAY_TITLE = i18n.msg("detection.card_runway_title", "Airport & runway mode")
-CARD_NO_PLACE_TITLE = i18n.msg("detection.card_no_place_title", "No place set")
-CARD_NO_PLACE_DETAIL = i18n.msg(
-    "detection.card_no_place_detail",
-    "Position mode needs a place. Until then the frame follows runway "
-    "%(runway)s at %(airport)s.")
-CARD_EDIT_HINT = i18n.msg("detection.card_edit_hint", "Edit detection")
+PILL_RUNWAY = i18n.msg("detection.pill_runway", "%(airport)s \u00b7 runway %(runway)s")
+PILL_POSITION = i18n.msg("detection.pill_position", "%(location)s \u00b7 %(radius)d km radius")
+PILL_NO_PLACE = i18n.msg("detection.pill_no_place", "No place set")
 
 LEGACY_PILL_NUMBER = {"3": "3", "06-24": "4", "02-20": "2"}
 _LEGACY_BY_RUNWAY = {pair: key for key, pair in detection.LEGACY_RUNWAY_MAP.items()}
@@ -97,39 +91,33 @@ def summary_values(selection, location_name):
         "runway": designator, "airport": airport_label(airport)}
     number = LEGACY_PILL_NUMBER.get(display_id)
     pill = (
-        '<span class="banner__pill">%s</span>' % escape_html(
-            i18n.t(LEGACY_PILL) % {"number": number}) if number else "")
+        ui_components.pill_html(i18n.t(LEGACY_PILL) % {"number": number}) if number else "")
     return (value, i18n.t(SUMMARY_RUNWAY_DETAIL), pill,
             detection.tag_text(display_id), detection.empty_heading(display_id))
 
 
-def _runway_parts(selection):
-    airport = airports.find_airport(selection["airport"])
-    return {"runway": selection["runway"], "airport": airport_label(airport)}
-
-
-def home_card_html(device_cfg, place, href):
-    """Home's "Detection" group: one link row that names the active mode and
-    what it follows, leading to the Location page at `href`. `place` is the
-    frame's own position row (or None); a position setting without a usable
-    place falls back to the default runway, as the frame itself does."""
+def home_place_text(device_cfg, place):
+    """`(icon_id, text)` for Home's place pill: what the saved setting
+    follows, in a few words. `place` is the frame's own position row (or
+    None); a position setting without a usable place reads as unset, as the
+    Detection page does."""
     selection = detection.current_selection(device_cfg)
-    place_name = (
-        place["name"] if place is not None and detection.inside_france(
-            place["latitude"], place["longitude"]) else None)
-    if selection["mode"] == detection.POSITION_MODE and place_name is not None:
-        icon, title = "icon-locate", i18n.t(CARD_POSITION_TITLE)
-        detail = summary_values(selection, place_name)[0]
-    elif selection["mode"] == detection.POSITION_MODE:
-        parts = _runway_parts(detection.current_selection({}))
-        icon, title = "icon-warning", i18n.t(CARD_NO_PLACE_TITLE)
-        detail = i18n.t(CARD_NO_PLACE_DETAIL) % parts
-    else:
-        icon, title = "icon-plane", i18n.t(CARD_RUNWAY_TITLE)
-        detail = summary_values(selection, None)[0]
-    hint = '<span class="visually-hidden">. %s</span>' % escape_html(i18n.t(CARD_EDIT_HINT))
-    row = ui_groups.row(
-        label_html=escape_html(title) + hint, icon=icon, detail=detail, href=href)
-    return ui_groups.group(
-        row, label=i18n.t(detection_page.SECTION_DETECTION), label_id="home-detection",
-        extra_class="home-section home-detection")
+    if selection["mode"] != detection.POSITION_MODE:
+        return "icon-pin", _runway_pill_text(selection)
+    inside = place is not None and detection.inside_france(
+        place["latitude"], place["longitude"])
+    if not inside:
+        return "icon-warning", i18n.t(PILL_NO_PLACE)
+    return "icon-locate", i18n.t(PILL_POSITION) % {
+        "location": place["name"], "radius": selection["radius_km"]}
+
+
+def _runway_pill_text(selection):
+    """"ORY · runway 06/24": the airport's code and the runway number the
+    frame follows (the short legacy number for an Orly runway)."""
+    airport = airports.find_airport(selection["airport"])
+    display_id = display_id_for(selection["airport"], selection["runway"])
+    runway = LEGACY_PILL_NUMBER.get(display_id) or selection["runway"]
+    return i18n.t(PILL_RUNWAY) % {
+        "airport": (airport.iata or airport.icao) if airport else selection["airport"],
+        "runway": runway}

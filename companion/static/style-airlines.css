@@ -281,6 +281,9 @@
 }
 
 .collection-card > .rarity-pill--new {
+  min-height: 20px;
+  height: 20px;
+  padding: 0 8px;
   position: absolute;
   top: var(--space-xs);
   right: var(--space-sm);
@@ -326,112 +329,131 @@
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-.collection-card__rarity {
-  font-weight: var(--weight-semibold);
-  color: var(--color-text);
+.collection-card__pill {
+  display: flex;
+  margin-top: auto;
+  padding-top: var(--space-xs);
 }
 
-.collection-card__rarity--occasional {
-  color: var(--color-rarity-occasional);
-}
-
-.collection-card__rarity--rare {
-  color: var(--color-rarity-rare);
-}
-
+/* The rarity as a filled pill: a dot and the word, three tones that keep the
+ * names (Regular neutral, Occasional green, Rare violet). */
 .rarity-pill {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
-  height: 20px;
-  padding: 0 8px;
-  border: 1px solid color-mix(in srgb, var(--color-text) 30%, transparent);
+  min-height: 26px;
+  padding: 0 10px;
   border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--color-text) 9%, var(--color-dominant));
   font-size: var(--font-caption-size);
-  font-weight: var(--weight-semibold);
+  font-weight: var(--weight-bold);
+  line-height: 1;
+  text-align: center;
   color: var(--color-text);
+  white-space: nowrap;
 }
 
 .rarity-pill--occasional {
   color: var(--color-rarity-occasional);
-  border-color: var(--color-rarity-occasional);
-  background: color-mix(in srgb, var(--color-rarity-occasional) 10%, var(--color-dominant));
+  background: color-mix(in srgb, var(--color-rarity-occasional) var(--rarity-tint), var(--color-dominant));
 }
 
 .rarity-pill--rare {
   color: var(--color-rarity-rare);
-  border-color: var(--color-rarity-rare);
-  background: color-mix(in srgb, var(--color-rarity-rare) 10%, var(--color-dominant));
-}
-
-.rarity-pill--occasional .rarity-dot {
-  background: var(--color-rarity-occasional);
-}
-
-.rarity-pill--rare .rarity-dot {
-  background: var(--color-rarity-rare);
-}
-
-.type-chips {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: var(--space-xs);
-}
-
-.type-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 2px 8px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-pill);
-}
-
-.type-chip__tag {
-  font-size: var(--font-caption-size);
-  font-weight: var(--weight-semibold);
-}
-
-.type-chip--occasional {
-  color: var(--color-rarity-occasional);
-  border-color: var(--color-rarity-occasional);
-}
-
-.type-chip--rare {
-  color: var(--color-rarity-rare);
-  border-color: var(--color-rarity-rare);
-}
-
-.rarity-dots {
-  display: inline-flex;
-  gap: 3px;
+  background: color-mix(in srgb, var(--color-rarity-rare) var(--rarity-tint), var(--color-dominant));
 }
 
 .rarity-dot {
   display: block;
-  width: 6px;
-  height: 6px;
+  flex: none;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
-  background: var(--color-text);
+  background: currentColor;
+}
+
+/* The detail sheet is one grid: the picture, the name (the dialog's title)
+ * over the rarity pill, the round Close at the corner, then the facts in one
+ * card. Everything shows at once, so nothing scrolls inside it, and the
+ * Close at the top is the only closing control (the foot strip is hidden). */
+dialog.collection-sheet.modal[open],
+.collection-sheet.modal:target:not(.is-modal) {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "art title close"
+    "art pill close"
+    "facts facts facts";
+  align-items: center;
+  gap: 0;
+  padding-bottom: calc(var(--space-lg) + var(--safe-bottom, 0px));
+  overflow: visible;
+}
+
+dialog.collection-sheet .modal__head,
+dialog.collection-sheet .modal__head > div,
+dialog.collection-sheet .modal__body {
+  display: contents;
+}
+
+dialog.collection-sheet .modal__actions {
+  display: none;
+}
+
+.collection-sheet .modal__title {
+  grid-area: title;
+  align-self: end;
+  padding-top: 0;
+}
+
+.collection-sheet a.modal__close {
+  grid-area: close;
+  align-self: start;
+  width: 44px;
+  height: 44px;
+  margin: 0 0 0 var(--space-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-dominant);
+  color: var(--color-text);
 }
 
 .collection-sheet__art {
+  grid-area: art;
   display: flex;
-  justify-content: center;
+  margin-right: var(--space-md);
 }
 
 .collection-sheet__art .collection-card__image {
-  width: auto;
+  display: block;
+  width: 110px;
   max-width: 100%;
-  max-height: 160px;
+  height: auto;
+  border-radius: var(--radius-control);
   background: var(--picture-placeholder);
 }
 
-/* The facts read as rows: the label at the left, the value at the right,
- * a hairline between them; the wide facts stack. */
+.collection-sheet__rarity {
+  grid-area: pill;
+  align-self: start;
+  display: flex;
+  margin-top: var(--space-xs);
+}
+
+.collection-sheet__unseen {
+  grid-area: facts;
+  margin: var(--space-md) 0 0;
+}
+
+/* The facts read as rows in one card: the label at the left, the value at
+ * the right, a hairline between them. */
 .collection-facts {
+  grid-area: facts;
   display: block;
-  margin: 0;
+  margin: var(--space-md) 0 0;
+  padding: 0 var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
 }
 
 .collection-facts > div {
@@ -445,14 +467,7 @@
 }
 
 .collection-facts > div + div {
-  border-top: 1px solid var(--glass-hairline);
-}
-
-.collection-facts > .collection-facts__wide {
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: center;
-  gap: var(--space-xs);
+  border-top: 1px solid var(--color-border);
 }
 
 .collection-facts dt {
@@ -464,18 +479,9 @@
 .collection-facts dd {
   margin: 0;
   min-width: 0;
+  font-weight: var(--weight-semibold);
   text-align: right;
   overflow-wrap: anywhere;
-}
-
-@media (max-width: 699.98px) {
-  .collection-sheet__art .collection-card__image {
-    max-height: 72px;
-  }}
-
-.collection-sheet__note {
-  margin: 0;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
 @media (min-width: 700px) {
@@ -491,65 +497,133 @@
   display: none;
 }
 
-.airlines-table .airline-group--gap {
-  background: color-mix(in srgb, var(--color-status-warn) 12%, var(--glass-solid));
-  border-color: var(--color-status-warn);
+/* A phone shows each table as one card of one-line rows under a small label
+ * (the table's caption, lifted above the card). A table whose rows the filter
+ * hid all goes away with its label. */
+table.airlines-table {
+  position: relative;
+  margin: calc(var(--space-lg) + var(--space-md)) 0 var(--space-md);
 }
 
-/* The amber "Unidentified" chip of a prefix the table cannot name yet. */
-.airlines-gap-chip {
-  display: inline-flex;
-  align-items: center;
-  height: 22px;
-  padding: 0 var(--space-sm);
-  border-radius: var(--radius-pill);
-  background: color-mix(in srgb, var(--color-status-warn) 26%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-status-warn) 60%, transparent);
-  color: var(--color-text);
+/* Below 70rem each table is a solid card; from 70rem it is the glass table of
+ * the shared stylesheet. */
+@media (max-width: 69.99rem) {
+  table.airlines-table {
+    background: var(--glass-solid);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-card);
+  }
+}
+
+.airlines-table:not(:has(.airline-group:not([hidden]))) {
+  display: none;
+}
+
+.airlines-label {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: var(--space-md);
+  margin: 0;
   font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  text-align: left;
+  white-space: nowrap;
 }
 
+.airlines-table .airline-group {
+  margin: 0;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.airlines-table .airline-group:not([hidden]) ~ .airline-group:not([hidden]) {
+  border-top: 1px solid var(--color-border);
+}
+
+.airlines-table .airline-group:last-of-type .airlines-subrow:last-child {
+  border-radius: 0 0 var(--radius-card) var(--radius-card);
+}
+
+/* An airline's row on a phone is one line: its picture, its name over
+ * `AFR · A320 · 37 views` in small mono, and the "..." menu. The row opens
+ * on a tap: the chevron's summary is laid over the whole row, under the
+ * picture and the menu, and the text lets the tap through to it. */
 .airlines-row {
+  position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 44px;
-  grid-template-areas:
-    "name name menu"
-    "prefixes views views"
-    "art seen seen";
+  grid-template-columns: 84px minmax(0, 1fr) 44px;
+  grid-template-areas: "art name menu";
   align-items: center;
-  gap: var(--space-sm) var(--space-md);
-  padding: var(--space-md);
+  gap: 0 12px;
+  min-height: 60px;
+  padding: var(--space-sm) 12px;
 }
 
 /* An unidentified prefix is one cell holding its resolve form. */
 .airlines-row--gap {
-  grid-template-columns: minmax(0, 1fr);
-  grid-template-areas: "resolve";
+  display: block;
+  min-height: 0;
+  padding: 0;
+}
+
+.airlines-subhead {
+  display: none;
+}
+
+.airlines-subhead__text {
+  display: block;
+  margin: 0;
+  padding: var(--space-md) var(--space-md) var(--space-sm);
+  font-size: var(--font-caption-size);
+  font-weight: var(--weight-semibold);
+  text-align: left;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.airline-group:has(details.airlines-expand[open]) .airlines-subhead {
+  display: block;
 }
 
 .airlines-subrow {
   display: none;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 44px;
+  grid-template-columns: 84px minmax(0, 1fr) auto 44px;
   grid-template-areas:
-    "name name menu"
-    "art art art"
-    "views views views"
-    "seen seen seen";
+    "thumb name name name"
+    "thumb state state state"
+    "act act act menu";
   align-items: center;
-  gap: var(--space-sm) var(--space-md);
-  padding: var(--space-md);
-  border-top: 1px solid var(--glass-hairline);
-  background: color-mix(in srgb, var(--color-text) 5%, transparent);
-  border-radius: 0 0 var(--radius-card) var(--radius-card);
+  gap: 2px var(--space-md);
+  margin: 0 var(--space-md) var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--glass-solid);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
 }
+
+.airline-group:has(details.airlines-expand[open]) {
+  background: var(--color-secondary);
+}
+
 
 .airline-group:has(details.airlines-expand[open]) .airlines-subrow {
   display: grid;
 }
 
+.airline-group:has(details.airlines-expand[open]) > .airlines-row {
+  background: var(--glass-solid);
+}
+
+.airlines-table .airline-group:first-of-type:has(details.airlines-expand[open]) {
+  border-radius: var(--radius-card) var(--radius-card) 0 0;
+}
+
 /* A type row has no prefixes: the empty cell would open a column of its own. */
-.airlines-subrow .airlines-cell--prefixes {
+.airlines-subrow .airlines-cell--prefixes,
+.airlines-subrow .airlines-cell--views {
   display: none;
 }
 
@@ -563,7 +637,7 @@
 .airlines-cell--name { grid-area: name; }
 
 .airlines-cell--resolve {
-  grid-area: resolve;
+  display: block;
   font-weight: var(--weight-regular);
 }
 
@@ -573,29 +647,58 @@
 
 .airlines-namebox {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 0 var(--space-xs);
+  gap: 0;
   min-width: 0;
 }
+
+/* The separate cells repeat the meta line on a phone: hidden there. */
+.airlines-row > .airlines-cell--prefixes,
+.airlines-row > .airlines-cell--views,
+.airlines-row > .airlines-cell--seen {
+  display: none;
+}
+
+.airlines-meta {
+  flex: 1 1 100%;
+  min-width: 0;
+  font-size: var(--font-caption-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  overflow-wrap: anywhere;
+}
+
 .airlines-cell--prefixes {
   grid-area: prefixes;
-  font-size: var(--font-label-size);
+  font-size: var(--font-caption-size);
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-.airlines-cell--art { grid-area: art; }
+.airlines-cell--art {
+  position: relative;
+  z-index: 1;
+  grid-area: art;
+}
 
-/* A type row's picture and its state word sit on one line. */
+.airlines-row > .airlines-cell--art .airlines-deftype {
+  display: none;
+}
+
+/* A type row's picture and its state word sit in the card's grid. */
 .airlines-subrow .airlines-cell--art {
-  white-space: nowrap;
+  display: contents;
 }
 
-.airlines-subrow .airlines-cell--art > * {
-  vertical-align: middle;
+.airlines-subrow .airlines-cell--art > .airlines-thumb,
+.airlines-subrow .airlines-cell--art > .airlines-art {
+  grid-area: thumb;
 }
 
-.airlines-subrow .airlines-state {
-  margin-left: var(--space-sm);
+.airlines-subrow .airlines-cell--art > .airlines-state,
+.airlines-subrow .airlines-cell--art > .airlines-uses {
+  grid-area: state;
+  margin: 0;
+  font-size: var(--font-caption-size);
 }
 
 .airlines-cell--views {
@@ -611,36 +714,39 @@
   font-size: var(--font-label-size);
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
-.airlines-cell--menu { grid-area: menu; justify-self: end; }
+
+.airlines-subrow .airlines-cell--seen {
+  grid-area: act;
+  justify-self: end;
+}
+
+.airlines-cell--menu {
+  position: relative;
+  z-index: 1;
+  grid-area: menu;
+  justify-self: end;
+}
 
 .airlines-cell--type {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-xs) var(--space-sm);
-  font-size: var(--font-label-size);
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-  padding-left: calc(44px + var(--space-xs));
+  font-size: var(--font-body-size);
+  color: var(--color-text);
 }
 
 /* An aircraft designator, set like code. */
 .airlines-type {
-  padding: 2px var(--space-sm);
-  border: 1px solid var(--glass-hairline);
-  border-radius: var(--radius-control);
-  background: var(--glass-solid);
   color: var(--color-text);
   font-family: var(--font-mono, ui-monospace, monospace);
   font-weight: var(--weight-semibold);
 }
 
 .airlines-pill {
-  display: inline-flex;
   flex: none;
-  align-items: center;
   gap: var(--space-xs);
-  height: 24px;
-  padding: 0 var(--space-sm);
+  padding-inline: var(--space-sm);
   border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--color-text) 8%, transparent);
   color: var(--color-text);
@@ -649,8 +755,28 @@
   white-space: nowrap;
 }
 
+.airlines-cell--type > .airlines-pill {
+  margin-left: var(--space-sm);
+}
+
 .airlines-pill--star {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
   background: color-mix(in srgb, var(--color-status-warn) 20%, transparent);
+}
+
+/* Without text-box and the cap unit the pills centre by flex alignment. */
+@supports not ((text-box: trim-both cap alphabetic) and (padding: 1cap)) {
+  .airlines-pill {
+    display: inline-flex;
+    align-items: center;
+    height: 24px;
+  }
+
+  .airlines-gap__prefix {
+    padding-block: 6px;
+  }
 }
 
 .airlines-state {
@@ -660,6 +786,7 @@
 }
 
 .airlines-cell--art .airlines-thumb {
+  width: 84px;
   vertical-align: middle;
 }
 
@@ -683,41 +810,50 @@
   margin-right: 0;
 }
 
-.airlines-name {
-  display: flex;
-  flex: 1;
-  align-items: center;
-  gap: var(--space-xs);
-  min-width: 0;
-  margin: 0;
+/* On a phone the chevron summary covers the row and shows its chevron just
+ * left of the menu. */
+.airlines-row .airlines-expand {
+  position: static;
+  width: 0;
+  height: 0;
+  flex: none;
 }
 
-/* A name that is not editable in place sits where the editable ones put their
- * text (their border and padding), beside the badge on one line. */
+.airlines-row .airlines-expand--none {
+  display: none;
+}
+
+.airlines-row .airlines-expand > summary {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: auto;
+  min-height: 0;
+  border-radius: inherit;
+  pointer-events: auto;
+}
+
+.airlines-row .airlines-expand > summary::before {
+  content: none;
+}
+
+.airlines-row .airlines-cell--name {
+  pointer-events: none;
+}
+
+.airlines-row .airlines-expand > summary:focus-visible {
+  outline-offset: -2px;
+}
+
+/* The airline's name: plain text beside its badge, on one line. */
 .airlines-name--fixed {
   display: block;
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-width: 0;
-  padding-inline: calc(var(--space-sm) + 1px);
+  padding-inline: 0;
+  font-size: var(--font-body-size);
   font-weight: var(--weight-semibold);
   overflow-wrap: anywhere;
-}
-
-.airlines-name input[type="text"] {
-  flex: 1;
-  min-width: 0;
-  box-sizing: border-box;
-  font-weight: var(--weight-semibold);
-  background: transparent;
-  border: 1px solid transparent;
-  border-bottom: 1px dashed var(--color-border);
-  border-radius: var(--radius-control);
-}
-
-.airlines-name input[type="text"]:hover,
-.airlines-name input[type="text"]:focus {
-  background: var(--color-dominant);
-  border-color: var(--color-border);
 }
 
 .airlines-art {
@@ -727,16 +863,18 @@
   margin: 0;
 }
 
+/* The picture box: 84 by 44, the picture contained in it. */
 .airlines-thumb {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: var(--space-sm);
   min-width: 44px;
   min-height: 44px;
   box-sizing: border-box;
   padding: var(--space-xs);
   background: color-mix(in srgb, var(--color-text) 6%, transparent);
-  border-radius: var(--radius-control);
+  border-radius: 12px;
   color: var(--color-accent);
   text-decoration: none;
   cursor: pointer;
@@ -748,13 +886,16 @@
 }
 
 .airlines-thumb .airline-card__placeholder {
-  width: 88px;
+  width: 100%;
+  height: 100%;
+  min-height: 34px;
   margin: 0;
+  aspect-ratio: auto;
 }
 
 .airlines-thumb__image {
   display: block;
-  width: 88px;
+  width: 76px;
   height: auto;
   aspect-ratio: 450 / 132;
   object-fit: contain;
@@ -780,22 +921,28 @@
   cursor: default;
 }
 
-/* The inline action of a type row: link-like text with a 44px target. */
+/* The inline action of a type row: a quiet bordered button with a 44px
+ * target (40 tall, the row's padding completing the target). */
 .airlines-act {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   min-height: 44px;
-  padding: 0 var(--space-sm);
-  background: none;
-  border: 0;
+  padding: 0 18px;
+  box-sizing: border-box;
+  background: var(--glass-solid);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-control);
   box-shadow: none;
-  color: var(--color-text);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
   font-size: var(--font-label-size);
-  font-weight: var(--weight-semibold);
-  text-decoration: underline;
-  text-underline-offset: 3px;
+  font-weight: var(--weight-regular);
+  white-space: nowrap;
   cursor: pointer;
+}
+
+.airlines-act__text {
+  text-box: trim-both cap alphabetic;
 }
 
 .airlines-act:hover {
@@ -807,63 +954,138 @@
   outline-offset: 1px;
 }
 
-/* The in-place resolve form of an unidentified prefix. */
-.airlines-resolve {
-  display: grid;
-  gap: var(--space-sm);
-  margin: 0;
+/* An unidentified prefix: the prefix, what was seen, the
+ * "Name it" button; the dialog that names it lives in the same cell. */
+.airlines-gap {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm) var(--space-md);
+  min-width: 0;
+  min-height: 64px;
+  padding: var(--space-sm) var(--space-md);
 }
 
-.airlines-resolve__cap {
+.airline-group--gap:not([hidden]) ~ .airline-group--gap:not([hidden]) {
+  border-top: 1px solid var(--color-border);
+}
+
+.airlines-gap__prefix {
+  flex: none;
+  min-width: 50px;
+  box-sizing: border-box;
+  padding-inline: var(--space-sm);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--color-text) 8%, transparent);
+  font-size: var(--font-caption-size);
+  font-weight: var(--weight-bold);
+  text-align: center;
+}
+
+.airlines-gap__body {
   display: flex;
-  flex-wrap: wrap;
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  min-width: 0;
+}
+
+.airlines-gap__meta {
+  font-size: var(--font-caption-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  overflow-wrap: anywhere;
+}
+
+.airlines-gap > .btn {
+  flex: none;
+}
+
+/* An airline known by name only: its name over its prefix, and the button
+ * that adds its first artwork. Read-only: the row holds no form. */
+.airlines-known {
+  display: flex;
   align-items: center;
-  gap: var(--space-xs) var(--space-sm);
-  margin: 0;
-  font-size: var(--font-label-size);
+  gap: var(--space-sm) var(--space-md);
+  min-width: 0;
+  min-height: 60px;
+  padding: var(--space-sm) var(--space-md);
+}
+
+.airline-group--known:not([hidden]) ~ .airline-group--known:not([hidden]) {
+  border-top: 1px solid var(--color-border);
+}
+
+.airlines-known__who {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.airlines-known__name {
+  font-weight: var(--weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.airlines-known__prefix {
+  font-size: var(--font-caption-size);
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-.airlines-resolve__fields {
-  display: flex;
+.airlines-known > .airlines-known__add {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  min-height: 44px;
+  min-width: 44px;
+  text-align: center;
+}
+
+/* The filter chips: five segments do not fit a phone's line, so they wrap
+ * onto a second row there instead of pushing the page sideways. */
+.filter-bar--chips .filter-bar__chips {
   flex-wrap: wrap;
+  height: auto;
+}
+
+.filter-bar--chips .filter-chip {
+  flex: 1 1 auto;
+}
+
+@media (min-width: 960px) {
+  .filter-bar--chips > .filter-bar__chips {
+    flex-wrap: nowrap;
+  }
+}
+
+/* The default type column: the picture and the type's code on one line. */
+.airlines-deftype-cell {
+  display: inline-flex;
   align-items: center;
   gap: var(--space-sm);
+  white-space: nowrap;
 }
 
-.airlines-resolve__fields input[type="text"] {
-  flex: 0 1 280px;
-  min-width: 0;
-  min-height: 44px;
-  box-sizing: border-box;
+.airlines-deftype {
+  font-size: var(--font-caption-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-.airlines-resolve__fields select {
-  flex: 0 1 180px;
-  min-width: 0;
-  min-height: 44px;
+/* The "..." menu: even padding, every item a 44px line, no margin from the
+ * forms the items sit in. */
+.airlines-table .row-menu__panel {
+  display: grid;
+  gap: 0;
+  min-width: 15.5rem;
+  padding: var(--space-xs);
 }
 
-.airlines-resolve__actions {
-  display: flex;
-  flex: none;
-  gap: var(--space-sm);
+.airlines-table .row-menu__item {
+  border-radius: var(--radius-control);
 }
 
-@media (max-width: 559.98px) {
-  .airlines-resolve__fields > * {
-    flex: 1 1 100%;
-  }
-
-  .airlines-resolve__fields select {
-    width: 100%;
-  }
-
-  .airlines-resolve__actions > * {
-    flex: 1 1 0;
-  }}
-
-.airlines-name__save,
 .airlines-art__upload {
   min-height: 44px;
   min-width: 44px;
@@ -880,23 +1102,56 @@
     display: table-header-group;
   }
 
-  .airlines-table .airline-group--gap {
-    background: color-mix(in srgb, var(--color-status-warn) 18%, transparent);
+  .airlines-table--gaps,
+  .airlines-table--gaps tbody {
+    display: block;
   }
 
   .airlines-row {
     display: table-row;
+    min-height: 0;
     padding: 0;
   }
 
+  .airlines-row--gap {
+    display: block;
+  }
+
+  .airlines-row > .airlines-cell--prefixes,
+  .airlines-row > .airlines-cell--views,
+  .airlines-row > .airlines-cell--seen {
+    display: table-cell;
+  }
+
+  .airlines-meta {
+    display: none;
+  }
+
+  .airlines-row > .airlines-cell--art .airlines-deftype {
+    display: inline;
+  }
+
   .airlines-subrow {
+    display: none;
+    margin: 0;
     padding: 0;
-    background: color-mix(in srgb, var(--color-text) 5%, transparent);
+    background: var(--color-secondary);
     border: 0;
+    border-radius: 0;
   }
 
   .airline-group:has(details.airlines-expand[open]) .airlines-subrow {
     display: table-row;
+  }
+
+  .airline-group:has(details.airlines-expand[open]) .airlines-subhead {
+    display: table-row;
+  }
+
+  .airlines-subhead__text {
+    display: table-cell;
+    padding: var(--space-sm) var(--space-md) var(--space-xs) calc(44px + var(--space-md));
+    background: var(--color-secondary);
   }
 
   .airlines-cell {
@@ -907,11 +1162,96 @@
     border-bottom: 1px solid var(--glass-hairline);
   }
 
+  .airlines-cell--resolve {
+    display: block;
+    height: auto;
+    padding: 0;
+    border: 0;
+  }
+
+  .airline-group:last-of-type > .airlines-row:last-child > .airlines-cell {
+    border-bottom: 0;
+  }
+
+  /* The row's own chevron is the narrow first column's; the summary is the
+   * 44px box again. */
+  .airlines-row .airlines-expand {
+    position: relative;
+    width: 44px;
+    height: auto;
+  }
+
+  .airlines-row .airlines-expand--none {
+    display: block;
+  }
+
+  .airlines-row .airlines-expand > summary {
+    position: static;
+    inset: auto;
+    width: 44px;
+    min-height: 44px;
+  }
+
+  .airlines-row .airlines-expand > summary::before {
+    content: "";
+  }
+
+  .airlines-row .airlines-cell--name {
+    pointer-events: auto;
+  }
+
+  .airlines-cell--art {
+    z-index: auto;
+  }
+
+  .airlines-cell--prefixes {
+    font-size: var(--font-caption-size);
+  }
+
+  .airlines-deftype {
+    font-size: var(--font-caption-size);
+  }
+
+  .airlines-namebox {
+    flex-wrap: nowrap;
+  }
+
+  .airlines-name--fixed {
+    flex: 1 1 auto;
+    padding-inline: var(--space-sm);
+  }
+
   /* A type row keeps its empty prefixes and action cells: dropping either
    * would pull the following cells one column to the left. */
+  .airlines-act {
+    padding: 0 12px;
+    font-size: var(--font-caption-size);
+  }
+
   .airlines-cell--act:empty,
-  .airlines-subrow .airlines-cell--prefixes {
+  .airlines-subrow .airlines-cell--prefixes,
+  .airlines-subrow .airlines-cell--views {
     display: table-cell;
+  }
+
+  .airlines-subrow .airlines-cell--art {
+    display: table-cell;
+  }
+
+  .airlines-subrow .airlines-cell--art > .airlines-state,
+  .airlines-subrow .airlines-cell--art > .airlines-uses {
+    margin: 0;
+    font-size: var(--font-label-size);
+  }
+
+  .airlines-cell--type {
+    display: table-cell;
+    padding-left: calc(44px + var(--space-md) + var(--space-xs));
+  }
+
+  .airlines-subrow .airlines-cell--seen {
+    justify-self: auto;
+    padding-inline: var(--space-sm);
   }
 
   /* The artwork column is narrower than the thumbnail plus its state word:
@@ -927,9 +1267,15 @@
   }
 
   /* Counts and dates stay on one line. */
-  .airlines-cell--views,
+  .airlines-cell--views {
+    justify-self: auto;
+    font-size: var(--font-body-size);
+    white-space: nowrap;
+  }
+
   .airlines-cell--seen,
   .airlines-cell--menu {
+    z-index: auto;
     justify-self: auto;
     white-space: nowrap;
   }
@@ -939,26 +1285,20 @@
     vertical-align: middle;
     padding: var(--space-sm) var(--space-md);
     border-bottom: 1px solid var(--glass-hairline);
-    font-size: 12px;
+    font-size: 13px;
     font-weight: var(--weight-semibold);
     text-transform: none;
     text-align: left;
     color: color-mix(in srgb, var(--color-text) 70%, transparent);
   }
 
-  .airlines-col--name { width: 36%; }
+  .airlines-col--name { width: 34%; }
   .airlines-col--prefixes { width: 8%; }
   .airlines-col--art { width: 17%; }
   .airlines-col--views { width: 10%; }
-  .airlines-col--menu { width: 112px; }
+  .airlines-col--seen { width: 23%; }
+  .airlines-col--menu { width: 72px; }
 
-  /* The airline name input ends in an ellipsis rather than a hard clip. */
-  .airlines-name input[type="text"] {
-    text-overflow: ellipsis;
-  }}
-
-.collection-facts > .collection-facts__wide dd {
-  text-align: left;
 }
 
 /* Airline card unlock: a card the script plays once gets a glint layer and
@@ -971,4 +1311,13 @@
 
 .collection-item[data-unlock] .collection-card {
   position: relative;
+}
+/* The name field's suggestions come from a datalist; its arrow is dropped so
+ * the field reads as plain text input, like the rename field. */
+.airlines-gap dialog input[list]::-webkit-calendar-picker-indicator {
+  display: none !important;
+}
+
+.airlines-subrow .row-menu__panel {
+  min-width: 17.5rem;
 }

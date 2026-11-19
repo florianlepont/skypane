@@ -517,10 +517,34 @@ def test_the_desktop_search_wraps_left_aligned_under_the_title_when_the_row_is_n
         context.close()
 
 
+@pytest.mark.parametrize("lang", ["en", "fr"])
+@pytest.mark.parametrize("width", [320, 360, 480, 768, 1280])
+def test_the_search_stays_on_the_title_row_at_every_width(new_context, few, width, lang):
+    """From 320 to 1280px the search field shares the title's row: its top is not below the
+    title's bottom, the field keeps its 44px height and an accessible name, and the page never
+    scrolls sideways."""
+    context, page = _open(new_context, few, {"width": width, "height": 800}, lang)
+    try:
+        field = page.locator(".filter-bar--title").first
+        box = field.bounding_box()
+        title = page.locator(".page-title").first.bounding_box()
+        assert box["y"] < title["y"] + title["height"], (box, title)
+        assert box["height"] >= 43.5, box
+        control = page.locator("[data-flights-search], .filter-bar--title button, "
+                               ".filter-bar--title [role=search] button").first
+        assert (control.get_attribute("aria-label") or field.get_attribute("aria-label")
+                or page.locator(FIELD).first.get_attribute("aria-label")
+                or page.locator(".filter-bar--title label").count()), "the search needs a name"
+        failure = _assert_no_page_overflow(page, "Flights header %d" % width, expected_width=width)
+        assert not failure, failure
+    finally:
+        context.close()
+
+
 @pytest.mark.parametrize("viewport", [VIEWPORT_MIN_SUPPORTED, VIEWPORT_PHONE], ids=["360", "390"])
 def test_a_phone_row_without_a_render_leads_with_a_stand_in_and_no_empty_gutter(
         new_context, bare, viewport):
-    """With no archived render a phone row leads with its stand-in (a 44px box), and its text
+    """With no archived render a phone row leads with its stand-in (a 56 by 36 box), and its text
     starts right after it, not after an empty lead column."""
     context, page = _open(new_context, bare, viewport)
     try:
@@ -529,7 +553,7 @@ def test_a_phone_row_without_a_render_leads_with_a_stand_in_and_no_empty_gutter(
             " const lead = li.querySelector('.history-card__thumb').getBoundingClientRect();"
             " const text = li.querySelector('.row__text').getBoundingClientRect();"
             " return {lead: lead.width, gap: text.left - lead.right};})")
-        assert rows and all(row["lead"] == 44 and 0 <= row["gap"] <= 16 for row in rows), rows
+        assert rows and all(row["lead"] == 56 and 0 <= row["gap"] <= 16 for row in rows), rows
     finally:
         context.close()
 
@@ -638,7 +662,7 @@ def _answer_to(page, part, act):
 @pytest.mark.parametrize("viewport", [VIEWPORT_PHONE, VIEWPORT_DESKTOP], ids=["390", "1280"])
 def test_load_more_downloads_only_the_next_flights(new_context, lots, viewport):
     """each Load more step asks for the next flights alone: the second answer is no heavier than
-    the first, both far lighter than the page, and the address shown stays the plain one"""
+    the first, both lighter than the page (a row carries its thumbnail in both representations), and the address shown stays the plain one"""
     context, page = _open(new_context, lots, viewport)
     try:
         whole = len(page.content())
@@ -647,7 +671,7 @@ def test_load_more_downloads_only_the_next_flights(new_context, lots, viewport):
         _wait_count(page, selector, 2 * LIMIT)
         _url, second = _answer_to(page, "new", page.locator(MORE).click)
         _wait_count(page, selector, LOTS)
-        assert second <= first * 1.1 and first < 0.75 * whole, (first, second, whole)
+        assert second <= first * 1.1 and first < 0.85 * whole, (first, second, whole)
         assert page.url.endswith("/flights?more=2"), page.url
         # One day group and one day row, as on the page loaded whole.
         assert _count(page, "section.history-day") == 1

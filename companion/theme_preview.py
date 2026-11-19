@@ -513,7 +513,27 @@ def frame_preview_src(theme_id, state=FRAME_PREVIEW_STATE_DEPARTING, size=FRAME_
     url = "%s%s.png?state=%s&size=%s" % (FRAME_PREVIEW_ROUTE_PREFIX, theme_id, state, size)
     if layout is not None:
         url += "&layout=%s" % layout
+    version = frame_preview_version(theme_id, state, size, layout)
+    if version:
+        url += "&v=%s" % version
     return device_scope.scoped(url)
+
+
+def frame_preview_version(theme_id, state, size, layout=None, profile=None):
+    """The content address of one full-frame variant: the signature of every input
+    that changes its pixels, for the current frame's profile unless `profile` is
+    given. `None` for a placeholder or unknown value, which gets no address. The
+    route answers a URL whose `v` matches with a cache entry that never expires,
+    so an unchanged preview is not fetched again when the owner moves between tabs.
+    """
+    if (theme_id not in device_config.THEMES or state not in FRAME_PREVIEW_STATES
+            or size not in FRAME_PREVIEW_SIZES or layout_key(layout) is None):
+        return None
+    if profile is None:
+        profile = device_scope.profile_for(device_scope.current_device())
+    if _profile_segment(profile) is False:
+        return None
+    return frame_preview_signature(theme_id, state, size, layout, profile)
 
 
 def cached_preview_bytes(state_dir, theme_id, live_event=None, layout=None, profile=None):

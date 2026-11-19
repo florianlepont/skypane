@@ -67,7 +67,7 @@ def test_a_long_frame_name_never_covers_the_logo_and_wraps_inside_the_title_colu
             " const title = document.querySelector('.title-action__text').getBoundingClientRect();"
             " const pencil = document.querySelector('.title-action .btn--icon')"
             ".getBoundingClientRect();"
-            " const body = document.querySelector('.hero__body').getBoundingClientRect();"
+            " const body = document.querySelector('.home-state').getBoundingClientRect();"
             " return {brandRight: brand.right, menuLeft: menu.left, menuRight: menu.right,"
             " cut: name.scrollWidth > name.clientWidth,"
             " titleRight: title.right, titleTop: title.top, titleBottom: title.bottom,"
@@ -90,7 +90,7 @@ def test_the_flights_picture_dialog_is_one_panel_holding_the_picture_caption_and
     context, page = _open(
         new_context, app, "/devices/LIVE/flights", {"width": 1280, "height": 900}, theme="dark")
     try:
-        page.locator(".flight-picture-link").first.click()
+        page.locator("tr .flight-picture-link").first.click()
         page.wait_for_function(
             "() => { const d = document.querySelector('dialog.lightbox--picture');"
             " return d.open && getComputedStyle(d).opacity === '1'; }", timeout=10000)

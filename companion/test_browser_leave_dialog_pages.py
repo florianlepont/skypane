@@ -1,6 +1,6 @@
 """Real-browser checks that the unsaved-changes dialog belongs to the save
 bar, not to one page: every page family with a bar (Style, a Style form page,
-Calendar connect, Location and detection, the Fleet settings) asks the same
+Calendar connect, Location, the Fleet settings) asks the same
 question before an in-app link takes the edit away, by touch tap and by click,
 at 360 and 1280 px, in both languages and both themes. Save and continue lands
 on the tapped page where that page's save can return there, and saves and

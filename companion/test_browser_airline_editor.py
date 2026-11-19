@@ -19,9 +19,13 @@ from server.plane import manual_resolutions
 pytestmark = pytest.mark.browser
 
 VIEWPORTS = (("360", VIEWPORT_MIN_SUPPORTED), ("1280", VIEWPORT_DESKTOP))
-ROW = "tbody.airline-group:has(.airlines-pill)"
+ROW = 'tbody.airline-group:has(form[action*="manual-resolutions/"])'
 DELETE_LINK = ROW + " .airlines-row .row-menu__toggle"
-FRANCE_NAME = '.airlines-name input[name="airline_name"][value="Air France"]'
+FRANCE = "#airline-air-france"
+FRANCE_NAME = FRANCE + " .airlines-name"
+FRANCE_MENU = FRANCE + " .airlines-row .row-menu__toggle"
+FRANCE_DIALOG = FRANCE + " dialog"
+FRANCE_FIELD = FRANCE_DIALOG + ' input[name="airline_name"]'
 
 _SETTLED = (
     "() => document.readyState === 'complete'"
@@ -82,7 +86,7 @@ def test_the_editor_is_a_console_page_without_a_frame_strip_and_with_usable_cont
         for _paint in _in_both_themes(page):
             page.wait_for_function(_SETTLED, timeout=15000)
             assert not _assert_no_page_overflow(page, "editor", viewport["width"])
-            for selector in (FRANCE_NAME, DELETE_LINK):
+            for selector in (FRANCE_MENU, DELETE_LINK):
                 _settle(page, selector)
                 _assert_hit_target(page, selector, "editor %s %s" % (name, lang))
     finally:
@@ -121,14 +125,13 @@ def test_the_editor_is_reached_from_the_sidebar_on_desktop(new_context, server):
 
 def test_a_hand_named_airline_stays_in_the_table_and_its_menu_deletes_the_name(
         new_context, make_app_server):
-    """no separate manual-resolutions table: the two owner-named airlines keep a row with the
-    "Named by hand" pill, and "Delete my name" in the row menu removes the name"""
+    """no separate manual-resolutions table: the two owner-named airlines keep a row, and "Delete my name" in the row menu removes the name"""
     server = make_app_server(seed=_seed, fake_providers=True)
     context, page = _open(new_context, server, VIEWPORT_DESKTOP)
     try:
         assert page.locator(".manual-resolutions").count() == 0
         assert page.locator(ROW).count() == 2
-        assert page.locator(ROW + " .airlines-pill").first.inner_text() == "Named by hand"
+        assert "Named by hand" not in page.locator(ROW).first.inner_text()
         _settle(page, DELETE_LINK)
         page.locator(DELETE_LINK).first.click()
         item = page.locator(ROW + " .row-menu__panel button.row-menu__item").first
@@ -175,19 +178,69 @@ def test_renaming_an_airline_through_the_editor_works_end_to_end(new_context, ma
             link.click()
         taps += 1
         page.wait_for_url("**/airlines/manage")
-        _settle(page, FRANCE_NAME)
-        field = page.locator(FRANCE_NAME)
-        field.click()
+        _settle(page, FRANCE_MENU)
+        page.locator(FRANCE_MENU).click()
         taps += 1
+        page.locator(FRANCE + " .airlines-row .row-menu__panel a.row-menu__item").click()
+        taps += 1
+        field = page.locator(FRANCE_FIELD)
+        field.wait_for(state="visible")
         field.fill("Skyline Air")
         with page.expect_navigation():
-            field.press("Enter")
+            page.locator(FRANCE_DIALOG + " button[type=submit]").click()
         taps += 1
         page.wait_for_function(
             "() => document.body.innerText.includes('Airline name saved')", timeout=15000)
         page.wait_for_function(_SETTLED, timeout=15000)
-        assert page.locator('.airlines-name input[value="Skyline Air"]').count() == 1
+        assert page.locator("#airline-skyline-air .airlines-name").inner_text() == "Skyline Air"
         print("STEP-COUNT A8 phone %d" % taps)
-        assert taps == 3
+        assert taps == 4
+    finally:
+        context.close()
+
+
+KNOWN_ROW = "tbody.airline-group--known"
+KNOWN_ADD = KNOWN_ROW + " .airlines-known__add"
+_CENTRED_TEXT = (
+    "el => { const range = document.createRange(); range.selectNodeContents(el.querySelector('.airlines-known__text'));"
+    " const text = range.getBoundingClientRect(); const box = el.getBoundingClientRect();"
+    " return Math.abs((text.top + text.height / 2) - (box.top + box.height / 2)); }")
+
+
+@pytest.mark.parametrize("lang", ("en", "fr"))
+@pytest.mark.parametrize("name,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
+def test_airlines_known_by_name_are_read_only_rows_with_an_artwork_button_and_a_chip(
+        new_context, server, name, viewport, lang):
+    context, page = _open(new_context, server, viewport, lang, ready=KNOWN_ROW)
+    try:
+        rows = page.locator(KNOWN_ROW)
+        assert rows.count() >= 4
+        assert rows.first.locator("input, form").count() == 0
+        for index in range(rows.count()):
+            button = page.locator(KNOWN_ADD).nth(index)
+            box = button.bounding_box()
+            assert box["height"] >= 44 and box["width"] >= 44
+            assert button.evaluate(_CENTRED_TEXT) <= 2
+        chip_text = "Known by name only" if lang == "en" else "Connues par leur nom"
+        chips = page.locator(".filter-bar__chips")
+        assert chips.evaluate("el => getComputedStyle(el).flexWrap") == "nowrap" or viewport["width"] > 500
+        chip = page.locator(".filter-chip", has_text=chip_text)
+        chip.click()
+        page.wait_for_function(
+            "n => document.querySelectorAll('tbody.airline-group:not([hidden])').length === n",
+            arg=rows.count())
+        assert page.locator("tbody.airline-group--gap:not([hidden])").count() == 0
+        assert not _assert_no_page_overflow(page, "known", viewport["width"])
+    finally:
+        context.close()
+
+
+def test_the_artwork_button_opens_the_shared_add_artwork_step(new_context, server):
+    context, page = _open(new_context, server, VIEWPORT_DESKTOP, ready=KNOWN_ROW)
+    try:
+        _settle(page, KNOWN_ADD)
+        page.locator(KNOWN_ADD).first.click()
+        page.locator("dialog[open]").wait_for(state="visible")
+        assert page.locator('dialog[open] input[type="file"]').count() >= 1
     finally:
         context.close()

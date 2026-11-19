@@ -61,7 +61,7 @@ TIMEZONE_NOTE = i18n.msg(
     "display.quiet_hours_zone_note",
     "Quiet hours follow the time zone set in {card}.")
 TIMEZONE_NOTE_CARD = i18n.msg(
-    "display.location_and_detection_title", "Location and detection")
+    "display.location_title", "Location")
 CURATED_TIMEZONES = (
     (device_config.DEFAULT_TIMEZONE, i18n.msg(
         "display.timezone_opt_paris", "Metropolitan France (Paris)")),

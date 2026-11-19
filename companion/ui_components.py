@@ -379,12 +379,14 @@ def button_html(label, variant="secondary", href=None, button_type="button", att
         button_type, css, attrs, escape_html(label))
 
 
-def icon_button_html(icon_id, aria_label, variant="ghost", button_type="button", attrs=""):
+def icon_button_html(icon_id, aria_label, variant="ghost", button_type="button", attrs="",
+                     extra_class=""):
     """The one icon-only button: a 44px square carrying a glyph, named by its
-    `aria-label`."""
+    `aria-label`. `extra_class` is trusted, already-safe class text."""
     return (
-        '<button type="%s" class="btn btn--%s btn--icon" aria-label="%s"%s>%s</button>'
-    ) % (button_type, variant, escape_html(aria_label), attrs, icon_html(icon_id, 20))
+        '<button type="%s" class="btn btn--%s btn--icon%s" aria-label="%s"%s>%s</button>'
+    ) % (button_type, variant, " " + extra_class if extra_class else "",
+         escape_html(aria_label), attrs, icon_html(icon_id, 20))
 
 
 def icon_link_html(icon_id, aria_label, href, variant="ghost", attrs=""):
@@ -442,12 +444,16 @@ def text_field_html(field_id, name, label, value="", help_text="", error_html=""
 PILL_TONES = ("ok", "info", "warn")
 
 
-def pill_html(text, tone=None):
+def pill_html(text, tone=None, extra_class="", dot_class=""):
     """The one small badge: a neutral pill beside a title or inside a row (a
     status, a count, an outcome). `tone` (one of `PILL_TONES`) tints it with a
-    status colour; any other value leaves it neutral. `text` is escaped here."""
+    status colour; any other value leaves it neutral. `extra_class` adds a
+    page hook; `dot_class` (a `dot` state class) puts a status dot before the
+    words, which still carry the verdict. `text` is escaped here."""
     tone_class = " banner__pill--%s" % tone if tone in PILL_TONES else ""
-    return '<span class="banner__pill%s">%s</span>' % (tone_class, escape_html(text))
+    hook = " %s" % extra_class if extra_class else ""
+    dot = '<span class="dot %s" aria-hidden="true"></span>' % escape_html(dot_class) if dot_class else ""
+    return '<span class="banner__pill%s%s">%s%s</span>' % (tone_class, hook, dot, escape_html(text))
 
 
 def form_switch_html(field_id, name, label, checked=False, attrs=""):
@@ -961,3 +967,30 @@ def data_table(headers, rows, mono_columns=(), raw_columns=(), desc_columns=(), 
         "</table>"
         "</div>"
     ) % (table_class, header_cells, "".join(body_rows))
+
+
+# The foreign-frame marker shown to an administrator on a personal page of a
+# frame they neither own nor co-manage (built by companion/ui_shell.py).
+_FRAME_NOTICE_VIEWING_TEXT = i18n.msg(
+    "nav.frame_notice_viewing", "You are viewing %s\u2019s frame")
+_FRAME_NOTICE_BACK_TEXT = i18n.msg("nav.frame_notice_back", "Back to Fleet")
+FRAME_NOTICE_CLASS = "frame-notice"
+
+
+def frame_notice_markup(email, href):
+    """The marker for the owner `email` with a Back to Fleet link to `href`.
+    The email and the href are escaped here. One <div> only: nothing nests
+    another block."""
+    text = escape_html(i18n.t(_FRAME_NOTICE_VIEWING_TEXT)) % (
+        "<strong>%s</strong>" % escape_html(email))
+    return (
+        '<div class="%(cls)s"><span class="%(cls)s__msg">%(eye)s'
+        '<span class="%(cls)s__text">%(text)s</span></span>'
+        '<a class="%(cls)s__link" href="%(href)s">%(back)s%(back_text)s</a></div>\n') % {
+            "cls": FRAME_NOTICE_CLASS,
+            "eye": icon_html("icon-eye", size=22),
+            "text": text,
+            "href": escape_html(href),
+            "back": icon_html("icon-chevron-left", size=20),
+            "back_text": escape_html(i18n.t(_FRAME_NOTICE_BACK_TEXT)),
+        }

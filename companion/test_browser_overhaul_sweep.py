@@ -1,7 +1,7 @@
 """Cross-page sweep of the reworked companion in a real browser.
 
 Every reworked page (Fleet, Users, Audit log, Releases, Account, Home,
-Location and detection, Personalisation, Airline collection, and the Console
+Location, Personalisation, Airline collection, and the Console
 Health, Device and Airline editor pages) and every dialog it opens (the Fleet
 dialogs, the quiet-hours dialog, the two confirm dialogs for a
 special look and a manual resolution) is loaded at 360 and 1280px, in English
@@ -27,7 +27,6 @@ import pytest
 
 import fleet_console_support as fx
 from skypane_contrast_check import WCAG_AA_NORMAL_TEXT, contrast_ratio
-from locations_page_support import open_locations_page
 from place_map_support import Hosts
 from companion import auth
 from companion.test_browser_ux_helpers import (
@@ -222,7 +221,6 @@ CASES = (
     _case("admin", "/fleet", "dlg-retire-{slug}", "fleet-retire-dialog"),
     _case("admin", "/users", None, "users"),
     _case("admin", "/users", "dlg-invite-user", "users-invite-dialog"),
-    _case("admin", "/locations", None, "locations"),
     _case("admin", "/audit", None, "audit"),
     _case("admin", "/update", None, "releases"),
     _case("admin", "/account", None, "admin-account"),
@@ -274,10 +272,7 @@ def _open(new_context, server, persona, path, dialog, viewport, lang, scheme):
     url = server.base_url() + path.format(**ids)
     if dialog:
         url += "#" + dialog.format(**ids)
-    if path == "/locations":
-        open_locations_page(page, server.base_url())
-    else:
-        page.goto(url)
+    page.goto(url)
     page.locator("main").wait_for(state="visible")
     if dialog:
         page.locator("dialog[open]").wait_for(state="visible")
@@ -350,7 +345,8 @@ _SHARED = re.compile(
     r"^(SkyPane|Orly|Kitchen|Attic|Orly frame|Console|Audit|Distance|Station|Local|Total|"
     r"Version|Versions|Image|Plus|Type|Description|Original|Information|Document|Action|"
     r"Actions|Style|Airlines|Contact|Standard|Message|Notes?|Auto|Latitude|Longitude|XIAO ePaper|"
-    r"Air France|easyJet|Transavia|Ryanair|Confirmed|Rare|test)\b|^[A-Z0-9]{4} · |^(Paris-Orly Airport|Watching Runway)")
+    r"Air France|easyJet|Transavia|Ryanair|Confirmed|Rare|test|Emirates|FedEx Express|Finnair|"
+    r"KLM Royal Dutch Airlines|Korean Air|Turkish Airlines)\b|^[A-Z0-9]{4} · |^(Paris-Orly Airport|Watching Runway)")
 
 
 def _looks_english(text):
@@ -588,10 +584,10 @@ def test_the_home_notification_holds_the_layout_rules(
         if overflow:
             problems.append(overflow)
         tops = page.evaluate(
-            "(n) => [n, '.home-state', 'main h1'].map("
+            "(n) => ['main h1', n, '.home-flight'].map("
             "(s) => document.querySelector(s).getBoundingClientRect().top)", NOTICE)
-        if not tops[0] < tops[1] <= tops[2]:
-            problems.append("order is not notification, state card with title: %r" % (tops,))
+        if not tops[0] < tops[1] < tops[2]:
+            problems.append("order is not title block, notification, flight card: %r" % (tops,))
         fit = page.evaluate(_NOTICE_FITS, NOTICE)
         if fit["page"] > 0 or fit["clipped"]:
             problems.append("notification overflows or clips text: %r" % (fit,))
@@ -608,8 +604,10 @@ def test_the_home_notification_holds_the_layout_rules(
             text = page.inner_text(NOTICE)
             for word in PERSONAL_FORBIDDEN.findall(text):
                 problems.append("console word in the notification: " + word)
+            # The title block says when contact was lost; the notification does not repeat it.
+            figures_in = text + " " + page.inner_text(".home-state")
             for figure in NOTICE_FIGURES[state]:
-                if not re.search(figure, text):
+                if not re.search(figure, figures_in):
                     problems.append("missing figure: " + figure)
             if len(text) > 230:
                 problems.append("the notification is not short: %d characters" % len(text))

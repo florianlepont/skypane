@@ -26,7 +26,6 @@ _EXACT = {
     "/account": ("admin",),
     "/users": ("admin",),
     "/audit": ("admin",),
-    "/locations": ("admin",),
     "/update": ("admin",),
     "/pair-frame": ("admin",),
     "/frame/name": ("admin",),

@@ -32,6 +32,8 @@ from companion.flash import (
     FLASH_KEY_CALENDAR_DISCONNECTED,
     FLASH_KEY_CALENDAR_SYNC_DEFERRED,
     FLASH_KEY_CALENDAR_SYNC_FAILED,
+    FLASH_KEY_ARTWORK_TYPE_INVALID,
+    FLASH_KEY_DEFAULT_TYPE_FAILED,
     FLASH_KEY_ILLUSTRATION_REJECTED,
     FLASH_KEY_ILLUSTRATION_REPLACE_FAILED,
     FLASH_KEY_ILLUSTRATION_NOT_PNG,
@@ -80,6 +82,7 @@ import server.poll_cycle as poll_cycle
 # also imports it from there lazily.
 MAX_ILLUSTRATION_UPLOAD_BYTES = upload_form.MAX_UPLOAD_BYTES
 ARTWORK_QUERY_PARAM = artwork_airline.QUERY_PARAM
+DEFAULT_TYPE_QUERY_PARAM = airlines_page.DEFAULT_TYPE_QUERY_PARAM
 _REFUSAL_FLASH = {
     illustrations.PROBLEM_NOT_PNG: FLASH_KEY_ILLUSTRATION_NOT_PNG,
     illustrations.PROBLEM_TOO_LARGE: FLASH_KEY_ILLUSTRATION_TOO_LARGE,
@@ -97,6 +100,10 @@ def _illustration_filenames(state_dir=None):
     since that manual state is mutable.
     """
     filenames = set(illustrations.target_filenames())
+    for _prefix, name in enrich.names_without_artwork():
+        key = manual_resolutions.illustration_key_for_name(name)
+        if key:
+            filenames.add(key + ".png")
     if state_dir:
         for entry in manual_resolutions.load_manual_resolutions(state_dir).values():
             key = manual_resolutions.illustration_key_for_name(entry["airline_name"])
@@ -250,8 +257,12 @@ class SettingsActionsMixin:
         """
         # Airlines unless the action URL names an allow-listed page that
         # opened the dialog (Health).
-        back = resolve_dialog.return_route(
-            parse_qs(urlsplit(self.path).query).get(resolve_dialog.RETURN_FIELD, [None])[0])
+        query_values = parse_qs(urlsplit(self.path).query, keep_blank_values=True)
+        back = resolve_dialog.return_route(query_values.get(resolve_dialog.RETURN_FIELD, [None])[0])
+        # Sent by the add-first-artwork dialog only: the aircraft type the
+        # artwork is for. Validated before anything is stored.
+        asked_type = query_values.get(DEFAULT_TYPE_QUERY_PARAM, [None])[0]
+        default_type = None if asked_type is None else airline_default_types.normalise_code(asked_type)
         filename = key + ".png"
         if not illustration_filename_known(filename, device.state_dir):
             return self.send_html(404, self._not_found_page())
@@ -262,6 +273,9 @@ class SettingsActionsMixin:
             query = "flash=%s&%s=%s" % (quote(flash_key), ARTWORK_QUERY_PARAM, quote(key))
             return self._scoped_redirect("%s#airline-%s" % (
                 resolve_dialog.with_query(back, query), artwork_airline.base_key(key)))
+
+        if asked_type is not None and default_type is None:
+            return refused(FLASH_KEY_ARTWORK_TYPE_INVALID)
 
         raw = self._read_upload_body()
         if raw is None:
@@ -313,8 +327,12 @@ class SettingsActionsMixin:
 
             override_path = illustrations.override_path_for_key(key, state_dir)
             atomic_io.atomic_write(override_path, buffer.getvalue())
+            flash_key = FLASH_KEY_ILLUSTRATION_REPLACED
+            if default_type and airline_default_types.set_default_type(
+                    state_dir, key, default_type) != airline_default_types.SET_OK:
+                flash_key = FLASH_KEY_DEFAULT_TYPE_FAILED
             return self._scoped_redirect(
-                resolve_dialog.with_query(back, "flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REPLACED)))
+                resolve_dialog.with_query(back, "flash=%s" % quote(flash_key)))
         except Exception:
             return refused(FLASH_KEY_ILLUSTRATION_REPLACE_FAILED)
         finally:

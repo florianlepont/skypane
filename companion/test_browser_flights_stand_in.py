@@ -1,5 +1,5 @@
 """Real-browser checks of the Flights phone rows that have no archived render of their own:
-the stand-in lead (the airline's illustration, else a plane icon) is a 44px non-interactive
+the stand-in lead (the airline's illustration, else a plane icon) is a 56 by 36 non-interactive
 box that never overflows the row at 360 px in both themes, its illustration really loads,
 and none of it is a picture link."""
 import pytest
@@ -37,7 +37,7 @@ _PROBE = """() => [...document.querySelectorAll('li.history-card')].map(li => {
 
 
 @pytest.mark.parametrize("lang", ["en", "fr"])
-def test_the_stand_in_is_a_44px_non_interactive_lead_in_both_themes(new_context, server, lang):
+def test_the_stand_in_is_a_56_by_36_non_interactive_lead_in_both_themes(new_context, server, lang):
     context = new_context(viewport=VIEWPORT_MIN_SUPPORTED)
     context.add_cookies([{
         "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": server.base_url()}])
@@ -53,7 +53,7 @@ def test_the_stand_in_is_a_44px_non_interactive_lead_in_both_themes(new_context,
         assert {row["kind"] for row in rows} == {"none", "illustration"}, rows
         for row in rows:
             assert row["tag"] == "SPAN" and row["controls"] == 0, row
-            assert row["width"] == 44 and row["height"] == 44, row
+            assert row["width"] == 56 and row["height"] == 36, row
             if row["kind"] == "illustration":
                 assert row["loaded"] is True, row
             else:

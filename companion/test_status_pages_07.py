@@ -108,7 +108,7 @@ def test_tab_bar_pill_horizontal_margin_lets_the_longest_label_fit(css_text):
         ui_base.DISPLAY_ROUTE, ui_base.DETECTION_ROUTE)
     labels = dict(layout.NAV_TABS)
     messages = [
-        layout.NAV_SHORT_LABELS.get(layout.nav_slug(route), labels[route])
+        labels[route]
         for route in bar_routes] + [layout.TAB_BAR_MORE_LABEL]
 
     # The app's own contract floor (design_direction: "Minimum supported
@@ -177,7 +177,7 @@ def test_french_tab_bar_labels_and_landmark():
     for english, french in (
             ("Home", "Accueil"), ("Flights", "Vols"), ("Location", "Lieu"),
             ("Style", "Style"), ("More", "Plus"),
-            ("Airlines", "Airlines"), ("Account", "Compte")):
+            ("Airlines", "Compagnies"), ("Account", "Compte")):
         assert ">%s<" % french in bar, (
             "expected the %r cell to read %r in French, got %r" % (english, french, bar))
         if english != french:
@@ -952,7 +952,7 @@ def test_both_tabs_ok_end_to_end(make_app_server):
             # /history added so the served-HTML twin of the render-level
             # History guard above runs against a real running service,
             # not only an in-process render() call.
-            ("/flights", "Flight history")):
+            ("/flights", "Flights")):
         status, _headers, body = get(server, path, cookie=session_cookie)
         assert status == 200, "expected 200 for %s, got %d" % (path, status)
         assert heading.encode() in body, "expected the %r heading in %s's response body" % (heading, path)
@@ -1011,7 +1011,7 @@ def test_both_tabs_ok_end_to_end(make_app_server):
             # Two in the shared dialog (replace form, resolve-upload form) plus one
             # click-to-replace upload per airline row and per aircraft-type sub-row.
             upload_forms = sum(
-                1 + len(shapes) for _name, shapes in illustrations.target_variants_by_airline())
+                len(shapes) or 1 for _name, shapes in illustrations.target_variants_by_airline())
             assert body_text.count('<form class="airlines-art"') == upload_forms
             assert body_text.count('<input type="file"') == 2 + upload_forms, (
                 "expected <input type=\"file\" for the dialog's two forms and each row upload "

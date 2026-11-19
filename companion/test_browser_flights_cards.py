@@ -291,8 +291,8 @@ def test_cards_render_and_link_without_scripts(new_context, server):
 
 
 def test_desktop_keeps_the_table_and_hides_the_cards(new_context, server):
-    """At 1280 px the cards are hidden and the flights table is shown, its picture links still
-    reading "View picture"."""
+    """At 1280 px the cards are hidden and the flights table is shown, each row led by a
+    picture thumbnail link named "View picture of <call sign>"."""
     context = new_context(viewport=VIEWPORT_DESKTOP)
     try:
         page = context.new_page()
@@ -305,9 +305,10 @@ def test_desktop_keeps_the_table_and_hides_the_cards(new_context, server):
         links = table.locator("a[data-view-panel-src]")
         if links.count() != len(vp.FLIGHT_CARD_FLIGHTS):
             raise AssertionError("expected one table link per flight, got %d" % links.count())
-        texts = set(links.all_text_contents())
-        if texts != {"View picture"}:
-            raise AssertionError("expected every table link to read View picture, got %r" % (texts,))
+        names = links.evaluate_all("els => els.map(e => e.getAttribute('aria-label'))")
+        for name in names:
+            if not name.startswith("View picture of "):
+                raise AssertionError("expected every table link to be named View picture of ..., got %r" % (name,))
     finally:
         context.close()
 
@@ -520,17 +521,17 @@ def test_the_controls_work_as_a_plain_form_without_scripts(new_context, server):
             raise AssertionError("expected the plain Clear link to bring every flight back")
 
 
-def test_airlines_search_pill_has_no_chips_and_both_clears_work(new_context, server):
-    """Airlines shares the component as a plain search pill (no chips); the inline clear and the
-    empty state's Clear both empty the field."""
+def test_airlines_search_pill_has_kind_chips_and_both_clears_work(new_context, server):
+    """The Airlines editor shares the component with its six kind chips; the inline clear and
+    the empty state's Clear both empty the field."""
     context = new_context(viewport=VIEWPORT_PHONE)
     try:
         page = context.new_page()
         _login(page, server.base_url())
         page.goto(server.base_url() + "/airlines/manage")
         page.locator("[data-filter-input]").wait_for(state="visible")
-        if page.locator(".filter-chip").count():
-            raise AssertionError("expected no chips on the Airlines filter bar")
+        if page.locator(".filter-chip").count() != 6:
+            raise AssertionError("expected the six kind chips on the Airlines filter bar")
         page.fill("[data-filter-input]", "zzzzq")
         page.locator("[data-filter-empty]").wait_for(state="visible")
         page.locator("[data-filter-empty] [data-filter-clear]").click()
@@ -558,10 +559,10 @@ _VISIBLE_TEXT = """sel => [...document.querySelectorAll(sel)].map(row => {
 @pytest.mark.parametrize("viewport,selector", [
     (VIEWPORT_PHONE, "li.history-card"), (VIEWPORT_DESKTOP, "tr[data-flight-row]")],
     ids=["phone-cards", "desktop-table"])
-def test_a_flights_row_has_no_plane_icon_and_no_call_sign(
+def test_a_flights_row_has_no_plane_icon_and_shows_the_call_sign_only_on_desktop(
         new_context, server, viewport, selector, lang):
-    """No plane icon and no visible call sign in any row; a search by call sign still finds the
-    row, and the picture control (when the row has one) still names the flight."""
+    """No plane icon in any row; the call sign is visible only in the desktop table (under the
+    airline), never on a phone row; a search by call sign still finds the row."""
     context = new_context(viewport=viewport)
     context.add_cookies([{"name": auth.UI_LANG_COOKIE_NAME, "value": lang,
                           "url": server.base_url()}])
@@ -576,8 +577,8 @@ def test_a_flights_row_has_no_plane_icon_and_no_call_sign(
             assert row["planes"] == 0
             assert row["text"].strip()
         for call_sign in [flight[0] for flight in vp.FLIGHT_CARD_FLIGHTS]:
-            for row in rows:
-                assert call_sign not in row["text"]
+            shown = [call_sign in row["text"] for row in rows]
+            assert any(shown) == (selector == "tr[data-flight-row]"), call_sign
         page.fill("[data-flights-search]", "obs412")
         page.wait_for_function(
             """sel => { const rows = [...document.querySelectorAll(sel)];

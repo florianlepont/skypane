@@ -1,6 +1,6 @@
 """Real-browser structure checks of the Console pages on the grouped-list language: the Fleet
 blocks are glass groups under a section label with nothing nested, the Users table and the
-Airline editor keep header and row geometry, the unidentified rows carry the amber chip, the
+Airline editor keep header and row geometry, the unidentified rows sit in their own labelled card above the table, the
 Audit log phone list is one glass group, and none of them overflows at 360px in either
 language and theme."""
 import pytest
@@ -55,12 +55,15 @@ _FLEET = """() => {
   const bad = [];
   const blocks = [...document.querySelectorAll('section.fleet-block')];
   blocks.forEach((s) => {
+    // The Device and version block is the one block of cards: its update card and its
+    // version list are the cards of the approved Update design.
+    const ownCards = s.classList.contains('fleet-block--device');
     const label = s.querySelector(':scope > h2.section-label');
     const groups = s.querySelectorAll(':scope > ul.group');
     if (!label) bad.push('no label');
     if (groups.length !== 1) bad.push('groups: ' + groups.length);
     if (s.querySelectorAll('.group .group').length) bad.push('nested group');
-    const inner = [...s.querySelectorAll('.group *')].filter((e) => {
+    const inner = ownCards ? [] : [...s.querySelectorAll('.group *')].filter((e) => {
       const c = getComputedStyle(e);
       return e.checkVisibility() && c.boxShadow !== 'none' && !e.closest('.switch, .dirty-bar, details.row-menu')
         && c.borderRadius !== '0px' && c.backgroundColor !== 'rgba(0, 0, 0, 0)'
@@ -68,8 +71,8 @@ _FLEET = """() => {
     }).map((e) => e.className);
     if (inner.length) bad.push('card surface inside a group: ' + inner.slice(0, 3));
   });
-  const summary = document.querySelector('.fleet-block--device .update-sum');
-  if (!summary || !summary.checkVisibility()) bad.push('no firmware summary');
+  const card = document.querySelector('.fleet-block--device .update-cta');
+  if (!card || !card.checkVisibility()) bad.push('no firmware card');
   return {bad: bad, count: blocks.length};
 }"""
 
@@ -104,15 +107,16 @@ _TABLE = """(sel) => {
 
 @pytest.mark.parametrize("scheme", THEMES)
 @pytest.mark.parametrize("lang", LANGS)
-@pytest.mark.parametrize("path,sel", [("/users", ".users-table"), ("/airlines/manage", ".airlines-table")])
+@pytest.mark.parametrize("path,sel,head_size", [
+    ("/users", ".users-table", "12px"), ("/airlines/manage", ".airlines-table", "13px")])
 def test_console_tables_have_the_quiet_header_and_tall_rows(
-        new_context, server, path, sel, lang, scheme):
+        new_context, server, path, sel, head_size, lang, scheme):
     context, page = _open(new_context, server, "admin", path, None, VIEWPORT_DESKTOP, lang, scheme)
     try:
         out = page.evaluate(_TABLE, sel)
         assert out["heads"], path
         for head in out["heads"]:
-            assert head["size"] == "12px" and head["weight"] == "600" and head["upper"] == "none", head
+            assert head["size"] == head_size and head["weight"] == "600" and head["upper"] == "none", head
         assert out["rows"] and min(out["rows"]) >= 55.5, out["rows"]
     finally:
         context.close()
@@ -120,15 +124,21 @@ def test_console_tables_have_the_quiet_header_and_tall_rows(
 
 @pytest.mark.parametrize("scheme", THEMES)
 @pytest.mark.parametrize("lang", LANGS)
-def test_unidentified_airline_rows_carry_the_amber_chip(new_context, server, lang, scheme):
+def test_unidentified_airline_rows_sit_in_their_own_labelled_card_with_no_chip(
+        new_context, server, lang, scheme):
     context, page = _open(
         new_context, server, "admin", "/airlines/manage", None, VIEWPORT_DESKTOP, lang, scheme)
     try:
-        chips = page.locator(".airline-group--gap .airlines-gap-chip")
-        assert chips.count() >= 1
-        chip = chips.first.evaluate(
-            "(e) => ({bg: getComputedStyle(e).backgroundColor, h: e.getBoundingClientRect().height})")
-        assert chip["bg"] != "rgba(0, 0, 0, 0)" and chip["h"] >= 20
+        assert page.locator(".airline-group--gap .airlines-gap__prefix").count() >= 1
+        assert page.locator(".airline-group--gap .airlines-gap-chip").count() == 0
+        out = page.evaluate(
+            "() => { const gap = document.querySelector('.airline-group--gap').closest('table');"
+            " const main = [...document.querySelectorAll('table.airlines-table')]"
+            ".find((t) => !t.querySelector('.airline-group--gap') && t.querySelector('#airline-air-france'));"
+            " return {label: gap.querySelector('caption').textContent.trim(),"
+            " alone: gap.querySelectorAll('.airline-group:not(.airline-group--gap)').length,"
+            " above: !!main && gap.getBoundingClientRect().bottom <= main.getBoundingClientRect().top}; }")
+        assert out["label"] and out["alone"] == 0 and out["above"], out
     finally:
         context.close()
 

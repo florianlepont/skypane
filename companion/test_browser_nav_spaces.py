@@ -121,8 +121,8 @@ _SIDEBAR_LINKS = (
 CONSOLE_SIDEBAR_LABELS = [
     "Fleet", "Users", "Editor", "Audit log", "Account"]
 PERSONAL_SIDEBAR_LABELS = [
-    "Home", "Flight history", "Location and detection", "Style",
-    "Airlines", "Account"]
+    "Home", "Flights", "Airlines", "Style",
+    "Location", "Account"]
 
 
 @pytest.mark.parametrize("scheme", ["light", "dark"])
@@ -141,11 +141,11 @@ def test_desktop_sidebars_put_the_switch_first(
         links = page.evaluate(_SIDEBAR_LINKS)
         assert [link["text"] for link in links] == CONSOLE_SIDEBAR_LABELS
         assert all(link["h"] >= MIN_TAP_PX for link in links), links
-        switch.locator("a", has_text="My frame").click()
+        switch.locator("a", has_text="My frames").click()
         page.wait_for_function("() => !location.pathname.endsWith('/fleet')")
         page.wait_for_function(
             "() => { const a = document.querySelector('.dashboard-sidebar .space-switch"
-            " [aria-current=page]'); return !!a && a.textContent.includes('My frame'); }")
+            " [aria-current=page]'); return !!a && a.textContent.includes('My frames'); }")
         assert page.locator(".sidebar-nav").inner_text().count("Update") == 0
         assert page.locator(".section-subnav").count() == 0
     finally:
@@ -163,23 +163,5 @@ def test_desktop_personal_sidebar_lists_the_spec_links(
         assert [link["text"] for link in links] == PERSONAL_SIDEBAR_LABELS
         assert all(link["h"] >= MIN_TAP_PX for link in links), links
         assert page.locator(".sidebar-nav .nav-group__label").count() == 0
-    finally:
-        context.close()
-
-
-@pytest.mark.parametrize("scheme", ["light", "dark"])
-@pytest.mark.parametrize("lang", ["en", "fr"])
-def test_locations_fields_fit_their_card_at_360(
-        new_context, app_server_in_process, lang, scheme):
-    context, page = _admin_page(
-        new_context, app_server_in_process, "/locations", VIEWPORT_MIN_SUPPORTED,
-        lang, scheme)
-    try:
-        fields = page.evaluate(_FIELD_OVERFLOW)
-        assert fields
-        for field in fields:
-            assert field["inside"], field
-            assert field["sw"] <= field["cw"] + 1, field
-        assert not _assert_no_page_overflow(page, "locations", 360)
     finally:
         context.close()

@@ -18,15 +18,12 @@ the app's other nav labels.
 MESSAGES = {
     "update.version_history": "Versions",
     "update.state_newest": "Plus récente",
-    "update.state_installed": "Installée",
     "update.notes_n": "Notes (%d)",
     "update.no_version_reported_yet": "Aucune version signalée pour le moment",
 
     "update.scheduled": "Planifiée",
     "update.in_progress": "En cours",
 
-    "update.on_the_frame": "Sur le cadre",
-    "update.up_to_date": "À jour",
     "update.cta_up_to_date": "Le cadre est à jour",
     "update.cta_available": "Mise à jour disponible",
     "update.cta_scheduled": "Mise à jour planifiée",
@@ -37,12 +34,9 @@ MESSAGES = {
         "premier contact réussi\u00a0; sinon, il revient en arrière.",
     "update.cta_failed_body": "%s n’a pas pu être installée.",
     "update.cta_stays_on": "Le cadre reste sur %s.",
-    "update.on_the_frame_s": "Sur le cadre\u00a0: %s",
     "update.installed_ago_s": "Installée %s",
     "update.installed_on_s": "Installée le %s",
     "update.released_ago_s": "Sortie %s",
-    "update.released_on_s": "Sortie le %s",
-    "update.last_installed_s": "Dernière installation\u00a0: %s",
 
     "update.scheduled_installs_at_the_next_wake":
         "Planifiée — installation au prochain réveil.",
@@ -83,8 +77,6 @@ MESSAGES = {
     "update.an_update_is_already_installing_wait":
         "Une mise à jour est déjà en cours d’installation — veuillez "
         "patienter.",
-    "update.install_s_now":
-        "Installer %s maintenant ? Elle s’appliquera au prochain réveil.",
 
 
     "update.no_releases_yet": "Aucune version publiée pour le moment",
@@ -98,5 +90,12 @@ MESSAGES = {
     "update.this_is_a_bench_build": "Il s’agit d’une version de banc d’essai.",
 
     "update.hardware_type": "Type de matériel",
-    "update.for_hardware_type_s": "Pour %s",
+    "update.roll_back_to_s_question": "Revenir à %s\u00a0?",
+    "update.rollback_confirm_around_s": (
+        "Le cadre revient à %s à son prochain réveil, vers %s. Ses réglages sont conservés."),
+    "update.rollback_confirm_held_around_s": (
+        "Le cadre revient à %s à la fin des heures calmes, vers %s. "
+        "Ses réglages sont conservés."),
+    "update.rollback_confirm_no_time": (
+        "Le cadre revient à %s à son prochain réveil. Ses réglages sont conservés."),
 }

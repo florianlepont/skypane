@@ -187,30 +187,28 @@ def test_a_sheet_per_card_is_read_only_and_reached_by_a_hash_link(rig):
     regular = next(s for s in sheets if "dlg-airline-%s" % illustrations.normalise_airline_key(
         REGULAR_NAME) in s)
     text = _text(regular)
-    for fact in ("Times seen 12", "First seen", "Last seen", "Aircraft types seen",
-                 "Rarity Regular", "Recent callsigns"):
+    for fact in ("Seen seen 12 times", "Last seen", "Aircraft", "Regular"):
         assert fact in text
-    assert "Rarity depends on how often your frame has seen an airline." in text
-    assert 'class="type-chip mono"' in regular
+    assert "First seen" not in text and "Recent callsigns" not in text
+    assert "depends on how often" not in text
+    assert 'class="rarity-pill rarity-pill--regular"' in regular
 
 
 def test_rare_airlines_and_aircraft_carry_a_tier_class_and_a_word(rig):
     rig.seed_history()
     body = rig.page()
     assert "collection-card--rare" in _card_for(body, RARE_NAME)
-    assert "collection-card__rarity--rare" in _card_for(body, RARE_NAME)
-    assert "Seen once \u00b7 " in _text(_card_for(body, RARE_NAME))
+    rare_card = _card_for(body, RARE_NAME)
+    assert 'class="rarity-pill rarity-pill--rare"' in rare_card and "Seen once" in _text(rare_card)
+    assert "Rare" in _text(rare_card)
     assert "collection-card--occasional" in _card_for(body, OCCASIONAL_NAME)
     assert "collection-card--regular" in _card_for(body, REGULAR_NAME)
     legend = _text(re.search(r'<ul class="rarity-legend".*?</ul>', body, flags=re.S).group(0))
     for word in ("Regular", "Occasional", "Rare", "10 or more sightings", "3 to 9 sightings",
                  "Fewer than 3 sightings"):
         assert word in legend
-    sheets = re.findall(r'<dialog class="modal collection-sheet".*?</dialog>', body, flags=re.S)
-    types = " ".join(re.findall(r'<span class="type-chip type-chip--[a-z]+">.*?</span>(?: </span>)?', "".join(sheets)))
-    assert re.search(r'type-chip--rare">A320 <span class="type-chip__tag">Rare</span>', types)
-    assert re.search(r'type-chip--occasional">737-800 <span class="type-chip__tag">Occasional</span>', types)
-    assert re.search(r'type-chip--regular">A321neo</span>', types)
+    sheets = "".join(re.findall(r'<dialog class="modal collection-sheet".*?</dialog>', body, flags=re.S))
+    assert "A320" in sheets and "737-800" in sheets and "A321neo" in sheets
 
 
 def test_the_legend_sits_behind_one_info_button_in_the_bar(rig):
@@ -225,11 +223,12 @@ def test_the_legend_sits_behind_one_info_button_in_the_bar(rig):
     assert 'class="visually-hidden" role="status" data-filter-count' in form
 
 
-def test_the_sheet_lays_short_facts_two_per_row_and_long_ones_across(rig):
+def test_the_sheet_lists_three_facts_under_the_picture_and_the_rarity_pill(rig):
     rig.seed_history()
     sheet = re.search(r'<dialog class="modal collection-sheet".*?</dialog>', rig.page(), flags=re.S).group(0)
-    assert sheet.count('<div class="collection-facts__wide">') == 2
-    assert sheet.index("Times seen") < sheet.index("Rarity") < sheet.index("First seen")
+    assert sheet.count("<dt>") == 3
+    assert sheet.index("collection-sheet__art") < sheet.index("collection-sheet__rarity") < sheet.index(
+        "<dt>Seen</dt>") < sheet.index("<dt>Last seen</dt>") < sheet.index("<dt>Aircraft</dt>")
 
 
 def test_the_bar_is_one_form_with_sort_and_count_and_a_no_script_apply(rig):
@@ -297,7 +296,7 @@ def test_hostile_stored_text_is_escaped(rig):
 def test_the_page_is_french_with_french_strings(rig):
     rig.seed_history()
     body = rig.page(lang="fr")
-    for text in (">Airlines</h1>", "encore 1 pour le badge 5",
+    for text in (">Compagnies</h1>", "encore 1 pour le badge 5",
                  "4 compagnies repérées sur %d" % (len(CURATED) + 1), "Vue 12 fois", "Vue une fois",
                  "Habituelle", "Occasionnelle", "Nouveau",
                  "Première observation", "Appliquer", "Les plus vues", "Pas encore vues"):

@@ -247,6 +247,19 @@
   var resolveNameForm = dialog.querySelector(".lightbox__resolve-name");
   var resolveUploadZone = dialog.querySelector(".resolve-upload-zone");
   var deleteForm = dialog.querySelector(".lightbox__delete");
+  // On submit the chosen aircraft type joins the upload address (the
+  // multipart body holds the file alone).
+  var askTypeForm = resolveUploadZone ? resolveUploadZone.querySelector("form") : null;
+  if (askTypeForm) {
+    askTypeForm.addEventListener("submit", function () {
+      var select = askTypeForm.querySelector("select");
+      var base = askTypeForm.getAttribute("data-base-action") || "";
+      if (select && !select.hidden && base) {
+        askTypeForm.setAttribute("action", base + (base.indexOf("?") < 0 ? "?" : "&") +
+          "default_type=" + encodeURIComponent(select.value));
+      }
+    });
+  }
   var resolveScope = dialog.querySelector(".lightbox__resolve-scope");
   var resolveSubmit = dialog.querySelector(".lightbox__actions [type=\"submit\"]");
   var heading = dialog.querySelector(".lightbox__heading");
@@ -527,6 +540,16 @@
       var uploadForm = resolveUploadZone.querySelector("form");
       if (uploadForm) {
         uploadForm.setAttribute("action", uploadAction);
+        uploadForm.setAttribute("data-base-action", uploadAction);
+      }
+      // The add-first-artwork step asks for the aircraft type first; the
+      // select is shown and required for that trigger only.
+      var askType = resolveUploadZone.querySelector("select");
+      if (askType) {
+        var asks = trigger.hasAttribute("data-view-panel-ask-type");
+        askType.hidden = !asks;
+        askType.required = asks;
+        askType.value = "";
       }
     }
     if (deleteForm) {

@@ -9,6 +9,7 @@ ui_time for the relative-time `<body>` wordings, companion.ui_nav for
 the sidebar/tab-bar/preferences renderers, and companion.ui_components
 for the quick-switch failure toast; nothing here imports a page module.
 """
+import urllib.parse
 from types import SimpleNamespace
 
 import companion.device_scope as device_scope
@@ -64,6 +65,7 @@ from companion.ui_base import (
     PLACE_CARD_SCRIPT_SRC,
     PLACE_AIRPORT_LIST_SCRIPT_SRC,
     AIRLINE_TYPES_SCRIPT_SRC,
+    UPDATE_QUESTION_SCRIPT_SRC,
     escape_html,
     nav_slug,
 )
@@ -94,6 +96,7 @@ from companion.ui_nav import (
     space_switch_html,
     user_brand_href,
 )
+import companion.ui_components as ui_components
 from companion.ui_components import TOAST_TONE_ERROR, split_toast_message, toast_html
 from companion.ui_time import relative_age_text, relative_copy_attrs
 
@@ -182,6 +185,7 @@ SHELL_SCRIPT_ORDER = (
     PLACE_CARD_SCRIPT_SRC,
     PLACE_AIRPORT_LIST_SCRIPT_SRC,
     AIRLINE_TYPES_SCRIPT_SRC,
+    UPDATE_QUESTION_SCRIPT_SRC,
     PREFETCH_SCRIPT_SRC,
 )
 
@@ -370,11 +374,6 @@ _DEVICE_DEFAULT_NAME_TEXT = i18n.msg("nav.device_default_name", "Orly frame")
 _UNNAMED_FRAME_TEXT = i18n.msg("admin_fleet.unnamed_frame", "Unnamed frame")
 _TILE_SEEN_TEXT = i18n.msg("nav.frame_tile_seen", "Seen %s")
 
-# The strip shown to an administrator on a personal page of a frame they
-# neither own nor co-manage.
-_FRAME_NOTICE_VIEWING_TEXT = i18n.msg("nav.frame_notice_viewing", "Viewing %s\u2019s frame")
-_FRAME_NOTICE_BACK_TEXT = i18n.msg("nav.frame_notice_back", "Back to Fleet")
-FRAME_NOTICE_CLASS = "frame-notice"
 _MY_FRAMES_HREF = "/account#account-frames"
 _FLEET_HREF = "/fleet"
 
@@ -461,24 +460,26 @@ def _sheet_entries(active, now):
     return device_scope.switcher_entries()
 
 
+def _fleet_return_href():
+    """The Fleet link back to the frame being viewed: the id comes from this
+    request's own device scope (a frame the principal may see), never from
+    the request text; "/fleet" when the scope holds no device."""
+    device = device_scope.current_device()
+    if device is None:
+        return _FLEET_HREF
+    return "%s?frame=%s" % (_FLEET_HREF, urllib.parse.quote(str(device.id), safe=""))
+
+
 def frame_notice_html(active, console_page=False):
-    """The Viewing-owner strip with a Back to Fleet link, or "" unless an
-    administrator is on a personal page (not a Console page) of a frame they
-    neither own nor co-manage. The owner email is escaped; the link is the
-    fixed Fleet route."""
+    """The foreign-frame marker, or "" unless an administrator is on a
+    personal page (not a Console page) of a frame they neither own nor
+    co-manage. The Back to Fleet link targets the viewed frame."""
     if console_page or _device_page_path(active) is None:
         return ""
     email = device_scope.foreign_frame_owner_email()
     if email is None:
         return ""
-    return (
-        '<div class="%(cls)s"><span class="%(cls)s__text">%(text)s</span>'
-        '<a class="text-link %(cls)s__link" href="%(href)s">%(back)s</a></div>\n') % {
-            "cls": FRAME_NOTICE_CLASS,
-            "text": escape_html(i18n.t(_FRAME_NOTICE_VIEWING_TEXT) % email),
-            "href": _FLEET_HREF,
-            "back": escape_html(i18n.t(_FRAME_NOTICE_BACK_TEXT)),
-        }
+    return ui_components.frame_notice_markup(email, _fleet_return_href())
 
 
 def _device_scoped_title(title, active):

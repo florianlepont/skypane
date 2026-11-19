@@ -35,6 +35,7 @@ FLASH_KEY_ILLUSTRATION_NOT_PNG = airlines_page.FLASH_ILLUSTRATION_NOT_PNG
 FLASH_KEY_ILLUSTRATION_TOO_LARGE = airlines_page.FLASH_ILLUSTRATION_TOO_LARGE
 FLASH_KEY_ILLUSTRATION_TOO_SMALL = airlines_page.FLASH_ILLUSTRATION_TOO_SMALL
 FLASH_KEY_ILLUSTRATION_NOT_TRANSPARENT = airlines_page.FLASH_ILLUSTRATION_NOT_TRANSPARENT
+FLASH_KEY_ARTWORK_TYPE_INVALID = airlines_page.FLASH_ARTWORK_TYPE_INVALID
 FLASH_KEY_MANUAL_RESOLVED = airlines_page.FLASH_MANUAL_RESOLVED
 FLASH_KEY_MANUAL_NAME_EMPTY = airlines_page.FLASH_MANUAL_NAME_EMPTY
 FLASH_KEY_MANUAL_NAME_TOO_LONG = airlines_page.FLASH_MANUAL_NAME_TOO_LONG
@@ -182,6 +183,9 @@ FLASH_MESSAGES = {
         "common.illustration_not_transparent",
         "Couldn't use that image — it has no transparent background. "
         "Upload a PNG with a transparent background."),
+    FLASH_KEY_ARTWORK_TYPE_INVALID: i18n.msg(
+        "common.artwork_type_invalid",
+        "Couldn't add the artwork — choose a valid aircraft type."),
     FLASH_KEY_ILLUSTRATION_TOO_SMALL: i18n.msg(
         "common.illustration_too_small",
         "Couldn't use that image — it must be landscape (wider than tall) "
@@ -385,6 +389,7 @@ FLASH_TONES = {
     FLASH_KEY_ILLUSTRATION_TOO_LARGE: _ERROR,
     FLASH_KEY_ILLUSTRATION_TOO_SMALL: _ERROR,
     FLASH_KEY_ILLUSTRATION_NOT_TRANSPARENT: _ERROR,
+    FLASH_KEY_ARTWORK_TYPE_INVALID: _ERROR,
     FLASH_KEY_MANUAL_RESOLVED: _PENDING,
     FLASH_KEY_MANUAL_NAME_EMPTY: _ERROR,
     FLASH_KEY_MANUAL_NAME_TOO_LONG: _ERROR,

@@ -493,26 +493,27 @@ def _gap_group(row, index=0):
 
 
 def test_gap_row_markup_shape_and_form_vocabulary():
-    """an unidentified prefix is a highlighted table row resolved in place: one form posting
-    the prefix to the resolve route with a name field, a default aircraft type select,
-    Validate and Ignore, zero <img> tags and no dialog trigger"""
+    """an unidentified prefix is one compact row with a Name it button; its dialog holds the one
+    form posting the prefix to the resolve route with a name field and Validate; no aircraft-type
+    select, no Ignore, zero <img> tags and no lightbox trigger"""
     row = ("XYZ", 5, "t1", "t2", "XYZ123")
     group_html = _gap_group(row)
     assert "<img" not in group_html and "data-view-panel" not in group_html
     assert group_html.startswith('<tbody class="airline-group airline-group--gap"')
     assert 'class="airlines-row airlines-row--gap"' in group_html
-    form = re.search(r'<form class="airlines-resolve"[^>]*>', group_html).group(0)
-    assert 'method="post"' in form and 'action="/airlines/resolve"' in form
+    assert 'data-filter-kind="unidentified"' in group_html
+    assert re.search(r'<a href="#name-prefix-0"[^>]*data-modal-open>Name it</a>', group_html)
+    form = re.search(r'<form method="post" action="/airlines/resolve">', group_html)
+    assert form and group_html.count("<form") == 1
     assert '<input type="hidden" name="prefix" value="XYZ">' in group_html
     assert '<input type="hidden" name="inline" value="1">' in group_html
-    field = re.search(r'<input type="text" name="airline_name"[^>]*>', group_html).group(0)
+    field = re.search(r'<input [^>]*name="airline_name"[^>]*>', group_html).group(0)
     assert 'list="airlines-known-names"' in field and "required" in field
     assert 'aria-label="Airline name for the prefix XYZ"' in field
-    assert '<select name="default_type" aria-label="Default aircraft type for XYZ">' in group_html
-    # Validate and Ignore are the shared buttons: a primary submit and a bordered reset.
-    assert '<button type="submit" class="btn btn--primary">Validate</button>' in group_html
-    assert '<button type="reset" class="btn btn--secondary">Ignore</button>' in group_html
-    assert '<span class="mono">XYZ123</span>' in group_html
+    assert "<select" not in group_html and "Ignore" not in group_html
+    assert ">Validate</button>" in group_html and ">Cancel</a>" in group_html
+    assert '<span class="airlines-gap__prefix mono">XYZ</span>' in group_html
+    assert "XYZ123" in group_html
 
 
 def test_gap_row_filter_group_never_collides_with_curated_integer_groups(tmp_path):

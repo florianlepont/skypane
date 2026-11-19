@@ -30,7 +30,7 @@ _SEGMENTS = (
 
 _VIEWPORTS = (("phone", VIEWPORT_MIN_SUPPORTED), ("desktop", VIEWPORT_DESKTOP))
 _DESKTOP = (("desktop", VIEWPORT_DESKTOP),)
-_OTHER_SPACE = {"console": {"en": "My frame", "fr": "Mon cadre"}, "personal": {"en": "Console", "fr": "Console"}}
+_OTHER_SPACE = {"console": {"en": "My frames", "fr": "Mes cadres"}, "personal": {"en": "Console", "fr": "Console"}}
 _BAR_SWITCH = (
     "() => { const a = document.querySelector('.tab-bar__more-panel .tab-bar__space-link');"
     " if (!a) return null; const links = [...document.querySelectorAll('.tab-bar__more-panel a')];"
@@ -67,7 +67,7 @@ def _check_bar_switch(page, lang, space, where):
     assert not cell["big"] and not cell["inBar"], (where, cell)
     assert not _assert_no_page_overflow(page, where, page.viewport_size["width"])
     return cell
-_LABELS = {"en": ("Console", "My frame"), "fr": ("Console", "Mon cadre")}
+_LABELS = {"en": ("Console", "My frames"), "fr": ("Console", "Mes cadres")}
 
 
 def _visible_switch(page):
@@ -159,13 +159,13 @@ def test_one_tap_on_the_sidebar_switch_moves_between_the_two_spaces(
     context, page = _admin_page(new_context, app_server_in_process, "/fleet", VIEWPORT_DESKTOP)
     try:
         _visible_switch(page)
-        page.locator(".space-switch__segment:visible", has_text="My frame").click()
+        page.locator(".space-switch__segment:visible", has_text="My frames").click()
         page.wait_for_function(
             "() => !location.pathname.endsWith('/fleet')"
             " && !!document.querySelector('.space-switch__segment[aria-current=page]')"
             " && document.querySelector('.space-switch__segment[aria-current=page]')"
-            ".textContent.includes('My frame')")
-        _check_switch(page, "en", "My frame", "personal/desktop")
+            ".textContent.includes('My frames')")
+        _check_switch(page, "en", "My frames", "personal/desktop")
         page.locator(".space-switch__segment:visible", has_text="Console").click()
         page.wait_for_function(
             "() => location.pathname === '/fleet'"

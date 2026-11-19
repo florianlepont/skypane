@@ -82,8 +82,6 @@ RARITY_LABELS = {
     collection.RARITY_OCCASIONAL: i18n.msg("airlines.collection_rarity_occasional", "Occasional"),
     collection.RARITY_RARE: i18n.msg("airlines.collection_rarity_rare", "Rare"),
 }
-RARITY_DOTS = {
-    collection.RARITY_REGULAR: 3, collection.RARITY_OCCASIONAL: 2, collection.RARITY_RARE: 1}
 # The legend's range text per tier, built from the one threshold table.
 RARITY_RANGES = (
     (collection.RARITY_RARE, i18n.msg(
@@ -94,16 +92,10 @@ RARITY_RANGES = (
         "airlines.collection_range_regular", "%d or more sightings")),
 )
 LEGEND_LABEL = i18n.msg("airlines.collection_legend", "Rarity of airlines and aircraft")
-RARITY_SENTENCE = i18n.msg(
-    "airlines.collection_rarity_sentence",
-    "Rarity depends on how often your frame has seen an airline.")
 
-FACT_TIMES = i18n.msg("airlines.collection_fact_times", "Times seen")
-FACT_FIRST = i18n.msg("airlines.collection_fact_first", "First seen")
+FACT_TIMES = i18n.msg("airlines.collection_fact_times", "Seen")
 FACT_LAST = i18n.msg("airlines.collection_fact_last", "Last seen")
-FACT_TYPES = i18n.msg("airlines.collection_fact_types", "Aircraft types seen")
-FACT_RARITY = i18n.msg("airlines.collection_fact_rarity", "Rarity")
-FACT_CALLSIGNS = i18n.msg("airlines.collection_fact_callsigns", "Recent callsigns")
+FACT_TYPES = i18n.msg("airlines.collection_fact_types", "Aircraft")
 CLOSE_TEXT = i18n.msg("airlines.close", "Close")
 
 EMPTY_HEADING = i18n.msg(
@@ -235,10 +227,10 @@ def _picture_html(entry, state_dir):
 
 
 def _rarity_pill_html(rarity):
-    dots = '<i class="rarity-dot"></i>' * RARITY_DOTS[rarity]
+    """The rarity as a filled pill: a dot and the word, so colour is never the only signal."""
     return (
-        '<span class="rarity-pill rarity-pill--%s"><span class="rarity-dots" aria-hidden="true">%s</span>'
-        '<span>%s</span></span>') % (rarity, dots, escape_html(i18n.t(RARITY_LABELS[rarity])))
+        '<span class="rarity-pill rarity-pill--%s"><i class="rarity-dot" aria-hidden="true"></i>'
+        '<span>%s</span></span>') % (rarity, escape_html(i18n.t(RARITY_LABELS[rarity])))
 
 
 def _range_text(rarity, template):
@@ -265,8 +257,8 @@ def _seen_text(times):
 
 
 def _card_html(entry, state_dir, ranks=""):
-    """A calm card: the picture, the name and, for a seen airline, one line
-    with the sighting count and the rarity in words. An airline not seen yet is
+    """A calm card: the picture, the name and, for a seen airline, the
+    sighting count and the rarity pill. An airline not seen yet is
     only dimmed (no text); the New pill sits in the card's corner, outside the picture, and
     only while it applies."""
     classes = "collection-card" + (
@@ -278,10 +270,9 @@ def _card_html(entry, state_dir, ranks=""):
             new = '<span class="rarity-pill rarity-pill--new">%s</span>' % (
                 escape_html(i18n.t(NEW_PILL)))
         line_html = (
-            '<span class="collection-card__seen text-label">%s \u00b7 '
-            '<span class="collection-card__rarity collection-card__rarity--%s">%s</span></span>'
-        ) % (escape_html(_seen_text(entry.times_seen)), entry.rarity,
-             escape_html(i18n.t(RARITY_LABELS[entry.rarity])))
+            '<span class="collection-card__seen text-label">%s</span>'
+            '<span class="collection-card__pill">%s</span>'
+        ) % (escape_html(_seen_text(entry.times_seen)), _rarity_pill_html(entry.rarity))
     link = ui_modal.trigger_html(
         DIALOG_PREFIX + entry.slug,
         '<span class="collection-card__art">%s</span>%s'
@@ -299,55 +290,40 @@ def _date_text(day):
     return "%d %s %d" % (day.day, layout.month_abbr(day.month), day.year)
 
 
-def _fact_html(label, value_html, wide=False):
-    return '<div%s><dt>%s</dt><dd>%s</dd></div>' % (
-        ' class="collection-facts__wide"' if wide else "",
-        escape_html(i18n.t(label)), value_html)
+def _fact_html(label, value_html):
+    return '<div><dt>%s</dt><dd>%s</dd></div>' % (escape_html(i18n.t(label)), value_html)
 
 
-def _types_html(entry):
-    """Each aircraft type, tagged with its rarity in words when it is not a
-    regular sight."""
-    chips = []
-    for code, rarity in entry.type_rarities:
-        label = escape_html(panel_render._TYPE_DISPLAY_LABELS.get(code, code))
-        tag = ""
-        if rarity in (collection.RARITY_RARE, collection.RARITY_OCCASIONAL):
-            tag = ' <span class="type-chip__tag">%s</span>' % escape_html(i18n.t(RARITY_LABELS[rarity]))
-        chips.append('<span class="type-chip type-chip--%s">%s%s</span>' % (rarity, label, tag))
-    return '<span class="type-chips">%s</span>' % "".join(chips)
+def _types_text(entry):
+    """The aircraft types seen, as the names the frame shows, in plain words."""
+    return ", ".join(
+        panel_render._TYPE_DISPLAY_LABELS.get(code, code) for code, _rarity in entry.type_rarities)
 
 
 def _facts_html(entry):
-    callsigns = '<span class="type-chips">%s</span>' % "".join(
-        '<span class="type-chip mono">%s</span>' % escape_html(c) for c in entry.callsigns
-    ) if entry.callsigns else ""
     rows = [
-        _fact_html(FACT_TIMES, escape_html(str(entry.times_seen))),
-        _fact_html(FACT_RARITY, _rarity_pill_html(entry.rarity)),
-        _fact_html(FACT_FIRST, escape_html(_date_text(entry.first_day))),
+        _fact_html(FACT_TIMES, escape_html(_seen_text(entry.times_seen).lower())),
         _fact_html(FACT_LAST, escape_html(_date_text(entry.last_day))),
     ]
     if entry.types:
-        rows.append(_fact_html(FACT_TYPES, _types_html(entry), wide=True))
-    if callsigns:
-        rows.append(_fact_html(FACT_CALLSIGNS, callsigns, wide=True))
+        rows.append(_fact_html(FACT_TYPES, escape_html(_types_text(entry))))
     return '<dl class="collection-facts">%s</dl>' % "".join(rows)
 
 
 def _sheet_html(entry, state_dir):
+    """The detail sheet: the picture, the name (the dialog's title) and the rarity pill
+    on top, then the facts in one card. Nothing scrolls inside it."""
     if entry.seen:
-        body = _facts_html(entry) + '<p class="text-label collection-sheet__note">%s</p>' % (
-            escape_html(i18n.t(RARITY_SENTENCE)))
+        body = '<div class="collection-sheet__rarity">%s</div>%s' % (
+            _rarity_pill_html(entry.rarity), _facts_html(entry))
     else:
-        body = '<p class="text-body">%s</p>' % escape_html(i18n.t(NOT_SEEN))
+        body = '<p class="text-body collection-sheet__unseen">%s</p>' % escape_html(i18n.t(NOT_SEEN))
     has_picture = illustrations.resolved_illustration_path(
         entry.picture_key, state_dir) is not None
     art = '<div class="collection-sheet__art">%s</div>' % _picture_html(
         entry, state_dir) if has_picture else ""
-    sections = art + body
     return ui_modal.sections_dialog_html(
-        DIALOG_PREFIX + entry.slug, entry.name, "", sections,
+        DIALOG_PREFIX + entry.slug, entry.name, "", art + body,
         i18n.t(CLOSE_TEXT), "#" + GRID_ID, extra_class="collection-sheet")
 
 

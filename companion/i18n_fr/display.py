@@ -71,7 +71,7 @@ MESSAGES = {
         "Sample panel rendered in the %s theme",
 
     # --- Quiet hours card pointer to the Location and detection page ----
-    "display.location_and_detection_title": "Lieu et détection",
+    "display.location_title": "Lieu",
 
     # --- Calendar row's connection block --------------------------------
     # The confirmation-page strings below (with a question mark, or

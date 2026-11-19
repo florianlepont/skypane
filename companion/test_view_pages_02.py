@@ -149,11 +149,11 @@ def test_flights_render_has_no_inline_script_or_handler_attribute(tmp_path):
 
 
 def test_flights_table_padding_rule_uses_space_sm_token_both_axes(served_css):
-    """style.css's table.data-table--flights padding rule uses var(--space-sm) on both axes,
-    never a literal px value"""
+    """the Flights table's cell padding uses var(--space-sm) vertically and var(--space-md)
+    horizontally, never a literal px value"""
     for selector in ("table.data-table--flights td", "table.data-table--flights th"):
         decls = declarations_for(served_css, selector)
-        assert decls.get("padding") == "var(--space-sm) var(--space-sm)"
+        assert decls.get("padding") == "var(--space-sm) var(--space-md)"
 
 
 def test_flights_thead_carries_exactly_five_cells_in_both_languages(tmp_path):
@@ -172,7 +172,7 @@ def test_flights_thead_carries_exactly_five_cells_in_both_languages(tmp_path):
         prefs.set_request_prefs(lang="en")
     doc_fr = parse_html(rendered_fr)
     assert len(doc_fr.select("thead th")) == 5, "expected exactly 5 <th> cells in the French <thead>"
-    assert doc_fr.select("thead th")[4].text() == "Image"
+    assert doc_fr.select("thead th")[0].text() == "Image"
 
 
 def test_desktop_copy_reveal_stylesheet_contract(served_css):
@@ -310,8 +310,7 @@ def test_history_render_gallery_section_absent_when_empty(tmp_path):
 
 def test_view_panel_trigger_is_a_labelled_link_naming_its_row(tmp_path):
     """the rendered picture control is a real link whose accessible name names the row's callsign on
-    both the desktop row and the mobile card; the desktop link's visible text is "View picture"
-    (label-in-name), the card's icon-only link has no visible text"""
+    both the desktop row and the mobile card; both links are icon-only thumbnails with no visible text"""
     names = ["2026-08-27T10-00-00+00-00.png"]
     vp.seed_gallery(tmp_path, names)
     vp.seed_runway_events(tmp_path, [
@@ -323,12 +322,9 @@ def test_view_panel_trigger_is_a_labelled_link_naming_its_row(tmp_path):
         assert block is not None, "could not locate the %s for row 0" % tag
         link = block.select_one("a[data-view-panel-src]")
         assert link is not None
-        if tag == "tr":
-            assert link.text() == history_page.VIEW_PICTURE_LABEL
-        else:
-            # The card's action is the picture thumbnail alone: no text, no icon.
-            assert link.text() == ""
-            assert not link.select("svg")
+        # The action is the picture thumbnail alone: no text, no icon.
+        assert link.text() == ""
+        assert not link.select("svg")
         assert link.attrs["aria-label"] == "View picture of VPTITLE"
         assert link.attrs["href"] == "/gallery/%s" % names[0]
 
@@ -402,9 +398,9 @@ def test_gallery_name_to_iso_fixtures():
     assert history_page._gallery_name_to_iso("2026-08-30Tgarbage.png") is None
 
 
-def test_view_panel_trigger_reuses_the_small_grey_secondary_treatment(tmp_path, served_css):
-    """a rendered History page's desktop picture link carries no icon glyph and reuses
-    the shared secondary button, which carries the 44px tap floor on the link itself"""
+def test_view_panel_trigger_reuses_the_small_grey_secondary_treatment(tmp_path):
+    """a rendered History page's desktop picture link is the thumbnail control: no icon glyph,
+    the shared picture-link class, no button chrome"""
     names = ["2026-08-27T10-00-00+00-00.png"]
     vp.seed_gallery(tmp_path, names)
     vp.seed_runway_events(tmp_path, [
@@ -413,10 +409,9 @@ def test_view_panel_trigger_reuses_the_small_grey_secondary_treatment(tmp_path, 
     rendered = history_page.render(vp.history_ctx(tmp_path, gallery_entries=names))
     link = parse_html(rendered).select_one("tr a[data-view-panel-src]")
     classes = link.attrs["class"].split()
-    assert {"btn", "btn--secondary", "flight-picture-link"} <= set(classes)
+    assert {"history-card__thumb", "flight-picture-link"} <= set(classes)
+    assert "btn" not in classes
     assert not link.select("svg")
-    assert declarations_for(served_css, ".btn.btn--secondary")
-    assert declarations_for(served_css, ".btn").get("min-height") == "44px"
 
 
 # ======================================================================
@@ -892,7 +887,7 @@ def test_airlines_gap_rows_render_first_in_the_table_with_a_name_it_link(tmp_pat
     first_airline_index = rendered.index('<tbody class="airline-group" ')
     assert gap_index > filter_bar_index, "expected the gap row after the filter bar"
     assert gap_index < first_airline_index, "expected the gap row before every airline's rows"
-    assert ">Validate</button>" in rendered and ">Name it</a>" not in rendered
+    assert ">Name it</a>" in rendered and ">Validate</button>" in rendered and "Ignore" not in rendered
 
 
 def test_airlines_gap_rows_absent_with_no_gaps(tmp_path):
@@ -919,7 +914,7 @@ def test_airlines_section_order_is_title_then_filter_then_table_then_lightbox(tm
 
     literals = (
         ("title", '<h1 class="page-title"'),
-        ("filter", 'class="filter-bar"'),
+        ("filter", 'class="filter-bar filter-bar--chips filter-bar--scroll-chips"'),
         ("table", '<table class="airlines-table"'),
         ("gaprow", 'class="airline-group airline-group--gap"'),
         ("lightbox", '<dialog class="lightbox'),
@@ -930,7 +925,7 @@ def test_airlines_section_order_is_title_then_filter_then_table_then_lightbox(tm
         assert occurrences == 1, "expected exactly one occurrence of %r (the %s section), found %d" % (literal, name, occurrences)
         indices[name] = rendered.index(literal)
 
-    order = ["title", "filter", "table", "gaprow", "lightbox"]
+    order = ["title", "filter", "gaprow", "table", "lightbox"]
     for earlier, later in zip(order, order[1:]):
         assert indices[earlier] < indices[later], (
             "expected %s before %s, but got indices %r (CFG-82, 29-02-PLAN.md)" % (earlier, later, indices))
@@ -951,7 +946,7 @@ def test_airlines_no_chrome_gate_survives_the_reorder(tmp_path):
         rendered_gap_only = airlines_page.render({"state_dir": str(tmp_a)})
     finally:
         illustrations.target_variants_by_airline = original_target_variants_by_airline
-    assert 'class="filter-bar"' in rendered_gap_only, (
+    assert 'class="filter-bar filter-bar--chips filter-bar--scroll-chips"' in rendered_gap_only, (
         "expected the filter bar to still render when there are gap cards but no curated pairs "
         "(the gate is `pairs or gap_shown`, CFG-82, 29-02-PLAN.md)")
 
@@ -1097,7 +1092,7 @@ def test_airlines_full_seeded_render_french_end_to_end(tmp_path):
     # The needle names the CURRENT French translation via the module's
     # own MESSAGES lookup (by stable id), never a hand-typed literal
     # that would silently go stale on the next edit.
-    for needle in (">Éditeur de compagnies<", ">Valider</button>", ">Ignorer</button>",
+    for needle in (">Éditeur de compagnies<", ">Valider</button>", ">Nommer</a>",
                    i18n_fr_airlines.MESSAGES[airline_table.MENU_CHANGE_ART.msg_id]):
         assert needle in rendered_fr, "expected the French %r in the French Airlines render" % (needle,)
     for needle in ("Identifier un vol non reconnu", "Nom de la compagnie",

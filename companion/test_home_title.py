@@ -70,10 +70,10 @@ def test_the_greeting_and_the_frame_name_row_are_gone(rig):
         assert gone not in body, gone
 
 
-def test_the_state_pill_and_the_hero_text_follow_the_title(rig):
+def test_the_state_and_the_next_update_follow_the_title(rig):
     server, seed, cookies = rig
     body = _home(server, seed, cookies["owner"])
-    assert body.index("title-action") < body.index("home-state__pill")
+    assert body.index("title-action") < body.index("home-state__status")
 
 
 def test_a_hostile_frame_name_is_escaped_in_the_title(rig):

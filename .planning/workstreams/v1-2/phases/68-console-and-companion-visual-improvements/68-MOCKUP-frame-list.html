@@ -1,0 +1,474 @@
+<!--
+OWNER-APPROVED 2026-11-18 (the redrawn mockup on the real shell, with the equal overview tiles and the Health and Versions pages, validated by the owner)
+1. List: rows on phone. Desktop: master-detail, the list of frames as a panel next to the console navigation, the selected frame on the rest of the screen.
+2. Switching frame: chip row on phone; on desktop the list panel replaces the dropdown (no chip row on desktop).
+3. Phone sections: stacked sections with sticky anchors. The segmented control State / Settings / Access is removed.
+4. No arrow to click to see more: status information is shown directly.
+5. Access: no introduction, no empty-state text, no "the person must already be invited" help, no long Reassign / Retire sentences (kept in the confirmation dialogs). Keep the people, one Add, Reassign and Retire.
+6. Desktop information area: one column of cards of equal width and equal look, no tiles of different sizes.
+7. A retired or pending frame opens its own page from the list with only the useful action (Re-activate with the message about the wake and the Reset button, or the code). It never appears on another frame's page.
+8. Search in the list from 8 frames (recommendation, not asked yet).
+9. /fleet without a chosen frame: phone shows the list; desktop shows the list panel and the first frame with a problem.
+11. Health page: complete as drawn, except the link to the unresolved airlines, which is removed (they are handled in the Editor).
+12. Overview: four equal tiles (Connection, Battery, Flight data, Firmware) with a Details link to the Health and Versions pages; icon buttons for the personal view (frame icon) and Rename; the console switch lists My frames first; the chip row starts with All frames.
+10. Realism (owner, 2026-11-18): the mockup uses the real shell (floating sidebar with the Console / My frames switch, Administration navigation, sign-out, top bar and floating tab bar on phone) and the real sections of the frame page (State, Device and version, Settings, Access).
+-->
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SkyPane mockup: frame list and frame page (Phase 68, plan 02)</title>
+<style>
+/* Standalone mockup, no external asset. Tokens follow companion/static/style.css (light and dark only).
+   Each mock sits in a [data-viewport] box, 390 px (phone) or 1440 px (desktop); every translated block is a
+   [data-lang] wrapper and the toggle at the top shows one language at a time. All names and addresses are invented. */
+:root{
+  --sky:linear-gradient(#E7EEF7,#F1F3F6 45%,#EDF1F6); --canvas:#F1F3F6; --stage:#E4E9F0;
+  --text:#17191F; --muted:#5B6372; --border:#DAE1EB; --chip:#E9EEF5; --card:#fff;
+  --accent:#1F2430; --on-accent:#fff; --glass:rgba(255,255,255,.78); --tab:#fff; --shadow:0 6px 20px rgba(20,30,50,.08);
+  --ok:#16A34A; --okbg:#DDF3E4; --warn:#D97706; --err:#BE123C;
+}
+@media (prefers-color-scheme:dark){:root:not([data-ui-theme="light"]){
+  --sky:linear-gradient(#12151D,#161A24 45%,#1A1F2B); --canvas:#161A24; --stage:#0E1117;
+  --text:#F1F3F6; --muted:#A3ABBB; --border:#2A3040; --chip:#232A38; --card:#1C222D;
+  --accent:#F2EFE9; --on-accent:#14171F; --glass:rgba(34,40,54,.82); --tab:#1C222D; --shadow:0 6px 20px rgba(0,0,0,.35);
+  --ok:#4ADE80; --okbg:#173225; --warn:#FBBF24; --err:#FB7185; color-scheme:dark}}
+:root[data-ui-theme="dark"]{
+  --sky:linear-gradient(#12151D,#161A24 45%,#1A1F2B); --canvas:#161A24; --stage:#0E1117;
+  --text:#F1F3F6; --muted:#A3ABBB; --border:#2A3040; --chip:#232A38; --card:#1C222D;
+  --accent:#F2EFE9; --on-accent:#14171F; --glass:rgba(34,40,54,.82); --tab:#1C222D; --shadow:0 6px 20px rgba(0,0,0,.35);
+  --ok:#4ADE80; --okbg:#173225; --warn:#FBBF24; --err:#FB7185; color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--stage);color:var(--text);font:16px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;padding:32px 16px 96px}
+button,input{font:inherit;color:inherit}
+a{color:inherit;text-decoration:none}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.num{font-variant-numeric:tabular-nums}
+.top{max-width:1500px;margin:0 auto 24px;display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between;align-items:flex-end}
+.top h1{margin:0 0 8px;font-size:34px;letter-spacing:-.03em}
+.top p{margin:0;color:var(--muted);max-width:75ch}
+.toggles{display:flex;gap:16px;flex-wrap:wrap}
+.seg{display:inline-flex;background:var(--chip);border-radius:32px;padding:4px;gap:4px}
+.seg button{border:0;background:none;min-height:44px;padding:0 16px;border-radius:32px;cursor:pointer;font-size:15px}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent)}
+.sec{max-width:1500px;margin:56px auto 0}
+.sec>h2{margin:0 0 4px;font-size:26px;letter-spacing:-.02em}
+.sec>p.lead{margin:0 0 24px;color:var(--muted);max-width:85ch}
+.row2{display:flex;flex-wrap:wrap;gap:32px;align-items:flex-start}
+.mock{margin:0;display:flex;flex-direction:column;gap:8px;min-width:0}
+.mock>figcaption{font-size:15px;font-weight:600}
+.mock>figcaption small{display:block;font-weight:400;color:var(--muted);font-size:13px}
+.scroller{max-width:100%;overflow-x:auto;padding-bottom:8px}
+[data-ui-lang="en"] [data-lang="fr"],[data-ui-lang="fr"] [data-lang="en"]{display:none}
+.note{margin:12px 0 0;padding:12px 16px;border:1px dashed var(--border);border-radius:14px;color:var(--muted);font-size:14px;max-width:85ch}
+.note b{color:var(--text)}
+
+[data-viewport]{position:relative;overflow:hidden;border:1px solid var(--border);background:var(--sky) var(--canvas);box-shadow:0 12px 40px rgba(20,30,50,.12)}
+[data-viewport="phone"]{width:390px;height:780px;border-radius:36px}
+[data-viewport="desktop"]{width:1440px;height:900px;border-radius:16px}
+[data-viewport] [data-lang]{height:100%;position:relative}
+
+/* shared pieces */
+.ic{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--ok);flex:none;display:inline-block}
+.dot.idle{background:var(--muted)}.dot.err{background:var(--err)}.dot.pend{background:var(--warn)}
+.label{margin:0 0 6px 16px;font-size:13px;font-weight:600;color:var(--muted)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:22px;box-shadow:var(--shadow);overflow:hidden}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 18px;border:1px solid var(--border);border-radius:14px;background:var(--card);font-size:15px;font-weight:600;cursor:pointer}
+.btn.dark{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.btn.sq{width:44px;padding:0}
+.field{display:flex;align-items:center;gap:8px;min-height:44px;padding:0 14px;border:1px solid var(--border);border-radius:14px;background:var(--card)}
+.field input{flex:1;min-width:0;border:0;background:none;min-height:42px;outline:0}
+.title{margin:0;font-size:40px;line-height:1.1;font-weight:700;letter-spacing:-.03em}
+.sub{color:var(--muted);font-size:15px}
+.state{margin:6px 0 0;display:flex;align-items:center;gap:8px;font-weight:600}
+
+/* rows */
+.item{display:flex;align-items:center;gap:12px;min-height:64px;padding:10px 16px;border-top:1px solid var(--border)}
+.item:first-child{border-top:0}
+.item .who{flex:1;min-width:0}
+.item .who small{display:block;color:var(--muted);font-size:13px}
+.item .who b{display:block;font-weight:600}
+.item .val{color:var(--muted);font-size:14px;white-space:nowrap}
+.ico{width:36px;height:36px;border-radius:50%;background:var(--chip);display:flex;align-items:center;justify-content:center;flex:none}
+.ico.ok{background:var(--okbg);color:var(--ok)}
+.sw{flex:none;width:51px;height:31px;border-radius:31px;background:#7C8696;position:relative;cursor:pointer}
+.sw::after{content:"";position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.sw.on{background:var(--accent)}.sw.on::after{left:22px}
+.badge{display:inline-flex;align-items:center;min-height:24px;padding:0 10px;border-radius:32px;border:1px solid var(--border);font-size:12px;color:var(--muted)}
+.range{height:6px;border-radius:6px;background:var(--border);position:relative;margin:14px 0 4px}
+.range i{position:absolute;left:0;top:0;bottom:0;width:26%;border-radius:6px;background:var(--accent)}
+.range b{position:absolute;left:26%;top:50%;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;background:var(--accent)}
+.section{display:flex;flex-direction:column}
+.danger b{color:var(--err)}
+
+/* frame list rows */
+.frow{display:flex;align-items:center;gap:12px;min-height:56px;padding:6px 14px;border-top:1px solid var(--border);cursor:pointer}
+.frow:first-child{border-top:0}
+.frow .who{flex:1;min-width:0}
+.frow .who b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.frow .who small{display:block;color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.frow .seen{font-size:13px;color:var(--muted);white-space:nowrap}
+.frow.retired{opacity:.8}
+.frow.sel{background:var(--chip)}
+.chev{color:var(--muted)}
+
+/* phone shell */
+.ptop{position:absolute;left:0;right:0;top:0;height:64px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;z-index:5}
+.brand{display:flex;align-items:center;gap:8px;font-size:22px;font-weight:700;letter-spacing:-.02em}
+.screen{position:absolute;inset:64px 0 0 0;overflow-y:auto;padding:8px 16px 120px;display:flex;flex-direction:column;gap:16px;scrollbar-width:none}
+.screen::-webkit-scrollbar{display:none}
+.screen>*{flex-shrink:0}
+.tabs{position:absolute;left:12px;right:12px;bottom:14px;display:flex;justify-content:space-around;padding:8px 6px;background:var(--tab);border:1px solid var(--border);border-radius:34px;box-shadow:0 8px 24px rgba(20,30,50,.14);z-index:6}
+.tab{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-width:60px;min-height:52px;border-radius:26px;font-size:11px;color:var(--text)}
+.tab.on{background:var(--accent);color:var(--on-accent);font-weight:600}
+.chips{display:flex;gap:8px;overflow-x:auto;margin:0 -16px;padding:0 16px 4px;scrollbar-width:none}
+.chip{flex:none;display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 14px;border-radius:32px;background:var(--card);border:1px solid var(--border);font-size:14px;white-space:nowrap}
+.chip[aria-current="page"]{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.chip.all{background:var(--chip)}
+.anchors{position:sticky;top:-8px;z-index:3;margin:0 -16px;padding:8px 16px;display:flex;gap:8px;background:var(--canvas)}
+.anchors button{flex:1;min-height:44px;border:1px solid var(--border);border-radius:32px;background:var(--card);font-size:14px;cursor:pointer}
+.anchors button[aria-current="true"]{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.blk{scroll-margin-top:72px}
+
+/* desktop shell */
+.side{position:absolute;left:0;top:0;bottom:0;width:240px;padding:24px 16px;background:var(--glass);border-right:1px solid var(--border);display:flex;flex-direction:column;gap:8px}
+.side .brand{padding:0 8px;margin-bottom:8px}
+.space{display:flex;gap:4px;padding:4px;border-radius:16px;background:var(--chip);margin-bottom:8px}
+.space span{flex:1;text-align:center;min-height:36px;display:flex;align-items:center;justify-content:center;border-radius:12px;font-size:14px;font-weight:600;color:var(--muted)}
+.space span.on{background:var(--accent);color:var(--on-accent)}
+.nlabel{margin:12px 8px 0;font-size:13px;font-weight:600;color:var(--muted)}
+.nav{display:flex;align-items:center;gap:12px;min-height:46px;padding:0 12px;border-radius:14px;font-size:15px}
+.nav.on{background:var(--accent);color:var(--on-accent);font-weight:600}
+.sep{height:1px;background:var(--border);margin:8px 0}
+.signout{margin-top:auto}
+.listp{position:absolute;left:240px;top:0;bottom:0;width:350px;background:var(--glass);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.listp .lhead{flex:none;padding:20px 16px 12px;display:flex;flex-direction:column;gap:12px;border-bottom:1px solid var(--border)}
+.listp .lbody{flex:1;min-height:0;overflow-y:auto;padding:12px 12px 20px;display:flex;flex-direction:column;gap:14px}
+.main{position:absolute;left:590px;right:0;top:0;bottom:0;overflow-y:auto;padding:32px 44px 64px}
+.dcol{display:flex;flex-direction:column;gap:24px;max-width:760px;margin-top:20px}
+.titlerow{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.iconbtns{display:flex;gap:8px;flex:none}
+.sparkline{display:block;width:100%;height:44px}
+.sub2{display:flex;flex-direction:column;gap:6px;width:100%;padding-left:48px;font-size:13px;color:var(--muted)}
+.item.wrap{flex-wrap:wrap}
+.tiles2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.tile2{display:flex;flex-direction:column;gap:6px;min-height:132px;padding:14px;border-radius:22px;background:var(--card);border:1px solid var(--border);box-shadow:var(--shadow);min-width:0}
+.tile2 .th{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+.tile2 .tv{font-size:19px;font-weight:700;letter-spacing:-.01em}
+.tile2 .tm{font-size:13px;color:var(--muted)}
+.tile2 .more{margin-top:auto;display:flex;align-items:center;gap:4px;font-size:13px;font-weight:600}
+.bigspark{display:block;width:100%;height:120px;color:var(--accent)}
+.kv{display:grid;grid-template-columns:1fr auto;gap:6px 16px;padding:12px 16px;border-top:1px solid var(--border);font-size:14px}
+.kv span:nth-child(odd){color:var(--muted)}
+.kv span:nth-child(even){text-align:right}
+.rtable{width:100%;border-collapse:collapse;font-size:14px}
+.rtable th{text-align:left;color:var(--muted);font-weight:600;font-size:13px;padding:8px 16px}
+.rtable td{padding:8px 16px;border-top:1px solid var(--border)}
+.rtable td:last-child,.rtable th:last-child{text-align:right}
+.banner{display:flex;flex-direction:column;gap:8px;padding:12px 16px;border-radius:18px;border:1px solid var(--warn);background:var(--card)}
+.banner b{font-weight:700}
+.pills{display:flex;flex-wrap:wrap;gap:6px}
+.pill{display:inline-flex;align-items:center;min-height:26px;padding:0 10px;border-radius:32px;background:var(--chip);font-size:13px}
+.pill.warn{background:var(--card);border:1px solid var(--warn)}
+.unit{display:inline-flex;gap:4px;padding:3px;border-radius:12px;background:var(--chip)}
+.unit span{min-height:32px;padding:0 12px;display:flex;align-items:center;border-radius:9px;font-size:13px}
+.unit span.on{background:var(--accent);color:var(--on-accent);font-weight:600}
+details.rd{border-top:1px solid var(--border)}
+details.rd summary{min-height:48px;display:flex;align-items:center;padding:0 16px;font-size:14px;font-weight:600;cursor:pointer}
+.outcomes{list-style:none;margin:0;padding:0}
+.outcomes li{padding:10px 16px;border-top:1px solid var(--border)}
+.outcomes p{margin:0;display:flex;align-items:center;gap:8px;font-weight:600}
+.outcomes p span.n{margin-left:auto}
+.outcomes small{display:block;color:var(--muted);font-size:13px;margin:2px 0 0 16px}
+.rtable.l td:last-child,.rtable.l th:last-child{text-align:left}
+.pagehead{display:flex;flex-direction:column;gap:6px;margin-bottom:8px}
+.backl{display:inline-flex;align-items:center;gap:6px;min-height:44px;font-size:15px;font-weight:600}
+.ring{width:64px;height:64px;border-radius:50%;background:conic-gradient(var(--ok) 0 47%,var(--border) 0);display:flex;align-items:center;justify-content:center;flex:none}
+.ring b{width:48px;height:48px;border-radius:50%;background:var(--card);display:flex;align-items:center;justify-content:center;font-size:14px}
+.vrow{display:flex;align-items:center;gap:12px;min-height:52px;padding:6px 16px;border-top:1px solid var(--border)}
+.vrow .who{flex:1}
+.btn.quiet{min-height:40px;font-weight:500;color:var(--muted)}
+
+@media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-logo" viewBox="0 0 24 24"><rect x="4" y="3" width="14" height="18" rx="3"/><path d="M9 10l2 2 4-4"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8v.5"/></symbol>
+  <symbol id="i-fleet" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="3"/><path d="M9 11l2 2 4-4"/></symbol>
+  <symbol id="i-team" viewBox="0 0 24 24"><circle cx="9" cy="12" r="5"/><circle cx="15" cy="12" r="5"/></symbol>
+  <symbol id="i-tag" viewBox="0 0 24 24"><path d="M3 12V4h8l10 10-8 8z"/><circle cx="8" cy="8" r="1.4"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></symbol>
+  <symbol id="i-battery" viewBox="0 0 24 24"><rect x="2" y="7" width="17" height="10" rx="2"/><path d="M22 11v2"/></symbol>
+  <symbol id="i-plane" viewBox="0 0 24 24"><path d="M2 14l8-2 3-8 2 1-1 7 6 2v2l-6-1-2 4-2-.5.5-3.5L2 16z"/></symbol>
+  <symbol id="i-chip" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/></symbol>
+  <symbol id="i-timer" viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M9 2h6"/></symbol>
+  <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z"/></symbol>
+  <symbol id="i-frame" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2.5"/><rect x="7" y="8" width="10" height="8" rx="1"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+</svg>
+
+<div class="top">
+  <div>
+    <h1>Frame list and frame page</h1>
+    <p>Mockup for the owner, redrawn on the real shell after the owner&rsquo;s answers of 2026-11-18 (CON-01: R11, R13, R14, R15, D-04). List of frames: <code>/fleet</code>; one frame: <code>/fleet?frame=&lt;id&gt;</code>. Retired and pending frames live only in the list. Sample data is invented. Use the toggles.</p>
+  </div>
+  <div class="toggles">
+    <div class="seg" id="theme" role="group" aria-label="Theme">
+      <button type="button" data-t="auto" aria-pressed="true">Auto</button>
+      <button type="button" data-t="light" aria-pressed="false">Light</button>
+      <button type="button" data-t="dark" aria-pressed="false">Dark</button>
+    </div>
+    <div class="seg" id="lang" role="group" aria-label="Language">
+      <button type="button" data-l="en" aria-pressed="true">English</button>
+      <button type="button" data-l="fr" aria-pressed="false">Fran&ccedil;ais</button>
+    </div>
+  </div>
+</div>
+
+<div id="app"></div>
+
+<script>
+(function(){
+  function nb(s){return s.replace(/ ([:;?!»])/g,'\u202f$1').replace(/« /g,'«\u202f');}
+  var S={
+    en:{frames:'Frames',search:'Search 30 frames',add:'Add a frame',live:'Live',pending:'Waiting to be paired',retired:'Retired',
+      online:'Online',sleeping:'Sleeping',offline:'Offline',allframes:'All frames (30)',
+      state:'State',device:'Device and version',settings:'Settings',access:'Access',
+      conn:'Frame connection',connv:'Connecting normally',connt:'just now',batt:'Battery',battv:'Normal level',battt:'47 % · 3801 mV',
+      fdata:'Flight data',fdatav:'No detection yet.',fdatat:'never',
+      onframe:'ON THE FRAME',model:'Model XIAO ePaper EE02 13.3in Spectra 6',uptodate:'Up to date',
+      interval:'Wake interval',intervalh:'How often the frame checks for new flight data',secs:'seconds · 15 min',led:'Diagnostic LED',ledh:'Flashes briefly at each check',off:'Off',
+      owner:'Owner',co:'Co-manager',reassign:'Reassign',addp:'Add a co-manager',retire:'Retire this frame…',retireh:'The frame stops showing anything.',
+      openpers:'Open personal view',rename:'Rename',unreach:'No signal since 3 h ago — Showing the last known data.',bantitle:'2 warnings:',ban1:'Flight data is stale',ban2:'ADS-B source outage',bantail:'Something needs attention — check the rows below.',cstate:'Checking in normally',charging:'Probably charging',unitp:'Percentage',unitv:'Voltage',view4:'View 4 readings',stale:'Flight data is stale.',lastacv:'never',outboth:'Both agree',outone:'Only one saw it',outdiff:'They disagree',outbothx:'Both flight-data sources on the frame picked the same aircraft.',outonex:'Only one of the two sources returned an aircraft this cycle.',outdiffx:'The two sources picked different aircraft.',nodis:'No disagreement',identt:'92.4 % of flights identified',toresolve:'2 to resolve',window:'Last 7 days: 148 flights',unres:'Unresolved airlines',colsrc:'Source',colcnt:'Count',coldesc:'Description',fresh:'Fresh lookup',cached:'Cached hit',aonly:'Airline only',manual:'Manual',miss:'Miss',other:'Other',freshx:'Route found just now',cachedx:'Route reused from an earlier lookup',aonlyx:'Only the airline is known',manualx:'Named by the owner',missx:'Nothing found',otherx:'Other cases',lastbk:'Last off-box backup',bkago:'2 h ago',adminonly:'Visible to administrators',tilec:'Connection',tilef:'Firmware',details:'Details',health:'Health',versions:'Versions',backto:'Back to ',nextwake:'Next wake',lastrun:'Last run',lastci:'Last check-in',inmin:'in 14 min',agomin:'2 min ago',nowt:'just now',lastac:'Last aircraft detected',nonet:'None yet',srcs:'Data sources',srcagree:'Sources agree',srcn:'adsb.fi and adsb.lol · 0 disagreements',ident:'Identification',identv:'92 % resolved',identm:'2 to resolve',backup:'Off-box backup',backupv:'Up to date',backupm:'last backup 03:12',serverdata:'Server & data',frameg:'Frame',latest:'Latest readings',ts:'Timestamp',mv:'Battery (mV)',levelok:'Level looks normal',changel:'Release notes',avail:'No update available',cur:'Installed',healthd:'Health details',healths:'Data sources, check-in times, identification, backup, battery readings',contacts:'Last contacts',c3:'just now · 15 min · 30 min ago',days:'Last 7 days',prev:'Previous versions',revert:'Revert',allv:'All versions',signout:'Sign out',admin:'Administration',
+      nav:['Fleet','Users','Editor','Audit log'],account:'Account',space:['Console','My frames'],tabs:['Fleet','Team','Editor','Journal','More'],
+      codeShown:'Code shown 5 min ago',retiredOn:'Retired 12 Oct',react:'Re-activate',
+      wake:'The frame shows its pairing code at its next wake (up to 24 h). Press Reset to restart it now.',
+      seen:function(m){return 'Seen '+m+' ago';}},
+    fr:{frames:'Cadres',search:'Rechercher parmi 30 cadres',add:'Ajouter un cadre',live:'En service',pending:'En attente d’appairage',retired:'Retirés',
+      online:'En ligne',sleeping:'En veille',offline:'Hors ligne',allframes:'Tous les cadres (30)',
+      state:'État',device:'Appareil et version',settings:'Réglages',access:'Accès',
+      conn:'Connexion du cadre',connv:'Se connecte normalement',connt:'à l’instant',batt:'Batterie',battv:'Niveau normal',battt:'47 % · 3801 mV',
+      fdata:'Données de vol',fdatav:'Aucune détection pour l’instant.',fdatat:'jamais',
+      onframe:'SUR LE CADRE',model:'Modèle XIAO ePaper EE02 13.3in Spectra 6',uptodate:'À jour',
+      interval:'Intervalle de réveil',intervalh:'À quelle fréquence le cadre cherche de nouvelles données de vol',secs:'secondes · 15 mn',led:'LED de diagnostic',ledh:'S’allume brièvement à chaque vérification',off:'Éteint',
+      owner:'Propriétaire',co:'Cogestionnaire',reassign:'Réattribuer',addp:'Ajouter un cogestionnaire',retire:'Retirer ce cadre…',retireh:'Le cadre n’affiche plus rien.',
+      openpers:'Ouvrir la vue personnelle',rename:'Renommer',unreach:'Aucun signal depuis il y a 3 h — Dernières données connues affichées.',bantitle:'2 avertissements :',ban1:'Données de vol anciennes',ban2:'Panne de source ADS-B',bantail:'Quelque chose demande votre attention — vérifiez les lignes ci-dessous.',cstate:'Se connecte normalement',charging:'Probablement en charge',unitp:'Pourcentage',unitv:'Tension',view4:'Voir 4 relevés',stale:'Données de vol anciennes.',lastacv:'jamais',outboth:'Les deux concordent',outone:'Une seule l’a vu',outdiff:'Elles se contredisent',outbothx:'Les deux sources de données de vol du cadre ont choisi le même avion.',outonex:'Une seule des deux sources a renvoyé un avion à ce cycle.',outdiffx:'Les deux sources ont choisi des avions différents.',nodis:'Aucun désaccord',identt:'92,4 % des vols identifiés',toresolve:'2 à résoudre',window:'7 derniers jours : 148 vols',unres:'Compagnies non identifiées',colsrc:'Source',colcnt:'Nombre',coldesc:'Description',fresh:'Recherche fraîche',cached:'Résultat en cache',aonly:'Compagnie seulement',manual:'Manuel',miss:'Échec',other:'Autre',freshx:'Trajet trouvé à l’instant',cachedx:'Trajet repris d’une recherche précédente',aonlyx:'Seule la compagnie est connue',manualx:'Nommée par le propriétaire',missx:'Rien trouvé',otherx:'Autres cas',lastbk:'Dernière sauvegarde hors serveur',bkago:'il y a 2 h',adminonly:'Visible des administrateurs',tilec:'Connexion',tilef:'Micrologiciel',details:'Détails',health:'Santé',versions:'Versions',backto:'Retour à ',nextwake:'Prochain réveil',lastrun:'Dernière exécution',lastci:'Dernier contact',inmin:'dans 14 min',agomin:'il y a 2 min',nowt:'à l’instant',lastac:'Dernier avion détecté',nonet:'Aucun pour l’instant',srcs:'Sources de données',srcagree:'Les sources concordent',srcn:'adsb.fi et adsb.lol · 0 désaccord',ident:'Identification',identv:'92 % résolus',identm:'2 à résoudre',backup:'Sauvegarde hors serveur',backupv:'À jour',backupm:'dernière sauvegarde 03:12',serverdata:'Serveur et données',frameg:'Cadre',latest:'Derniers relevés',ts:'Horodatage',mv:'Batterie (mV)',levelok:'Le niveau semble normal',changel:'Notes de version',avail:'Aucune mise à jour disponible',cur:'Installée',healthd:'Détails de santé',healths:'Sources de données, heures de contact, identification, sauvegarde, relevés de batterie',contacts:'Derniers contacts',c3:'à l’instant · 15 min · 30 min',days:'7 derniers jours',prev:'Versions précédentes',revert:'Revenir',allv:'Toutes les versions',signout:'Se déconnecter',admin:'Administration',
+      nav:['Flotte','Utilisateurs','Éditeur','Journal d’audit'],account:'Compte',space:['Console','Mes cadres'],tabs:['Flotte','Équipe','Éditeur','Journal','Plus'],
+      codeShown:'Code affiché il y a 5 min',retiredOn:'Retiré le 12 oct.',react:'Réactiver',
+      wake:'Le cadre affichera son code à son prochain réveil (24 h au plus). Appuyez sur Reset pour le relancer tout de suite.',
+      seen:function(m){return 'Vu il y a '+m;}}
+  };
+  Object.keys(S.fr).forEach(function(k){var v=S.fr[k];if(typeof v==='string')S.fr[k]=nb(v);else if(Array.isArray(v))S.fr[k]=v.map(nb);});
+
+  var NAMES=['Salon','Chambre','Bureau','Cuisine','Entrée','Atelier','Terrasse','Balcon Orly','Garage','Mezzanine','Véranda','Grenier','Cave','Palier','Couloir','Studio','Loft','Cabanon','Phare','Vigie','Tour nord','Tour sud','Hangar','Quai 3'];
+  var OWNERS=['Camille','Louis','Inès','Hugo','Léa','Nora','Paul','Zoé'];
+  var STAT=[['ok','2 min'],['ok','4 min'],['err','3 h'],['ok','1 min'],['idle','2 h'],['ok','3 min'],['ok','7 min'],['ok','2 min'],['err','26 h'],['ok','5 min'],['ok','1 min'],['ok','9 min'],['idle','5 h'],['ok','2 min'],['ok','6 min'],['ok','3 min'],['ok','4 min'],['ok','1 min'],['ok','8 min'],['ok','2 min'],['ok','3 min'],['ok','5 min'],['ok','1 min'],['ok','2 min']];
+  var LIVE=NAMES.map(function(n,i){return{n:n,o:OWNERS[i%OWNERS.length],s:STAT[i][0],m:STAT[i][1]};});
+  LIVE.sort(function(a,b){var r={err:0,idle:1,ok:2};return r[a.s]-r[b.s];});
+  var PEND=[{n:'Cadre 7F:3A'},{n:'Cadre B2:19'}];
+  var RET=[{n:'Le Petit Cadre',o:'Hugo'},{n:'Ancien salon',o:'Léa'},{n:'Banc de test',o:'Paul'},{n:'Cadre prêté',o:'Nora'}];
+
+  function ic(n,cls){return '<svg class="ic'+(cls?' '+cls:'')+'" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-'+n+'"/></svg>';}
+  function sw(on){return '<span class="sw'+(on?' on':'')+'" role="switch" aria-checked="'+on+'" tabindex="0"></span>';}
+  function stateWord(t,s){return s==='ok'?t.online:s==='idle'?t.sleeping:t.offline;}
+  function lead(n,cls){return '<span class="ico'+(cls?' '+cls:'')+'">'+ic(n)+'</span>';}
+
+  /* ---------- shell ---------- */
+  function phoneShell(t,inner,on,top){
+    var icons=['fleet','team','tag','clock','more'];
+    return '<div class="ptop"><span class="brand">'+ic('logo')+'SkyPane</span>'+(top||'')+'</div><div class="screen">'+inner+'</div>'+
+      '<div class="tabs">'+t.tabs.map(function(x,i){return '<div class="tab'+(i===on?' on':'')+'">'+ic(icons[i])+x+'</div>';}).join('')+'</div>';
+  }
+  function sidebar(t){
+    var icons=['fleet','team','tag','clock'];
+    return '<div class="side"><span class="brand">'+ic('logo')+'SkyPane</span>'+
+      '<div class="space"><span>'+t.space[1]+'</span><span class="on">'+ic('check')+t.space[0]+'</span></div>'+
+      '<div class="sep"></div><div class="nlabel">'+t.admin+'</div>'+
+      t.nav.map(function(x,i){return (i===2?'<div class="sep"></div>':'')+'<div class="nav'+(i===0?' on':'')+'">'+ic(icons[i])+x+'</div>';}).join('')+
+      '<div class="sep"></div><div class="nav">'+ic('user')+t.account+'</div>'+
+      '<div class="signout"><a class="btn" href="#">'+t.signout+'</a></div></div>';
+  }
+
+  /* ---------- list pieces ---------- */
+  function frowLive(t,f,sel){
+    return '<a class="frow'+(sel?' sel':'')+'" href="#"><span class="dot '+(f.s==='ok'?'':f.s)+'"></span><span class="who"><b>'+f.n+'</b><small>'+f.o+' · '+stateWord(t,f.s)+'</small></span><span class="seen num">'+t.seen(f.m)+'</span><span class="chev">'+ic('chev')+'</span></a>';
+  }
+  function frowPend(t,f){return '<a class="frow" href="#"><span class="dot pend"></span><span class="who"><b>'+f.n+'</b><small>'+t.codeShown+'</small></span><span class="chev">'+ic('chev')+'</span></a>';}
+  function frowRet(t,f,sel){return '<a class="frow retired'+(sel?' sel':'')+'" href="#"><span class="dot idle"></span><span class="who"><b>'+f.n+'</b><small>'+f.o+' · '+t.retiredOn+'</small></span><span class="chev">'+ic('chev')+'</span></a>';}
+  function groups(t,selLive,selRet){
+    function g(title,n,body){return '<div><p class="label">'+title+' · '+n+'</p><div class="card">'+body+'</div></div>';}
+    return g(t.live,24,LIVE.map(function(f,i){return frowLive(t,f,selLive&&i===0);}).join(''))+
+      g(t.pending,2,PEND.map(function(f){return frowPend(t,f);}).join(''))+
+      g(t.retired,4,RET.map(function(f,i){return frowRet(t,f,selRet&&i===0);}).join(''));
+  }
+  function listHeadPhone(t){
+    return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><h3 class="title" style="font-size:34px">'+t.frames+'</h3><a class="btn dark" href="#">'+ic('plus')+t.add+'</a></div>'+
+      '<label class="field">'+ic('search')+'<input type="search" placeholder="'+t.search+'" aria-label="'+t.search+'"></label>';
+  }
+  function listPhone(_v,t){return phoneShell(t,listHeadPhone(t)+groups(t,false,false),0);}
+  function listPanel(t,selLive,selRet){
+    return '<div class="listp"><div class="lhead"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><h3 style="margin:0;font-size:24px">'+t.frames+'</h3><a class="btn dark" href="#">'+ic('plus')+t.add+'</a></div>'+
+      '<label class="field">'+ic('search')+'<input type="search" placeholder="'+t.search+'" aria-label="'+t.search+'"></label></div><div class="lbody">'+groups(t,selLive,selRet)+'</div></div>';
+  }
+
+  /* ---------- frame page sections (the real ones) ---------- */
+  function spark(){return '<svg class="sparkline" viewBox="0 0 300 44" preserveAspectRatio="none" aria-hidden="true"><polyline fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" points="0,10 40,14 80,16 120,22 160,24 200,30 240,32 300,36"/></svg>';}
+  function statusRow(n,label,val,right,ok,extra){return '<div class="item wrap">'+lead(n,ok?'ok':'')+'<span class="who"><small>'+label+'</small><b>'+val+'</b></span><span class="val num">'+right+'</span>'+(extra?'<div class="sub2">'+extra+'</div>':'')+'</div>';}
+  function stateBlock(t){
+    return '<div class="blk" data-sec="state"><p class="label">'+t.state+'</p><div class="card">'+
+      statusRow('check',t.conn,t.connv,t.connt,true,'<span>'+t.contacts+' : '+t.c3+'</span>')+
+      statusRow('check',t.batt,t.battv,t.battt,true,'<span>'+t.days+'</span>'+spark())+
+      statusRow('info',t.fdata,t.fdatav,t.fdatat,false,'')+'<a class="vrow" href="#" style="min-height:60px"><span class="who"><b>'+t.healthd+'</b><small style="color:var(--muted);font-size:13px;display:block">'+t.healths+'</small></span><span class="chev">'+ic('chev')+'</span></a></div></div>';
+  }
+  function deviceBlock(t){
+    function v(n,note){return '<div class="vrow"><span class="who"><b class="num">'+n+'</b></span><span class="val">'+note+'</span><a class="btn quiet" href="#">'+t.revert+'</a></div>';}
+    return '<div class="blk" data-sec="device"><p class="label">'+t.device+'</p><div class="card"><div class="item"><span class="who"><small>'+t.onframe+'</small><b style="font-family:ui-monospace,Menlo,monospace;font-size:18px">v1.4.2</b><small>'+t.model+'</small></span><span class="badge">'+t.uptodate+'</span></div>'+
+      '<div class="vrow" style="border-top:1px solid var(--border);min-height:40px"><span class="label" style="margin:0">'+t.prev+'</span></div>'+v('v1.4.1','12 Oct')+v('v1.4.0','28 Sep')+
+      '<a class="vrow" href="#"><span class="who"><b>'+t.allv+'</b></span><span class="chev">'+ic('chev')+'</span></a></div></div>';
+  }
+  function settingsBlock(t){
+    return '<div class="blk" data-sec="settings"><p class="label">'+t.settings+'</p><div class="card">'+
+      '<div class="item" style="flex-direction:column;align-items:stretch;gap:2px"><div style="display:flex;gap:12px;align-items:center">'+lead('timer')+'<span class="who"><b>'+t.interval+'</b><small>'+t.intervalh+'</small></span><span class="val num">900 '+t.secs+'</span></div><div class="range"><i></i><b></b></div></div>'+
+      '<div class="item">'+lead('bulb')+'<span class="who"><b>'+t.led+'</b><small>'+t.ledh+'</small></span>'+sw(false)+'</div></div></div>';
+  }
+  function accessBlock(t){
+    function person(n,role,mine){return '<div class="item"><span class="ico">'+n.charAt(0)+'</span><span class="who"><b>'+n+'</b><small>'+role+'</small></span>'+(mine?'<a class="btn" href="#" style="min-height:40px">'+t.reassign+'</a>':'<a class="btn sq" href="#" aria-label="X">'+ic('x')+'</a>')+'</div>';}
+    return '<div class="blk" data-sec="access"><p class="label">'+t.access+'</p><div class="card">'+person('Camille Martin',t.owner,true)+person('Louis Bernard',t.co,false)+
+      '<a class="item" href="#"><span class="ico" style="background:var(--accent);color:var(--on-accent)">'+ic('plus')+'</span><span class="who"><b>'+t.addp+'</b></span></a>'+
+      '<a class="item danger" href="#"><span class="who"><b>'+t.retire+'</b><small>'+t.retireh+'</small></span><span class="chev">'+ic('chev')+'</span></a></div></div>';
+  }
+
+
+  /* ---------- overview tiles and the two detail pages ---------- */
+  function bigSpark(){return '<svg class="bigspark" viewBox="0 0 300 120" preserveAspectRatio="none" aria-hidden="true"><path d="M0 100H300M0 60H300M0 20H300" stroke="var(--border)" stroke-width="1" fill="none"/><polyline fill="none" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round" points="0,24 40,32 80,38 120,52 160,58 200,72 240,78 300,88"/></svg>';}
+  function tile(t,n,label,val,meta,extra,ok){return '<a class="tile2" href="#"><span class="th">'+lead(n,ok?'ok':'')+label+'</span><span class="tv">'+val+'</span><span class="tm">'+meta+'</span>'+(extra||'')+'<span class="more">'+t.details+ic('chev')+'</span></a>';}
+  function tilesBlock(t){
+    return '<div class="blk" data-sec="state"><p class="label">'+t.state+'</p><div class="tiles2">'+
+      tile(t,'check',t.tilec,t.connv,t.connt,'',true)+
+      tile(t,'battery',t.batt,'47 %',t.battv,'<svg class="sparkline" style="height:28px;color:var(--accent)" viewBox="0 0 300 44" preserveAspectRatio="none" aria-hidden="true"><polyline fill="none" stroke="currentColor" stroke-width="2.5" points="0,10 40,14 80,16 120,22 160,24 200,30 240,32 300,36"/></svg>',true)+
+      tile(t,'plane',t.fdata,t.fdatav,t.fdatat,'',false)+
+      tile(t,'chip',t.tilef,'v1.4.2',t.uptodate,'',true)+'</div></div>';
+  }
+  function healthContent(t){
+    function row(n,ok,label,val,extra,right){return '<div class="item wrap">'+lead(n,ok?'ok':'')+'<span class="who"><small>'+label+'</small><b>'+val+'</b></span>'+(right||'')+(extra?'<div class="sub2" style="padding-left:0;width:100%">'+extra+'</div>':'')+'</div>';}
+    function facts(pairs){return '<div class="kv">'+pairs.map(function(x){return '<span>'+x[0]+'</span><span>'+x[1]+'</span>';}).join('')+'</div>';}
+    var unreach='<div class="banner"><span>'+t.unreach+'</span></div>';
+    var banner='<div class="banner"><b>'+t.bantitle+'</b><span class="pills"><span class="pill warn">'+t.ban1+'</span><span class="pill warn">'+t.ban2+'</span></span><span class="sub">'+t.bantail+'</span></div>';
+    var rows=[['14:02','3801'],['13:47','3804'],['13:32','3807'],['13:17','3810']].map(function(r){return '<tr><td class="num">'+r[0]+'</td><td class="num">'+r[1]+'</td></tr>';}).join('');
+    var conn='<div class="card">'+row('check',true,t.conn,t.cstate,'')+facts([[t.lastci,t.agomin],[t.nextwake,t.inmin],[t.lastrun,t.agomin]])+'</div>';
+    var batt='<div class="card"><div class="item"><span class="ring"><b>47 %</b></span><span class="who"><small>'+t.batt+'</small><b>'+t.levelok+'</b><small class="num">47 % · 3801 mV</small></span><span class="pill">'+t.charging+'</span></div>'+
+      '<div style="padding:0 16px 12px"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><span class="tm" style="font-size:13px;color:var(--muted)">'+t.days+'</span><span class="unit"><span class="on">'+t.unitp+'</span><span>'+t.unitv+'</span></span></div>'+bigSpark()+'</div>'+
+      '<details class="rd" open><summary>'+t.view4+'</summary><table class="rtable"><thead><tr><th>'+t.ts+'</th><th>'+t.mv+'</th></tr></thead><tbody>'+rows+'</tbody></table></details></div>';
+    var fd='<div class="card">'+row('info',false,t.fdata,t.fdatav,'')+facts([[t.lastac,t.lastacv]])+'<div class="kv" style="color:var(--warn)"><span style="color:var(--warn)">'+t.stale+'</span><span></span></div></div>';
+    function out(l,n,x,ok){return '<li><p><span class="dot'+(ok?'':' idle')+'"></span>'+l+'<span class="n num">'+n+'</span></p><small>'+x+'</small></li>';}
+    var src='<div class="card">'+row('check',true,t.srcs,t.srcagree,'',  '<span class="val">'+t.nodis+'</span>')+'<ul class="outcomes">'+out(t.outboth,41,t.outbothx,true)+out(t.outone,6,t.outonex,false)+out(t.outdiff,0,t.outdiffx,true)+'</ul></div>';
+    function trow(a,b,c){return '<tr><td>'+a+'</td><td class="num">'+b+'</td><td>'+c+'</td></tr>';}
+    var ident='<div class="card"><div class="item">'+lead('info')+'<span class="who"><small>'+t.ident+'</small><b>'+t.identt+'</b><small>'+t.window+'</small></span><span class="pill">'+t.toresolve+'</span></div>'+
+            '<table class="rtable l"><thead><tr><th>'+t.colsrc+'</th><th>'+t.colcnt+'</th><th style="text-align:left">'+t.coldesc+'</th></tr></thead><tbody>'+trow(t.fresh,22,t.freshx)+trow(t.cached,96,t.cachedx)+trow(t.aonly,11,t.aonlyx)+trow(t.manual,3,t.manualx)+trow(t.miss,9,t.missx)+trow(t.other,7,t.otherx)+'</tbody></table></div>';
+    var bk='<div class="card">'+row('check',true,t.backup,t.backupv,'')+facts([[t.lastbk,t.bkago]])+'</div>';
+    return unreach+banner+'<div><p class="label">'+t.frameg+'</p><div style="display:flex;flex-direction:column;gap:12px">'+conn+batt+'</div></div>'+
+      '<div><p class="label">'+t.serverdata+' · '+t.adminonly+'</p><div style="display:flex;flex-direction:column;gap:12px">'+fd+src+ident+bk+'</div></div>';
+  }
+  function versionsContent(t){
+    function v(n,date,note){return '<div class="item"><span class="who"><b class="num">'+n+'</b><small>'+date+' · '+note+'</small></span><a class="btn quiet" href="#">'+t.revert+'</a></div>';}
+    var cur='<div class="card"><div class="item"><span class="who"><small>'+t.cur+'</small><b style="font-family:ui-monospace,Menlo,monospace;font-size:20px">v1.4.2</b><small>'+t.model+'</small></span><span class="badge">'+t.uptodate+'</span></div><div class="kv"><span>'+t.avail+'</span><span></span></div></div>';
+    var list='<div class="card">'+v('v1.4.1','12 Oct','Battery reading fix')+v('v1.4.0','28 Sep','Quieter retired screen')+v('v1.3.9','3 Sep','Wake interval up to 1 h')+v('v1.3.8','17 Aug','Initial landscape support')+'</div>';
+    return '<div><p class="label">'+t.device+'</p>'+cur+'</div><div><p class="label">'+t.prev+'</p>'+list+'</div>';
+  }
+  function detailPage(kind){
+    return function(vp,t){
+      var body=kind==='health'?healthContent(t):versionsContent(t);
+      var head='<div class="pagehead"><a class="backl" href="#">'+ic('chev').replace('<svg','<svg style="transform:rotate(180deg)"')+t.backto+'Salon</a><h3 class="title"'+(vp==='phone'?' style="font-size:34px"':'')+'>'+(kind==='health'?t.health:t.versions)+'</h3></div>';
+      if(vp==='phone')return phoneShell(t,head+body,0);
+      return sidebar(t)+'<div class="main" style="left:240px"><div style="max-width:760px">'+head+'<div style="display:flex;flex-direction:column;gap:24px">'+body+'</div></div></div>';
+    };
+  }
+
+  function iconBtns(t){return '<div class="iconbtns"><a class="btn sq" href="#" title="'+t.openpers+'" aria-label="'+t.openpers+'">'+ic('frame')+'</a><a class="btn sq" href="#" title="'+t.rename+'" aria-label="'+t.rename+'">'+ic('edit')+'</a></div>';}
+  /* ---------- phone frame page ---------- */
+  function phoneFrame(_v,t){
+    var chipNames=['Salon','Cuisine','Chambre','Atelier','Terrasse','Mezzanine'];
+    var chips='<div class="chips" role="navigation"><a class="chip all" href="#">'+ic('grid')+t.allframes+'</a>'+chipNames.map(function(n,i){return '<a class="chip" href="#"'+(i===0?' aria-current="page"':'')+'><span class="dot"></span>'+n+'</a>';}).join('')+'</div>';
+    var head='<div class="titlerow"><div><h3 class="title" style="font-size:34px">Salon</h3><p class="state"><span class="dot"></span>'+t.online+'</p></div>'+iconBtns(t)+'</div>';
+    var acts='';
+    var anchors='<div class="anchors">'+['state','settings','access'].map(function(k,i){return '<button type="button" data-go="'+k+'"'+(i===0?' aria-current="true"':'')+'>'+t[k]+'</button>';}).join('')+'</div>';
+    return phoneShell(t,chips+head+acts+anchors+tilesBlock(t)+settingsBlock(t)+accessBlock(t),0);
+  }
+
+  /* ---------- desktop ---------- */
+  function desktopLive(_v,t){
+    var f=LIVE[0];
+    var head='<div class="titlerow" style="max-width:760px"><div><h3 class="title">'+f.n+'</h3><p class="state"><span class="dot err"></span>'+t.offline+' <span class="sub" style="font-weight:400">· '+t.seen(f.m)+'</span></p></div>'+iconBtns(t)+'</div>';
+    return sidebar(t)+listPanel(t,true,false)+'<div class="main">'+head+'<div class="dcol">'+tilesBlock(t)+settingsBlock(t)+accessBlock(t)+'</div></div>';
+  }
+  function desktopRetired(_v,t){
+    var head='<h3 class="title">Le Petit Cadre</h3><p class="state"><span class="dot idle"></span>'+t.retired+' <span class="sub" style="font-weight:400">· '+t.retiredOn+'</span></p>';
+    var card='<div class="dcol"><div><p class="label">'+t.react+'</p><div class="card"><div class="item"><span class="who"><b>'+t.react+'</b><small>'+t.wake+'</small></span><a class="btn dark" href="#">'+t.react+'</a></div></div></div></div>';
+    return sidebar(t)+listPanel(t,false,true)+'<div class="main">'+head+card+'</div>';
+  }
+
+  /* ---------- assemble ---------- */
+  function mock(vp,caption,sub,builder){
+    var langs=['en','fr'].map(function(l){return '<div data-lang="'+l+'">'+builder(vp,S[l])+'</div>';}).join('');
+    var box='<div data-viewport="'+vp+'">'+langs+'</div>';
+    return '<figure class="mock"><figcaption>'+caption+(sub?'<small>'+sub+'</small>':'')+'</figcaption>'+(vp==='desktop'?'<div class="scroller">'+box+'</div>':box)+'</figure>';
+  }
+  function section(h,lead,body,extra){return '<section class="sec"><h2>'+h+'</h2><p class="lead">'+lead+'</p>'+body+(extra||'')+'</section>';}
+  var html='';
+  html+=section('1. Phone: the list of frames and a frame page',
+    'Real shell: top bar with the logo and the floating tab bar of the console. Left, the list of frames (<code>/fleet</code>): rows, problems first; pending and retired frames only here. Right, a frame page: the chip row starts with <b>All frames</b> (back to the list in one tap), then the live frames (never a retired one). Then the overview: four tiles of the same size (Connection, Battery, Flight data, Firmware), each marked <b>Details</b>, then Settings and Access stacked, with sticky anchors.',
+    '<div class="row2">'+mock('phone','List of frames','The list scrolls inside the phone',listPhone)+mock('phone','A frame page','Scroll inside the phone; try the anchors',phoneFrame)+'</div>',
+    '<p class="note"><b>Today:</b> the first frame opens by default, a dropdown in the top bar lists every frame (retired included), and an "Other frames" block repeats pending and retired frames at the bottom of every frame page. <b>Removed from Access:</b> the introduction, the empty-state body, the helper line and the long Reassign / Retire sentences (they stay in the confirmation dialogs).</p>');
+  html+=section('2. Desktop: the list as a column next to the navigation, the frame on the rest of the screen',
+    'Real columns: the console menu as a full-height flat column with the My frames / Console switch (My frames first), then the frames column with a fixed header (title, Add, search), then the selected frame: the same four equal tiles, Settings and Access in one column of cards of equal width. Without a chosen frame, <code>/fleet</code> selects the first frame with a problem.',
+    '<div class="row2">'+mock('desktop','A live frame with a problem selected','Scroll inside the list column and the page',desktopLive)+'</div>'+
+    '<div style="height:32px"></div><div class="row2">'+mock('desktop','A retired frame selected','Only the useful action: Re-activate, with the message about the wake and the Reset button',desktopRetired)+'</div>');
+  html+=section('3. The details live on two real pages: Health and Versions',
+    'The three status tiles open the full Health page, and the Firmware tile opens the Versions page. Nothing is lost: the Health page keeps every block the page has today: the no-signal notice and the warnings banner; the connection row (state, last check-in, next wake, last run); the battery row (status, level and voltage, charging pill, Percentage / Voltage switch, curve, readings table); and, for administrators, flight data (last aircraft, stale warning), data sources (verdict, disagreements, the three outcomes with their sentences), identification (rate, to resolve, link to the unresolved airlines, the table by source) and the off-box backup. The Versions page shows the installed version, whether an update is available, and every previous version with its Revert button.',
+    '<div class="row2">'+mock('desktop','Health page (desktop)','',detailPage('health'))+'</div>'+
+    '<div style="height:32px"></div><div class="row2">'+mock('desktop','Versions page (desktop)','',detailPage('versions'))+'</div>'+
+    '<div style="height:32px"></div><div class="row2">'+mock('phone','Health page (phone)','Scroll inside the phone',detailPage('health'))+mock('phone','Versions page (phone)','',detailPage('versions'))+'</div>',
+    '<p class="note"><b>For the build plan:</b> the battery curve period (7 days here) and the exact rows of the Health page are those the application can provide today; the plan checks them against the existing page before building. The explanation sentences and descriptions in this mock are illustrative; the build keeps the existing strings, and the ADS-B source fault block, which only shows during an outage, is kept as it is.</p>');
+  document.getElementById('app').innerHTML=html;
+
+  /* ---------- behaviour ---------- */
+  document.querySelectorAll('[data-lang]').forEach(function(root){
+    var screen=root.querySelector('.screen')||root.querySelector('.main');
+    if(!screen)return;
+    var gos=root.querySelectorAll('[data-go]');
+    function mark(k){gos.forEach(function(b){if(b.dataset.go===k)b.setAttribute('aria-current','true');else b.removeAttribute('aria-current');});}
+    gos.forEach(function(b){b.addEventListener('click',function(){
+      var target=root.querySelector('[data-sec="'+b.dataset.go+'"]');
+      if(target){screen.scrollTo({top:target.offsetTop-64,behavior:'smooth'});mark(b.dataset.go);}
+    });});
+    if(gos.length){screen.addEventListener('scroll',function(){
+      var best='state';
+      root.querySelectorAll('[data-sec]').forEach(function(s){if(s.offsetTop-screen.scrollTop<140)best=(s.dataset.sec==='device'?'state':s.dataset.sec);});
+      mark(best);
+    });}
+    root.querySelectorAll('.sw').forEach(function(s){s.addEventListener('click',function(){var on=s.classList.toggle('on');s.setAttribute('aria-checked',String(on));});});
+  });
+  var r=document.documentElement;
+  r.setAttribute('data-ui-lang','en');
+  document.querySelectorAll('#theme button').forEach(function(b){b.addEventListener('click',function(){
+    if(b.dataset.t==='auto')r.removeAttribute('data-ui-theme');else r.setAttribute('data-ui-theme',b.dataset.t);
+    document.querySelectorAll('#theme button').forEach(function(x){x.setAttribute('aria-pressed',String(x===b));});
+  });});
+  document.querySelectorAll('#lang button').forEach(function(b){b.addEventListener('click',function(){
+    r.setAttribute('data-ui-lang',b.dataset.l);r.lang=b.dataset.l;
+    document.querySelectorAll('#lang button').forEach(function(x){x.setAttribute('aria-pressed',String(x===b));});
+  });});
+})();
+</script>
+</html>

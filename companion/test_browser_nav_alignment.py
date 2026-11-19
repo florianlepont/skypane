@@ -97,3 +97,29 @@ def test_phone_header_and_tab_bar_cells_do_not_move_between_the_views(
     for view in (console, personal):
         assert len({(cell[1], cell[3]) for cell in view["cells"]}) == 1, view
         assert abs(sum(cell[2] for cell in view["cells"]) - (view["bar"][2] - 6)) <= 2, view
+
+
+@pytest.mark.parametrize("lang", ["en", "fr"])
+def test_switching_space_from_the_more_sheet_keeps_the_bar_and_lands_at_the_top(
+        new_context, app_server_in_process, lang):
+    """The Console More row (My frames / Mes cadres) leads to the personal space with the bar at
+    the position it has when the page is opened directly, and the page at its top."""
+    label = {"en": "My frames", "fr": "Mes cadres"}[lang]
+    context, page = _admin_page(
+        new_context, app_server_in_process, _own_frame_home, VIEWPORT_PHONE, lang)
+    try:
+        direct = _read(page, _PHONE_BOXES)["bar"]
+        page.goto(app_server_in_process.base_url() + "/fleet")
+        page.locator("main").wait_for(state="visible")
+        page.wait_for_function(_SETTLED)
+        page.evaluate("() => window.scrollTo(0, document.body.scrollHeight)")
+        page.locator(".tab-bar__more > summary").click()
+        row = page.locator(".tab-bar__space-link")
+        assert row.locator(".link-card__title").inner_text().strip() == label
+        row.click()
+        page.wait_for_function("() => location.pathname !== '/fleet'")
+        landed = _read(page, _PHONE_BOXES)["bar"]
+        assert landed == direct, (landed, direct)
+        assert page.evaluate("() => window.scrollY") == 0
+    finally:
+        context.close()

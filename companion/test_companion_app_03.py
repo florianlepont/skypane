@@ -210,7 +210,8 @@ def test_panel_lookup_optional_replace_lookup_stays_outside_mandatory_guard(app0
     required) appears exactly once and never mentions the optional
     replace-form lookup on its own line, that lookup's first occurrence in the source comes
     after the guard's, it appears exactly once, and the action-attribute setAttribute write
-    appears exactly 3 times — pinning the
+    appears exactly 4 times (the replace, upload and delete forms, plus the
+    artwork dialog type field written on submit, itself guarded) — pinning the
     single line that keeps History's lightbox alive"""
     src = served_asset(app03_server, "/static/panel-lookup.js")
     guard_needle = "if (!image || !caption)"
@@ -226,8 +227,8 @@ def test_panel_lookup_optional_replace_lookup_stays_outside_mandatory_guard(app0
     assert src.index(lookup_needle) > src.index(guard_needle), (
         "expected the optional replace-form lookup's first occurrence after the mandatory "
         "guard's")
-    assert src.count('setAttribute("action"') == 3, (
-        "expected the action-attribute setAttribute write exactly 3 times, got %d"
+    assert src.count('setAttribute("action"') == 4, (
+        "expected the action-attribute setAttribute write exactly 4 times, got %d"
         % src.count('setAttribute("action"'))
 
 
@@ -372,15 +373,15 @@ def test_theme_preview_script_tag_exactly_once_and_no_bare_inline_script():
         pytest.fail("expected no inline <script> without a src, found %r" % match.group(0))
 
 
-def test_twenty_six_deferred_scripts_before_closing_body():
+def test_twenty_seven_deferred_scripts_before_closing_body():
     """Per-page scripts: a bare page_shell() call emits only
     GLOBAL_PAGE_SCRIPTS' 9 tags before the closing body tag (the splash gate in the head is a
     plain, synchronous script and is not one of them); asking for
     every other SHELL_SCRIPT_ORDER script via `scripts=` still emits all
-    twenty-six together, including panel-lookup.js, flash-cleanup.js, toast.js,
+    twenty-seven together, including panel-lookup.js, flash-cleanup.js, toast.js,
     confirm-submit.js, theme-preview.js,
     submit-guard.js, relative-time.js, quick-switch.js,
-    value-controls.js, calendar-connect.js, modal.js, motion.js, session-guard.js, prefetch.js, place-card.js, place-search.js, place-start.js, place-airport-list.js and airline-types.js — and none of submit-guard.js/relative-time.js/
+    value-controls.js, calendar-connect.js, modal.js, motion.js, session-guard.js, prefetch.js, place-card.js, place-search.js, place-start.js, place-airport-list.js, airline-types.js and update-question.js — and none of submit-guard.js/relative-time.js/
     quick-switch.js/value-controls.js on the login shell, which emits no script"""
     bare_doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
     bare_count = bare_doc[:bare_doc.index("</body>")].count(' defer></script>')
@@ -397,7 +398,7 @@ def test_twenty_six_deferred_scripts_before_closing_body():
     body_close = doc.index("</body>")
     head = doc[:body_close]
     count = head.count(' defer></script>')
-    assert count == 26, "expected exactly 26 deferred <script src= tags before </body>, got %d" % count
+    assert count == 27, "expected exactly 27 deferred <script src= tags before </body>, got %d" % count
     for src_const in (
             layout.PANEL_LOOKUP_SCRIPT_SRC, layout.FLASH_CLEANUP_SCRIPT_SRC,
             layout.TOAST_SCRIPT_SRC,

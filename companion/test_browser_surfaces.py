@@ -59,39 +59,47 @@ def _home(new_context, server, viewport, lang, scheme):
     return _open(new_context, server, "/", viewport, lang, scheme)
 
 
+def _rows_page(new_context, server, viewport, lang, scheme):
+    """A page made of list groups (Home is no longer one)."""
+    return _open(new_context, server, "/account", viewport, lang, scheme)
+
+
 @pytest.mark.parametrize("scheme", THEMES)
 @pytest.mark.parametrize("lang", ("en", "fr"))
 @pytest.mark.parametrize("vp_name,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
-def test_home_is_a_hero_over_a_few_groups_and_fits(new_context, server, vp_name, viewport, lang, scheme):
+def test_home_is_a_column_of_blocks_and_fits(new_context, server, vp_name, viewport, lang, scheme):
     context, page = _home(new_context, server, viewport, lang, scheme)
     try:
         where = "home/%s/%s/%s" % (vp_name, lang, scheme)
         assert not _assert_no_page_overflow(page, where, viewport["width"])
         geometry = page.evaluate(
             """() => {
-                const hero = document.querySelector('.hero').getBoundingClientRect();
-                const groups = [...document.querySelectorAll('main .group')]
-                    .map(g => g.getBoundingClientRect());
-                const status = getComputedStyle(document.querySelector('.hero h1'));
-                return {hero: [hero.top, hero.bottom], groups: groups.map(g => [g.top, g.bottom]),
-                        nested: document.querySelectorAll('.group .group').length,
-                        size: parseFloat(status.fontSize), weight: status.fontWeight,
-                        cards: document.querySelectorAll('main .page-section').length};
+                const top = s => document.querySelector(s).getBoundingClientRect();
+                const title = getComputedStyle(document.querySelector('.home-state h1'));
+                const blocks = ['.home-state', '.home-flight', '.home-pills', '.home-stats',
+                                '.home-strip'].map(s => [top(s).top, top(s).bottom]);
+                return {blocks, groups: document.querySelectorAll('main .group').length,
+                        size: parseFloat(title.fontSize), weight: title.fontWeight};
             }""")
-        assert 2 <= len(geometry["groups"]) <= 3, geometry
-        assert geometry["nested"] == 0 and geometry["cards"] == 0, geometry
-        assert all(g[0] >= geometry["hero"][1] - 1 for g in geometry["groups"]), geometry
-        # The hero's title is the frame name: 24px under 380px, 28px on a phone, 48px beyond.
+        # One column of blocks, each below the one before; no list group on Home any more.
+        assert geometry["groups"] == 0, geometry
+        for earlier, later in zip(geometry["blocks"], geometry["blocks"][1:]):
+            assert later[0] >= earlier[1] - 1, geometry
+        # The title is the frame name: 24px under 380px, 32px on a phone, 44px beyond.
         assert 24 <= geometry["size"] <= 48 and geometry["weight"] == "700", geometry
-        for row in page.evaluate(_ROWS):
-            assert row["h"] >= 54 - 0.5 and row["mh"] >= 44, (where, row)
     finally:
         context.close()
 
 
 def test_a_row_shows_a_focus_ring_and_a_long_value_truncates(new_context, server):
-    context, page = _home(new_context, server, VIEWPORTS[0][1], "en", "light")
+    context, page = _rows_page(new_context, server, VIEWPORTS[0][1], "en", "light")
     try:
+        # Home is no longer a list group, so give the shared row a link of its own to focus.
+        page.evaluate(
+            """() => { const group = document.querySelector('.group');
+              const row = document.createElement('div'); row.className = 'row';
+              row.innerHTML = '<a class="row__main" href="#probe"><span class="row__text">x</span></a>';
+              group.appendChild(row); }""")
         link = page.locator(".group a.row__main").first
         link.focus()
         page.keyboard.press("Tab")
@@ -139,11 +147,11 @@ _VALUE_CONTRAST = """() => {
 
 @pytest.mark.parametrize("scheme", THEMES)
 def test_row_value_text_reads_over_the_glass(new_context, server, scheme):
-    context, page = _home(new_context, server, VIEWPORTS[1][1], "en", scheme)
+    context, page = _rows_page(new_context, server, VIEWPORTS[1][1], "en", scheme)
     try:
         page.wait_for_function(FINITE_ANIMATIONS_DONE)
         ratios = page.evaluate(_VALUE_CONTRAST)
-        assert ratios, "no row value or detail on Home"
+        assert ratios, "no row value or detail on the Account page"
         assert min(ratios) >= 4.5, (scheme, min(ratios))
     finally:
         context.close()

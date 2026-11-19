@@ -55,6 +55,10 @@ OVERFLOW = """() => {
     for (const el of state.querySelectorAll('*')) {
       if (!c.visible(el) || el.closest('.data-table-wrap, details[open] > .row-menu__panel, .row-menu__panel')) continue;
       const r = el.getBoundingClientRect();
+      // a one-line chip track scrolls sideways on a phone: a chip past its edge is clipped by
+      // the track, so only the track itself has to stay inside the card
+      const track = el.parentElement && el.parentElement.closest('.filter-bar__chips');
+      if (track && state.contains(track) && ['auto', 'scroll'].includes(getComputedStyle(track).overflowX)) continue;
       if (r.right > box.right + 1 || r.left < box.left - 1) bad.push(el.className + ' ' + Math.round(r.left) + '-' + Math.round(r.right) + ' in ' + Math.round(box.left) + '-' + Math.round(box.right));
     }
   }

@@ -1,6 +1,6 @@
 """Real-browser proof of the phone tab bar's content. The personal bar is Home,
 Flights, Airlines, Style, Place and then, for an administrator, More (Accueil,
-Vols, Airlines, Style, Lieu, Plus) or, for a plain user, Account (Compte): a
+Vols, Compagnies, Style, Lieu, Plus) or, for a plain user, Account (Compte): a
 direct link to the Account page, which carries theme, language and Sign out
 itself, so a user has no More sheet. An administrator's space switch has no
 cell of its own: it is a row of the More panel beside Account, theme, language
@@ -17,11 +17,11 @@ pytestmark = pytest.mark.browser
 
 _BAR_LABELS = {
     "en": ["Home", "Flights", "Airlines", "Style", "Location", "More"],
-    "fr": ["Accueil", "Vols", "Airlines", "Style", "Lieu", "Plus"],
+    "fr": ["Accueil", "Vols", "Compagnies", "Style", "Lieu", "Plus"],
 }
 _USER_BAR_LABELS = {
     "en": ["Home", "Flights", "Airlines", "Style", "Location", "Account"],
-    "fr": ["Accueil", "Vols", "Airlines", "Style", "Lieu", "Compte"],
+    "fr": ["Accueil", "Vols", "Compagnies", "Style", "Lieu", "Compte"],
 }
 
 
@@ -30,7 +30,7 @@ def _bar_labels(role, lang):
 
 _SWITCH_LABEL = {
     "personal": {"en": "Console", "fr": "Console"},
-    "console": {"en": "My frame", "fr": "Mon cadre"},
+    "console": {"en": "My frames", "fr": "Mes cadres"},
 }
 _ACCOUNT_LABEL = {"en": "Account", "fr": "Compte"}
 _CELLS = (
@@ -126,7 +126,7 @@ def test_at_1280_the_bar_is_not_shown_and_the_sidebar_carries_the_pages(
         assert not page.locator(".tab-bar").is_visible()
         names = page.locator(".dashboard-sidebar .sidebar-link").all_inner_texts()
         assert [n.strip() for n in names[:5]] == [
-            "Home", "Flight history", "Location and detection", "Style", "Airlines"], names
+            "Home", "Flights", "Airlines", "Style", "Location"], names
     finally:
         context.close()
 
@@ -191,7 +191,7 @@ def test_the_switch_row_in_the_panel_moves_between_the_spaces(
         page.wait_for_function("() => location.pathname === '/fleet'")
         _settled_cells(page)
         panel = _open_panel(page)
-        assert panel["links"][1]["text"] == "My frame", panel
+        assert panel["links"][1]["text"] == "My frames", panel
         page.locator(".tab-bar__space-link").click()
         page.wait_for_function("() => location.pathname !== '/fleet'")
     finally:
@@ -249,7 +249,7 @@ _PAGE_TITLE = "() => document.querySelector('h1').textContent.trim()"
 def test_french_airlines_tab_and_page_title_agree_with_a_visible_bar_margin(
         new_context, app_server_in_process, width):
     """The French nav entry and the airline page title agree: the tab reads
-    "Airlines", the page is titled the same, and the floating bar keeps a
+    "Compagnies", the page is titled the same, and the floating bar keeps a
     visible gap to both viewport edges with no clipped label."""
     context, page = _admin_page(
         new_context, app_server_in_process, "/airlines",
@@ -257,7 +257,7 @@ def test_french_airlines_tab_and_page_title_agree_with_a_visible_bar_margin(
     try:
         page.wait_for_function(_OWN_CELL_AT_CENTRE)
         tab = page.locator(".tab-bar__link--active .tab-bar__label").inner_text().strip()
-        assert tab == "Airlines"
+        assert tab == "Compagnies"
         assert page.evaluate(_PAGE_TITLE) == tab
         edges = page.evaluate(_BAR_EDGES)
         assert edges["left"] >= 4 and edges["width"] - edges["right"] >= 4, edges

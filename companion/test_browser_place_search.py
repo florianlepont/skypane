@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Browser checks for the place search of the Location and detection page: a request only on a
+"""Browser checks for the place search of the Location page: a request only on a
 submitted query or once the typing pauses, one at a time with a lock afterwards, the exact request the search service
 gets (parameters, Referer, no credentials), result handling that never executes markup, and the
 failure sentence with the rest of the page still saving.

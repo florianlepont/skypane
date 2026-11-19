@@ -18,7 +18,7 @@ FRAME = device_scope.Device(
 FRAME_PAGES = ("/", "/flights", "/detection", "/display", "/airlines", "/health")
 ADMIN_ONLY_LABELS = (
     "Admin", "Console", "Fleet", "Users", "Audit", "Releases", "Update", "Device",
-    "Health", "My views", "My frame")
+    "Health", "My views", "My frames")
 
 
 @pytest.fixture(autouse=True)
@@ -69,8 +69,8 @@ def test_user_sidebar_lists_the_reachable_frame_pages_then_account(monkeypatch):
     sidebar = layout.sidebar_nav("home")
     prefix = "/devices/abc123"
     assert _hrefs(sidebar) == [
-        prefix + "/", prefix + "/flights", prefix + "/detection", prefix + "/display",
-        prefix + "/airlines", "/account"]
+        prefix + "/", prefix + "/flights", prefix + "/airlines", prefix + "/display",
+        prefix + "/detection", "/account"]
     for label in ADMIN_ONLY_LABELS:
         assert label not in sidebar
     assert "nav-group__label" not in sidebar
@@ -111,14 +111,6 @@ def test_user_tab_bar_is_empty_when_only_account_is_reachable(monkeypatch):
     _close_frame_pages_to_users(monkeypatch)
     _as_user_with_frame()
     assert ui_nav._tab_bar_html("account", device_config={}) == ""
-
-
-def test_a_user_sidebar_never_links_locations_whatever_the_route_table_holds(monkeypatch):
-    locations = routes.Route(
-        "GET", routes.Exact("/locations"), lambda handler, match: None, routes.SIGNED_IN)
-    _open_frame_pages_to_users(monkeypatch, extra=(locations,))
-    _as_user_with_frame()
-    assert "/locations" not in _hrefs(layout.sidebar_nav("home"))
 
 
 def test_brand_link_goes_to_frame_home_or_account(monkeypatch):

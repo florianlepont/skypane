@@ -183,6 +183,9 @@ _M_STATE_TOAST_OFFLINE = i18n.msg(
     "components.state_toast_offline", "List not updated (no connection)")
 _M_STATE_BANNER_ERROR = i18n.msg("components.state_banner_error", "Banner, error")
 _M_STATE_BANNER_WARN = i18n.msg("components.state_banner_warn", "Banner, warning")
+_M_STATE_FRAME_NOTICE = i18n.msg(
+    "components.state_frame_notice", "Foreign-frame marker")
+_SAMPLE_OWNER_EMAIL = "camille.durand@example.test"
 _M_STATE_EMPTY_COMPACT = i18n.msg("components.state_empty_compact", "Compact, inside a card")
 _M_STATE_EMPTY_SEARCH = i18n.msg("components.state_empty_search", "Search with no match")
 _M_STATE_DIALOGS = i18n.msg("components.state_dialogs", "Dialogs (open them)")
@@ -543,8 +546,7 @@ def _names():
     rows = []
     for _group, entries in ui_base.NAV_GROUPS:
         for route, label in entries:
-            short = ui_base.NAV_SHORT_LABELS.get(ui_base.nav_slug(route), label)
-            rows.append([_t(short), _t(label)])
+            rows.append([_t(label), _t(label)])
     return [State(_M_STATE_NAMES, ui_components.data_table(
         [_t(_COL_TAB), _t(_COL_PAGE)], rows))]
 
@@ -597,6 +599,8 @@ def _messages():
               ui_components.anomaly_banner(_t(_BANNER))),
         State(_M_STATE_BANNER_WARN,
               ui_components.anomaly_banner(_t(_BANNER), "warn")),
+        State(_M_STATE_FRAME_NOTICE,
+              ui_components.frame_notice_markup(_SAMPLE_OWNER_EMAIL, COMPONENTS_ROUTE)),
     ]
 
 
@@ -735,7 +739,7 @@ CATALOGUE = (
            _M_FAMILY_MESSAGES_DESC,
            ("ui_components.toast_html", "ui_components.toast_link_action_html",
             "ui_components.toast_post_action_html", "ui_filter.list_offline_template_html",
-            "ui_components.anomaly_banner"), _messages),
+            "ui_components.anomaly_banner", "ui_components.frame_notice_markup"), _messages),
     Family("empty", _M_FAMILY_EMPTY,
            _M_FAMILY_EMPTY_DESC,
            ("ui_components.empty_state", "ui_filter.filter_empty_html"), _empty_states),

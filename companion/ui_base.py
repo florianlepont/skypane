@@ -103,15 +103,9 @@ DETECTION_ROUTE = "/detection"
 # NAV_TABS are the one source of these labels for every renderer.
 _NAV_LABEL_HOME = i18n.msg("nav.home", "Home")
 _NAV_LABEL_DISPLAY = i18n.msg("nav.personalisation", "Style")
-_NAV_LABEL_FLIGHTS = i18n.msg("nav.flight_history", "Flight history")
-_NAV_LABEL_DETECTION = i18n.msg("nav.detection", "Location and detection")
+_NAV_LABEL_FLIGHTS = i18n.msg("nav.flight_history", "Flights")
+_NAV_LABEL_DETECTION = i18n.msg("nav.detection", "Location")
 _NAV_LABEL_AIRLINES = i18n.msg("nav.airline_collection", "Airlines")
-# The short forms the phone tab bar uses where the full label would not fit
-# one of six equal cells.
-NAV_SHORT_LABELS = {
-    "flights": i18n.msg("nav.flights_short", "Flights"),
-    "detection": i18n.msg("nav.detection_short", "Location"),
-}
 # The Console-only destination for editing airlines.
 AIRLINE_EDITOR_ROUTE = "/airlines/manage"
 AIRLINE_EDITOR_LABEL = i18n.msg("nav.airline_editor", "Airline editor")
@@ -268,6 +262,8 @@ PLACE_START_SCRIPT_SRC = "/static/place-start.js"
 PLACE_AIRPORT_LIST_SCRIPT_SRC = "/static/place-airport-list.js"
 # Opens an airline's aircraft-type rows in the airline editor.
 AIRLINE_TYPES_SCRIPT_SRC = "/static/airline-types.js"
+# Asks the Install and Roll back question in the shared dialog.
+UPDATE_QUESTION_SCRIPT_SRC = "/static/update-question.js"
 LEAFLET_STYLE_HREF = "/static/vendor/leaflet/leaflet.css"
 
 # The registration seam value-controls.js reads, defined here so a page
@@ -625,6 +621,8 @@ ICON_IDS = ICON_IDS + (
     "icon-toast-trash",
     "icon-close",
     "icon-undo",
+    "icon-departure",
+    "icon-arrival",
 )
 
 # One more icon, for the estimated "probably charging" pill: a lightning
@@ -708,10 +706,18 @@ ICON_IDS = ICON_IDS + (
 ICON_IDS = ICON_IDS + (
     "icon-globe",
     "icon-sign-out",
+    "icon-fit",
 )
 
 ICON_IDS = ICON_IDS + (
     "icon-logo",
+)
+
+# The foreign-frame marker's two glyphs: an eye (looking at someone else's
+# frame) and a back chevron on its Back to Fleet button.
+ICON_IDS = ICON_IDS + (
+    "icon-eye",
+    "icon-chevron-left",
 )
 
 # The brand mark's geometry on a 32x32 box, shared by the `icon-logo` sprite
@@ -913,6 +919,15 @@ ICON_DEFS_HTML = (
     'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
     '<path d="M8 5l5 5-5 5"/>'
     "</symbol>"
+    '<symbol id="icon-eye" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M1.7 10S4.7 4.2 10 4.2 18.3 10 18.3 10 15.3 15.8 10 15.8 1.7 10 1.7 10z"/>'
+    '<circle cx="10" cy="10" r="2.5"/>'
+    "</symbol>"
+    '<symbol id="icon-chevron-left" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M12 5l-5 5 5 5"/>'
+    "</symbol>"
     '<symbol id="icon-pencil" viewBox="0 0 20 20" fill="none" '
     'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
     '<path d="M13.5 3.5l3 3L7 16H4v-3z"/><path d="M11.5 5.5l3 3"/>'
@@ -985,6 +1000,16 @@ ICON_DEFS_HTML = (
     '<path fill="currentColor" d="M18.5 10c0-.7-.6-1.2-1.3-1.2h-4.4L8.6 2.5H6.9l2 6.3H4.6L3 6.8H1.6'
     'l1 3.2-1 3.2H3l1.6-2h4.3l-2 6.3h1.7l4.2-6.3h4.4c.7 0 1.3-.5 1.3-1.2z"/>'
     "</symbol>"
+    # The Flights direction glyphs: an arrow leaving (up and to the right) or
+    # arriving (down and to the right) over a runway line.
+    '<symbol id="icon-departure" viewBox="0 0 24 24" fill="none" '
+    'stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M4 20h16M6 15l12-8M11 7h7v7"/>'
+    "</symbol>"
+    '<symbol id="icon-arrival" viewBox="0 0 24 24" fill="none" '
+    'stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M4 20h16M6 5l12 8M18 6v7h-7"/>'
+    "</symbol>"
     '<symbol id="icon-undo" viewBox="0 0 20 20" fill="none" '
     'stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'
     '<path d="M7.5 5L4 8.5 7.5 12"/><path d="M4 8.5h7.5a4 4 0 0 1 0 8H9"/>'
@@ -1015,6 +1040,10 @@ ICON_DEFS_HTML = (
     '<symbol id="icon-globe" viewBox="0 0 20 20" fill="none" '
     'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
     '<circle cx="10" cy="10" r="7.5"/><path d="M2.5 10h15M10 2.5c2.6 2.8 2.6 12.2 0 15M10 2.5c-2.6 2.8-2.6 12.2 0 15"/>'
+    "</symbol>"
+    '<symbol id="icon-fit" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M3.5 7.5v-4h4M16.5 7.5v-4h-4M3.5 12.5v4h4M16.5 12.5v4h-4"/>'
     "</symbol>"
     '<symbol id="icon-sign-out" viewBox="0 0 20 20" fill="none" '
     'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'

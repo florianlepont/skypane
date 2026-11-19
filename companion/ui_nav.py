@@ -27,7 +27,6 @@ from companion.ui_base import (
     HOME_ROUTE,
     NAV_ICON_IDS,
     NAV_NOTIFICATION_CLASS,
-    NAV_SHORT_LABELS,
     NAV_TABS,
     UI_THEME_CHOICES,
     _DEFAULT_STATUS_DOT_CLASS,
@@ -56,13 +55,10 @@ USER_NAV = (
 
 USER_ROLE = "user"
 
-# The personal space's frame pages, in order: the sidebar lists all of them
-# and the phone bar carries the same five, in its own order, before More. One
-# table serves an administrator and a user alike. Health and Device are
-# Console pages and never appear here.
-_PERSONAL_SIDEBAR_PAGES = (
-    HOME_ROUTE, FLIGHTS_ROUTE, DETECTION_ROUTE, DISPLAY_ROUTE, AIRLINES_ROUTE)
-_PERSONAL_BAR_PAGES = (
+# The personal space's frame pages, in order: the sidebar and the phone bar
+# both list them from this one table, so the two can never disagree. Health
+# and Device are Console pages and never appear here.
+_PERSONAL_PAGES = (
     HOME_ROUTE, FLIGHTS_ROUTE, AIRLINES_ROUTE, DISPLAY_ROUTE, DETECTION_ROUTE)
 
 
@@ -91,7 +87,8 @@ _AIRLINES_BAR_LABEL = i18n.msg("nav.airlines_short", "Editor")
 _USERS_BAR_LABEL = i18n.msg("nav.users_short", "Users")
 _CONSOLE_BAR_LABELS = {
     "editor": _AIRLINES_BAR_LABEL, "audit": _AUDIT_BAR_LABEL, "users": _USERS_BAR_LABEL}
-_PERSONAL_LABEL = i18n.msg("nav.my_frame", "My frame")
+_PERSONAL_SHORTCUT_LABEL = i18n.msg("nav.my_frames", "My frames")
+_PERSONAL_LABEL = _PERSONAL_SHORTCUT_LABEL
 _CONSOLE_LABEL = i18n.msg("nav.console", "Console")
 _SETTINGS_TEXT = i18n.msg("nav.settings", "Settings")
 _CONSOLE_SUBTITLE = i18n.msg("nav.console_subtitle", "Fleet, users, audit")
@@ -143,7 +140,7 @@ def current_space(active):
     # page outside both spaces (the not-found page of an unknown address) is
     # then shown in the Console, the only space with pages to go to.
     if (active != ACCOUNT_NAV_SLUG and is_admin_principal()
-            and not _personal_routes(_PERSONAL_SIDEBAR_PAGES)):
+            and not _personal_routes(_PERSONAL_PAGES)):
         return CONSOLE_SPACE
     return PERSONAL_SPACE
 
@@ -189,7 +186,7 @@ def _switch_target(space):
     """(href, label, aria-label) of the link leading out of `space`, or None
     when the destination page does not exist."""
     if space == CONSOLE_SPACE:
-        return (HOME_ROUTE, _PERSONAL_LABEL, _SWITCH_TO_PERSONAL_TEXT)
+        return (HOME_ROUTE, _PERSONAL_SHORTCUT_LABEL, _SWITCH_TO_PERSONAL_TEXT)
     if console_routes.available_nav_entries():
         return (console_routes.ADMIN_TAB_ROUTE, _CONSOLE_LABEL, _SWITCH_TO_CONSOLE_TEXT)
     return None
@@ -359,7 +356,7 @@ def _personal_sidebar_parts(active):
     reachable frame pages, then the Account footer group. No Health dot."""
     links = [
         _sidebar_link_html(_frame_entry(route, active))
-        for route in _personal_routes(_PERSONAL_SIDEBAR_PAGES)]
+        for route in _personal_routes(_PERSONAL_PAGES)]
     return links + [_group_html([_sidebar_link_html(_account_entry(active))])]
 
 
@@ -525,11 +522,10 @@ REFRESH_PENDING_ATTR = "data-pending"
 REFRESH_SWAP_SELECTORS_BY_PAGE = {
     REFRESH_PAGE_HOME: (
         ".page-header__freshness",
-        "figure.preview-frame",
-        'section[aria-labelledby="home-flights"]',
-        'section[aria-labelledby="home-detection"]',
         'section[aria-labelledby="home-frame-state"]',
+        'section[aria-labelledby="home-flight"]',
         'section[aria-labelledby="home-frame-controls"]',
+        'section[aria-labelledby="home-flights"]',
         ".home-facts",
     ),
     REFRESH_PAGE_DISPLAY: (
@@ -581,9 +577,8 @@ def _personal_bar(active):
     administrator and a user: Home, Flights, Airlines, Style and Place, with
     Account in More."""
     cells = [
-        _tab_bar_cell_link(
-            _frame_entry(route, active), NAV_SHORT_LABELS.get(nav_slug(route)))
-        for route in _personal_routes(_PERSONAL_BAR_PAGES)]
+        _tab_bar_cell_link(_frame_entry(route, active))
+        for route in _personal_routes(_PERSONAL_PAGES)]
     return cells, [_account_entry(active)]
 
 

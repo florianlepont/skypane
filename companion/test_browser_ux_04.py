@@ -1435,7 +1435,7 @@ def test_the_artwork_drop_zone_is_operable_from_the_keyboard_alone(
 # Airlines: the aircraft types of a row, behind its chevron.
 
 TYPES_CARD = "Transavia France"
-TYPES_GROUP = 'tbody.airline-group:has(input[value="%s"])' % TYPES_CARD
+TYPES_GROUP = "#airline-transavia-france"
 
 
 def test_a_row_expands_to_its_types_and_each_type_has_its_own_replace(new_context, server):
@@ -1490,12 +1490,12 @@ def test_every_type_stays_listed_and_reachable_without_scripts(new_context, serv
         page.locator(TYPES_GROUP + " .airlines-subrow").first.wait_for(state="visible")
         if not page.locator(TYPES_GROUP + " .airlines-subrow th").first.inner_text().startswith("A320"):
             raise AssertionError("expected the Transavia A320 as text")
-        single = page.locator('tbody.airline-group:has(input[value="Air France"])')
+        single = page.locator("#airline-air-france")
         single.locator(".airlines-expand > summary").click()
         row = single.locator(".airlines-subrow")
         row.first.wait_for(state="visible")
-        if row.count() != 1 or "Same as the airline" not in row.first.inner_text() or (
-                row.first.locator(".row-menu__toggle").count() != 1):
+        if row.count() != 1 or "Own artwork" in row.first.inner_text() or (
+                row.first.locator(".airlines-act").count() != 1):
             raise AssertionError("expected one seen type, editable, following the airline's "
                                  "artwork, got %r" % row.all_inner_texts())
         problem = _assert_no_page_overflow(page, "airlines without scripts")

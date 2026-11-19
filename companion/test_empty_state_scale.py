@@ -45,19 +45,6 @@ def test_empty_pages_use_the_compact_scale(make_app_server, path, lang):
     _assert_compact_or_filter(blocks, path)
 
 
-@pytest.mark.parametrize("lang", ["en", "fr"])
-def test_the_locations_page_a_refused_submission_shows_is_compact(make_app_server, lang):
-    server = make_app_server()
-    cookie = "%s; %s=%s" % (companion_app_server.login(server), auth.UI_LANG_COOKIE_NAME, lang)
-    code, _, body = companion_app_server.http_request(
-        server.url("/locations/add"), "POST", cookie=cookie,
-        data=companion_app_server.with_csrf(cookie, {"name": " "}))
-    assert code == 400
-    blocks = _empty_states(body.decode("utf-8"))
-    assert blocks, "the refused page shows no empty state to measure"
-    _assert_compact_or_filter(blocks, "/locations (refused submission)")
-
-
 def test_a_frame_that_never_checked_in_gets_the_compact_state_empty_state(make_app_server):
     app = start_fleet_app(make_app_server)
     device = app.fleet.dev_a

@@ -30,7 +30,7 @@ MAP_TILES = "() => document.querySelectorAll('#place-map .leaflet-tile-loaded').
 # Measured counts, asserted exactly. Targets are in the design record.
 MEASURED = {
     "U4a": 3, "U4b": 4, "U4c": 3, "L1": 4, "L1-pin": 5, "L2": 4, "L3": 5, "L4": 3,
-    "S1": 2, "S2": 2, "A7": 2, "A8": 3, "A9": 3, "V1-phone": 1, "V1-desktop": 1}
+    "S1": 2, "S2": 2, "A7": 2, "A8": 5, "A9": 3, "V1-phone": 1, "V1-desktop": 1}
 _OFFSCREEN = (
     "el => { const r = el.getBoundingClientRect();"
     " return r.top < 0 || r.bottom > window.innerHeight; }")
@@ -406,7 +406,7 @@ def test_u4a_change_the_quiet_hours_start(world, new_context):
     context, page, steps = _owner(world, new_context)
     try:
         page.wait_for_function("() => document.readyState === 'complete'", timeout=10000)
-        steps.tap(page.locator("a.home-switch__window"), "schedule")
+        steps.tap(page.locator("a.home-pill--quiet"), "schedule")
         page.wait_for_function(
             "() => document.querySelector('dialog#dlg-quiet-hours').open", timeout=10000)
         selector = "#quiet-window-start"
@@ -611,7 +611,7 @@ def test_s1_the_space_switch_is_one_tap_from_any_page(world, new_context):
     context, page, steps = _admin(world, new_context)
     try:
         steps.tap(page.locator(".tab-bar__more > summary"), "More")
-        steps.tap(page.locator(".tab-bar__more-panel a.tab-bar__space-link:has-text('My frame')"), "My frame")
+        steps.tap(page.locator(".tab-bar__more-panel a.tab-bar__space-link:has-text('My frames')"), "My frames")
         page.wait_for_url(re.compile(".*/devices/[^/]+/$"))
         assert page.locator(".tab-bar a[aria-current='page']").inner_text().strip() == "Home"
         back = Steps(page)
@@ -644,7 +644,12 @@ def test_a8_rename_an_airline_in_the_editor(world, new_context):
         steps.tap(page.locator(".tab-bar a[href$='/airlines/manage']"), "Airline editor")
         page.wait_for_url("**/airlines/manage")
         page.wait_for_function("() => document.readyState === 'complete'", timeout=10000)
-        name = page.locator('.airlines-name input[name="airline_name"][value="Air France"]')
+        steps.tap(page.locator("#airline-air-france .airlines-row .row-menu__toggle"), "row menu")
+        steps.tap(
+            page.locator("#airline-air-france .airlines-row .row-menu__panel a.row-menu__item"),
+            "Rename")
+        name = page.locator('#airline-air-france dialog input[name="airline_name"]')
+        name.wait_for(state="visible")
         steps.type_value(name, "Skyline Air", "airline name")
         with page.expect_navigation():
             steps._add("press", "Enter (saves the name)")
@@ -652,7 +657,7 @@ def test_a8_rename_an_airline_in_the_editor(world, new_context):
         page.wait_for_function(
             "() => document.readyState === 'complete' && document.body.innerText.includes("
             "'Airline name saved')", timeout=15000)
-        assert page.locator('.airlines-name input[value="Skyline Air"]').count() == 1
+        assert page.locator("#airline-skyline-air .airlines-name").inner_text() == "Skyline Air"
         _report_measured("A8", steps, 3)
     finally:
         context.close()

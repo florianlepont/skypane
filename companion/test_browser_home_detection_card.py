@@ -1,6 +1,6 @@
-"""Real-browser checks of Home's Detection card: the whole row is a tap
-target of at least 44 px in both themes, nothing overflows at 360 px, and a
-tap leads to the Location page of the same frame."""
+"""Real-browser checks of Home's place pill: the whole pill is a tap target of at least 44 px in
+both themes, its text is centred in it, nothing overflows at 360 px, and a tap leads to the
+Location page of the same frame."""
 import pytest
 from companion_app_server import session_cookie_for_state_dir
 from skypane_two_device_fleet import OWNER_EMAIL
@@ -12,7 +12,7 @@ from companion.test_device_helpers import start_fleet_app
 
 pytestmark = pytest.mark.browser
 
-ROW = 'section[aria-labelledby="home-detection"] a.row__main'
+ROW = "a.home-pill--place"
 
 
 @pytest.fixture(scope="module")
@@ -38,12 +38,20 @@ def _open(new_context, app, lang, viewport):
 @pytest.mark.parametrize("lang", ["en", "fr"])
 @pytest.mark.parametrize("viewport", [VIEWPORT_MIN_SUPPORTED, VIEWPORT_DESKTOP],
                          ids=["360", "1280"])
-def test_the_row_is_a_44px_target_that_never_overflows(new_context, fleet_app, lang, viewport):
+def test_the_pill_is_a_44px_target_that_never_overflows(new_context, fleet_app, lang, viewport):
     page = _open(new_context, fleet_app, lang, viewport)
     for theme in _in_both_themes(page):
         box = page.locator(ROW).bounding_box()
         assert box["height"] >= 44, (theme, box)
         assert box["x"] >= 0 and box["x"] + box["width"] <= viewport["width"], (theme, box)
+        offset = page.evaluate(
+            """() => { const el = document.querySelector('a.home-pill--place');
+              const box = el.getBoundingClientRect();
+              const range = document.createRange();
+              range.selectNodeContents(el.querySelector('.home-pill__text'));
+              const t = range.getBoundingClientRect();
+              return (t.top + t.height / 2) - (box.top + box.height / 2); }""")
+        assert abs(offset) <= 1.5, (theme, offset)
         assert not _assert_no_page_overflow(page, "Home/%s" % theme, viewport["width"])
 
 

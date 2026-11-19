@@ -58,7 +58,8 @@ def test_every_flight_is_one_row_with_chip_label_detail_and_value(pictured):
     for callsign, card in cards.items():
         parts = [child.attrs.get("class") for child in card.select_one(".row__main").children
                  if not isinstance(child, str)]
-        assert parts[:3] == ["history-card__thumb", "row__text", "row__value"], callsign
+        assert parts[:3] == [
+            "history-card__thumb flight-picture-link", "row__text", "row__value"], callsign
         assert not card.select(".row__chip") and not card.select(".history-card__picture"), callsign
         assert callsign.lower() in card.attrs["data-filter-text"]
         assert card.attrs["data-filter-group"].isdigit()
@@ -70,22 +71,27 @@ def test_every_flight_is_one_row_with_chip_label_detail_and_value(pictured):
         assert card.select_one(".row__detail").text()
 
 
-def test_the_route_codes_mute_the_home_end_and_the_direction_reads_at_the_right(pictured):
-    """a row with a route shows origin, arrow and destination with exactly one muted home end
-    (the origin of a departure, the destination of an arrival); the confirmed direction is
-    spoken in the label (the chip's turn shows it)"""
+def test_the_route_line_draws_the_direction_and_speaks_it(pictured):
+    """a row with a route shows the direction icon, then origin, a chevron and destination on
+    one line; the icon is aria-hidden and the direction is stated as visually hidden text, so
+    no visible text says "Departing" or "Arriving" in the row"""
+    words = {"departing": "Departing", "arriving": "Arriving"}
     for callsign, card in _cards(_flights_doc(pictured)).items():
-        routes = card.select(".history-card__route")
-        if not routes:
-            continue
-        homes = routes[0].select(".history-card__code--home")
-        assert len(homes) == 1, callsign
+        detail = card.select_one(".row__detail")
+        assert detail.select_one(".history-card__route"), callsign
         state = card.attrs["data-filter-kind"]
+        direction = detail.select_one(".history-card__dir")
         if state:
-            side = "from" if state == "departing" else "to"
-            assert "history-card__code--" + side in homes[0].attrs["class"], callsign
-            assert card.select_one(".row__detail").text().startswith(
-                {"departing": "Departing", "arriving": "Arriving"}[state]), callsign
+            assert direction.select_one("svg use").attrs["href"] == (
+                "#icon-departure" if state == "departing" else "#icon-arrival"), callsign
+            assert direction.select_one(".visually-hidden").text().strip() == words[state]
+            assert len(detail.select(".history-card__code")) in (0, 2), callsign
+        else:
+            assert direction is None, callsign
+        assert not detail.select(".history-card__code--home"), callsign
+        visible = card.select_one(".row__label").text() + detail.text().replace(
+            direction.text() if direction else "", "")
+        assert "Departing" not in visible and "Arriving" not in visible, callsign
 
 
 @pytest.mark.parametrize("lang,prefix", [("en", "View picture of "), ("fr", "Voir l’image de ")])
@@ -99,7 +105,7 @@ def test_the_thumbnail_is_the_one_picture_control_named_for_its_flight(pictured,
         assert len(links) == 1, callsign
         link = links[0]
         assert link.parent.attrs["class"] == "row__main", callsign
-        assert link.attrs["class"] == "history-card__thumb"
+        assert link.attrs["class"] == "history-card__thumb flight-picture-link"
         assert link.attrs["href"] == "/gallery/" + _GALLERY_BY_CALLSIGN[callsign]
         assert link.attrs["data-view-panel-src"] == link.attrs["href"]
         assert link.attrs["data-view-panel-caption"]
@@ -159,7 +165,7 @@ def test_an_unresolved_airline_reads_unknown_with_no_resolve_link(pictured, lang
     doc = _flights_doc(pictured, lang)
     cards = _cards(doc)
     assert unknown in cards["OBS412"].select_one(".row__label").text()
-    assert [a for a in cards["OBS412"].select("a") if a.attrs["class"] != "history-card__thumb"] == []
+    assert [a for a in cards["OBS412"].select("a") if "history-card__thumb" not in a.attrs["class"]] == []
     assert not [a for a in doc.select("a") if "resolve=" in a.attrs.get("href", "")]
     assert resolve not in doc.text()
     assert unknown not in cards["TVF72YL"].select_one(".row__label").text()

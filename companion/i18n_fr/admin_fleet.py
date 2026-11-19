@@ -92,7 +92,6 @@ MESSAGES = {
     "admin_fleet.block_device_version": "Appareil et version",
     "admin_fleet.block_settings": "Réglages",
     "admin_fleet.block_access": "Accès",
-    "admin_fleet.block_model": "Modèle",
     "admin_fleet.system_unavailable":
         "Aucune information système n’est disponible pour l’instant.",
     "admin_fleet.unknown_frame":

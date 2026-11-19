@@ -16,7 +16,7 @@ from server import device_config
 pytestmark = pytest.mark.browser
 
 QUIET_DIALOG = "dialog#dlg-quiet-hours"
-QUIET_LINK = "a.home-switch__window"
+QUIET_LINK = "a.home-pill--quiet"
 INVITE = "#dlg-invite-user"
 INVITE_LINK = "a.page-header__action"
 GRABBER = QUIET_DIALOG + " .modal__grabber"
@@ -97,7 +97,7 @@ def test_dragging_the_grabber_past_the_threshold_closes_the_sheet_and_returns_fo
         page.mouse.up()
         page.wait_for_function(
             "s => !document.querySelector(s).open"
-            " && document.activeElement.matches('a.home-switch__window')",
+            " && document.activeElement.matches('a.home-pill--quiet')",
             arg=QUIET_DIALOG, timeout=10000)
         assert "dlg-quiet-hours" not in page.url
     finally:
@@ -171,7 +171,7 @@ def test_dragging_the_heading_closes_the_sheet_but_its_close_link_still_works(
         page.locator(QUIET_DIALOG + " .modal__close").click()
         page.wait_for_function(
             "s => !document.querySelector(s).open"
-            " && document.activeElement.matches('a.home-switch__window')",
+            " && document.activeElement.matches('a.home-pill--quiet')",
             arg=QUIET_DIALOG, timeout=10000)
     finally:
         context.close()
@@ -192,7 +192,7 @@ def test_tab_still_loops_inside_the_sheet_and_never_lands_on_the_grabber(
         page.keyboard.press("Escape")
         page.wait_for_function(
             "s => !document.querySelector(s).open"
-            " && document.activeElement.matches('a.home-switch__window')",
+            " && document.activeElement.matches('a.home-pill--quiet')",
             arg=QUIET_DIALOG, timeout=10000)
     finally:
         context.close()
@@ -206,7 +206,7 @@ def test_with_reduced_motion_a_drag_release_still_closes_instantly(new_context, 
         _drag(page, _centre(page, GRABBER), 150)
         page.wait_for_function(
             "s => !document.querySelector(s).open"
-            " && document.activeElement.matches('a.home-switch__window')",
+            " && document.activeElement.matches('a.home-pill--quiet')",
             arg=QUIET_DIALOG, timeout=10000)
         _open_quiet(page, server)
         _drag(page, _centre(page, GRABBER), 25)

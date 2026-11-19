@@ -221,11 +221,14 @@ def test_new_login_surfaces_render_the_approved_french():
 
 # --- Defaults are unchanged -------------------------------------------
 
+# The pinned digests cover the shared sprite (icon-fit, icon-eye, icon-chevron-left,
+# icon-departure, icon-arrival) and the shared nav names and order
+# (Home, Flights, Airlines, Style, Location; French Vols, Compagnies, Lieu).
 _LOGIN_BASELINE = {
     "en": {
-        "nf": "5f0b7763d76a75591c0f52177e561d75c0ec015eaf7340162049733509e8aff7",
-        "nf2": "5f0b7763d76a75591c0f52177e561d75c0ec015eaf7340162049733509e8aff7",
-        "forb": "bd38768ad4922d2c88d3730af285d2f8cb5e61019125d6f936488dbc19ff2718",
+        "nf": "b6656326e7a54c15646e1eb6c4932a6c193f15f40ca55c65c65f0fca13594f85",
+        "nf2": "b6656326e7a54c15646e1eb6c4932a6c193f15f40ca55c65c65f0fca13594f85",
+        "forb": "ac237b614546b2eb355b58807f22257755e08fbc7e0f60867f1f0a056f6902b5",
     },
 }
 
@@ -344,7 +347,7 @@ def test_unrecognised_principal_clears_to_default():
 
 
 _SHELL_BASELINE_DIGEST = (
-    "6820f287c9803b5d828d3d3910459e95ec66ef24483b34b63728d87406cdc7e7")
+    "c2957d35867b0f185a5d9869c02d2e97a6623e35abbbb4ffa158cfa43aad94fe")
 
 
 def test_shell_without_a_principal_is_byte_identical_to_before():

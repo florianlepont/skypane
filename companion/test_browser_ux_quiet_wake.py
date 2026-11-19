@@ -30,7 +30,7 @@ def server(make_app_server):
     return make_app_server(seed=seed_state_dir, fake_providers=True)
 
 
-WINDOW_LINK = "a.home-switch__window"
+WINDOW_LINK = "a.home-pill--quiet"
 DIALOG = "dialog#dlg-quiet-hours"
 START = "#quiet-window-start"
 END = "#quiet-window-end"

@@ -152,3 +152,21 @@ def test_cache_hit_does_not_write_or_prune(tmp_path, monkeypatch):
 
 def test_normalized_png_cache_maxsize_is_128():
     assert illustration_normalize._cached_normalized_png_bytes.cache_info().maxsize == 128
+
+
+def test_frame_preview_version_follows_every_input_that_changes_the_pixels():
+    """the content address differs for another look, state, size or layout, is stable for the same
+    inputs, and a placeholder or unknown value gets none"""
+    base = theme_preview.frame_preview_version("white", "departing", "large")
+    assert base and base == theme_preview.frame_preview_version("white", "departing", "large")
+    assert len({
+        base,
+        theme_preview.frame_preview_version("band_red_field", "departing", "large"),
+        theme_preview.frame_preview_version("white", "arriving", "large"),
+        theme_preview.frame_preview_version("white", "departing", "small"),
+        theme_preview.frame_preview_version("white", "departing", "large", layout="b"),
+    }) == 5
+    assert theme_preview.frame_preview_version("__THEME__", "departing", "large") is None
+    assert theme_preview.frame_preview_version("white", "empty", "large") is None
+    assert "&v=" not in theme_preview.frame_preview_src("__THEME__")
+    assert theme_preview.frame_preview_src("white").endswith("&v=%s" % base)

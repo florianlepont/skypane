@@ -770,6 +770,41 @@ and logout URLs are derived from `SKYPANE_COMPANION_HOST` (or the optional
 `SKYPANE_COMPANION_PUBLIC_URL`); nothing is ever read from the request
 Host header.
 
+### Auth0 invitations (machine-to-machine)
+
+Optional. When configured, inviting someone from the companion also creates
+their Auth0 database user and shows a one-time link to set a password; the
+link is shown once and is never stored or logged. Without it the invitation
+stays local and you create the Auth0 user by hand. These steps are the
+owner's, in the Auth0 dashboard:
+
+1. Create a **Machine to Machine** application (a separate one from the
+   Regular Web Application above).
+2. Authorise it for the **Auth0 Management API** with exactly two
+   permissions, `create:users` and `create:user_tickets`, and no other (no
+   read, update or delete permission).
+3. Note the name of the database connection the people are created on
+   (Authentication, Database) and, optionally, its connection id
+   (`con_...`, shown on the connection page). The id is only used to send a
+   new invitation to someone who already has an Auth0 account.
+4. In `/opt/skypane/skypane.env` (`root:root 0600`, the same file and mode
+   as the other Auth0 secret) add:
+
+   - `SKYPANE_AUTH0_MGMT_CLIENT_ID=<auth0-mgmt-client-id>`
+   - `SKYPANE_AUTH0_MGMT_CLIENT_SECRET=<auth0-mgmt-client-secret>`
+   - `SKYPANE_AUTH0_DB_CONNECTION=<auth0-database-connection-name>`
+   - `SKYPANE_AUTH0_DB_CONNECTION_ID=<auth0-database-connection-id>` (optional)
+
+   then `sudo systemctl restart skypane-companion`. The values reach the
+   service only through the environment file; no unit file carries them.
+
+Rotate: rotate the client secret on the application in the dashboard, edit
+the line in the environment file, restart the companion. Revoke: delete the
+machine-to-machine application (or remove its Management API
+authorisation); the companion then reports invitations as not configured
+and keeps working. Sign-ups stay disabled, and an Auth0 account alone
+grants nothing: signing in still requires the local invitation.
+
 ### Inviting and managing people
 
 ```bash

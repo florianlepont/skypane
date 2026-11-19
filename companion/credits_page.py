@@ -8,7 +8,7 @@ import json
 import os
 from urllib.parse import urlsplit
 
-from companion import i18n, layout, login_page, prefs
+from companion import i18n, layout, login_page, prefs, ui_components
 
 CREDITS_ROUTE = "/credits"
 
@@ -125,10 +125,7 @@ def load_credits(path=DEFAULT_PATH):
 
 
 def _source_card_html(source, lang):
-    pill = (
-        '<span class="banner__pill">%s</span>'
-        % layout.escape_html(i18n.t(_ATTRIBUTION_TEXT))
-    ) if source["citation_required"] else ""
+    pill = ui_components.pill_html(i18n.t(_ATTRIBUTION_TEXT)) if source["citation_required"] else ""
     return (
         '<section class="page-section credits-source" data-credit="%s">'
         '<h2 class="text-heading">%s</h2>'
