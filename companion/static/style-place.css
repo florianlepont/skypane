@@ -683,6 +683,21 @@ html.js-early:not(.map-ready) .page-content:has(.place-stage) > .frame-notice {
   margin: 0;
 }
 
+/* The app bar floats over the map: on a phone the marker starts below it;
+ * from 960px the frame button floats below the marker's single line. */
+@media (max-width: 959.98px) {
+  .map-ready .page-content:has(.place-stage) > .frame-notice,
+  html.js-early:not(.map-ready) .page-content:has(.place-stage) > .frame-notice {
+    margin-top: calc(52px + var(--safe-top) + var(--app-bar-drop) + var(--space-sm));
+  }
+}
+
+@media (min-width: 960px) {
+  .dashboard-shell:has(.frame-notice):has(.place-stage) .site-header .frame-menu {
+    top: calc(var(--space-2xl) + var(--space-md) + var(--space-sm));
+  }
+}
+
 .map-ready .page-content:has(.place-stage) > .place-page {
   display: flex;
   flex: 1 1 auto;
