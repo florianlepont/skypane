@@ -99,7 +99,7 @@ Sliced by the owner on 2026-11-19 in Bambu Studio 2.9.1.70 for a Bambu Lab P2S, 
 textured PEI plate, PETG Basic, profile "0.20mm Standard @BBL P2S" with 3 walls and 20 % grid infill
 (read on the owner's screenshots), supports switched off. Nothing has been printed. The tray, lid and
 the stand and shim each went on their own plate. Times and costs are the owner's readings from the slicer;
-the masses are the owner's readings too. The thinnest wall and slot are not shown by the slicer: they are the values computed by the assistant on the model in Blender (2026-11-18), not read from Bambu Studio. Any slicer warning was not reported.
+the masses are the owner's readings too. The thinnest wall and slot are not shown by the slicer: they are the values computed by the assistant on the model in Blender (2026-11-18), not read from Bambu Studio. The owner reported on 2026-11-19 that no slicer alert remained once the parts were on separate plates (the first slice, with the tray and lid on top of each other, raised a toolpath conflict warning).
 
 | Part | File | Slicer and version | Layer height | Walls | Infill | Supports needed | Thinnest wall (mm) | Thinnest slot (mm) | Estimated mass (g) | Estimated print time |
 |---|---|---|---|---|---|---|---|---|---|---|
