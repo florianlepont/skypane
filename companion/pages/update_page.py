@@ -43,7 +43,6 @@ TYPE_FORM_FIELD = "hardware_type"
 # Names the group of type buttons (a form's accessible name).
 TYPE_CHOOSER_LABEL_TEXT = i18n.msg("update.hardware_type", "Hardware type")
 # "%s" is the hardware type's label, on the install confirmation page.
-CONFIRM_TYPE_TEMPLATE = i18n.msg("update.for_hardware_type_s", "For %s")
 
 HISTORY_HEADING_TEXT = i18n.msg("update.version_history", "Versions")
 # The history's status chip on the latest release; the one the frame runs
@@ -729,22 +728,19 @@ def update_install_confirm_page(
     bench_note_html = (
         '<p class="text-label">%s</p>' % escape_html(i18n.t(BENCH_CONFIRM_NOTE_TEXT))
     ) if is_bench else ""
-    type_html = type_note_html = ""
+    type_html = ""
     back_route = layout.UPDATE_ROUTE
     if type_choice is not None and type_choice.carries_field:
         type_html = _type_field_html(type_choice.selected)
         back_route = escape_html(page_route(type_choice.selected))
     if back_href is not None:
         back_route = escape_html(back_href)
-    if type_choice is not None and type_choice.chooser:
-        type_note_html = '<p class="text-label">%s</p>' % escape_html(
-            i18n.t(CONFIRM_TYPE_TEMPLATE) % _type_label(type_choice.selected))
     return (
         '<section class="update-confirm" aria-labelledby="update-confirm-title">'
         '<h1 class="update-confirm__title" id="update-confirm-title">%s</h1>'
-        '<p class="text-body">%s</p>%s%s'
+        '<p class="text-body">%s</p>%s'
         '<div class="update-confirm__actions"><a class="%s" href="%s">%s</a>%s</div></section>'
-    ) % (escape_html(heading), escape_html(sentence), type_note_html, bench_note_html,
+    ) % (escape_html(heading), escape_html(sentence), bench_note_html,
          _QUIET_BUTTON_CLASS, back_route, escape_html(i18n.t(CANCEL_BUTTON_TEXT)),
          _install_confirm_form_html(version, go_label, type_html))
 

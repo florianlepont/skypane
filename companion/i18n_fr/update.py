@@ -90,7 +90,6 @@ MESSAGES = {
     "update.this_is_a_bench_build": "Il s’agit d’une version de banc d’essai.",
 
     "update.hardware_type": "Type de matériel",
-    "update.for_hardware_type_s": "Pour %s",
     "update.roll_back_to_s_question": "Revenir à %s\u00a0?",
     "update.rollback_confirm_around_s": (
         "Le cadre revient à %s à son prochain réveil, vers %s. Ses réglages sont conservés."),

@@ -49,7 +49,6 @@ EXPAND_ARIA = i18n.msg("airlines.expand_types_aria", "Aircraft types seen for %s
 MENU_ARIA = i18n.msg("airlines.row_menu_aria", "Actions for %s")
 MENU_RESET = i18n.msg("airlines.reset_original_name", "Reset to the original name")
 MENU_CHANGE_ART = i18n.msg("airlines.change_artwork", "Change artwork")
-HAND_NAMED_TEXT = i18n.msg("airlines.named_by_hand", "Named by hand")
 STATE_OWN = i18n.msg("airlines.state_own_artwork", "Own artwork")
 ACTION_ADD_ART = i18n.msg("airlines.add_artwork", "Add artwork")
 MENU_DELETE_ART = i18n.msg("airlines.menu_delete_artwork", "Delete the artwork")
@@ -154,14 +153,8 @@ def _delete_art_form(row_key):
 
 
 def _name_cell(row):
-    """The airline's name as plain text, with the "Named by hand" pill for an
-    owner-named airline; renaming is an action of the row's menu."""
-    manual = row["manual_info"]
-    pill = (
-        '<span class="airlines-pill">%s</span>' % escape_html(i18n.t(HAND_NAMED_TEXT))
-        if row["sheet"] is None and manual is not None and not manual[1] else "")
-    return '<span class="airlines-name airlines-name--fixed">%s</span>%s' % (
-        escape_html(row["name"]), pill)
+    """The airline's name as plain text; renaming is an action of the row's menu."""
+    return '<span class="airlines-name airlines-name--fixed">%s</span>' % escape_html(row["name"])
 
 
 def _enlarge_html(page, row, key, label):

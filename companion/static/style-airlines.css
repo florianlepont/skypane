@@ -655,10 +655,6 @@ table.airlines-table {
   min-width: 0;
 }
 
-.airlines-namebox > .airlines-pill {
-  margin-left: var(--space-xs);
-}
-
 /* The separate cells repeat the meta line on a phone: hidden there. */
 .airlines-row > .airlines-cell--prefixes,
 .airlines-row > .airlines-cell--views,

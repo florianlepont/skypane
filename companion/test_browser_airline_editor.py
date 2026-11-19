@@ -19,7 +19,7 @@ from server.plane import manual_resolutions
 pytestmark = pytest.mark.browser
 
 VIEWPORTS = (("360", VIEWPORT_MIN_SUPPORTED), ("1280", VIEWPORT_DESKTOP))
-ROW = "tbody.airline-group:has(.airlines-pill)"
+ROW = 'tbody.airline-group:has(form[action*="manual-resolutions/"])'
 DELETE_LINK = ROW + " .airlines-row .row-menu__toggle"
 FRANCE = "#airline-air-france"
 FRANCE_NAME = FRANCE + " .airlines-name"
@@ -125,14 +125,13 @@ def test_the_editor_is_reached_from_the_sidebar_on_desktop(new_context, server):
 
 def test_a_hand_named_airline_stays_in_the_table_and_its_menu_deletes_the_name(
         new_context, make_app_server):
-    """no separate manual-resolutions table: the two owner-named airlines keep a row with the
-    "Named by hand" pill, and "Delete my name" in the row menu removes the name"""
+    """no separate manual-resolutions table: the two owner-named airlines keep a row, and "Delete my name" in the row menu removes the name"""
     server = make_app_server(seed=_seed, fake_providers=True)
     context, page = _open(new_context, server, VIEWPORT_DESKTOP)
     try:
         assert page.locator(".manual-resolutions").count() == 0
         assert page.locator(ROW).count() == 2
-        assert page.locator(ROW + " .airlines-pill").first.inner_text() == "Named by hand"
+        assert "Named by hand" not in page.locator(ROW).first.inner_text()
         _settle(page, DELETE_LINK)
         page.locator(DELETE_LINK).first.click()
         item = page.locator(ROW + " .row-menu__panel button.row-menu__item").first

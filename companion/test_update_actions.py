@@ -553,7 +553,7 @@ def test_an_unavailable_type_is_rejected_without_the_simulation_gate(server, coo
     assert fr.load_registry(server.state_dir)["schedule"] is None
 
 
-def test_confirm_page_names_the_type_and_carries_it_only_with_the_chooser(
+def test_confirm_page_carries_the_type_only_with_the_chooser(
         two_type_server, two_type_cookie, server, cookie):
     status, _headers, body = _post(
         two_type_server, update_page.INSTALL_ROUTE, two_type_cookie,
@@ -561,7 +561,7 @@ def test_confirm_page_names_the_type_and_carries_it_only_with_the_chooser(
     html = body.decode("utf-8")
     assert status == 200
     assert _hidden_types(html) == [_OTHER]
-    assert fr.hardware.get_profile(_OTHER, _SIM_ENV).label in html
+    assert fr.hardware.get_profile(_OTHER, _SIM_ENV).label not in html
     _status, _headers, one_type = _post(
         server, update_page.INSTALL_ROUTE, cookie, {"version": _DOWNGRADE_VERSION})
     assert _hidden_types(one_type.decode("utf-8")) == []

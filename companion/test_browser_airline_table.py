@@ -179,8 +179,8 @@ def test_the_unidentified_prefix_is_a_compact_row_on_top_named_in_a_dialog(
         page.wait_for_function(_SETTLED, timeout=15000)
         assert page.locator(DIALOG + "[open]").count() == 0
         row = 'tbody.airline-group:has(.airlines-name--fixed:text-is("Xyz Wings"))'
-        assert page.locator(row + " .airlines-pill").inner_text() == "Named by hand"
-        assert page.locator(row + " .airlines-pill").is_visible()
+        assert page.locator(row + " .airlines-pill").count() == 0
+        assert "Named by hand" not in page.locator(row).inner_text()
         saved = manual_resolutions.load_manual_resolutions(server.state_dir)
         assert saved["XYZ"]["airline_name"] == "Xyz Wings"
         assert airline_default_types.load_default_types(server.state_dir) == {}

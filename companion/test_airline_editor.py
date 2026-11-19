@@ -256,14 +256,14 @@ def test_deleting_a_manual_resolution_returns_to_the_editor_and_removes_it(rig):
     assert "manual-resolutions/ZZZ/delete" not in rig.get("admin", rig.frame + EDITOR)[2]
 
 
-def test_a_hand_named_airline_keeps_its_row_with_a_pill_and_a_delete_item(rig):
+def test_a_hand_named_airline_keeps_its_row_and_a_delete_item(rig):
     manual_resolutions.add_entry(rig.owned_dir, "ZZZ", "Zed Air", now=STAMP)
     page = rig.get("admin", rig.frame + EDITOR)[2]
     assert "manual-resolutions/" not in page.split("</table>")[-1]
     group = re.search(r'<tbody class="airline-group"(?:(?!</tbody>).)*Zed Air.*?</tbody>', page, re.S)
     assert group, "the hand-named airline has no row"
     text = group.group(0)
-    assert 'class="airlines-pill">Named by hand<' in text
+    assert "Named by hand" not in text
     form = re.search(r'<form class="airlines-menu__form"[^>]*manual-resolutions/ZZZ/delete".*?</form>', text, re.S)
     assert form and ">Delete my name<" in form.group(0)
     assert re.search(r'<input type="hidden" name="[a-z_]*csrf[a-z_]*" value="[^"]+">', form.group(0))
