@@ -1030,7 +1030,7 @@ def test_a_disclosure_row_fades_its_content_in_when_it_opens(new_context, server
 def test_the_administrators_not_found_page_keeps_the_console_navigation_on_a_desktop(
         new_context, server):
     """with no frame in scope the Console is the administrator's only space: the sidebar lists
-    its destinations and the space switch marks the Console, not 'My frame'"""
+    its destinations and the space switch marks the Console, not 'My frames'"""
     context = _admin_context(new_context, server, {"width": 1280, "height": 900},
                              reduced_motion="no-preference")
     try:

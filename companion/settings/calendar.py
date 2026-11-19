@@ -311,9 +311,8 @@ def _status_title_html(state, title):
     is_on = state not in ("none", "ignored")
     lead = i18n.t(CALENDAR_FLIGHTS_ON_TEXT if is_on else CALENDAR_FLIGHTS_OFF_TEXT)
     name_html = " <b>%s</b>" % escape_html(title) if is_on else ""
-    pill_html = "" if state == "none" else (
-        '<span class="banner__pill calendar-status__pill"><span class="dot %s" '
-        'aria-hidden="true"></span>%s</span>') % (dot_class, escape_html(i18n.t(pill_text)))
+    pill_html = "" if state == "none" else ui_components.pill_html(
+        i18n.t(pill_text), extra_class="calendar-status__pill", dot_class=dot_class)
     return '<p class="calendar-status__title"><span class="calendar-status__lead">%s%s</span>%s%s</p>' % (
         escape_html(lead), "," if is_on else "", name_html, pill_html)
 

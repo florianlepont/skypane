@@ -147,7 +147,7 @@ def test_admin_sidebar_lists_the_administration_group_in_order(served):
     assert "Releases<" not in sidebar
     aside = page[page.index("<aside"):page.index("</aside>")]
     assert re.search(
-        r'class="space-switch__segment" href="/"[^>]*>(<[^>]*>)*My frame<', aside)
+        r'class="space-switch__segment" href="/"[^>]*>(<[^>]*>)*My frames<', aside)
     assert "nav-group--frame-tools" not in sidebar
 
 

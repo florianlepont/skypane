@@ -141,11 +141,11 @@ def test_desktop_sidebars_put_the_switch_first(
         links = page.evaluate(_SIDEBAR_LINKS)
         assert [link["text"] for link in links] == CONSOLE_SIDEBAR_LABELS
         assert all(link["h"] >= MIN_TAP_PX for link in links), links
-        switch.locator("a", has_text="My frame").click()
+        switch.locator("a", has_text="My frames").click()
         page.wait_for_function("() => !location.pathname.endsWith('/fleet')")
         page.wait_for_function(
             "() => { const a = document.querySelector('.dashboard-sidebar .space-switch"
-            " [aria-current=page]'); return !!a && a.textContent.includes('My frame'); }")
+            " [aria-current=page]'); return !!a && a.textContent.includes('My frames'); }")
         assert page.locator(".sidebar-nav").inner_text().count("Update") == 0
         assert page.locator(".section-subnav").count() == 0
     finally:

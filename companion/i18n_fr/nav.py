@@ -41,7 +41,6 @@ MESSAGES = {
     "nav.audit_short": "Journal",
     "nav.airlines_short": "Éditeur",
     "nav.users_short": "Équipe",
-    "nav.my_frame": "Mon cadre",
     "nav.my_frames": "Mes cadres",
     "nav.console": "Console",
     "nav.settings": "Réglages",

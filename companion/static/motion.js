@@ -111,9 +111,19 @@
           && link.classList.contains("tab-bar__link"))) {
         link = link.parentNode;
       }
-      if (!link || link === bar || link.classList.contains("tab-bar__link--active")
-          || evt.button !== 0 || evt.metaKey || evt.ctrlKey || evt.shiftKey || evt.altKey
-          || link.hasAttribute("target")) {
+      if (!link || link === bar || evt.button !== 0 || evt.metaKey || evt.ctrlKey
+          || evt.shiftKey || evt.altKey || link.hasAttribute("target")) {
+        return;
+      }
+      if (link.classList.contains("tab-bar__link--active")) {
+        // The tab of the page already open: scroll to the top instead of
+        // loading the same page again. A sub-page of the tab keeps the link's
+        // normal navigation back to the tab's own page.
+        if (link.pathname === window.location.pathname
+            && link.search === window.location.search) {
+          evt.preventDefault();
+          window.scrollTo({top: 0, behavior: reducedMotion() ? "auto" : "smooth"});
+        }
         return;
       }
       // The glide waits until every other click handler has run: an

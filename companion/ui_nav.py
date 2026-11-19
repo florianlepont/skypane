@@ -87,8 +87,8 @@ _AIRLINES_BAR_LABEL = i18n.msg("nav.airlines_short", "Editor")
 _USERS_BAR_LABEL = i18n.msg("nav.users_short", "Users")
 _CONSOLE_BAR_LABELS = {
     "editor": _AIRLINES_BAR_LABEL, "audit": _AUDIT_BAR_LABEL, "users": _USERS_BAR_LABEL}
-_PERSONAL_LABEL = i18n.msg("nav.my_frame", "My frame")
 _PERSONAL_SHORTCUT_LABEL = i18n.msg("nav.my_frames", "My frames")
+_PERSONAL_LABEL = _PERSONAL_SHORTCUT_LABEL
 _CONSOLE_LABEL = i18n.msg("nav.console", "Console")
 _SETTINGS_TEXT = i18n.msg("nav.settings", "Settings")
 _CONSOLE_SUBTITLE = i18n.msg("nav.console_subtitle", "Fleet, users, audit")

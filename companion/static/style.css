@@ -993,6 +993,10 @@ a:hover {
 /* The sidebar's segments are too narrow for check, space glyph and label
  * together: the space glyph gives way there, the check (the non-colour cue
  * for the current space) and the label stay. */
+.dashboard-sidebar .space-switch {
+  padding-inline: var(--space-xs);
+}
+
 .dashboard-sidebar .space-switch__segment {
   padding: 0 2px;
   gap: 2px;
@@ -5046,7 +5050,11 @@ html:not(.map-ready) .place-details__close {
 .quiet-timezone-note a::after {
   content: "";
   position: absolute;
-  inset: -13px -4px;
+  top: 50%;
+  left: 50%;
+  width: max(calc(100% + 8px), 44px);
+  height: max(calc(100% + 26px), 44px);
+  transform: translate(-50%, -50%);
 }
 
 /* Without the battery dial (a plain user's Home) the status zone and the
@@ -5908,13 +5916,15 @@ a.btn[aria-disabled="true"] {
     background-size: 100% 100%;
   }
 
+  /* The visible handle: a 44px by 5px pill, decorative. The sheet closes from
+   * the keyboard (Escape), from the More cell and from a tap outside it. */
   .tab-bar__grab {
     flex: none;
     align-self: center;
-    width: 40px;
-    height: 4px;
+    width: 44px;
+    height: 5px;
     margin-bottom: var(--space-xs);
-    border-radius: 2px;
+    border-radius: 3px;
     background: var(--color-border);
   }
 

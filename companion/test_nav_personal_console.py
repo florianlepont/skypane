@@ -168,7 +168,7 @@ def test_console_frame_pages_render_in_the_console_chrome_for_each_frame(served,
         assert "Administration" in sidebar and "Frame tools" not in sidebar
         aside = markup[markup.index("<aside"):markup.index("</aside>")]
         assert 'class="space-switch__segment" href="/"' in aside
-        assert ">My frame<" in aside
+        assert ">My frames<" in aside
         tools = {
             text: href for href, text in _anchors(sidebar)
             if re.sub(r"^/devices/[^/]+", "", href) in (

@@ -28,7 +28,7 @@ def test_display_has_no_quiet_hours_or_time_zone_and_home_dialog_links_to_the_de
     assert "Quiet hours follow the time zone set in" not in page
     _status, _, home = get(app, prefix + "/")
     assert 'name="quiet_hours_start"' in home and 'name="quiet_hours_end"' in home
-    assert 'href="%s/detection#details">Location and detection</a>' % prefix in home
+    assert 'href="%s/detection#details">Location</a>' % prefix in home
     assert "Change it in <a" in home
 
 
@@ -46,4 +46,4 @@ def test_french_note(app):
     page = body.decode("utf-8")
     assert 'name="timezone"' not in page
     assert "Changer dans <a" in page
-    assert 'href="%s/detection#details">Lieu et détection</a>' % prefix in page
+    assert 'href="%s/detection#details">Lieu</a>' % prefix in page

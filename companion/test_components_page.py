@@ -107,3 +107,20 @@ def test_the_pill_is_catalogued_in_each_status_tone(rig):
     _status, _headers, html = fx.get(rig, fx.admin_cookie(rig.state_dir), "/components")
     for tone in ("ok", "info", "warn"):
         assert 'class="banner__pill banner__pill--%s"' % tone in html
+
+
+def test_the_catalogue_pill_carries_a_tone_a_page_hook_and_a_status_dot():
+    from companion import ui_components
+    assert ui_components.pill_html("Ok", "ok") == '<span class="banner__pill banner__pill--ok">Ok</span>'
+    assert ui_components.pill_html("a<b") == '<span class="banner__pill">a&lt;b</span>'
+    hooked = ui_components.pill_html("Check", extra_class="calendar-status__pill", dot_class="dot--warn")
+    assert hooked == ('<span class="banner__pill calendar-status__pill">'
+                      '<span class="dot dot--warn" aria-hidden="true"></span>Check</span>')
+
+
+def test_the_credits_source_card_builds_its_pill_with_the_catalogue_helper():
+    from companion import credits_page
+    html = credits_page._source_card_html(
+        {"id": "x", "name": "X", "description": {"en": "d", "fr": "d"}, "licence": "ODbL",
+         "citation_required": True, "url": "https://example.org/"}, "en")
+    assert html.count('class="banner__pill"') == 1

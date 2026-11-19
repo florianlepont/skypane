@@ -166,7 +166,7 @@ def test_the_dialog_opens_on_its_title_and_no_field_asks_for_the_focus(rig):
 def test_the_helper_names_the_zone_and_links_to_the_place_page(rig):
     _status, body = rig.get("owner")
     note = _dialog(body).select_one(".quiet-timezone-note")
-    assert note.text() == "Time zone: Martinique. Change it in Location and detection."
+    assert note.text() == "Time zone: Martinique. Change it in Location."
     assert note.select_one("a").attrs["href"] == "%s/detection#details" % rig.scope()
 
 
@@ -177,7 +177,7 @@ def test_the_dialog_is_french_in_french(rig):
     assert dialog.select_one('button[type="submit"]').text() == "Enregistrer les heures calmes"
     assert "Utiliser les heures calmes" in dialog.select_one("label.settings-checkbox").text()
     assert dialog.select_one(".quiet-timezone-note").text() == (
-        "Fuseau : Martinique. Changer dans Lieu et détection.")
+        "Fuseau : Martinique. Changer dans Lieu.")
     assert [b.select_one(".quiet-card__title").text() for b in dialog.select(".quiet-cards button")
             ] == ["Nuit", "Journée"]
     assert dialog.select_one(".quiet-custom__label").text() == "Ou choisir ses heures"

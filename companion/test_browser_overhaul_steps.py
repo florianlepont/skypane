@@ -611,7 +611,7 @@ def test_s1_the_space_switch_is_one_tap_from_any_page(world, new_context):
     context, page, steps = _admin(world, new_context)
     try:
         steps.tap(page.locator(".tab-bar__more > summary"), "More")
-        steps.tap(page.locator(".tab-bar__more-panel a.tab-bar__space-link:has-text('My frame')"), "My frame")
+        steps.tap(page.locator(".tab-bar__more-panel a.tab-bar__space-link:has-text('My frames')"), "My frames")
         page.wait_for_url(re.compile(".*/devices/[^/]+/$"))
         assert page.locator(".tab-bar a[aria-current='page']").inner_text().strip() == "Home"
         back = Steps(page)

@@ -110,12 +110,12 @@ def test_the_space_follows_the_page_and_never_a_non_admin():
 def test_space_switch_labels_name_the_destination_in_both_languages():
     _as_admin()
     english = ui_nav.space_switch_html("fleet")
-    assert ">My frame<" in english
+    assert ">My frames<" in english
     assert 'aria-label="Switch to your own frame pages"' in english
     assert 'href="/"' in english
     assert ">Console<" in ui_nav.space_switch_html("home")
     prefs.set_request_prefs(lang="fr")
-    assert ">Mon cadre<" in ui_nav.space_switch_html("fleet")
+    assert ">Mes cadres<" in ui_nav.space_switch_html("fleet")
     assert "Passer à la console d’administration" in ui_nav.space_switch_html("home")
 
 

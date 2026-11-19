@@ -18,7 +18,7 @@ FRAME = device_scope.Device(
 FRAME_PAGES = ("/", "/flights", "/detection", "/display", "/airlines", "/health")
 ADMIN_ONLY_LABELS = (
     "Admin", "Console", "Fleet", "Users", "Audit", "Releases", "Update", "Device",
-    "Health", "My views", "My frame")
+    "Health", "My views", "My frames")
 
 
 @pytest.fixture(autouse=True)
