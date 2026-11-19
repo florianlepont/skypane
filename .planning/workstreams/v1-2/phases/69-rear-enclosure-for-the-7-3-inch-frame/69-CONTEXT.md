@@ -6,7 +6,7 @@
 <domain>
 ## Phase Boundary
 
-A printed rear enclosure (tray, lid with wall hooks and hinge, folding stand, centring shim) for the Seeed EE04 frame (7.3 inch Spectra 6) that fits an IKEA RÖDALM 13 x 18 cm black frame; requirement ENC-01. It is owner-driven physical work: the planner writes plans, checklists and record templates; the owner measures, designs, prints and tests. No code, no firmware, no server change, nothing deployed.
+A printed rear enclosure (tray, lid with wall hooks, loose stand plate, centring shim) for the Seeed EE04 frame (7.3 inch Spectra 6) that fits an IKEA RÖDALM 13 x 18 cm black frame; requirement ENC-01. It is owner-driven physical work: the planner writes plans, checklists and record templates; the owner measures, designs, prints and tests. No code, no firmware, no server change, nothing deployed.
 
 Not in this phase: the administrator flashing tool (SEED-014, v1.4), a 13.3 inch enclosure, series production (SEED-015), battery discharge (SEED-019).
 

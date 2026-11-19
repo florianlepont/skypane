@@ -121,6 +121,21 @@ powered over USB.
 - Four round magnets, 6 mm diameter x 2 mm thick, for the stand plate storage (to buy; stick each pair face to face first to get the polarity right).
 - Blender connector: `lab.blender.org/mcp-server`.
 
+## To buy (five frames)
+
+Quantities for five cassettes, with a margin. The owner already has the frame, screen, board, antenna and battery for the first one; the others were not counted.
+
+| Item | Quantity | Note |
+|---|---|---|
+| JST-PH 2.0 mm, 2-pin male-to-female extension (about 20 cm), or the same connector as two loose pigtails to solder | 5 (a lot of 20 ordered) | Check the polarity with a multimeter before connecting: the battery plus (red) goes to the board side away from the USB-C |
+| Round neodymium magnets 6 x 2 mm | 20 (a lot of 100 ordered) | Stand plate storage; stick each pair face to face first to keep the polarity |
+| M2 self-tapping pan-head screws, assortment 4 to 20 mm | 20 x 6 or 8 mm (lid), 20 x 4 mm at most (board) | Assortment of 800 ordered; check the heads are pan, not countersunk |
+| Wall screws and plugs for the hook | 5, plus spares | Head up to 9.5 mm, shank 3.0 to 4.3 mm, 2.1 mm or more under the head; type depends on the wall (not known) |
+| PETG filament, 1.75 mm, 1 kg | 1 | Available at the owner's workplace; about 136 g per set of four parts at most (solid) |
+| Fine Phillips screwdriver (PH0 or PH00), multimeter | 1 each | If not already owned |
+
+Fallbacks, only if the first fit asks for them: a U.FL antenna extension, M2 heat-set inserts, 1.8 mm adhesive foam for the battery, a 1.7 mm drill.
+
 ## Files
 
 In this repository, `hardware/cad/` (added by the owner on 2026-11-17):

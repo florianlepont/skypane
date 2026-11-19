@@ -107,7 +107,7 @@ Runs in parallel with v1.1 Phase 47 (open, untouched). Phase numbering continues
 
 ### Rear Enclosure
 
-- [ ] **ENC-01**: The second-hardware frame has a printed rear enclosure (tray, lid with wall hooks and hinge, folding stand, centring shim) that fits an IKEA RÖDALM 13 x 18 cm frame, hangs on a wall and stands on furniture, keeps USB-C, switch and buttons reachable, does not degrade the Wi-Fi signal, and is documented and validated by the owner.
+- [ ] **ENC-01**: The second-hardware frame has a printed rear enclosure (tray, lid with wall hooks, loose stand plate, centring shim) that fits an IKEA RÖDALM 13 x 18 cm frame, hangs on a wall and stands on furniture, keeps USB-C, switch and buttons reachable, does not degrade the Wi-Fi signal, and is documented and validated by the owner.
 
 ### Security and Quality
 
