@@ -196,7 +196,7 @@
 
 .audit-event__item dt {
   font-size: var(--font-label-size);
-  color: color-mix(in srgb, var(--color-text) 80%, transparent);
+  color: var(--color-text);
 }
 
 .audit-event__item dd {
