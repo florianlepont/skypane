@@ -64,6 +64,10 @@ OPENING_GRID_SELECTORS = (
 # The editor table that follows the gaps table opens one step after it.
 OPENING_AFTER_GAPS_SELECTORS = (
     ".dashboard-main[data-page-open] > .airlines-table--gaps ~ .airlines-table",)
+# The editor table that follows the known-by-name block opens one step after that block.
+OPENING_AFTER_KNOWN_SELECTORS = (
+    ".dashboard-main[data-page-open] > .airlines-table--known ~ .airlines-table"
+    ":not(.airlines-table--known)",)
 # The page header only fades in.
 OPENING_HEADER_SELECTORS = (".dashboard-main[data-page-open] > .page-header",)
 # The controls and blocks that follow the page header enter in their place in the page.
@@ -324,7 +328,8 @@ def test_motion_tokens_are_two_durations_plus_the_documented_exceptions(served_c
         (OPENING_CARD_SELECTORS, "animation-delay"),
         (OPENING_LIST_SELECTORS, "animation-delay"),
         (OPENING_GRID_SELECTORS, "animation-delay"),
-        (OPENING_AFTER_GAPS_SELECTORS, "animation-delay")], (
+        (OPENING_AFTER_GAPS_SELECTORS, "animation-delay"),
+        (OPENING_AFTER_KNOWN_SELECTORS, "animation-delay")], (
         "--motion-stagger must scale only the card entrance delay, got %r" % (stagger,))
     # The placeholder sweep and the blur-up are each spent by one animation, on the rule that
     # marks the loading container and the one that fades the arrived picture in.

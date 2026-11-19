@@ -31,7 +31,7 @@ from companion_app_server import http_request, served_asset, served_stylesheet
 from companion_markup import css_rules, declarations_for
 from server import device_config
 from server.plane import illustrations as server_illustrations
-from server.plane import manual_resolutions
+from server.plane import enrich, manual_resolutions
 from server.plane import render
 import server.device_policy as device_policy
 from skypane_test_support import REPO_ROOT, child_env
@@ -824,9 +824,13 @@ def test_illustration_filenames_union_contract(tmp_path):
     server-persisted manual keys: None and an empty state dir both equal the static set
     exactly, a seeded manual entry adds exactly one filename, and an entry whose stored name
     yields no usable key contributes nothing"""
-    baseline = frozenset(server_illustrations.target_filenames())
+    known = {
+        manual_resolutions.illustration_key_for_name(name) + ".png"
+        for _prefix, name in enrich.names_without_artwork()}
+    baseline = frozenset(server_illustrations.target_filenames()) | known
     assert app_module._illustration_filenames(None) == baseline, (
-        "expected _illustration_filenames(None) to equal the static target set")
+        "expected _illustration_filenames(None) to equal the static target set plus the "
+        "airlines known by name only")
     tmp = str(tmp_path)
     assert app_module._illustration_filenames(tmp) == baseline, (
         "expected an empty state dir (no manual_resolutions.json yet) to contribute "
