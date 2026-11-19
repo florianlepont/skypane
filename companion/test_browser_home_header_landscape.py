@@ -122,3 +122,30 @@ def test_portrait_frame_card_stays_side_by_side_on_a_phone(new_context, app, lan
     assert m["picture"]["width"] < m["meta"]["width"] * 1.5, m
     assert abs(m["tile"]["width"] / m["tile"]["height"] - 3 / 4) < 0.02, m
     assert m["scrollWidth"] <= m["clientWidth"], m
+
+
+@pytest.mark.parametrize("shape", ["landscape", "live"])
+def test_the_cycle_ring_wraps_the_picture_of_either_shape(new_context, app, shape):
+    """the ring sits 5px outside the frame picture, landscape or portrait, and stays inside
+    the flight card"""
+    context = new_context(viewport=VIEWPORT_PHONE, color_scheme="light")
+    try:
+        base = app.server.base_url()
+        name, value = app.cookie.split("=", 1)
+        context.add_cookies([{"name": name, "value": value, "url": base,
+                              "httpOnly": True, "sameSite": "Strict"}])
+        page = context.new_page()
+        page.goto("%s/devices/%s/" % (base, getattr(app.fleet, shape).id))
+        page.wait_for_selector(".home-flight__picture > .home-ring")
+        page.wait_for_function(LOADED)
+        box = page.evaluate(
+            "() => { const p = document.querySelector('.home-flight__picture .preview-frame__image')"
+            ".getBoundingClientRect(); const r = document.querySelector('.home-ring')"
+            ".getBoundingClientRect(); const c = document.querySelector('.home-flight')"
+            ".getBoundingClientRect();"
+            " return {gap: [p.left - r.left, p.top - r.top, r.right - p.right, r.bottom - p.bottom],"
+            " inside: r.left >= c.left && r.right <= c.right && r.top >= c.top && r.bottom <= c.bottom}; }")
+        assert all(abs(v - 5) < 1.6 for v in box["gap"]), box
+        assert box["inside"], box
+    finally:
+        context.close()

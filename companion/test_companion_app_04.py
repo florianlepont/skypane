@@ -255,12 +255,10 @@ def test_every_transition_takes_its_duration_from_a_motion_token(served_css):
     assert not offenders, offenders
 
 
-# Entrances and exits all share the one --ease-out curve. The three below are loops or
-# flourishes that keep the plain keyword: the status halo's decay, the switch ring's glow and
-# a press.
+# Entrances and exits all share the one --ease-out curve. The two below are loops or
+# flourishes that keep the plain keyword: the status halo's decay and a press.
 _PLAIN_EASE_OUT_RULES = frozenset((
-    ".home-state__dot--pulse::after", ".hero__ring.is-ring-done .hero__ring-done",
-    ".sidebar-link:active"))
+    ".home-state__dot--pulse::after", ".sidebar-link:active"))
 
 
 def test_every_entrance_and_exit_shares_the_one_ease_out_token(served_css):

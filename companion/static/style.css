@@ -7540,54 +7540,6 @@ button.row-menu__item {
   animation: skypane-glint var(--motion-glint) cubic-bezier(0.45, 0, 0.3, 1) infinite;
 }
 
-/* The frame cycle (wake, poll, display, sleep) as a thin ring around the
- * picture: the bar's stroke-dashoffset is the share of the cycle already
- * elapsed (it steps once a second; no transition, so the page never has a
- * running animation to wait out), the four dots mark the quarters. It sits 5px outside the box and
- * takes no room. */
-.hero__ring {
-  position: absolute;
-  inset: -5px;
-  width: calc(100% + 10px);
-  height: calc(100% + 10px);
-  overflow: visible;
-  pointer-events: none;
-  transform-origin: 50% 50%;
-}
-
-.hero__ring rect {
-  fill: none;
-}
-
-.hero__ring-track {
-  stroke: color-mix(in srgb, var(--color-text) 14%, transparent);
-  stroke-width: 1;
-}
-
-.hero__ring-ticks {
-  stroke: color-mix(in srgb, var(--color-text) 38%, transparent);
-  stroke-width: 4;
-  stroke-linecap: round;
-}
-
-.hero__ring-bar {
-  stroke: var(--color-accent);
-  stroke-width: 2;
-  stroke-linecap: round;
-}
-
-.hero__ring-done {
-  stroke: var(--home-tone);
-  stroke-width: 3;
-  opacity: 0;
-}
-
-/* The small flourish when a refresh starts a new cycle: the ring lights up
- * once and gives a quick spring. */
-.hero__ring.is-ring-done {
-  animation: skypane-ring-pop var(--motion-spring-duration) var(--motion-spring);
-}
-
 /* After a minute without a touch (motion.js sets data-ambient="rest") the
  * ambient loops stop, so a wall tablet's compositor is idle. */
 html[data-ambient="rest"] .home-state__dot--pulse,
@@ -7604,10 +7556,6 @@ html:has(.tab-bar__more[open]) .hero__picture::before,
 html:has(.tab-bar__more[open]) .hero__glass::after,
 html:has(.tab-bar__more[open]) .is-breathing {
   animation-iteration-count: 0;
-}
-
-.hero__ring.is-ring-done .hero__ring-done {
-  animation: skypane-ring-glow var(--motion-spring-duration) ease-out;
 }
 
 @keyframes skypane-picture-breathe {
@@ -7641,18 +7589,6 @@ html:has(.tab-bar__more[open]) .is-breathing {
   50%, 100% {
     opacity: 0;
     transform: translateX(330%) skewX(-18deg);
-  }
-}
-
-@keyframes skypane-ring-pop {
-  30% {
-    transform: scale(1.045);
-  }
-}
-
-@keyframes skypane-ring-glow {
-  25% {
-    opacity: 1;
   }
 }
 

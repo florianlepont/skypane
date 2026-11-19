@@ -6,6 +6,8 @@ once with the strip's rows: a direction badge, the callsign, the airline, the
 route and aircraft, and when the flight was detected. A frame with no picture yet shows the empty box,
 and with no flight the card holds the picture alone.
 """
+from datetime import timezone
+
 import companion.device_scope as device_scope
 import companion.i18n as i18n
 import companion.layout as layout
@@ -121,14 +123,44 @@ def _meta_html(row, now):
         if details else "", detected)
 
 
-def card_html(ctx, row):
-    """The flight card for the first recent flight `row` (or None)."""
+def ring_html(next_triple, now):
+    """The thin ring around the picture: the share of the frame cycle already
+    elapsed, from the same next-update instant the title block's sentence
+    reads. Decorative (the sentence is the text alternative). The progress is
+    rendered as attributes (no style attribute, for the CSP) and
+    relative-time.js repaints it from `data-ring-next` / `data-ring-interval`
+    each second. "" without a known next update."""
+    next_iso, interval_s, _hold = next_triple
+    parsed = layout.parse_iso(next_iso) if next_iso else None
+    now_parsed = layout.parse_iso(now)
+    if parsed is None or now_parsed is None or not interval_s:
+        return ""
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    remaining = parsed.timestamp() - now_parsed.timestamp()
+    progress = min(1.0, max(0.0, 1.0 - remaining / float(interval_s)))
+    rect = (
+        '<rect class="home-ring__%s" x="0" y="0" width="100%%" height="100%%" '
+        'pathLength="100"%s/>')
+    return (
+        '<svg class="home-ring" aria-hidden="true" focusable="false" data-cycle-ring '
+        'data-ring-next="%s" data-ring-interval="%d">%s%s</svg>'
+    ) % (
+        escape_html(parsed.astimezone(timezone.utc).isoformat(timespec="seconds")),
+        int(interval_s), rect % ("track", ""),
+        rect % ("bar", ' stroke-dasharray="100 100" stroke-dashoffset="%.2f"' % (
+            100.0 * (1.0 - progress))))
+
+
+def card_html(ctx, row, ring=""):
+    """The flight card for the first recent flight `row` (or None); `ring`
+    is the cycle ring drawn around its picture."""
     profile = device_scope.profile_for(device_scope.current_device())
     landscape = profile.width > profile.height
     css = "home-flight home-flight--%s reveal" % ("landscape" if landscape else "portrait")
     return (
         '<section class="%s" aria-labelledby="%s"><h2 class="visually-hidden" id="%s">%s</h2>'
-        '<div class="home-flight__picture">%s</div>%s</section>'
+        '<div class="home-flight__picture">%s%s</div>%s</section>'
     ) % (
         css, HEADING_ID, HEADING_ID, escape_html(i18n.t(HEADING_TEXT)),
-        picture_html(ctx, row), _meta_html(row, ctx.now) if row else "")
+        picture_html(ctx, row), ring, _meta_html(row, ctx.now) if row else "")

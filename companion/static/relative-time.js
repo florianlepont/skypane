@@ -195,11 +195,11 @@
   // elapsed: the server renders data-ring-next (the next update's instant)
   // and data-ring-interval (the cycle's length in seconds); the bar's
   // stroke-dashoffset is 100 x the share still to come. Set as an attribute
-  // (never a style, for the CSP). Its accessible name is the server's
-  // sentence with the same countdown wording the page shows.
-  var RING_DONE_CLASS = "is-ring-done";
-  var RING_JUMP = 0.1;
-  var lastRingProgress = null;
+  // (never a style, for the CSP). The ring is decorative: the sentence
+  // beside it is its text alternative. Under reduced motion the ring stays
+  // at the progress the server drew; the next refresh redraws it.
+  var REDUCED_MOTION = window.matchMedia
+    && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   function ringProgress(ring, nowMs) {
     var nextMs = new Date(ring.getAttribute("data-ring-next")).getTime();
@@ -212,7 +212,7 @@
 
   function repaintRing(ring, nowMs) {
     var progress = ringProgress(ring, nowMs);
-    var bar = ring.querySelector(".hero__ring-bar");
+    var bar = ring.querySelector(".home-ring__bar");
     if (progress === null || !bar) {
       return;
     }
@@ -220,16 +220,12 @@
     if (bar.getAttribute("stroke-dashoffset") !== offset) {
       bar.setAttribute("stroke-dashoffset", offset);
     }
-    var aheadS = Math.floor((new Date(ring.getAttribute("data-ring-next")).getTime() - nowMs) / 1000);
-    var when = aheadS > 0 ? distanceText(aheadS, true) : wording(WAITING_ATTR, WAITING_TEXT);
-    var label = (ring.getAttribute("data-ring-label") || "%s").replace("%s", when);
-    if (ring.getAttribute("aria-label") !== label) {
-      ring.setAttribute("aria-label", label);
-    }
-    lastRingProgress = progress;
   }
 
   function repaintRings(nowMs) {
+    if (REDUCED_MOTION) {
+      return;
+    }
     var rings = document.querySelectorAll(RING_SELECTOR);
     var i;
     for (i = 0; i < rings.length; i += 1) {
@@ -237,17 +233,8 @@
     }
   }
 
-  // A refresh that swaps in a fresh cycle (the progress fell back) gives
-  // the new ring its one small flourish.
+  // A refresh swaps in a freshly drawn ring and repaints at once.
   document.addEventListener("skypane-regions-swapped", function () {
-    var ring = document.querySelector(RING_SELECTOR);
-    var nowMs = Date.now();
-    if (ring && lastRingProgress !== null) {
-      var progress = ringProgress(ring, nowMs);
-      if (progress !== null && progress < lastRingProgress - RING_JUMP) {
-        ring.classList.add(RING_DONE_CLASS);
-      }
-    }
     repaintAll();
   });
 

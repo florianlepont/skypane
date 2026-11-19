@@ -221,7 +221,10 @@ def render(ctx, quiet_errors=None, quiet_submitted=None, place=None):
         + '<div class="home-facts">'
         + (notice or ("" if user_view.is_personal_view() else _action_needed_html(ctx)))
         + "</div>"
-        + home_flight_card.card_html(ctx, rows[0] if rows else None)
+        + home_flight_card.card_html(
+            ctx, rows[0] if rows else None,
+            ring=home_flight_card.ring_html(next_triple, ctx.now)
+            if status.key == frame_status.KEY_UP_TO_DATE else "")
         + home_pills.pills_html(
             cfg, place, device_scope.scoped(DETECTION_PATH), home_battery_row.pill_html(
                 percent, _row_battery_level(ctx, percent),

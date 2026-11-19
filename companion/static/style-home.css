@@ -216,8 +216,39 @@
 }
 
 .home-flight__picture {
+  position: relative;
   flex: none;
   width: 132px;
+}
+
+/* The frame cycle (wake, poll, display, sleep) as a thin ring 5px outside
+ * the picture: the bar's stroke-dashoffset is the share of the cycle still
+ * to come (relative-time.js sets it once a second; no transition, so the
+ * page never has a running animation to wait out). It takes no room and no
+ * pointer; the card's padding keeps its stroke inside the card. */
+.home-ring {
+  position: absolute;
+  inset: -5px;
+  width: calc(100% + 10px);
+  height: calc(100% + 10px);
+  overflow: visible;
+  pointer-events: none;
+}
+
+.home-ring rect {
+  fill: none;
+  rx: calc(var(--radius-frame-pic) + 5px);
+}
+
+.home-ring__track {
+  stroke: color-mix(in srgb, var(--color-text) 14%, transparent);
+  stroke-width: 1;
+}
+
+.home-ring__bar {
+  stroke: var(--color-accent);
+  stroke-width: 2;
+  stroke-linecap: round;
 }
 
 .home-flight__picture .preview-frame {
