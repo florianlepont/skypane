@@ -346,8 +346,10 @@ def test_unrecognised_principal_clears_to_default():
     assert prefs.current_principal() is None
 
 
+# Only the pages in the Console space (health, device, update) moved from the earlier digest,
+# by the System entry of the console navigation; every personal page is byte-identical.
 _SHELL_BASELINE_DIGEST = (
-    "c2957d35867b0f185a5d9869c02d2e97a6623e35abbbb4ffa158cfa43aad94fe")
+    "22f4b24321d07694b2da3bb7dd80f0bfca7db9f03014689b4fd30a7e28abd8a5")
 
 
 def test_shell_without_a_principal_is_byte_identical_to_before():
