@@ -1,0 +1,543 @@
+<!--
+OWNER-APPROVED: NOT YET APPROVED
+Throwaway mockup of the redesigned Battery card of the Health page. Same machinery as 68-MOCKUP-frame-list.html.
+-->
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SkyPane mockup: Health battery card</title>
+<style>
+/* Standalone mockup, no external asset. Tokens follow companion/static/style.css (light and dark only).
+   Each mock sits in a [data-viewport] box, 390 px (phone) or 1440 px (desktop); every translated block is a
+   [data-lang] wrapper and the toggle at the top shows one language at a time. All names and addresses are invented. */
+:root{
+  --sky:linear-gradient(#E7EEF7,#F1F3F6 45%,#EDF1F6); --canvas:#F1F3F6; --stage:#E4E9F0;
+  --text:#17191F; --muted:#5B6372; --border:#DAE1EB; --chip:#E9EEF5; --card:#fff;
+  --accent:#1F2430; --on-accent:#fff; --glass:rgba(255,255,255,.78); --tab:#fff; --shadow:0 6px 20px rgba(20,30,50,.08);
+  --ok:#16A34A; --okbg:#DDF3E4; --warn:#D97706; --err:#BE123C;
+}
+@media (prefers-color-scheme:dark){:root:not([data-ui-theme="light"]){
+  --sky:linear-gradient(#12151D,#161A24 45%,#1A1F2B); --canvas:#161A24; --stage:#0E1117;
+  --text:#F1F3F6; --muted:#A3ABBB; --border:#2A3040; --chip:#232A38; --card:#1C222D;
+  --accent:#F2EFE9; --on-accent:#14171F; --glass:rgba(34,40,54,.82); --tab:#1C222D; --shadow:0 6px 20px rgba(0,0,0,.35);
+  --ok:#4ADE80; --okbg:#173225; --warn:#FBBF24; --err:#FB7185; color-scheme:dark}}
+:root[data-ui-theme="dark"]{
+  --sky:linear-gradient(#12151D,#161A24 45%,#1A1F2B); --canvas:#161A24; --stage:#0E1117;
+  --text:#F1F3F6; --muted:#A3ABBB; --border:#2A3040; --chip:#232A38; --card:#1C222D;
+  --accent:#F2EFE9; --on-accent:#14171F; --glass:rgba(34,40,54,.82); --tab:#1C222D; --shadow:0 6px 20px rgba(0,0,0,.35);
+  --ok:#4ADE80; --okbg:#173225; --warn:#FBBF24; --err:#FB7185; color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--stage);color:var(--text);font:16px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;padding:32px 16px 96px}
+button,input{font:inherit;color:inherit}
+a{color:inherit;text-decoration:none}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.num{font-variant-numeric:tabular-nums}
+.top{max-width:1500px;margin:0 auto 24px;display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between;align-items:flex-end}
+.top h1{margin:0 0 8px;font-size:34px;letter-spacing:-.03em}
+.top p{margin:0;color:var(--muted);max-width:75ch}
+.toggles{display:flex;gap:16px;flex-wrap:wrap}
+.seg{display:inline-flex;background:var(--chip);border-radius:32px;padding:4px;gap:4px}
+.seg button{border:0;background:none;min-height:44px;padding:0 16px;border-radius:32px;cursor:pointer;font-size:15px}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent)}
+.sec{max-width:1500px;margin:56px auto 0}
+.sec>h2{margin:0 0 4px;font-size:26px;letter-spacing:-.02em}
+.sec>p.lead{margin:0 0 24px;color:var(--muted);max-width:85ch}
+.row2{display:flex;flex-wrap:wrap;gap:32px;align-items:flex-start}
+.mock{margin:0;display:flex;flex-direction:column;gap:8px;min-width:0}
+.mock>figcaption{font-size:15px;font-weight:600}
+.mock>figcaption small{display:block;font-weight:400;color:var(--muted);font-size:13px}
+.scroller{max-width:100%;overflow-x:auto;padding-bottom:8px}
+[data-ui-lang="en"] [data-lang="fr"],[data-ui-lang="fr"] [data-lang="en"]{display:none}
+.note{margin:12px 0 0;padding:12px 16px;border:1px dashed var(--border);border-radius:14px;color:var(--muted);font-size:14px;max-width:85ch}
+.note b{color:var(--text)}
+
+[data-viewport]{position:relative;overflow:hidden;border:1px solid var(--border);background:var(--sky) var(--canvas);box-shadow:0 12px 40px rgba(20,30,50,.12)}
+[data-viewport="phone"]{width:390px;height:780px;border-radius:36px}
+[data-viewport="desktop"]{width:1440px;height:900px;border-radius:16px}
+[data-viewport] [data-lang]{height:100%;position:relative}
+
+/* shared pieces */
+.ic{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--ok);flex:none;display:inline-block}
+.dot.idle{background:var(--muted)}.dot.err{background:var(--err)}.dot.pend{background:var(--warn)}
+.label{margin:0 0 6px 16px;font-size:13px;font-weight:600;color:var(--muted)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:22px;box-shadow:var(--shadow);overflow:hidden}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 18px;border:1px solid var(--border);border-radius:14px;background:var(--card);font-size:15px;font-weight:600;cursor:pointer}
+.btn.dark{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.btn.sq{width:44px;padding:0}
+.field{display:flex;align-items:center;gap:8px;min-height:44px;padding:0 14px;border:1px solid var(--border);border-radius:14px;background:var(--card)}
+.field input{flex:1;min-width:0;border:0;background:none;min-height:42px;outline:0}
+.title{margin:0;font-size:40px;line-height:1.1;font-weight:700;letter-spacing:-.03em}
+.sub{color:var(--muted);font-size:15px}
+.state{margin:6px 0 0;display:flex;align-items:center;gap:8px;font-weight:600}
+
+/* rows */
+.item{display:flex;align-items:center;gap:12px;min-height:64px;padding:10px 16px;border-top:1px solid var(--border)}
+.item:first-child{border-top:0}
+.item .who{flex:1;min-width:0}
+.item .who small{display:block;color:var(--muted);font-size:13px}
+.item .who b{display:block;font-weight:600}
+.item .val{color:var(--muted);font-size:14px;white-space:nowrap}
+.ico{width:36px;height:36px;border-radius:50%;background:var(--chip);display:flex;align-items:center;justify-content:center;flex:none}
+.ico.ok{background:var(--okbg);color:var(--ok)}
+.sw{flex:none;width:51px;height:31px;border-radius:31px;background:#7C8696;position:relative;cursor:pointer}
+.sw::after{content:"";position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.sw.on{background:var(--accent)}.sw.on::after{left:22px}
+.badge{display:inline-flex;align-items:center;min-height:24px;padding:0 10px;border-radius:32px;border:1px solid var(--border);font-size:12px;color:var(--muted)}
+.range{height:6px;border-radius:6px;background:var(--border);position:relative;margin:14px 0 4px}
+.range i{position:absolute;left:0;top:0;bottom:0;width:26%;border-radius:6px;background:var(--accent)}
+.range b{position:absolute;left:26%;top:50%;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;background:var(--accent)}
+.section{display:flex;flex-direction:column}
+.danger b{color:var(--err)}
+
+/* frame list rows */
+.frow{display:flex;align-items:center;gap:12px;min-height:56px;padding:6px 14px;border-top:1px solid var(--border);cursor:pointer}
+.frow:first-child{border-top:0}
+.frow .who{flex:1;min-width:0}
+.frow .who b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.frow .who small{display:block;color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.frow .seen{font-size:13px;color:var(--muted);white-space:nowrap}
+.frow.retired{opacity:.8}
+.frow.sel{background:var(--chip)}
+.chev{color:var(--muted)}
+
+/* phone shell */
+.ptop{position:absolute;left:0;right:0;top:0;height:64px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;z-index:5}
+.brand{display:flex;align-items:center;gap:8px;font-size:22px;font-weight:700;letter-spacing:-.02em}
+.screen{position:absolute;inset:64px 0 0 0;overflow-y:auto;padding:8px 16px 120px;display:flex;flex-direction:column;gap:16px;scrollbar-width:none}
+.screen::-webkit-scrollbar{display:none}
+.screen>*{flex-shrink:0}
+.tabs{position:absolute;left:12px;right:12px;bottom:14px;display:flex;justify-content:space-around;padding:8px 6px;background:var(--tab);border:1px solid var(--border);border-radius:34px;box-shadow:0 8px 24px rgba(20,30,50,.14);z-index:6}
+.tab{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-width:60px;min-height:52px;border-radius:26px;font-size:11px;color:var(--text)}
+.tab.on{background:var(--accent);color:var(--on-accent);font-weight:600}
+.chips{display:flex;gap:8px;overflow-x:auto;margin:0 -16px;padding:0 16px 4px;scrollbar-width:none}
+.chip{flex:none;display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 14px;border-radius:32px;background:var(--card);border:1px solid var(--border);font-size:14px;white-space:nowrap}
+.chip[aria-current="page"]{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.chip.all{background:var(--chip)}
+.anchors{position:sticky;top:-8px;z-index:3;margin:0 -16px;padding:8px 16px;display:flex;gap:8px;background:var(--canvas)}
+.anchors button{flex:1;min-height:44px;border:1px solid var(--border);border-radius:32px;background:var(--card);font-size:14px;cursor:pointer}
+.anchors button[aria-current="true"]{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.blk{scroll-margin-top:72px}
+
+/* desktop shell */
+.side{position:absolute;left:0;top:0;bottom:0;width:240px;padding:24px 16px;background:var(--glass);border-right:1px solid var(--border);display:flex;flex-direction:column;gap:8px}
+.side .brand{padding:0 8px;margin-bottom:8px}
+.space{display:flex;gap:4px;padding:4px;border-radius:16px;background:var(--chip);margin-bottom:8px}
+.space span{flex:1;text-align:center;min-height:36px;display:flex;align-items:center;justify-content:center;border-radius:12px;font-size:14px;font-weight:600;color:var(--muted)}
+.space span.on{background:var(--accent);color:var(--on-accent)}
+.nlabel{margin:12px 8px 0;font-size:13px;font-weight:600;color:var(--muted)}
+.nav{display:flex;align-items:center;gap:12px;min-height:46px;padding:0 12px;border-radius:14px;font-size:15px}
+.nav.on{background:var(--accent);color:var(--on-accent);font-weight:600}
+.sep{height:1px;background:var(--border);margin:8px 0}
+.signout{margin-top:auto}
+.listp{position:absolute;left:240px;top:0;bottom:0;width:350px;background:var(--glass);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.listp .lhead{flex:none;padding:20px 16px 12px;display:flex;flex-direction:column;gap:12px;border-bottom:1px solid var(--border)}
+.listp .lbody{flex:1;min-height:0;overflow-y:auto;padding:12px 12px 20px;display:flex;flex-direction:column;gap:14px}
+.main{position:absolute;left:590px;right:0;top:0;bottom:0;overflow-y:auto;padding:32px 44px 64px}
+.dcol{display:flex;flex-direction:column;gap:24px;max-width:760px;margin-top:20px}
+.titlerow{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.iconbtns{display:flex;gap:8px;flex:none}
+.sparkline{display:block;width:100%;height:44px}
+.sub2{display:flex;flex-direction:column;gap:6px;width:100%;padding-left:48px;font-size:13px;color:var(--muted)}
+.item.wrap{flex-wrap:wrap}
+.tiles2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.tile2{display:flex;flex-direction:column;gap:6px;min-height:132px;padding:14px;border-radius:22px;background:var(--card);border:1px solid var(--border);box-shadow:var(--shadow);min-width:0}
+.tile2 .th{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+.tile2 .tv{font-size:19px;font-weight:700;letter-spacing:-.01em}
+.tile2 .tm{font-size:13px;color:var(--muted)}
+.tile2 .more{margin-top:auto;display:flex;align-items:center;gap:4px;font-size:13px;font-weight:600}
+.bigspark{display:block;width:100%;height:120px;color:var(--accent)}
+.kv{display:grid;grid-template-columns:1fr auto;gap:6px 16px;padding:12px 16px;border-top:1px solid var(--border);font-size:14px}
+.kv span:nth-child(odd){color:var(--muted)}
+.kv span:nth-child(even){text-align:right}
+.rtable{width:100%;border-collapse:collapse;font-size:14px}
+.rtable th{text-align:left;color:var(--muted);font-weight:600;font-size:13px;padding:8px 16px}
+.rtable td{padding:8px 16px;border-top:1px solid var(--border)}
+.rtable td:last-child,.rtable th:last-child{text-align:right}
+.banner{display:flex;flex-direction:column;gap:8px;padding:12px 16px;border-radius:18px;border:1px solid var(--warn);background:var(--card)}
+.banner b{font-weight:700}
+.pills{display:flex;flex-wrap:wrap;gap:6px}
+.pill{display:inline-flex;align-items:center;min-height:26px;padding:0 10px;border-radius:32px;background:var(--chip);font-size:13px}
+.pill.warn{background:var(--card);border:1px solid var(--warn)}
+.unit{display:inline-flex;gap:4px;padding:3px;border-radius:12px;background:var(--chip)}
+.unit span{min-height:32px;padding:0 12px;display:flex;align-items:center;border-radius:9px;font-size:13px}
+.unit span.on{background:var(--accent);color:var(--on-accent);font-weight:600}
+details.rd{border-top:1px solid var(--border)}
+details.rd summary{min-height:48px;display:flex;align-items:center;padding:0 16px;font-size:14px;font-weight:600;cursor:pointer}
+.outcomes{list-style:none;margin:0;padding:0}
+.outcomes li{padding:10px 16px;border-top:1px solid var(--border)}
+.outcomes p{margin:0;display:flex;align-items:center;gap:8px;font-weight:600}
+.outcomes p span.n{margin-left:auto}
+.outcomes small{display:block;color:var(--muted);font-size:13px;margin:2px 0 0 16px}
+.rtable.l td:last-child,.rtable.l th:last-child{text-align:left}
+.pagehead{display:flex;flex-direction:column;gap:6px;margin-bottom:8px}
+.backl{display:inline-flex;align-items:center;gap:6px;min-height:44px;font-size:15px;font-weight:600}
+.ring{width:64px;height:64px;border-radius:50%;background:conic-gradient(var(--ok) 0 47%,var(--border) 0);display:flex;align-items:center;justify-content:center;flex:none}
+.ring b{width:48px;height:48px;border-radius:50%;background:var(--card);display:flex;align-items:center;justify-content:center;font-size:14px}
+.vrow{display:flex;align-items:center;gap:12px;min-height:52px;padding:6px 16px;border-top:1px solid var(--border)}
+.vrow .who{flex:1}
+.btn.quiet{min-height:40px;font-weight:500;color:var(--muted)}
+
+@media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+[data-viewport="desktop"].tall{height:1000px}[data-viewport="desktop"].tall.new{height:1260px}
+[data-viewport="phone"].tall{height:844px}
+.toc{max-width:1500px;margin:0 auto}
+.note.wide{max-width:none}
+.note ul{margin:8px 0 0;padding-left:20px}
+.note li{margin:4px 0}
+.map{width:100%;border-collapse:collapse;margin-top:8px;font-size:14px;color:var(--text)}
+.map th{text-align:left;color:var(--muted);font-size:13px;padding:6px 12px 6px 0}
+.map td{padding:6px 12px 6px 0;border-top:1px solid var(--border);vertical-align:top}
+.tag{display:inline-block;font-size:12px;font-weight:600;padding:2px 10px;border-radius:32px;border:1px solid var(--border);color:var(--muted);margin-left:8px;vertical-align:middle}
+.tag.new{border-color:var(--accent);color:var(--text)}
+.item.kvr{min-height:0;padding:8px 16px}
+.item .ico svg{width:18px;height:18px}
+.ic.sm{width:16px;height:16px}
+
+/* ---------- redesigned battery card ---------- */
+.bat-head{display:flex;align-items:center;gap:12px;padding:16px 20px 0}
+.bat-head h4{margin:0;flex:1;font-size:17px;font-weight:600}
+.bat-head .ico{width:32px;height:32px}
+.pill.chg{min-height:32px;gap:6px;padding:0 12px 0 10px;font-size:13px;font-weight:600}
+.pill.chg .ic{width:16px;height:16px;color:var(--warn)}
+.bat-hero{display:flex;align-items:center;gap:20px;padding:12px 20px 20px}
+.gauge{position:relative;width:112px;height:112px;flex:none}
+.bat[data-vp="phone"] .gauge{width:96px;height:96px}.bat[data-vp="phone"] .bat-hero{gap:16px}.bat[data-vp="phone"] .gauge .gv b{font-size:31px}
+.bat[data-vp="phone"] .segc{width:100%}.bat[data-vp="phone"] .segc button{flex:1;padding:0 8px}
+.gauge svg{display:block;width:100%;height:100%}
+.gauge .gv{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1}
+.gauge .gv b{font-size:36px;font-weight:700;letter-spacing:-.03em}
+.gauge .gv span{font-size:15px;color:var(--muted);margin-top:2px}
+.bat-facts{display:flex;flex-direction:column;gap:8px;min-width:0;align-items:flex-start}
+.status{display:inline-flex;align-items:center;gap:8px;min-height:32px;padding:3px 14px 3px 8px;border-radius:16px;border:1px solid var(--border);background:var(--chip);font-size:15px;font-weight:600;line-height:1.25}
+.status .ic{width:18px;height:18px;color:var(--ok)}
+.status.low{border-color:var(--warn);background:var(--card)}
+.status.low .ic{color:var(--warn)}
+.volt{font-size:24px;line-height:1.1;font-weight:600;letter-spacing:-.01em}
+.volt small{font-size:15px;font-weight:400;color:var(--muted)}
+.lastr{display:flex;align-items:flex-start;gap:6px;font-size:14px;color:var(--muted);line-height:1.35}
+.lastr .ic{width:16px;height:16px;margin-top:2px}
+.chart-wrap{border-top:1px solid var(--border);padding:16px 20px 12px}
+.chart-top{display:flex;align-items:center;justify-content:space-between;gap:12px 16px;flex-wrap:wrap;margin-bottom:8px}
+.chart-top .ct{font-size:15px;font-weight:600}
+.chart-top .ct small{display:block;font-weight:400;color:var(--muted);font-size:13px}
+.segc{display:inline-flex;padding:4px;border-radius:18px;background:var(--chip);gap:4px}
+.segc button{min-height:44px;padding:0 18px;border:0;border-radius:14px;background:none;font-size:15px;cursor:pointer;color:var(--text)}
+.segc button[aria-checked="true"]{background:var(--accent);color:var(--on-accent);font-weight:600}
+.cv{display:block;width:100%;height:auto;overflow:visible}
+.cv text{font:13px system-ui,-apple-system,"Segoe UI",sans-serif;fill:var(--muted);paint-order:stroke;stroke:var(--card);stroke-width:4px;stroke-linejoin:round}
+.cv text.em{fill:var(--text);font-weight:600;font-size:14px}
+.cv text.thr{fill:var(--text)}
+.chart-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;text-align:center;border:1px dashed var(--border);border-radius:14px;padding:16px;color:var(--muted);font-size:14px;position:relative;background:
+ repeating-linear-gradient(to bottom,transparent 0 53px,var(--border) 53px 54px)}
+.chart-empty b{color:var(--text);font-size:15px;background:var(--card);padding:0 8px;border-radius:8px}
+.chart-empty span{background:var(--card);padding:0 8px;border-radius:8px}
+.chart-empty .ic{width:24px;height:24px;color:var(--muted);background:var(--card);border-radius:50%}
+.cnote{display:flex;align-items:center;gap:8px;margin:8px 0 0;font-size:13px;color:var(--muted)}
+.cnote i{width:20px;border-top:2px dashed var(--warn);flex:none}
+details.rd2{border-top:1px solid var(--border)}
+details.rd2 summary{min-height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;font-size:15px;font-weight:600;cursor:pointer;list-style:none}
+details.rd2 summary::-webkit-details-marker{display:none}
+details.rd2 summary .ic{transition:transform var(--motion-fast,180ms)}
+details.rd2[open] summary .ic{transform:rotate(90deg)}
+.rt2{width:100%;border-collapse:collapse;font-size:14px}
+.rt2 th{text-align:left;color:var(--muted);font-weight:600;font-size:13px;padding:6px 20px}
+.rt2 td{padding:10px 20px;border-top:1px solid var(--border)}
+.rt2 th:nth-child(n+2),.rt2 td:nth-child(n+2){text-align:right}
+.rt2 tr.first td{font-weight:600}
+.rt2 .lt{display:inline-block;margin-left:8px;font-size:12px;font-weight:600;color:var(--muted);border:1px solid var(--border);border-radius:32px;padding:0 8px}
+
+/* ---------- the card as it is built today (redrawn for comparison) ---------- */
+.cur .item{align-items:flex-start}
+.cur-ring{display:flex;align-items:center;gap:16px;padding:8px 16px 0 64px}
+.cur-ring .r{width:70px;height:70px;border-radius:50%;background:conic-gradient(var(--ok) 0 77%,var(--border) 0);display:flex;align-items:center;justify-content:center;flex:none}
+.cur-ring .r i{width:54px;height:54px;border-radius:50%;background:var(--card)}
+.cur-btns{display:flex;gap:8px;padding:10px 16px 0 64px}
+.cur-btns button{min-height:44px;padding:0 16px;border-radius:14px;border:1px solid var(--border);background:var(--chip);font-size:14px;color:var(--text)}
+.cur-btns button.on{border:1px solid var(--text);background:#ddd;color:#111}
+.cur-chart{padding:0 16px 0 64px}
+.cur-chart svg{display:block;width:100%;height:auto}
+.cur-chart text{font:11px system-ui,sans-serif;fill:var(--muted)}
+.cur-leg{padding:4px 16px 8px 64px;font-size:12px;color:var(--muted);display:flex;gap:6px;align-items:center}
+.cur-leg i{width:12px;border-top:2px solid var(--warn)}
+.cur-sum{padding:8px 16px 18px 64px;font-size:14px;color:var(--muted);display:flex;gap:6px;align-items:center}
+@media (max-width:1200px){.top h1{font-size:28px}}
+</style>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-logo" viewBox="0 0 24 24"><rect x="4" y="3" width="14" height="18" rx="3"/><path d="M9 10l2 2 4-4"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8v.5"/></symbol>
+  <symbol id="i-fleet" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="3"/><path d="M9 11l2 2 4-4"/></symbol>
+  <symbol id="i-team" viewBox="0 0 24 24"><circle cx="9" cy="12" r="5"/><circle cx="15" cy="12" r="5"/></symbol>
+  <symbol id="i-tag" viewBox="0 0 24 24"><path d="M3 12V4h8l10 10-8 8z"/><circle cx="8" cy="8" r="1.4"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></symbol>
+  <symbol id="i-battery" viewBox="0 0 24 24"><rect x="2" y="7" width="17" height="10" rx="2"/><path d="M22 11v2"/></symbol>
+  <symbol id="i-plane" viewBox="0 0 24 24"><path d="M2 14l8-2 3-8 2 1-1 7 6 2v2l-6-1-2 4-2-.5.5-3.5L2 16z"/></symbol>
+  <symbol id="i-chip" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/></symbol>
+  <symbol id="i-timer" viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M9 2h6"/></symbol>
+  <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z"/></symbol>
+  <symbol id="i-frame" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2.5"/><rect x="7" y="8" width="10" height="8" rx="1"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+  <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2L5 14h6l-1 8 8-12h-6z"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.5"/></symbol>
+  <symbol id="i-pulse" viewBox="0 0 24 24"><path d="M2 12h5l3-7 4 14 3-7h5"/></symbol>
+</svg>
+<div class="top">
+  <div>
+    <h1>Health page: the Battery card</h1>
+    <p>Mockup for the owner. Current card against the proposal, on the real shell, phone 390 px and desktop 1440 px, light and dark, English and French. Not approved yet.</p>
+  </div>
+  <div class="toggles">
+    <div class="seg" id="theme" role="group" aria-label="Theme">
+      <button type="button" data-t="auto" aria-pressed="true">Auto</button>
+      <button type="button" data-t="light" aria-pressed="false">Light</button>
+      <button type="button" data-t="dark" aria-pressed="false">Dark</button>
+    </div>
+    <div class="seg" id="lang" role="group" aria-label="Language">
+      <button type="button" data-l="en" aria-pressed="true">English</button>
+      <button type="button" data-l="fr" aria-pressed="false">Fran&ccedil;ais</button>
+    </div>
+  </div>
+</div>
+<div class="toc"><div class="note wide">
+<b>What changed against the current Battery card</b> (every datum kept; nothing is added except a Level column in the readings table, derived from the voltage the card already has).
+<ul>
+<li><b>One level, stated once.</b> The big gauge carries the percentage; the voltage sits beside it as the secondary value. The header repeat (&ldquo;77% &middot; 3969 mV&rdquo;) and the ring line (&ldquo;&asymp; 77% &middot; 3969 mV &mdash; 20 Nov 11:46 (25s ago)&rdquo;) are gone; the time and the age become one quiet &ldquo;Last reading&rdquo; line.</li>
+<li><b>The ring becomes a real gauge:</b> 270&deg; arc, 112 px (96 px on phone), the level in the centre, a tick at the low-battery mark (20 %). Green above, orange below the threshold.</li>
+<li><b>Verdict = a status pill</b> with an icon and the words (check mark + &ldquo;Level looks normal&rdquo;; warning triangle + &ldquo;Level is low&rdquo;). Colour only reinforces. <b>Charging</b> is a pill with a bolt in the card header, shown only when present.</li>
+<li><b>Percentage / Voltage = one segmented control</b> (same look as the design system&rsquo;s segmented control: one track, the active segment filled, two 44 px segments, radiogroup semantics). It sits on the chart title row, so it reads as the chart&rsquo;s switch, not the card&rsquo;s.</li>
+<li><b>Lighter chart.</b> No grey box. Light horizontal grid, area under the curve fading from the accent, y-range fitted to the data (a voltage curve between 3900 and 4200 mV now has a visible slope), 3 date ticks, an end marker with its latest value. Axis and label text 13 to 14 px (was 10 to 11), y labels sit on the grid lines so the plot uses the full card width.</li>
+<li><b>Threshold:</b> a dashed orange line (not colour alone: dashed + a 13 px label on the line), the zone below it tinted. When the data stays far above it, the axis is not stretched down to 3000 mV; a caption under the chart says the threshold is below the range shown. The axis includes the threshold as soon as the data comes within 1.5 steps of it.</li>
+<li><b>Readings table:</b> the disclosure becomes a 52 px full-width row with a chevron and the count; table gets Time, Voltage, Level, the newest row emphasised.</li>
+</ul>
+<table class="map"><thead><tr><th>Datum today</th><th>Where it goes</th></tr></thead><tbody>
+<tr><td>Verdict (icon + word)</td><td>Status pill beside the gauge</td></tr>
+<tr><td>Percentage, voltage</td><td>Percentage in the gauge (hero), voltage under the pill; both columns in the readings table; chart end label in the unit selected</td></tr>
+<tr><td>Last reading time and age</td><td>&ldquo;Last reading&rdquo; line with a clock icon</td></tr>
+<tr><td>Charging pill</td><td>Header of the card (right), bolt icon + words</td></tr>
+<tr><td>Percentage / Voltage switch</td><td>Segmented control on the chart title row</td></tr>
+<tr><td>Curve (90 daily averages, else last 20 readings)</td><td>Chart; the caption above it says which one (&ldquo;Last 90 days &middot; Daily averages&rdquo; or &ldquo;Last 20 readings&rdquo;)</td></tr>
+<tr><td>Low-battery threshold 3540 mV (&asymp; 20 %)</td><td>Dashed line and label on the chart; tick on the gauge; caption when off-range</td></tr>
+<tr><td>Readings table</td><td>Disclosure row at the bottom of the card</td></tr>
+</tbody></table>
+<b>Open questions for the owner:</b> (1) Percentage as the default view (shown here) or Voltage as today? (2) A 3-reading minimum before drawing a curve is assumed; the build keeps whatever rule the page has. (3) The Level column in the table is computed with the same linear estimate as the gauge (3540 mV = 20 %); drop it if you prefer the table to stay voltage only. (4) The gauge tick has no label of its own; the chart carries the label. Tell me if you want one on the gauge too. Sample data and dates are invented; the current card is redrawn from the built page for comparison.
+</div></div>
+<div id="app"></div>
+<script>
+(function(){
+  var NB=' ';
+  var S={
+    en:{admin:'Administration',nav:['Fleet','Users','Editor','Audit log','System'],account:'Account',space:['Console','My frames'],signout:'Sign out',
+      tabs:['Fleet','Users','Editor','System','More'],back:'Back to Orly frame',health:'Health',frameg:'Frame',
+      conn:'Frame connection',cstate:'Checking in normally',cago:'27 s ago',lastci:'Last check-in',nextwake:'Next wake',
+      batt:'Battery',normal:'Level looks normal',low:'Level is low',charging:'Probably charging',
+      last:'Last reading',ago:'25 s ago',unitp:'Percentage',unitv:'Voltage',unitlabel:'Chart unit',
+      period90:'Last 90 days',period90s:'Daily averages',period20:'Last 20 readings',
+      thrv:'Low battery · 3540 mV (≈ 20 %)',thrp:'Low battery · 20 %',thrOff:'Low battery: 3540 mV (≈ 20 %), below the range shown',
+      view:function(n){return 'View '+n+' reading'+(n>1?'s':'');},colT:'Time',colV:'Voltage',colL:'Level',latest:'Latest',
+      emptyT:'Not enough readings for a curve yet',emptyS:function(n){return 'A curve appears from 3 readings. '+n+' so far.';},
+      curTitle:'Current card (as built)',newTitle:'Redesigned card',
+      months:['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
+      fd:function(d,m){return d.getDate()+' '+m[d.getMonth()];},
+      lbl:'Battery level and voltage',curLine:'≈ 77% · 3969 mV',curRead:function(d){return d+' 11:46 (25s ago)';},
+      range:function(a,b,u){return 'Curve from '+a+' to '+b+' '+u;}},
+    fr:{admin:'Administration',nav:['Flotte','Utilisateurs','Éditeur','Journal d’audit','Système'],account:'Compte',space:['Console','Mes cadres'],signout:'Se déconnecter',
+      tabs:['Flotte','Utilisateurs','Éditeur','Système','Plus'],back:'Retour au cadre Orly',health:'Santé',frameg:'Cadre',
+      conn:'Connexion du cadre',cstate:'Se connecte normalement',cago:'il y a 27 s',lastci:'Dernier contact',nextwake:'Prochain réveil',
+      batt:'Batterie',normal:'Le niveau semble normal',low:'Le niveau est bas',charging:'Probablement en charge',
+      last:'Dernier relevé',ago:'il y a 25 s',unitp:'Pourcentage',unitv:'Tension',unitlabel:'Unité du graphique',
+      period90:'90 derniers jours',period90s:'Moyennes quotidiennes',period20:'20 derniers relevés',
+      thrv:'Batterie faible · 3540 mV (≈ 20 %)',thrp:'Batterie faible · 20 %',thrOff:'Batterie faible : 3540 mV (≈ 20 %), sous la plage affichée',
+      view:function(n){return 'Voir '+n+' relevé'+(n>1?'s':'');},colT:'Heure',colV:'Tension',colL:'Niveau',latest:'Dernier',
+      emptyT:'Pas encore assez de relevés pour une courbe',emptyS:function(n){return 'La courbe apparaît à partir de 3 relevés. '+n+' pour l’instant.';},
+      curTitle:'Carte actuelle (telle que construite)',newTitle:'Carte redessinée',
+      months:['janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'],
+      fd:function(d,m){return d.getDate()+' '+m[d.getMonth()];},
+      lbl:'Niveau et tension de la batterie',curLine:'≈ 77 % · 3969 mV',curRead:function(d){return d+' 11:46 (il y a 25 s)';},
+      range:function(a,b,u){return 'Courbe de '+a+' à '+b+' '+u;}}
+  };
+  function fr(s){return s.replace(/ ([:;?!»%])/g,' $1').replace(/« /g,'« ');}
+  ['admin'].forEach(function(){});
+  Object.keys(S.fr).forEach(function(k){var v=S.fr[k];if(typeof v==='string')S.fr[k]=fr(v);else if(Array.isArray(v))S.fr[k]=v.map(fr);});
+
+  var THR_MV=3540, V0=3389, VSPAN=752; /* linear estimate: 3540 mV = 20 %, 3969 mV = 77 % */
+  function pct(v){return Math.max(0,Math.min(100,(v-V0)/VSPAN*100));}
+  var TODAY=new Date(2026,10,20);
+  /* ---------- sample data ---------- */
+  function mk(n,f){var a=[],i,d;for(i=0;i<n;i++){d=new Date(TODAY.getTime());d.setDate(d.getDate()-(n-1-i));a.push({d:d,v:Math.round(f(i,n))});}return a;}
+  function noise(i){return Math.sin(i*1.7)*5+Math.sin(i*0.63)*4;}
+  var SC={
+    normal:{end:3969,chg:false,series:mk(90,function(i,n){var x=i/(n-1);return i===n-1?3969:4138-169*Math.pow(x,1.15)+noise(i);})},
+    low:{end:3512,chg:false,series:mk(90,function(i,n){var x=i/(n-1);return i===n-1?3512:4060-548*Math.pow(x,1.6)+noise(i);})},
+    charging:{end:4081,chg:true,series:mk(90,function(i,n){var x=i/(n-1);var v=4100-300*Math.pow(x,1.2);if(i>n-5)v=3800+(i-(n-5))*70;return i===n-1?4081:v+noise(i);})},
+    empty:{end:3969,chg:false,series:mk(1,function(){return 3969;})}
+  };
+  function readings(sc){var a=[],i,t=11*60+46,e=sc.end;for(i=0;i<10;i++){var m=t-15*i;var v=e+(sc.chg?-i*5:i*1)-(i%3===0?0:1);a.push({h:('0'+Math.floor(m/60)).slice(-2)+':'+('0'+(m%60)).slice(-2),v:v});}return sc.series.length<3?a.slice(0,1):a;}
+
+  function ic(n,cls){return '<svg class="ic'+(cls?' '+cls:'')+'" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-'+n+'"/></svg>';}
+  function lead(n,cls){return '<span class="ico'+(cls?' '+cls:'')+'">'+ic(n)+'</span>';}
+  function esc(s){return String(s);}
+
+  /* ---------- chart (real pixel width, so every label is 13-14 px) ---------- */
+  var gid=0;
+  function chart(t,L,sc,mode,w,h){
+    var s=sc.series, n=s.length, pad=8, top=22, bot=30, ph=h-top-bot, id='g'+(gid++);
+    var vals=s.map(function(p){return mode==='v'?p.v:pct(p.v);});
+    var thr=mode==='v'?THR_MV:20, step=mode==='v'?100:20;
+    var lo=Math.min.apply(null,vals), hi=Math.max.apply(null,vals), sp=Math.max(hi-lo,step*0.6);
+    var yMin=Math.floor((lo-0.15*sp)/step)*step, yMax=Math.ceil((hi+0.15*sp)/step)*step;
+    if(mode==='p')yMax=Math.min(yMax,100);
+    if(yMax-yMin<2*step){yMax=yMin+2*step;}
+    var thrIn=false;
+    if(lo-thr<=1.5*step){thrIn=true;yMin=Math.min(yMin,Math.floor((thr-0.3*step)/step)*step);}
+    if(mode==='p')yMin=Math.max(yMin,0);
+    function Y(v){return top+ph*(1-(v-yMin)/(yMax-yMin));}
+    function X(i){return pad+(w-2*pad)*i/(n-1);}
+    var u=mode==='v'?NB+'mV':NB+'%', o='',k,ticks=[];
+    for(k=yMin;k<=yMax;k+=step)ticks.push(k);
+    o+='<svg class="cv" viewBox="0 0 '+w+' '+h+'" width="'+w+'" height="'+h+'" role="img" aria-label="'+L.range(L.fd(s[0].d,L.months),L.fd(s[n-1].d,L.months),mode==='v'?'mV':'%')+'">';
+    o+='<defs><linearGradient id="'+id+'" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--accent)" stop-opacity=".16"/><stop offset="1" stop-color="var(--accent)" stop-opacity="0"/></linearGradient></defs>';
+    if(thrIn)o+='<rect x="0" y="'+Y(thr)+'" width="'+w+'" height="'+(top+ph-Y(thr))+'" fill="var(--warn)" opacity=".10"/>';
+    ticks.forEach(function(v){var y=Y(v);o+='<line x1="0" x2="'+w+'" y1="'+y+'" y2="'+y+'" stroke="var(--border)" stroke-width="1"/>';});
+    var pts=s.map(function(p,i){return X(i).toFixed(1)+','+Y(vals[i]).toFixed(1);});
+    o+='<polygon points="'+X(0).toFixed(1)+','+(top+ph)+' '+pts.join(' ')+' '+X(n-1).toFixed(1)+','+(top+ph)+'" fill="url(#'+id+')"/>';
+    if(thrIn)o+='<line x1="0" x2="'+w+'" y1="'+Y(thr)+'" y2="'+Y(thr)+'" stroke="var(--warn)" stroke-width="2" stroke-dasharray="7 5"/>';
+    o+='<polyline points="'+pts.join(' ')+'" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>';
+    ticks.forEach(function(v){var y=Y(v);if(thrIn&&Math.abs(y-Y(thr))<16)return;o+='<text x="'+pad+'" y="'+(y-6)+'">'+v+u+'</text>';});
+    if(thrIn){var ty=Y(thr)+18;o+='<text class="thr" x="'+pad+'" y="'+ty+'">'+(mode==='v'?L.thrv:L.thrp)+'</text>';}
+    var ex=X(n-1), ey=Y(vals[n-1]), lab=mode==='v'?s[n-1].v+u:Math.round(vals[n-1])+u, ly=ey-12<14?ey+24:ey-12;
+    o+='<circle cx="'+ex+'" cy="'+ey+'" r="6" fill="var(--accent)" stroke="var(--card)" stroke-width="3"/>';
+    o+='<text class="em" x="'+(ex-4)+'" y="'+ly+'" text-anchor="end">'+lab+'</text>';
+    var yb=h-8;
+    o+='<text x="'+pad+'" y="'+yb+'">'+L.fd(s[0].d,L.months)+'</text><text x="'+(w/2)+'" y="'+yb+'" text-anchor="middle">'+L.fd(s[Math.round((n-1)/2)].d,L.months)+'</text><text x="'+(w-pad)+'" y="'+yb+'" text-anchor="end">'+L.fd(s[n-1].d,L.months)+'</text>';
+    o+='</svg>';
+    return {svg:o,thrIn:thrIn};
+  }
+
+  function gauge(sc,low){
+    var p=pct(sc.end)/100, R=46, C=2*Math.PI*R, sweep=C*0.75, col=low?'var(--warn)':'var(--ok)';
+    var a=(135+0.2*270)*Math.PI/180, x1=56+Math.cos(a)*38, y1=56+Math.sin(a)*38, x2=56+Math.cos(a)*55, y2=56+Math.sin(a)*55;
+    return '<div class="gauge"><svg viewBox="0 0 112 112" aria-hidden="true">'+
+      '<circle cx="56" cy="56" r="'+R+'" fill="none" stroke="var(--border)" stroke-width="10" stroke-linecap="round" stroke-dasharray="'+sweep+' '+C+'" transform="rotate(135 56 56)"/>'+
+      '<circle cx="56" cy="56" r="'+R+'" fill="none" stroke="'+col+'" stroke-width="10" stroke-linecap="round" stroke-dasharray="'+(sweep*p)+' '+C+'" transform="rotate(135 56 56)"/>'+
+      '<line x1="'+x1+'" y1="'+y1+'" x2="'+x2+'" y2="'+y2+'" stroke="var(--text)" stroke-width="2.5"/></svg>'+
+      '<div class="gv"><b class="num">'+Math.round(pct(sc.end))+'</b><span>%</span></div></div>';
+  }
+
+  /* ---------- new card ---------- */
+  function newCard(lang,vp,scn,mode,open){
+    var t=S[lang], sc=SC[scn], low=sc.end<THR_MV, h=vp==='phone'?176:208, w=vp==='phone'?318:716;
+    var ch=chart(t,t,sc,mode,w,h), n=sc.series.length, rd=readings(sc), fallback=false;
+    var head='<div class="bat-head">'+lead('battery',low?'':'ok')+'<h4>'+t.batt+'</h4>'+(sc.chg?'<span class="pill chg">'+ic('bolt')+t.charging+'</span>':'')+'</div>';
+    var hero='<div class="bat-hero" role="group" aria-label="'+t.lbl+'">'+gauge(sc,low)+'<div class="bat-facts">'+
+      '<span class="status'+(low?' low':'')+'">'+ic(low?'alert':'check')+(low?t.low:t.normal)+'</span>'+
+      '<span class="volt num">'+sc.end+NB+'<small>mV</small></span>'+
+      '<span class="lastr">'+ic('clock')+'<span>'+t.last+' · '+t.fd(TODAY,t.months)+', 11:46 · '+t.ago+'</span></span></div></div>';
+    var seg='<div class="segc" role="radiogroup" aria-label="'+t.unitlabel+'"><button type="button" role="radio" data-m="p" aria-checked="'+(mode==='p')+'">'+t.unitp+'</button><button type="button" role="radio" data-m="v" aria-checked="'+(mode==='v')+'">'+t.unitv+'</button></div>';
+    var top='<div class="chart-top"><div class="ct">'+(n>=3?t.period90:t.period20)+'<small>'+(n>=3?t.period90s:'')+'</small></div>'+seg+'</div>';
+    var body;
+    if(n>=3){body=ch.svg+(ch.thrIn?'':'<p class="cnote"><i></i>'+t.thrOff+'</p>');}
+    else{body='<div class="chart-empty" style="height:'+h+'px">'+ic('info')+'<b>'+t.emptyT+'</b><span>'+t.emptyS(n)+'</span></div>';}
+    var rows=rd.map(function(r,i){var pc=Math.round(pct(r.v));return '<tr'+(i===0?' class="first"':'')+'><td class="num">'+t.fd(TODAY,t.months)+' '+r.h+(i===0?'<span class="lt">'+t.latest+'</span>':'')+'</td><td class="num">'+r.v+NB+'mV</td><td class="num">'+pc+NB+'%</td></tr>';}).join('');
+    var tbl='<details class="rd2"'+(open?' open':'')+'><summary><span>'+t.view(rd.length)+'</span>'+ic('chev')+'</summary><table class="rt2"><thead><tr><th>'+t.colT+'</th><th>'+t.colV+'</th><th>'+t.colL+'</th></tr></thead><tbody>'+rows+'</tbody></table></details>';
+    return head+hero+'<div class="chart-wrap">'+top+body+'</div>'+tbl;
+  }
+  function newWrap(lang,vp,scn,open){
+    return '<div class="card bat" data-lang-code="'+lang+'" data-vp="'+vp+'" data-scn="'+scn+'" data-mode="p" data-open="'+(open?1:0)+'">'+newCard(lang,vp,scn,'p',open)+'</div>';
+  }
+
+  /* ---------- current card, redrawn from the built page ---------- */
+  function curChart(){
+    var w=700,h=170,o='<svg viewBox="0 0 '+w+' '+h+'" aria-hidden="true"><rect x="60" y="10" width="'+(w-62)+'" height="120" fill="#dfe0e0" class="cg"/>';
+    o+='<text x="56" y="18" text-anchor="end">4200 mV</text><text x="56" y="134" text-anchor="end">3000 mV</text>';
+    o+='<line x1="60" x2="'+(w-2)+'" y1="'+(10+120*(660/1200))+'" y2="'+(10+120*(660/1200))+'" stroke="var(--warn)" stroke-opacity=".7" stroke-width="1"/>';
+    o+='<polyline points="60,14 360,18 '+(w-2)+',21" fill="none" stroke="var(--text)" stroke-width="1.5"/><circle cx="60" cy="14" r="2.5" fill="var(--text)"/><circle cx="360" cy="18" r="2.5" fill="var(--text)"/><circle cx="'+(w-2)+'" cy="21" r="4" fill="var(--text)"/>';
+    o+='<text x="60" y="152">18 Nov</text><text x="'+(w-2)+'" y="152" text-anchor="end">20 Nov</text></svg>';
+    return o;
+  }
+  function curCard(lang){
+    var t=S[lang];
+    return '<div class="card cur"><div class="item">'+lead('check','ok')+'<span class="who"><small>'+t.batt+'</small><b>'+t.normal+'</b></span><span class="val num">'+t.curLine.replace('≈ ','')+'</span></div>'+
+      '<div class="cur-ring"><span class="r"><i></i></span><span class="num"><b>'+t.curLine+'</b> <span style="color:var(--muted)">— '+t.curRead(t.fd(TODAY,t.months)).replace('11:46','11:46')+'</span></span></div>'+
+      '<div class="cur-btns"><button type="button">'+t.unitp+'</button><button type="button" class="on">'+t.unitv+'</button></div>'+
+      '<div class="cur-chart">'+curChart()+'</div><div class="cur-leg"><i></i>'+t.thrv+'</div>'+
+      '<div class="cur-sum">'+ic('chev')+t.view(10)+'</div></div>';
+  }
+
+  /* ---------- shell ---------- */
+  function connCard(t){
+    return '<div class="card"><div class="item">'+lead('check','ok')+'<span class="who"><small>'+t.conn+'</small><b>'+t.cstate+'</b></span><span class="val">'+t.cago+'</span></div><div class="kv"><span>'+t.lastci+'</span><span>11:46 ('+t.cago+')</span><span>'+t.nextwake+'</span><span>11:56</span></div></div>';
+  }
+  function phoneShell(t,inner){
+    var icons=['fleet','team','tag','pulse','more'];
+    return '<div class="ptop"><span class="brand">'+ic('logo')+'SkyPane</span></div><div class="screen">'+inner+'</div>'+
+      '<div class="tabs">'+t.tabs.map(function(x,i){return '<div class="tab'+(i===0?' on':'')+'">'+ic(icons[i])+x+'</div>';}).join('')+'</div>';
+  }
+  function sidebar(t){
+    var icons=['fleet','team','tag','clock','pulse'];
+    return '<div class="side"><span class="brand">'+ic('logo')+'SkyPane</span><div class="space"><span class="on">'+ic('check')+t.space[0]+'</span><span>'+t.space[1]+'</span></div>'+
+      '<div class="sep"></div><div class="nlabel">'+t.admin+'</div>'+
+      t.nav.map(function(x,i){return (i===2?'<div class="sep"></div>':'')+'<div class="nav'+(i===0?' on':'')+'">'+ic(icons[i])+x+'</div>';}).join('')+
+      '<div class="sep"></div><div class="nav">'+ic('user')+t.account+'</div><div class="signout"><a class="btn" href="#">'+t.signout+'</a></div></div>';
+  }
+  function page(lang,vp,card){
+    var t=S[lang];
+    var head='<div class="pagehead"><a class="backl" href="#">'+ic('chev').replace('<svg','<svg style="transform:rotate(180deg)"')+t.back+'</a><h3 class="title"'+(vp==='phone'?' style="font-size:34px"':'')+'>'+t.health+'</h3></div>';
+    var body='<div><p class="label">'+t.frameg+'</p><div style="display:flex;flex-direction:column;gap:12px">'+connCard(t)+'<div data-anchor="battery">'+card+'</div></div></div>';
+    if(vp==='phone')return phoneShell(t,head+body);
+    return sidebar(t)+'<div class="main" style="left:240px"><div style="max-width:760px">'+head+body+'</div></div>';
+  }
+  function mock(vp,caption,sub,cardFn,cls){
+    var langs=['en','fr'].map(function(l){return '<div data-lang="'+l+'">'+page(l,vp,cardFn(l))+'</div>';}).join('');
+    var box='<div data-viewport="'+vp+'" class="tall '+(cls||'')+'">'+langs+'</div>';
+    return '<figure class="mock"><figcaption>'+caption+(sub?'<small>'+sub+'</small>':'')+'</figcaption>'+(vp==='desktop'?'<div class="scroller">'+box+'</div>':box)+'</figure>';
+  }
+  function section(h,lead,body){return '<section class="sec"><h2>'+h+'</h2><p class="lead">'+lead+'</p>'+body+'</section>';}
+
+  var html='';
+  html+=section('1. Desktop: Health page, 1440 px',
+    'Same shell as the approved Health page (sidebar, Back link, Frame group, connection card). Only the Battery card changes. Switch Percentage / Voltage in the new card: it is live.',
+    '<div class="row2">'+mock('desktop','Current card <span class="tag">as built today</span>','',function(l){return curCard(l);},'cur')+'</div><div style="height:32px"></div>'+
+    '<div class="row2">'+mock('desktop','Redesigned card <span class="tag new">proposal</span>','Readings table opened here; closed by default on phone',function(l){return newWrap(l,'desktop','normal',true);},'new')+'</div>');
+  html+=section('2. Phone: Health page, 390 px',
+    'Gauge and facts keep one row; the segmented control becomes full width; the chart is drawn at the real phone width so its labels stay 13 to 14 px. Scroll inside the phone.',
+    '<div class="row2">'+mock('phone','Current card','',function(l){return curCard(l);},'cur')+mock('phone','Redesigned card','',function(l){return newWrap(l,'phone','normal',false);},'new')+'</div>');
+  html+=section('3. States of the redesigned card (phone)',
+    'Normal, low (below the 3540 mV threshold, warning icon and word), charging (pill in the header, rising end of the curve), and a frame with only one reading (empty chart with a message).',
+    '<div class="row2">'+
+      mock('phone','Normal','',function(l){return newWrap(l,'phone','normal',false);},'new st-normal')+
+      mock('phone','Low','',function(l){return newWrap(l,'phone','low',false);},'new st-low')+
+      mock('phone','Charging','',function(l){return newWrap(l,'phone','charging',false);},'new st-charging')+
+      mock('phone','Too little data','',function(l){return newWrap(l,'phone','empty',true);},'new st-empty')+'</div>');
+  document.getElementById('app').innerHTML=html;
+
+  /* ---------- behaviour ---------- */
+  document.addEventListener('click',function(e){
+    var b=e.target.closest&&e.target.closest('.segc button');if(!b)return;
+    var card=b.closest('.bat');if(!card)return;
+    var open=card.querySelector('details')&&card.querySelector('details').open;
+    card.dataset.mode=b.dataset.m;
+    card.innerHTML=newCard(card.dataset.langCode,card.dataset.vp,card.dataset.scn,b.dataset.m,open);
+    var nb=card.querySelector('.segc button[data-m="'+b.dataset.m+'"]');if(nb)nb.focus();
+  });
+  var r=document.documentElement;
+  r.setAttribute('data-ui-lang','en');
+  document.querySelectorAll('#theme button').forEach(function(b){b.addEventListener('click',function(){
+    if(b.dataset.t==='auto')r.removeAttribute('data-ui-theme');else r.setAttribute('data-ui-theme',b.dataset.t);
+    document.querySelectorAll('#theme button').forEach(function(x){x.setAttribute('aria-pressed',String(x===b));});
+  });});
+  document.querySelectorAll('#lang button').forEach(function(b){b.addEventListener('click',function(){
+    r.setAttribute('data-ui-lang',b.dataset.l);r.lang=b.dataset.l;
+    document.querySelectorAll('#lang button').forEach(function(x){x.setAttribute('aria-pressed',String(x===b));});
+  });});
+})();
+</script>
