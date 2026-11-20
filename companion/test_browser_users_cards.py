@@ -168,7 +168,7 @@ def test_the_own_switch_is_disabled_and_says_why(new_context, server):
 
 @pytest.mark.parametrize("lang,expected,none", [
     ("en", "1 frame · co-manager", "0 frames"),
-    ("fr", "1 cadre · co-gestionnaire", "0 cadres")])
+    ("fr", "1 cadre · cogestionnaire", "0 cadres")])
 def test_a_co_manager_shows_the_frame_they_manage(new_context, server, lang, expected, none):
     context, page = _open(new_context, server, VIEWPORT_MIN_SUPPORTED, lang)
     try:

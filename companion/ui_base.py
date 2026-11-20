@@ -262,8 +262,10 @@ PLACE_START_SCRIPT_SRC = "/static/place-start.js"
 PLACE_AIRPORT_LIST_SCRIPT_SRC = "/static/place-airport-list.js"
 # Opens an airline's aircraft-type rows in the airline editor.
 AIRLINE_TYPES_SCRIPT_SRC = "/static/airline-types.js"
-# Asks the Install and Roll back question in the shared dialog.
+# Asks the Install and Revert question in the shared dialog.
 UPDATE_QUESTION_SCRIPT_SRC = "/static/update-question.js"
+# Marks the section in view among the phone anchors of a frame's page.
+FLEET_ANCHORS_SCRIPT_SRC = "/static/fleet-anchors.js"
 LEAFLET_STYLE_HREF = "/static/vendor/leaflet/leaflet.css"
 
 # The registration seam value-controls.js reads, defined here so a page

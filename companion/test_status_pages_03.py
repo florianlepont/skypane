@@ -48,7 +48,7 @@ def _row_html(rendered, row_id):
     (the next row, the next group band, or the registry card)."""
     start = rendered.index('id="health-row-%s"' % row_id)
     ends = [index for index in (
-        rendered.find('<details class="health-row"', start),
+        rendered.find('<div class="health-row"', start),
         rendered.find('<h2 id="%s"' % health_page.SERVER_DATA_SECTION_ID, start),
         len(rendered),
     ) if index != -1]
@@ -513,8 +513,9 @@ def test_server_rows_form_one_card_with_no_registry_card_below(tmp_path):
     assert breakdown, "expected the resolution breakdown inside the Identification row"
     assert not doc.select(".%s.page-section--nested" % health_page.HEALTH_SOURCE_FAULT_CLASS), (
         "the source-fault block must never carry the nested modifier")
-    link = identification.select_one("a.text-link")
-    assert link is not None and link.attrs["href"] == "/airlines/manage"
+    # Unresolved airlines are handled in the Editor: the row links to nothing.
+    assert not identification.select("a.text-link")
+    assert "/airlines/manage" not in rendered
 
 
 def test_identification_row_renders_percentage_and_window(tmp_path):
@@ -649,7 +650,7 @@ def test_breakdown_table_absent_when_empty_both_languages(tmp_path):
             "expected no breakdown table with no rows in the window (%s)" % lang)
         assert health_page.RESOLUTION_WINDOW_DAYS == 30
         assert "30" in row.select_one(".health-row__verdict").text()
-        assert shp.health_row_state(rendered, "identification") == ("off", False)
+        assert shp.health_row_state(rendered, "identification") == "off"
 
 
 def test_identification_row_shows_36_rows_never_no_events(tmp_path):
@@ -824,7 +825,7 @@ def test_battery_row_keeps_everything_after_the_move(tmp_path):
     rendered = health_page_composition.render(shp.ctx(state_dir, now_value=shp.iso(base)))
     row = shp.health_row(rendered, "battery")
     assert row.select_one(".health-row__name").text() == health_page.ROW_BATTERY_NAME
-    assert shp.health_row_state(rendered, "battery") == ("ok", False)
+    assert shp.health_row_state(rendered, "battery") == "ok"
     assert row.select_one("#" + health_page.BATTERY_READOUT_ID) is not None, (
         "expected the readout element id to survive the move")
     assert row.select_one(".battery-trend-section--embedded") is not None
@@ -972,11 +973,11 @@ def test_quick_260902_gjj_card_status_borders_render_correct_modifiers(tmp_path,
         {"ts": shp.iso(now - timedelta(minutes=1)), "battery_mv": readings[0][1]},
     ])
     assert battery_state == "warn", "expected the seeded battery fixture to compute a warn verdict (D-05 demotion)"
-    assert shp.health_row_state(rendered, "battery") == (battery_state, True), (
-        "expected the Battery row to carry the verdict battery_status() computes, and to open itself")
+    assert shp.health_row_state(rendered, "battery") == battery_state, (
+        "expected the Battery row to carry the verdict battery_status() computes")
 
     # The identification rate computes no verdict, so its row stays neutral.
-    assert shp.health_row_state(rendered, "identification") == ("off", False)
+    assert shp.health_row_state(rendered, "identification") == "off"
 
     for comp in _CARD_STATUS_COMPONENTS:
         for status in _CARD_STATUS_LEVELS:

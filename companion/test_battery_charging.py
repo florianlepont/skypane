@@ -285,7 +285,7 @@ def _health(state_dir, now, lang="en"):
 
 
 def _battery_row_summary(page):
-    match = re.search(r'<details[^>]*id="health-row-battery".*?</summary>', page, re.S)
+    match = re.search(r'<div[^>]*id="health-row-battery".*?</span></div>', page, re.S)
     assert match, "no Battery row"
     return match.group(0)
 

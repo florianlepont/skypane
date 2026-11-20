@@ -66,7 +66,6 @@ def _set_meta(state_dir, key, value):
 
 PLATFORM_TEXTS = (
     health_page.SERVER_DATA_SECTION_HEADING,
-    health_page.UNRESOLVED_SECTION_HEADING,
     health_page._NOTHING_TO_RESOLVE_TEXT,
     health_page._NOTHING_TO_COMPARE_YET_TEXT,
 )
@@ -131,6 +130,21 @@ def test_user_health_shows_frame_card_and_no_platform_rows(tmp_path):
         assert escape_html(i18n.t(text)) not in user_html, text
     assert health_page.SERVER_DATA_SECTION_ID not in user_html
     assert "resolve-dialog" not in user_html
+
+
+def test_a_users_health_sections_keep_flight_data_in_the_frame_section(tmp_path):
+    """the platform section is the administrator's alone; a user still reads their frame's
+    flight data, now among the frame rows the Health page opens with"""
+    with history_db.open_db(str(tmp_path)) as conn:
+        history_db.record_device_health(conn, NOW, battery_mv=4000)
+    _as("admin")
+    admin = health_page.health_sections(_live_ctx(tmp_path))
+    _as("user")
+    user = health_page.health_sections(_live_ctx(tmp_path))
+    assert len(admin.frame_rows) == 2 and len(admin.platform_rows) >= 3
+    assert len(user.frame_rows) == 3 and user.platform_rows == ()
+    assert 'id="health-row-flight-data"' in user.frame_rows[2]
+    assert 'id="health-row-flight-data"' in "".join(admin.platform_rows)
 
 
 def test_user_health_hides_source_fault_block(tmp_path):

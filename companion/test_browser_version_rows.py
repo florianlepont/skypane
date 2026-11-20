@@ -17,7 +17,7 @@ from skypane_fw_image import build_image
 pytestmark = pytest.mark.browser
 
 _ROWS = (
-    "() => [...document.querySelectorAll('.fleet-block--device li.update-item')].map(li => {"
+    "() => [...document.querySelectorAll('.fleet-versions li.update-item')].map(li => {"
     " const v = li.querySelector('.update-item__version').getBoundingClientRect();"
     " const c = li.querySelector('.banner__pill');"
     " const a = li.querySelector('.update-item__action button');"
@@ -36,7 +36,7 @@ def _open(new_context, server, viewport, lang):
         "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": server.base_url()}])
     page = context.new_page()
     _login(page, server.base_url())
-    page.goto(server.base_url() + "/fleet?frame=" + seed.live_id)
+    page.goto(server.base_url() + "/fleet?frame=" + seed.live_id + "&view=versions")
     page.locator("main").wait_for(state="visible")
     page.wait_for_function(
         "() => document.readyState === 'complete' && document.getAnimations().every("
@@ -47,7 +47,7 @@ def _open(new_context, server, viewport, lang):
 
 def _seed_four_releases(state_dir):
     """Four releases, the third running: a Newest row, a Running row and two older rows
-    (Roll back), all with release notes."""
+    (Revert), all with release notes."""
     now = datetime.now(timezone.utc)
     for version, age in (("fw-v1.4.0", 55), ("fw-v1.4.1", 51), ("fw-v1.4.2", 36),
                          ("fw-v1.4.3", 2)):

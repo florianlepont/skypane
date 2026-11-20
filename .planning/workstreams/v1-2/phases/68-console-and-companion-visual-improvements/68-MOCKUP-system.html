@@ -1,0 +1,427 @@
+<!--
+OWNER-APPROVED: NOT YET APPROVED
+Request (owner, 2026-11-20): "des tuiles pour la page system".
+Mockup of the console System page (/fleet?view=system) with tiles: a grid of equal tiles (same .tile2 look as the frame Overview), then the existing detail blocks unchanged.
+Sources of what the page shows today: companion/pages/health_page.py system_html + _server_topics, companion/console_fleet_view.py system_html (footer link to /components).
+Sample data is invented. Nothing here is built.
+-->
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SkyPane mockup: System page with tiles (Phase 68)</title>
+<style>
+/* Standalone mockup, no external asset. Tokens follow companion/static/style.css (light and dark only).
+   Each mock sits in a [data-viewport] box, 390 px (phone) or 1440 px (desktop); every translated block is a
+   [data-lang] wrapper and the toggle at the top shows one language at a time. All names and addresses are invented. */
+:root{
+  --sky:linear-gradient(#E7EEF7,#F1F3F6 45%,#EDF1F6); --canvas:#F1F3F6; --stage:#E4E9F0;
+  --text:#17191F; --muted:#5B6372; --border:#DAE1EB; --chip:#E9EEF5; --card:#fff;
+  --accent:#1F2430; --on-accent:#fff; --glass:rgba(255,255,255,.78); --tab:#fff; --shadow:0 6px 20px rgba(20,30,50,.08);
+  --ok:#16A34A; --okbg:#DDF3E4; --warn:#D97706; --err:#BE123C;
+}
+@media (prefers-color-scheme:dark){:root:not([data-ui-theme="light"]){
+  --sky:linear-gradient(#12151D,#161A24 45%,#1A1F2B); --canvas:#161A24; --stage:#0E1117;
+  --text:#F1F3F6; --muted:#A3ABBB; --border:#2A3040; --chip:#232A38; --card:#1C222D;
+  --accent:#F2EFE9; --on-accent:#14171F; --glass:rgba(34,40,54,.82); --tab:#1C222D; --shadow:0 6px 20px rgba(0,0,0,.35);
+  --ok:#4ADE80; --okbg:#173225; --warn:#FBBF24; --err:#FB7185; color-scheme:dark}}
+:root[data-ui-theme="dark"]{
+  --sky:linear-gradient(#12151D,#161A24 45%,#1A1F2B); --canvas:#161A24; --stage:#0E1117;
+  --text:#F1F3F6; --muted:#A3ABBB; --border:#2A3040; --chip:#232A38; --card:#1C222D;
+  --accent:#F2EFE9; --on-accent:#14171F; --glass:rgba(34,40,54,.82); --tab:#1C222D; --shadow:0 6px 20px rgba(0,0,0,.35);
+  --ok:#4ADE80; --okbg:#173225; --warn:#FBBF24; --err:#FB7185; color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--stage);color:var(--text);font:16px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;padding:32px 16px 96px}
+button,input{font:inherit;color:inherit}
+a{color:inherit;text-decoration:none}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.num{font-variant-numeric:tabular-nums}
+.top{max-width:1500px;margin:0 auto 24px;display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between;align-items:flex-end}
+.top h1{margin:0 0 8px;font-size:34px;letter-spacing:-.03em}
+.top p{margin:0;color:var(--muted);max-width:75ch}
+.toggles{display:flex;gap:16px;flex-wrap:wrap}
+.seg{display:inline-flex;background:var(--chip);border-radius:32px;padding:4px;gap:4px}
+.seg button{border:0;background:none;min-height:44px;padding:0 16px;border-radius:32px;cursor:pointer;font-size:15px}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent)}
+.sec{max-width:1500px;margin:56px auto 0}
+.sec>h2{margin:0 0 4px;font-size:26px;letter-spacing:-.02em}
+.sec>p.lead{margin:0 0 24px;color:var(--muted);max-width:85ch}
+.row2{display:flex;flex-wrap:wrap;gap:32px;align-items:flex-start}
+.mock{margin:0;display:flex;flex-direction:column;gap:8px;min-width:0}
+.mock>figcaption{font-size:15px;font-weight:600}
+.mock>figcaption small{display:block;font-weight:400;color:var(--muted);font-size:13px}
+.scroller{max-width:100%;overflow-x:auto;padding-bottom:8px}
+[data-ui-lang="en"] [data-lang="fr"],[data-ui-lang="fr"] [data-lang="en"]{display:none}
+.note{margin:12px 0 0;padding:12px 16px;border:1px dashed var(--border);border-radius:14px;color:var(--muted);font-size:14px;max-width:85ch}
+.note b{color:var(--text)}
+
+[data-viewport]{position:relative;overflow:hidden;border:1px solid var(--border);background:var(--sky) var(--canvas);box-shadow:0 12px 40px rgba(20,30,50,.12)}
+[data-viewport="phone"]{width:390px;height:780px;border-radius:36px}
+[data-viewport="desktop"]{width:1440px;height:900px;border-radius:16px}
+[data-viewport] [data-lang]{height:100%;position:relative}
+
+/* shared pieces */
+.ic{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--ok);flex:none;display:inline-block}
+.dot.idle{background:var(--muted)}.dot.err{background:var(--err)}.dot.pend{background:var(--warn)}
+.label{margin:0 0 6px 16px;font-size:13px;font-weight:600;color:var(--muted)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:22px;box-shadow:var(--shadow);overflow:hidden}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 18px;border:1px solid var(--border);border-radius:14px;background:var(--card);font-size:15px;font-weight:600;cursor:pointer}
+.btn.dark{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.btn.sq{width:44px;padding:0}
+.field{display:flex;align-items:center;gap:8px;min-height:44px;padding:0 14px;border:1px solid var(--border);border-radius:14px;background:var(--card)}
+.field input{flex:1;min-width:0;border:0;background:none;min-height:42px;outline:0}
+.title{margin:0;font-size:40px;line-height:1.1;font-weight:700;letter-spacing:-.03em}
+.sub{color:var(--muted);font-size:15px}
+.state{margin:6px 0 0;display:flex;align-items:center;gap:8px;font-weight:600}
+
+/* rows */
+.item{display:flex;align-items:center;gap:12px;min-height:64px;padding:10px 16px;border-top:1px solid var(--border)}
+.item:first-child{border-top:0}
+.item .who{flex:1;min-width:0}
+.item .who small{display:block;color:var(--muted);font-size:13px}
+.item .who b{display:block;font-weight:600}
+.item .val{color:var(--muted);font-size:14px;white-space:nowrap}
+.ico{width:36px;height:36px;border-radius:50%;background:var(--chip);display:flex;align-items:center;justify-content:center;flex:none}
+.ico.ok{background:var(--okbg);color:var(--ok)}
+.sw{flex:none;width:51px;height:31px;border-radius:31px;background:#7C8696;position:relative;cursor:pointer}
+.sw::after{content:"";position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.sw.on{background:var(--accent)}.sw.on::after{left:22px}
+.badge{display:inline-flex;align-items:center;min-height:24px;padding:0 10px;border-radius:32px;border:1px solid var(--border);font-size:12px;color:var(--muted)}
+.range{height:6px;border-radius:6px;background:var(--border);position:relative;margin:14px 0 4px}
+.range i{position:absolute;left:0;top:0;bottom:0;width:26%;border-radius:6px;background:var(--accent)}
+.range b{position:absolute;left:26%;top:50%;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;background:var(--accent)}
+.section{display:flex;flex-direction:column}
+.danger b{color:var(--err)}
+
+/* frame list rows */
+.frow{display:flex;align-items:center;gap:12px;min-height:56px;padding:6px 14px;border-top:1px solid var(--border);cursor:pointer}
+.frow:first-child{border-top:0}
+.frow .who{flex:1;min-width:0}
+.frow .who b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.frow .who small{display:block;color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.frow .seen{font-size:13px;color:var(--muted);white-space:nowrap}
+.frow.retired{opacity:.8}
+.frow.sel{background:var(--chip)}
+.chev{color:var(--muted)}
+
+/* phone shell */
+.ptop{position:absolute;left:0;right:0;top:0;height:64px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;z-index:5}
+.brand{display:flex;align-items:center;gap:8px;font-size:22px;font-weight:700;letter-spacing:-.02em}
+.screen{position:absolute;inset:64px 0 0 0;overflow-y:auto;padding:8px 16px 120px;display:flex;flex-direction:column;gap:16px;scrollbar-width:none}
+.screen::-webkit-scrollbar{display:none}
+.screen>*{flex-shrink:0}
+.tabs{position:absolute;left:12px;right:12px;bottom:14px;display:flex;justify-content:space-around;padding:8px 6px;background:var(--tab);border:1px solid var(--border);border-radius:34px;box-shadow:0 8px 24px rgba(20,30,50,.14);z-index:6}
+.tab{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-width:60px;min-height:52px;border-radius:26px;font-size:11px;color:var(--text)}
+.tab.on{background:var(--accent);color:var(--on-accent);font-weight:600}
+.chips{display:flex;gap:8px;overflow-x:auto;margin:0 -16px;padding:0 16px 4px;scrollbar-width:none}
+.chip{flex:none;display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 14px;border-radius:32px;background:var(--card);border:1px solid var(--border);font-size:14px;white-space:nowrap}
+.chip[aria-current="page"]{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.chip.all{background:var(--chip)}
+.anchors{position:sticky;top:-8px;z-index:3;margin:0 -16px;padding:8px 16px;display:flex;gap:8px;background:var(--canvas)}
+.anchors button{flex:1;min-height:44px;border:1px solid var(--border);border-radius:32px;background:var(--card);font-size:14px;cursor:pointer}
+.anchors button[aria-current="true"]{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.blk{scroll-margin-top:72px}
+
+/* desktop shell */
+.side{position:absolute;left:0;top:0;bottom:0;width:240px;padding:24px 16px;background:var(--glass);border-right:1px solid var(--border);display:flex;flex-direction:column;gap:8px}
+.side .brand{padding:0 8px;margin-bottom:8px}
+.space{display:flex;gap:4px;padding:4px;border-radius:16px;background:var(--chip);margin-bottom:8px}
+.space span{flex:1;text-align:center;min-height:36px;display:flex;align-items:center;justify-content:center;border-radius:12px;font-size:14px;font-weight:600;color:var(--muted)}
+.space span.on{background:var(--accent);color:var(--on-accent)}
+.nlabel{margin:12px 8px 0;font-size:13px;font-weight:600;color:var(--muted)}
+.nav{display:flex;align-items:center;gap:12px;min-height:46px;padding:0 12px;border-radius:14px;font-size:15px}
+.nav.on{background:var(--accent);color:var(--on-accent);font-weight:600}
+.sep{height:1px;background:var(--border);margin:8px 0}
+.signout{margin-top:auto}
+.listp{position:absolute;left:240px;top:0;bottom:0;width:350px;background:var(--glass);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.listp .lhead{flex:none;padding:20px 16px 12px;display:flex;flex-direction:column;gap:12px;border-bottom:1px solid var(--border)}
+.listp .lbody{flex:1;min-height:0;overflow-y:auto;padding:12px 12px 20px;display:flex;flex-direction:column;gap:14px}
+.main{position:absolute;left:590px;right:0;top:0;bottom:0;overflow-y:auto;padding:32px 44px 64px}
+.dcol{display:flex;flex-direction:column;gap:24px;max-width:760px;margin-top:20px}
+.titlerow{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.iconbtns{display:flex;gap:8px;flex:none}
+.sparkline{display:block;width:100%;height:44px}
+.sub2{display:flex;flex-direction:column;gap:6px;width:100%;padding-left:48px;font-size:13px;color:var(--muted)}
+.item.wrap{flex-wrap:wrap}
+.tiles2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.tile2{display:flex;flex-direction:column;gap:6px;min-height:132px;padding:14px;border-radius:22px;background:var(--card);border:1px solid var(--border);box-shadow:var(--shadow);min-width:0}
+.tile2 .th{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+.tile2 .tv{font-size:19px;font-weight:700;letter-spacing:-.01em}
+.tile2 .tm{font-size:13px;color:var(--muted)}
+.tile2 .more{margin-top:auto;display:flex;align-items:center;gap:4px;font-size:13px;font-weight:600}
+.bigspark{display:block;width:100%;height:120px;color:var(--accent)}
+.kv{display:grid;grid-template-columns:1fr auto;gap:6px 16px;padding:12px 16px;border-top:1px solid var(--border);font-size:14px}
+.kv span:nth-child(odd){color:var(--muted)}
+.kv span:nth-child(even){text-align:right}
+.rtable{width:100%;border-collapse:collapse;font-size:14px}
+.rtable th{text-align:left;color:var(--muted);font-weight:600;font-size:13px;padding:8px 16px}
+.rtable td{padding:8px 16px;border-top:1px solid var(--border)}
+.rtable td:last-child,.rtable th:last-child{text-align:right}
+.banner{display:flex;flex-direction:column;gap:8px;padding:12px 16px;border-radius:18px;border:1px solid var(--warn);background:var(--card)}
+.banner b{font-weight:700}
+.pills{display:flex;flex-wrap:wrap;gap:6px}
+.pill{display:inline-flex;align-items:center;min-height:26px;padding:0 10px;border-radius:32px;background:var(--chip);font-size:13px}
+.pill.warn{background:var(--card);border:1px solid var(--warn)}
+.unit{display:inline-flex;gap:4px;padding:3px;border-radius:12px;background:var(--chip)}
+.unit span{min-height:32px;padding:0 12px;display:flex;align-items:center;border-radius:9px;font-size:13px}
+.unit span.on{background:var(--accent);color:var(--on-accent);font-weight:600}
+details.rd{border-top:1px solid var(--border)}
+details.rd summary{min-height:48px;display:flex;align-items:center;padding:0 16px;font-size:14px;font-weight:600;cursor:pointer}
+.outcomes{list-style:none;margin:0;padding:0}
+.outcomes li{padding:10px 16px;border-top:1px solid var(--border)}
+.outcomes p{margin:0;display:flex;align-items:center;gap:8px;font-weight:600}
+.outcomes p span.n{margin-left:auto}
+.outcomes small{display:block;color:var(--muted);font-size:13px;margin:2px 0 0 16px}
+.rtable.l td:last-child,.rtable.l th:last-child{text-align:left}
+.pagehead{display:flex;flex-direction:column;gap:6px;margin-bottom:8px}
+.backl{display:inline-flex;align-items:center;gap:6px;min-height:44px;font-size:15px;font-weight:600}
+.ring{width:64px;height:64px;border-radius:50%;background:conic-gradient(var(--ok) 0 47%,var(--border) 0);display:flex;align-items:center;justify-content:center;flex:none}
+.ring b{width:48px;height:48px;border-radius:50%;background:var(--card);display:flex;align-items:center;justify-content:center;font-size:14px}
+.vrow{display:flex;align-items:center;gap:12px;min-height:52px;padding:6px 16px;border-top:1px solid var(--border)}
+.vrow .who{flex:1}
+.btn.quiet{min-height:40px;font-weight:500;color:var(--muted)}
+
+@media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-logo" viewBox="0 0 24 24"><rect x="4" y="3" width="14" height="18" rx="3"/><path d="M9 10l2 2 4-4"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8v.5"/></symbol>
+  <symbol id="i-fleet" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="3"/><path d="M9 11l2 2 4-4"/></symbol>
+  <symbol id="i-team" viewBox="0 0 24 24"><circle cx="9" cy="12" r="5"/><circle cx="15" cy="12" r="5"/></symbol>
+  <symbol id="i-tag" viewBox="0 0 24 24"><path d="M3 12V4h8l10 10-8 8z"/><circle cx="8" cy="8" r="1.4"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></symbol>
+  <symbol id="i-battery" viewBox="0 0 24 24"><rect x="2" y="7" width="17" height="10" rx="2"/><path d="M22 11v2"/></symbol>
+  <symbol id="i-plane" viewBox="0 0 24 24"><path d="M2 14l8-2 3-8 2 1-1 7 6 2v2l-6-1-2 4-2-.5.5-3.5L2 16z"/></symbol>
+  <symbol id="i-chip" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/></symbol>
+  <symbol id="i-timer" viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M9 2h6"/></symbol>
+  <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z"/></symbol>
+  <symbol id="i-frame" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2.5"/><rect x="7" y="8" width="10" height="8" rx="1"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+  <symbol id="i-server" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="6" rx="2"/><rect x="3" y="14" width="18" height="6" rx="2"/><path d="M7 7h.01M7 17h.01"/></symbol>
+  <symbol id="i-radio" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"/><path d="M7.8 7.8a6 6 0 0 0 0 8.4M16.2 7.8a6 6 0 0 1 0 8.4M4.9 4.9a10 10 0 0 0 0 14.2M19.1 4.9a10 10 0 0 1 0 14.2"/></symbol>
+  <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M7 18a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 10.5 3.8 3.8 0 0 1 17.5 18z"/><path d="M12 16v-5M9.8 12.8L12 10.6l2.2 2.2"/></symbol>
+  <symbol id="i-warn" viewBox="0 0 24 24"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.2"/></symbol>
+</svg>
+<style>
+.ico.warn{background:rgba(217,119,6,.16);color:var(--warn)}
+.tile2.warn{border-color:var(--warn)}
+.tile2 .tv{overflow-wrap:anywhere}
+.tile2.na .ico{background:var(--chip);color:var(--muted)}
+.fsys{margin:8px 0 0;font-size:15px}
+.fsys a{display:inline-flex;align-items:center;gap:6px;min-height:44px;font-weight:600;text-decoration:underline;text-underline-offset:3px}
+.tbl{width:100%;border-collapse:collapse;font-size:14px;margin-top:12px;max-width:1100px;background:var(--card);border:1px solid var(--border);border-radius:14px}
+.tbl th{text-align:left;font-size:13px;color:var(--muted);padding:8px 12px}
+.tbl td{padding:8px 12px;border-top:1px solid var(--border);vertical-align:top}
+.tag{display:inline-block;padding:1px 8px;border-radius:32px;font-size:12px;font-weight:600;border:1px solid var(--border)}
+.tag.today{background:var(--okbg);color:var(--ok);border-color:transparent}
+.tag.new{background:rgba(217,119,6,.16);color:var(--warn);border-color:transparent}
+.scroller{overflow-x:auto}
+</style>
+<div class="top">
+  <div>
+    <h1>System page with tiles</h1>
+    <p>Mockup for the owner (request: &laquo;&nbsp;des tuiles pour la page system&nbsp;&raquo;). Same shell and the same equal tiles as the frame Overview; the existing detail blocks follow the tiles unchanged. One tile (Data sources) is drawn in its warning state. Sample data is invented. Use the toggles.</p>
+  </div>
+  <div class="toggles">
+    <div class="seg" id="theme" role="group" aria-label="Theme">
+      <button type="button" data-t="auto" aria-pressed="true">Auto</button>
+      <button type="button" data-t="light" aria-pressed="false">Light</button>
+      <button type="button" data-t="dark" aria-pressed="false">Dark</button>
+    </div>
+    <div class="seg" id="lang" role="group" aria-label="Language">
+      <button type="button" data-l="en" aria-pressed="true">English</button>
+      <button type="button" data-l="fr" aria-pressed="false">Fran&ccedil;ais</button>
+    </div>
+  </div>
+</div>
+<div id="app"></div>
+<script>
+(function(){
+  function nb(s){return s.replace(/ ([:;?!»])/g,' $1').replace(/« /g,'« ');}
+  var S={
+    en:{frames:'Frames',search:'Search 30 frames',add:'Add a frame',live:'Live',pending:'Waiting to be paired',retired:'Retired',
+      online:'Online',sleeping:'Sleeping',offline:'Offline',
+      admin:'Administration',account:'Account',signout:'Sign out',space:['Console','My frames'],
+      nav:['Fleet','Users','Editor','Audit log','System'],tabs:['Fleet','Users','Editor','System','More'],
+      seen:function(m){return 'Seen '+m+' ago';},codeShown:'Code shown 5 min ago',retiredOn:'Retired 12 Oct',
+      title:'System',sub:'The server behind every frame. Visible to administrators.',details:'Details',
+      bantitle:'1 warning:',ban1:'Sources disagreed recently',bantail:'Something needs attention — check the rows below.',
+      tServer:'Server',vServer:'Running on schedule',mServer:'Last run 40 s ago',
+      tSources:'Data sources',vSources:'Sources disagreed recently',mSources:'3 disagreements',
+      tIdent:'Identification',vIdent:'92.4 % identified',mIdent:'2 to resolve',
+      tBackup:'Off-box backup',vBackup:'Up to date',mBackup:'2 h ago',
+      fdata:'Flight data',frun:'Running on schedule',lastrun:'Last run',lastdet:'Last detection',ago40:'40 s ago',ago12:'12 min ago',
+      srcs:'Data sources',srcwarn:'Sources disagreed recently',dis3:'3 disagreements',
+      outboth:'Both agree',outone:'Only one saw it',outdiff:'They disagree',
+      outbothx:'Both flight-data sources on the frame picked the same aircraft.',outonex:'Only one of the two sources returned an aircraft this cycle.',outdiffx:'The two sources picked different aircraft.',
+      ident:'Identification',identt:'92.4 % of flights identified',window:'Last 7 days: 148 flights',toresolve:'2 to resolve',unres:'Unresolved airlines',
+      colsrc:'Source',colcnt:'Count',coldesc:'Description',
+      fresh:'Fresh lookup',freshx:'Route found just now',cached:'Cached hit',cachedx:'Route reused from an earlier lookup',aonly:'Airline only',aonlyx:'Only the airline is known',manual:'Manual',manualx:'Named by the owner',miss:'Miss',missx:'Nothing found',other:'Other',otherx:'Other cases',
+      backup:'Off-box backup',backupv:'Up to date',lastbk:'Last off-box backup',bkago:'2 h ago',
+      comps:'Interface components',
+      d_desktop:'Desktop 1440 px',d_phone:'Phone 390 px',
+      mapT:'Which existing block each tile summarises, and what data it needs',
+      cTile:'Tile',cBlock:'Block it summarises today',cFig:'Key figure and muted line',cData:'Data'},
+    fr:{frames:'Cadres',search:'Rechercher parmi 30 cadres',add:'Ajouter un cadre',live:'En service',pending:'En attente d’appairage',retired:'Retirés',
+      online:'En ligne',sleeping:'En veille',offline:'Hors ligne',
+      admin:'Administration',account:'Compte',signout:'Se déconnecter',space:['Console','Mes cadres'],
+      nav:['Flotte','Utilisateurs','Éditeur','Journal d’audit','Système'],tabs:['Flotte','Utilisateurs','Éditeur','Système','Plus'],
+      seen:function(m){return 'Vu il y a '+m;},codeShown:'Code affiché il y a 5 min',retiredOn:'Retiré le 12 oct.',
+      title:'Système',sub:'Le serveur derrière chaque cadre. Visible des administrateurs.',details:'Détails',
+      bantitle:'1 avertissement :',ban1:'Les sources ont divergé récemment',bantail:'Quelque chose demande votre attention — vérifiez les lignes ci-dessous.',
+      tServer:'Serveur',vServer:'Fonctionne comme prévu',mServer:'Dernière exécution il y a 40 s',
+      tSources:'Sources de données',vSources:'Les sources ont divergé récemment',mSources:'3 désaccords',
+      tIdent:'Identification',vIdent:'92,4 % identifiés',mIdent:'2 à résoudre',
+      tBackup:'Sauvegarde hors serveur',vBackup:'À jour',mBackup:'il y a 2 h',
+      fdata:'Données de vol',frun:'Fonctionne comme prévu',lastrun:'Dernière exécution',lastdet:'Dernière détection',ago40:'il y a 40 s',ago12:'il y a 12 min',
+      srcs:'Sources de données',srcwarn:'Les sources ont divergé récemment',dis3:'3 désaccords',
+      outboth:'Les deux concordent',outone:'Une seule l’a vu',outdiff:'Elles se contredisent',
+      outbothx:'Les deux sources de données de vol du cadre ont choisi le même avion.',outonex:'Une seule des deux sources a renvoyé un avion à ce cycle.',outdiffx:'Les deux sources ont choisi des avions différents.',
+      ident:'Identification',identt:'92,4 % des vols identifiés',window:'7 derniers jours : 148 vols',toresolve:'2 à résoudre',unres:'Compagnies non résolues',
+      colsrc:'Source',colcnt:'Nombre',coldesc:'Description',
+      fresh:'Recherche fraîche',freshx:'Trajet trouvé à l’instant',cached:'Résultat en cache',cachedx:'Trajet repris d’une recherche précédente',aonly:'Compagnie seulement',aonlyx:'Seule la compagnie est connue',manual:'Manuel',manualx:'Nommée par le propriétaire',miss:'Échec',missx:'Rien trouvé',other:'Autre',otherx:'Autres cas',
+      backup:'Sauvegarde hors serveur',backupv:'À jour',lastbk:'Dernière sauvegarde hors serveur',bkago:'il y a 2 h',
+      comps:'Composants de l’interface',
+      d_desktop:'Bureau 1440 px',d_phone:'Téléphone 390 px',
+      mapT:'Quel bloc existant chaque tuile résume, et quelles données il faut',
+      cTile:'Tuile',cBlock:'Bloc résumé aujourd’hui',cFig:'Chiffre clé et ligne grisée',cData:'Données'}
+  };
+  Object.keys(S.fr).forEach(function(k){var v=S.fr[k];if(typeof v==='string')S.fr[k]=nb(v);else if(Array.isArray(v))S.fr[k]=v.map(nb);});
+
+  var NAMES=['Salon','Chambre','Bureau','Cuisine','Entrée','Atelier','Terrasse','Balcon Orly','Garage','Mezzanine','Véranda','Grenier','Cave','Palier','Couloir','Studio','Loft','Cabanon','Phare','Vigie','Tour nord','Tour sud','Hangar','Quai 3'];
+  var OWNERS=['Camille','Louis','Inès','Hugo','Léa','Nora','Paul','Zoé'];
+  var STAT=[['ok','2 min'],['ok','4 min'],['err','3 h'],['ok','1 min'],['idle','2 h'],['ok','3 min'],['ok','7 min'],['ok','2 min'],['err','26 h'],['ok','5 min'],['ok','1 min'],['ok','9 min'],['idle','5 h'],['ok','2 min'],['ok','6 min'],['ok','3 min'],['ok','4 min'],['ok','1 min'],['ok','8 min'],['ok','2 min'],['ok','3 min'],['ok','5 min'],['ok','1 min'],['ok','2 min']];
+  var LIVE=NAMES.map(function(n,i){return{n:n,o:OWNERS[i%OWNERS.length],s:STAT[i][0],m:STAT[i][1]};});
+  LIVE.sort(function(a,b){var r={err:0,idle:1,ok:2};return r[a.s]-r[b.s];});
+  var PEND=[{n:'Cadre 7F:3A'},{n:'Cadre B2:19'}];
+  var RET=[{n:'Le Petit Cadre',o:'Hugo'},{n:'Ancien salon',o:'Léa'},{n:'Banc de test',o:'Paul'},{n:'Cadre prêté',o:'Nora'}];
+
+  function ic(n,cls){return '<svg class="ic'+(cls?' '+cls:'')+'" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-'+n+'"/></svg>';}
+  function stateWord(t,s){return s==='ok'?t.online:s==='idle'?t.sleeping:t.offline;}
+  function lead(n,cls){return '<span class="ico'+(cls?' '+cls:'')+'">'+ic(n)+'</span>';}
+
+  /* ---------- shell (console navigation as shipped: Fleet, Users, Editor, Audit log, System) ---------- */
+  function phoneShell(t,inner,on){
+    var icons=['fleet','team','tag','server','more'];
+    return '<div class="ptop"><span class="brand">'+ic('logo')+'SkyPane</span></div><div class="screen">'+inner+'</div>'+
+      '<div class="tabs">'+t.tabs.map(function(x,i){return '<div class="tab'+(i===on?' on':'')+'">'+ic(icons[i])+x+'</div>';}).join('')+'</div>';
+  }
+  function sidebar(t){
+    var icons=['fleet','team','tag','clock','server'];
+    return '<div class="side"><span class="brand">'+ic('logo')+'SkyPane</span>'+
+      '<div class="space"><span>'+t.space[1]+'</span><span class="on">'+ic('check')+t.space[0]+'</span></div>'+
+      '<div class="sep"></div><div class="nlabel">'+t.admin+'</div>'+
+      t.nav.map(function(x,i){return (i===2?'<div class="sep"></div>':'')+'<div class="nav'+(i===4?' on':'')+'">'+ic(icons[i])+x+'</div>';}).join('')+
+      '<div class="sep"></div><div class="nav">'+ic('user')+t.account+'</div>'+
+      '<div class="signout"><a class="btn" href="#">'+t.signout+'</a></div></div>';
+  }
+
+  /* ---------- frames list panel (as built) ---------- */
+  function frowLive(t,f){return '<a class="frow" href="#"><span class="dot '+(f.s==='ok'?'':f.s)+'"></span><span class="who"><b>'+f.n+'</b><small>'+f.o+' · '+stateWord(t,f.s)+'</small></span><span class="seen num">'+t.seen(f.m)+'</span><span class="chev">'+ic('chev')+'</span></a>';}
+  function frowPend(t,f){return '<a class="frow" href="#"><span class="dot pend"></span><span class="who"><b>'+f.n+'</b><small>'+t.codeShown+'</small></span><span class="chev">'+ic('chev')+'</span></a>';}
+  function frowRet(t,f){return '<a class="frow retired" href="#"><span class="dot idle"></span><span class="who"><b>'+f.n+'</b><small>'+f.o+' · '+t.retiredOn+'</small></span><span class="chev">'+ic('chev')+'</span></a>';}
+  function groups(t){
+    function g(title,n,body){return '<div><p class="label">'+title+' · '+n+'</p><div class="card">'+body+'</div></div>';}
+    return g(t.live,24,LIVE.map(function(f){return frowLive(t,f);}).join(''))+g(t.pending,2,PEND.map(function(f){return frowPend(t,f);}).join(''))+g(t.retired,4,RET.map(function(f){return frowRet(t,f);}).join(''));
+  }
+  function listPanel(t){
+    return '<div class="listp"><div class="lhead"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><h3 style="margin:0;font-size:24px">'+t.frames+'</h3><a class="btn dark" href="#">'+ic('plus')+t.add+'</a></div>'+
+      '<label class="field">'+ic('search')+'<input type="search" placeholder="'+t.search+'" aria-label="'+t.search+'"></label></div><div class="lbody">'+groups(t)+'</div></div>';
+  }
+
+  /* ---------- the System page ---------- */
+  function tile(t,href,n,label,val,meta,state){
+    var cls=state==='warn'?' warn':state==='na'?' na':'';
+    return '<a class="tile2'+cls+'" href="#'+href+'"><span class="th">'+lead(n,state==='ok'?'ok':state==='warn'?'warn':'')+label+'</span><span class="tv">'+val+'</span><span class="tm">'+meta+'</span><span class="more">'+t.details+ic('chev')+'</span></a>';
+  }
+  function tiles(t){
+    return '<div class="tiles2">'+
+      tile(t,'system-flight-data','server',t.tServer,t.vServer,t.mServer,'ok')+
+      tile(t,'system-sources','radio',t.tSources,t.vSources,t.mSources,'warn')+
+      tile(t,'system-identification','tag',t.tIdent,t.vIdent,t.mIdent,'na')+
+      tile(t,'system-backup','cloud',t.tBackup,t.vBackup,t.mBackup,'ok')+'</div>';
+  }
+  function banner(t){return '<div class="banner"><b>'+t.bantitle+'</b><span class="pills"><span class="pill warn">'+t.ban1+'</span></span><span class="sub">'+t.bantail+'</span></div>';}
+  function row(n,st,label,val,right){return '<div class="item wrap">'+lead(n,st)+'<span class="who"><small>'+label+'</small><b>'+val+'</b></span>'+(right||'')+'</div>';}
+  function facts(pairs){return '<div class="kv">'+pairs.map(function(x){return '<span>'+x[0]+'</span><span>'+x[1]+'</span>';}).join('')+'</div>';}
+  function blk(id,label,body){return '<div id="'+id+'" class="blk"><p class="label">'+label+'</p>'+body+'</div>';}
+  function details(t){
+    function out(l,n,x,cls){return '<li><p><span class="dot'+cls+'"></span>'+l+'<span class="n num">'+n+'</span></p><small>'+x+'</small></li>';}
+    function trow(a,b,c){return '<tr><td>'+a+'</td><td class="num">'+b+'</td><td>'+c+'</td></tr>';}
+    var fd='<div class="card">'+row('check','ok',t.fdata,t.frun)+facts([[t.lastrun,t.ago40],[t.lastdet,t.ago12]])+'</div>';
+    var src='<div class="card">'+row('warn','warn',t.srcs,t.srcwarn,'<span class="val">'+t.dis3+'</span>')+'<ul class="outcomes">'+out(t.outboth,41,t.outbothx,'')+out(t.outone,6,t.outonex,' idle')+out(t.outdiff,3,t.outdiffx,' pend')+'</ul></div>';
+    var id='<div class="card"><div class="item">'+lead('tag','')+'<span class="who"><small>'+t.ident+'</small><b>'+t.identt+'</b><small>'+t.window+'</small></span><span class="pill">'+t.toresolve+'</span></div>'+
+      '<p class="fsys" style="margin:0;padding:0 16px"><a href="#">'+t.unres+ic('chev')+'</a></p>'+
+      '<table class="rtable l"><thead><tr><th>'+t.colsrc+'</th><th>'+t.colcnt+'</th><th style="text-align:left">'+t.coldesc+'</th></tr></thead><tbody>'+trow(t.fresh,22,t.freshx)+trow(t.cached,96,t.cachedx)+trow(t.aonly,11,t.aonlyx)+trow(t.manual,3,t.manualx)+trow(t.miss,9,t.missx)+trow(t.other,7,t.otherx)+'</tbody></table></div>';
+    var bk='<div class="card">'+row('check','ok',t.backup,t.backupv)+facts([[t.lastbk,t.bkago]])+'</div>';
+    return '<div style="display:flex;flex-direction:column;gap:24px">'+blk('system-flight-data',t.fdata,fd)+blk('system-sources',t.srcs,src)+blk('system-identification',t.ident,id)+blk('system-backup',t.backup,bk)+'</div>';
+  }
+  function footer(t){return '<p class="fsys"><a href="#">'+t.comps+ic('chev')+'</a></p>';}
+  function body(t){return banner(t)+tiles(t)+details(t)+footer(t);}
+
+  function desktop(_v,t){
+    return sidebar(t)+listPanel(t)+'<div class="main"><div style="max-width:760px"><h3 class="title">'+t.title+'</h3><p class="sub" style="margin:6px 0 0">'+t.sub+'</p>'+
+      '<div class="dcol" style="margin-top:20px">'+body(t)+'</div></div></div>';
+  }
+  function phone(_v,t){
+    return phoneShell(t,'<div><h3 class="title" style="font-size:34px">'+t.title+'</h3><p class="sub" style="margin:6px 0 0">'+t.sub+'</p></div>'+body(t),3);
+  }
+
+  function mock(vp,caption,sub,builder){
+    var langs=['en','fr'].map(function(l){return '<div data-lang="'+l+'">'+builder(vp,S[l])+'</div>';}).join('');
+    var box='<div data-viewport="'+vp+'">'+langs+'</div>';
+    return '<figure class="mock"><figcaption>'+caption+(sub?'<small>'+sub+'</small>':'')+'</figcaption>'+(vp==='desktop'?'<div class="scroller">'+box+'</div>':box)+'</figure>';
+  }
+  function section(h,lead,body,extra){return '<section class="sec"><h2>'+h+'</h2><p class="lead">'+lead+'</p>'+body+(extra||'')+'</section>';}
+
+  function mapTable(){
+    function r(a,b,c,d,cls){return '<tr><td><b>'+a+'</b></td><td>'+b+'</td><td>'+c+'</td><td>'+d+'</td></tr>';}
+    var T='<span class="tag today">Available today</span> ',N='<span class="tag new">Needs new data</span> ';
+    return '<div class="scroller"><table class="tbl"><thead><tr><th>Tile</th><th>Existing block it summarises (system_html)</th><th>Key figure / muted line</th><th>Data</th></tr></thead><tbody>'+
+      r('Server','<b>Flight data</b> block (_flight_data_row): pipeline state, last run, last detection.','State of the poll pipeline (&laquo;Running on schedule&raquo;, &laquo;A little behind&raquo;, &laquo;Has not run for a long time&raquo;) / last run age.',T+'pipeline_state and pipeline_ts exist. Disk, uptime, server version would need new data (not drawn).')+
+      r('Data sources','<b>Data sources</b> block (_sources_row): corroboration verdict, disagreements, the three outcomes with their sentences.','Verdict (&laquo;Sources agree&raquo; / &laquo;Sources disagreed recently&raquo;; neutral before any cycle) / number of disagreements. <b>Warn state drawn here.</b>',T+'corroboration_counts and disagreement_warn exist. Per-provider status (adsb.fi, adsb.lol) or latency would need new data. During a full outage the existing ADS-B source outage toast shows above, as today.')+
+      r('Identification','<b>Identification</b> block (_identification_row): rate over 7 days, to resolve, unresolved airlines link, table by source.','Identified rate / number to resolve (neutral icon: the rate has no pass mark, as today).',T+'resolved_pct, total and unresolved count exist.')+
+      r('Off-box backup','<b>Off-box backup</b> block (_backup_row): state and last backup age, anomaly sentence when overdue.','&laquo;Up to date&raquo; or &laquo;Overdue&raquo; / age of the last backup.',T+'offbox state and snapshot_ts exist. The block, and so the tile, is left out when no backup marker is configured (as today).')+
+      '</tbody></table></div>';
+  }
+  var html='';
+  html+=section('1. Desktop: the frames column as built, then the System page with tiles',
+    'The navigation shows the five console entries (Fleet, Users, Editor, Audit log, System), System current. The frames column stays beside it as it does today on the System view. The page: title, the warnings banner (only when something is wrong, as today), four equal tiles in the Overview look, then the four existing detail blocks, then the link to the interface components. A tile jumps to its block on the same page (no new page). Server, Identification and Backup are drawn in their normal state; Data sources is in its warning state (amber border and icon, same colour tokens as the banner).',
+    '<div class="row2">'+mock('desktop','System page, desktop','Scroll inside the page',desktop)+'</div>');
+  html+=section('2. Phone: the same page below the floating tab bar',
+    'Phone bar: Fleet, Users, Editor, System, More (More holds Account, Audit log and the space switch). Tiles stay two by two, as the frame Overview does.',
+    '<div class="row2">'+mock('phone','System page, phone','Scroll inside the phone',phone)+'</div>');
+  html+=section('3. What each tile summarises, and which data exists today',
+    'Nothing is removed: the detail blocks below the tiles are those the page has today (flight data, data sources with their three outcomes, identification with the table by source and the link to the unresolved airlines, off-box backup), plus the footer link to the interface components and, only during an outage, the ADS-B source outage toast.',
+    mapTable(),
+    '<p class="note"><b>Summary:</b> all four tiles use data the page already computes; no new query is needed. A &laquo;Server&raquo; tile in the sense of machine health (disk, memory, uptime, deployed version) is not possible today and would need new data; the Server tile here therefore reports the poll pipeline, which is what the Flight data block measures. The page title stays &laquo;System&raquo; / &laquo;Syst&egrave;me&raquo;. Sample numbers and sentences are illustrative; the build keeps the existing strings.</p>');
+  document.getElementById('app').innerHTML=html;
+
+  var r=document.documentElement;
+  r.setAttribute('data-ui-lang','en');
+  document.querySelectorAll('#theme button').forEach(function(b){b.addEventListener('click',function(){
+    if(b.dataset.t==='auto')r.removeAttribute('data-ui-theme');else r.setAttribute('data-ui-theme',b.dataset.t);
+    document.querySelectorAll('#theme button').forEach(function(x){x.setAttribute('aria-pressed',String(x===b));});
+  });});
+  document.querySelectorAll('#lang button').forEach(function(b){b.addEventListener('click',function(){
+    r.setAttribute('data-ui-lang',b.dataset.l);r.lang=b.dataset.l;
+    document.querySelectorAll('#lang button').forEach(function(x){x.setAttribute('aria-pressed',String(x===b));});
+  });});
+  /* tiles jump to their block inside the scrolling pane */
+  document.querySelectorAll('.tile2').forEach(function(a){a.addEventListener('click',function(e){
+    e.preventDefault();var root=a.closest('[data-lang]');var pane=root.querySelector('.screen')||root.querySelector('.main');
+    var tg=root.querySelector(a.getAttribute('href'));if(tg&&pane){pane.scrollTo({top:tg.offsetTop-(pane.classList.contains('main')?80:72)+(pane.classList.contains('main')?0:0),behavior:'smooth'});}
+  });});
+})();
+</script>

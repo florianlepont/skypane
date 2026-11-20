@@ -141,7 +141,7 @@
   }
 
   // --- Tab strips -----------------------------------------------------------
-  // Any segmented strip marked data-tabs (the Style and Fleet section links,
+  // Any segmented strip marked data-tabs (the Style section links,
   // the Flights, Airlines and Audit filter chips) gets one thumb behind its
   // segments that slides under the current one. A strip whose segments are
   // links is a page change: the thumb is under the current segment from the

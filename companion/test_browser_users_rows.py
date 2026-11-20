@@ -124,7 +124,7 @@ def test_the_last_sign_in_is_one_line_and_the_frames_never_break_inside_a_part(
         never = "Jamais connecté" if lang == "fr" else "Never signed in"
         assert sum(row["seen"] == never for row in rows) >= 2, rows
         assert any(row["seen"] != never for row in rows), rows
-        suffix = "co-gestionnaire" if lang == "fr" else "co-manager"
+        suffix = "cogestionnaire" if lang == "fr" else "co-manager"
         assert any(suffix in row["frames"] for row in rows), rows
         for row in rows:
             assert row["seenLines"] == 1 and not row["seenCut"], row

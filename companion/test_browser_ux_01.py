@@ -18,7 +18,7 @@ from server import device_config
 from companion.test_browser_ux_helpers import (
     VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED, VIEWPORT_PHONE,
     _bar_text, _click_control, _commit_field,
-    _guard_armed, _login, _no_js_page, _open_health_rows, _save_via_bar, _wait_for_bar,
+    _assert_health_rows_flat, _guard_armed, _login, _no_js_page, _save_via_bar, _wait_for_bar,
     _wait_for_bar_hidden, seed_state_dir,
 )
 
@@ -249,24 +249,23 @@ def test_airlines_filter_bar_is_a_16px_search_pill_with_a_visible_quiet_count_at
 
 def test_the_no_js_floor_holds_for_the_fleet_state_and_system_views(new_context, server):
     """With scripts blocked the Fleet page's State block renders in full: every health row with
-    its icon/name/verdict/value slots each exactly once and its evidence reachable through the
-    native disclosure; its System view carries no unresolved-prefix table (those prefixes are
+    its icon/name/verdict/value slots each exactly once and its evidence visible without a tap; its System view carries no unresolved-prefix table (those prefixes are
     named in the Airlines table).
     """
-    with _no_js_page(new_context, server.base_url(), "/fleet") as page:
-        rows = page.eval_on_selector_all("details.health-row", "els => els.length")
+    with _no_js_page(new_context, server.base_url(), "/health") as page:
+        rows = page.eval_on_selector_all("div.health-row", "els => els.length")
         if rows < 3:
             raise AssertionError(
                 "expected the health rows to render with scripts blocked, "
                 "got %d" % (rows,))
         # Every row must be complete, not merely present.
         slots = page.eval_on_selector_all(
-            "details.health-row",
+            "div.health-row",
             "els => els.map(el => ["
-            "  el.querySelectorAll(':scope > summary > .health-row__icon').length,"
-            "  el.querySelectorAll(':scope > summary > .health-row__name').length,"
-            "  el.querySelectorAll(':scope > summary > .health-row__verdict').length,"
-            "  el.querySelectorAll(':scope > summary > .health-row__value').length,"
+            "  el.querySelectorAll('.health-row__summary > .health-row__icon').length,"
+            "  el.querySelectorAll('.health-row__summary > .health-row__name').length,"
+            "  el.querySelectorAll('.health-row__summary > .health-row__verdict').length,"
+            "  el.querySelectorAll('.health-row__summary > .health-row__value').length,"
             "  el.querySelectorAll(':scope > .health-row__body').length])")
         for index, slot in enumerate(slots):
             if slot != [1, 1, 1, 1, 1]:
@@ -274,16 +273,14 @@ def test_the_no_js_floor_holds_for_the_fleet_state_and_system_views(new_context,
                     "expected row %d to render its icon/name/verdict/value/body slots "
                     "exactly once each with scripts blocked, got %r"
                     % (index, slot))
-        _open_health_rows(page)
+        _assert_health_rows_flat(page)
         hidden = page.eval_on_selector_all(
             ".health-row__body",
             "els => els.filter(el => el.getBoundingClientRect().height === 0).length")
         if hidden:
             raise AssertionError(
-                "expected every row body to be visible once its summary was activated with "
-                "scripts blocked, %d stayed empty" % (hidden,))
+                "expected every row body to be visible with scripts blocked, %d stayed empty" % (hidden,))
     with _no_js_page(new_context, server.base_url(), "/fleet?view=system") as page:
-        _open_health_rows(page)
         # Unidentified prefixes are named in the Airlines table, not listed here.
         for selector in (".filter-bar [data-filter-input]", "[data-filter-clear]",
                          'a[href^="/airlines/manage?resolve="]'):

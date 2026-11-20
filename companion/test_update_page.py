@@ -329,7 +329,7 @@ def test_the_card_offers_the_newest_installable_release_not_an_older_one():
 
 
 def test_older_release_is_worded_as_a_rollback_on_a_quiet_button():
-    """an older release reads "Roll back" ("Revenir") on the text button of its row, named
+    """an older release reads "Revert" ("Revenir") on the text button of its row, named
     by its version for assistive technology, through the same confirmation form with the
     rollback's own question; the card does not offer it"""
     view = _view(
@@ -339,13 +339,13 @@ def test_older_release_is_worded_as_a_rollback_on_a_quiet_button():
     html = update_page.update_page(_ctx(), view, "08:14")
     assert not _cta(html).select("form")
     row = _rows(html)["fw-v1.0.0"]
-    assert _forms(row) == [("fw-v1.0.0", TEXT, "Roll back")]
+    assert _forms(row) == [("fw-v1.0.0", TEXT, "Revert")]
     form = row.select_one("form")
     assert form.attrs["action"] == update_page.INSTALL_ROUTE and "data-question-title" in form.attrs
-    assert form.select_one("button").attrs["aria-label"] == "Roll back to fw-v1.0.0"
-    assert form.attrs["data-question-title"] == "Roll back to fw-v1.0.0?"
+    assert form.select_one("button").attrs["aria-label"] == "Revert to fw-v1.0.0"
+    assert form.attrs["data-question-title"] == "Revert to fw-v1.0.0?"
     assert "back to fw-v1.0.0 at its next wake, around 08:14" in form.attrs["data-question-body"]
-    assert form.attrs["data-question-go"] == "Roll back"
+    assert form.attrs["data-question-go"] == "Revert"
     assert not form.select('input[name="confirm"]')
     fr_row = _rows(_fr_html(view))["fw-v1.0.0"]
     assert _forms(fr_row) == [("fw-v1.0.0", TEXT, "Revenir")]
@@ -713,16 +713,23 @@ def test_get_update_without_a_session_redirects_to_login(module_app_server_facto
 
 
 def test_get_fleet_end_to_end_renders_the_scheduled_state(module_app_server_factory):
-    """a real GET /fleet, seeded through firmware_registry's own write API plus a
-    hand-written device_report.json, serves the Scheduled state with a Cancel form"""
+    """a real GET of the frame's Versions page, seeded through firmware_registry's own write
+    API plus a hand-written device_report.json, serves the Scheduled state with a Cancel form;
+    the frame's own page shows the firmware tile saying so"""
     server = module_app_server_factory(seed=_seed_update_state)
     cookie = login(server)
-    status, _headers, body = get(server, "/fleet", cookie=cookie)
+    status, headers, _body = get(server, "/update", cookie=cookie)
+    assert status == 303 and headers["Location"].endswith("&view=versions")
+    status, _headers, body = get(server, headers["Location"], cookie=cookie)
     assert status == 200
     text = body.decode("utf-8")
     assert i18n.t(update_page.STATE_LABELS["scheduled"]) in text
     assert 'action="%s"' % update_page.CANCEL_ROUTE in text
     assert "fw-v1.0.0" in text
+    frame = headers["Location"].replace("&view=versions", "")
+    _status, _headers, overview = get(server, frame, cookie=cookie)
+    tile = re.search(r'<a class="fleet-tile"[^>]*href="[^"]*view=versions">.*?</a>', overview.decode("utf-8"), re.S)
+    assert tile and i18n.t(update_page.CTA_SCHEDULED_TEXT) in tile.group(0)
 
 # ==========================================================================
 # Task 1: navigation entry, icon and French nav label
@@ -933,7 +940,7 @@ def test_the_fleet_versions_are_a_flat_list_with_the_action_always_in_view():
              for version, row in rows.items()}
     assert chips == {"fw-v1.0.0": [], "fw-v1.1.0": ["Running"], "fw-v1.2.0": ["Newest"]}
     old = rows["fw-v1.0.0"].select_one("form button")
-    assert old.text() == "Roll back" and old.attrs["aria-label"] == "Roll back to fw-v1.0.0"
+    assert old.text() == "Revert" and old.attrs["aria-label"] == "Revert to fw-v1.0.0"
     assert "btn--ghost" in old.attrs["class"]
     assert not rows["fw-v1.2.0"].select("form") and not rows["fw-v1.1.0"].select("form")
     install_forms = doc.select('form[action="/update/install"]')

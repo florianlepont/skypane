@@ -108,16 +108,21 @@ def stat_tile_slices(rendered):
 
 
 def health_row(rendered, row_id):
-    """The parsed `<details>` for one Health row (`connection`, `battery`,
+    """The parsed row element for one Health row (`connection`, `battery`,
     `flight-data`, `sources`, `identification`, `backup`), or raises
     LookupError when the page renders no such row."""
     return parse_html(rendered).select_one("#health-row-%s" % row_id)
 
 
 def health_row_state(rendered, row_id):
-    """`(data-state, is_open)` for one Health row."""
+    """The `data-state` of one Health row. A row is always open: it has no
+    `<details>` or `<summary>` to carry an open state."""
     row = health_row(rendered, row_id)
-    return row.attrs["data-state"], "open" in row.attrs
+    assert not [d for d in row.select("details")
+                if "readings-disclosure" not in d.attrs.get("class", "")], (
+        "a Health row is not collapsible")
+    assert not row.select(".health-row__summary summary"), "a Health row head has no toggle"
+    return row.attrs["data-state"]
 
 
 def served_css_rules(server):

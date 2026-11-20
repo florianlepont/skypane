@@ -143,9 +143,9 @@ def test_the_header_links_work_without_script(new_context, app_server_in_process
         assert page.locator('input[name="name"]').input_value() == "Kitchen"
 
 
-_TEXT_INSET = """() => {
+_TEXT_INSET = """(selector) => {
   const bad = [];
-  const blocks = [...document.querySelectorAll('.fleet-group')]
+  const blocks = [...document.querySelectorAll(selector)]
       .filter((b) => b.getClientRects().length > 0);
   for (const block of blocks) {
     const box = block.getBoundingClientRect();
@@ -188,13 +188,11 @@ def test_a_frame_that_never_woke_keeps_its_state_text_inside_the_card_and_its_bu
     where = "fleet-state/%d/%s/%s" % (viewport["width"], lang, scheme)
     try:
         page.wait_for_function("() => document.readyState === 'complete'")
-        assert page.locator(".fleet-block--state .empty-state").count() >= 1
-        for tab in ("state", "settings", "access"):
-            if viewport is VIEWPORT_MIN_SUPPORTED:
-                page.goto(page.url.split("&tab=")[0].split("#")[0] + "&tab=" + tab)
-                page.locator("main").wait_for(state="visible")
-            read = page.evaluate(_TEXT_INSET)
-            assert read["blocks"] >= 1 and not read["bad"], (where, tab, read)
+        # The State section is four tiles whose text stays inside them; the other sections'
+        # groups keep theirs inside too.
+        assert page.locator(".fleet-tile").count() == 4
+        read = page.evaluate(_TEXT_INSET, ".fleet-group, .fleet-tile")
+        assert read["blocks"] >= 5 and not read["bad"], (where, read)
         head = page.evaluate(_HEAD)
         # The title, then the state line directly under it, both at the same left edge; the two
         # icon buttons side by side at the right of the title row, inside the viewport.
@@ -211,17 +209,19 @@ def test_a_frame_that_never_woke_keeps_its_state_text_inside_the_card_and_its_bu
 
 @pytest.mark.parametrize(
     "viewport", [VIEWPORT_MIN_SUPPORTED, VIEWPORT_DESKTOP], ids=["360", "1280"])
-def test_the_versions_and_system_sections_keep_their_text_inside_their_cards(
+def test_the_versions_page_and_system_view_keep_their_text_inside_their_cards(
         new_context, app_server_in_process, viewport):
     context, page, seed = _open(
         new_context, app_server_in_process, viewport, "en", "dark", path="/fleet?view=system")
     try:
         page.wait_for_function("() => document.readyState === 'complete'")
-        read = page.evaluate(_TEXT_INSET)
+        read = page.evaluate(_TEXT_INSET, ".fleet-group")
         assert read["blocks"] >= 1 and not read["bad"], read
-        page.goto(page.url.split("?")[0] + "?frame=" + seed.owned_id)
-        page.locator(".fleet-block--device").wait_for(state="visible")
-        read = page.evaluate(_TEXT_INSET)
-        assert read["blocks"] >= 1 and not read["bad"], read
+        for view in ("versions", "health"):
+            page.goto(page.url.split("?")[0] + "?frame=%s&view=%s" % (seed.owned_id, view))
+            page.locator(".fleet-back").wait_for(state="visible")
+            read = page.evaluate(
+                _TEXT_INSET, ".fleet-group, .update-cta, .update-hist__list, .update-hist__empty")
+            assert read["blocks"] >= 1 and not read["bad"], (view, read)
     finally:
         context.close()

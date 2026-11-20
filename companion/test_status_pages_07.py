@@ -957,6 +957,10 @@ def test_both_tabs_ok_end_to_end(make_app_server):
         assert status == 200, "expected 200 for %s, got %d" % (path, status)
         assert heading.encode() in body, "expected the %r heading in %s's response body" % (heading, path)
         if path == "/fleet":
+            # The rows are on the frame's Health page, which the retired /health address leads to.
+            _status, redirect, _body = get(server, "/health", cookie=session_cookie)
+            status, _headers, body = get(server, redirect["Location"], cookie=session_cookie)
+            assert status == 200
             body_text = body.decode("utf-8", errors="replace")
             for name in (health_page.ROW_CONNECTION_NAME, health_page.ROW_FLIGHT_DATA_NAME):
                 name_count = body_text.count(">%s<" % name)

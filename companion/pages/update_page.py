@@ -11,6 +11,7 @@ live POST handlers for the forms this module renders.
 """
 import collections
 import re
+from typing import NamedTuple
 
 import companion.frame_state as frame_state
 import companion.i18n as i18n
@@ -106,8 +107,8 @@ INSTALL_BUTTON_TEXT = i18n.msg("update.install", "Install")
 # Visible wording of the call-to-action Install and of an Install on an
 # older release, which is a rollback; "%s" is the release version.
 INSTALL_VERSION_BUTTON_TEMPLATE = i18n.msg("update.install_version_s", "Install %s")
-ROLLBACK_BUTTON_TEMPLATE = i18n.msg("update.roll_back_to_s", "Roll back to %s")
-ROLLBACK_SHORT_TEXT = i18n.msg("update.roll_back", "Roll back")
+ROLLBACK_BUTTON_TEMPLATE = i18n.msg("update.roll_back_to_s", "Revert to %s")
+ROLLBACK_SHORT_TEXT = i18n.msg("update.roll_back", "Revert")
 NOT_INSTALLABLE_TEXT = i18n.msg("update.not_installable", "Not installable")
 # publish_release(..., bench=True) admits a non-tag version such as
 # fw-v1.2.0-bench1. It is never listed for installation; the pill
@@ -117,7 +118,7 @@ BENCH_BADGE_TEXT = i18n.msg("update.bench", "Bench")
 RUNNING_BADGE_TEXT = i18n.msg("update.running_badge", "Running")
 # The dialog (and the page without script) that asks once before a release
 # is scheduled: "%s" is the release version. A rollback has its own words.
-ROLLBACK_CONFIRM_HEADING_TEMPLATE = i18n.msg("update.roll_back_to_s_question", "Roll back to %s?")
+ROLLBACK_CONFIRM_HEADING_TEMPLATE = i18n.msg("update.roll_back_to_s_question", "Revert to %s?")
 ROLLBACK_CONFIRM_SENTENCE_TEMPLATE = i18n.msg(
     "update.rollback_confirm_around_s",
     "The frame goes back to %s at its next wake, around %s. Its settings are kept.")
@@ -385,9 +386,9 @@ def _release_install_form_html(
         release, with_version_label=False, type_html="", compact=False, wake=("", False)):
     """The Install form for `release`, worded and styled by where it sits
     against the running release: a newer one is "Install" on the accent
-    primary button; an older one is "Roll back to <version>" on the quiet
+    primary button; an older one is "Revert to <version>" on the quiet
     button; an equal or incomparable one is a quiet "Install". `compact`
-    (a history row, which names the version itself) words a rollback "Roll back"
+    (a history row, which names the version itself) words a rollback "Revert"
     and makes every action a text-style button.
     """
     version = release.get("version")
@@ -705,7 +706,7 @@ def update_install_confirm_page(
     control-flow shape as
     `companion/settings/calendar.py`'s `calendar_disconnect_confirm_page()`.
     It is one card with the question, what will happen and a Cancel and an
-    Install (or Roll back) button.
+    Install (or Revert) button.
 
     `version` has already been validated (the registry's own version
     pattern and length cap) by the caller before this page is ever
@@ -821,7 +822,9 @@ def update_page(ctx, view, next_wake_text, wake_held=False, type_choice=None, em
         device_html + versions_html)
 
 
-def _loaded_parts(ctx, requested_type, pinned=False):
+def _loaded_view(ctx, requested_type, pinned=False):
+    """(ctx, update view, type choice, next-wake text, wake held) of the frame
+    `ctx` names, read fresh from the registry and the device report."""
     ctx = page_context.coerce(ctx)
     # The registry and the device report are fleet-wide documents kept in the
     # root state directory; a non-live frame's own directory does not hold them.
@@ -836,7 +839,30 @@ def _loaded_parts(ctx, requested_type, pinned=False):
     registry = firmware_registry.load_registry(state_dir, choice.selected)
     view = firmware_registry.update_view(registry, device_report, now)
     next_wake_text, wake_held = compute_next_wake_text(ctx)
+    return ctx, view, choice, next_wake_text, wake_held
+
+
+def _loaded_parts(ctx, requested_type, pinned=False):
+    ctx, view, choice, next_wake_text, wake_held = _loaded_view(ctx, requested_type, pinned)
     return update_parts(ctx, view, next_wake_text, wake_held, choice)
+
+
+class FirmwareSummary(NamedTuple):
+    """What the Fleet page's Firmware tile shows: the running version ("" when
+    none is reported), the headline Message of the card (up to date, update
+    available, scheduled ...) and its tone (ok, warn, error or neutral)."""
+    version: str
+    headline: object
+    tone: str
+
+
+def firmware_summary(ctx, requested_type):
+    """The Firmware tile's facts for the frame's own hardware type."""
+    ctx, view, _choice, next_wake_text, wake_held = _loaded_view(
+        ctx, requested_type, pinned=True)
+    tone, _icon, headline, _details, _action = _cta_for_state(
+        view, _owner_releases(view), ctx.now, next_wake_text, wake_held)
+    return FirmwareSummary(view.get("running_version") or "", headline, tone)
 
 
 def render_parts(ctx, requested_type=None):

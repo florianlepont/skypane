@@ -17,10 +17,10 @@ pytestmark = pytest.mark.browser
 LANGS = ("en", "fr")
 VIEWPORTS = (VIEWPORT_MIN_SUPPORTED, {"width": 1280, "height": 900})
 LABELS = {
-    "en": {"manage": "Manage access", "leave": "Leave frame", "add": "Add co-manager",
+    "en": {"manage": "Manage access", "leave": "Leave frame", "add": "Add a co-manager",
            "confirm": "Leave this frame", "stay": "Stay on this frame"},
     "fr": {"manage": "Gérer l’accès", "leave": "Quitter le cadre",
-           "add": "Ajouter un co-gestionnaire", "confirm": "Quitter ce cadre",
+           "add": "Ajouter un cogestionnaire", "confirm": "Quitter ce cadre",
            "stay": "Rester sur ce cadre"},
 }
 # Words an ordinary user's page must never carry.

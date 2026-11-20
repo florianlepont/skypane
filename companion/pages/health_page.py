@@ -18,6 +18,7 @@ still need the shared fragments and so stay here). The generic row
 components live in companion/health_rows.py.
 """
 from datetime import datetime, timezone
+from typing import NamedTuple
 
 from companion.layout import escape_html
 import companion.battery as battery
@@ -282,8 +283,6 @@ SCREEN_SECTION_ID = "screen"
 SCREEN_SECTION_HEADING = i18n.msg("health.screen", "Screen")
 SERVER_DATA_SECTION_ID = "server-data"
 SERVER_DATA_SECTION_HEADING = i18n.msg("health.server_data", "Server & data")
-# Where the identification row sends the owner to name unidentified airlines.
-UNRESOLVED_LINK_HREF = "/airlines/manage"
 
 
 # Inline literals hoisted from the markup builders below, one constant
@@ -962,13 +961,11 @@ def _identification_row(stats, unresolved_count):
     to_resolve = (
         ui_components.pill_html(i18n.t(_TO_RESOLVE_TEMPLATE) % unresolved_count)
         if unresolved_count else escape_html(i18n.t(_NOTHING_TO_RESOLVE_TEXT)))
-    link = '<p class="health-row__note"><a class="text-link" href="%s">%s</a></p>' % (
-        device_scope.scoped(UNRESOLVED_LINK_HREF), escape_html(i18n.t(UNRESOLVED_SECTION_HEADING)))
     if stats["total"] == 0:
         return health_rows.row_html(
             "identification", "off", name,
             i18n.t(_NO_STATS_HEADING) % RESOLUTION_WINDOW_DAYS, to_resolve,
-            health_rows.note_html(i18n.t(_NO_STATS_BODY)) + link)
+            health_rows.note_html(i18n.t(_NO_STATS_BODY)))
     template = (
         _RESOLUTION_DETAIL_SINGULAR_TEMPLATE if stats["total"] == 1
         else _RESOLUTION_DETAIL_TEMPLATE)
@@ -983,7 +980,7 @@ def _identification_row(stats, unresolved_count):
         to_resolve,
         health_rows.note_html(
             i18n.t(template) % (RESOLUTION_WINDOW_DAYS, stats["total"]))
-        + link + _stats_table_html(stats))
+        + _stats_table_html(stats))
 
 
 def _backup_row(offbox, now):
@@ -1114,17 +1111,127 @@ def _never_seen_html():
         i18n.t(DEVICE_EMPTY_HEADING), i18n.t(DEVICE_EMPTY_BODY), compact=True)
 
 
-def frame_state_html(ctx):
-    """The State block of one frame on the Console Fleet view: the
-    unreachable notice, its connection and battery rows and its last
-    detection, built from the same snapshot as the Health page. A frame that
-    never checked in gets the Health page's empty state."""
+class TileFacts(NamedTuple):
+    """What one overview tile shows: the state word (ok, warn, error, off),
+    the verdict text (plain), the value text (plain) and the age (already-safe
+    markup, "" when there is none)."""
+    state: str
+    verdict: str
+    value: str
+    age_html: str
+
+
+class FrameTiles(NamedTuple):
+    """The three Health-backed tiles of a frame (connection, battery and flight
+    data) and the battery's recent percentages, oldest first."""
+    connection: TileFacts
+    battery: TileFacts
+    flight: TileFacts
+    battery_curve: tuple
+
+
+def _connection_tile(state, now):
+    device_health = state["inputs"]["device_health"]
+    if device_health is _DB_UNAVAILABLE:
+        return TileFacts("off", i18n.t(_ROW_UNAVAILABLE_TEXT), "", "")
+    ts = (device_health or {}).get("ts")
+    device_state = state["device_state"]
+    return TileFacts(
+        device_state,
+        i18n.t(DEVICE_STATE_TEXT.get(device_state, DEVICE_STATE_TEXT["warn"])), "",
+        _age_html(ts, now, _NO_CHECK_IN_TEXT) if ts is not None else "")
+
+
+def _battery_curve_percents(inputs, curve):
+    """The battery's percentages, oldest first: one per day when the chart
+    plots days, else the latest readings (the series the Health chart draws)."""
+    daily = inputs["daily_rows"]
+    rows = daily if _battery_daily_series_usable(daily) else inputs["trend_rows"]
+    if not isinstance(rows, list):
+        return ()
+    return tuple(
+        battery.percent(row["battery_mv"], curve) or 0
+        for row in reversed(rows) if row.get("battery_mv") is not None)
+
+
+def _battery_tile(state, device):
+    inputs = state["inputs"]
+    trend_rows = inputs["trend_rows"]
+    if trend_rows is _DB_UNAVAILABLE:
+        return TileFacts("off", i18n.t(_ROW_UNAVAILABLE_TEXT), "", ""), ()
+    latest = _latest_numeric_battery_reading(trend_rows)
+    if latest is None:
+        return TileFacts("off", i18n.t(_NO_READINGS_VERDICT_TEXT), "", ""), ()
+    curve = page_context.device_curve(device)
+    millivolts, _ts = latest
+    percent = battery.percent(millivolts, curve)
+    value = (
+        i18n.t(_BATTERY_VALUE_TEMPLATE) % (percent, millivolts)
+        if percent is not None else "%d mV" % millivolts)
+    battery_state = state["battery_state"]
+    verdict = i18n.t(BATTERY_STATE_TEXT.get(battery_state, BATTERY_STATE_TEXT["warn"]))
+    return (
+        TileFacts(battery_state, verdict, value, ""),
+        _battery_curve_percents(inputs, curve))
+
+
+def _flight_tile(state, now):
+    inputs = state["inputs"]
+    if inputs["pipeline_ts"] is _DB_UNAVAILABLE:
+        return TileFacts("off", i18n.t(_ROW_UNAVAILABLE_TEXT), "", "")
+    pipeline_state = state["pipeline_state"]
+    return TileFacts(
+        pipeline_state,
+        i18n.t(PIPELINE_STATE_TEXT.get(pipeline_state, PIPELINE_STATE_TEXT["warn"])), "",
+        _age_html(inputs["pipeline_ts"], now))
+
+
+def frame_tiles(ctx):
+    """The facts of the overview's connection, battery and flight data tiles,
+    built from the same snapshot as the Health page; None for a frame that
+    never checked in."""
     ctx = page_context.coerce(ctx)
     parts = _page_parts(ctx)
     if parts is None:
-        return _never_seen_html()
-    rows = parts["screen_rows"] + _flight_data_row(parts["state"], parts["now"])
-    return parts["unreachable_html"] + health_rows.card_html(rows)
+        return None
+    state = parts["state"]
+    battery_tile, curve = _battery_tile(state, ctx.device)
+    return FrameTiles(
+        _connection_tile(state, parts["now"]), battery_tile,
+        _flight_tile(state, parts["now"]), curve)
+
+
+class HealthSections(NamedTuple):
+    """The Health page of one frame: the notices above the rows (no-signal
+    notice, source fault, warnings banner), the rows of the frame section
+    (connection and battery) and the rows of the platform section (flight data,
+    data sources, identification, backup; administrators only), each row
+    already-safe markup. `empty_html` is the empty state of a frame that never
+    checked in (the other parts are then empty)."""
+    notices_html: str
+    frame_rows: tuple
+    platform_rows: tuple
+    empty_html: str
+
+
+def health_sections(ctx):
+    """The Health page's content for `ctx`'s frame. Every block of the page is
+    here: a frame that is not an administrator's view has its flight data row in
+    the frame section, since the platform section is not shown to it."""
+    ctx = page_context.coerce(ctx)
+    parts = _page_parts(ctx)
+    if parts is None:
+        return HealthSections("", (), (), _never_seen_html())
+    state, now = parts["state"], parts["now"]
+    frame_rows = [
+        _connection_row(state, now),
+        _battery_row(state, ctx.battery_critical, ctx.device)]
+    platform_rows = tuple(row for _key, _label, row in parts["server_topics"])
+    if not platform_rows:
+        frame_rows.append(_flight_data_row(state, now))
+    notices = (
+        parts["unreachable_html"] + parts["source_fault_html"] + parts["banner_html"])
+    return HealthSections(notices, tuple(frame_rows), platform_rows, "")
 
 
 def system_html(ctx):

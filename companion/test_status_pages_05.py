@@ -297,9 +297,9 @@ def test_health_rows_read_in_plain_language(tmp_path):
 @pytest.mark.parametrize(
     ("lang", "connection_help", "identification_heading"),
     (
-        ("en", "This is when the frame last contacted the server.", "Flight identification"),
+        ("en", "This is when the frame last contacted the server.", "Identification"),
         ("fr", "Moment où le cadre a contacté le serveur pour la dernière fois.",
-         "Identification des vols"),
+         "Identification"),
     ),
 )
 def test_health_keeps_status_primary_and_explains_details_on_request(
@@ -325,7 +325,7 @@ def test_health_keeps_status_primary_and_explains_details_on_request(
     doc = parse_html(rendered)
     connection = doc.select_one("#health-row-connection")
     assert connection_help in connection.select_one(".health-row__body").text()
-    assert connection_help not in connection.select_one("summary").text()
+    assert connection_help not in connection.select_one(".health-row__summary").text()
     assert identification_heading in doc.select_one("#health-row-identification").select_one(
         ".health-row__name").text()
     sources = doc.select_one("#health-row-sources")
@@ -334,8 +334,8 @@ def test_health_keeps_status_primary_and_explains_details_on_request(
         for _key, _label, _status, explanation in health_page._CORROBORATION_ROWS]
     for explanation in explanations:
         assert explanation in sources.select_one(".health-row__body").text()
-        assert explanation not in sources.select_one("summary").text()
-    for row in doc.select("details.health-row"):
+        assert explanation not in sources.select_one(".health-row__summary").text()
+    for row in doc.select("div.health-row"):
         assert "open" not in row.attrs, (
             "a healthy page renders every row closed, got %r open" % row.attrs["id"])
     assert "readings-disclosure" in _battery_row_html(rendered), (

@@ -27,7 +27,7 @@ from server import firmware_registry as fr
 from skypane_fw_image import build_image
 
 # Where an install or cancel result lands: the served frame's Fleet view.
-_FLEET_LIVE = "/fleet?frame=live"
+_FLEET_LIVE = "/fleet?frame=live&view=versions"
 
 _NOW = "2026-09-28T12:00:00+00:00"
 
@@ -134,7 +134,7 @@ def test_install_confirm_page_offers_a_plain_cancel_link_not_a_second_form(serve
     text = body.decode("utf-8")
     assert text.count('action="%s"' % update_page.INSTALL_ROUTE) == 1, (
         "expected exactly one form posting to %r" % (update_page.INSTALL_ROUTE,))
-    assert '<a class="%s" href="%s">' % (update_page._QUIET_BUTTON_CLASS, _FLEET_LIVE) in text
+    assert '<a class="%s" href="%s">' % (update_page._QUIET_BUTTON_CLASS, _FLEET_LIVE.replace("&", "&amp;")) in text
 
 
 # ==========================================================================

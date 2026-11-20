@@ -1,6 +1,6 @@
 """The Console Fleet view: the list of frames (live, pending, retired) with its
-Add a frame control, the frame switch, the four blocks of the
-selected frame (State, Device and version, Settings, Access) and the System
+Add a frame control, the frame switch, the three sections of the
+selected frame (State, Settings, Access) and the System
 view, plus the navigation that no longer lists Status, Version or Device."""
 import datetime
 import re
@@ -134,9 +134,8 @@ def test_the_selected_frame_shows_its_four_blocks_in_order(fleet):
     server, seed, cookie = fleet
     status, _headers, page = fx.get(server, cookie, "/fleet?frame=%s" % seed.owned_id)
     assert status == 200
-    # One column of section cards: State, Device and version (the version history is inside
-    # it), Settings, Access.
-    assert _blocks(page) == ["State", "Device and version", "Settings", "Access"]
+    # One column of sections: State (the tiles), Settings, Access.
+    assert _blocks(page) == ["State", "Settings", "Access"]
     # The settings form posts to the frame's own route; the wake interval is there.
     assert 'action="/devices/%s/settings"' % seed.owned_id in page
     assert "name=\"wake_interval_s\"" in page
@@ -158,7 +157,7 @@ def test_the_system_view_shows_the_platform_wide_blocks(fleet):
     status, _headers, page = fx.get(server, cookie, "/fleet?view=system")
     assert status == 200
     # One glass group per topic: flight data, sources and identification.
-    assert _blocks(page) == ["Flight data", "Data sources", "Flight identification"]
+    assert _blocks(page) == ["Flight data", "Data sources", "Identification"]
     assert not [h for h, mark in _tiles(page) if mark]
     assert '<h1 class="fleet-head__title">System</h1>' in page
 
@@ -187,8 +186,7 @@ def test_french_block_headings(fleet):
     _status, _headers, page = fx.get(
         server, cookie + "; %s=fr" % auth.UI_LANG_COOKIE_NAME,
         "/fleet?frame=%s" % seed.owned_id)
-    assert _blocks(page) == [
-        "État", "Appareil et version", "Réglages", "Accès"]
+    assert _blocks(page) == ["État", "Réglages", "Accès"]
 
 
 def test_the_fleet_page_refreshes_its_nav_dot_and_health_rows_in_place(fleet):
@@ -203,17 +201,33 @@ def test_the_fleet_page_refreshes_its_nav_dot_and_health_rows_in_place(fleet):
     assert all(not href.endswith("/fleet") for href, _attrs in _tiles(page))
 
 
-@pytest.mark.parametrize("query,current", [
-    ("", "State"), ("&tab=state", "State"), ("&tab=settings", "Settings"),
-    ("&tab=access", "Access"), ("&access=x", "Access"), ("&tab=bogus", "State"),
-    ("&tab=<script>", "State")])
-def test_the_sub_tab_comes_from_the_query_and_unknown_values_mean_state(fleet, query, current):
+def _anchors(page):
+    """(section name, href, current) of the three anchors above the sections."""
+    nav = re.search(r'<nav class="fleet-anchors".*?</nav>', page, re.S).group(0)
+    return re.findall(r'<a class="fleet-anchor" href="#fleet-section-(\w+)"( aria-current="true")?>([^<]*)<', nav)
+
+
+def test_the_sections_are_stacked_under_three_anchors_and_no_segmented_tabs(fleet):
+    server, seed, cookie = fleet
+    _status, _headers, page = fx.get(server, cookie, "/fleet?frame=%s" % seed.owned_id)
+    assert [(k, name) for k, _cur, name in _anchors(page)] == [
+        ("state", "State"), ("settings", "Settings"), ("access", "Access")]
+    assert [k for k, cur, _n in _anchors(page) if cur] == ["state"]
+    # Each anchor points at a section of the page, and all three are in the page.
+    for key in ("state", "settings", "access"):
+        assert 'id="fleet-section-%s"' % key in page
+    assert "fleet-tabs" not in page and "data-fleet-tab" not in page
+
+
+@pytest.mark.parametrize("query,focus", [
+    ("", None), ("&tab=state", None), ("&tab=settings", "settings"), ("&tab=access", "access"),
+    ("&access=x", "access"), ("&tab=bogus", None), ("&tab=<script>", None)])
+def test_a_section_to_bring_into_view_comes_from_the_query_and_unknown_values_mean_none(
+        fleet, query, focus):
     server, seed, cookie = fleet
     _status, _headers, page = fx.get(server, cookie, "/fleet?frame=%s%s" % (seed.owned_id, query))
-    marked = re.findall(r'<a class="personalisation-nav__link" href="[^"]*"'
-                        r' aria-current="page"><span>([^<]*)</span>', page)
-    assert marked == [current]
-    assert 'data-fleet-tab="%s"' % current.lower() in page
+    found = re.search(r'<div class="fleet-blocks" data-fleet-focus="(\w+)">', page)
+    assert (found.group(1) if found else None) == focus
 
 
 def test_a_flash_key_in_the_query_shows_its_toast_for_the_selected_frame(fleet):

@@ -82,7 +82,7 @@ VIEW_TRANSITION_NAMES = {
     # thumbnail-to-picture transition runs: no element has it on any route at rest.
     "skypane-flight-pic": (),
     # The selected segment of a section strip whose segments change page.
-    "skypane-strip": ("/display", "/fleet"),
+    "skypane-strip": ("/display",),
 }
 
 # Named viewport sizes, replacing the inline {"width": ..., "height": ...} dicts this file used
@@ -223,18 +223,20 @@ def _no_js_page(make_context, base_url, route, viewport=None, sign_in=True,
         context.close()
 
 
-def _open_health_rows(page):
-    """Open every collapsed Health row the way a keyboard visitor does: focus its summary and
-    press Enter, the native disclosure. Needs no script, so it works on a scripts-blocked page.
-    Rows in a warn or error state render open already and are left alone. Raises if a row stays
-    shut, so a later measurement is never taken on content a visitor could not see."""
-    summaries = page.locator("details.health-row:not([open]) > summary")
-    for _attempt in range(16):
-        if not summaries.count():
-            return
-        summaries.first.focus()
-        page.keyboard.press("Enter")
-    raise AssertionError("a Health row would not open from its summary")
+def _assert_health_rows_flat(page):
+    """Every Health row is flat and always open: no `<details>` or `<summary>` carries a row (the
+    readings disclosure under the battery curve is the only one on the page), no chevron is drawn
+    on a row head, and every row body is visible without a tap or a script."""
+    assert page.locator("main .health-row details:not(.readings-disclosure), "
+                        "main .health-row > summary").count() == 0
+    assert page.locator(".health-row__summary").count() > 0
+    assert page.evaluate(
+        "() => [...document.querySelectorAll('.health-row__summary')].every(s => {"
+        "  const b = getComputedStyle(s, '::before');"
+        "  return b.content === 'none' || b.content === 'normal'; })"), "a row head draws a chevron"
+    assert page.evaluate(
+        "() => [...document.querySelectorAll('.health-row__body')]"
+        ".every(b => b.getBoundingClientRect().height > 0)"), "a row body is collapsed"
 
 
 def _click_control(page, selector):

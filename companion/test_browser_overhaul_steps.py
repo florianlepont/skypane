@@ -182,10 +182,10 @@ def _select_frame(steps, page, name):
 
 
 def _access_tab(steps, page, name):
-    """The Access tab of the frame `name` (the frame is selected first when it is not):
-    its owner, co-managers, Reassign and Retire sections are inline there."""
+    """The frame `name` (selected first when it is not): its Access section, with the owner,
+    the co-managers, Reassign and Retire, is stacked under Settings on the page, so no tap
+    leads to it."""
     _select_frame(steps, page, name)
-    steps.tap(page.locator("nav.fleet-tabs a", has_text="Access"), "Access tab")
 
 
 def test_a1_fleet_state_is_readable_on_landing(world, new_context):
@@ -282,7 +282,7 @@ def test_a5_add_a_co_manager(world, new_context):
     try:
         slug = world.seed.owned_id.lower().replace("_", "-")
         _access_tab(steps, page, "Kitchen")
-        steps.tap(page.locator(".fleet-block--access li.access-add a.row__main"), "Add co-manager")
+        steps.tap(page.locator(".fleet-block--access li.access-add a.row__main"), "Add a co-manager")
         dialog = page.locator("#dlg-add-co-manager-%s" % slug)
         page.wait_for_function(
             "d => d.open", arg=dialog.element_handle(), timeout=10000)
@@ -587,11 +587,9 @@ def test_u4c_the_administrator_changes_the_refresh_interval(world, new_context):
     context, page, steps = _admin(world, new_context)
     try:
         # On a phone the list lands first: one tap opens a frame, whose wake interval sits
-        # on the Settings sub-tab of the Fleet view.
+        # in the Settings section of the same page.
         page.wait_for_function("() => document.readyState === 'complete'", timeout=10000)
         _select_frame(steps, page, "Kitchen")
-        steps.tap(page.locator("nav.fleet-tabs a", has_text="Settings"), "Settings tab")
-        page.wait_for_url("**tab=settings")
         field = page.locator("input[type=number][name=wake_interval_s]")
         target = "1500" if field.input_value() != "1500" else "1200"
         steps.type_value(field, target, "refresh interval")

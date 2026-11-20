@@ -161,7 +161,7 @@ def test_the_drawn_frame_is_a_small_portrait_frame_in_the_popover_and_on_account
 
 @pytest.mark.parametrize("lang,owner_mark,co_mark,co_line", [
     ("en", "Owner", "Co-manager", "Co-manager of 1 frame"),
-    ("fr", "Propriétaire", "Co-gestionnaire", "Co-gestionnaire de 1 cadre")])
+    ("fr", "Propriétaire", "Cogestionnaire", "Cogestionnaire de 1 cadre")])
 def test_account_marks_each_frame_owner_or_co_manager_without_overflow(
         new_context, srig, lang, owner_mark, co_mark, co_line):
     for who, mark, line in (("co", co_mark, co_line), ("owner", owner_mark, None)):
@@ -176,7 +176,7 @@ def test_account_marks_each_frame_owner_or_co_manager_without_overflow(
                 assert line in role.inner_text()
             else:
                 assert "Co-manager" not in role.inner_text()
-                assert "Co-gestionnaire" not in role.inner_text()
+                assert "Cogestionnaire" not in role.inner_text()
             assert _no_sideways_scroll(page)
         finally:
             context.close()

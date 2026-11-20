@@ -447,7 +447,7 @@ def test_the_firmware_history_lines_up_its_dot_version_and_chip_down_the_list(
     seed = fx.seed_fleet(app_server_in_process.state_dir)
     seed_two_releases(app_server_in_process.state_dir)
     context, page = _open(
-        new_context, app_server_in_process, "/fleet?frame=" + seed.live_id, viewport, lang=lang)
+        new_context, app_server_in_process, "/fleet?frame=" + seed.live_id + "&view=versions", viewport, lang=lang)
     try:
         page.locator("ul.update-hist__list").scroll_into_view_if_needed()
         rows = page.evaluate(

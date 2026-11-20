@@ -254,7 +254,7 @@ def test_health_page_renders_in_french(tmp_path):
         rendered = health_page_composition.render(shp.ctx(tmp, shp.iso(now)))
     finally:
         prefs.set_request_prefs(lang="en")
-    assert "État" in rendered, "expected the French page title (État, via the shared nav catalogue)"
+    assert "Santé" in rendered, "expected the French page title (Santé, via the shared nav catalogue)"
     for french_text in ("Écran", "Serveur et données", "Se connecte normalement"):
         assert french_text in rendered, "expected the French string %r in the rendered page" % (french_text,)
     for english_text in (

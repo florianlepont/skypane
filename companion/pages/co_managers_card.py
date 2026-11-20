@@ -73,10 +73,6 @@ FLASH_FRAME_REMOVE_LIVE_TEXT = i18n.msg(
     "This frame cannot be removed. Ask an administrator.")
 
 _HEADING = i18n.msg("co_managers.heading", "Co-managers")
-_PURPOSE_MANAGE = i18n.msg(
-    "co_managers.purpose_manage",
-    "People who can change this frame's settings alongside the owner. They "
-    "cannot retire or reassign it.")
 _DIALOG_TITLE = i18n.msg("co_managers.dialog_title", "Manage access")
 MENU_LABEL = i18n.msg("co_managers.menu_label", "Manage access")
 _DONE = i18n.msg("co_managers.done", "Done")
@@ -103,7 +99,7 @@ _CHOOSE_PERSON = i18n.msg("co_managers.choose_person", "Choose a person")
 _NO_CANDIDATES = i18n.msg(
     "co_managers.no_candidates",
     "Everyone who is invited is already on this frame.")
-_ADD_BUTTON = i18n.msg("co_managers.add_button", "Add co-manager")
+_ADD_BUTTON = i18n.msg("co_managers.add_button", "Add a co-manager")
 _REMOVE_BUTTON = i18n.msg("co_managers.remove_button", "Remove")
 _REMOVE_ARIA = i18n.msg("co_managers.remove_aria", "Remove %s from this frame")
 _LEAVE_TEXT = i18n.msg("co_managers.leave", "Leave this frame")
@@ -217,18 +213,21 @@ def _field_ids(device_id, prefix="co-manager"):
     return slug + "-email", slug + "-person", slug + "-email-help"
 
 
-def _typed_field_html(device_id, prefix="co-manager"):
+def _typed_field_html(device_id, prefix="co-manager", helper=True):
+    """The typed e-mail field, with the line saying the person must already be
+    invited when `helper`."""
     input_id, _person_id, help_id = _field_ids(device_id, prefix)
+    described = ' aria-describedby="%s"' % help_id if helper else ""
+    caption = (
+        '<p class="text-label section-caption" id="%s">%s</p>' % (help_id, _t(_HELPER_EMAIL))
+        if helper else "")
     return (
         '<p><label for="%s">%s</label>'
         '<input type="email" id="%s" name="%s" autocomplete="off" '
         'data-1p-ignore data-lpignore="true" data-bwignore="true" data-form-type="other" '
-        'autocapitalize="none" spellcheck="false" required maxlength="%d" '
-        'aria-describedby="%s"%s></p>'
-        '<p class="text-label section-caption" id="%s">%s</p>' % (
+        'autocapitalize="none" spellcheck="false" required maxlength="%d"%s%s></p>%s' % (
             input_id, _t(_LABEL_EMAIL), input_id, FIELD_EMAIL,
-            _MAX_EMAIL_CHARS, help_id, validation_attrs("email"), help_id,
-            _t(_HELPER_EMAIL)))
+            _MAX_EMAIL_CHARS, described, validation_attrs("email"), caption))
 
 
 def _select_field_html(device_id, candidates, prefix="co-manager"):
@@ -296,7 +295,7 @@ def add_dialog_html(view, device_id, return_to, dismiss_href, frame_name=""):
     prefix = "co-manager-dialog"
     field = (
         _select_field_html(device_id, view.candidates, prefix) if view.is_admin_viewer
-        else _typed_field_html(device_id, prefix))
+        else _typed_field_html(device_id, prefix, helper=False))
     return ui_modal.dialog_html(
         add_dialog_id(device_id), i18n.t(_ADD_BUTTON),
         _frame_route(device_id, ADD_ROUTE), _csrf_field(),
@@ -310,17 +309,16 @@ def _email_html(email):
 
 
 def access_rows_html(
-        view, device_id, return_to, id_prefix="co-manager", purpose=True,
+        view, device_id, return_to, id_prefix="co-manager", compact=False,
         owner_action_html="", add_as_dialog=False):
-    """The access content of one frame as the rows of a glass group: a purpose
-    row (when `purpose`), the owner (with `owner_action_html`, such as Reassign,
-    as its trailing control), each co-manager with its Remove action as a
-    trailing control, and the Add control as a last row (the inline form, or
-    one row opening the Add co-manager dialog when `add_as_dialog`)."""
+    """The access content of one frame as the rows of a glass group: the owner
+    (with `owner_action_html`, such as Reassign, as its trailing control), each
+    co-manager with its Remove action as a trailing control, and the Add control
+    as a last row (the inline form, or one row opening the Add co-manager dialog
+    when `add_as_dialog`). `compact` is the Fleet page's Access section: the
+    people and the actions only, with no empty-state text."""
     from companion import ui_groups
-    rows = [ui_groups.row(
-        i18n.t(_HEADING), detail=i18n.t(_PURPOSE_MANAGE), extra_class="row--purpose")
-    ] if purpose else []
+    rows = []
     rows.append(ui_groups.row(
         label_html=_email_html(view.owner_email),
         value_html=_pills_html((_PILL_OWNER,)), trailing_html=owner_action_html,
@@ -336,7 +334,7 @@ def access_rows_html(
             value_html=_pills_html(pills),
             trailing_html=_inline_remove_html(device_id, user_id, email, return_to),
             extra_class="access-person"))
-    if not view.members:
+    if not view.members and not compact:
         rows.append('<li class="fleet-group__item">%s</li>' % _empty_html(view))
     rows.append(_add_row_html(view, device_id, return_to, id_prefix, add_as_dialog))
     return "".join(rows)
@@ -352,7 +350,7 @@ def manage_access_dialog_html(view, device_id, frame_name, return_to, open_=Fals
     from companion import ui_groups, ui_modal
     label_id = access_dialog_id(device_id) + "-people"
     people = ui_groups.group(
-        access_rows_html(view, device_id, return_to, purpose=False),
+        access_rows_html(view, device_id, return_to),
         label=i18n.t(_HEADING), label_id=label_id)
     remove_frame = _rename_link_html(device_id, frame_name, return_to)
     if view.can_remove_frame:

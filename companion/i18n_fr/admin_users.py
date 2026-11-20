@@ -57,7 +57,7 @@ MESSAGES = {
     "admin_users.one_frame": "1 cadre",
     "admin_users.you": "Vous",
     "admin_users.status_active": "Actif",
-    "admin_users.co_manager_suffix": "co-gestionnaire",
+    "admin_users.co_manager_suffix": "cogestionnaire",
     "admin_users.self_lock": "Vous ne pouvez pas vous désactiver ni vous rétrograder.",
     "admin_users.copy_invitation": "Copier le message d’invitation",
     "admin_users.copied": "Copié",

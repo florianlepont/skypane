@@ -237,23 +237,21 @@ def test_the_location_card_is_opaque_and_its_runway_cards_and_mode_switch_are_ti
         context.close()
 
 
-# --- Fleet sub-tabs, tab bar -----------------------------------------------------
+# --- Fleet anchors, tab bar -----------------------------------------------------
 
 
 @pytest.mark.parametrize("lang", ("en", "fr"))
 @pytest.mark.parametrize("viewport,name", PHONES)
-def test_the_fleet_tab_thumb_fills_its_segment_and_every_tab_bar_label_fits_its_pill(
+def test_the_fleet_anchors_fill_their_row_and_every_tab_bar_label_fits_its_pill(
         new_context, app_server_in_process, viewport, name, lang):
     seed = fx.seed_fleet(app_server_in_process.state_dir)
     context, page = _page(
         new_context, app_server_in_process, "/fleet?frame=" + seed.owned_id, viewport, lang)
     try:
-        _settle_on(page, ".fleet-tabs .personalisation-nav__link")
+        _settle_on(page, ".fleet-anchors .fleet-anchor")
         probe = page.evaluate(
-            """() => { const link = document.querySelector(
-                '.fleet-tabs .personalisation-nav__link[aria-current="page"]');
-              const l = link.getBoundingClientRect();
-              const s = link.querySelector('span').getBoundingClientRect();
+            """() => { const anchors = [...document.querySelectorAll('.fleet-anchors .fleet-anchor')]
+                .map((a) => a.getBoundingClientRect().width);
               const labels = [...document.querySelectorAll('.tab-bar__label')].map((label) => ({
                 fits: label.scrollWidth <= label.clientWidth,
                 room: label.closest('.tab-bar__pill').getBoundingClientRect().width
@@ -261,9 +259,10 @@ def test_the_fleet_tab_thumb_fills_its_segment_and_every_tab_bar_label_fits_its_
               const barStyle = getComputedStyle(document.querySelector('.tab-bar'));
               const bar = {backgroundColor: barStyle.backgroundColor};
               const named = barStyle.viewTransitionName;
-              return {segment: l.width, thumb: s.width, labels: labels,
+              return {anchors: anchors, labels: labels,
                       fill: bar.backgroundColor, named: named}; }""")
-        assert probe["thumb"] >= probe["segment"] - 8, probe
+        # Three equal anchors share the row.
+        assert len(probe["anchors"]) == 3 and max(probe["anchors"]) - min(probe["anchors"]) < 1, probe
         assert len(probe["labels"]) == 5, probe
         assert all(label["fits"] and label["room"] >= 4 for label in probe["labels"]), probe
         assert probe["fill"].startswith("rgb(") and "rgba" not in probe["fill"], probe
