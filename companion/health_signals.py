@@ -100,7 +100,7 @@ _BATTERY_DROPPED_ABNORMALLY_TEXT = i18n.msg(
     "health.battery_dropped_abnormally", "Battery dropped abnormally.")
 _BATTERY_LOW_TEXT = i18n.msg("health.battery_level_is_low", "Battery level is low.")
 _DATA_SOURCES_DISAGREED_RECENTLY_TEXT = i18n.msg(
-    "health.data_sources_disagreed_recently", "Data sources disagreed recently.")
+    "health.data_sources_disagreed_recently", "Sources disagreed recently.")
 _SOME_AIRLINES_ARE_UNIDENTIFIED_TEXT = i18n.msg(
     "health.some_airlines_are_unidentified", "Some airlines are unidentified.")
 _ALL_DATA_SOURCES_FAILED_TEXT = i18n.msg(
@@ -465,7 +465,26 @@ def _battery_low(trend_rows, curve=None):
     return latest is not None and battery.is_low(latest[0], curve)
 
 
-def _battery_state(trend_rows, daily_rows=None, curve=None):
+def battery_dropped(trend_rows):
+    """True when the readings show an abnormal drop (`battery_status()`)."""
+    if trend_rows is _DB_UNAVAILABLE or not trend_rows:
+        return False
+    return battery_status(trend_rows) != "ok"
+
+
+def battery_both_sentences(anomalies, trend_rows):
+    """`anomalies` with the abnormal-drop sentence added right after the
+    low-battery one when both hold (the frame Health page's banner names
+    both). Unchanged when the low sentence is absent or the drop is."""
+    low = i18n.t(_BATTERY_LOW_TEXT)
+    dropped = i18n.t(_BATTERY_DROPPED_ABNORMALLY_TEXT)
+    if low not in anomalies or dropped in anomalies or not battery_dropped(trend_rows):
+        return list(anomalies)
+    at = anomalies.index(low) + 1
+    return list(anomalies[:at]) + [dropped] + list(anomalies[at:])
+
+
+def _battery_state(trend_rows, daily_rows=None, curve=None, curve_known=True):
     """The Battery row's verdict alone, with no markup built: `"warn"` for
     an abnormal drop (`battery_status()`) or a latest reading under the
     low-battery mark, `"ok"` otherwise, and `"ok"` for the two early-exit
@@ -479,7 +498,7 @@ def _battery_state(trend_rows, daily_rows=None, curve=None):
         return "ok"
     if not trend_rows:
         return "ok"
-    if _battery_low(trend_rows, curve):
+    if curve_known and _battery_low(trend_rows, curve):
         return "warn"
     return battery_status(trend_rows)
 
@@ -583,7 +602,7 @@ def _read_health_inputs(state_dir, now, fleet_root=None):
     }
 
 
-def health_signals(state_dir, now=None, fleet_root=None, curve=None):
+def health_signals(state_dir, now=None, fleet_root=None, curve=None, curve_known=True):
     """Every state the nav-tab dot and the full Health page banner need
     — severity, the anomaly list, and each section's own state — derived
     from one `_read_health_inputs()` read, with zero markup built. This
@@ -599,7 +618,9 @@ def health_signals(state_dir, now=None, fleet_root=None, curve=None):
     `severity`, `anomalies` and `battery_low`. `fleet_root` is where the
     global fleet status is read (default: `state_dir`); `curve` is the
     device's discharge curve (None: legacy), which sets the low-battery
-    mark.
+    mark. With `curve_known` False (no device, so no known hardware
+    profile) the low-battery signal is not computed at all rather than
+    read off a guessed curve; every other signal is unchanged.
     """
     if now is None:
         now = history_db.utc_now_iso()
@@ -620,8 +641,9 @@ def health_signals(state_dir, now=None, fleet_root=None, curve=None):
         next_wake_iso=next_wake_iso, effective_interval_s=effective_interval_s,
         hold_reason=hold_reason)
     pipeline_state = _pipeline_state(inputs["pipeline_ts"], inputs["last_detection"], now)
-    battery_state = _battery_state(inputs["trend_rows"], inputs["daily_rows"], curve)
-    battery_low = _battery_low(inputs["trend_rows"], curve)
+    battery_state = _battery_state(
+        inputs["trend_rows"], inputs["daily_rows"], curve, curve_known)
+    battery_low = curve_known and _battery_low(inputs["trend_rows"], curve)
     disagreement_warn = _disagreement_warn(inputs["corroboration_counts"])
     coverage_state = coverage_status(inputs["registry_rows"])
     source_fault = _meta_flag_true(inputs["source_fault_raw"])
@@ -669,12 +691,12 @@ def health_signals(state_dir, now=None, fleet_root=None, curve=None):
     }
 
 
-def safe_health_signals(state_dir, now=None, fleet_root=None, curve=None):
+def safe_health_signals(state_dir, now=None, fleet_root=None, curve=None, curve_known=True):
     """Fail-closed wrapper around `health_signals()`, mirroring
     `safe_health_state()`'s broad `except Exception` and "`None` means
     ok" convention: `None` on any unanticipated exception, never a raise.
     """
     try:
-        return health_signals(state_dir, now, fleet_root, curve)
+        return health_signals(state_dir, now, fleet_root, curve, curve_known)
     except Exception:
         return None

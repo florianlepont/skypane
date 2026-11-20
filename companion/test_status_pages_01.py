@@ -558,7 +558,7 @@ def test_anomaly_banner_names_real_categories_not_generic_only(tmp_path):
     shp.seed_runway_events(str(tmp_path), [
         {"ts": shp.iso(now), "hex": "abc123", "corroborated": False}])
     rendered = health_page_composition.render(shp.ctx(str(tmp_path), now_value=shp.iso(now)))
-    assert "Data sources disagreed" in rendered, "expected the anomaly banner to name the real failing category"
+    assert "Sources disagreed recently" in rendered, "expected the anomaly banner to name the real failing category"
     assert health_page.ANOMALY_BANNER_TEXT in rendered, (
         "expected ANOMALY_BANNER_TEXT to remain present as the banner's fallback tail")
     assert 'class="toast__pill"' in rendered, (
@@ -576,7 +576,7 @@ def test_anomaly_categories_never_lowercase_a_leading_acronym():
         device_state="warn", pipeline_state="warn",
         battery_state="ok", disagreement_warn=True)
     text = health_page._anomaly_category_text(anomalies)
-    assert "flight data is stale" in text and "data sources disagreed" in text, (
+    assert "flight data is stale" in text and "sources disagreed recently" in text, (
         "expected the real non-first phrases to be lower-cased mid-sentence, got %r" % (text,))
 
     acronym = health_page._anomaly_category_text(
