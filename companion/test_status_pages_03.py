@@ -513,8 +513,9 @@ def test_server_rows_form_one_card_with_no_registry_card_below(tmp_path):
     assert breakdown, "expected the resolution breakdown inside the Identification row"
     assert not doc.select(".%s.page-section--nested" % health_page.HEALTH_SOURCE_FAULT_CLASS), (
         "the source-fault block must never carry the nested modifier")
-    link = identification.select_one("a.text-link")
-    assert link is not None and link.attrs["href"] == "/airlines/manage"
+    # Unresolved airlines are handled in the Editor: the row links to nothing.
+    assert not identification.select("a.text-link")
+    assert "/airlines/manage" not in rendered
 
 
 def test_identification_row_renders_percentage_and_window(tmp_path):

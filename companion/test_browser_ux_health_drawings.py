@@ -35,7 +35,7 @@ VISIBLE_VIEW = ".battery-chart__view:not([hidden])"
 RING_FIGURE = "#health-row-battery svg.drawing__figure"
 RING_VALUE = "#health-row-battery svg.drawing__figure .drawing-ring-value"
 RING_TRACK = "#health-row-battery svg.drawing__figure .drawing-ring-track"
-FRAME_ROUTE = "/fleet?frame=live"
+FRAME_ROUTE = "/fleet?frame=live&view=health"
 RING_PAGES = (("Fleet", FRAME_ROUTE),)
 
 

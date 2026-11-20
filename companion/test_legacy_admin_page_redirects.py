@@ -1,7 +1,7 @@
 """The retired Health, Device and Update pages (and a frame's own Health
 address) move every signed-in role to the page that replaced them, keeping the
-chosen frame: an administrator lands on the Fleet view of the frame, an owner
-or user on the matching page of their own frame."""
+chosen frame: an administrator lands on the Health page, the Settings section or the Versions
+page of the frame, an owner or user on the matching page of their own frame."""
 import html
 
 import pytest
@@ -11,8 +11,9 @@ from companion import prefs
 from companion_app_server import http_request
 
 LEGACY = ("/health", "/device", "/update")
-# The phone sub-tab each retired page lands on (the device settings are the Settings tab).
-FLEET_TAB = {"/health": "", "/device": "&tab=settings", "/update": ""}
+# Where each retired page lands on the frame's Fleet page: Health and Versions are pages of
+# their own, the device settings are the Settings section.
+FLEET_TAB = {"/health": "&view=health", "/device": "&tab=settings", "/update": "&view=versions"}
 PERSON_PAGE = {"/health": "/", "/device": "/display", "/update": "/"}
 
 

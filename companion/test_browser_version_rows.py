@@ -17,7 +17,7 @@ from skypane_fw_image import build_image
 pytestmark = pytest.mark.browser
 
 _ROWS = (
-    "() => [...document.querySelectorAll('.fleet-block--device li.update-item')].map(li => {"
+    "() => [...document.querySelectorAll('.fleet-versions li.update-item')].map(li => {"
     " const v = li.querySelector('.update-item__version').getBoundingClientRect();"
     " const c = li.querySelector('.banner__pill');"
     " const a = li.querySelector('.update-item__action button');"
@@ -36,7 +36,7 @@ def _open(new_context, server, viewport, lang):
         "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": server.base_url()}])
     page = context.new_page()
     _login(page, server.base_url())
-    page.goto(server.base_url() + "/fleet?frame=" + seed.live_id)
+    page.goto(server.base_url() + "/fleet?frame=" + seed.live_id + "&view=versions")
     page.locator("main").wait_for(state="visible")
     page.wait_for_function(
         "() => document.readyState === 'complete' && document.getAnimations().every("

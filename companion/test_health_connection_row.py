@@ -34,7 +34,10 @@ def _connection_row(make_app_server, seed, lang):
     server = make_app_server(seed=seed)
     cookie = "%s; %s=%s" % (
         companion_app_server.login(server), auth.UI_LANG_COOKIE_NAME, lang)
-    code, _, body = companion_app_server.get(server, "/fleet", cookie=cookie)
+    # The retired /health address leads to the Health page of the frame served.
+    code, headers, _ = companion_app_server.get(server, "/health", cookie=cookie)
+    assert code == 303 and headers["Location"].endswith("&view=health")
+    code, _, body = companion_app_server.get(server, headers["Location"], cookie=cookie)
     assert code == 200
     root = companion_markup.parse_html(body.decode("utf-8"))
     row = root.select_one("#health-row-connection")

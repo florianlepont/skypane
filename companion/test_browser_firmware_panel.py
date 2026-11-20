@@ -23,7 +23,7 @@ from skypane_fw_image import build_image
 
 pytestmark = pytest.mark.browser
 
-FLEET_ROUTE = "/fleet?frame=live"
+FLEET_ROUTE = "/fleet?frame=live&view=versions"
 WIDTHS = (360, 1280)
 THEMES = ("light", "dark")
 LANGS = ("en", "fr")
@@ -96,7 +96,7 @@ def open_panel(new_context, server, width, lang, theme):
     _login(page, base_url)
     page.goto(base_url + FLEET_ROUTE)
     page.wait_for_function("document.readyState === 'complete'")
-    page.wait_for_selector(".fleet-block--device")
+    page.wait_for_selector(".fleet-versions")
     return context, page
 
 
@@ -123,7 +123,7 @@ def test_the_card_names_the_state_the_version_and_the_hardware(
         context, page = open_panel(new_context, servers[scenario], width, lang, theme)
         try:
             where = "%s %dpx/%s/%s" % (scenario, width, lang, theme)
-            block = page.locator(".fleet-block--device")
+            block = page.locator(".fleet-versions")
             assert block.locator(".update-for").count() == 0, where
             assert "XIAO" not in block.inner_text(), where
             card = block.locator(".update-cta")
@@ -164,7 +164,7 @@ def test_one_update_card_with_one_install_button_when_an_update_is_offered(
     context, page = open_panel(new_context, servers["update"], width, lang, theme)
     try:
         where = "%dpx/%s/%s" % (width, lang, theme)
-        card = page.locator(".fleet-block--device .update-cta")
+        card = page.locator(".fleet-versions .update-cta")
         assert card.count() == 1 and card.is_visible(), where
         title = card.locator(".update-cta__detail").first
         assert "fw-v1.0.4" in title.inner_text() and released in title.inner_text(), where
@@ -190,14 +190,14 @@ def test_one_update_card_with_one_install_button_when_an_update_is_offered(
     for scenario in ("current", "single"):
         context, page = open_panel(new_context, servers[scenario], width, lang, theme)
         try:
-            assert page.locator(".fleet-block--device .update-cta form").count() == 0
+            assert page.locator(".fleet-versions .update-cta form").count() == 0
             assert page.locator("main form[action='/update/install']").count() == (
                 0 if scenario == "single" else 4)
         finally:
             context.close()
 
 
-_PROBE_ROWS = """() => [...document.querySelectorAll('.fleet-block--device .update-item')].map((li) => {
+_PROBE_ROWS = """() => [...document.querySelectorAll('.fleet-versions .update-item')].map((li) => {
   const rect = (el) => { const r = el.getBoundingClientRect(); return [r.x, r.y, r.width, r.height]; };
   const version = li.querySelector('.update-item__version');
   const range = document.createRange();
@@ -235,8 +235,8 @@ def test_history_is_a_flat_list_with_status_chips_and_a_quiet_revert(
     context, page = open_panel(new_context, servers["update"], width, lang, theme)
     try:
         where = "%dpx/%s/%s" % (width, lang, theme)
-        assert page.locator(".fleet-block--device table").count() == 0, where
-        head = page.locator(".fleet-block--device .update-hist__title")
+        assert page.locator(".fleet-versions table").count() == 0, where
+        head = page.locator(".fleet-versions .update-hist__title")
         assert head.inner_text().strip() == words[0], where
         rows = page.evaluate(_PROBE_ROWS)
         assert [row["version"] for row in rows] == [

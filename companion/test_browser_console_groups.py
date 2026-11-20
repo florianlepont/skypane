@@ -55,13 +55,12 @@ _FLEET = """() => {
   const bad = [];
   const blocks = [...document.querySelectorAll('section.fleet-block')];
   blocks.forEach((s) => {
-    // The Device and version block is the one block of cards: its update card and its
-    // version list are the cards of the approved Update design.
-    const ownCards = s.classList.contains('fleet-block--device');
+    // The State section is four tiles (cards of their own), not a group.
+    const ownCards = s.querySelector(':scope > ul.fleet-tiles') !== null;
     const label = s.querySelector(':scope > h2.section-label');
     const groups = s.querySelectorAll(':scope > ul.group');
     if (!label) bad.push('no label');
-    if (groups.length !== 1) bad.push('groups: ' + groups.length);
+    if (groups.length !== (ownCards ? 0 : 1)) bad.push('groups: ' + groups.length);
     if (s.querySelectorAll('.group .group').length) bad.push('nested group');
     const inner = ownCards ? [] : [...s.querySelectorAll('.group *')].filter((e) => {
       const c = getComputedStyle(e);
@@ -71,8 +70,8 @@ _FLEET = """() => {
     }).map((e) => e.className);
     if (inner.length) bad.push('card surface inside a group: ' + inner.slice(0, 3));
   });
-  const card = document.querySelector('.fleet-block--device .update-cta');
-  if (!card || !card.checkVisibility()) bad.push('no firmware card');
+  const tiles = [...document.querySelectorAll('.fleet-tile')].filter((t) => t.checkVisibility());
+  if (tiles.length !== 4) bad.push('tiles: ' + tiles.length);
   return {bad: bad, count: blocks.length};
 }"""
 
@@ -87,8 +86,8 @@ def test_fleet_blocks_are_flat_glass_groups(new_context, server, viewport, lang,
     try:
         assert not _assert_no_page_overflow(page, "fleet", viewport["width"])
         out = page.evaluate(_FLEET)
-        # State, Device and version, Settings, Access and Other frames.
-        assert out["count"] == 4 and out["bad"] == [], out
+        # State (the tiles), Settings and Access.
+        assert out["count"] == 3 and out["bad"] == [], out
     finally:
         context.close()
 

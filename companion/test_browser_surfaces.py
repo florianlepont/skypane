@@ -224,12 +224,12 @@ def fleet_server(module_app_server_factory):
 @pytest.mark.parametrize("width", (360, 1000, 1280, 1440))
 def test_fleet_state_rows_never_overlap(new_context, fleet_server, width, lang, scheme):
     context, page = _open(
-        new_context, fleet_server, "/fleet?frame=%s" % fleet_server.frame_id,
+        new_context, fleet_server, "/fleet?frame=%s&view=health" % fleet_server.frame_id,
         {"width": width, "height": 900}, lang, scheme)
     try:
         page.locator(".fleet-block .health-row__summary").first.wait_for(state="visible")
         rows = page.evaluate(_STATE_ROWS)
-        assert rows, "the State block shows no health row"
+        assert rows, "the Health page shows no health row"
         for row in rows:
             assert not row["overlap"], (width, lang, row)
             assert row["verdictW"] >= 100, (width, lang, row)

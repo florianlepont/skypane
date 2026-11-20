@@ -63,9 +63,8 @@ def test_the_blocks_lay_out_and_nothing_overflows(
     try:
         assert not _assert_no_page_overflow(page, where, viewport["width"])
         blocks = page.evaluate(_BLOCKS)
-        # A phone's State tab shows State and Device and version; from 960px every section
-        # (State, Device and version, Settings, Access) is on the page.
-        assert len(blocks) == (4 if wide else 2), where
+        # The three sections (State, Settings, Access) are stacked on the page at every width.
+        assert len(blocks) == 3, where
         for upper, lower in zip(blocks, blocks[1:]):
             assert abs(lower["x"] - upper["x"]) < 2 and lower["y"] > upper["y"], (where, blocks)
         for block in blocks:
@@ -146,7 +145,7 @@ def test_a_list_row_is_a_plain_link_that_selects_the_frame_on_desktop(
     try:
         # No frame chosen: the list and the first frame side by side.
         assert page.evaluate(_VISIBLE, ".fleet-list")
-        assert page.locator("section.fleet-block").count() == 4
+        assert page.locator("section.fleet-block").count() == 3
         assert not page.evaluate(_VISIBLE, ".fleet-switch")
         assert page.locator("main h1:visible").count() == 1
         assert page.locator("main h1:visible").inner_text() in ("Orly frame", "Kitchen")
@@ -156,7 +155,7 @@ def test_a_list_row_is_a_plain_link_that_selects_the_frame_on_desktop(
         page.wait_for_function(_SETTLED, timeout=15000)
         assert page.locator(".fleet-list [aria-current='page']").count() == 1
         assert page.locator(target).get_attribute("aria-current") == "page"
-        assert page.locator("section.fleet-block").count() == 4
+        assert page.locator("section.fleet-block").count() == 3
         assert page.locator(".fleet-list a[href='/fleet?view=system']").count() == 0
         page.locator("nav.sidebar-nav a[href='/fleet?view=system']").click()
         page.wait_for_url("**/fleet?view=system")

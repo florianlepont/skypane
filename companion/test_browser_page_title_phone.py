@@ -26,7 +26,9 @@ def _title_state(page):
             const bar = document.querySelector('.site-header').getBoundingClientRect();
             // A frame page on a phone opens with its chip row (the owner's layout): the title then
             // follows the row, and the row sits where a title would.
-            const chips = document.querySelector('.fleet-switch');
+            // The Health and Versions pages open with the way back to the frame, which stands in
+            // the same place.
+            const chips = document.querySelector('.fleet-switch, .fleet-back');
             const chipBox = chips && getComputedStyle(chips).display !== 'none'
                 ? chips.getBoundingClientRect() : null;
             const hidden = h1.classList.contains('visually-hidden');

@@ -81,15 +81,15 @@ def _page(app, device, page):
 
 
 def _fleet_view(app, device):
-    """The Fleet page with `device` selected."""
-    status, _, body = get(app, "/fleet?frame=%s" % device.id)
+    """The Health page of `device` on the Fleet page."""
+    status, _, body = get(app, "/fleet?frame=%s&view=health" % device.id)
     assert status == 200
     return body
 
 
 def _french_page(app, device, page):
     cookie = "%s; %s=fr" % (app.cookie, auth.UI_LANG_COOKIE_NAME)
-    path = "/fleet?frame=%s" % device.id if page == "fleet" else "/devices/%s/%s" % (device.id, page)
+    path = "/fleet?frame=%s&view=health" % device.id if page == "fleet" else "/devices/%s/%s" % (device.id, page)
     status, _, body = http_request(app.server.base_url() + path, cookie=cookie)
     assert status == 200
     return body.decode("utf-8", "replace")
@@ -164,7 +164,7 @@ def test_silent_device_shows_the_unreachable_toast_and_its_last_data(two_devices
 
 def test_live_frame_health_has_no_device_states(two_devices):
     app = two_devices
-    page = get(app, "/fleet?frame=%s" % app.fleet.live.id)[2]
+    page = get(app, "/fleet?frame=%s&view=health" % app.fleet.live.id)[2]
     assert "No signal since" not in page
     assert "has not checked in yet" not in page
 

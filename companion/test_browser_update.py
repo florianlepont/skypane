@@ -188,11 +188,11 @@ def _seed_many_releases(state_dir, scenario=None):
     atomic_io.atomic_write(fr.device_report_path(str(state_dir)), json.dumps(device_report))
 
 
-FLEET_ROUTE = "/fleet?frame=live"
+FLEET_ROUTE = "/fleet?frame=live&view=versions"
 
 
 def _reveal(page, which):
-    """The Fleet page shows the update card and the version list inline: nothing to open.
+    """The frame's Versions page shows the update card and the version list: nothing to open.
     The list waits for its first row so a read right after navigation is settled."""
     if which == "versions":
         page.wait_for_function(
@@ -201,7 +201,7 @@ def _reveal(page, which):
 
 def _dismiss(page):
     """Nothing to close: the card and the list are part of the page."""
-FLEET_FRAME_HREF = "/fleet?frame=live"
+FLEET_FRAME_HREF = "/fleet?frame=live&view=versions"
 
 
 def _page_has_no_horizontal_overflow(page):
@@ -326,7 +326,7 @@ def test_install_asks_in_a_dialog_then_schedules(new_context, make_app_server):
 
         _install_submit(page).click()
         _confirm_in_dialog(page)
-        assert page.url == base_url + "/fleet?frame=live"
+        assert page.url == base_url + FLEET_ROUTE
         registry = fr.load_registry(server.state_dir)
         assert registry["schedule"]["state"] == "scheduled"
         assert registry["schedule"]["version"] == _AVAILABLE_VERSION
@@ -347,7 +347,7 @@ def test_no_js_install_goes_straight_to_confirm_page_and_completes(
         assert fr.load_registry(server.state_dir)["schedule"] is None
 
         _click_install_form_no_js(page)
-        assert page.url == base_url + "/fleet?frame=live"
+        assert page.url == base_url + FLEET_ROUTE
         registry = fr.load_registry(server.state_dir)
         assert registry["schedule"]["state"] == "scheduled"
         assert registry["schedule"]["version"] == _AVAILABLE_VERSION

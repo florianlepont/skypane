@@ -713,16 +713,23 @@ def test_get_update_without_a_session_redirects_to_login(module_app_server_facto
 
 
 def test_get_fleet_end_to_end_renders_the_scheduled_state(module_app_server_factory):
-    """a real GET /fleet, seeded through firmware_registry's own write API plus a
-    hand-written device_report.json, serves the Scheduled state with a Cancel form"""
+    """a real GET of the frame's Versions page, seeded through firmware_registry's own write
+    API plus a hand-written device_report.json, serves the Scheduled state with a Cancel form;
+    the frame's own page shows the firmware tile saying so"""
     server = module_app_server_factory(seed=_seed_update_state)
     cookie = login(server)
-    status, _headers, body = get(server, "/fleet", cookie=cookie)
+    status, headers, _body = get(server, "/update", cookie=cookie)
+    assert status == 303 and headers["Location"].endswith("&view=versions")
+    status, _headers, body = get(server, headers["Location"], cookie=cookie)
     assert status == 200
     text = body.decode("utf-8")
     assert i18n.t(update_page.STATE_LABELS["scheduled"]) in text
     assert 'action="%s"' % update_page.CANCEL_ROUTE in text
     assert "fw-v1.0.0" in text
+    frame = headers["Location"].replace("&view=versions", "")
+    _status, _headers, overview = get(server, frame, cookie=cookie)
+    tile = re.search(r'<a class="fleet-tile"[^>]*href="[^"]*view=versions">.*?</a>', overview.decode("utf-8"), re.S)
+    assert tile and i18n.t(update_page.CTA_SCHEDULED_TEXT) in tile.group(0)
 
 # ==========================================================================
 # Task 1: navigation entry, icon and French nav label

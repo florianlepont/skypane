@@ -749,7 +749,7 @@ _PREFIX_REFUSING_KEYS = [key for key in _UNSCOPED_KEYS if key != ("GET", "/updat
 def test_the_retired_update_page_under_a_prefix_moves_an_administrator_to_that_frame(rig):
     path = "/devices/%s/update" % rig.fleet.owner_device
     status, headers, _b = rig.request("GET", path, rig.cookies["admin"])
-    assert (status, headers["Location"]) == (303, "/fleet?frame=%s" % rig.fleet.owner_device)
+    assert (status, headers["Location"]) == (303, "/fleet?frame=%s&view=versions" % rig.fleet.owner_device)
     # A person who is not an administrator is moved like from the retired page itself.
     status, headers, _b = rig.request("GET", path, rig.cookies["owner"])
     assert (status, headers["Location"]) == (303, "/devices/%s/" % rig.fleet.owner_device)

@@ -82,7 +82,7 @@ VIEW_TRANSITION_NAMES = {
     # thumbnail-to-picture transition runs: no element has it on any route at rest.
     "skypane-flight-pic": (),
     # The selected segment of a section strip whose segments change page.
-    "skypane-strip": ("/display", "/fleet"),
+    "skypane-strip": ("/display",),
 }
 
 # Named viewport sizes, replacing the inline {"width": ..., "height": ...} dicts this file used

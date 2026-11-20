@@ -474,13 +474,19 @@ def test_the_charging_pill_going_stale_changes_the_home_token_and_leaves_the_fle
     session = login(server)
     now = _seed_charging_ramp(server.state_dir)
     before = _token(server, layout.HOME_ROUTE, session)
-    assert "charging-pill" in _get(server, "/fleet", session)[2].decode("utf-8")
+
+    def health_page():
+        # The retired /health address leads to the frame's Health page, which holds the pill.
+        location = _get(server, "/health", session)[1]["Location"]
+        return _get(server, location, session)[2].decode("utf-8")
+
+    assert "charging-pill" in health_page()
     assert "charging-pill" in _get(server, layout.HOME_ROUTE, session)[2].decode("utf-8")
 
     later = (now + timedelta(seconds=2 * 300 + 120)).isoformat(timespec="seconds")
     monkeypatch.setattr(history_db, "utc_now_iso", lambda: later)
     assert _token(server, layout.HOME_ROUTE, session) != before
-    assert "charging-pill" not in _get(server, "/fleet", session)[2].decode("utf-8")
+    assert "charging-pill" not in health_page()
     assert "charging-pill" not in _get(server, layout.HOME_ROUTE, session)[2].decode("utf-8")
 
 

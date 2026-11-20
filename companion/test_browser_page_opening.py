@@ -39,6 +39,7 @@ PAGES = (
     ("/display/calendar", False),
     ("/fleet", False),
     ("/fleet?view=system", False),
+    ("/health", False),
     ("/update", False),
     ("/users", True),
     ("/audit", True),
@@ -50,7 +51,7 @@ PAGES = (
     ("/not-a-page", False),
 )
 # A frame's own page (it redirects to the live frame): a phone opens /fleet on the list of frames.
-FRAME_PAGE = "/update"
+FRAME_PAGE = "/device"
 TALL_LIMIT = 6
 PAGE_LIMIT = 8
 
@@ -258,27 +259,21 @@ def test_the_blocks_of_a_page_enter_one_step_after_another(new_context, server, 
         context.close()
 
 
-def test_each_fleet_tab_opens_in_the_same_order_on_a_phone(new_context, server):
-    """Whatever tab a phone shows, the frame's header row, the tabs and then that tab's own
-    blocks enter one step apart: blocks of the hidden tabs take no place in the count."""
+def test_the_sections_of_a_frame_enter_in_order_on_a_phone(new_context, server):
+    """A phone stacks State, Settings and Access under the frame's header row and the anchors:
+    all of them enter one step apart, in page order."""
     context = _admin_context(new_context, server, VIEWPORT_MIN_SUPPORTED,
                              reduced_motion="no-preference")
     context.add_init_script(_BLOCKS_AT_OPEN)
     try:
         page = context.new_page()
         _open(page, server, FRAME_PAGE)
-        hrefs = page.evaluate(
-            "() => [...document.querySelectorAll('[data-tabs=\"fleet\"] a')]"
-            ".map((a) => a.getAttribute('href'))")
-        assert len(hrefs) == 3, hrefs
-        for href in hrefs:
-            _open(page, server, href)
-            page.wait_for_function("() => window.__blocks !== undefined", timeout=10000)
-            blocks = [b for b in page.evaluate("() => window.__blocks") if b["height"]]
-            delays = [b["delay"] for b in blocks]
-            assert len(delays) >= 3, (href, blocks)
-            assert delays == [min(k, 5) * 60 for k in range(len(delays))], (
-                href, [(b["cls"][:50], b["delay"]) for b in blocks])
+        page.wait_for_function("() => window.__blocks !== undefined", timeout=10000)
+        blocks = [b for b in page.evaluate("() => window.__blocks") if b["height"]]
+        delays = [b["delay"] for b in blocks]
+        assert len(delays) >= 5, blocks
+        assert delays == [min(k, 5) * 60 for k in range(len(delays))], (
+            [(b["cls"][:50], b["delay"]) for b in blocks])
     finally:
         context.close()
 
@@ -288,7 +283,7 @@ def test_each_fleet_tab_opens_in_the_same_order_on_a_phone(new_context, server):
 _TAKING_PART = (
     ("/display", VIEWPORT_MIN_SUPPORTED, (".layout-card", ".personalisation-nav"), ()),
     ("/display", VIEWPORT_DESKTOP, (".layout-card", ".personalisation-nav"), ()),
-    (FRAME_PAGE, VIEWPORT_MIN_SUPPORTED, (".fleet-head", ".fleet-tabs"), ()),
+    (FRAME_PAGE, VIEWPORT_MIN_SUPPORTED, (".fleet-head", ".fleet-anchors"), ()),
     ("/audit", VIEWPORT_MIN_SUPPORTED, (), (".filter-bar__count", ".audit-cards")),
     ("/audit", VIEWPORT_DESKTOP, (), (".filter-bar__count", ".audit-cards")),
     ("/airlines", VIEWPORT_MIN_SUPPORTED, (), ("#collection-grid",)),
@@ -414,22 +409,6 @@ def test_the_audit_chips_carry_the_selection_through_the_page_change(
         assert _thumb_matches_current(page, strip)
         probe = _follow(page, strip + " a.filter-chip:not(.filter-chip--current) >> nth=1")
         assert "category" in page.url
-        _assert_carried(page, probe, strip)
-    finally:
-        context.close()
-
-
-def test_the_fleet_tabs_carry_the_selection_through_the_page_change(new_context, server):
-    """on a phone the State, Settings and Access tabs hand the selection over like the Style
-    tabs"""
-    context = _strip_context(new_context, server, VIEWPORT_MIN_SUPPORTED)
-    try:
-        page = context.new_page()
-        _open(page, server, FRAME_PAGE)
-        strip = '[data-tabs="fleet"]'
-        assert _thumb_matches_current(page, strip)
-        probe = _follow(page, strip + " a:not([aria-current]) >> nth=0")
-        assert "tab=" in page.url
         _assert_carried(page, probe, strip)
     finally:
         context.close()
@@ -1020,20 +999,20 @@ def test_a_disclosure_row_fades_its_content_in_when_it_opens(new_context, server
                              reduced_motion="no-preference")
     try:
         page = context.new_page()
-        _open(page, server, FRAME_PAGE)
-        page.wait_for_function(_SETTLED_PAGE, timeout=10000)
-        first = page.evaluate("""() => {
-          const out = [];
-          for (const sel of ['details.health-row:not([open])', 'details.readings-disclosure:not([open])']) {
-            const d = document.querySelector(sel);
-            if (!d) { out.push([sel, 'missing']); continue; }
-            d.open = true;
-            const body = d.querySelector(':scope > :not(summary)');
-            out.push([sel, getComputedStyle(body).animationName,
-                      parseFloat(getComputedStyle(body).opacity)]); }
-          return out; }""")
-        for sel, name, opacity in first:
-            assert name == "skypane-fade-in" and opacity < 0.5, first
+        # The System view's rows are closed; the Health page's rows are open, its readings
+        # list is not.
+        for path, sel in (("/fleet?view=system", "details.health-row:not([open])"),
+                          ("/health", "details.readings-disclosure:not([open])")):
+            _open(page, server, path)
+            page.wait_for_function(_SETTLED_PAGE, timeout=10000)
+            first = page.evaluate("""(sel) => {
+              const d = document.querySelector(sel);
+              if (!d) return [sel, 'missing', 1];
+              d.open = true;
+              const body = d.querySelector(':scope > :not(summary)');
+              return [sel, getComputedStyle(body).animationName,
+                      parseFloat(getComputedStyle(body).opacity)]; }""", sel)
+            assert first[1] == "skypane-fade-in" and first[2] < 0.5, first
     finally:
         context.close()
 
