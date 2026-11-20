@@ -73,3 +73,28 @@ New: `companion/test_system_tiles.py` (tiles, labels, hrefs and block ids, warni
 3. Server tile: should a later plan add real machine health (disk, uptime, deployed version)? It needs new data.
 
 ## Self-Check: PASSED
+
+## Fidelity pass
+
+The owner compared the build with `68-MOCKUP-system.html` and asked for the mock, including its short texts. The detail blocks and the warnings banner were rebuilt for the System page only; the frame Health page keeps its rows (`health_rows`) and its sentences untouched.
+
+### What changed
+
+- `companion/pages/system_cards.py` (new) builds the four detail cards and the banner from the same snapshot as the tiles. Each card is a header row (state icon with a hidden state word, small label, bold verdict, right-aligned short value or "N to resolve" pill), a hairline, then label/value rows with the value at the right ("Last run 40 s ago", "Last detection", "Last off-box backup").
+- The section label above each card ("Flight data", "Data sources", "Identification", "Off-box backup", and their French forms) is visible again.
+- Data sources: three outcome rows separated by hairlines (dot and name, count in bold at the right, one short sentence). New short sentences, EN and FR from the mock.
+- Identification: header "92.4 % of flights identified" (non-breaking space before the percent sign, as the mock), sub line "Last 30 days: 148 flights" (the page computes 30 days, so the mock's "7" became the real number), "N to resolve" pill at the right, and a flat Source / Count / Description table with the mock's short descriptions in the mock's order. No unresolved-airlines link. The tile reads "92.4 % identified" as in the mock.
+- Warnings banner: a bordered card, "N warnings:" in bold, one outlined pill per warning, then "Something needs attention — check the rows below." (`div.sys-banner.health-anomaly`).
+- The fleet swap registry (`ui_nav.py`, `freshness.js`) gained `.sys-card__head` so the cards refresh like the rows did.
+- Tests: `test_system_tiles.py` (cards, outcomes, identification header and table, banner, French), `test_browser_system_tiles.py` (labels visible, values right-aligned, no overflow at 320/390/1440); pins moved from the old blocks in `test_toasts.py`, `test_page_context.py`, `test_user_view_http.py`, `test_status_pages_04.py`. Render baseline regenerated once.
+- Captures: `/tmp/claude-0/-home-user-skypane/1ebaf6ab-90c3-5997-a366-609c87d2992c/scratchpad/p37b/{mock,built}/`.
+
+### Remaining divergences
+
+1. Tile and card icons are the existing sprite glyphs (pipeline, corroboration, tag, upload), not the mock's server, radio and cloud: every page embeds the sprite and the render hashes and the sprite-count pin would move for the whole app.
+2. Tiles stay the shared `.fleet-tile` (value 17 px against the mock's 19, icon 32 px against 36, padding 16 against 14, grid gap 8 against 12) so they match the frame Overview.
+3. Relative ages come from the shared ladder ("39s ago", "il y a 11 min"), not the mock's "40 s ago" spelling; the numbers are live.
+4. Three French verdicts keep their existing wording because the Health page shares them ("Les sources se sont contredites récemment" against the mock's "ont divergé"; banner pills such as "Sources en désaccord récemment" are the real anomaly labels).
+5. Real data replaces sample data: counts, 30-day window, the number and labels of warnings (the page can carry the device-stale warning as well).
+6. Font and spacing use tokens: 15 px for fact rows (mock 14), 12 px paddings as `calc(space-sm + space-xs)`.
+7. The mock's frames column and phone chip row are the existing shell, unchanged.
