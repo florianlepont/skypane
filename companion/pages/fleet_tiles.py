@@ -102,3 +102,18 @@ def tiles_section_html(frame_id, tiles, firmware):
             SECTION_ID_PREFIX,
             ui_groups.section_label(i18n.t(_STATE_HEADING), "fleet-block-state"),
             "".join(cells) + firmware_cell))
+
+
+SYSTEM_BLOCK_ID_PREFIX = "system-topic-"
+
+
+def system_tiles_html(tiles):
+    """The System page's tiles: one equal tile per topic (a
+    `health_page.SystemTile`), each a link that jumps to its block on the same
+    page. The state is spelled out (a visually hidden word and the headline),
+    never colour alone."""
+    cells = "".join(
+        _tile("#" + SYSTEM_BLOCK_ID_PREFIX + tile.key, tile.state, tile.icon, tile.label,
+              escape_html(tile.value), tile.meta_html)
+        for tile in tiles)
+    return '<ul class="fleet-tiles fleet-tiles--system">%s</ul>' % cells

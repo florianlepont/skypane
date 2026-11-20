@@ -99,9 +99,9 @@ def test_collect_anomalies_and_overall_severity_treat_pipeline_off_as_healthy():
 # ==========================================================================
 
 
-def test_single_reading_still_no_chart_no_script_but_server_seeded_readout(tmp_path):
+def test_single_reading_still_no_chart_no_script_but_the_latest_reading_is_shown(tmp_path):
     """battery_sparkline_svg() still returns '' for fewer than two numeric readings, and the page emits
-    no chart script tag or trend line; the latest reading is still shown in the server-rendered readout"""
+    no chart script tag, hover readout or trend line; the latest reading is still shown beside the gauge"""
     assert health_page.battery_sparkline_svg([{"ts": "t1", "battery_mv": 4200}]) == "", (
         "expected battery_sparkline_svg() to return '' for a single-row input")
     state_dir = str(tmp_path)
@@ -109,9 +109,8 @@ def test_single_reading_still_no_chart_no_script_but_server_seeded_readout(tmp_p
     shp.seed_device_health(state_dir, [(shp.iso(now), 4200)])
     rendered = health_page_composition.render(shp.ctx(state_dir, now_value=shp.iso(now)))
     assert "<script" not in rendered, "did not expect a <script tag with only one battery reading"
-    assert health_page.BATTERY_READOUT_ID in rendered, (
-        "expected the server-seeded readout to show the single latest battery reading")
-    assert "4200 mV" in rendered, "expected the readout to carry the single reading's value"
+    assert health_page.BATTERY_READOUT_ID not in rendered, "the hover readout belongs to the chart"
+    assert "4200 <small>mV</small>" in rendered, "expected the single reading's voltage beside the gauge"
     assert health_page.SPARKLINE_LINE_CLASS not in rendered, (
         "did not expect a sparkline trend-line segment with only one battery reading")
 
@@ -140,8 +139,6 @@ def test_empty_battery_history_stays_script_free(tmp_path):
     assert "<script" not in rendered, "did not expect any <script tag with zero battery rows"
     assert health_page.SPARKLINE_LINE_CLASS not in rendered, (
         "did not expect a sparkline trend-line segment with zero battery rows")
-    assert health_page.SPARKLINE_DOT_CLASS not in rendered, (
-        "did not expect a sparkline dot with zero battery rows")
     assert health_page.BATTERY_READOUT_ID not in rendered, (
         "did not expect the readout element id with zero battery rows")
 
@@ -837,8 +834,8 @@ def test_battery_row_keeps_everything_after_the_move(tmp_path):
 
 
 def test_battery_row_is_followed_by_content_not_a_range_caption(tmp_path):
-    """the Battery row's body leads with the readout and chart, then the collapsed readings disclosure — no
-    range caption anywhere in it"""
+    """the Battery row's body leads with the chart (its readout in the title row), then the collapsed
+    readings disclosure; no caption paragraph sits anywhere in it"""
     state_dir = str(tmp_path)
     base = shp.now()
     readings = [
@@ -850,7 +847,8 @@ def test_battery_row_is_followed_by_content_not_a_range_caption(tmp_path):
     body = _row_html(rendered, "battery")
     assert "section-caption" not in body, "expected no caption paragraph inside the battery row"
     assert body.index(health_page.BATTERY_READOUT_ID) < body.index(
-        '<details class="readings-disclosure"'), "expected the readout to precede the readings disclosure"
+        '<details class="readings-disclosure battery-readings"'), (
+        "expected the readout to precede the readings disclosure")
 
 
 def test_battery_row_name_is_the_bare_subject_in_both_languages(tmp_path):
@@ -870,9 +868,10 @@ def test_battery_row_name_is_the_bare_subject_in_both_languages(tmp_path):
             "%s: the retired range label must not render" % lang)
 
 
-def test_battery_row_renders_no_range_caption_in_any_of_three_branches(tmp_path):
+def test_battery_row_names_its_series_honestly_in_any_of_three_branches(tmp_path):
     """a usable daily series, no rows at all, and a sub-two-day raw series each render the battery
-    row with no range caption; only the readings disclosure carries the real count"""
+    row with the caption of the series actually drawn (none when nothing is drawn), and no stray
+    caption paragraph"""
     base = datetime(2026, 9, 10, 12, 0, 0, tzinfo=timezone.utc)
 
     daily_dir = str(tmp_path / "daily")
@@ -891,8 +890,10 @@ def test_battery_row_renders_no_range_caption_in_any_of_three_branches(tmp_path)
         body = _row_html(health_page_composition.render(shp.ctx(state_dir, now_value=shp.iso(base))), "battery")
         assert 'class="text-label section-caption"' not in body and 'health-row__note' not in body, (
             "%s branch: expected no range caption in the battery row" % branch)
-        assert "Last 3 months" not in body and "Latest " not in body, (
-            "%s branch: expected no range wording in the battery row" % branch)
+        expected = {"daily": "Last 90 days", "sameday": "Latest 3 readings"}.get(branch)
+        for wording in ("Last 90 days", "Latest 3 readings"):
+            assert (wording in body) == (wording == expected), (
+                "%s branch: expected the caption %r only" % (branch, expected))
     sameday_body = _row_html(health_page_composition.render(shp.ctx(sameday_dir, now_value=shp.iso(base))), "battery")
     assert "View %d readings" % len(sameday_readings) in sameday_body, (
         "sameday branch: expected the disclosure to name the real reading count")
@@ -1064,30 +1065,17 @@ def test_quick_260902_gjj_dot_removal_scoped_not_global(tmp_path):
 
 
 def test_quick_260901_tsa_css_dom_contract_guard(css_text):
-    """style.css's .section-intro / .section-intro > p / .stat-tile__value .mono / .battery-readout rules
-    each carry their load-bearing declaration, and .mono precedes .battery-readout in the
-    stylesheet's rule order"""
-    # The cross-file guard for every new/edited style.css rule this
-    # markup depends on.
+    """style.css's .section-intro / .section-intro > p / .stat-tile__value .mono rules each carry their
+    load-bearing declaration"""
     expectations = (
         (".section-intro", "display", "flex"),
         (".section-intro > p", "margin", "0"),
         (".stat-tile__value .mono", "font-weight", "inherit"),
-        (".battery-readout", "font-weight", "var(--weight-semibold)"),
     )
     for selector, prop, expected_value in expectations:
         decls = declarations_for(css_text, selector)
         assert decls.get(prop) == expected_value, (
             "expected %r's %r declaration to be %r, got %r" % (selector, prop, expected_value, decls))
-
-    # The one source-order fact the Emphasis promotion actually rests on:
-    # .mono's rule must precede .battery-readout's rule, since the
-    # promotion wins by SOURCE ORDER (a later same-specificity rule), not
-    # by selector specificity.
-    rules = css_rules(css_text)
-    assert _rule_index(rules, ".mono") < _rule_index(rules, ".battery-readout"), (
-        "expected .mono's rule to precede .battery-readout's — moving .battery-readout above "
-        ".mono would silently return the readout to regular weight")
 
 
 def test_dashboard_grid_stretches_same_row_tiles(css_text):

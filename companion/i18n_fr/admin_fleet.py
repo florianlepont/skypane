@@ -6,6 +6,8 @@ only carries the French.
 """
 
 MESSAGES = {
+    "admin_fleet.system_sub":
+        "Le serveur derrière chaque cadre. Visible des administrateurs.",
     "admin_fleet.new_frame": "Nouveau cadre",
     "admin_fleet.formerly_owner": "Anciennement %s",
     "admin_fleet.switch_a_frame_on_when_its_pairing_code_appears_choose_add":

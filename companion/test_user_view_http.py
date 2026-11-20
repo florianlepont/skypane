@@ -393,7 +393,7 @@ def test_the_system_view_is_the_administrators_alone_and_keeps_its_platform_rows
     for text in platform_texts:
         assert escape_html(i18n.t(text)) in admin_health, text
     # Unresolved airlines are handled in the Editor: the identification row links nowhere.
-    assert "/airlines/manage" not in admin_health.split('id="health-row-identification"')[1].split("</details>")[0]
+    assert "/airlines/manage" not in admin_health.split('id="system-card-identification"')[1].split("</li>")[0]
     rig.assert_unknown("GET", "/fleet?view=system", "a")
     # The retired Health address moves a user to their own Home, never to a platform page.
     status, headers, _body = rig.get("/health", "a")

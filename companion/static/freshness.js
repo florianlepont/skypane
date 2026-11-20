@@ -292,6 +292,7 @@
     ],
     "fleet": [
       ".health-row__summary",
+      ".sys-card__head",
       "div.health-anomaly",
       "section.health-source-fault",
       'a[href$="/fleet"]'

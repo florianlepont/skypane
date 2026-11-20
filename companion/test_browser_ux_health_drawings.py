@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
-"""Browser checks for the SVG-drawing scenario group: the battery ring, the battery chart's
+"""Browser checks for the SVG-drawing scenario group: the battery gauge, the battery chart's
 area/line/threshold and the absence of a regularity grid, all on Health, plus the rows card's
 alignment and width.
 
-The drawings live inside the Health rows' details, so each check opens the rows first (by
-keyboard, the native disclosure, which also works with scripts blocked) before it measures.
-
-One module-scoped, read-only server (`server`) is shared across these checks. None of the
-tests below POSTs or otherwise mutates server state, so sharing it is safe under xdist.
+Two module-scoped, read-only servers are shared across these checks: `server` (the default
+seed, whose readings stay far above the low-battery mark, so the chart carries its caption
+instead of the line) and `near` (readings that approach the mark, so the dashed line, its
+label and the tinted zone are drawn). None of the tests below POSTs or otherwise mutates
+server state, so sharing them is safe under xdist.
 """
 import re
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -23,33 +24,52 @@ from companion.test_browser_ux_helpers import (
     _assert_no_page_overflow, _computed_paint, _login, _no_js_page,
     _set_ui_theme, seed_state_dir,
 )
+from server import history_db
 
 pytestmark = pytest.mark.browser
 
 VISIBLE_VIEW = ".battery-chart__view:not([hidden])"
 
-# The battery ring, measured where it actually has to be correct: a real browser, both
+# The battery gauge, measured where it actually has to be correct: a real browser, both
 # themes, the narrowest supported screen, and with scripts off.
 
-# Scoped to the Battery row: the Identification row carries a second, smaller ring.
+# Scoped to the Battery row: the Identification row carries a ring.
 RING_FIGURE = "#health-row-battery svg.drawing__figure"
-RING_VALUE = "#health-row-battery svg.drawing__figure .drawing-ring-value"
-RING_TRACK = "#health-row-battery svg.drawing__figure .drawing-ring-track"
+RING_VALUE = "#health-row-battery svg.drawing__figure .drawing-arc-value"
+RING_TRACK = "#health-row-battery svg.drawing__figure .drawing-arc-track"
 FRAME_ROUTE = "/fleet?frame=live&view=health"
 RING_PAGES = (("Fleet", FRAME_ROUTE),)
 
 
 @pytest.fixture(scope="module")
 def server(module_app_server_factory):
-    """The shared, read-only seeded fixture the battery ring and battery chart checks
+    """The shared, read-only seeded fixture the battery gauge and battery chart checks
     measure against — module-scoped because every test in this group only GETs.
     """
     return module_app_server_factory(seed=seed_state_dir, fake_providers=True)
 
 
+def _seed_near_the_mark(state_dir):
+    """The default seed with its battery history replaced by one that comes within a step of
+    the low-battery mark."""
+    seed_state_dir(state_dir)
+    now = datetime.now(timezone.utc)
+    with history_db.open_db(state_dir) as conn:
+        conn.execute("DELETE FROM device_health")
+        for day in range(40, -1, -1):
+            history_db.record_device_health(
+                conn, (now - timedelta(days=day, minutes=2)).isoformat(timespec="seconds"),
+                battery_mv=3570 + day * 4, fw_version="1.0.0", boot_reason="wake", rssi="-60")
+
+
+@pytest.fixture(scope="module")
+def near(module_app_server_factory):
+    return module_app_server_factory(seed=_seed_near_the_mark, fake_providers=True)
+
+
 @pytest.mark.parametrize("label,route", RING_PAGES, ids=[p[0] for p in RING_PAGES])
-def test_the_ring_paints_a_theme_token_in_both_themes(new_context, server, label, route):
-    """The battery ring's value arc resolves to a real theme token on both pages in both
+def test_the_gauge_paints_a_theme_token_in_both_themes(new_context, server, label, route):
+    """The battery gauge's value arc resolves to a real theme token on both pages in both
     themes: never the SVG default fill or stroke, never the same paint as its own track,
     and never the same value in light and dark.
     """
@@ -100,7 +120,7 @@ def test_the_ring_paints_a_theme_token_in_both_themes(new_context, server, label
 
 
 @pytest.mark.parametrize("label,route", RING_PAGES, ids=[p[0] for p in RING_PAGES])
-def test_the_rings_viewbox_contains_its_own_stroked_geometry(new_context, server, label, route):
+def test_the_gauges_viewbox_contains_its_own_stroked_geometry(new_context, server, label, route):
     """The battery ring's viewBox contains its own stroked geometry on both pages: each
     arc's browser-reported bounding box, expanded by half its resolved stroke width on
     every side, lies inside the box the emitter declared.
@@ -145,7 +165,7 @@ def test_the_rings_viewbox_contains_its_own_stroked_geometry(new_context, server
         context.close()
 
 
-def test_the_ring_costs_no_width_no_height_and_no_script(new_context, server):
+def test_the_gauge_costs_no_width_no_height_and_no_script(new_context, server):
     """At the 360px floor the ring costs nothing it must not: the page's body does not scroll
     sideways, and the ring still renders, and still paints a dark-mode token, with scripts
     blocked through _no_js_page().
@@ -190,22 +210,24 @@ def test_the_ring_costs_no_width_no_height_and_no_script(new_context, server):
         context.close()
 
 
-# The battery chart's three additions, measured where they have to be correct.
+# The battery chart's drawn parts, measured where they have to be correct.
 
 CHART_AREA = ".sparkline-area"
 CHART_LINE = ".sparkline-line"
 CHART_MARK = ".sparkline-mark"
 CHART_THRESHOLD = ".sparkline-threshold"
+CHART_ZONE = ".sparkline-zone"
 CHART_LEGEND = ".sparkline-legend"
 CHART_SWATCH = ".sparkline-swatch"
+CHART_TEXT = ".sparkline-text, .sparkline-text--strong"
 
 # The area is a translucent fill, so its resolved `fill` is not what lands on screen: what
 # lands is that colour composited over the card behind it at the resolved `fill-opacity`.
 # Composited here and compared against the card's own resolved background through the app's
 # own contrast formula. The 1.20:1 floor is not WCAG's 3:1, which is for a UI component a
-# user must find and identify; this is a wash under a line that already carries the data,
-# and at 3:1 it would be a block of ink. What it must not be is present but invisible,
-# technically painted, visually absent.
+# user must find and identify; this is a wash under a line that already carries the data
+# (and fades out downwards), and at 3:1 it would be a block of ink. What it must not be is
+# present but invisible, technically painted, visually absent.
 CHART_AREA_MIN_CONTRAST = 1.20
 
 
@@ -225,12 +247,11 @@ def _as_hex(text):
         int(round(float(v))) for v in re.findall(r"[\d.]+", text)[:3])
 
 
-def test_the_charts_area_mark_and_threshold_paint_real_tokens_in_both_themes(page, server):
-    """The battery chart's area, line, mark and threshold each resolve to a real theme token
-    in both themes: never the SVG default, the area/line/mark sharing one currentColor ink
-    while the threshold deliberately does not, the legend's swatch equal to the drawn
-    threshold, and the area's composite over the card clearing a 1.20:1 floor so it is
-    visible and not merely painted.
+def test_the_charts_area_mark_and_threshold_paint_real_tokens_in_both_themes(page, near):
+    """The battery chart's area, line, mark, threshold line and zone each resolve to a real
+    theme token in both themes: never the SVG default, the area/line/mark sharing one
+    currentColor ink while the threshold deliberately does not, and the area's composite over
+    the card clearing a 1.20:1 floor so it is visible and not merely painted.
     """
     # Three different questions are asked, because "not the default" alone would be green for
     # a shape that is the same in both themes, and "differs between themes" alone would be
@@ -238,21 +259,18 @@ def test_the_charts_area_mark_and_threshold_paint_real_tokens_in_both_themes(pag
     # mark must resolve to the same ink, since all three are currentColor; the threshold must
     # resolve to something else, since a judgement painted in the data's own ink is a
     # judgement nobody can see; and every one of them must move when the theme does.
-    _login(page, server.base_url())
-    page.goto(server.base_url() + FRAME_ROUTE)
-    page.wait_for_selector(CHART_AREA)
+    _login(page, near.base_url())
+    page.goto(near.base_url() + FRAME_ROUTE)
+    page.wait_for_selector(VISIBLE_VIEW + " " + CHART_THRESHOLD, state="attached")
     seen = {}
     for theme in UI_THEMES_EXPLICIT:
         _set_ui_theme(page, theme)
-        area = _computed_paint(page, CHART_AREA, ("fill", "fill-opacity"))
-        line = _computed_paint(page, CHART_LINE, ("stroke",))
-        mark = _computed_paint(page, CHART_MARK, ("fill",))
-        threshold = _computed_paint(page, CHART_THRESHOLD, ("fill",))
-        swatch = page.evaluate(
-            "s => getComputedStyle(document.querySelector(s)).backgroundColor",
-            CHART_SWATCH)
-        # The chart sits in a card-less wrapper inside a row, so the surface it is composited
-        # over is the rows card's own.
+        view = VISIBLE_VIEW + " "
+        area = _computed_paint(page, view + CHART_AREA, ("fill", "fill-opacity"))
+        line = _computed_paint(page, view + CHART_LINE, ("stroke",))
+        mark = _computed_paint(page, view + CHART_MARK, ("fill",))
+        threshold = _computed_paint(page, view + CHART_THRESHOLD, ("stroke",))
+        zone = _computed_paint(page, view + CHART_ZONE, ("fill",))
         # The card is translucent glass: its surface is its fill composited over the sky
         # behind it (measured on the middle stop).
         card = page.evaluate(
@@ -265,8 +283,8 @@ def test_the_charts_area_mark_and_threshold_paint_real_tokens_in_both_themes(pag
             " + (1 - alpha) * parseInt(sky.substr(1 + 2 * i, 2), 16)));"
             " return 'rgb(' + mixed.join(', ') + ')'; }")
         for name, paint, prop in (
-                ("area", area, "fill"), ("line", line, "stroke"),
-                ("mark", mark, "fill"), ("threshold", threshold, "fill")):
+                ("area", area, "fill"), ("line", line, "stroke"), ("mark", mark, "fill"),
+                ("threshold", threshold, "stroke"), ("zone", zone, "fill")):
             if prop in paint["svg_default"]:
                 raise AssertionError(
                     "in %s the chart's %s resolves %s to the SVG default (%r) — it "
@@ -278,22 +296,21 @@ def test_the_charts_area_mark_and_threshold_paint_real_tokens_in_both_themes(pag
                 "what makes dark mode correct by construction rather than by a "
                 "second colour value"
                 % (theme, area["fill"], line["stroke"], mark["fill"]))
-        if threshold["fill"] == line["stroke"]:
+        if threshold["stroke"] == line["stroke"]:
             raise AssertionError(
                 "in %s the threshold resolves to the trend line's own ink (%r) — a "
                 "judgement painted in the data's colour is not a judgement anyone "
-                "can read" % (theme, threshold["fill"]))
-        if swatch != threshold["fill"]:
+                "can read" % (theme, threshold["stroke"]))
+        if zone["fill"] != threshold["stroke"]:
             raise AssertionError(
-                "in %s the legend's swatch (%r) and the drawn threshold (%r) are "
-                "different colours — the legend would be describing a line the "
-                "chart does not draw" % (theme, swatch, threshold["fill"]))
+                "in %s the zone (%r) and the threshold line (%r) are different "
+                "colours" % (theme, zone["fill"], threshold["stroke"]))
 
         alpha = float(area["fill-opacity"])
         if not (0.0 < alpha < 1.0):
             raise AssertionError(
                 "in %s the area's fill-opacity is %r — an opaque area hides the "
-                "axis and the threshold beneath it" % (theme, alpha))
+                "grid and the threshold beneath it" % (theme, alpha))
         composite = _composite_over(area["fill"], alpha, card)
         ratio = contrast_ratio(composite, _as_hex(card))
         if ratio < CHART_AREA_MIN_CONTRAST:
@@ -304,7 +321,7 @@ def test_the_charts_area_mark_and_threshold_paint_real_tokens_in_both_themes(pag
                 "this feature" % (theme, composite, _as_hex(card), ratio,
                                   CHART_AREA_MIN_CONTRAST))
         seen[theme] = {
-            "ink": area["fill"], "alpha": alpha, "threshold": threshold["fill"],
+            "ink": area["fill"], "alpha": alpha, "threshold": threshold["stroke"],
             "card": card, "composite": composite, "ratio": ratio}
 
     first, second = UI_THEMES_EXPLICIT
@@ -317,141 +334,105 @@ def test_the_charts_area_mark_and_threshold_paint_real_tokens_in_both_themes(pag
                 % (token, seen[first][token], first, second))
 
 
-def test_the_chart_costs_no_width_at_360_in_either_language_and_needs_no_script(new_context, server):
-    """At the 360px floor the battery chart's additions cost nothing they must not: the
-    page body does not scroll sideways in either language, the threshold's legend overlaps
-    none of the four axis labels and stays inside its card at the 12px label size,
-    its swatch measures a real 12x1 box (which an inline <span> could not), the canvas keeps
-    its share of the grid rather than being squeezed by a legend that claimed the Y-label
-    column, the mark's edge-hung ink stays inside the card, and the area, mark, threshold
-    and legend all still render, and still paint dark-mode tokens, with scripts blocked.
+_BOXES_PROBE = (
+    "() => {"
+    "  const r = el => { const b = el.getBoundingClientRect();"
+    "    return {l: b.left, t: b.top, r: b.right, b: b.bottom, w: b.width, h: b.height}; };"
+    "  const view = '.battery-chart__view:not([hidden]) ';"
+    "  const q = s => document.querySelector(view + s);"
+    "  const legend = q('.sparkline-legend');"
+    "  return {"
+    "    card: r(document.querySelector('#health-row-battery .health-row__body')),"
+    "    canvas: r(q('.sparkline__canvas')),"
+    "    mark: r(q('.sparkline-mark')),"
+    "    texts: [...document.querySelectorAll(view + '.sparkline-text, ' + view + '.sparkline-text--strong')]"
+    "      .map(e => ({box: r(e), size: getComputedStyle(e).fontSize, text: e.textContent})),"
+    "    legend: legend ? {box: r(legend), size: getComputedStyle(legend).fontSize,"
+    "      swatch: r(q('.sparkline-swatch')),"
+    "      swatchBorder: getComputedStyle(q('.sparkline-swatch')).borderTopStyle} : null};}")
+
+
+@pytest.mark.parametrize("which", ("server", "near"))
+def test_the_chart_costs_no_width_at_360_in_either_language_and_needs_no_script(
+        new_context, server, near, which):
+    """At the 360px floor the battery chart costs nothing it must not: the page body does
+    not scroll sideways in either language, every chart label is at least 13px and inside
+    the chart's own box, the caption for an off-range threshold (default seed) stays inside
+    its card with a dashed 20px swatch, the newest point's marker stays inside the card, and
+    the area, mark and threshold (or its caption) all still render, and still paint dark-mode
+    tokens, with scripts blocked.
     """
-    # The 360px floor, in both languages, since French is the longer copy here and this file
-    # already carries several checks that exist because French overflowed where English did
-    # not. The legend sits in its own full-width grid row, so no overlap with the axis labels
-    # is structural rather than lucky, hence the check is written as a box comparison instead
-    # of "the legend is in its own row": it keeps measuring the property that matters if the
-    # row is ever traded for absolute positioning.
+    app = server if which == "server" else near
     for lang in ("en", "fr"):
         context = new_context(viewport=VIEWPORT_MIN_SUPPORTED)
         try:
             page = context.new_page()
-            base_url = server.base_url()
+            base_url = app.base_url()
             _login(page, base_url)
             context.add_cookies([{
                 "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
             page.goto(base_url + FRAME_ROUTE)
-            page.wait_for_selector(CHART_LEGEND)
+            page.wait_for_selector(VISIBLE_VIEW + " " + CHART_MARK)
             message = _assert_no_page_overflow(
                 page, "/fleet in %s" % lang, VIEWPORT_MIN_SUPPORTED["width"])
             if message:
                 raise AssertionError(message)
-
-            boxes = page.evaluate(
-                "() => {"
-                "  const r = el => { const b = el.getBoundingClientRect();"
-                "    return {l: b.left, t: b.top, r: b.right, b: b.bottom,"
-                "            w: b.width, h: b.height}; };"
-                "  const legend = document.querySelector('.sparkline-legend');"
-                "  return {legend: r(legend),"
-                "          text: legend.textContent.trim(),"
-                "          font: getComputedStyle(legend).fontSize,"
-                "          swatch: r(document.querySelector('.sparkline-swatch')),"
-                "          card: r(document.querySelector('#health-row-battery .health-row__body')),"
-                "          grid: r(document.querySelector('.sparkline')),"
-                "          canvas: r(document.querySelector('.sparkline__canvas')),"
-                "          mark: r(document.querySelector('.sparkline-mark')),"
-                "          axis: [...document.querySelectorAll("
-                "            '.battery-chart__view:not([hidden]) .sparkline-axis-label')]"
-                "                  .map(r)};}")
-            if len(boxes["axis"]) != 4:
+            boxes = page.evaluate(_BOXES_PROBE)
+            if len(boxes["texts"]) < 4:
                 raise AssertionError(
-                    "expected the chart's four axis labels in %s, got %d — with another "
-                    "number this overlap check measures nothing"
-                    % (lang, len(boxes["axis"])))
-            legend = boxes["legend"]
-            for index, axis in enumerate(boxes["axis"]):
-                overlaps = (legend["l"] < axis["r"] and axis["l"] < legend["r"]
-                            and legend["t"] < axis["b"] and axis["t"] < legend["b"])
-                if overlaps:
+                    "expected the chart's grid, end and date labels in %s, got %d"
+                    % (lang, len(boxes["texts"])))
+            canvas = boxes["canvas"]
+            for label in boxes["texts"]:
+                if float(label["size"][:-2]) < 13:
                     raise AssertionError(
-                        "in %s at 360px the threshold's legend %r overlaps axis label %d "
-                        "%r" % (lang, legend, index, axis))
-
-            # THE LEGEND MUST NOT CLAIM THE Y-LABEL COLUMN, and this is
-            # the assertion that makes `.sparkline__legend`'s
-            # `grid-column: 1 / -1` measurable. Without it the legend
-            # auto-places into column 1 — the `auto` column sized to the
-            # widest Y-axis label — and that column grows to fit a whole
-            # sentence: measured at 360px, the canvas drops from 229.97px
-            # to ~109px inside the same 278px grid, with NO overflow and
-            # no other signal. Every other assertion in this check stayed
-            # green through that mutation, which is how the gap was
-            # found. The 0.70 share separates 0.827 (shipped) from 0.39
-            # (mutated) with room on both sides and is not a layout
-            # number anyone would otherwise tune.
-            share = boxes["canvas"]["w"] / boxes["grid"]["w"]
-            if share < 0.70:
-                raise AssertionError(
-                    "in %s at 360px the chart's canvas is %.2fpx of its %.2fpx grid "
-                    "(%.2f) — the legend has claimed the auto-sized Y-label column and "
-                    "squeezed the drawing, which overflows nothing and so shows up "
-                    "nowhere else" % (lang, boxes["canvas"]["w"], boxes["grid"]["w"], share))
-
-            # A bare inline <span> ignores width and height, so the
-            # swatch would compute to a zero-sized box and the legend
-            # would describe a colour it never shows. This box is what
-            # proves `.sparkline-legend`'s inline-flex is doing
-            # something: measured with `display: inline` instead, the
-            # swatch is 0.00x11.00.
-            swatch = boxes["swatch"]
-            if round(swatch["w"], 2) != 12.0 or round(swatch["h"], 2) != 1.0:
-                raise AssertionError(
-                    "in %s at 360px the legend's swatch measures %.2fx%.2f, not the "
-                    "12x1 it declares — an inline <span> ignores width/height, so this "
-                    "is what proves the legend's flex context is doing something"
-                    % (lang, swatch["w"], swatch["h"]))
-            if boxes["font"] != "12px":
-                raise AssertionError(
-                    "in %s the legend renders at %s, not the 12px label size its "
-                    "neighbours use" % (lang, boxes["font"]))
-            if legend["r"] > boxes["card"]["r"] or legend["l"] < boxes["card"]["l"]:
-                raise AssertionError(
-                    "in %s at 360px the legend %r escapes its own card %r"
-                    % (lang, legend, boxes["card"]))
-
+                        "in %s the chart label %r renders at %s, under the 13px floor"
+                        % (lang, label["text"], label["size"]))
+                box = label["box"]
+                if box["l"] < canvas["l"] - 1 or box["r"] > canvas["r"] + 1:
+                    raise AssertionError(
+                        "in %s at 360px the chart label %r %r leaves its canvas %r"
+                        % (lang, label["text"], box, canvas))
+            if which == "server":
+                legend = boxes["legend"]
+                if legend is None or round(legend["swatch"]["w"], 2) != 20.0 \
+                        or legend["swatchBorder"] != "dashed":
+                    raise AssertionError(
+                        "in %s the off-range caption's swatch is not a 20px dashed line: %r"
+                        % (lang, legend))
+                if legend["box"]["r"] > boxes["card"]["r"] or legend["box"]["l"] < boxes["card"]["l"]:
+                    raise AssertionError(
+                        "in %s at 360px the caption %r escapes its own card %r"
+                        % (lang, legend["box"], boxes["card"]))
+            else:
+                assert boxes["legend"] is None, "a threshold drawn on the chart needs no caption"
             # The mark is drawn at the canvas's own edge (cx=100%), so its radius hangs
-            # outside the plot area exactly as the existing dot and hit target already do.
-            # What must hold is that the card absorbs it.
+            # outside the plot area; the card's padding is what must absorb it.
             mark = boxes["mark"]
             if mark["r"] > boxes["card"]["r"] or mark["t"] < boxes["card"]["t"]:
                 raise AssertionError(
-                    "in %s at 360px the mark's ink %r escapes the card %r — the chart's "
-                    "x scale runs edge to edge, so the newest point's radius overhangs "
-                    "the canvas by design and the card's padding is what must absorb it"
+                    "in %s at 360px the mark's ink %r escapes the card %r"
                     % (lang, mark, boxes["card"]))
         finally:
             context.close()
 
-    # All three additions are server-rendered SVG and owe nothing to a script. Measured in
-    # the theme+no-JS combination most likely to be wrong.
-    with _no_js_page(new_context, server.base_url(), FRAME_ROUTE,
+    # All of it is server-rendered SVG and owes nothing to a script. Measured in the
+    # theme+no-JS combination most likely to be wrong.
+    with _no_js_page(new_context, app.base_url(), FRAME_ROUTE,
                      viewport=VIEWPORT_MIN_SUPPORTED) as blocked:
-        for label, selector in (("area", CHART_AREA), ("mark", CHART_MARK),
-                                ("threshold", CHART_THRESHOLD),
-                                ("legend", CHART_LEGEND)):
-            # The hidden percentage twin carries its own copy of each drawing.
+        wanted = [("area", CHART_AREA, "fill"), ("mark", CHART_MARK, "fill")]
+        wanted.append(("threshold", CHART_THRESHOLD, "stroke") if which == "near"
+                      else ("caption", CHART_LEGEND, "color"))
+        for label, selector, _prop in wanted:
+            # The hidden voltage twin carries its own copy of each drawing.
             shown = blocked.locator(VISIBLE_VIEW + " " + selector)
             if shown.count() != 1:
                 raise AssertionError(
                     "with scripts blocked: expected exactly one %s, got %d"
                     % (label, shown.count()))
         _set_ui_theme(blocked, UI_THEMES_EXPLICIT[1])
-        for label, selector, props in (
-                ("area", CHART_AREA, ("fill",)),
-                ("mark", CHART_MARK, ("fill",)),
-                ("threshold", CHART_THRESHOLD, ("fill",))):
-            paint = _computed_paint(blocked, selector, props)
+        for label, selector, prop in wanted:
+            paint = _computed_paint(blocked, VISIBLE_VIEW + " " + selector, (prop,))
             if paint["svg_default"]:
                 raise AssertionError(
                     "with scripts blocked, in %s: the chart's %s resolves %r to the SVG "
@@ -526,7 +507,7 @@ def _shown_unit(page):
 def _pressed_units(page):
     return page.evaluate(
         "() => [...document.querySelectorAll('.battery-unit__option')]"
-        ".filter(b => b.getAttribute('aria-pressed') === 'true')"
+        ".filter(b => b.getAttribute('aria-checked') === 'true')"
         ".map(b => b.getAttribute('data-unit'))")
 
 
@@ -545,35 +526,49 @@ def _active_reading(page):
 @pytest.mark.parametrize("lang", ("en", "fr"))
 def test_the_battery_unit_switch_changes_chart_and_readout_by_keyboard_and_pointer(
         new_context, server, width_label, viewport, lang):
-    """The Percentage/Voltage control is revealed once the script runs, starts on the
-    server-rendered voltage view, and switches the chart and its readout together by pointer,
-    Enter and Space with a visible focus ring and an explicit pressed state; the readout always
-    equals the active point's server-computed text. The page never scrolls sideways, today's
-    activity sits on this page, and below the desktop breakpoint the bottom tab bar stays
-    visible.
+    """The Percentage/Voltage control is a radio group revealed once the script runs, starts
+    on the server-rendered percentage view, has two 44px segments, and switches the chart and
+    its readout together by pointer, Enter, Space and the arrow keys with a visible focus
+    ring and an explicit checked state; the readout is empty until a point is revealed and
+    then always equals the active point's server-computed text. The page never scrolls
+    sideways, and below the desktop breakpoint the bottom tab bar stays visible.
     """
     context = new_context(viewport=viewport)
     try:
         page = _open_status(context, server.base_url(), lang)
+        assert page.get_attribute(".battery-unit", "role") == "radiogroup"
+        assert _shown_unit(page) == "percent" and _pressed_units(page) == ["percent"]
+        assert page.is_hidden('.battery-chart__view[data-unit="mv"]')
+        for unit in ("percent", "mv"):
+            box = page.locator('.battery-unit__option[data-unit="%s"]' % unit).bounding_box()
+            assert box["height"] >= 44 - 0.5 and box["width"] >= 44, box
+        assert _readout_value(page) == "", "nothing is revealed until a point is"
+
+        page.click('.battery-unit__option[data-unit="mv"]')
         assert _shown_unit(page) == "mv" and _pressed_units(page) == ["mv"]
         assert page.is_hidden('.battery-chart__view[data-unit="percent"]')
 
-        page.click('.battery-unit__option[data-unit="percent"]')
-        assert _shown_unit(page) == "percent" and _pressed_units(page) == ["percent"]
-        assert page.is_hidden('.battery-chart__view[data-unit="mv"]')
+        page.focus(VISIBLE_VIEW + " .sparkline-hit[tabindex='0']")
         value = _readout_value(page)
-        assert re.fullmatch(r"≈ \d+\s?%", value) or re.fullmatch(r"≈ \d+%", value), value
+        assert re.fullmatch(r"\d+ mV", value), value
         assert value == _active_reading(page), "readout and chart point disagree"
 
         page.focus('.battery-unit__option[data-unit="mv"]')
-        page.keyboard.press("Enter")
-        assert _shown_unit(page) == "mv" and _pressed_units(page) == ["mv"]
-        assert re.fullmatch(r"\d+ mV", _readout_value(page)), _readout_value(page)
-        assert _readout_value(page) == _active_reading(page)
+        page.keyboard.press("ArrowLeft")
+        assert _shown_unit(page) == "percent" and _pressed_units(page) == ["percent"]
+        assert page.evaluate("() => document.activeElement.getAttribute('data-unit')") == "percent"
+        value = _readout_value(page)
+        assert re.fullmatch(r"≈ \d+\s?%", value) or re.fullmatch(r"≈ \d+%", value), value
+        assert value == _active_reading(page), "the reading carries across the switch"
 
+        page.keyboard.press("ArrowRight")
+        assert _shown_unit(page) == "mv"
         page.focus('.battery-unit__option[data-unit="percent"]')
-        page.keyboard.press("Space")
+        page.keyboard.press("Enter")
         assert _shown_unit(page) == "percent"
+        page.focus('.battery-unit__option[data-unit="mv"]')
+        page.keyboard.press("Space")
+        assert _shown_unit(page) == "mv"
         outline = page.evaluate(
             "() => { const s = getComputedStyle(document.activeElement);"
             " return [s.outlineStyle, parseFloat(s.outlineWidth)]; }")
@@ -589,7 +584,6 @@ def test_the_battery_unit_switch_changes_chart_and_readout_by_keyboard_and_point
         if message:
             raise AssertionError(message)
         assert page.locator(".day-band").count() == 0, "Health carries no day band"
-        assert "3 months" not in page.inner_text("main") and "3 mois" not in page.inner_text("main")
         if viewport["width"] < 960:
             box = page.locator(".tab-bar").bounding_box()
             assert box is not None and box["height"] > 0
@@ -600,24 +594,25 @@ def test_the_battery_unit_switch_changes_chart_and_readout_by_keyboard_and_point
 
 
 def test_the_battery_unit_switch_works_by_touch(new_context, server):
-    """A tap on the Percentage button switches the chart view."""
+    """A tap on the Voltage button switches the chart view, and back."""
     context = new_context(viewport={"width": 390, "height": 844}, has_touch=True)
     try:
         page = _open_status(context, server.base_url(), "en")
-        page.tap('.battery-unit__option[data-unit="percent"]')
-        assert _shown_unit(page) == "percent" and _pressed_units(page) == ["percent"]
         page.tap('.battery-unit__option[data-unit="mv"]')
-        assert _shown_unit(page) == "mv"
+        assert _shown_unit(page) == "mv" and _pressed_units(page) == ["mv"]
+        page.tap('.battery-unit__option[data-unit="percent"]')
+        assert _shown_unit(page) == "percent"
     finally:
         context.close()
 
 
-def test_the_battery_chart_stays_on_voltage_without_script(new_context, server):
-    """With scripts blocked the control is not offered and the voltage chart stays visible."""
+def test_the_battery_chart_stays_on_percentage_without_script(new_context, server):
+    """With scripts blocked the control and the hover readout are not offered and the
+    percentage chart stays visible."""
     with _no_js_page(new_context, server.base_url(), FRAME_ROUTE) as page:
-        assert page.is_hidden(".battery-unit")
-        assert page.is_visible('.battery-chart__view[data-unit="mv"] .sparkline__canvas')
-        assert page.is_hidden('.battery-chart__view[data-unit="percent"]')
+        assert page.is_hidden(".battery-unit") and page.is_hidden(".battery-readout")
+        assert page.is_visible('.battery-chart__view[data-unit="percent"] .sparkline__canvas')
+        assert page.is_hidden('.battery-chart__view[data-unit="mv"]')
 
 
 @pytest.mark.parametrize("width", (1280, 1024, 960, 700, 390, 360))
@@ -633,11 +628,22 @@ def test_every_health_row_aligns_in_the_fleet_state_block(new_context, server, w
             "   const b = el.getBoundingClientRect();"
             "   return [Math.round(b.left * 10) / 10, Math.round(b.right * 10) / 10,"
             "           Math.round(b.top * 10) / 10]; };"
-            " return {icon: r('.health-row__icon'), name: r('.health-row__name'),"
+            " return {battery: !!s.closest('#health-row-battery'),"
+            "   icon: r('.health-row__icon'), name: r('.health-row__name'),"
             "   verdict: r('.health-row__verdict'), value: r('.health-row__value'),"
             "   nameHeight: s.querySelector('.health-row__name').getBoundingClientRect().height,"
             "   box: s.getBoundingClientRect().height}; })")
         assert len(columns) >= 3
+        # The Battery row's head is a different anatomy (its verdict and level live in its
+        # body), so it is held to the shared icon and name columns only.
+        battery = [row for row in columns if row["battery"]]
+        columns = [row for row in columns if not row["battery"]]
+        assert len(battery) == 1 and len(columns) >= 2
+        for key in ("icon", "name"):
+            assert battery[0][key][0] in {row[key][0] for row in columns}, (
+                "the battery row's %s column does not line up with the other rows: %r"
+                % (key, battery[0][key]))
+        assert battery[0]["nameHeight"] <= 20
         # The value column is right-aligned on the wide layout, so only its right edge is shared.
         left_aligned = ("icon", "name", "verdict") if width >= 700 else ("icon", "name", "verdict", "value")
         for key in left_aligned:

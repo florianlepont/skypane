@@ -75,6 +75,7 @@ MESSAGES = {
         "Base de données de la flotte indisponible\u00a0: les fichiers "
         "d’appareils historiques sont utilisés.",
     "health.flight_data_is_stale": "Données de vol anciennes.",
+    "health.battery_level_is_low": "Niveau de batterie bas.",
     "health.battery_dropped_abnormally":
         "Baisse anormale de batterie.",
     "health.data_sources_disagreed_recently":
@@ -138,7 +139,8 @@ MESSAGES = {
     "health.battery_unit_group": "Unité du graphique de batterie",
     "health.battery_unit_percent": "Pourcentage",
     "health.battery_unit_voltage": "Tension",
-    "health.last_3_months_daily_average": "3 derniers mois, moyenne quotidienne",
+    "health.battery_last_90_days": "90 derniers jours",
+    "health.battery_daily_averages": "Moyennes quotidiennes",
     "health.daily_average_reading": "%s — moyenne quotidienne (%d relevé)",
     "health.daily_average_readings": "%s — moyenne quotidienne (%d relevés)",
     "health.daily_average": "%s — moyenne quotidienne",
@@ -152,8 +154,20 @@ MESSAGES = {
     "health.no_battery_telemetry_recorded_yet_check_back":
         "Aucune télémétrie de batterie enregistrée pour l’instant — "
         "revenez après la prochaine vérification de l’appareil.",
-    "health.timestamp": "Horodatage",
-    "health.battery_mv": "Batterie (mV)",
+    # The Battery card (companion/battery_card.py).
+    "health.battery_low": "Le niveau est bas",
+    "health.battery_level_group": "Niveau et tension de la batterie",
+    "health.battery_last_reading": "Dernier relevé",
+    "health.battery_col_time": "Heure",
+    "health.battery_col_level": "Niveau",
+    "health.battery_latest": "Dernier",
+    "health.battery_chart_empty": "Pas encore assez de relevés pour une courbe",
+    "health.battery_chart_empty_body":
+        "La courbe apparaît à partir de %d relevés. %d pour l’instant.",
+    "health.low_battery_off_range":
+        "Batterie faible\u00a0: %d mV (\u2248 %d\u00a0%%), sous la plage affichée",
+    "health.low_battery_off_range_pct":
+        "Batterie faible\u00a0: %d\u00a0%%, sous la plage affichée",
     "health.view_reading": "Voir %d relevé%s",
 
     # --- Health rows (companion/health_rows.py, health_page.py) ----------
@@ -177,6 +191,7 @@ MESSAGES = {
     "health.row_last_check_in": "Dernier contact",
     "health.row_next_wake": "Prochain réveil",
     "health.row_last_run": "Dernière exécution",
+    "health.tile_server": "Serveur",
     # Real U+00A0 between each figure and its unit or sign.
     "health.row_battery_value": "%d\u00a0%% · %d\u00a0mV",
     "health.row_no_disagreement": "Aucun désaccord",
@@ -184,6 +199,23 @@ MESSAGES = {
     "health.row_n_disagreements": "%d\u00a0désaccords",
     "health.row_identified": "%s\u00a0%% des vols identifiés",
     "health.row_to_resolve": "%d à résoudre",
+    # System page cards. Real U+00A0 before "%" and before the colon.
+    "health.sys_last_detection": "Dernière détection",
+    "health.sys_both_note":
+        "Les deux sources de données de vol du cadre ont choisi le même avion.",
+    "health.sys_only_one_note":
+        "Une seule des deux sources a renvoyé un avion à ce cycle.",
+    "health.sys_disagree_note": "Les deux sources ont choisi des avions différents.",
+    "health.sys_identified": "%s\u00a0%% des vols identifiés",
+    "health.sys_identified_short": "%s\u00a0%% identifiés",
+    "health.sys_window": "%d derniers jours\u00a0: %d vols",
+    "health.sys_window_one": "%d derniers jours\u00a0: 1 vol",
+    "health.sys_src_fresh": "Trajet trouvé à l’instant",
+    "health.sys_src_cached": "Trajet repris d’une recherche précédente",
+    "health.sys_src_airline": "Seule la compagnie est connue",
+    "health.sys_src_manual": "Nommée par le propriétaire",
+    "health.sys_src_miss": "Rien trouvé",
+    "health.sys_src_other": "Autres cas",
     "health.row_nothing_to_resolve": "Rien à résoudre",
 
     # --- Screen / Server & data group headings ---------------------------

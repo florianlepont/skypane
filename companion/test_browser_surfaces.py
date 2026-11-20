@@ -200,7 +200,8 @@ _STATE_ROWS = """() => [...document.querySelectorAll('.fleet-block .health-row__
     const hit = (a, b) => a.left < b.right - 0.5 && b.left < a.right - 0.5
         && a.top < b.bottom - 0.5 && b.top < a.bottom - 0.5;
     return {overlap: hit(name, value) || hit(verdict, value) || hit(name, verdict),
-            verdictW: verdict.width, rowW: s.getBoundingClientRect().width,
+            verdictW: verdict.width, battery: !!s.closest('#health-row-battery'),
+            rowW: s.getBoundingClientRect().width,
             valueW: value.width, beside: value.left >= verdict.right - 0.5}; })"""
 
 
@@ -232,7 +233,8 @@ def test_fleet_state_rows_never_overlap(new_context, fleet_server, width, lang, 
         assert rows, "the Health page shows no health row"
         for row in rows:
             assert not row["overlap"], (width, lang, row)
-            assert row["verdictW"] >= 100, (width, lang, row)
+            # The Battery row states its verdict in its body (a status pill), not in its head.
+            assert row["battery"] or row["verdictW"] >= 100, (width, lang, row)
             if row["beside"]:
                 assert row["valueW"] <= row["rowW"] * 0.5 + 1, (width, lang, row)
         assert not _assert_no_page_overflow(page, "fleet/%d" % width, width)

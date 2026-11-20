@@ -479,7 +479,8 @@ def build_page_context(handler, device):
             # with zero markup built. Shared (never recomputed) by the
             # "health_state" and "health_severity" loaders below.
             "_health_signals": lambda: user_view.reduce_signals(
-                health_page.safe_health_signals(state_dir, now, root_state_dir)),
+                health_page.safe_health_signals(
+                    state_dir, now, root_state_dir, device_curve(device))),
             # Only Home and Health read this — the markup step. `None`
             # both when the signals snapshot itself failed and when
             # building markup from a real snapshot raises: the same

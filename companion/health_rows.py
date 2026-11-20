@@ -56,7 +56,8 @@ def row_html(row_id, state, name, verdict, value_html, body_html):
     """One row. `name` and `verdict` are already-translated plain text and
     are escaped here; `value_html` and `body_html` are the caller's own
     already-safe markup, interpolated verbatim. `row_id` is a module
-    constant, never data."""
+    constant, never data. An empty `verdict` leaves its cell empty (the
+    row's body states it instead)."""
     state = resolved_state(state)
     icon = layout.icon_html(STATE_ICON_IDS[state], size=16)
     return (

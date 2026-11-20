@@ -1054,9 +1054,9 @@ def test_battery_discharge_curve_is_well_formed():
     assert battery_module.battery_percent(battery_module.LOW_BATTERY_DISPLAY_MV) == (
         battery_module.LOW_BATTERY_DISPLAY_PERCENT), (
         "expected battery_percent(LOW_BATTERY_DISPLAY_MV) == LOW_BATTERY_DISPLAY_PERCENT")
-    assert (health_page.SPARKLINE_Y_MIN_MV < battery_module.LOW_BATTERY_DISPLAY_MV
-            < health_page.SPARKLINE_Y_MAX_MV), (
-        "expected LOW_BATTERY_DISPLAY_MV strictly inside the sparkline's fixed range")
+    assert (battery_module.BATTERY_EMPTY_MV < battery_module.LOW_BATTERY_DISPLAY_MV
+            < battery_module.BATTERY_FULL_MV), (
+        "expected LOW_BATTERY_DISPLAY_MV strictly inside the discharge curve's range")
     assert device_policy.BATTERY_LOW_THRESHOLD_MV < battery_module.LOW_BATTERY_DISPLAY_MV, (
         "expected device_policy.BATTERY_LOW_THRESHOLD_MV < LOW_BATTERY_DISPLAY_MV, pinning the "
         "relationship the module's own comment states")
@@ -1145,13 +1145,12 @@ def test_every_drawing_class_resolves_in_the_served_stylesheet(served_css):
             "NOTHING at all" % (class_name,))
 
 
-# --- battery_sparkline_svg() chart-migration equivalence baseline ---------
-# The pre-migration chart's markup, captured for a fixed `now` and a fixed
-# set of named inputs, committed once to
-# companion/testdata/battery_chart_baseline.json (regenerated only by a
-# one-off command, never by a test — see that file's own git history) and
-# asserted byte-identical on every run: the proof the chart-onto-draw.py
-# migration changed no rendered pixel.
+# --- battery_sparkline_svg() markup baseline ---------------------------------
+# The chart's markup, captured for a fixed `now` and a fixed set of named
+# inputs, committed to companion/testdata/battery_chart_baseline.json
+# (regenerated only by a one-off command, never by a test) and asserted
+# byte-identical on every run: a change to the chart's markup is a
+# deliberate one, made together with a new baseline.
 _CHART_NOW = "2024-06-15T12:00:00"
 
 
@@ -1200,8 +1199,7 @@ def test_battery_chart_markup_is_unchanged():
     """battery_sparkline_svg() emits byte-identical markup, for a fixed `now` and a fixed set of
     named inputs (no rows, one row, two rows, a dense 90-point series, out-of-range readings, a
     daily series, a threshold-visible series, a hostile firmware/timestamp string), to the
-    committed pre-migration baseline — the proof moving the chart onto companion/draw.py's
-    shared primitives changed no rendered byte"""
+    committed baseline"""
     with open(_chart_baseline_path(), encoding="utf-8") as fh:
         baseline = json.load(fh)
     actual = {
@@ -1214,8 +1212,7 @@ def test_battery_chart_markup_is_unchanged():
     for name in baseline:
         assert actual[name] == baseline[name], (
             "battery_sparkline_svg() case %r no longer matches the committed baseline "
-            "(companion/testdata/battery_chart_baseline.json) — the chart migration must not "
-            "change a single rendered byte" % (name,))
+            "(companion/testdata/battery_chart_baseline.json)" % (name,))
 
 
 def test_draw_module_imports_no_page_and_no_server():

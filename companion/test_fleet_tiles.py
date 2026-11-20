@@ -216,3 +216,76 @@ def test_the_install_form_of_a_release_comes_back_to_the_versions_page(fleet):
     assert status == 303
     assert headers["Location"].startswith("/fleet?frame=") and "&view=versions" in headers["Location"]
     assert update_page.INSTALL_ROUTE == "/update/install"
+
+
+# ---- A low battery level is a warning everywhere ---------------------------
+
+def _seed_low_readings(state_dir):
+    from companion import battery
+    low = battery.low_display_mv()
+    now = datetime.datetime.now(datetime.timezone.utc)
+    with history_db.open_db(state_dir) as conn:
+        for i in range(12):
+            stamp = now - datetime.timedelta(hours=6 * (11 - i), seconds=20)
+            history_db.record_device_health(
+                conn, stamp.isoformat(timespec="seconds"), battery_mv=low - 40 - 2 * i + 22,
+                fw_version="1.0.0", boot_reason="wake", rssi="-60")
+    device_config.save_device_config(state_dir, wake_interval_s=600)
+
+
+def _normal_and_low_pages(fleet, lang="en"):
+    server, seed, cookie = fleet
+    _seed_readings(server.state_dir)
+    normal = _page(server, cookie, "/fleet?frame=" + seed.live_id, lang)
+    _seed_low_readings(server.state_dir)
+    return normal, _page(server, cookie, "/fleet?frame=" + seed.live_id, lang), server, seed, cookie
+
+
+@pytest.mark.parametrize("lang,words", [("en", "Level is low"), ("fr", "Le niveau est bas")])
+def test_a_low_level_turns_the_overview_battery_tile_to_warning_in_words(fleet, lang, words):
+    normal, low, _server, _seed, _cookie = _normal_and_low_pages(fleet, lang)
+    assert _tiles(normal)[1][4] == "ok"
+    battery = _tiles(low)[1]
+    assert battery[4] == "warn" and battery[2] == words, battery
+    assert _tiles(low)[0][4] == "ok", "only the battery tile changes"
+
+
+_NAV_DOT = re.compile(r'class="dot (dot--\w+) nav-notification"')
+_BANNER = re.compile(r'class="sys-banner health-anomaly" data-severity="(\w+)"')
+
+
+def test_a_low_level_lights_the_nav_dot_and_the_warnings_banner(fleet):
+    normal, low, server, seed, cookie = _normal_and_low_pages(fleet)
+    assert _NAV_DOT.search(normal) is None and _BANNER.search(normal) is None
+    assert _NAV_DOT.search(low).group(1) == "dot--warn"
+    health = _page(server, cookie, "/fleet?view=system")
+    assert _BANNER.search(health).group(1) == "warn"
+    assert "Battery level is low" in html.unescape(health)
+    assert "Battery dropped abnormally" not in health
+
+
+def test_a_low_level_is_a_warning_in_french_in_the_banner_too(fleet):
+    server, seed, cookie = fleet
+    _seed_low_readings(server.state_dir)
+    health = _page(server, cookie, "/fleet?view=system", "fr")
+    assert "Niveau de batterie bas" in html.unescape(health)
+
+
+def test_the_low_mark_is_the_cards_own_mark(fleet):
+    """a reading just above the mark leaves the tile, the banner and the nav dot at ok; one
+    just below it turns all three: one threshold, not two"""
+    from companion import battery
+    server, seed, cookie = fleet
+    now = datetime.datetime.now(datetime.timezone.utc)
+    for offset, state in ((+1, "ok"), (-1, "warn")):
+        with history_db.open_db(server.state_dir) as conn:
+            conn.execute("DELETE FROM device_health")
+            for i in range(3):
+                history_db.record_device_health(
+                    conn, (now - datetime.timedelta(minutes=3 - i)).isoformat(timespec="seconds"),
+                    battery_mv=battery.low_display_mv() + offset, fw_version="1.0.0",
+                    boot_reason="wake", rssi="-60")
+        device_config.save_device_config(server.state_dir, wake_interval_s=600)
+        page = _page(server, cookie, "/fleet?frame=" + seed.live_id)
+        assert _tiles(page)[1][4] == state
+        assert (_NAV_DOT.search(page) is not None) == (state == "warn")

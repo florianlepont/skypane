@@ -621,17 +621,18 @@ def test_health_reads_no_per_day_check_in_rows_for_a_band(tmp_path):
 
 # --- Health's drawings are the shared emitters' ---
 
-def test_health_carries_one_ring_and_no_grid_and_home_carries_neither(tmp_path):
-    """Health holds exactly one battery ring and no check-in regularity grid; Home draws neither and no activity band (its battery is a pill, and its
-    statistics are plain SVG of its own)"""
+def test_health_carries_one_gauge_and_no_grid_and_home_carries_neither(tmp_path):
+    """Health holds exactly one battery gauge (an open arc) and no ring or check-in regularity grid; Home
+    draws neither and no activity band (its battery is a pill, and its statistics are plain SVG of its own)"""
     now = "2026-08-27T12:00:00+00:00"
     ctx = _health_band_ctx(tmp_path / "health", now, [
         "2026-08-27T06:00:00+00:00",
         "2026-08-27T10:00:00+00:00",
     ])
     health_rendered = health_page_composition.render(ctx)
-    assert health_rendered.count('class="%s"' % draw.DRAWING_RING_VALUE_CLASS) == 1, (
-        "expected exactly one battery ring value arc on Health")
+    assert health_rendered.count('class="%s"' % draw.DRAWING_ARC_VALUE_CLASS) == 1, (
+        "expected exactly one battery gauge value arc on Health")
+    assert health_rendered.count(draw.DRAWING_RING_VALUE_CLASS) == 0
     doc = parse_html(health_rendered)
     assert not doc.select(".check-in-grid"), "Health must not draw a regularity grid"
     assert not doc.find_all("rect", cls=draw.DRAWING_CELL_CLASS), "Health must not draw regularity cells"
@@ -645,7 +646,7 @@ def test_health_carries_one_ring_and_no_grid_and_home_carries_neither(tmp_path):
 
 
 def test_health_drawings_use_only_the_shared_emitters_classes(tmp_path):
-    """the classes Health's battery ring emits are computed from the markup rather than listed;
+    """the classes Health's battery gauge emits are computed from the markup rather than listed;
     every one is a constant companion/draw.py itself names"""
     now = "2026-08-27T12:00:00+00:00"
     ctx = _health_band_ctx(tmp_path / "health", now, [
@@ -655,11 +656,11 @@ def test_health_drawings_use_only_the_shared_emitters_classes(tmp_path):
     rendered = health_page_composition.render(ctx)
     figures = re.findall(
         r'<svg class="%s[^"]*"[^>]*>(.*?)</svg>' % re.escape(draw.DRAWING_FIGURE_CLASS), rendered, re.S)
-    assert len(figures) == 1, "expected the ring alone, got %d aspect-locked figures" % len(figures)
+    assert len(figures) == 1, "expected the gauge alone, got %d aspect-locked figures" % len(figures)
     classes = [set(re.findall(r'class="([^"]*)"', figure)) for figure in figures]
-    ring = next((c for c in classes if draw.DRAWING_RING_TRACK_CLASS in c), None)
-    assert ring, "found no ring on Health"
-    for class_name in sorted(ring):
+    gauge = next((c for c in classes if draw.DRAWING_ARC_TRACK_CLASS in c), None)
+    assert gauge, "found no gauge on Health"
+    for class_name in sorted(gauge):
         for token in class_name.split():
             assert token in draw.DRAWING_CLASSES, (
                 "Health emits the drawing class %r, which companion/draw.py does not name — "
@@ -668,7 +669,7 @@ def test_health_drawings_use_only_the_shared_emitters_classes(tmp_path):
 
 def test_breaking_a_shared_emitter_breaks_health_and_leaves_home_untouched(tmp_path):
     """breaking a shared emitter breaks Health's drawing: the class constant inside
-    companion/draw.py's ring emitter is replaced at check time and
+    companion/draw.py's arc gauge emitter is replaced at check time and
     Health changes each time, neither keeping the original string (a page built from its own
     copy would); Home draws neither and stays byte-identical, proving the mutation is targeted
     rather than a global perturbation; and both pages return to their pre-mutation markup"""
@@ -695,7 +696,7 @@ def test_breaking_a_shared_emitter_breaks_health_and_leaves_home_untouched(tmp_p
         finally:
             setattr(draw, attr, original)
 
-    for attr in ("DRAWING_RING_VALUE_CLASS",):
+    for attr in ("DRAWING_ARC_VALUE_CLASS",):
         original, health_after, home_after = _mutated(attr)
         assert sentinel in health_after, (
             "a change inside the shared %s emitter did not reach Health — it draws its own "

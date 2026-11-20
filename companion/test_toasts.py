@@ -279,10 +279,11 @@ def test_undo_round_trip_without_scripts(make_app_server):
 
 
 def test_toast_hooks_render_only_on_the_flash_toast_not_on_persistent_states(server, session):
-    """a persistent docked toast (the System view's anomaly) carries neither the toast.js hook nor a
+    """a persistent warnings banner (the System view's anomaly) carries neither the toast.js hook nor a
     dismiss control nor a timer, so it can never be hidden by script"""
     body = _page(server, session, "/fleet?view=system")
-    docked = parse_html(body).select(".toast--docked")
+    doc = parse_html(body)
+    docked = doc.select(".toast--docked") + doc.select(".sys-banner")
     assert docked, "expected the fresh install's System view to show its anomaly state"
     for node in docked:
         assert layout.TOAST_ATTR not in node.attrs

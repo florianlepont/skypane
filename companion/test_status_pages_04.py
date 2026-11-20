@@ -305,8 +305,8 @@ def test_no_registry_chrome_and_no_cross_page_leak(tmp_path):
 
 
 def test_humanised_battery_readout_end_to_end(tmp_path, battery_trend_js):
-    """The battery readout carries its id, role="status", both value/detail spans and a
-    humanised visible detail with the machine-precise ISO only in the tooltip, every chart hit
+    """The battery readout carries its id, role="status", both value/detail spans (empty and hidden
+    until the script reveals a point), every point's data-when is a humanised timestamp, every chart hit
     target carries data-when, and battery-trend.js's shipped source still reads that attribute,
     both span classes, and the readout's id literal"""
     state_dir = str(tmp_path)
@@ -329,13 +329,15 @@ def test_humanised_battery_readout_end_to_end(tmp_path, battery_trend_js):
     assert "battery-readout__detail" in readout_html
     assert not re.search(r"\d{4}-\d{2}-\d{2}T", readout_html), (
         "expected zero raw ISO occurrences anywhere in the readout")
-    title_match = re.search(r'title="([^"]*)"', readout_html)
-    assert title_match is not None, "expected the detail span to carry a title attribute"
-    assert re.search(r"^\d{1,2} \w+ \d{2}:\d{2} \(", title_match.group(1)), (
-        "expected the title to be a full 'D Mon HH:MM (Nx ago)' local timestamp")
-    visible = re.sub(r"<[^>]*>", "", readout_html)
-    assert title_match.group(1) in visible, (
-        "expected the title to equal the readout's own visible text")
+    # The readout ships empty and hidden: the script writes a hovered point's reading into it, so
+    # nothing in it is the server's to humanise.
+    assert " hidden" in readout_html[:readout_html.index(">")]
+    assert re.sub(r"<[^>]*>", "", readout_html) == ""
+    assert 'data-when="' in section_html
+    when = re.search(r'data-when="([^"]*)"', section_html).group(1)
+    assert re.search(r"^\d{1,2} \w+ \d{2}:\d{2} \(", when), (
+        "expected a point's data-when to be a full 'D Mon HH:MM (Nx ago)' local timestamp")
+    assert not re.search(r"\d{4}-\d{2}-\d{2}T", when)
 
     assert section_html.count("data-when=") == 6, (
         "expected one data-when attribute per hit target in each of the two chart views")
@@ -872,7 +874,7 @@ def test_swap_selectors_pinned_both_directions(freshness_js):
 
 def test_swap_registry_has_one_definition_site_and_one_key_set(freshness_js):
     """The swap registry has ONE definition site (health_page.REFRESH_SWAP_SELECTORS resolves
-    from layout.REFRESH_SWAP_SELECTORS_BY_PAGE and is that same object, with the Fleet page's four regions
+    from layout.REFRESH_SWAP_SELECTORS_BY_PAGE and is that same object, with the Fleet page's regions
     in their documented order) and ONE key set (the script's registry keys equal the Python's, in
     both directions), with every selector appearing exactly once per registry entry in the
     script's comment-stripped code and the registry actually read"""
@@ -885,10 +887,11 @@ def test_swap_registry_has_one_definition_site_and_one_key_set(freshness_js):
         "copy of it — a copy is a second definition site with extra steps")
     assert health_page.REFRESH_SWAP_SELECTORS == (
         ".health-row__summary",
+        ".sys-card__head",
         "div.health-anomaly",
         "section.health-source-fault",
         'a[href$="/fleet"]'), (
-        "the Fleet page's four regions: each health row's summary, the anomaly banner, the "
+        "the Fleet page's regions: each health row's summary, each System card's header, the anomaly banner, the "
         "source-fault block and the Fleet navigation link")
 
     js = freshness_js
