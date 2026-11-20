@@ -1,9 +1,9 @@
 ---
 phase: 69-rear-enclosure-for-the-7-3-inch-frame
 plan: 05
-status: partial
+status: complete
 requirements: [ENC-01]
-completed: 2026-11-19
+completed: 2026-11-20
 key-files:
   created:
     - hardware/ENCLOSURE-WIFI-TEST.md
@@ -11,7 +11,7 @@ key-files:
 
 # Phase 69 Plan 05: Wi-Fi comparison protocol Summary
 
-Interleaved A1/B1/A2/B2 Wi-Fi protocol (bootstrap lower bound on the difference of medians) written and accepted by the owner; baseline block A1 not taken yet.
+Interleaved A1/B1/A2/B2 Wi-Fi protocol (bootstrap lower bound on the difference of medians) written and accepted by the owner; baseline block A1 recorded on 2026-11-20 (16 kept wakes, 0 zeros, median -59 dB, from a read-only export the owner authorised).
 
 ## Done
 
@@ -20,20 +20,17 @@ Interleaved A1/B1/A2/B2 Wi-Fi protocol (bootstrap lower bound on the difference 
   - Protocol change accepted ("Oui"); the initial 20 + 20 / 3 dB rule stays as the second line.
   - Wake cadence: same as the live frame; the live frame's 300 s is the value noted in `hardware/SECOND-HARDWARE-BATTERY.md` (not re-read from the server). Block duration is arithmetic: 75 min for 15 kept wakes, 80 min with the discarded wake.
 
-## Not done (waiting on the owner)
+## Resolved on 2026-11-20
 
-- Task 2 remainder: room and orientation, taped spot, access point name, power state and planned start are recorded as "unknown, asked on 2026-11-19". Nothing invented.
-- Task 3: baseline A1 not taken. The A1 row is empty and the verdict Result is "not done". No reading was inferred.
-
-## What the owner still has to do for A1
-
-Answer the remaining set-up questions (room and orientation, taped spot, access point name only, USB or battery and charge state, start time), then run at least 15 kept wakes on the bare frame at the marked spot (about 75 minutes at 300 s, first wake after placing it discarded, rssi 0 rows dropped), and paste only the rssi values in time order plus start and end time with the time zone. No device id, token or password.
+- Set-up answers (reported by the owner): the owner's desk, landscape, battery at 94 %, access point name only, placed at 19:10 Paris time, no RESET, frame already at that spot (not moved).
+- Task 3: block A1 filled from the owner-authorised read-only export: 16 kept wakes, 0 zeros dropped, minimum -61, Q1 -60, median -59, Q3 -58, maximum -44, standard deviation 5.76 dB (13 of the 16 readings have a spread of 1.04 dB; three isolated readings at -44 to -46). The 19:10 reading as Paris time (UTC+1) and the omission of the first-wake discard (frame not moved) are Claude's readings, written in the file.
+- Still to confirm by the owner: the exact access point spelling, and whether the final hanging spot is the same as the desk (the later blocks need the same spot).
 
 ## Verification
 
 - Task 1 verify command: passed after rewording one phrase that matched the bearer-value check.
 - Task 2 Set-up and Protocol change date checks: passed.
-- Task 3 verify: not run (block not taken).
+- Task 3 verify: the A1 row has a date, "reported by the owner" and the statistics; the raw values are in the file; no MAC, device identifier, token or password (checked by grep).
 
 ## Deviations
 
