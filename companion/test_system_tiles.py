@@ -18,6 +18,7 @@ PATH = "/fleet?view=system"
 def _english():
     prefs.set_request_prefs(lang="en")
     yield
+    prefs.set_request_prefs(lang="en")
 
 
 def _seed(server, tmp_path, monkeypatch, disagree=True, backup=True):
