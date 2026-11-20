@@ -65,3 +65,11 @@ New: `test_battery_card.py` (chart and card from markup), `test_browser_battery_
 - Should a low reading also turn the overview tile and the page-wide severity (nav dot, banner) to warning? Today only the card does.
 - The 90-day end label shows the day's average, not the latest reading; show the latest instead?
 - Wanted back: the mock's two-line chart title and 20 px padding?
+
+## Follow-up (owner decisions of 2026-11-20)
+
+- Two failing tests fixed at the cause: the readings table now pulls its inner column gutters in to 8 px on a narrow card (edge padding stays 16 px), so Time, Voltage and Level fit 360 px in French with no sideways scroll (new test at 360 px EN/FR); the shared battery seeds moved to `companion/test_browser_battery_helpers.py` (G12).
+- A low latest reading (the existing `battery.is_low` mark, the card's own rule; no second threshold) now sets `battery_state` to warn in `health_signals()`, and a new `battery_low` snapshot flag picks the banner sentence ("Battery level is low." / "Niveau de batterie bas."). The Overview Battery tile, the warnings banner and count, the nav dot, the freshness token and the personal frame-only reduction all follow. The tile uses the card's verdict, so it reads "Level is low" in words. `health_signals()` takes the device curve so the mark is the frame's own; the error-page nav dot has no device and uses the legacy curve.
+- The 90-day chart's end marker and label show the latest reading (gauge value; mV in Voltage unit); the curve stays the daily-average series.
+- The chart title is two lines as in the mock ("Last 90 days" / "Daily averages", FR from the mock). The old "Last 3 months, daily average" string is gone with its FR entry; the same-day fallback keeps "Latest N readings".
+- Header padding stays 16 px: the other Health rows pad 16 px and the card's hero, chart and disclosure share that edge; 20 px would offset the Battery row from its siblings.
