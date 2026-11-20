@@ -119,9 +119,9 @@ Quantities for five cassettes, with a margin. The owner already has the frame, s
 
 | Item | Quantity | Note | Arrival (as reported by the owner) |
 |---|---|---|---|
-| JST-PH 2.0 mm, 2-pin male-to-female extension (about 20 cm), or the same connector as two loose pigtails to solder | 5 (a lot of 20 ordered) | Check the polarity with a multimeter before connecting: the battery plus (red) goes to the board side away from the USB-C | to confirm (asked 2026-11-19) |
-| Round neodymium magnets 6 x 2 mm | 20 (a lot of 100 ordered) | Stand plate storage; stick each pair face to face first to keep the polarity | to confirm (asked 2026-11-19) |
-| M2 self-tapping pan-head screws, assortment 4 to 20 mm | 20 x 6 or 8 mm (lid), 20 x 4 mm at most (board) | Assortment of 800 ordered; check the heads are pan, not countersunk | to confirm (asked 2026-11-19) |
+| JST-PH 2.0 mm, 2-pin male-to-female extension (about 20 cm), or the same connector as two loose pigtails to solder | 5 (a lot of 20 ordered) | Check the polarity with a multimeter before connecting: the battery plus (red) goes to the board side away from the USB-C | not yet arrived (reported by the owner on 2026-11-19) |
+| Round neodymium magnets 6 x 2 mm | 20 (a lot of 100 ordered) | Stand plate storage; stick each pair face to face first to keep the polarity | not yet arrived (reported by the owner on 2026-11-19) |
+| M2 self-tapping pan-head screws, assortment 4 to 20 mm | 20 x 6 or 8 mm (lid), 20 x 4 mm at most (board) | Assortment of 800 ordered; check the heads are pan, not countersunk | not yet arrived (reported by the owner on 2026-11-19) |
 | Wall screws and plugs for the hook | 5, plus spares | Head up to 9.5 mm, shank 3.0 to 4.3 mm, 2.1 mm or more under the head; type depends on the wall (not known) | to confirm (not asked yet) |
 | PETG filament, 1.75 mm, 1 kg | 1 | Available at the owner's workplace; about 136 g per set of four parts at most (solid) | to confirm (not asked yet) |
 | Fine Phillips screwdriver (PH0 or PH00), multimeter | 1 each | If not already owned | to confirm (not asked yet) |

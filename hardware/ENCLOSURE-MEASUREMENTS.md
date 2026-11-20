@@ -53,7 +53,7 @@ Filled from the owner's reports only.
 | 10 Battery dimensions and mass | Thickness 8, width 60, length 50 mm; mass 49 g; pack: Kubii 3000 mAh (confirmed by the owner, 2026-11-18) | 2026-11-18 | Tape measure (no calliper) | measured |
 | 11 Masses: board, screen, antenna | Board with antenna and cable 20 g; screen 36 g | 2026-11-18 | Kitchen scale | measured |
 | 12 Masses: frame | Complete frame 173 g; empty frame 149 g | 2026-11-18 | Kitchen scale | measured |
-| 6b Mat opening, recheck | open, asked on 2026-11-19: no value yet (height 90 or 99 mm; no tool stated) | 2026-11-19 | not yet taken | open, asked on 2026-11-19. 140 x 99 mm was the first reading (tape measure) while the IKEA page lists 14 x 9 cm, so the height is 90 or 99 mm until the owner says. If the answer is 90, the centring on the mat opening and the visible margin figures of the later plans use 90, and the image adaptation work is outside this phase |
+| 6b Mat opening, recheck | Height 90 mm, as the owner thinks ("je pense que c'est 90"); the 99 of row 6 was, in the owner's words, a typing error. Not remeasured; width 140 mm unchanged | 2026-11-19 | Owner's statement, no new measurement | reported by the owner on 2026-11-19, not remeasured. Consistent with the IKEA page (14 x 9 cm) and the IKEA 3D model (141.8 x 91.8 mm). Row 6 keeps its original reading unchanged. The centring on the mat opening and the visible margin figures of the later plans use 90 mm; the mat opening in the Blender reference model is still 140 x 99 mm and the owner decides whether the CAD needs a change. A tape or calliper reading of the height remains worth taking. The image adaptation work is outside this phase |
 | 7b Metal tab, height behind the back of the screen, folded | 15 mm (confirmed by the owner) | 2026-11-18 | Reported in the design session; tool not stated | owner-reported |
 | 7c Metal tab, width | 4 mm | 2026-11-18 | Confirmed by the owner in the design session; tool not stated | owner-reported |
 | 7d Metal tabs, position along each side (seen from the back, frame in portrait) | Top tab: its right edge is 48 mm from the right corner of the rebate. Bottom tab: its right edge is 77 mm from the right corner. Left tab: its lower edge is 86 mm from the bottom edge of the rebate. Right tab: 82 mm, same method | 2026-11-18 | Reported in the design session; tool not stated | owner-reported |
@@ -75,8 +75,9 @@ rounded or corrected.
 
 Points to settle with the owner (nothing here is concluded by the assistant):
 
-- Row 6: the mat keeps its current opening of 140 x 99 mm (owner decision,
-  2026-11-18). The displayed image is to be adapted to what shows through the
+- Row 6: the mat keeps its current opening of 140 x 99 mm as first read (owner
+  decision, 2026-11-18; the height is corrected to 90 mm in row 6b, owner report
+  of 2026-11-19, not remeasured). The displayed image is to be adapted to what shows through the
   mat, instead of recutting the mat. The active area reported in row 3 is
   160 x 96 mm, so a 140 mm wide opening hides part of its width, and 99 mm is
   taller than 96 mm. Changing the displayed image is a rendering change, outside
