@@ -48,19 +48,18 @@ def _spark_html(percents):
         % (_SPARK_WIDTH, _SPARK_HEIGHT, points))
 
 
-def _tile(href, state, icon_id, label, value_html, meta_html, extra_html="", marked=False):
+def _tile(href, state, icon_id, label, value_html, meta_html, extra_html=""):
     from companion import health_rows
     state = health_rows.resolved_state(state)
     return (
         '<li><a class="fleet-tile" data-state="%s" href="%s">'
-        '<span class="fleet-tile__head"><span class="fleet-tile__icon">%s%s'
+        '<span class="fleet-tile__head"><span class="fleet-tile__icon">%s'
         '<span class="visually-hidden">%s</span></span>'
         '<span class="fleet-tile__label">%s</span></span>'
         '<span class="fleet-tile__value">%s</span>'
         '<span class="fleet-tile__meta">%s</span>%s'
         '<span class="fleet-tile__more">%s%s</span></a></li>' % (
             state, href, icon_html(icon_id, 20),
-            health_rows.state_mark_html(state) if marked else "",
             escape_html(i18n.t(health_rows.STATE_WORDS[state])), escape_html(label),
             value_html, meta_html, extra_html,
             escape_html(i18n.t(_DETAILS)), icon_html("icon-chevron-right", 16)))
@@ -115,6 +114,6 @@ def system_tiles_html(tiles):
     never colour alone."""
     cells = "".join(
         _tile("#" + SYSTEM_BLOCK_ID_PREFIX + tile.key, tile.state, tile.icon, tile.label,
-              escape_html(tile.value), tile.meta_html, marked=True)
+              escape_html(tile.value), tile.meta_html)
         for tile in tiles)
     return '<ul class="fleet-tiles fleet-tiles--system">%s</ul>' % cells

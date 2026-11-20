@@ -198,11 +198,9 @@ def test_topic_glyphs_on_tiles_and_cards(app_server_in_process, tmp_path, monkey
         assert 'href="#%s"' % glyph in card
 
 
-@pytest.mark.parametrize("state, glyph", [
-    ("ok", "icon-check"), ("warn", "icon-warning"),
-    ("error", "icon-toast-error"), ("off", "icon-info")])
+@pytest.mark.parametrize("state", ["ok", "warn", "error", "off"])
 @pytest.mark.parametrize("lang", ["en", "fr"])
-def test_state_mark_on_the_card_and_tile_glyph_per_state(state, glyph, lang):
+def test_card_and_tile_glyph_chip_has_the_topic_glyph_and_no_badge(state, lang):
     from companion import i18n, health_rows
     from companion.pages import fleet_tiles, system_cards
     prefs.set_request_prefs(lang=lang)
@@ -216,9 +214,8 @@ def test_state_mark_on_the_card_and_tile_glyph_per_state(state, glyph, lang):
             + "</span>",
             re.search(r'<span class="fleet-tile__icon">(.*?)</span></span>', tile, re.S).group(1)
             + "</span>"):
+        assert chip.count("<svg") == 1, "the topic glyph is the only drawing in the chip"
         assert 'href="#icon-radio"' in chip, "the topic glyph stays"
-        mark = re.search(r'<span class="state-mark" aria-hidden="true">(.*?)</span>', chip, re.S)
-        assert mark and 'href="#%s"' % glyph in mark.group(1)
         assert '<span class="visually-hidden">%s</span>' % word in chip, "the word stays"
 
 

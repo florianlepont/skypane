@@ -1961,23 +1961,6 @@ dialog.access-sheet .modal__actions {
   margin-inline: 0;
 }
 
-/* The state mark on a topic glyph chip: a small round badge at the chip's
- * lower right corner, ringed and tinted in the state tone, with the state's
- * own shape inside. */
-.state-mark {
-  position: absolute;
-  inset-block-end: calc(var(--space-xs) * -0.5);
-  inset-inline-end: calc(var(--space-xs) * -0.5);
-  display: grid;
-  place-items: center;
-  width: 16px;
-  height: 16px;
-  border: 1.5px solid currentColor;
-  border-radius: 50%;
-  background: var(--color-dominant);
-  color: var(--sys-tone, var(--tile-tone));
-}
-
 /* The System detail cards: a header row (icon, small label, bold verdict and a
  * short value at the right), a hairline, then label/value rows, outcome rows or
  * a table. The state is carried by the icon shape and a hidden word, never the
@@ -2009,7 +1992,6 @@ dialog.access-sheet .modal__actions {
 }
 
 .sys-card__icon {
-  position: relative;
   display: grid;
   flex: none;
   place-items: center;
@@ -2705,7 +2687,6 @@ a.fleet-action-button {
 }
 
 .fleet-tile__icon {
-  position: relative;
   display: grid;
   flex: none;
   place-items: center;

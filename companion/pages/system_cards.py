@@ -38,10 +38,10 @@ def _card(key, state, icon_id, label, verdict, sub_html="", value_html="", body_
     word = escape_html(i18n.t(health_rows.STATE_WORDS[state]))
     head = (
         '<div class="sys-card__head">'
-        '<span class="sys-card__icon">%s%s<span class="visually-hidden">%s</span></span>'
+        '<span class="sys-card__icon">%s<span class="visually-hidden">%s</span></span>'
         '<span class="sys-card__who"><span class="sys-card__label">%s</span>'
         '<b class="sys-card__verdict">%s</b>%s</span>%s</div>'
-    ) % (layout.icon_html(icon_id, 20), health_rows.state_mark_html(state), word, escape_html(label), escape_html(verdict),
+    ) % (layout.icon_html(icon_id, 20), word, escape_html(label), escape_html(verdict),
          sub_html, value_html)
     return '<div class="%s" data-state="%s" id="system-card-%s">%s%s</div>' % (
         SYSTEM_CARD_CLASS, state, key, head, body_html)

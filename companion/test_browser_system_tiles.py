@@ -103,33 +103,22 @@ def test_detail_cards_show_their_labels_and_right_aligned_values(
 @pytest.mark.parametrize("scheme", UI_THEMES_EXPLICIT)
 @pytest.mark.parametrize("lang", ["en", "fr"])
 @pytest.mark.parametrize("viewport", VIEWPORTS, ids=["320", "390", "1440"])
-def test_tiles_and_cards_carry_a_visible_state_mark_beside_the_word(
+def test_glyph_chips_carry_only_the_topic_glyph_and_the_hidden_state_word(
         new_context, app_server_in_process, tmp_path, monkeypatch, viewport, lang, scheme):
     context, page = _open(
         new_context, app_server_in_process, tmp_path, monkeypatch, viewport, lang, scheme)
-    where = "system-mark/%d/%s/%s" % (viewport["width"], lang, scheme)
-    glyphs = {"ok": "#icon-check", "warn": "#icon-warning", "off": "#icon-info"}
+    where = "system-chip/%d/%s/%s" % (viewport["width"], lang, scheme)
+    state_glyphs = {"#icon-check", "#icon-warning", "#icon-toast-error", "#icon-info"}
     try:
-        for chip_selector, owner_selector in (
-                (".fleet-tiles--system .fleet-tile__icon", ".fleet-tiles--system .fleet-tile"),
-                (".sys-card__icon", ".sys-card")):
+        for chip_selector in (
+                ".fleet-tiles--system .fleet-tile__icon", ".sys-card__icon"):
             chips = page.locator(chip_selector)
             assert chips.count() == 4, where
             for i in range(4):
                 chip = chips.nth(i)
-                mark = chip.locator(".state-mark")
-                assert mark.is_visible(), where
-                state = page.locator(owner_selector).nth(i).get_attribute("data-state")
-                assert mark.locator("use").get_attribute("href") == glyphs[state], where
-                assert chip.locator("svg").first.locator("use").get_attribute("href") not in (
-                    glyphs.values()), "the topic glyph stays beside the mark"
+                assert chip.locator("svg").count() == 1, where
+                assert chip.locator("svg use").get_attribute("href") not in state_glyphs, where
                 assert chip.locator(".visually-hidden").inner_text().strip(), where
-                chip_box, mark_box = chip.bounding_box(), mark.bounding_box()
-                assert mark_box["width"] >= 14 and mark_box["height"] >= 14, where
-                assert mark_box["x"] + mark_box["width"] <= chip_box["x"] + chip_box["width"] + 4
-                assert mark_box["y"] + mark_box["height"] <= chip_box["y"] + chip_box["height"] + 4
-                assert mark_box["x"] >= chip_box["x"] + chip_box["width"] / 2, where
-                assert mark_box["y"] >= chip_box["y"] + chip_box["height"] / 2, where
         assert not _assert_no_page_overflow(page, where, viewport["width"])
     finally:
         context.close()
