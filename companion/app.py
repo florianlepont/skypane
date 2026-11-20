@@ -806,8 +806,10 @@ class Handler(
         self._apply_principal(principal)
         if principal is None or principal.role != access.ADMIN:
             return None
+        # No device, so no known discharge curve: the low-battery signal is
+        # left out rather than read off a guessed one.
         signals = health_page.safe_health_signals(
-            self.args.state_dir, history_db.utc_now_iso())
+            self.args.state_dir, history_db.utc_now_iso(), curve_known=False)
         return signals["severity"] if signals else "ok"
 
     def _unavailable_page(self):
