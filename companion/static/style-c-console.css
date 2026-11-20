@@ -582,10 +582,6 @@ button.row-menu__item--destructive:hover {
   font-weight: var(--weight-semibold);
 }
 
-.group > .row--purpose .row__label {
-  font-weight: var(--weight-semibold);
-}
-
 .group > .row--form {
   display: block;
   padding: var(--space-sm) var(--space-md) var(--space-md);

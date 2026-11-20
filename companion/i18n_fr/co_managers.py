@@ -8,9 +8,6 @@ companion/pages/co_managers_card.py; this module only carries the French.
 
 MESSAGES = {
     "co_managers.heading": "Co-gestionnaires",
-    "co_managers.purpose_manage":
-        "Les personnes qui peuvent modifier les réglages de ce cadre avec le "
-        "propriétaire. Elles ne peuvent ni le retirer ni le réattribuer.",
     "co_managers.dialog_title": "Gérer l’accès",
     "co_managers.menu_label": "Gérer l’accès",
     "co_managers.done": "Terminé",
