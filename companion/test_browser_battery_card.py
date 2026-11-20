@@ -194,3 +194,21 @@ def test_too_little_data_says_so_and_keeps_every_other_datum(
         assert not _assert_no_page_overflow(page, "one reading", viewport["width"])
     finally:
         context.close()
+
+
+@pytest.mark.parametrize("lang", ("en", "fr"))
+def test_the_open_readings_table_fits_the_narrowest_phone_with_its_level_column(
+        new_context, normal, lang):
+    context, page = _open(new_context, normal, {"width": 360, "height": 740}, lang)
+    try:
+        page.locator(ROW + " .battery-readings > summary").click()
+        wrap = page.locator(ROW + " .battery-readings .data-table-wrap")
+        wrap.wait_for(state="visible")
+        sizes = wrap.evaluate("el => [el.clientWidth, el.scrollWidth]")
+        assert sizes[1] <= sizes[0] + 1, "the readings table scrolls sideways: %r" % (sizes,)
+        level = page.locator(ROW + " .battery-readings th").nth(2)
+        box, card = level.bounding_box(), page.locator(ROW).bounding_box()
+        assert box["x"] + box["width"] <= card["x"] + card["width"] + 0.5, (box, card)
+        assert level.inner_text().strip() == {"en": "Level", "fr": "Niveau"}[lang]
+    finally:
+        context.close()

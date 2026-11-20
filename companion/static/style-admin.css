@@ -1003,8 +1003,21 @@ div.update-item__summary {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-/* A narrow card: a smaller gauge, and the switch fills the row. */
+/* A narrow card: a smaller gauge, and the switch fills the row. The
+ * readings columns keep the card's edge padding but pull their inner
+ * gutters in so Time, Voltage and Level fit the card without a sideways
+ * scroll (the French labels are the widest). */
 @container health-rows (max-width: 480px) {
+  .battery-readings .data-table th:not(:last-child),
+  .battery-readings .data-table td:not(:last-child) {
+    padding-right: var(--space-sm);
+  }
+
+  .battery-readings .data-table th:not(:first-child),
+  .battery-readings .data-table td:not(:first-child) {
+    padding-left: var(--space-sm);
+  }
+
   .battery-hero {
     gap: var(--space-md);
   }
