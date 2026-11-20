@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from companion import auth, battery
-from companion.test_browser_charging_pill import _seed_charging
+from companion.test_browser_battery_helpers import _seed_charging
 from companion.test_browser_ux_helpers import (
     UI_THEMES_EXPLICIT, VIEWPORT_DESKTOP, _assert_no_page_overflow, _login, _set_ui_theme,
     seed_state_dir)
