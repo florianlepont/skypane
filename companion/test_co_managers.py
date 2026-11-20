@@ -129,8 +129,8 @@ def test_no_flash_text_carries_a_placeholder():
 
 
 @pytest.mark.parametrize("action,english,french", [
-    (fleet_db.ACTION_CO_MANAGER_ADD, "Co-manager added", "Co-gestionnaire ajouté"),
-    (fleet_db.ACTION_CO_MANAGER_REMOVE, "Co-manager removed", "Co-gestionnaire retiré"),
+    (fleet_db.ACTION_CO_MANAGER_ADD, "Co-manager added", "Cogestionnaire ajouté"),
+    (fleet_db.ACTION_CO_MANAGER_REMOVE, "Co-manager removed", "Cogestionnaire retiré"),
 ])
 def test_the_audit_page_labels_the_co_manager_actions(base, action, english, french):
     server, seed = base

@@ -282,7 +282,7 @@ def test_a5_add_a_co_manager(world, new_context):
     try:
         slug = world.seed.owned_id.lower().replace("_", "-")
         _access_tab(steps, page, "Kitchen")
-        steps.tap(page.locator(".fleet-block--access li.access-add a.row__main"), "Add co-manager")
+        steps.tap(page.locator(".fleet-block--access li.access-add a.row__main"), "Add a co-manager")
         dialog = page.locator("#dlg-add-co-manager-%s" % slug)
         page.wait_for_function(
             "d => d.open", arg=dialog.element_handle(), timeout=10000)

@@ -21,7 +21,7 @@ from companion.test_browser_ux_helpers import (
     UI_THEMES_EXPLICIT, VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED,
     _RING_INK_PROBE,
     _assert_no_page_overflow, _computed_paint, _login, _no_js_page,
-    _open_health_rows, _set_ui_theme, seed_state_dir,
+    _set_ui_theme, seed_state_dir,
 )
 
 pytestmark = pytest.mark.browser
@@ -64,7 +64,6 @@ def test_the_ring_paints_a_theme_token_in_both_themes(new_context, server, label
         page = context.new_page()
         _login(page, server.base_url())
         page.goto(server.base_url() + route)
-        _open_health_rows(page)
         seen = {}
         for theme in UI_THEMES_EXPLICIT:
             _set_ui_theme(page, theme)
@@ -118,7 +117,6 @@ def test_the_rings_viewbox_contains_its_own_stroked_geometry(new_context, server
         page = context.new_page()
         _login(page, server.base_url())
         page.goto(server.base_url() + route)
-        _open_health_rows(page)
         box = page.evaluate(_RING_INK_PROBE, {"selector": RING_FIGURE})
         if box is None:
             raise AssertionError(
@@ -158,7 +156,6 @@ def test_the_ring_costs_no_width_no_height_and_no_script(new_context, server):
         _login(page, server.base_url())
         for label, route in RING_PAGES:
             page.goto(server.base_url() + route)
-            _open_health_rows(page)
             if page.locator(RING_VALUE).count() != 1:
                 raise AssertionError(
                     "%s: expected exactly one ring value arc at 360px, got %d"
@@ -174,7 +171,6 @@ def test_the_ring_costs_no_width_no_height_and_no_script(new_context, server):
         for label, route in RING_PAGES:
             with _no_js_page(new_context, server.base_url(), route,
                              viewport=VIEWPORT_MIN_SUPPORTED) as blocked:
-                _open_health_rows(blocked)
                 if blocked.locator(RING_VALUE).count() != 1:
                     raise AssertionError(
                         "%s with scripts blocked: expected exactly one ring "
@@ -244,7 +240,6 @@ def test_the_charts_area_mark_and_threshold_paint_real_tokens_in_both_themes(pag
     # judgement nobody can see; and every one of them must move when the theme does.
     _login(page, server.base_url())
     page.goto(server.base_url() + FRAME_ROUTE)
-    _open_health_rows(page)
     page.wait_for_selector(CHART_AREA)
     seen = {}
     for theme in UI_THEMES_EXPLICIT:
@@ -346,7 +341,6 @@ def test_the_chart_costs_no_width_at_360_in_either_language_and_needs_no_script(
             context.add_cookies([{
                 "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
             page.goto(base_url + FRAME_ROUTE)
-            _open_health_rows(page)
             page.wait_for_selector(CHART_LEGEND)
             message = _assert_no_page_overflow(
                 page, "/fleet in %s" % lang, VIEWPORT_MIN_SUPPORTED["width"])
@@ -443,7 +437,6 @@ def test_the_chart_costs_no_width_at_360_in_either_language_and_needs_no_script(
     # the theme+no-JS combination most likely to be wrong.
     with _no_js_page(new_context, server.base_url(), FRAME_ROUTE,
                      viewport=VIEWPORT_MIN_SUPPORTED) as blocked:
-        _open_health_rows(blocked)
         for label, selector in (("area", CHART_AREA), ("mark", CHART_MARK),
                                 ("threshold", CHART_THRESHOLD),
                                 ("legend", CHART_LEGEND)):
@@ -482,14 +475,13 @@ def test_health_has_no_regularity_grid_and_the_connection_row_still_renders(
         context.add_cookies([{
             "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": server.base_url()}])
         page.goto(server.base_url() + FRAME_ROUTE)
-        _open_health_rows(page)
         for selector in (".check-in-grid", ".check-in-key", ".check-in-grid__scale",
                          "rect.drawing-cell"):
             assert page.locator(selector).count() == 0, (
                 "Health still draws %s in %s" % (selector, lang))
         row = page.locator("#health-row-connection")
         assert row.count() == 1
-        assert row.locator("summary .health-row__verdict").is_visible()
+        assert row.locator(".health-row__summary .health-row__verdict").is_visible()
         assert row.locator(".health-row__body .health-row__facts").is_visible()
         assert row.locator(".health-row__body .health-row__note").is_visible()
         body = page.evaluate(
@@ -522,7 +514,6 @@ def _open_status(context, base_url, lang):
     _login(page, base_url)
     context.add_cookies([{"name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
     page.goto(base_url + FRAME_ROUTE)
-    _open_health_rows(page)
     page.wait_for_selector(".battery-unit:not([hidden])")
     return page
 
@@ -624,7 +615,6 @@ def test_the_battery_unit_switch_works_by_touch(new_context, server):
 def test_the_battery_chart_stays_on_voltage_without_script(new_context, server):
     """With scripts blocked the control is not offered and the voltage chart stays visible."""
     with _no_js_page(new_context, server.base_url(), FRAME_ROUTE) as page:
-        _open_health_rows(page)
         assert page.is_hidden(".battery-unit")
         assert page.is_visible('.battery-chart__view[data-unit="mv"] .sparkline__canvas')
         assert page.is_hidden('.battery-chart__view[data-unit="percent"]')

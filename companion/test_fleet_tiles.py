@@ -60,8 +60,8 @@ def _tiles(page):
 
 
 LABELS = {
-    "en": ["Frame connection", "Battery", "Flight data", "Firmware"],
-    "fr": ["Connexion du cadre", "Batterie", "Données de vol", "Micrologiciel"]}
+    "en": ["Connection", "Battery", "Flight data", "Firmware"],
+    "fr": ["Connexion", "Batterie", "Données de vol", "Micrologiciel"]}
 DETAILS = {"en": "Details", "fr": "Détails"}
 
 
@@ -130,7 +130,7 @@ def _rename(state_dir, device_id, name):
         conn.close()
 
 
-def test_the_health_page_keeps_every_block_and_opens_the_rows(fleet):
+def test_the_health_page_keeps_every_block_as_always_open_cards(fleet):
     server, seed, cookie = fleet
     _seed_readings(server.state_dir)
     page = _page(server, cookie, "/fleet?frame=%s&view=health" % seed.live_id)
@@ -138,8 +138,11 @@ def test_the_health_page_keeps_every_block_and_opens_the_rows(fleet):
     assert len(re.findall(r"<h1[ >]", page)) == 1 and '<h1 class="fleet-head__title">Health</h1>' in page
     # The frame's blocks, then the platform blocks of an administrator.
     for row in ("connection", "battery", "flight-data", "sources", "identification"):
-        assert re.search(r'<details class="health-row" [^>]*id="health-row-%s"[^>]* open>' % row, page), row
-    assert "Server &amp; data" in page and ">Frame<" in page
+        assert re.search(r'<div class="health-row" [^>]*id="health-row-%s"' % row, page), row
+    assert "Server &amp; data · Visible to administrators" in page and ">Frame<" in page
+    # Flat rows: no collapse control, one card per topic.
+    assert "<summary" not in page.split('id="fleet-block-health-frame"')[1].split("readings-disclosure")[0]
+    assert len(re.findall(r'<ul class="group fleet-group"><li[^>]*><div class="health-rows">', page)) == 5
     # The battery row keeps its readout, chart and readings table.
     assert 'class="battery-readout' in page and "battery-unit" in page and "readings-disclosure" in page
     # The list column is not part of this page, and the old tiles are not either.
@@ -150,7 +153,7 @@ def test_the_health_page_does_not_link_to_the_unresolved_airlines(fleet):
     server, seed, cookie = fleet
     _seed_readings(server.state_dir)
     page = _page(server, cookie, "/fleet?frame=%s&view=health" % seed.live_id)
-    row = page.split('id="health-row-identification"')[1].split("</details>")[0]
+    row = page.split('id="health-row-identification"')[1].split("</section>")[0]
     assert "<a " not in row and "/airlines/manage" not in row
 
 
@@ -173,7 +176,7 @@ def test_the_health_page_has_a_way_back_to_the_frame_and_escapes_its_name(fleet)
         assert html.unescape(back.group(2)) == "Back to " + hostile
 
 
-@pytest.mark.parametrize("lang,back,title", [("en", "Back to Kitchen", "Health"), ("fr", "Retour à Kitchen", "État")])
+@pytest.mark.parametrize("lang,back,title", [("en", "Back to Kitchen", "Health"), ("fr", "Retour à Kitchen", "Santé")])
 def test_the_back_link_and_title_are_translated(fleet, lang, back, title):
     server, seed, cookie = fleet
     page = _page(server, cookie, "/fleet?frame=%s&view=health" % seed.owned_id, lang)

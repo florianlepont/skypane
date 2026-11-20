@@ -50,7 +50,7 @@ def _row_html(rendered, row_id):
     (the next row, the next group band, or the registry card)."""
     start = rendered.index('id="health-row-%s"' % row_id)
     ends = [index for index in (
-        rendered.find('<details class="health-row"', start),
+        rendered.find('<div class="health-row"', start),
         rendered.find('<h2 id="%s"' % health_page.SERVER_DATA_SECTION_ID, start),
         len(rendered),
     ) if index != -1]
@@ -469,7 +469,7 @@ def test_health_row_icons_are_the_four_state_glyphs_and_no_heading_carries_a_gly
     assert _non_toast_uses(empty_rendered) == 5, (
         "expected exactly five non-toast <use occurrences on the empty render (one state glyph "
         "per row; Health carries no auto-refresh pill any more)")
-    rows = parse_html(empty_rendered).select("details.health-row")
+    rows = parse_html(empty_rendered).select("div.health-row")
     for row in rows:
         icon = row.select_one(".health-row__icon")
         assert len(icon.select("svg")) == 1

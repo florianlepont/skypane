@@ -158,15 +158,15 @@ def test_health_page_timestamp_helpers_promoted_not_duplicated(tmp_path):
 
 def test_independent_thresholds_one_warn_one_ok(tmp_path):
     """a stale device and a fresh pipeline read as independent per-row states
-    (error vs ok), not a blended verdict; the error row renders already open and
-    the ok row closed"""
+    (error vs ok), not a blended verdict; the rows carry their own state and are
+    always open"""
     now = shp.now()
     shp.seed_device_health(str(tmp_path), [(shp.ago(_DEFAULT_DEVICE_ERROR_S + 60), 4000)])
     shp.seed_meta(str(tmp_path), **{history_db.META_LAST_PIPELINE_RUN: shp.iso(now)})
     rendered = health_page_composition.render(shp.ctx(str(tmp_path), now_value=shp.iso(now)))
 
-    assert shp.health_row_state(rendered, "connection") == ("error", True)
-    assert shp.health_row_state(rendered, "flight-data") == ("ok", False)
+    assert shp.health_row_state(rendered, "connection") == "error"
+    assert shp.health_row_state(rendered, "flight-data") == "ok"
 
     assert rendered.count("dot--ok") == 0
     assert "dot--warn" not in rendered
@@ -186,7 +186,7 @@ def test_connection_and_flight_data_rows_have_no_duplicated_label(tmp_path):
         assert rendered.count(">%s<" % name) == 1, (
             "%r must appear exactly once on the whole rendered page" % name)
         row = shp.health_row(rendered, row_id)
-        summary = row.select_one("summary")
+        summary = row.select_one(".health-row__summary")
         assert len(summary.select(".health-row__name")) == 1
         assert len(summary.select(".health-row__verdict")) == 1
         assert len(summary.select(".health-row__value")) == 1
@@ -671,7 +671,7 @@ def test_sources_row_keeps_the_verdict_in_the_summary_and_explanations_in_the_bo
     ])
     rendered = health_page_composition.render(shp.ctx(str(tmp_path), now_value=shp.iso(now)))
     row = shp.health_row(rendered, "sources")
-    summary_text = row.select_one("summary").text()
+    summary_text = row.select_one(".health-row__summary").text()
     body = row.select_one(".health-row__body")
     assert "1 disagreement" in summary_text
     for _key, _label, _status, explanation in health_page._CORROBORATION_ROWS:
@@ -683,7 +683,7 @@ def test_sources_row_keeps_the_verdict_in_the_summary_and_explanations_in_the_bo
     assert len(outcomes) == 3
     assert [len(item.select(".dot")) for item in outcomes] == [1, 1, 1]
     # A disagreement is a warning, so the row opens itself.
-    assert shp.health_row_state(rendered, "sources") == ("warn", True)
+    assert shp.health_row_state(rendered, "sources") == "warn"
 
 
 def test_sources_row_disagreement_flag_unchanged():
@@ -757,11 +757,11 @@ def test_battery_row_healthy_on_a_normal_trend(tmp_path):
     shp.seed_device_health(str(tmp_path), readings)
     shp.seed_meta(str(tmp_path), **{history_db.META_LAST_PIPELINE_RUN: shp.iso(now)})
     rendered = health_page_composition.render(shp.ctx(str(tmp_path), now_value=shp.iso(now)))
-    assert shp.health_row_state(rendered, "battery") == ("ok", False)
+    assert shp.health_row_state(rendered, "battery") == "ok"
     assert rendered.count("dot--ok") == 0 and "dot--warn" not in rendered and "dot--error" not in rendered, (
         "expected zero dot classes of any colour in this fixture")
     for row_id in ("connection", "flight-data"):
-        assert shp.health_row_state(rendered, row_id) == ("ok", False)
+        assert shp.health_row_state(rendered, row_id) == "ok"
     wrapper = shp.health_row(rendered, "battery").select_one("." + health_page.BATTERY_SECTION_CLASS)
     assert "battery-trend-section--embedded" in wrapper.attrs["class"].split(), (
         "the chart's wrapper must be the card-less embedded variant inside a row")
@@ -783,7 +783,7 @@ def test_battery_empty_history_is_neutral_with_no_anomaly_banner(tmp_path):
     empty_dir = tmp_path / "empty"
     empty_dir.mkdir()
     empty = health_page_composition.render(shp.ctx(str(empty_dir)))
-    assert shp.health_row_state(empty, "battery") == ("off", False)
+    assert shp.health_row_state(empty, "battery") == "off"
     assert "Battery dropped abnormally." not in empty
 
     # Page-level proof: a fresh device with one healthy battery reading
@@ -793,7 +793,7 @@ def test_battery_empty_history_is_neutral_with_no_anomaly_banner(tmp_path):
     shp.seed_meta(str(tmp_path), **{history_db.META_LAST_PIPELINE_RUN: shp.iso(now)})
     rendered = health_page_composition.render(shp.ctx(str(tmp_path), now_value=shp.iso(now)))
     assert "dot--error" not in rendered, "did not expect an error status class with a single battery reading"
-    assert shp.health_row_state(rendered, "battery") == ("ok", False), (
+    assert shp.health_row_state(rendered, "battery") == "ok", (
         "expected the Battery row to read healthy with a single, healthy battery reading")
     assert health_page.ANOMALY_BANNER_TEXT not in rendered, (
         "did not expect the anomaly banner with a single, healthy battery reading")
@@ -812,8 +812,8 @@ def test_battery_drop_drives_the_row_and_banner_detail_copy_not_rendered(tmp_pat
     shp.seed_device_health(str(tmp_path), readings)
     shp.seed_meta(str(tmp_path), **{history_db.META_LAST_PIPELINE_RUN: shp.iso(now)})
     rendered = health_page_composition.render(shp.ctx(str(tmp_path), now_value=shp.iso(now)))
-    assert shp.health_row_state(rendered, "battery") == ("warn", True), (
-        "expected the Battery row to read warn and render open for a drop >= "
+    assert shp.health_row_state(rendered, "battery") == "warn", (
+        "expected the Battery row to read warn for a drop >= "
         "BATTERY_DROP_WARN_MV (demoted from error, D-05)")
     count = rendered.count(health_page.ANOMALY_BANNER_TEXT)
     assert count == 1, "expected the anomaly banner copy exactly once, found %d" % count

@@ -178,14 +178,6 @@ html.js-early .dirty-bar[data-dirty-wait] {
   display: none;
 }
 
-.health-row__summary:hover {
-  background: color-mix(in srgb, var(--color-text) 3.5%, transparent);
-}
-
-.health-row__summary:focus-visible {
-  outline-offset: -2px;
-}
-
 .health-row__name {
   grid-area: name;
   font-size: var(--font-caption-size);
@@ -553,10 +545,10 @@ button.row-menu__item--destructive:hover {
 
 @container health-rows (min-width: 420px) {
   .health-row__summary {
-    grid-template-columns: 32px minmax(0, 1fr) minmax(0, max-content) 16px;
+    grid-template-columns: 32px minmax(0, 1fr) minmax(0, max-content);
     grid-template-areas:
-      "icon name value chevron"
-      "icon verdict value chevron";
+      "icon name value"
+      "icon verdict value";
     min-height: 64px;
     padding: var(--space-sm) var(--space-md);
   }

@@ -4004,11 +4004,10 @@ a.airline-card {
   background: color-mix(in srgb, var(--color-text) 12%, transparent);
 }
 
-/* Health rows: one hairline card, a group band per section, one native
- * <details> row per subsystem. The card is one width at every viewport
- * (no max-width cap), and nothing on it lifts: the rows are read-only, so
- * the only pointer response is a faint wash on the summary, which is the
- * one control a row has. Colour comes from the three status tokens and
+/* Health rows: one hairline card, a group band per section, one
+ * always-open row per subsystem. The card is one width at every viewport
+ * (no max-width cap), and nothing on it lifts: the rows are read-only and
+ * carry no control of their own. Colour comes from the three status tokens and
  * never carries the state alone (each state has its own icon shape and a
  * visually hidden word). The grid is on the 8px scale: a 32px icon, a
  * 16px gutter, a 208px name column, a 64px row. */
@@ -4022,15 +4021,14 @@ a.airline-card {
   margin-bottom: var(--space-lg);
 }
 
-/* A phone row stacks name over verdict over value beside the icon; the
- * chevron is the shared summary marker, moved to the trailing edge. */
+/* A phone row stacks name over verdict over value beside the icon. */
 .health-row__summary {
   display: grid;
-  grid-template-columns: 32px minmax(0, 1fr) 16px;
+  grid-template-columns: 32px minmax(0, 1fr);
   grid-template-areas:
-    "icon name chevron"
-    "icon verdict chevron"
-    "icon value chevron";
+    "icon name"
+    "icon verdict"
+    "icon value";
   column-gap: var(--space-md);
   row-gap: var(--space-xs);
   align-items: center;
@@ -4038,13 +4036,6 @@ a.airline-card {
   padding: var(--space-md);
   color: var(--color-text);
   font-weight: var(--weight-regular);
-}
-
-.health-row__summary::before {
-  grid-area: chevron;
-  justify-self: end;
-  margin: 0;
-  color: color-mix(in srgb, var(--color-text) 60%, transparent);
 }
 
 .health-row__icon {

@@ -1,11 +1,9 @@
 """Health page rows: the one card that lists every subsystem as a row.
 
-A row is a native `<details>`: its `<summary>` carries a state icon, the
-subsystem name, a one-line verdict and a right-aligned value, and its body
-carries the evidence (facts, a chart, a table). A row in a warn or error
-state renders already open, so the page shows what needs attention without
-a click; every other row is one tap away. Everything works with scripts
-blocked, because the disclosure is the browser's own.
+A row is always open: its head carries a state icon, the subsystem name, a
+one-line verdict and a right-aligned value, and its body carries the
+evidence (facts, a chart, a table). Nothing is collapsible, so the page
+shows every reading without a tap and works with scripts blocked.
 
 This module holds only the generic components. What each row says is
 decided in companion/pages/health_page.py, which owns the state wording
@@ -15,8 +13,6 @@ The state is never carried by colour alone: each of the four states has
 its own icon shape, and a visually hidden word names it for a screen
 reader.
 """
-
-import re
 
 from companion.layout import escape_html
 import companion.i18n as i18n
@@ -34,16 +30,13 @@ STATE_ICON_IDS = {
 
 # "off" is the neutral state: a fact with no verdict on it (a held frame,
 # a pipeline that has not run yet, a rate with no pass mark). It is never
-# a problem, which is why it opens nothing and carries no status colour.
+# a problem, which is why it carries no status colour.
 STATE_WORDS = {
     "ok": i18n.msg("health.row_state_ok", "Healthy"),
     "warn": i18n.msg("health.row_state_warn", "Needs attention"),
     "error": i18n.msg("health.row_state_error", "Problem"),
     "off": i18n.msg("health.row_state_off", "Neutral"),
 }
-
-# The states whose row opens itself.
-OPEN_STATES = ("warn", "error")
 
 ROWS_CLASS = "health-rows"
 GROUP_CLASS = "health-rows__group"
@@ -65,30 +58,22 @@ def row_html(row_id, state, name, verdict, value_html, body_html):
     already-safe markup, interpolated verbatim. `row_id` is a module
     constant, never data."""
     state = resolved_state(state)
-    open_attr = " open" if state in OPEN_STATES else ""
     icon = layout.icon_html(STATE_ICON_IDS[state], size=16)
     return (
-        '<details class="%s" data-state="%s" id="%s%s"%s>'
-        '<summary class="%s">'
+        '<div class="%s" data-state="%s" id="%s%s">'
+        '<div class="%s">'
         '<span class="health-row__icon">%s'
         '<span class="visually-hidden">%s</span></span>'
         '<span class="health-row__name">%s</span>'
         '<span class="health-row__verdict">%s</span>'
         '<span class="health-row__value">%s</span>'
-        "</summary>"
+        "</div>"
         '<div class="health-row__body">%s</div>'
-        "</details>"
+        "</div>"
     ) % (
-        ROW_CLASS, state, ROW_ID_PREFIX, escape_html(row_id), open_attr,
+        ROW_CLASS, state, ROW_ID_PREFIX, escape_html(row_id),
         SUMMARY_CLASS, icon, escape_html(i18n.t(STATE_WORDS[state])),
         escape_html(name), escape_html(verdict), value_html, body_html)
-
-
-def opened_html(rows_html):
-    """`rows_html` with every row's disclosure open, for a page that shows the
-    evidence directly (a row in a warn or error state is open already)."""
-    return re.sub(
-        r'(<details class="%s" [^>]*?)(?<! open)>' % ROW_CLASS, r"\1 open>", rows_html)
 
 
 def group_html(group_id, heading, rows_html):

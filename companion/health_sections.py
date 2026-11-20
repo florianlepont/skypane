@@ -45,7 +45,7 @@ HEALTH_UNAVAILABLE_TEXT = i18n.msg(
 UNRESOLVED_SECTION_HEADING = i18n.msg(
     "health.airlines_we_could_not_name", "Airlines we could not name")
 STATS_SECTION_HEADING = i18n.msg(
-    "health.how_well_we_name_flights", "Flight identification")
+    "health.how_well_we_name_flights", "Identification")
 
 
 # The heading is a %-template interpolated with RESOLUTION_WINDOW_DAYS

@@ -96,6 +96,8 @@ MESSAGES = {
     "admin_fleet.system_heading": "Système",
     "admin_fleet.block_state": "État",
     "admin_fleet.tabs_label": "Sections du cadre",
+    "admin_fleet.health_admin_only": "Visible des administrateurs",
+    "admin_fleet.tile_connection": "Connexion",
     "admin_fleet.tile_details": "Détails",
     "admin_fleet.tile_firmware": "Micrologiciel",
     "admin_fleet.back_to_frame": "Retour à %s",
@@ -105,7 +107,7 @@ MESSAGES = {
     "admin_fleet.system_unavailable":
         "Aucune information système n’est disponible pour l’instant.",
     "admin_fleet.unknown_frame": "Ce cadre est introuvable.",
-    "admin_fleet.retire_this_frame": "Retirer ce cadre",
+    "admin_fleet.retire_this_frame": "Retirer ce cadre…",
     "admin_fleet.retire_this_frame_hint":
         "Le cadre n’affiche plus rien et libère son propriétaire.",
     "admin_fleet.retire_this_frame_action": "Retirer…",

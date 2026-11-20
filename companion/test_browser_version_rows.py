@@ -47,7 +47,7 @@ def _open(new_context, server, viewport, lang):
 
 def _seed_four_releases(state_dir):
     """Four releases, the third running: a Newest row, a Running row and two older rows
-    (Roll back), all with release notes."""
+    (Revert), all with release notes."""
     now = datetime.now(timezone.utc)
     for version, age in (("fw-v1.4.0", 55), ("fw-v1.4.1", 51), ("fw-v1.4.2", 36),
                          ("fw-v1.4.3", 2)):

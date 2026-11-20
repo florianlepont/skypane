@@ -858,7 +858,7 @@ def test_every_disclosure_on_every_page_opens_without_overflow(new_context, serv
     pages = (("/", 1), ("/display", 2), ("/display/special-looks", 2),
              ("/display/calendar", 2),
              ("/flights", 1),
-             ("/airlines", 1), ("/fleet", 0), ("/health", 4), ("/fleet?view=system", 1))
+             ("/airlines", 1), ("/fleet", 0), ("/health", 1), ("/fleet?view=system", 1))
     base_url = server.base_url()
     context = new_context(
         viewport={"width": width, "height": 844}, reduced_motion="reduce")

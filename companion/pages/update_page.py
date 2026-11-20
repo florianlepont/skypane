@@ -107,8 +107,8 @@ INSTALL_BUTTON_TEXT = i18n.msg("update.install", "Install")
 # Visible wording of the call-to-action Install and of an Install on an
 # older release, which is a rollback; "%s" is the release version.
 INSTALL_VERSION_BUTTON_TEMPLATE = i18n.msg("update.install_version_s", "Install %s")
-ROLLBACK_BUTTON_TEMPLATE = i18n.msg("update.roll_back_to_s", "Roll back to %s")
-ROLLBACK_SHORT_TEXT = i18n.msg("update.roll_back", "Roll back")
+ROLLBACK_BUTTON_TEMPLATE = i18n.msg("update.roll_back_to_s", "Revert to %s")
+ROLLBACK_SHORT_TEXT = i18n.msg("update.roll_back", "Revert")
 NOT_INSTALLABLE_TEXT = i18n.msg("update.not_installable", "Not installable")
 # publish_release(..., bench=True) admits a non-tag version such as
 # fw-v1.2.0-bench1. It is never listed for installation; the pill
@@ -118,7 +118,7 @@ BENCH_BADGE_TEXT = i18n.msg("update.bench", "Bench")
 RUNNING_BADGE_TEXT = i18n.msg("update.running_badge", "Running")
 # The dialog (and the page without script) that asks once before a release
 # is scheduled: "%s" is the release version. A rollback has its own words.
-ROLLBACK_CONFIRM_HEADING_TEMPLATE = i18n.msg("update.roll_back_to_s_question", "Roll back to %s?")
+ROLLBACK_CONFIRM_HEADING_TEMPLATE = i18n.msg("update.roll_back_to_s_question", "Revert to %s?")
 ROLLBACK_CONFIRM_SENTENCE_TEMPLATE = i18n.msg(
     "update.rollback_confirm_around_s",
     "The frame goes back to %s at its next wake, around %s. Its settings are kept.")
@@ -386,9 +386,9 @@ def _release_install_form_html(
         release, with_version_label=False, type_html="", compact=False, wake=("", False)):
     """The Install form for `release`, worded and styled by where it sits
     against the running release: a newer one is "Install" on the accent
-    primary button; an older one is "Roll back to <version>" on the quiet
+    primary button; an older one is "Revert to <version>" on the quiet
     button; an equal or incomparable one is a quiet "Install". `compact`
-    (a history row, which names the version itself) words a rollback "Roll back"
+    (a history row, which names the version itself) words a rollback "Revert"
     and makes every action a text-style button.
     """
     version = release.get("version")
@@ -706,7 +706,7 @@ def update_install_confirm_page(
     control-flow shape as
     `companion/settings/calendar.py`'s `calendar_disconnect_confirm_page()`.
     It is one card with the question, what will happen and a Cancel and an
-    Install (or Roll back) button.
+    Install (or Revert) button.
 
     `version` has already been validated (the registry's own version
     pattern and length cap) by the caller before this page is ever

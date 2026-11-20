@@ -229,7 +229,7 @@ def test_history_is_a_flat_list_with_status_chips_and_a_quiet_revert(
     version in monospace and a date and age line per row; "Newest" and "Running"
     chips; a quiet text-style Revert (still a 44px target) on every older version."""
     words = {
-        "en": ("Versions", "Newest", "Running", "Roll back", "Notes (4)", "Installed"),
+        "en": ("Versions", "Newest", "Running", "Revert", "Notes (4)", "Installed"),
         "fr": ("Versions", "Plus récente", "En cours", "Revenir", "Notes (4)", "Installée"),
     }[lang]
     context, page = open_panel(new_context, servers["update"], width, lang, theme)

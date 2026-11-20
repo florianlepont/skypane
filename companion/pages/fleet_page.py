@@ -75,7 +75,7 @@ _REASSIGN_LIVE_SENTENCE = i18n.msg(
     "admin_fleet.only_the_owner_changes_nothing_is_erased",
     "Nothing is erased.")
 _THIS_OWNER = i18n.msg("admin_fleet.the_current_owner", "The current owner")
-_RETIRE_THIS_FRAME = i18n.msg("admin_fleet.retire_this_frame", "Retire this frame")
+_RETIRE_THIS_FRAME = i18n.msg("admin_fleet.retire_this_frame", "Retire this frame…")
 _RETIRE_HINT = i18n.msg(
     "admin_fleet.retire_this_frame_hint",
     "The frame stops showing anything and its owner is released.")

@@ -13,9 +13,9 @@ from companion.test_browser_ux_helpers import (
     VIEWPORT_DESKTOP,
     VIEWPORT_MIN_SUPPORTED,
     VIEWPORT_PHONE,
+    _assert_health_rows_flat,
     _assert_no_page_overflow,
     _login,
-    _open_health_rows,
     _set_ui_theme,
     seed_state_dir,
 )
@@ -29,7 +29,7 @@ VIEWPORTS = (
     ("360", VIEWPORT_MIN_SUPPORTED),
 )
 WORDS = {"en": "Probably charging", "fr": "Probablement en charge"}
-HEALTH_PILL = "#health-row-battery > summary .charging-pill"
+HEALTH_PILL = "#health-row-battery > .health-row__summary .charging-pill"
 # An hourly cadence keeps the readings fresh for two hours, so the shared,
 # read-only server below never outlives its fixture however slow the run.
 INTERVAL_S = 3600
@@ -135,7 +135,7 @@ def test_home_shows_the_pill_inside_the_battery_pill_in_both_themes(
 @pytest.mark.parametrize("viewport_name,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
 def test_health_pill_is_visible_and_fits_in_both_themes(
         new_context, charging_server, lang, viewport_name, viewport):
-    """in Health's Battery row the pill is visible in the closed row's summary, whole inside it,
+    """in Health's Battery row the pill is visible in the row head, whole inside it,
     on one line, with no page overflow, in light and dark"""
     context, page = _open(new_context, charging_server, "/fleet?frame=live&view=health", lang, viewport)
     try:
@@ -144,7 +144,7 @@ def test_health_pill_is_visible_and_fits_in_both_themes(
             where = "Health %s %s %s" % (lang, viewport_name, theme)
             page.locator(HEALTH_PILL).wait_for(state="visible")
             assert page.locator(HEALTH_PILL).inner_text().strip() == WORDS[lang], where
-            _assert_pill_fits(page, HEALTH_PILL, "#health-row-battery > summary", where)
+            _assert_pill_fits(page, HEALTH_PILL, "#health-row-battery > .health-row__summary", where)
             assert _assert_no_page_overflow(page, where) == ""
     finally:
         context.close()
@@ -152,7 +152,7 @@ def test_health_pill_is_visible_and_fits_in_both_themes(
 
 def test_the_pill_costs_the_controls_around_it_nothing(new_context, charging_server):
     """Home's Screen switch and Quiet hours pill keep their 44px targets (with the pill inside the
-    battery pill) and the Battery row's summary on Health stays one tappable disclosure, with the
+    battery pill) and the Battery row head on Health keeps its 44px height, with the
     pill present, at the narrowest supported width"""
     context, page = _open(
         new_context, charging_server, layout.HOME_ROUTE, "fr", VIEWPORT_MIN_SUPPORTED)
@@ -164,12 +164,11 @@ def test_the_pill_costs_the_controls_around_it_nothing(new_context, charging_ser
             box = page.locator(selector).bounding_box()
             assert box["height"] >= 44 and box["width"] >= 44, (selector, box)
         page.goto(charging_server.base_url() + "/fleet?frame=live&view=health")
-        summary = page.locator("#health-row-battery > summary")
+        summary = page.locator("#health-row-battery > .health-row__summary")
         summary.wait_for(state="visible")
         assert summary.bounding_box()["height"] >= 44
         assert summary.bounding_box()["width"] <= VIEWPORT_MIN_SUPPORTED["width"]
-        _open_health_rows(page)
-        assert page.locator("#health-row-battery").get_attribute("open") is not None
+        _assert_health_rows_flat(page)
         page.locator(HEALTH_PILL).wait_for(state="visible")
     finally:
         context.close()
@@ -217,7 +216,7 @@ def test_a_new_reading_removes_the_pill_on_the_next_load(new_context, make_app_s
                 battery_mv=3700 + 12 * 11 - 84, fw_version="1.0.0", boot_reason="wake",
                 rssi="-60")
         page.reload()
-        page.locator('details.health-row[id$="battery"]').wait_for(state="visible")
+        page.locator('div.health-row[id$="battery"]').wait_for(state="visible")
         assert page.locator(".charging-pill").count() == 0
     finally:
         context.close()

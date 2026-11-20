@@ -993,16 +993,14 @@ def test_the_flights_table_columns_do_not_depend_on_the_rows_that_arrive(
 
 
 def test_a_disclosure_row_fades_its_content_in_when_it_opens(new_context, server):
-    """what a row disclosure reveals (a health row's body, the readings list) arrives with the
+    """what a row disclosure reveals (the readings list) arrives with the
     short fade instead of appearing in one frame"""
     context = _admin_context(new_context, server, {"width": 390, "height": 844},
                              reduced_motion="no-preference")
     try:
         page = context.new_page()
-        # The System view's rows are closed; the Health page's rows are open, its readings
-        # list is not.
-        for path, sel in (("/fleet?view=system", "details.health-row:not([open])"),
-                          ("/health", "details.readings-disclosure:not([open])")):
+        # The Health page's rows are always open; its readings list is closed until opened.
+        for path, sel in (("/health", "details.readings-disclosure:not([open])"),):
             _open(page, server, path)
             page.wait_for_function(_SETTLED_PAGE, timeout=10000)
             first = page.evaluate("""(sel) => {

@@ -99,7 +99,7 @@ _CHOOSE_PERSON = i18n.msg("co_managers.choose_person", "Choose a person")
 _NO_CANDIDATES = i18n.msg(
     "co_managers.no_candidates",
     "Everyone who is invited is already on this frame.")
-_ADD_BUTTON = i18n.msg("co_managers.add_button", "Add co-manager")
+_ADD_BUTTON = i18n.msg("co_managers.add_button", "Add a co-manager")
 _REMOVE_BUTTON = i18n.msg("co_managers.remove_button", "Remove")
 _REMOVE_ARIA = i18n.msg("co_managers.remove_aria", "Remove %s from this frame")
 _LEAVE_TEXT = i18n.msg("co_managers.leave", "Leave this frame")

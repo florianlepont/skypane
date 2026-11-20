@@ -43,7 +43,7 @@ FRAME_HREF_PREFIX = "/fleet?%s=" % FRAME_QUERY
 
 def page_scripts(system=False):
     """The scripts the embedded blocks need: the settings form's dirty bar, value
-    controls and the Diagnostic LED quick switch, plus the Install and Roll back
+    controls and the Diagnostic LED quick switch, plus the Install and Revert
     question dialog on a frame's page, or the Health registry table's copy, filter and
     lookup helpers on the System view."""
     from companion import ui_base
@@ -67,6 +67,7 @@ _SECTIONS_LABEL = i18n.msg("admin_fleet.tabs_label", "Frame sections")
 _BACK_TO_FRAME = i18n.msg("admin_fleet.back_to_frame", "Back to %s")
 _HEALTH_HEADING = i18n.msg("nav.health", "Health")
 _VERSIONS_HEADING = i18n.msg("update.version_history", "Versions")
+_ADMIN_ONLY = i18n.msg("admin_fleet.health_admin_only", "Visible to administrators")
 _FRAME_GROUP_HEADING = i18n.msg("admin_fleet.health_frame_section", "Frame")
 _SYSTEM_EMPTY = i18n.msg(
     "admin_fleet.system_unavailable",
@@ -146,6 +147,20 @@ def _block(heading_msg, items_html, extra_class="", slug="", heading=""):
         extra_class="fleet-block" + extra_class,
         attrs='id="%s%s"' % (fleet_tiles.SECTION_ID_PREFIX, slug)).replace(
             '<ul class="group">', '<ul class="group fleet-group">', 1)
+
+
+def _cards_block(heading, items_html, extra_class, slug):
+    """One labelled block whose items are separate glass cards, one per item,
+    stacked under the single label (the Health page: a card per topic)."""
+    if not items_html:
+        return ""
+    from companion import ui_groups
+    cards = "".join(
+        '<ul class="group fleet-group">%s</ul>' % item for item in items_html)
+    return '<section class="group-block fleet-block%s" id="%s%s" aria-labelledby="%s">%s%s</section>' % (
+        extra_class, fleet_tiles.SECTION_ID_PREFIX, slug, "fleet-block-" + slug,
+        ui_groups.section_label(heading, "fleet-block-" + slug),
+        '<div class="fleet-cards">%s</div>' % cards)
 
 
 def _item(content_html, flush=False):
@@ -233,18 +248,19 @@ def health_html(ctx, device):
         parts = health_page.health_sections(ctx)
 
     def rows(items):
-        return "".join(
-            _item(health_rows.card_html(health_rows.opened_html(row)), True) for row in items)
+        return [_item(health_rows.card_html(row), True) for row in items]
 
     if parts.empty_html:
         blocks = _block(
             _FRAME_GROUP_HEADING, _item(parts.empty_html, True),
             " fleet-block--health", "health-frame")
     else:
-        blocks = _block(
-            _FRAME_GROUP_HEADING, rows(parts.frame_rows), " fleet-block--health",
-            "health-frame") + _block(
-                health_page.SERVER_DATA_SECTION_HEADING, rows(parts.platform_rows),
+        blocks = _cards_block(
+            i18n.t(_FRAME_GROUP_HEADING), rows(parts.frame_rows), " fleet-block--health",
+            "health-frame") + _cards_block(
+                "%s · %s" % (
+                    i18n.t(health_page.SERVER_DATA_SECTION_HEADING), i18n.t(_ADMIN_ONLY)),
+                rows(parts.platform_rows),
                 " fleet-block--health", "health-server")
     return parts.notices_html + '<div class="fleet-blocks fleet-blocks--detail">%s</div>' % blocks
 
@@ -252,7 +268,7 @@ def health_html(ctx, device):
 def versions_html(ctx, device):
     """The Versions page of a frame: the installed version and whether an
     update is available (with its install action), then every release with its
-    Install or Roll back action."""
+    Install or Revert action."""
     from companion.pages import update_page
     with history_db.connection_scope(device.state_dir):
         device_html, releases_html, _summary = update_page.render_parts(

@@ -190,6 +190,8 @@ def test_plain_strings_are_refused():
 # translation. Keyed by the stable message id.
 _UNCHANGED_IN_FRENCH = frozenset({
     "display.aspect",
+    # "Identification" is spelled identically in French.
+    "health.how_well_we_name_flights",
     # "Version", "Action" and "Notes (%d)" are spelled identically in French.
     "update.col_version", "update.col_action", "update.notes_n",
     # "Rare" is spelled identically in French.

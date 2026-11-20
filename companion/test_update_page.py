@@ -329,7 +329,7 @@ def test_the_card_offers_the_newest_installable_release_not_an_older_one():
 
 
 def test_older_release_is_worded_as_a_rollback_on_a_quiet_button():
-    """an older release reads "Roll back" ("Revenir") on the text button of its row, named
+    """an older release reads "Revert" ("Revenir") on the text button of its row, named
     by its version for assistive technology, through the same confirmation form with the
     rollback's own question; the card does not offer it"""
     view = _view(
@@ -339,13 +339,13 @@ def test_older_release_is_worded_as_a_rollback_on_a_quiet_button():
     html = update_page.update_page(_ctx(), view, "08:14")
     assert not _cta(html).select("form")
     row = _rows(html)["fw-v1.0.0"]
-    assert _forms(row) == [("fw-v1.0.0", TEXT, "Roll back")]
+    assert _forms(row) == [("fw-v1.0.0", TEXT, "Revert")]
     form = row.select_one("form")
     assert form.attrs["action"] == update_page.INSTALL_ROUTE and "data-question-title" in form.attrs
-    assert form.select_one("button").attrs["aria-label"] == "Roll back to fw-v1.0.0"
-    assert form.attrs["data-question-title"] == "Roll back to fw-v1.0.0?"
+    assert form.select_one("button").attrs["aria-label"] == "Revert to fw-v1.0.0"
+    assert form.attrs["data-question-title"] == "Revert to fw-v1.0.0?"
     assert "back to fw-v1.0.0 at its next wake, around 08:14" in form.attrs["data-question-body"]
-    assert form.attrs["data-question-go"] == "Roll back"
+    assert form.attrs["data-question-go"] == "Revert"
     assert not form.select('input[name="confirm"]')
     fr_row = _rows(_fr_html(view))["fw-v1.0.0"]
     assert _forms(fr_row) == [("fw-v1.0.0", TEXT, "Revenir")]
@@ -940,7 +940,7 @@ def test_the_fleet_versions_are_a_flat_list_with_the_action_always_in_view():
              for version, row in rows.items()}
     assert chips == {"fw-v1.0.0": [], "fw-v1.1.0": ["Running"], "fw-v1.2.0": ["Newest"]}
     old = rows["fw-v1.0.0"].select_one("form button")
-    assert old.text() == "Roll back" and old.attrs["aria-label"] == "Roll back to fw-v1.0.0"
+    assert old.text() == "Revert" and old.attrs["aria-label"] == "Revert to fw-v1.0.0"
     assert "btn--ghost" in old.attrs["class"]
     assert not rows["fw-v1.2.0"].select("form") and not rows["fw-v1.1.0"].select("form")
     install_forms = doc.select('form[action="/update/install"]')

@@ -174,7 +174,7 @@ MESSAGES = {
     "health.row_no_readings": "Aucun relevé pour l’instant",
     "health.row_no_check_in": "Aucune connexion pour l’instant",
     "health.row_unavailable": "Indisponible",
-    "health.row_last_check_in": "Dernière connexion",
+    "health.row_last_check_in": "Dernier contact",
     "health.row_next_wake": "Prochain réveil",
     "health.row_last_run": "Dernière exécution",
     # Real U+00A0 between each figure and its unit or sign.
@@ -206,7 +206,7 @@ MESSAGES = {
     "health.example_callsign": "Exemple d’indicatif",
 
     # --- Resolution-statistics table --------------------------------------
-    "health.how_well_we_name_flights": "Identification des vols",
+    "health.how_well_we_name_flights": "Identification",
     # Kept as an unformatted "%d" template, exactly like the English
     # source constant.
     "health.no_flights_in_the_last_days": "Aucun vol depuis %d jours",

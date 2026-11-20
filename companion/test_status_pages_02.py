@@ -55,7 +55,7 @@ def _extract_point_ys(svg):
 def _row_verdict(rendered, row_id):
     """The row's `(data-state, verdict text)` pair."""
     row = shp.health_row(rendered, row_id)
-    verdict = row.select_one("summary .health-row__verdict")
+    verdict = row.select_one(".health-row__summary .health-row__verdict")
     return row.attrs["data-state"], verdict.text()
 
 
@@ -706,7 +706,7 @@ def test_health_renders_no_check_in_regularity_grid(tmp_path, lang):
     assert not doc.select(".drawing-cell"), "Health must not draw regularity cells"
     assert not doc.select(".check-in-key"), "Health must not draw the regularity key"
     row = shp.health_row(rendered, "connection")
-    assert row.select_one("summary .health-row__verdict") is not None
+    assert row.select_one(".health-row__summary .health-row__verdict") is not None
     assert row.select_one(".health-row__body .health-row__facts") is not None
     assert row.select_one(".health-row__body .health-row__note") is not None
     # Health reports observations, never a rate of wakes the frame kept.
@@ -1081,7 +1081,7 @@ def test_identification_row_carries_no_judgement(tmp_path):
     state, verdict = _row_verdict(rendered, "identification")
     assert state == "off"
     assert verdict == "75.0% of flights identified"
-    assert shp.health_row_state(rendered, "identification") == ("off", False)
+    assert shp.health_row_state(rendered, "identification") == "off"
 
 
 # --- One row anatomy -------------------------------------------------------
@@ -1107,14 +1107,14 @@ def test_one_row_anatomy_across_every_health_row(tmp_path, seed):
         ])
     rendered = health_page_composition.render(shp.ctx(state_dir, now_value=shp.iso(now)))
     doc = parse_html(rendered)
-    rows = doc.select("details.health-row")
+    rows = doc.select("div.health-row")
     assert [row.attrs["id"] for row in rows] == [
         "health-row-connection", "health-row-battery", "health-row-flight-data",
         "health-row-sources", "health-row-identification"], (
         "expected the five rows in their fixed order (no backup row without a marker)")
     assert not doc.select(".stat-tile"), "no stat tile may remain on Health"
     for row in rows:
-        summary = row.select_one("summary")
+        summary = row.select_one(".health-row__summary")
         slots = [child.attrs.get("class") for child in summary.children if hasattr(child, "attrs")]
         assert slots == [
             "health-row__icon", "health-row__name", "health-row__verdict", "health-row__value"], (
@@ -1212,7 +1212,7 @@ def test_health_empty_states_are_all_compact(tmp_path):
     now = shp.now()
     rendered = health_page_composition.render(shp.ctx(state_dir, now_value=shp.iso(now)))
     doc = parse_html(rendered)
-    in_row = [row for row in doc.select("details.health-row") if row.select(".empty-state")]
+    in_row = [row for row in doc.select("div.health-row") if row.select(".empty-state")]
     assert [row.attrs["id"] for row in in_row] == ["health-row-battery"], (
         "expected exactly one in-row empty state on a fresh install (Battery), got %r"
         % ([row.attrs["id"] for row in in_row],))
@@ -1299,7 +1299,7 @@ def test_pipeline_never_ran_renders_neutral_no_warn_no_banner(tmp_path):
     shp.seed_device_health(state_dir, [(shp.iso(now), 4200)])
     rendered = health_page_composition.render(shp.ctx(state_dir, now_value=shp.iso(now)))
     assert _row_verdict(rendered, "flight-data") == ("off", health_page.PIPELINE_STATE_TEXT["off"])
-    assert shp.health_row_state(rendered, "flight-data") == ("off", False)
+    assert shp.health_row_state(rendered, "flight-data") == "off"
     row = shp.health_row(rendered, "flight-data")
     row_html = rendered[rendered.index('id="health-row-flight-data"'):rendered.index('id="health-row-sources"')]
     assert "dot--warn" not in row_html, "expected zero dot--warn occurrences in a never-ran pipeline row"

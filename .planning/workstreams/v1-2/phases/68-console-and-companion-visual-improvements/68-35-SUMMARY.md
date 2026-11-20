@@ -104,3 +104,25 @@ Updated to the approved behaviour (nothing skipped or loosened): the Fleet secti
 `/tmp/claude-0/-home-user-skypane/1ebaf6ab-90c3-5997-a366-609c87d2992c/scratchpad/p35/mock/` and `.../p35/built/`: `{mock,built}_{frame,health,versions,settings,access}_{ph,dk}_{en,fr}_{light,dark}.png` (phone 390, desktop 1440). Compared side by side; fixed: tile "Details" mark pressed against the meta line, Health rows closed (now open), phone title gap with the way-back link (test pin adapted).
 
 ## Self-Check: PASSED
+
+## Health page conformance to the mock (follow-up)
+
+- Health rows are flat and always open: `companion/health_rows.py` renders a row as
+  `<div class="health-row">` with a `<div class="health-row__summary">` head and a body; no
+  `<details>`/`<summary>`, no chevron, no open/close state (`OPEN_STATES` and `opened_html`
+  removed, the hover/focus/chevron CSS and the `:not([open])` rule removed). The battery
+  "View N readings" disclosure and the Percentage/Voltage switch and ring are unchanged.
+- One glass card per topic (`console_fleet_view._cards_block`): connection, battery under the
+  label "Frame"; flight data, data sources, identification, backup under "Server & data ·
+  Visible to administrators", stacked with a 16 px gap (`.fleet-cards`).
+- Labels moved to the mock's: tile "Frame connection" -> "Connection" / "Connexion"
+  (`admin_fleet.tile_connection`); FR Health title "État" -> "Santé" (`nav.health`); FR "Dernière
+  connexion" -> "Dernier contact"; "Flight identification" / "Identification des vols" ->
+  "Identification"; Versions "Roll back" / "Roll back to %s" -> "Revert" / "Revert to %s"; Access
+  "Add co-manager" -> "Add a co-manager", FR "co-gestionnaire" -> "cogestionnaire" everywhere in
+  the catalogue; "Retire this frame" -> "Retire this frame..." (FR "Retirer ce cadre...");
+  new label "Visible to administrators" / "Visible des administrateurs" on the server group.
+  Status sentences, the 90-day battery series and the Versions page structure are unchanged.
+- Gap: the Versions page keeps its own section labels ("Versions", "Running") instead of the
+  mock's "Device and version" / "Installed" / "Previous versions", which describe a different
+  structure.

@@ -9,7 +9,7 @@ import fleet_console_support as fx
 from companion import auth
 from companion.test_browser_ux_helpers import (
     UI_THEMES_EXPLICIT, VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED, _assert_no_page_overflow,
-    _login, _set_ui_theme, seed_two_releases)
+    _assert_health_rows_flat, _login, _set_ui_theme, seed_two_releases)
 from server import device_config, history_db
 
 pytestmark = pytest.mark.browser
@@ -20,7 +20,7 @@ _SETTLED = (
     "() => document.readyState === 'complete' && document.getAnimations().every("
     "a => !a.effect || a.effect.getTiming().iterations === Infinity || a.playState !== 'running')")
 TITLES = {"en": {"health": "Health", "versions": "Versions"},
-          "fr": {"health": "État", "versions": "Versions"}}
+          "fr": {"health": "Santé", "versions": "Versions"}}
 
 
 def _seed(server):
@@ -86,10 +86,13 @@ def test_every_health_row_shows_its_evidence_without_a_tap(
         new_context, app_server_in_process, viewport, "en", "light",
         "/fleet?frame={live}&view=health")
     try:
-        rows = page.locator("details.health-row")
+        rows = page.locator("div.health-row")
         assert rows.count() >= 5
-        assert page.evaluate(
-            "() => [...document.querySelectorAll('details.health-row')].every(d => d.open)")
+        _assert_health_rows_flat(page)
+        # One card per topic, none of them a collapsible row.
+        assert page.locator("main ul.group:has(> li > .health-rows)").count() == rows.count()
+        for row in range(rows.count()):
+            assert rows.nth(row).locator(".health-row__body").is_visible()
         # The battery row's chart and readings table are on the page.
         assert page.locator("#health-row-battery .battery-readout").is_visible()
         assert page.locator("#health-row-battery svg").first.is_visible()

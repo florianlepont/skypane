@@ -121,7 +121,7 @@ def test_an_owner_types_an_email_in_a_required_bounded_field():
     (form,) = _forms_to(tree, card.ADD_ROUTE)
     assert form.attrs["action"] == PREFIX + card.ADD_ROUTE
     assert _hidden(form)["return_to"] == "/account"
-    assert form.select_one('button[type="submit"]').text() == "Add co-manager"
+    assert form.select_one('button[type="submit"]').text() == "Add a co-manager"
     assert not tree.select("select")
 
 
@@ -148,7 +148,7 @@ def test_an_admin_picks_from_the_eligible_people_with_the_email_as_the_value():
     assert not tree.select('input[type="email"]')
     assert tree.select_one('label[for="%s"]' % select.attrs["id"]).text() == "Invited person"
     (form,) = _forms_to(tree, card.ADD_ROUTE)
-    assert form.select_one('button[type="submit"]').text() == "Add co-manager"
+    assert form.select_one('button[type="submit"]').text() == "Add a co-manager"
 
 
 def test_an_admin_with_nobody_left_to_add_sees_a_line_and_no_control():
@@ -216,8 +216,8 @@ def test_the_french_dialogs_use_the_french_catalogue():
     prefs.set_request_prefs(lang="fr")
     text = _tree(_view(is_admin_viewer=True, candidates=("a@example.test",))).text()
     for expected in (
-            "Gérer l’accès", "Co-gestionnaires", "Propriétaire", "Retirer",
-            "Personne invitée", "Choisir une personne", "Ajouter un co-gestionnaire",
+            "Gérer l’accès", "Cogestionnaires", "Propriétaire", "Retirer",
+            "Personne invitée", "Choisir une personne", "Ajouter un cogestionnaire",
             "Terminé"):
         assert expected in text
     assert "Co-managers" not in text and "Remove" not in text and "Done" not in text
@@ -493,7 +493,7 @@ _REMOVED_ACCESS_TEXT = {
         "Add someone by e-mail address", "The person must already be invited"),
     "fr": (
         "Les personnes qui peuvent modifier les réglages de ce cadre",
-        "Aucun co-gestionnaire pour l’instant", "Choisissez une personne invitée",
+        "Aucun cogestionnaire pour l’instant", "Choisissez une personne invitée",
         "Ajoutez quelqu’un par adresse e-mail", "La personne doit déjà être invitée")}
 
 
@@ -620,8 +620,8 @@ def test_account_marks_each_frame_owner_or_co_manager_and_the_role_row_counts_sh
 
 def test_the_french_account_marks_and_counts_in_french(rig):
     co = parse_html(_account(rig, "co", language="fr"))
-    assert co.select_one(".account-frame__role").text() == "Co-gestionnaire"
-    assert "Co-gestionnaire de 1 cadre" in _role_row_text(co)
+    assert co.select_one(".account-frame__role").text() == "Cogestionnaire"
+    assert "Cogestionnaire de 1 cadre" in _role_row_text(co)
     owner = parse_html(_account(rig, "owner", language="fr"))
     assert owner.select_one(".account-frame__role").text() == "Propriétaire"
 

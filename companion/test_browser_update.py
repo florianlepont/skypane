@@ -760,8 +760,8 @@ def test_rows_open_and_the_install_flow_works_with_scripts_blocked(
         assert notes.evaluate("el => el.open") is True
         assert oldest.locator(".update-item__notes li").first.is_visible()
         button = oldest.locator("form button[type=submit]")
-        assert button.is_visible() and button.inner_text() == "Roll back"
-        assert button.get_attribute("aria-label") == "Roll back to %s" % _MANY_OLDEST
+        assert button.is_visible() and button.inner_text() == "Revert"
+        assert button.get_attribute("aria-label") == "Revert to %s" % _MANY_OLDEST
         with page.expect_navigation():
             page.evaluate(
                 _CLICK_FORM_SUBMIT_PROBE_IN, ".update-hist__list li:last-child form")

@@ -18,6 +18,13 @@
   margin: 0 0 var(--space-lg);
 }
 
+/* The Health page: one glass card per topic, stacked under one label. */
+.fleet-cards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
 /* A block's group holds value rows and free content items (health rows,
  * forms, version cards). The embedded page content brings its own card
  * chrome; inside the one glass group it is flattened so nothing nests. */
@@ -807,9 +814,6 @@ div.update-item__summary {
   --row-tone: var(--color-status-error);
 }
 
-.health-row:last-child:not([open]) > .health-row__summary {
-  border-radius: 0 0 calc(var(--radius-control) - 1px) calc(var(--radius-control) - 1px);
-}
 @container health-rows (min-width: 600px) {
   .health-rows__group {
     padding: var(--space-sm) var(--space-lg);

@@ -202,7 +202,7 @@ def test_battery_is_read_on_health_not_on_the_personal_home(new_context, make_ap
         page.locator(".home-state").wait_for(state="visible")
         assert page.locator(".home-battery").count() == 0
         page.goto(server.base_url() + "/health")
-        row = page.locator('details.health-row[id$="battery"]')
+        row = page.locator('div.health-row[id$="battery"]')
         row.wait_for(state="visible")
         assert "battery" in row.inner_text().lower()
         value = row.locator(".health-row__value").first

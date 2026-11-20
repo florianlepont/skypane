@@ -236,8 +236,8 @@ def test_render_offbox_stale_marker_warn_card(monkeypatch, tmp_path):
     marker.write_text("skypane-state-20260101T000000Z.tar.gz\n")
     monkeypatch.setenv(OFFBOX_ENV_VAR, str(marker))
     rendered = _render(tmp_path)
-    # A warn row renders already open.
-    assert 'data-state="warn" id="health-row-backup" open>' in rendered
+    # A warn row carries its state on the row.
+    assert 'data-state="warn" id="health-row-backup">' in rendered
     assert "No off-box backup in the last 3 days." in rendered
 
 
@@ -245,7 +245,7 @@ def test_render_offbox_missing_marker_warn_card_never_text(monkeypatch, tmp_path
     _seed_healthy_device(str(tmp_path))
     monkeypatch.setenv(OFFBOX_ENV_VAR, str(tmp_path / "does-not-exist"))
     rendered = _render(tmp_path)
-    assert 'data-state="warn" id="health-row-backup" open>' in rendered
+    assert 'data-state="warn" id="health-row-backup">' in rendered
     assert "No off-box backup has been pulled yet." in rendered
     assert "never" in rendered
 
