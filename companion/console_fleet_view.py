@@ -67,6 +67,9 @@ _SECTIONS_LABEL = i18n.msg("admin_fleet.tabs_label", "Frame sections")
 _BACK_TO_FRAME = i18n.msg("admin_fleet.back_to_frame", "Back to %s")
 _HEALTH_HEADING = i18n.msg("nav.health", "Health")
 _VERSIONS_HEADING = i18n.msg("update.version_history", "Versions")
+_SYSTEM_SUB = i18n.msg(
+    "admin_fleet.system_sub",
+    "The server behind every frame. Visible to administrators.")
 _ADMIN_ONLY = i18n.msg("admin_fleet.health_admin_only", "Visible to administrators")
 _FRAME_GROUP_HEADING = i18n.msg("admin_fleet.health_frame_section", "Frame")
 _SYSTEM_EMPTY = i18n.msg(
@@ -331,7 +334,8 @@ def page_html(h, query, view):
     if is_system:
         return notice + _split(
             "system", frames_list.list_panel_html(view),
-            frames_list.switch_html(view) + frames_list.title_head_html(_t(_SYSTEM_HEADING))
+            frames_list.switch_html(view) + frames_list.title_head_html(
+                _t(_SYSTEM_HEADING), _t(_SYSTEM_SUB))
             + system_html(h.page_context(device_scope.live_device(root))))
     if selected is not None:
         live = frames_list.find_row(view, selected.id)

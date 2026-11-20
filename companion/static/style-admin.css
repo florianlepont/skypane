@@ -2020,6 +2020,12 @@ a.fleet-action-button {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
+.fleet-head__sub {
+  margin: var(--space-xs) 0 0;
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
 .fleet-head__buttons {
   display: flex;
   flex: none;
@@ -2259,6 +2265,25 @@ a.fleet-action-button {
   padding-top: var(--space-sm);
   font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
+}
+
+/* The System page's tiles: the frame tiles with a coloured border when a
+ * topic needs attention (the word and the headline say it too). A tile jumps
+ * to its block, which stops below the app bar. */
+.fleet-tiles--system {
+  margin: var(--space-md) 0;
+}
+
+.fleet-tiles--system .fleet-tile[data-state="warn"] {
+  border-color: var(--color-status-warn);
+}
+
+.fleet-tiles--system .fleet-tile[data-state="error"] {
+  border-color: var(--color-status-error);
+}
+
+.system-topic {
+  scroll-margin-top: calc(var(--space-xl) * 2);
 }
 
 /* The way back from Health or Versions to the frame's page. */

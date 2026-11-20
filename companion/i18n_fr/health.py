@@ -177,6 +177,7 @@ MESSAGES = {
     "health.row_last_check_in": "Dernier contact",
     "health.row_next_wake": "Prochain réveil",
     "health.row_last_run": "Dernière exécution",
+    "health.tile_server": "Serveur",
     # Real U+00A0 between each figure and its unit or sign.
     "health.row_battery_value": "%d\u00a0%% · %d\u00a0mV",
     "health.row_no_disagreement": "Aucun désaccord",

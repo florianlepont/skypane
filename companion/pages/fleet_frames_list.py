@@ -239,12 +239,14 @@ def head_html(row, view):
             _esc(name), _state_line(row, view), buttons)
 
 
-def title_head_html(title):
-    """A title block with the page's one `<h1>` and nothing else: the System
-    view, and a frame with no fleet row (the legacy single frame)."""
+def title_head_html(title, sub=""):
+    """A title block with the page's one `<h1>` and, when given, one line of
+    plain text under it: the System view, and a frame with no fleet row (the
+    legacy single frame). `title` and `sub` are already-safe markup."""
+    line = '<p class="fleet-head__sub">%s</p>' % sub if sub else ""
     return (
         '<div class="fleet-head"><div class="fleet-head__text">'
-        '<h1 class="fleet-head__title">%s</h1></div></div>') % title
+        '<h1 class="fleet-head__title">%s</h1>%s</div></div>') % (title, line)
 
 
 def plain_head_html(device):

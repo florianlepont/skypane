@@ -1055,6 +1055,101 @@ def _server_topics(state, stats, registry_rows, now):
     return [(key, i18n.t(label), row) for key, label, row in topics if row]
 
 
+class SystemTile(NamedTuple):
+    """What one System tile shows: the topic key (the id suffix of its detail
+    block), the state word (ok, warn, error, off), the sprite icon id, the
+    translated label, the headline (plain text) and the muted line (already-safe
+    markup, "" when there is none)."""
+    key: str
+    state: str
+    icon: str
+    label: str
+    value: str
+    meta_html: str
+
+
+_SERVER_TILE_TEXT = i18n.msg("health.tile_server", "Server")
+
+
+def _unavailable_tile(key, icon, label):
+    return SystemTile(key, "off", icon, label, i18n.t(_ROW_UNAVAILABLE_TEXT), "")
+
+
+def _server_tile(state, now):
+    """The poll pipeline's state and the age of its last run."""
+    label = i18n.t(_SERVER_TILE_TEXT)
+    inputs = state["inputs"]
+    if inputs["pipeline_ts"] is _DB_UNAVAILABLE:
+        return _unavailable_tile("flight-data", "icon-pipeline", label)
+    pipeline_ts = inputs["pipeline_ts"]
+    pipeline_state = state["pipeline_state"]
+    meta = ""
+    if pipeline_ts:
+        meta = "%s %s" % (escape_html(i18n.t(_LAST_RUN_TEXT)), _age_html(pipeline_ts, now))
+    return SystemTile(
+        "flight-data", pipeline_state, "icon-pipeline", label,
+        i18n.t(PIPELINE_STATE_TEXT.get(pipeline_state, PIPELINE_STATE_TEXT["warn"])), meta)
+
+
+def _sources_tile(state):
+    """The corroboration verdict and the number of disagreements."""
+    label = i18n.t(ROW_SOURCES_NAME)
+    counts = state["inputs"]["corroboration_counts"]
+    if counts is _DB_UNAVAILABLE:
+        return _unavailable_tile("sources", "icon-corroboration", label)
+    counts = counts or {}
+    if not any(counts.values()):
+        return SystemTile(
+            "sources", "off", "icon-corroboration", label,
+            i18n.t(_NOTHING_TO_COMPARE_YET_TEXT), "")
+    verdict_state = "warn" if state["disagreement_warn"] else "ok"
+    return SystemTile(
+        "sources", verdict_state, "icon-corroboration", label,
+        i18n.t(CORROBORATION_STATE_TEXT[verdict_state]),
+        escape_html(_disagreements_text(counts.get("False", 0) or 0)))
+
+
+def _identification_tile(stats, unresolved_count):
+    """The identified rate and what is left to resolve; neutral, since the
+    rate has no pass mark."""
+    label = i18n.t(STATS_SECTION_HEADING)
+    if stats is _DB_UNAVAILABLE:
+        return _unavailable_tile("identification", "icon-nav-airlines", label)
+    to_resolve = escape_html(
+        i18n.t(_TO_RESOLVE_TEMPLATE) % unresolved_count if unresolved_count
+        else i18n.t(_NOTHING_TO_RESOLVE_TEXT))
+    if stats["total"] == 0:
+        return SystemTile(
+            "identification", "off", "icon-nav-airlines", label,
+            i18n.t(_NO_STATS_HEADING) % RESOLUTION_WINDOW_DAYS, to_resolve)
+    percent = stats["resolved_pct"]
+    shown_percent = min(percent, 99.9) if unresolved_count else percent
+    return SystemTile(
+        "identification", "off", "icon-nav-airlines", label,
+        i18n.t(_IDENTIFIED_TEMPLATE) % _percent_text(shown_percent), to_resolve)
+
+
+def _backup_tile(offbox, now):
+    """The off-box backup's state and the age of the last one; None when no
+    marker is configured (the block is left out too)."""
+    if offbox is None:
+        return None
+    backup_state = offbox["state"]
+    return SystemTile(
+        "backup", backup_state, "icon-upload", i18n.t(_OFFBOX_BACKUP_TEXT),
+        i18n.t(BACKUP_STATE_TEXT.get(backup_state, BACKUP_STATE_TEXT["warn"])),
+        _age_html(offbox["snapshot_ts"], now))
+
+
+def _system_tiles(state, stats, registry_rows, now):
+    """The System page's tiles, one per topic block, in the blocks' order."""
+    tiles = (
+        _server_tile(state, now), _sources_tile(state),
+        _identification_tile(stats, len(registry_rows)),
+        _backup_tile(state.get("offbox"), now))
+    return tuple(tile for tile in tiles if tile is not None)
+
+
 def _page_parts(ctx):
     """Everything the Health page and the Console Fleet blocks are built
     from, computed once per request: the frame's connection status, the
@@ -1098,10 +1193,11 @@ def _page_parts(ctx):
         "now": now, "state": state, "banner_html": banner_html,
         "unreachable_html": unreachable_html, "screen_rows": screen_rows,
         "server_group_html": "", "source_fault_html": "",
-        "server_topics": []}
+        "server_topics": [], "system_tiles": ()}
     if user_view.platform_visible():
         parts["server_group_html"] = _server_group_html(state, stats, registry_rows, now)
         parts["server_topics"] = _server_topics(state, stats, registry_rows, now)
+        parts["system_tiles"] = _system_tiles(state, stats, registry_rows, now)
         parts["source_fault_html"] = _source_fault_block(state["source_fault_raw"])
     return parts
 
@@ -1236,10 +1332,11 @@ def health_sections(ctx):
 
 def system_html(ctx):
     """The System view of the Console Fleet page: the platform-wide
-    information of the Health page, one glass group per topic (source fault
-    and anomaly banner above them; flight data, ADS-B sources, identification
-    and backups)."""
+    information of the Health page. The source fault and anomaly banner sit
+    above one tile per topic, each linking to its block; then one glass group
+    per topic (flight data, ADS-B sources, identification and backups)."""
     from companion import ui_groups
+    from companion.pages import fleet_tiles
     ctx = page_context.coerce(ctx)
     parts = _page_parts(ctx)
     if parts is None or not parts["server_group_html"]:
@@ -1250,10 +1347,10 @@ def system_html(ctx):
             % health_rows.card_html(row),
             label=label, label_id="system-" + key,
             extra_class="fleet-block system-topic",
-            attrs='id="system-topic-%s"' % key).replace(
+            attrs='id="%s%s"' % (fleet_tiles.SYSTEM_BLOCK_ID_PREFIX, key)).replace(
                 '<ul class="group">', '<ul class="group fleet-group">', 1)
         for key, label, row in parts["server_topics"])
     return (
         parts["source_fault_html"] + parts["banner_html"]
-        + '<div class="system-topics">%s</div>' % groups
-        )
+        + fleet_tiles.system_tiles_html(parts["system_tiles"])
+        + '<div class="system-topics">%s</div>' % groups)
