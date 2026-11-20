@@ -7,7 +7,9 @@ retired frame opens its own page with only its useful action and never appears
 on another frame's page. The switch is a bounded chip row (a phone) that starts
 with "All frames". Every dynamic part is escaped.
 """
-from companion import frame_status, i18n, ui_filter, ui_groups, ui_modal
+import datetime
+
+from companion import frame_status, i18n, ui_filter, ui_groups, ui_modal, ui_time
 from companion.pages import fleet_page
 from companion.ui_base import escape_html, icon_html
 
@@ -25,8 +27,8 @@ _SEARCH = i18n.msg("admin_fleet.search_frames", "Search %d frames")
 _ALL_FRAMES = i18n.msg("admin_fleet.all_frames_n", "All frames (%d)")
 _NO_MATCH = i18n.msg("admin_fleet.no_frame_found", "No frame found")
 _SWITCH_ARIA = i18n.msg("nav.frame_strip_aria", "Your frames")
-_SYSTEM = i18n.msg("admin_fleet.system_tile", "System")
-_SYSTEM_DETAIL = i18n.msg("admin_fleet.system_tile_detail", "Sources and backups")
+_RETIRED_ON = i18n.msg("admin_fleet.retired_on", "Retired %s")
+_CODE_SHOWN = i18n.msg("admin_fleet.code_shown_ago", "Code shown %s")
 _REACTIVATE_HINT = i18n.msg(
     "admin_fleet.reactivate_wake_hint",
     "The frame shows its pairing code at its next wake (up to 24 h). Press "
@@ -73,18 +75,46 @@ def _seen(row, view):
     return ui_shell.seen_text(row, view.now.timestamp())
 
 
+def _retired_day(row, now):
+    """The day a retired frame was retired as "12 Oct" (the year is added when
+    it is not the current one), on the Paris clock; "" without a stored date."""
+    if row.retired_at is None:
+        return ""
+    try:
+        local = datetime.datetime.fromtimestamp(row.retired_at, ui_time.LOCAL_TZ)
+    except (OverflowError, OSError, ValueError):
+        return ""
+    day = "%d %s" % (local.day, ui_time.month_abbr(local.month))
+    if local.year != now.astimezone(ui_time.LOCAL_TZ).year:
+        day += " %d" % local.year
+    return day
+
+
+def _row_detail(row, view):
+    """The second line of a row: status and owner for a live frame; for a
+    retired frame its owner and retirement day; for a pending frame how long
+    ago its code was shown. A row without the stored moment keeps the plain
+    wording (Formerly owner, Waiting for pairing)."""
+    owner = fleet_page.owner_line(row)
+    if row.kind == fleet_page.KIND_LIVE:
+        return "%s · %s" % (_status_word(row), owner) if row.owner_email else _status_word(row)
+    if row.kind == fleet_page.KIND_PENDING and row.code_issued_at is not None:
+        age = ui_time.relative_age_text(view.now.timestamp() - row.code_issued_at)
+        return i18n.t(_CODE_SHOWN) % age
+    day = _retired_day(row, view.now) if row.kind == fleet_page.KIND_RETIRED else ""
+    if day:
+        retired = i18n.t(_RETIRED_ON) % day
+        return "%s · %s" % (row.owner_email, retired) if row.owner_email else retired
+    return owner
+
+
 def _row_item(row, view, selected_id):
     """One frame as a list row: status dot, name, owner and status word, the
     last-seen word and a chevron; the whole row is a link."""
     name = fleet_page.display_name(row)
-    owner = fleet_page.owner_line(row)
-    if row.kind == fleet_page.KIND_LIVE:
-        detail = "%s · %s" % (_status_word(row), owner) if row.owner_email else _status_word(row)
-    else:
-        detail = owner
     current = row.frame_id == selected_id
     item = ui_groups.row(
-        name, detail=detail, value_html=_esc(_seen(row, view)),
+        name, detail=_row_detail(row, view), value_html=_esc(_seen(row, view)),
         href=frame_href(row.frame_id), lead_html=frame_status.status_dot_html(row),
         extra_class="fleet-frame-row" + (" is-selected" if current else ""),
         attrs='data-filter-text="%s"' % _esc(
@@ -104,16 +134,6 @@ def _group(label_msg, rows, view, selected_id, slug):
         attrs="data-filter-day-group")
 
 
-def _system_group(is_system):
-    row = ui_groups.row(
-        i18n.t(_SYSTEM), detail=i18n.t(_SYSTEM_DETAIL),
-        href="/fleet?view=system",
-        extra_class="fleet-frame-row" + (" is-selected" if is_system else ""))
-    if is_system:
-        row = row.replace('<a class="row__main"', '<a class="row__main" aria-current="page"', 1)
-    return ui_groups.group(row, extra_class="fleet-list-group fleet-list-group--system")
-
-
 def _heading_html(landing, with_frame):
     """The list's title. Beside a frame it is an `<h2>`. On the landing view
     a phone shows it as the page's `<h1>`; when a frame is shown beside the list
@@ -128,7 +148,7 @@ def _heading_html(landing, with_frame):
         '<h2 class="fleet-list__heading fleet-list__heading--wide">%s</h2>' % (text, text))
 
 
-def list_panel_html(view, selected_id="", is_system=False, landing=False, with_frame=False):
+def list_panel_html(view, selected_id="", landing=False, with_frame=False):
     """The list of frames: a header (title, Add a frame, search from
     `SEARCH_FROM` frames), then the Live, Waiting and Retired groups. `landing`
     is the view with no frame chosen; `with_frame` says a frame shows beside it."""
@@ -155,9 +175,8 @@ def list_panel_html(view, selected_id="", is_system=False, landing=False, with_f
     return (
         '<div class="fleet-list"><div class="fleet-list__head">'
         '<div class="fleet-list__title">%s%s</div>%s'
-        '</div><div class="fleet-list__body">%s%s%s</div></div>') % (
-            _heading_html(landing, with_frame), add, search, body, empty,
-            _system_group(is_system))
+        '</div><div class="fleet-list__body">%s%s</div></div>') % (
+            _heading_html(landing, with_frame), add, search, body, empty)
 
 
 def switch_html(view, selected_id=""):
@@ -240,13 +259,13 @@ def other_page_html(row, view):
         label = i18n.t(fleet_page.ACTION_REACTIVATE)
         action = ui_modal.trigger_html(
             fleet_page.slug("dlg-reactivate", row.frame_id), _esc(label),
-            "fleet-action-button")
+            "fleet-action-button row__trailing")
         item = ui_groups.row(label, detail=i18n.t(_REACTIVATE_HINT), trailing_html=action)
         block = ui_groups.group(item, label=label, label_id="fleet-other-action")
     else:
         label = i18n.t(fleet_page.PAIR_SUBMIT)
         action = ui_modal.trigger_html(
-            fleet_page.ADD_DIALOG_ID, _esc(label), "fleet-action-button")
+            fleet_page.ADD_DIALOG_ID, _esc(label), "fleet-action-button row__trailing")
         item = ui_groups.row(label, detail=i18n.t(fleet_page.WAITING_FOR_PAIRING),
                              trailing_html=action)
         block = ui_groups.group(item, label=label, label_id="fleet-other-action")

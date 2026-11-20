@@ -37,7 +37,7 @@ _BAR_SWITCH = (
     " const b = a.getBoundingClientRect(); const label = a.querySelector('.link-card__title');"
     " const hit = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2);"
     " const range = document.createRange(); range.selectNodeContents(label);"
-    " return {second: links[1] === a, text: label.textContent.trim(), w: b.width, h: b.height,"
+    " return {last: links[links.length - 1] === a, text: label.textContent.trim(), w: b.width, h: b.height,"
     " left: b.left, right: b.right, hit: !!hit && a.contains(hit), href: a.getAttribute('href'),"
     " sw: label.scrollWidth, cw: label.clientWidth,"
     " lines: new Set([...range.getClientRects()].map(r => Math.round(r.top))).size,"
@@ -58,7 +58,8 @@ def _check_bar_switch(page, lang, space, where):
         " const hit = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2);"
         " return !!hit && a.contains(hit); }")
     cell = page.evaluate(_BAR_SWITCH)
-    assert cell["second"], (where, cell)
+    # The switch is the last row of the panel (after Account and, in the Console, System).
+    assert cell["last"], (where, cell)
     assert cell["text"] == _OTHER_SPACE[space][lang], (where, cell)
     assert cell["h"] >= MIN_TAP_PX and cell["w"] >= MIN_TAP_PX, (where, cell)
     assert cell["hit"] and cell["icon"] and cell["aria"], (where, cell)

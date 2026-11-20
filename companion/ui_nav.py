@@ -8,6 +8,7 @@ companion.prefs and companion.auth's theme-cookie name; no import from
 ui_components or ui_shell.
 """
 from typing import NamedTuple
+from urllib.parse import parse_qs
 
 import companion.console_routes as console_routes
 import companion.device_scope as device_scope
@@ -82,11 +83,11 @@ def is_admin_principal():
 CONSOLE_SPACE = "console"
 PERSONAL_SPACE = "personal"
 
-_AUDIT_BAR_LABEL = i18n.msg("nav.audit_short", "Audit")
 _AIRLINES_BAR_LABEL = i18n.msg("nav.airlines_short", "Editor")
 _USERS_BAR_LABEL = i18n.msg("nav.users_short", "Users")
 _CONSOLE_BAR_LABELS = {
-    "editor": _AIRLINES_BAR_LABEL, "audit": _AUDIT_BAR_LABEL, "users": _USERS_BAR_LABEL}
+    "editor": _AIRLINES_BAR_LABEL, "users": _USERS_BAR_LABEL}
+_CONSOLE_BAR_KEYS = ("fleet", "users", "editor", "system")
 _PERSONAL_SHORTCUT_LABEL = i18n.msg("nav.my_frames", "My frames")
 _PERSONAL_LABEL = _PERSONAL_SHORTCUT_LABEL
 _CONSOLE_LABEL = i18n.msg("nav.console", "Console")
@@ -105,6 +106,7 @@ _CONSOLE_ICON_IDS = {
     "health": "icon-nav-health",
     "device": "icon-nav-device",
     "editor": "icon-nav-airlines",
+    "system": "icon-nav-health",
 }
 # The Console destinations that act on one frame: their hrefs carry the
 # frame in view. The airline editor lists every frame's airlines, so its link
@@ -113,6 +115,7 @@ _CONSOLE_FRAME_KEYS = frozenset(("health", "device"))
 # Health, Device and Releases no longer have navigation entries: their
 # content lives in the Fleet view, so their pages mark Fleet as current.
 _FLEET_FOLDED_SLUGS = frozenset(("health", "device", "update"))
+_FLEET_SLUG = nav_slug(console_routes.FLEET_ROUTE)
 _CONSOLE_SLUGS = frozenset(
     nav_slug(path) for _key, path, _label in console_routes.CONSOLE_NAV_ENTRIES)
 
@@ -159,13 +162,26 @@ def _account_entry(active):
         _ACCOUNT_ICON_ID, ACCOUNT_NAV_SLUG == active)
 
 
+def _on_system_view():
+    """True when this request is the Fleet page's System view (`view=system`
+    exactly); that view marks the System entry, not Fleet, as current."""
+    values = parse_qs(prefs.current_request_query()).get(console_routes.SYSTEM_VIEW_QUERY)
+    return values == [console_routes.SYSTEM_VIEW_VALUE]
+
+
 def _console_entries(active):
     """The Console destinations whose GET page exists, by key."""
     entries = {}
     for key, path, label in console_routes.available_nav_entries():
         slug = nav_slug(path)
         href = device_scope.scoped(path) if key in _CONSOLE_FRAME_KEYS else path
-        is_active = slug == active or (key == "fleet" and active in _FLEET_FOLDED_SLUGS)
+        if key == "system":
+            is_active = active == _FLEET_SLUG and _on_system_view()
+        elif key == "fleet":
+            is_active = active in _FLEET_FOLDED_SLUGS or (
+                slug == active and not _on_system_view())
+        else:
+            is_active = slug == active
         # One full name per page (its title); the sidebar and the tab bar name
         # the editor with the same single word, so it never wraps.
         entries[key] = _Entry(
@@ -346,7 +362,7 @@ def _console_sidebar_parts(active, health_alert):
             for key in keys if key in entries]
 
     parts = [_group_html(links("fleet", "users"), eyebrow, " nav-group--console")]
-    parts.append(_group_html(links("editor", "audit")))
+    parts.append(_group_html(links("editor", "audit", "system")))
     parts.append(_group_html([_sidebar_link_html(_account_entry(active))]))
     return parts
 
@@ -561,15 +577,16 @@ def _tab_bar_cell_link(entry, label=None, extra_html=""):
 
 def _console_bar(active, health_alert):
     """(cells, sheet entries) of the Console bar: Fleet (carrying the severity
-    dot), Users, the airline editor and the audit log, with Account and the
-    switch back to the personal space in More."""
+    dot), Users, the airline editor and System, with Account and the audit log
+    in More, followed by the switch back to the personal space."""
     entries = _console_entries(active)
     cells = [
         _tab_bar_cell_link(
             entries[key], _CONSOLE_BAR_LABELS.get(key),
             extra_html=_health_dot(health_alert) if key == "fleet" else "")
-        for key in ("fleet", "users", "editor", "audit") if key in entries]
-    return cells, [_account_entry(active)]
+        for key in _CONSOLE_BAR_KEYS if key in entries]
+    audit = [entries["audit"]] if "audit" in entries else []
+    return cells, [_account_entry(active)] + audit
 
 
 def _personal_bar(active):
@@ -605,6 +622,23 @@ def _account_sheet_link(entry):
             icon_html("icon-chevron-right", 20, "tab-bar__account-chevron")))
 
 
+def _sheet_page_link(entry):
+    """A More sheet row for a page of the current space, drawn like the Account
+    row: the page's glyph in the round tile, its name, a chevron."""
+    css_class = "mobile-nav__link tab-bar__account"
+    aria_current = ""
+    if entry.is_active:
+        css_class += " mobile-nav__link--active"
+        aria_current = ' aria-current="page"'
+    return (
+        '<a class="%s" href="%s"%s><span class="tab-bar__avatar" aria-hidden="true">%s</span>'
+        '<span class="tab-bar__account-text"><span class="tab-bar__account-name">%s</span>'
+        "</span>%s</a>" % (
+            css_class, escape_html(entry.href), aria_current, icon_html(entry.icon, 22),
+            escape_html(i18n.t(entry.label)),
+            icon_html("icon-chevron-right", 20, "tab-bar__account-chevron")))
+
+
 def _sheet_preference_row(label, icon_id, form_html):
     """One Settings row: a small glyph and the label at the start, the
     segmented control at the end."""
@@ -619,7 +653,10 @@ def _more_panel_html(active, sheet, ui_theme, space):
     language (one tap each, plain POST forms); Sign out.
     The Account page already carries all of its own controls, so there the
     sheet holds the links alone and a second Sign out never appears."""
-    links = "".join(_account_sheet_link(entry) for entry in sheet) + _switch_row_html(space)
+    links = (
+        _account_sheet_link(sheet[0])
+        + "".join(_sheet_page_link(entry) for entry in sheet[1:])
+        + _switch_row_html(space))
     links_html = '<div class="tab-bar__links">%s</div>' % links
     grab = '<span class="tab-bar__grab" aria-hidden="true"></span>'
     if active == ACCOUNT_NAV_SLUG:

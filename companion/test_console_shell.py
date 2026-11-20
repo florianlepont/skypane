@@ -36,7 +36,8 @@ def test_the_aggregator_holds_the_pairing_routes_and_nav_follows_them():
         ("POST", console_routes.USERS_INVITE_ROUTE),
         ("GET", console_routes.AUDIT_ROUTE)} <= served_routes
     assert [entry[1] for entry in console_routes.available_nav_entries()] == [
-        "/fleet", "/users", "/health", "/device", "/airlines/manage", "/audit", "/update"]
+        "/fleet", "/users", "/health", "/device", "/airlines/manage", "/audit", "/update",
+        "/fleet?view=system"]
 
 
 def test_nav_entries_follow_the_route_table(monkeypatch):
@@ -47,7 +48,7 @@ def test_nav_entries_follow_the_route_table(monkeypatch):
     monkeypatch.setattr(routes, "ROUTES", routes.ROUTES + extra)
     keys = [entry[0] for entry in console_routes.available_nav_entries()]
     assert keys == [
-        "fleet", "users", "health", "device", "editor", "audit", "releases"]
+        "fleet", "users", "health", "device", "editor", "audit", "releases", "system"]
 
 
 def test_console_french_labels_are_translated():
@@ -141,7 +142,7 @@ def test_admin_sidebar_lists_the_administration_group_in_order(served):
     assert status == 200
     sidebar = _sidebar(page)
     assert _unscoped(_hrefs(sidebar)) == [
-        "/fleet", "/users", "/airlines/manage", "/audit", "/account"]
+        "/fleet", "/users", "/airlines/manage", "/audit", "/fleet?view=system", "/account"]
     group = _console_group(sidebar)
     assert "Administration" in group
     assert "Releases<" not in sidebar
@@ -168,7 +169,7 @@ def test_the_console_sidebar_lists_the_console_pages_for_the_frame_in_view(
     sidebar = _sidebar(page)
     assert _hrefs(_console_group(sidebar)) == ["/fleet", "/users"]
     assert _unscoped(_hrefs(sidebar)) == [
-        "/fleet", "/users", "/airlines/manage", "/audit", "/account"]
+        "/fleet", "/users", "/airlines/manage", "/audit", "/fleet?view=system", "/account"]
 
 
 def test_a_user_sees_no_administration_navigation_and_no_console_page(served):
@@ -182,16 +183,16 @@ def test_a_user_sees_no_administration_navigation_and_no_console_page(served):
     assert refused == unknown and refused[0] == 404
 
 
-def test_the_console_bar_has_fleet_users_airlines_audit_and_more_and_the_switch_in_more(served):
+def test_the_console_bar_has_fleet_users_airlines_system_and_more_and_the_switch_in_more(served):
     server, cookies = served
     _status, page = _get(server, cookies["admin"], "/users")
     bar = _tab_bar(page)
     cells = bar.split('<details class="tab-bar__more">')[0]
-    assert _unscoped(_hrefs(cells)) == ["/fleet", "/users", "/airlines/manage", "/audit"]
+    assert _unscoped(_hrefs(cells)) == ["/fleet", "/users", "/airlines/manage", "/fleet?view=system"]
     assert "Admin<" not in bar
     assert 'aria-current="page"' in cells.split('href="/users"')[1].split("</a>")[0]
     sheet = bar.split('<div class="tab-bar__more-panel">')[1]
-    assert _unscoped(_hrefs(sheet)) == ["/account", "/"]
+    assert _unscoped(_hrefs(sheet)) == ["/account", "/audit", "/"]
     health_at = cells.index("/fleet")
     health_cell = cells[health_at:cells.index("</a>", health_at)]
     assert health_cell.count("nav-notification") == bar.count("nav-notification") == 1

@@ -36,7 +36,8 @@ def test_console_bar_fills_the_bar_with_five_cells_at_360(
         assert page.locator(".section-subnav").count() == 0
         page.locator(".tab-bar__more > summary").click()
         sheet = page.locator(".tab-bar__more-panel a")
-        assert sheet.count() == 2
+        # Account, the System view and the switch back to the personal space.
+        assert sheet.count() == 3
         for index in range(sheet.count()):
             assert sheet.nth(index).bounding_box()["height"] >= MIN_TAP_PX
     finally:
@@ -119,7 +120,7 @@ _SIDEBAR_LINKS = (
     " return {text: c.textContent.trim(), h: e.getBoundingClientRect().height}; })")
 
 CONSOLE_SIDEBAR_LABELS = [
-    "Fleet", "Users", "Editor", "Audit log", "Account"]
+    "Fleet", "Users", "Editor", "Audit log", "System", "Account"]
 PERSONAL_SIDEBAR_LABELS = [
     "Home", "Flights", "Airlines", "Style",
     "Location", "Account"]

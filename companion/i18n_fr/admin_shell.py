@@ -10,6 +10,7 @@ MESSAGES = {
     "nav.fleet": "Flotte",
     "nav.users": "Utilisateurs",
     "nav.audit_log": "Journal d’audit",
+    "nav.system": "Système",
     "nav.releases": "Versions",
     "nav.administration_sections": "Sections d’administration",
 }

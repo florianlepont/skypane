@@ -10,7 +10,9 @@ its own page with only its useful action and appears nowhere else. The System
 view holds the platform-wide part of the Health page.
 
 On a phone the list and a frame page are separate screens joined by the frame
-switch (a chip row); from 960 px the list is a column beside the frame. With no
+switch (a chip row); from 1200 px the list is a full-height column beside the
+console sidebar and the frame fills the rest. The System view is reached from the
+console navigation, not from the list. With no
 frame chosen the list shows, and a wide screen also shows the first frame.
 
 Selection is read from the query only to pick one of the rows the request
@@ -221,7 +223,7 @@ def _unknown_frame_notice(query, found):
 
 
 def _split(mode, list_html, main_html):
-    """The list and the main column side by side (from 960 px; a phone shows
+    """The list and the main column side by side (from 1200 px; a phone shows
     one of them, by `mode`)."""
     return (
         '<div class="fleet-split" data-fleet-mode="%s"><div class="fleet-split__list">%s'
@@ -249,7 +251,7 @@ def page_html(h, query, view):
     notice = _unknown_frame_notice(query, selected or row or is_system)
     if is_system:
         return notice + _split(
-            "system", frames_list.list_panel_html(view, is_system=True),
+            "system", frames_list.list_panel_html(view),
             frames_list.switch_html(view) + frames_list.title_head_html(_t(_SYSTEM_HEADING))
             + system_html(h.page_context(device_scope.live_device(root))))
     if selected is not None:

@@ -12,7 +12,7 @@ Rows are plain links to the same page of each frame under its own
 /devices/<id> prefix, built from the request scope's own frame list and
 never from request text. A frame has no MAC, token or secret to leak.
 """
-from companion import access, device_scope, frame_status, i18n, prefs
+from companion import device_scope, frame_status, i18n, prefs
 from companion.ui_base import escape_html
 
 MENU_CLASS = "frame-menu"
@@ -113,16 +113,12 @@ def add_row_html(admin=True, dialog_id=None):
         "add", href, i18n.t(_ADD_TEXT), "+", opener=dialog_id is not None)
 
 
-def _add_row_for_viewer(active):
-    """The Add a frame row for the signed-in person, or "" with none: an
-    administrator pairs from the Fleet page when on a Console page; everyone
-    else, and an administrator in the personal space, from their own Add a
-    frame page (the personal space is the same for both)."""
-    principal = prefs.current_principal()
-    if principal is None:
+def _add_row_for_viewer():
+    """The Add a frame row for the signed-in person, or "" with none: their
+    own Add a frame page (the button only appears in the personal space)."""
+    if prefs.current_principal() is None:
         return ""
-    console = _shell().current_space(active) == _shell().CONSOLE_SPACE
-    return add_row_html(admin=console and principal[1] == access.ADMIN)
+    return add_row_html(admin=False)
 
 
 def _button_html(name, dot_html):
@@ -150,16 +146,19 @@ def menu_html(name, dot_html, frame_rows, tail_rows):
 
 def personal_menu_html(active):
     """The frame button of a device-scoped page, or "" when it would be out of
-    place: a global page (Update, the airline editor), no request scope, or a
-    single frame and no way to add another."""
+    place: a global page (Update, the airline editor), a Console page, no
+    request scope, or a single frame and no way to add another."""
     shell = _shell()
     page = shell._device_page_path(active)
     current = device_scope.current_device()
     if page is None or current is None:
         return ""
+    # The Console switches frames from the Fleet list, not from the top bar.
+    if shell.current_space(active) == shell.CONSOLE_SPACE:
+        return ""
     now = device_scope.now_epoch()
     entries = shell._sheet_entries(active, now)
-    tail = _add_row_for_viewer(active)
+    tail = _add_row_for_viewer()
     if len(entries) < 2 and not tail:
         return ""
     # The owner line tells frames apart: a lone frame needs none.

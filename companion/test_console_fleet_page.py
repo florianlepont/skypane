@@ -81,10 +81,13 @@ def test_the_frame_list_holds_every_frame_and_the_pages_of_the_others(fleet):
     assert 'aria-label="Rename Kitchen"' in header
     assert fx.OWNER_EMAIL not in _text(header) and seed.owned_id not in _text(header)
     pending = rows[seed.pending_id]
-    assert "Waiting for pairing" in pending and "dot--hollow" in pending
+    # Its code was issued 20 minutes ago (the expiry minus the fixed code lifetime).
+    assert "Code shown 20m ago" in pending and "dot--hollow" in pending
     assert fx.MAC_PENDING not in page
     retired = rows[seed.retired_id]
-    assert "Formerly %s" % fx.OWNER_EMAIL in retired and "/devices/" not in retired
+    assert re.search(
+        r"%s \u00b7 Retired \d{1,2} \S+" % re.escape(fx.OWNER_EMAIL), _text(retired))
+    assert "/devices/" not in retired
     assert "Other frames" not in page
     assert "Retired frames" not in page and "need attention" not in page
 
@@ -137,12 +140,12 @@ def test_each_frame_state_offers_only_its_useful_action(fleet):
     _status, _headers, pending_page = fx.get(
         server, cookie, "/fleet?frame=%s" % seed.pending_id)
     pending = _main(pending_page)
-    assert re.findall(r'class="fleet-action-button"[^>]*>([^<]*)<', pending) == ["Pair frame"]
+    assert re.findall(r'class="fleet-action-button row__trailing"[^>]*>([^<]*)<', pending) == ["Pair frame"]
     assert 'href="#dlg-add-frame"' in pending
     _status, _headers, retired_page = fx.get(
         server, cookie, "/fleet?frame=%s" % seed.retired_id)
     retired = _main(retired_page)
-    assert re.findall(r'class="fleet-action-button"[^>]*>([^<]*)<', retired) == ["Re-activate"]
+    assert re.findall(r'class="fleet-action-button row__trailing"[^>]*>([^<]*)<', retired) == ["Re-activate"]
     assert 'href="#dlg-reactivate-%s"' % _slug(seed.retired_id) in retired
     assert "dlg-retire" not in retired and "dlg-reassign" not in retired
     assert "{owner_email}" not in page
@@ -292,12 +295,12 @@ def test_french_rendering_uses_the_console_terms(fleet):
         server, cookie, "/fleet?frame=%s" % seed.owned_id,
         headers={"Accept-Language": "fr"})
     for term in ("Flotte", "Ajouter un cadre", "Retiré", "Associer le cadre",
-                 "En attente d\u2019association", "Retour \u00e0 la flotte",
+                 "Code affich\u00e9 il y a 20\u00a0min", "Retour \u00e0 la flotte",
                  "Tous les cadres (4)", "En service", "Retirés", "Garder le cadre",
                  "Laisser retiré", "Retirer ce cadre", "Renommer Kitchen",
-                 "Anciennement", "Nouveau cadre"):
+                 "Retiré le ", "Nouveau cadre"):
         assert term in page, term
-    assert "Pair frame" not in page and "Waiting for pairing" not in page
+    assert "Pair frame" not in page and "Code shown" not in page
     assert "Other frames" not in page and "Autres cadres" not in page
 
 
