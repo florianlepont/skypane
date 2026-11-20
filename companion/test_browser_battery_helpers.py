@@ -5,6 +5,8 @@ from datetime import datetime, timedelta, timezone
 from companion.test_browser_ux_helpers import seed_state_dir
 from server import device_config, history_db
 
+__test__ = False
+
 # An hourly cadence keeps the readings fresh for two hours, so the shared,
 # read-only server below never outlives its fixture however slow the run.
 INTERVAL_S = 3600
