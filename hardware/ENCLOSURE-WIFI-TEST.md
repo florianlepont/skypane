@@ -119,7 +119,7 @@ rows. Only the access point name is recorded.
 
 | Block | Condition (A bare, B enclosure) | Order | Start | End | Wakes kept | Zeros dropped | Min | Q1 | Median | Q3 | Max | Std dev | Access point name | Position (tape-marked spot yes or no) | Power (USB or battery) | Source |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| A1 | | | | | | | | | | | | | | | | |
+| A1 | A (bare frame, no enclosure) | 1 | 2026-11-19 18:11 UTC (19:10 Paris, as reported by the owner) | 2026-11-19 19:28 UTC | 16 | 0 | -61 | -60 | -59 | -58 | -44 | 5.76 | Tales Of The City | yes (the owner's desk, landscape) | battery (94 % as stated by the owner) | read-only export of the frame's history, authorised by the owner on 2026-11-20; reported by the owner (statistics computed by Claude from the exported values) |
 | B1 | | | | | | | | | | | | | | | | |
 | A2 | | | | | | | | | | | | | | | | |
 | B2 | | | | | | | | | | | | | | | | |
@@ -128,10 +128,39 @@ rows. Only the access point name is recorded.
 
 rssi integers in dBm, in time order, one line per block.
 
-- A1:
+- A1: -60, -60, -46, -61, -61, -59, -60, -60, -46, -59, -59, -59, -58, -44, -58, -58
 - B1:
 - A2:
 - B2:
+
+## Notes on block A1
+
+Recorded on 2026-11-20 from a read-only export of the frame's own history, which
+the owner authorised in chat ("vas-y, lis l'export"). Only the rssi integers,
+the block start and end are kept here; no device identifier, token or other
+column is written.
+
+- Start: the owner placed the frame at 19:10 Paris time on 2026-11-19, read as
+  18:10 UTC (Paris is UTC+1 in November; the reading of the time zone is
+  recorded here, the owner did not state it). The owner also said the frame
+  already stood at that spot before, and that no RESET was pressed (the export
+  shows only RTC wakes). The frame was therefore not moved, so no first wake
+  was discarded; this departs from the protocol's discard rule, which applies
+  after a move.
+- The block holds the 16 consecutive wakes from the first wake after 18:10 UTC
+  (about 80 minutes at 300 s), 16 kept, 0 zero readings dropped.
+- Quartiles use the inclusive method. The standard deviation of 5.76 dB is
+  inflated by three isolated readings at -44 to -46 dB; the other 13 readings
+  have a standard deviation of 1.04 dB and a median of -59 dB. The earlier
+  assumption of 2 to 4 dB was a guess; the spread is bimodal (a steady level
+  around -60 with occasional readings about 14 dB higher), so a median-based
+  statistic is better suited than a mean. The rule is not changed here; the
+  owner may adjust it.
+- Context only, not part of A1: the same export shows a median near -60 dB
+  all night (no zero readings in 177 wakes from 17:02 UTC on 2026-11-19 to
+  08:20 UTC on 2026-11-20), which suggests the spot is stable.
+- Block A1 is a baseline. It says nothing about the enclosure; blocks B1, A2
+  and B2 come after assembly.
 
 ## Verdict
 
