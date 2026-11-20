@@ -62,7 +62,7 @@ Asked of the owner on 2026-11-19, reported by the owner where stated:
   wakes, 4800 s, 80 minutes.
 - Room and orientation: the spot is the owner's desk (reported by the owner on 2026-11-19); the owner also reported on 2026-11-19 that the bare frame (board and screen, not in the frame) lies in landscape. The place where the frame will hang later is not stated.
 - Spot marked with tape: unknown, asked on 2026-11-19.
-- Access point name: Tales Of The City (reported by the owner on 2026-11-19; the name only, no password). The owner first typed "Rales Of The City" and then gave "Tales Of The City"; the later spelling is recorded and is to be confirmed against the access point list.
+- Access point name: Tales Of The City (reported by the owner on 2026-11-19; the name only, no password). The owner first typed "Rales Of The City" and then gave "Tales Of The City"; the owner confirmed "Tales Of The City" on 2026-11-20.
 - Power state: battery (reported by the owner on 2026-11-19). Battery charge: 94 % as stated by the owner on 2026-11-19 (not measured here; the voltage can be read from the first exported row).
 - Planned start of block A1: left to the assistant by the owner on 2026-11-19; proposed: start as soon as the frame is placed on the desk, in landscape, bare, and note the start time. Not started yet; no reading exists.
 
@@ -119,7 +119,7 @@ rows. Only the access point name is recorded.
 
 | Block | Condition (A bare, B enclosure) | Order | Start | End | Wakes kept | Zeros dropped | Min | Q1 | Median | Q3 | Max | Std dev | Access point name | Position (tape-marked spot yes or no) | Power (USB or battery) | Source |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| A1 | A (bare frame, no enclosure) | 1 | 2026-11-19 18:11 UTC (19:10 Paris, as reported by the owner) | 2026-11-19 19:28 UTC | 16 | 0 | -61 | -60 | -59 | -58 | -44 | 5.76 | Tales Of The City | yes (the owner's desk, landscape) | battery (94 % as stated by the owner) | read-only export of the frame's history, authorised by the owner on 2026-11-20; reported by the owner (statistics computed by Claude from the exported values) |
+| A1 | A (bare frame, no enclosure) | 1 | 2026-11-19 18:11 UTC (19:10 Paris, as reported by the owner) | 2026-11-19 19:28 UTC | 16 | 0 | -61 | -60 | -59 | -58 | -44 | 5.76 | Tales Of The City | yes (the owner's assembly desk, landscape; not the final hanging place) | battery (94 % as stated by the owner) | read-only export of the frame's history, authorised by the owner on 2026-11-20; reported by the owner (statistics computed by Claude from the exported values) |
 | B1 | | | | | | | | | | | | | | | | |
 | A2 | | | | | | | | | | | | | | | | |
 | B2 | | | | | | | | | | | | | | | | |
@@ -159,6 +159,15 @@ column is written.
 - Context only, not part of A1: the same export shows a median near -60 dB
   all night (no zero readings in 177 wakes from 17:02 UTC on 2026-11-19 to
   08:20 UTC on 2026-11-20), which suggests the spot is stable.
+- Spot, reported by the owner on 2026-11-20: the desk is the owner's assembly
+  desk, not the place where the frame will hang. The comparison of the
+  enclosure against the bare frame is therefore made at this desk: blocks B1,
+  A2 and B2 must be taken at the same spot, in the same orientation, on the same
+  access point, at about the same time of day. The result says what the
+  enclosure changes at this desk; it does not measure the signal at the final
+  hanging place (walls, distance to the access point and metal nearby are not
+  tested). A reading at the hanging place, bare and with the enclosure, is a
+  possible later check, to be decided by the owner.
 - Block A1 is a baseline. It says nothing about the enclosure; blocks B1, A2
   and B2 come after assembly.
 
