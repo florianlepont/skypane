@@ -305,8 +305,8 @@ def test_no_registry_chrome_and_no_cross_page_leak(tmp_path):
 
 
 def test_humanised_battery_readout_end_to_end(tmp_path, battery_trend_js):
-    """The battery readout carries its id, role="status", both value/detail spans and a
-    humanised visible detail with the machine-precise ISO only in the tooltip, every chart hit
+    """The battery readout carries its id, role="status", both value/detail spans (empty and hidden
+    until the script reveals a point), every point's data-when is a humanised timestamp, every chart hit
     target carries data-when, and battery-trend.js's shipped source still reads that attribute,
     both span classes, and the readout's id literal"""
     state_dir = str(tmp_path)
@@ -329,13 +329,15 @@ def test_humanised_battery_readout_end_to_end(tmp_path, battery_trend_js):
     assert "battery-readout__detail" in readout_html
     assert not re.search(r"\d{4}-\d{2}-\d{2}T", readout_html), (
         "expected zero raw ISO occurrences anywhere in the readout")
-    title_match = re.search(r'title="([^"]*)"', readout_html)
-    assert title_match is not None, "expected the detail span to carry a title attribute"
-    assert re.search(r"^\d{1,2} \w+ \d{2}:\d{2} \(", title_match.group(1)), (
-        "expected the title to be a full 'D Mon HH:MM (Nx ago)' local timestamp")
-    visible = re.sub(r"<[^>]*>", "", readout_html)
-    assert title_match.group(1) in visible, (
-        "expected the title to equal the readout's own visible text")
+    # The readout ships empty and hidden: the script writes a hovered point's reading into it, so
+    # nothing in it is the server's to humanise.
+    assert " hidden" in readout_html[:readout_html.index(">")]
+    assert re.sub(r"<[^>]*>", "", readout_html) == ""
+    assert 'data-when="' in section_html
+    when = re.search(r'data-when="([^"]*)"', section_html).group(1)
+    assert re.search(r"^\d{1,2} \w+ \d{2}:\d{2} \(", when), (
+        "expected a point's data-when to be a full 'D Mon HH:MM (Nx ago)' local timestamp")
+    assert not re.search(r"\d{4}-\d{2}-\d{2}T", when)
 
     assert section_html.count("data-when=") == 6, (
         "expected one data-when attribute per hit target in each of the two chart views")

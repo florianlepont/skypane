@@ -174,18 +174,21 @@
     })(allPoints[i]);
   }
 
-  // Percentage / Voltage control. Native buttons give Enter, Space,
-  // pointer and touch operation and a visible focus ring; the selected
-  // state is aria-pressed. The control ships `hidden` and is revealed
-  // here, so without this script only the default view is offered.
+  // Percentage / Voltage control: one radio group of native buttons
+  // (role="radio", the selected one aria-checked and the only Tab stop;
+  // the arrow keys move and select). The control ships `hidden` and is
+  // revealed here, so without this script only the default view is offered.
+  // The readout line ships hidden too: it only ever shows what this script
+  // writes into it.
   var unitGroup = document.querySelector(".battery-unit");
   if (unitGroup && views.length > 0) {
     var buttons = unitGroup.querySelectorAll(".battery-unit__option");
 
     var selectUnit = function (unit) {
       for (var b = 0; b < buttons.length; b++) {
-        buttons[b].setAttribute(
-          "aria-pressed", buttons[b].getAttribute("data-unit") === unit ? "true" : "false");
+        var on = buttons[b].getAttribute("data-unit") === unit;
+        buttons[b].setAttribute("aria-checked", on ? "true" : "false");
+        buttons[b].setAttribute("tabindex", on ? "0" : "-1");
       }
       for (var w = 0; w < views.length; w++) {
         if (views[w].getAttribute("data-unit") === unit) {
@@ -195,24 +198,40 @@
           views[w].setAttribute("hidden", "");
         }
       }
-      // Carry the revealed reading across: the same position in the new
-      // view, or its latest point when none had been revealed.
+      // Carry a revealed reading across: the same position in the new view.
       for (var t = 0; t < points.length; t++) {
         _toggleActive(points[t], false);
       }
-      reveal(points[activeIndex >= 0 && activeIndex < points.length
-        ? activeIndex : points.length - 1]);
+      if (activeIndex >= 0 && activeIndex < points.length) {
+        reveal(points[activeIndex]);
+      }
     };
 
     for (var k = 0; k < buttons.length; k++) {
-      (function (button) {
+      (function (button, index) {
         button.addEventListener("click", function () {
           selectUnit(button.getAttribute("data-unit"));
         });
-      })(buttons[k]);
+        button.addEventListener("keydown", function (evt) {
+          var step = 0;
+          if (evt.key === "ArrowRight" || evt.key === "ArrowDown") {
+            step = 1;
+          } else if (evt.key === "ArrowLeft" || evt.key === "ArrowUp") {
+            step = -1;
+          }
+          if (step === 0) {
+            return;
+          }
+          evt.preventDefault();
+          var next = buttons[(index + step + buttons.length) % buttons.length];
+          selectUnit(next.getAttribute("data-unit"));
+          next.focus();
+        });
+      })(buttons[k], k);
     }
     unitGroup.removeAttribute("hidden");
   }
+  readout.removeAttribute("hidden");
 
   // No DOMContentLoaded wrapper needed: the <script> tag carries defer,
   // so this file only ever runs after parsing.

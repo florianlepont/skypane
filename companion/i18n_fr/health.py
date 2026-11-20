@@ -152,8 +152,20 @@ MESSAGES = {
     "health.no_battery_telemetry_recorded_yet_check_back":
         "Aucune télémétrie de batterie enregistrée pour l’instant — "
         "revenez après la prochaine vérification de l’appareil.",
-    "health.timestamp": "Horodatage",
-    "health.battery_mv": "Batterie (mV)",
+    # The Battery card (companion/battery_card.py).
+    "health.battery_low": "Le niveau est bas",
+    "health.battery_level_group": "Niveau et tension de la batterie",
+    "health.battery_last_reading": "Dernier relevé",
+    "health.battery_col_time": "Heure",
+    "health.battery_col_level": "Niveau",
+    "health.battery_latest": "Dernier",
+    "health.battery_chart_empty": "Pas encore assez de relevés pour une courbe",
+    "health.battery_chart_empty_body":
+        "La courbe apparaît à partir de %d relevés. %d pour l’instant.",
+    "health.low_battery_off_range":
+        "Batterie faible\u00a0: %d mV (\u2248 %d\u00a0%%), sous la plage affichée",
+    "health.low_battery_off_range_pct":
+        "Batterie faible\u00a0: %d\u00a0%%, sous la plage affichée",
     "health.view_reading": "Voir %d relevé%s",
 
     # --- Health rows (companion/health_rows.py, health_page.py) ----------

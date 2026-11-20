@@ -22,9 +22,9 @@ from typing import NamedTuple
 
 from companion.layout import escape_html
 import companion.battery as battery
+import companion.battery_card as battery_card
 import companion.battery_chart as battery_chart
 import companion.device_scope as device_scope
-import companion.draw as draw
 import companion.health_rows as health_rows
 import companion.health_sections as health_sections_module
 import companion.health_signals as health_signals_module
@@ -247,15 +247,16 @@ REFRESH_SWAP_SELECTORS = layout.REFRESH_SWAP_SELECTORS_BY_PAGE[
 # Looked up by battery-trend.js and styled by style.css — duplicated,
 # not imported, since those are static assets. A cross-file check
 # asserts both literals appear in battery-trend.js's shipped source.
-BATTERY_READOUT_ID = "battery-readout"
+BATTERY_READOUT_ID = battery_card.BATTERY_READOUT_ID
 # The chart's own class vocabulary, geometry and markup now live in
 # companion/battery_chart.py (built on companion/draw.py); re-exported
 # here under their historical names so nothing outside this module needs
 # to know the chart moved.
 SPARKLINE_HIT_CLASS = battery_chart.SPARKLINE_HIT_CLASS
-SPARKLINE_DOT_CLASS = battery_chart.SPARKLINE_DOT_CLASS
 SPARKLINE_LINE_CLASS = battery_chart.SPARKLINE_LINE_CLASS
 SPARKLINE_AXIS_CLASS = battery_chart.SPARKLINE_AXIS_CLASS
+SPARKLINE_ZONE_CLASS = battery_chart.SPARKLINE_ZONE_CLASS
+SPARKLINE_TEXT_CLASS = battery_chart.SPARKLINE_TEXT_CLASS
 SPARKLINE_AREA_LAYER_CLASS = battery_chart.SPARKLINE_AREA_LAYER_CLASS
 SPARKLINE_AREA_CLASS = battery_chart.SPARKLINE_AREA_CLASS
 SPARKLINE_MARK_CLASS = battery_chart.SPARKLINE_MARK_CLASS
@@ -297,9 +298,6 @@ _NO_BATTERY_TELEMETRY_RECORDED_TEXT = i18n.msg(
     "health.no_battery_telemetry_recorded_yet_check_back",
     "No battery telemetry recorded yet — check back after the "
     "device's next poll.")
-_TIMESTAMP_TEXT = i18n.msg("health.timestamp", "Timestamp")
-_BATTERY_MV_TEXT = i18n.msg("health.battery_mv", "Battery (mV)")
-_VIEW_READING_TEMPLATE = i18n.msg("health.view_reading", "View %d reading%s")
 _NOTHING_TO_COMPARE_YET_TEXT = i18n.msg(
     "health.nothing_to_compare_yet", "Nothing to compare yet")
 _APPEARS_ONCE_RECORDED_TEXT = i18n.msg(
@@ -335,20 +333,7 @@ _battery_trend_caption = health_signals_module._battery_trend_caption
 # The chart's geometry, size constants and markup builder all live in
 # companion/battery_chart.py (built on companion/draw.py); re-exported
 # here under their historical names, since a number of tests reach these
-# by name as `health_page.X` and `_battery_readout_block()`/
-# `_battery_section()` below call some of them as bare names.
-_SPARKLINE_CANVAS_HEIGHT_PX = battery_chart._SPARKLINE_CANVAS_HEIGHT_PX
-_SPARKLINE_VERTICAL_INSET_PERCENT = battery_chart._SPARKLINE_VERTICAL_INSET_PERCENT
-SPARKLINE_Y_MIN_MV = battery_chart.SPARKLINE_Y_MIN_MV
-SPARKLINE_Y_MAX_MV = battery_chart.SPARKLINE_Y_MAX_MV
-_SPARKLINE_DOT_RADIUS_PX = battery_chart._SPARKLINE_DOT_RADIUS_PX
-_SPARKLINE_HIT_RADIUS_PX = battery_chart._SPARKLINE_HIT_RADIUS_PX
-_SPARKLINE_MARK_RADIUS_PX = battery_chart._SPARKLINE_MARK_RADIUS_PX
-_SPARKLINE_NARROWEST_CANVAS_PX = battery_chart._SPARKLINE_NARROWEST_CANVAS_PX
-_sparkline_dense_threshold = battery_chart._sparkline_dense_threshold
-_SPARKLINE_DENSE_POINT_THRESHOLD = battery_chart._SPARKLINE_DENSE_POINT_THRESHOLD
-_SPARKLINE_DENSE_HIT_RADIUS_PX = battery_chart._SPARKLINE_DENSE_HIT_RADIUS_PX
-sparkline_point_y = battery_chart.sparkline_point_y
+# by name as `health_page.X`.
 BATTERY_AVERAGE_WHEN_ONE_TEMPLATE = battery_chart.BATTERY_AVERAGE_WHEN_ONE_TEMPLATE
 BATTERY_AVERAGE_WHEN_MANY_TEMPLATE = battery_chart.BATTERY_AVERAGE_WHEN_MANY_TEMPLATE
 BATTERY_AVERAGE_WHEN_BARE_TEMPLATE = battery_chart.BATTERY_AVERAGE_WHEN_BARE_TEMPLATE
@@ -587,79 +572,21 @@ def _pipeline_timestamp_only(pipeline_ts, last_detection, now):
 _latest_numeric_battery_reading = health_signals_module._latest_numeric_battery_reading
 
 
-def _battery_readout_block(latest_reading, now, curve=None):
-    """The reserved-height readout `battery-trend.js` writes into on
-    hover/tap/keyboard reveal, seeded by default with `latest_reading`'s
-    humanised `(value, when)` pair, the same helper
-    `battery_sparkline_svg()` uses per-point. `role="status"` already
-    implies a polite live region. Two spans, not one string, since
-    `reveal()` writes the value and detail parts separately; `.time-value`
-    sits on the stable wrapper span because `reveal()` overwrites
-    `textContent`, never `class`.
-    """
-    if latest_reading is None:
-        value_text, when_text = "", ""
-    else:
-        mv, ts = latest_reading
-        value_text, when_text = _battery_reading_parts(mv, ts, now, curve)
-    return (
-        '<p id="%s" class="battery-readout" role="status">'
-        '<span class="battery-readout__value tnum">%s</span>'
-        '<span class="battery-readout__detail time-value" title="%s"> — %s</span>'
-        "</p>"
-    ) % (
-        BATTERY_READOUT_ID, escape_html(value_text),
-        escape_html(when_text), escape_html(when_text))
-
-
-# The large ring's box side, in CSS pixels; the small one lives in
-# home_page.py, kept separate rather than a shared "sizes" table, since
-# they are independent numbers, not variants of one drawing.
-# 72px against this card's 312px content width at the 360px floor still
-# leaves room for the readout beside it on the same reserved line count.
-BATTERY_RING_SIZE = 72
-
-
-def _battery_ring_html(latest_reading, state, curve=None):
-    """The battery ring for `latest_reading`, or "" when there is
-    nothing honest to draw (an empty ring would read as a false "0%").
-    The fraction is the printed percentage divided by 100, not a second
-    finer-grained estimate, so the arc can't draw 43.4% while the text
-    says 43%. Colour comes from `state`, already computed for the card
-    edge, never a second judgement.
-    """
-    if not latest_reading:
-        return ""
-    mv, _ts = latest_reading
-    percent = battery.percent(mv, curve)
-    if percent is None:
-        return ""
-    return draw.ring_gauge(
-        percent / 100.0, BATTERY_RING_SIZE, draw.status_class(state))
-
-
-def _battery_readout_row_html(latest_reading, now, state, curve=None):
-    """The readout, with the ring beside it when there is one. With no
-    ring this returns `_battery_readout_block()`'s markup unwrapped, so
-    the no-reading page renders identically to before the ring existed.
-    The ring comes first in document order; `battery-trend.js` finds the
-    readout by `getElementById` and never depends on its position.
-    """
-    readout_html = _battery_readout_block(latest_reading, now, curve)
-    ring_html = _battery_ring_html(latest_reading, state, curve)
-    if not ring_html:
-        return readout_html
-    return '<div class="battery-readout-row">%s%s</div>' % (ring_html, readout_html)
+def _battery_verdict(state, latest, curve=None):
+    """`(state, text)` of the Battery card's verdict: a reading under the
+    low-battery mark says so (a warning); otherwise the drop scan's own
+    verdict. The scan's state still drives the page-wide severity."""
+    if latest is not None and battery_card.is_low(latest[0], curve):
+        return "warn", i18n.t(battery_card.LOW_VERDICT_TEXT)
+    return state, i18n.t(BATTERY_STATE_TEXT.get(state, BATTERY_STATE_TEXT["warn"]))
 
 
 def _battery_body_html(battery_html):
     """The Battery row's details: `_battery_section()`'s already-built
-    markup (ring, readout, chart, readings disclosure) inside the
-    `BATTERY_SECTION_CLASS` wrapper the chart's rules and its script key
-    off. The wrapper is modified to carry no card chrome of its own: the
-    row is the container. No range caption is rendered: the chart's own
-    axis labels name the span, and a caption beside them was retired.
-    `battery_html` is already-safe markup, interpolated verbatim.
+    markup inside the `BATTERY_SECTION_CLASS` wrapper the chart's rules and
+    its script key off. The wrapper carries no card chrome of its own: the
+    row is the container. `battery_html` is already-safe markup,
+    interpolated verbatim.
     """
     return '<div class="%s %s--embedded">%s</div>' % (
         BATTERY_SECTION_CLASS, BATTERY_SECTION_CLASS, battery_html)
@@ -670,15 +597,16 @@ def _battery_section(trend_rows, daily_rows=None, curve=None):
     drives both the card-edge status modifier and
     `collect_anomalies()`'s abnormal-drop signal. The chart plots
     `daily_rows` when there are enough buckets, else falls back to raw
-    `trend_rows`; the anomaly scan and readout always read `trend_rows`,
-    since averaging would hide the abnormal drop the scan exists to
-    catch. Empty history returns `"ok"`, not `"warn"`: an absence of
-    readings must not make `collect_anomalies()` assert a drop that
+    `trend_rows`; the anomaly scan and the readings always read
+    `trend_rows`, since averaging would hide the abnormal drop the scan
+    exists to catch. Empty history returns `"ok"`, not `"warn"`: an absence
+    of readings must not make `collect_anomalies()` assert a drop that
     never happened.
     """
     if trend_rows is _DB_UNAVAILABLE:
         return _unavailable_block(), "ok"
-    if not trend_rows:
+    latest = _latest_numeric_battery_reading(trend_rows) if trend_rows else None
+    if latest is None:
         # Compact: this lands inside a row, whose own name is 12px, so the
         # full-card form's 22px display-face heading would invert the hierarchy.
         return layout.empty_state(
@@ -689,44 +617,20 @@ def _battery_section(trend_rows, daily_rows=None, curve=None):
     # input reading identically from the same two early-exit cases.
     state = _battery_state(trend_rows, daily_rows)
     now = history_db.utc_now_iso()
-    # The Timestamp column is already-safe raw HTML (a concise
-    # Europe/Paris span with the full timestamp demoted to `title`), so
-    # raw_columns=(0,) tells data_table() not to re-escape it.
-    table_rows = [
-        (layout.concise_timestamp_html(row.get("ts"), now, fallback=""), row.get("battery_mv"))
-        for row in trend_rows
-    ]
-    # modifier="readings" scopes the stylesheet rule that releases this
-    # table from .data-table's min-width: max-content no-crop floor.
-    table_html = layout.data_table(
-        [i18n.t(_TIMESTAMP_TEXT), i18n.t(_BATTERY_MV_TEXT)], table_rows,
-        mono_columns=(1,), raw_columns=(0,), modifier="readings")
-    # Collapsed behind a closed-by-default native <details> disclosure.
-    disclosure_html = (
-        '<details class="readings-disclosure"><summary>%s</summary>%s</details>'
-        % (
-            escape_html(i18n.t(_VIEW_READING_TEMPLATE) % (
-                len(trend_rows), "" if len(trend_rows) == 1 else "s")),
-            table_html))
-    # One predicate decides both the series and the label mode passed to
-    # battery_sparkline_svg(), so they can never disagree.
+    # One predicate decides both the series and the caption, so they can
+    # never disagree.
     plot_daily = _battery_daily_series_usable(daily_rows)
     plot_rows = daily_rows if plot_daily else trend_rows
-    sparkline_html = (
-        battery_chart.battery_unit_chart(
-            plot_rows, now=now, daily=plot_daily, curve=curve)
-        if len(plot_rows) >= 2 else "")
-    # Script tag and readout emit only when a chart exists, keeping
-    # "exactly one script tag, zero on the empty path" testable.
-    latest_reading = _latest_numeric_battery_reading(trend_rows)
-    chart_block = _battery_readout_row_html(latest_reading, now, state, curve)
-    if sparkline_html:
-        chart_block = (
-            chart_block + sparkline_html
-            + '<script src="%s" defer></script>' % BATTERY_TREND_SCRIPT_SRC)
-    # The chart, when present, comes before the collapsed table in both
-    # DOM and visual order.
-    return chart_block + disclosure_html, state
+    verdict_state, verdict = _battery_verdict(state, latest, curve)
+    markup, has_chart = battery_card.body_html(
+        trend_rows, plot_rows, plot_daily, _battery_trend_caption(trend_rows, daily_rows),
+        health_signals_module._real_trend_reading_count(trend_rows), latest, now,
+        verdict_state, verdict, curve)
+    # The script emits only when a chart exists, keeping "exactly one
+    # script tag, zero on the empty path" testable.
+    if has_chart:
+        markup += '<script src="%s" defer></script>' % BATTERY_TREND_SCRIPT_SRC
+    return markup, state
 
 
 def _source_fault_block(source_fault_raw):
@@ -869,16 +773,13 @@ def _battery_row(state, battery_critical=False, device=None):
         return health_rows.row_html(
             "battery", "off", name, i18n.t(_NO_READINGS_VERDICT_TEXT), "",
             empty_html)
-    millivolts, _ts = latest
-    percent = battery.percent(millivolts, page_context.device_curve(device))
-    value = (
-        i18n.t(_BATTERY_VALUE_TEMPLATE) % (percent, millivolts)
-        if percent is not None else "%d mV" % millivolts)
-    battery_state = state["battery_state"]
+    curve = page_context.device_curve(device)
+    verdict_state, _verdict = _battery_verdict(state["battery_state"], latest, curve)
+    # The verdict and the level live in the body (the status pill and the
+    # gauge); the head carries the name and the charging pill only.
     return health_rows.row_html(
-        "battery", battery_state, name,
-        i18n.t(BATTERY_STATE_TEXT.get(battery_state, BATTERY_STATE_TEXT["warn"])),
-        escape_html(value) + _charging_pill_html(state, trend_rows, battery_critical),
+        "battery", verdict_state, name, "",
+        _charging_pill_html(state, trend_rows, battery_critical),
         _battery_body_html(state["battery_html"]))
 
 

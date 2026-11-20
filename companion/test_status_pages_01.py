@@ -211,23 +211,30 @@ def test_battery_empty_state_no_sparkline(tmp_path):
     doc = parse_html(rendered)
     assert not doc.find_all("line", cls=health_page.SPARKLINE_LINE_CLASS), (
         "did not expect a sparkline trend-line segment with zero battery rows")
-    assert not doc.find_all("circle", cls=health_page.SPARKLINE_DOT_CLASS), (
-        "did not expect a sparkline dot with zero battery rows")
 
 
-def test_battery_ring_agrees_with_its_own_readout(tmp_path):
-    """Health's battery section draws exactly one ring whose drawn fraction —
-    recovered from its own emitted radius and dash array — equals the percentage
-    the readout beside it PRINTS; the <h2> still carries no glyph,
-    battery_sparkline_svg()'s own output carries no ring class, and a device with
-    no reading renders no ring at all rather than an empty one"""
+def _gauge_fraction(arc):
+    """The fraction of the gauge's visible track a value arc draws, recovered
+    from its own emitted radius, stroke and dash array (draw.arc_gauge()'s
+    construction: the dash is shortened by one stroke for the round caps)."""
+    radius = float(arc.attrs["r"])
+    stroke = float(arc.attrs["stroke-width"])
+    sweep = 2 * math.pi * radius * draw.ARC_SWEEP_DEGREES / 360.0
+    return (float(arc.attrs["stroke-dasharray"].split()[0]) + stroke) / (sweep + stroke)
+
+
+def test_battery_gauge_agrees_with_its_own_percentage(tmp_path):
+    """Health's battery card draws exactly one gauge whose drawn fraction, recovered from its
+    own emitted geometry, equals the percentage printed in its centre; the <h2> still carries
+    no glyph, battery_sparkline_svg()'s own output carries no gauge class, and a device with no
+    reading renders no gauge at all rather than an empty one"""
     with_reading = tmp_path / "with-reading"
     with_reading.mkdir()
     no_reading = tmp_path / "no-reading"
     no_reading.mkdir()
     base = shp.now().replace(hour=12, minute=0, second=0, microsecond=0)
     # 3690 mV lands on 32% of the discharge curve, deliberately not a round
-    # fraction, so a ring drawn from a plausible-but-wrong constant
+    # fraction, so a gauge drawn from a plausible-but-wrong constant
     # (half/full/empty) cannot coincide with the right answer.
     readings = [
         (shp.iso(base - timedelta(minutes=2)), 3600),
@@ -238,51 +245,37 @@ def test_battery_ring_agrees_with_its_own_readout(tmp_path):
     rendered = health_page_composition.render(shp.ctx(str(with_reading), now_value=shp.iso(base)))
     doc = parse_html(rendered)
 
-    tracks = doc.find_all("circle", cls=draw.DRAWING_RING_TRACK_CLASS)
-    values = doc.find_all("circle", cls=draw.DRAWING_RING_VALUE_CLASS)
+    tracks = doc.find_all("circle", cls=draw.DRAWING_ARC_TRACK_CLASS)
+    values = doc.find_all("circle", cls=draw.DRAWING_ARC_VALUE_CLASS)
     assert len(tracks) == 1 and len(values) == 1, (
-        "expected exactly one ring on Health (one track, one value arc), got %d "
+        "expected exactly one gauge on Health (one track, one value arc), got %d "
         "track(s) and %d value arc(s)" % (len(tracks), len(values)))
-
-    radius = float(values[0].attrs["r"])
-    dash_attr = values[0].attrs.get("stroke-dasharray")
-    circumference = 2 * math.pi * radius
-    drawn = float(dash_attr.split()[0]) if dash_attr else circumference
-    drawn_fraction = drawn / circumference
-
-    readout = doc.find("span", cls="battery-readout__value")
-    printed = re.search(r"(\d+)%", readout.text())
-    assert printed is not None, "expected the readout to print a percentage"
-    printed_fraction = int(printed.group(1)) / 100.0
-    assert abs(drawn_fraction - printed_fraction) <= 0.0005, (
-        "the ring draws %.4f of its circumference while the readout beside it "
-        "prints %r — the picture and the number disagree (CFG-40)"
-        % (drawn_fraction, readout.text()))
+    drawn_fraction = _gauge_fraction(values[0])
+    printed = doc.find("div", cls="battery-gauge__value").find("b").text()
+    assert abs(drawn_fraction - int(printed) / 100.0) <= 0.0005, (
+        "the gauge draws %.4f of its track while its centre prints %r" % (drawn_fraction, printed))
     assert drawn_fraction not in (0.0, 0.5, 1.0), (
-        "the seeded reading was chosen to land on no round fraction, so %r means "
-        "the ring is drawing a constant rather than the reading" % (drawn_fraction,))
+        "the seeded reading lands on no round fraction, so %r means the gauge draws a constant"
+        % (drawn_fraction,))
+    assert len(doc.find_all("line", cls=draw.DRAWING_ARC_TICK_CLASS)) == 1, (
+        "expected one low-battery tick on the gauge")
+    # The level is stated once: the gauge carries the percentage, the voltage sits beside it.
+    assert doc.find("span", cls="battery-volt").text().startswith("3690")
 
     for h2 in doc.find_all("h2"):
-        assert not h2.find_all("svg"), (
-            "a Health <h2> carries an <svg> — the battery heading's glyph must "
-            "not come back")
+        assert not h2.find_all("svg"), "a Health <h2> carries an <svg>"
 
     chart = health_page.battery_sparkline_svg(
-        [{"ts": ts, "battery_mv": mv} for ts, mv in reversed(readings)],
-        now=shp.iso(base))
-    chart_doc = parse_html(chart)
-    for cls in (draw.DRAWING_RING_TRACK_CLASS, draw.DRAWING_RING_VALUE_CLASS):
-        assert not chart_doc.find_all("circle", cls=cls), (
-            "battery_sparkline_svg()'s own output carries %r — this feature adds "
-            "a ring BESIDE the chart, not inside it" % (cls,))
+        [{"ts": ts, "battery_mv": mv} for ts, mv in reversed(readings)], now=shp.iso(base))
+    for cls in (draw.DRAWING_ARC_TRACK_CLASS, draw.DRAWING_ARC_VALUE_CLASS):
+        assert not parse_html(chart).find_all("circle", cls=cls), (
+            "battery_sparkline_svg()'s own output carries %r: the gauge sits beside the chart" % (cls,))
 
-    blank_rendered = health_page_composition.render(shp.ctx(str(no_reading), now_value=shp.iso(base)))
-    blank_doc = parse_html(blank_rendered)
-    for cls in (draw.DRAWING_RING_TRACK_CLASS, draw.DRAWING_RING_VALUE_CLASS):
+    blank_doc = parse_html(health_page_composition.render(
+        shp.ctx(str(no_reading), now_value=shp.iso(base))))
+    for cls in (draw.DRAWING_ARC_TRACK_CLASS, draw.DRAWING_ARC_VALUE_CLASS):
         assert not blank_doc.find_all("circle", cls=cls), (
-            "a device with no battery reading rendered %r — an empty ring reads "
-            "as 0%%, a false statement about a device that has simply not "
-            "checked in" % (cls,))
+            "a device with no battery reading rendered %r: an empty gauge reads as 0%%" % (cls,))
 
 
 def _voltage_view(doc):
@@ -315,8 +308,9 @@ def test_battery_trend_shows_all_readings_and_one_sparkline(tmp_path):
 
 
 def test_battery_chart_ships_a_percentage_twin_calculated_by_the_server(tmp_path):
-    """the page carries the voltage chart visibly and a hidden percentage twin whose readings are the
-    server's own battery estimate, with a Percentage/Voltage control hidden until the script runs"""
+    """the page carries the percentage chart visibly (the default) and a hidden voltage twin; the
+    percentage readings are the server's own battery estimate, and the Percentage/Voltage radio
+    group is hidden until the script runs"""
     from companion import battery
     base = shp.now().replace(hour=12, minute=0, second=0, microsecond=0)
     readings = [
@@ -328,18 +322,21 @@ def test_battery_chart_ships_a_percentage_twin_calculated_by_the_server(tmp_path
     doc = parse_html(health_page_composition.render(shp.ctx(str(tmp_path), now_value=shp.iso(base))))
     voltage = _voltage_view(doc)
     percent = doc.find("div", cls="battery-chart__view", attrs={"data-unit": "percent"})
-    assert "hidden" not in voltage.attrs and "hidden" in percent.attrs
+    assert "hidden" in voltage.attrs and "hidden" not in percent.attrs
     group = doc.find("div", cls="battery-unit")
     assert "hidden" in group.attrs, "the control needs the script, so it ships hidden"
+    assert group.attrs["role"] == "radiogroup"
     buttons = group.find_all("button")
     assert [b.attrs["data-unit"] for b in buttons] == ["percent", "mv"]
-    assert [b.attrs["aria-pressed"] for b in buttons] == ["false", "true"]
+    assert [b.attrs["role"] for b in buttons] == ["radio", "radio"]
+    assert [b.attrs["aria-checked"] for b in buttons] == ["true", "false"]
+    assert [b.attrs["tabindex"] for b in buttons] == ["0", "-1"]
     hits = percent.find_all("circle", cls=health_page.SPARKLINE_HIT_CLASS)
     assert len(hits) == 3
     for hit in hits:
         expected = "≈ %d%%" % battery.battery_percent(int(hit.attrs["data-mv"]))
         assert hit.attrs["data-reading"] == expected
-    assert not voltage.find_all(attrs={"data-reading": "≈ 0%"})
+    assert not percent.find_all(attrs={"data-reading": "≈ 0%"})
 
 
 def test_battery_unit_control_is_localised(tmp_path):
@@ -381,7 +378,7 @@ def test_battery_trend_timestamps_show_concise_format(tmp_path):
 
 
 def test_battery_readings_collapsed_behind_closed_disclosure_after_chart(tmp_path):
-    """the readings table is collapsed behind a closed-by-default disclosure, and
+    """the readings table is collapsed behind a closed-by-default disclosure row, and
     the chart precedes it"""
     base = shp.now()
     readings = [
@@ -391,13 +388,13 @@ def test_battery_readings_collapsed_behind_closed_disclosure_after_chart(tmp_pat
     ]
     shp.seed_device_health(str(tmp_path), readings)
     rendered = health_page_composition.render(shp.ctx(str(tmp_path), now_value=shp.iso(base)))
-    assert '<details class="readings-disclosure"' in rendered
-    details_tag = rendered[rendered.index('<details class="readings-disclosure"'):]
+    assert '<details class="readings-disclosure battery-readings"' in rendered
+    details_tag = rendered[rendered.index('<details class="readings-disclosure battery-readings"'):]
     details_open_tag = details_tag[:details_tag.index(">") + 1]
     assert " open" not in details_open_tag, "expected the readings disclosure to be closed by default"
     assert "View 3 readings" in rendered, "expected the disclosure summary to name the real plotted-row count"
     svg_index = rendered.index("<svg")
-    details_index = rendered.index('<details class="readings-disclosure"')
+    details_index = rendered.index('<details class="readings-disclosure battery-readings"')
     assert svg_index < details_index, "expected the chart to precede the collapsed readings table"
 
 
@@ -435,7 +432,7 @@ def test_battery_chart_plots_daily_averages_not_raw_readings(tmp_path):
     assert len(lines) == 2, "three daily points means two trend-line segments, got %d" % len(lines)
     for _ts, mv in readings:
         assert str(mv) in rendered, "raw reading %d missing from the disclosure table" % mv
-    assert "Last 3 months" not in rendered, "the retired range caption must stay off the page"
+    assert "Last 3 months, daily average" in doc.find("span", cls="battery-chart__caption").text()
     assert health_page.BATTERY_READOUT_ID in rendered, "the latest computed reading must still be on the page"
 
 
@@ -458,9 +455,9 @@ def test_battery_chart_falls_back_to_raw_series_on_day_one(tmp_path):
         "the readout must not disappear on a device younger than two calendar days")
     assert ("View %d readings" % len(readings)) in rendered, (
         "the readings disclosure must name the real reading count")
-    assert ("Latest %d readings" % len(readings)) not in rendered
-    assert "Last 3 months" not in rendered, (
-        "the caption must never describe a window the chart is not actually showing")
+    assert doc.find("span", cls="battery-chart__caption").text() == "Latest %d readings" % len(readings), (
+        "the caption must name the series the chart is actually showing")
+    assert "Last 3 months" not in rendered
 
 
 # ==========================================================================
@@ -514,9 +511,8 @@ def test_anomaly_active_never_raises_on_hostile_inputs(tmp_path):
 
 
 def test_battery_caption_is_mode_honest_across_renders(tmp_path):
-    """the Battery trend renders no range caption in any of three modes — empty, multi-day
-    (daily average) and same-day (raw readings) — while the same-day readings disclosure
-    still names the real count"""
+    """the Battery chart's caption is honest in each of three modes: absent when empty, the daily
+    average when several days are on screen, and the real reading count on the same-day fallback"""
     empty_dir = tmp_path / "empty"
     multiday_dir = tmp_path / "multiday"
     sameday_dir = tmp_path / "sameday"
@@ -525,7 +521,7 @@ def test_battery_caption_is_mode_honest_across_renders(tmp_path):
     base = shp.now()
 
     empty_rendered = health_page_composition.render(shp.ctx(str(empty_dir), now_value=shp.iso(base)))
-    assert "Last 3 months" not in empty_rendered, "expected no range caption on an empty render"
+    assert "battery-chart__caption" not in empty_rendered, "expected no chart caption on an empty render"
 
     multiday_readings = [
         (shp.iso(base - timedelta(days=1)), 4100),
@@ -533,7 +529,7 @@ def test_battery_caption_is_mode_honest_across_renders(tmp_path):
     ]
     shp.seed_device_health(str(multiday_dir), multiday_readings)
     multiday_rendered = health_page_composition.render(shp.ctx(str(multiday_dir), now_value=shp.iso(base)))
-    assert "Last 3 months" not in multiday_rendered, "expected no range caption when the daily series is on screen"
+    assert "Last 3 months, daily average" in multiday_rendered, "expected the daily-average caption"
 
     sameday_readings = [
         (shp.iso(base - timedelta(minutes=1)), 4200),
@@ -541,9 +537,9 @@ def test_battery_caption_is_mode_honest_across_renders(tmp_path):
     ]
     shp.seed_device_health(str(sameday_dir), sameday_readings)
     sameday_rendered = health_page_composition.render(shp.ctx(str(sameday_dir), now_value=shp.iso(base)))
+    assert ("Latest %d readings" % len(sameday_readings)) in sameday_rendered
     assert ("View %d readings" % len(sameday_readings)) in sameday_rendered, (
         "expected the readings disclosure to name the real count on the same-day fallback")
-    assert ("Latest %d readings" % len(sameday_readings)) not in sameday_rendered
     assert "Last 3 months" not in sameday_rendered, (
         "the same-day fallback must not claim the 3-month framing")
 
@@ -904,14 +900,8 @@ def test_sparkline_svg_has_per_point_interactive_markup():
     hits = doc.find_all("circle", cls=health_page.SPARKLINE_HIT_CLASS)
     assert len(hits) == 3, "expected exactly 3 hit-target circles, got %d" % len(hits)
 
-    # The newest plotted point is marked with a non-cosmetic mark (it
-    # survives the density rule that suppresses cosmetic dots) — one
-    # drawn marker per point, the last of them the mark.
-    dots = doc.find_all("circle", cls=health_page.SPARKLINE_DOT_CLASS)
     marks = doc.find_all("circle", cls=health_page.SPARKLINE_MARK_CLASS)
-    assert (len(dots), len(marks)) == (2, 1), (
-        "expected 3 drawn markers for 3 points — 2 cosmetic dots plus 1 mark on the newest — "
-        "got %d dots / %d marks" % (len(dots), len(marks)))
+    assert len(marks) == 1, "expected one marker, on the newest point, got %d" % len(marks)
 
     assert sum(1 for h in hits if "data-mv" in h.attrs) == 3, "expected exactly 3 data-mv attributes"
     assert sum(1 for h in hits if "data-ts" in h.attrs) == 3, "expected exactly 3 data-ts attributes"
