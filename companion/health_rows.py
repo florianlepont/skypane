@@ -52,6 +52,14 @@ def resolved_state(state):
     return state if state in STATE_ICON_IDS else "off"
 
 
+def state_mark_html(state):
+    """A small badge for the corner of a topic glyph chip: the state's own
+    shape (tick, triangle, cross, circled i), drawn in the state tone. It is
+    decorative; the hidden state word next to it names the state."""
+    return '<span class="state-mark" aria-hidden="true">%s</span>' % layout.icon_html(
+        STATE_ICON_IDS[resolved_state(state)], 10)
+
+
 def row_html(row_id, state, name, verdict, value_html, body_html):
     """One row. `name` and `verdict` are already-translated plain text and
     are escaped here; `value_html` and `body_html` are the caller's own

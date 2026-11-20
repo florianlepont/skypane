@@ -15,14 +15,6 @@ from companion.layout import escape_html
 from companion.pages import health_page as hp
 
 _LAST_DETECTION = i18n.msg("health.sys_last_detection", "Last detection")
-_BOTH_NOTE = i18n.msg(
-    "health.sys_both_note",
-    "Both flight-data sources on the frame picked the same aircraft.")
-_ONLY_ONE_NOTE = i18n.msg(
-    "health.sys_only_one_note",
-    "Only one of the two sources returned an aircraft this cycle.")
-_DISAGREE_NOTE = i18n.msg(
-    "health.sys_disagree_note", "The two sources picked different aircraft.")
 _IDENTIFIED = i18n.msg("health.sys_identified", "%s %% of flights identified")
 _IDENTIFIED_SHORT = i18n.msg("health.sys_identified_short", "%s %% identified")
 _WINDOW = i18n.msg("health.sys_window", "Last %d days: %d flights")
@@ -38,12 +30,6 @@ _SHORT_SOURCES = (
 )
 _SHORT_OTHER = i18n.msg("health.sys_src_other", "Other cases")
 
-_OUTCOME_NOTES = {
-    "True": _BOTH_NOTE,
-    "None": _ONLY_ONE_NOTE,
-    "False": _DISAGREE_NOTE,
-}
-
 SYSTEM_CARD_CLASS = "sys-card"
 
 
@@ -52,10 +38,10 @@ def _card(key, state, icon_id, label, verdict, sub_html="", value_html="", body_
     word = escape_html(i18n.t(health_rows.STATE_WORDS[state]))
     head = (
         '<div class="sys-card__head">'
-        '<span class="sys-card__icon">%s<span class="visually-hidden">%s</span></span>'
+        '<span class="sys-card__icon">%s%s<span class="visually-hidden">%s</span></span>'
         '<span class="sys-card__who"><span class="sys-card__label">%s</span>'
         '<b class="sys-card__verdict">%s</b>%s</span>%s</div>'
-    ) % (layout.icon_html(icon_id, 20), word, escape_html(label), escape_html(verdict),
+    ) % (layout.icon_html(icon_id, 20), health_rows.state_mark_html(state), word, escape_html(label), escape_html(verdict),
          sub_html, value_html)
     return '<div class="%s" data-state="%s" id="system-card-%s">%s%s</div>' % (
         SYSTEM_CARD_CLASS, state, key, head, body_html)
@@ -103,12 +89,12 @@ def flight_data(state, now):
 def _outcomes(counts):
     statuses = hp.corroboration_status(counts)
     items = []
-    for key, label, _state, _note_text in hp._CORROBORATION_ROWS:
+    for key, label, _state, note in hp._CORROBORATION_ROWS:
         items.append(
             '<li><p class="sys-card__outcome">%s<span class="sys-card__count">%d</span></p>'
             '<p class="sys-card__sentence">%s</p></li>' % (
                 layout.status_dot(statuses[key], i18n.t(label)),
-                counts.get(key, 0) or 0, escape_html(i18n.t(_OUTCOME_NOTES[key]))))
+                counts.get(key, 0) or 0, escape_html(i18n.t(note))))
     return '<ul class="sys-card__outcomes">%s</ul>' % "".join(items)
 
 
