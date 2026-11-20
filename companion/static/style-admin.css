@@ -1990,9 +1990,7 @@ dialog.access-sheet .modal__actions {
 }
 
 .sys-card__label,
-.sys-card__sub,
-.sys-card__sentence,
-.sys-card__note {
+.sys-card__sub {
   font-size: var(--font-caption-size);
   line-height: 1.3;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
@@ -2046,6 +2044,9 @@ dialog.access-sheet .modal__actions {
   margin: 0;
   padding: var(--sys-pad) var(--space-md);
   border-top: 1px solid var(--color-border);
+  font-size: var(--font-caption-size);
+  line-height: 1.3;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
 .sys-card__outcomes {
@@ -2078,6 +2079,9 @@ dialog.access-sheet .modal__actions {
 
 .sys-card__sentence {
   margin: var(--space-xs) 0 0;
+  font-size: var(--font-caption-size);
+  line-height: 1.3;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
 .sys-card__table {
