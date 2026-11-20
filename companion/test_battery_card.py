@@ -69,6 +69,23 @@ def test_the_percentage_axis_never_passes_100_and_the_end_value_is_labelled():
     assert len(mark) == 1 and mark[0].attrs["cx"] == "100.00%"
 
 
+def test_the_end_label_shows_the_latest_reading_not_the_last_daily_average():
+    rows = _rows([3900, 3950, 4000, 4050], daily=True)
+    # Today's average is 4050 but the newest raw reading is lower.
+    for unit, expected in ((battery_chart.UNIT_MV, "3990 mV"),
+                           (battery_chart.UNIT_PERCENT, "%d%%" % battery.percent(3990))):
+        doc = parse_html(battery_chart.battery_sparkline_svg(
+            rows, now=NOW, daily=True, unit=unit, latest_mv=3990))
+        strong = [t.text() for t in doc.find_all("text", cls="sparkline-text--strong")]
+        assert strong == [expected], strong
+        mark = doc.find_all("circle", cls=draw.DRAWING_CHART_MARK_CLASS)[0]
+        last_hit = doc.find_all("circle", cls=draw.DRAWING_CHART_HIT_CLASS)[-1]
+        assert mark.attrs["cx"] == last_hit.attrs["cx"]
+        assert float(mark.attrs["cy"].rstrip("%")) > float(last_hit.attrs["cy"].rstrip("%")), (
+            "the marker sits at the lower latest reading, the curve still ends on the average")
+        assert last_hit.attrs["data-mv"] == "4050", "the curve stays the daily-average series"
+
+
 def test_three_date_ticks_in_daily_mode_and_clock_ticks_for_raw_readings():
     daily = [t for t in _texts(_chart([4000 - i for i in range(9)], daily=True)) if re.fullmatch(r"\d{1,2} [A-Z][a-z]{2}", t)]
     assert len(daily) == 3, daily
@@ -162,6 +179,23 @@ def test_the_card_defaults_to_percentage_with_a_radio_switch(tmp_path):
     assert checked == ["percent"]
     views = {v.attrs["data-unit"]: v for v in doc.find_all("div", cls="battery-chart__view")}
     assert "hidden" not in views["percent"].attrs and "hidden" in views["mv"].attrs
+
+
+def test_the_card_chart_ends_on_the_latest_reading_the_gauge_shows(tmp_path):
+    base = shp.now().replace(hour=12, minute=0, second=0, microsecond=0)
+    readings = [
+        (shp.iso(base - timedelta(days=2)), 4100),
+        (shp.iso(base - timedelta(days=1)), 4050),
+        (shp.iso(base - timedelta(minutes=30)), 4000),
+        (shp.iso(base - timedelta(minutes=1)), 3900),
+    ]
+    shp.seed_device_health(str(tmp_path), readings)
+    rendered = health_page_composition.render(shp.ctx(str(tmp_path), now_value=shp.iso(base)))
+    doc = parse_html(rendered)
+    assert "Last 90 days" in rendered and "Daily averages" in rendered
+    strong = [t.text() for t in doc.find_all("text", cls="sparkline-text--strong")]
+    assert strong == ["%d%%" % battery.percent(3900), "3900 mV"], strong
+    assert "3900" in shp.health_row(rendered, "battery").text()
 
 
 def test_the_level_is_stated_once_and_the_voltage_beside_it(tmp_path):

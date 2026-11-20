@@ -432,7 +432,7 @@ def test_battery_chart_plots_daily_averages_not_raw_readings(tmp_path):
     assert len(lines) == 2, "three daily points means two trend-line segments, got %d" % len(lines)
     for _ts, mv in readings:
         assert str(mv) in rendered, "raw reading %d missing from the disclosure table" % mv
-    assert "Last 3 months, daily average" in doc.find("span", cls="battery-chart__caption").text()
+    assert doc.find("span", cls="battery-chart__caption").text() == "Last 90 daysDaily averages"
     assert health_page.BATTERY_READOUT_ID in rendered, "the latest computed reading must still be on the page"
 
 
@@ -529,7 +529,7 @@ def test_battery_caption_is_mode_honest_across_renders(tmp_path):
     ]
     shp.seed_device_health(str(multiday_dir), multiday_readings)
     multiday_rendered = health_page_composition.render(shp.ctx(str(multiday_dir), now_value=shp.iso(base)))
-    assert "Last 3 months, daily average" in multiday_rendered, "expected the daily-average caption"
+    assert "Last 90 days" in multiday_rendered and "Daily averages" in multiday_rendered, "expected the daily-average caption"
 
     sameday_readings = [
         (shp.iso(base - timedelta(minutes=1)), 4200),

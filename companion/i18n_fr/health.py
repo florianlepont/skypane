@@ -75,6 +75,7 @@ MESSAGES = {
         "Base de données de la flotte indisponible\u00a0: les fichiers "
         "d’appareils historiques sont utilisés.",
     "health.flight_data_is_stale": "Données de vol anciennes.",
+    "health.battery_level_is_low": "Niveau de batterie bas.",
     "health.battery_dropped_abnormally":
         "Baisse anormale de batterie.",
     "health.data_sources_disagreed_recently":
@@ -138,7 +139,8 @@ MESSAGES = {
     "health.battery_unit_group": "Unité du graphique de batterie",
     "health.battery_unit_percent": "Pourcentage",
     "health.battery_unit_voltage": "Tension",
-    "health.last_3_months_daily_average": "3 derniers mois, moyenne quotidienne",
+    "health.battery_last_90_days": "90 derniers jours",
+    "health.battery_daily_averages": "Moyennes quotidiennes",
     "health.daily_average_reading": "%s — moyenne quotidienne (%d relevé)",
     "health.daily_average_readings": "%s — moyenne quotidienne (%d relevés)",
     "health.daily_average": "%s — moyenne quotidienne",

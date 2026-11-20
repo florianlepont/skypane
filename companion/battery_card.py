@@ -37,12 +37,6 @@ _VIEW_READING_TEMPLATE = i18n.msg("health.view_reading", "View %d reading%s")
 _STATE_ICON = {"ok": "icon-check", "warn": "icon-warning", "error": "icon-toast-error"}
 
 
-def is_low(millivolts, curve=None):
-    """True when `millivolts` is under the companion's low-battery mark
-    (the millivolt value of battery.LOW_BATTERY_DISPLAY_PERCENT)."""
-    return millivolts < battery.low_display_mv(curve)
-
-
 def _gauge_html(percent):
     """The 270-degree gauge with the percentage in its centre and a tick at
     the low-battery mark. Green above the mark, amber below it."""
@@ -79,15 +73,19 @@ def _hero_html(millivolts, ts, now, state, verdict, curve):
 
 
 def _chart_title_html(caption):
-    """The caption naming the series, over the readout line the script
+    """The caption naming the series, `(title, detail)` on two lines (the
+    detail may be empty), over the readout line the script
     writes a hovered or focused point's reading into (hidden until the
     script runs)."""
     return (
-        '<div class="battery-chart__title"><span class="battery-chart__caption">%s</span>'
+        '<div class="battery-chart__title"><span class="battery-chart__caption">%s%s</span>'
         '<p id="%s" class="battery-readout" role="status" hidden>'
         '<span class="battery-readout__value tnum"></span>'
         '<span class="battery-readout__detail time-value"></span></p></div>'
-    ) % (escape_html(caption), BATTERY_READOUT_ID)
+    ) % (
+        escape_html(caption[0]),
+        "<small>%s</small>" % escape_html(caption[1]) if caption[1] else "",
+        BATTERY_READOUT_ID)
 
 
 def _empty_chart_html(reading_count):
@@ -99,11 +97,12 @@ def _empty_chart_html(reading_count):
          escape_html(body))
 
 
-def _chart_block_html(plot_rows, daily, caption, reading_count, now, curve):
+def _chart_block_html(plot_rows, daily, caption, reading_count, now, curve, latest_mv):
     """The chart under its title row, or the too-little-data note when the
     series cannot draw a curve. Returns `(html, has_chart)`."""
     chart = battery_chart.battery_unit_chart(
-        plot_rows, now=now, daily=daily, curve=curve, title_html=_chart_title_html(caption))
+        plot_rows, now=now, daily=daily, curve=curve, title_html=_chart_title_html(caption),
+        latest_mv=latest_mv)
     if chart:
         return '<div class="battery-chart-wrap">%s</div>' % chart, True
     return '<div class="battery-chart-wrap">%s</div>' % _empty_chart_html(reading_count), False
@@ -146,7 +145,7 @@ def body_html(trend_rows, plot_rows, daily, caption, reading_count, latest, now,
     when there is a chart."""
     millivolts, ts = latest
     chart_html, has_chart = _chart_block_html(
-        plot_rows, daily, caption, reading_count, now, curve)
+        plot_rows, daily, caption, reading_count, now, curve, millivolts)
     html = (
         _hero_html(millivolts, ts, now, state, verdict, curve) + chart_html
         + _readings_html(trend_rows, now, curve))

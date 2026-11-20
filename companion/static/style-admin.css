@@ -891,6 +891,13 @@ div.update-item__summary {
   font-weight: var(--weight-semibold);
 }
 
+.battery-chart__caption small {
+  display: block;
+  font-size: var(--font-caption-size);
+  font-weight: var(--weight-regular);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
 /* Fixed-width reveal text (4-digit mV + a short date) keeps a reveal from
  * changing where the line wraps; the line is reserved once the script has
  * shown it, so a reveal never moves the chart. */

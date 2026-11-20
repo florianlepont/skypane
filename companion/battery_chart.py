@@ -300,11 +300,14 @@ def _hit_attrs(value, ts, reading_count, is_latest, now, daily, unit, plotted_va
     return attrs
 
 
-def _points_and_marks(pairs, axis, now, daily, unit, curve):
+def _points_and_marks(pairs, axis, now, daily, unit, curve, end_value=None):
     """`(points, markup)`: `points` is the `[(x, y), ...]` percentage list
-    the area plots against; `markup` is every line segment, the latest
-    point's mark and every hit target, in paint order."""
+    the area plots against; `markup` is every line segment, the end mark
+    and every hit target, in paint order. The end mark sits at the last
+    point's x, at `end_value` (the latest reading) when that differs from
+    the plotted value (a daily average), else on the point."""
     point_count = len(pairs)
+    end_y = None if end_value is None else _y_percent(end_value, *axis)
     hit_radius = _DENSE_HIT_RADIUS_PX if point_count >= _DENSE_POINT_THRESHOLD else _HIT_RADIUS_PX
     points, segments, circles = [], [], []
     for index, (value, ts, reading_count) in enumerate(pairs):
@@ -320,7 +323,8 @@ def _points_and_marks(pairs, axis, now, daily, unit, curve):
         cx, cy = draw.percent_attr(x), draw.percent_attr(y)
         if is_latest:
             circles.append(draw.circle(
-                SPARKLINE_MARK_CLASS, cx, cy, _MARK_RADIUS_PX, attrs={"aria-hidden": "true"}))
+                SPARKLINE_MARK_CLASS, cx, cy if end_y is None else draw.percent_attr(end_y),
+                _MARK_RADIUS_PX, attrs={"aria-hidden": "true"}))
         circles.append(draw.circle(SPARKLINE_HIT_CLASS, cx, cy, hit_radius, attrs=_hit_attrs(
             value, ts, reading_count, is_latest, now, daily, unit, plotted_value, curve)))
     return points, "".join(segments) + "".join(circles)
@@ -407,7 +411,7 @@ def _legend_row(text):
          escape_html(text))
 
 
-def battery_sparkline_svg(rows, now=None, daily=False, unit=UNIT_MV, curve=None):
+def battery_sparkline_svg(rows, now=None, daily=False, unit=UNIT_MV, curve=None, latest_mv=None):
     """The battery-trend chart built server-side from `rows` (newest-first),
     with no external reference of any kind (`url(`, `<image`, a script
     tag). Every point carries a transparent, keyboard-focusable hit target
@@ -426,6 +430,9 @@ def battery_sparkline_svg(rows, now=None, daily=False, unit=UNIT_MV, curve=None)
     `battery_mv`. `unit` is `UNIT_MV` or `UNIT_PERCENT` (the shared
     estimate of each reading). `daily=True` plots daily aggregates:
     date ticks and point readouts switch to their day-aware siblings.
+    `latest_mv` is the newest raw reading: the end marker and its label
+    show it (the gauge's value) even when the curve's last point is a
+    daily average. It defaults to the last plotted reading.
     """
     if now is None:
         now = history_db.utc_now_iso()
@@ -438,20 +445,23 @@ def battery_sparkline_svg(rows, now=None, daily=False, unit=UNIT_MV, curve=None)
         return ""
     percent_unit = unit == UNIT_PERCENT
     values = [_plot_value(unit, pair[0], curve) for pair in pairs]
+    numeric = isinstance(latest_mv, int) and not isinstance(latest_mv, bool)
+    end_value = _plot_value(unit, latest_mv, curve) if numeric else values[-1]
     threshold, label_text, off_range_text = _threshold_for(unit, curve)
     axis_min, axis_max, near = _fit_axis(
-        values, threshold, _STEP_PERCENT if percent_unit else _STEP_MV,
+        values + [end_value], threshold, _STEP_PERCENT if percent_unit else _STEP_MV,
         ceiling=100 if percent_unit else None)
     axis = (axis_min, axis_max)
     threshold_y = _y_percent(threshold, *axis) if near else None
 
-    points, points_markup = _points_and_marks(pairs, axis, now, daily, unit, curve)
+    points, points_markup = _points_and_marks(
+        pairs, axis, now, daily, unit, curve, end_value)
     grid_lines, grid_labels = _grid(axis, unit, threshold_y)
     zone, rule, threshold_label = (
         _threshold_layers(threshold_y, label_text) if near else ("", "", ""))
-    end_text = ("%d%%" % values[-1]) if percent_unit else "%d mV" % values[-1]
+    end_text = ("%d%%" % end_value) if percent_unit else "%d mV" % end_value
     labels = grid_labels + threshold_label + _end_and_date_labels(
-        pairs, points[-1][1], end_text, daily)
+        pairs, _y_percent(end_value, *axis), end_text, daily)
 
     heading = i18n.t(BATTERY_SECTION_HEADING)
     if percent_unit:
@@ -471,11 +481,13 @@ def _unit_button(unit, label, selected):
     ) % (unit, "true" if selected else "false", "0" if selected else "-1", escape_html(label))
 
 
-def battery_unit_chart(rows, now=None, daily=False, curve=None, title_html=""):
+def battery_unit_chart(
+        rows, now=None, daily=False, curve=None, title_html="", latest_mv=None):
     """The chart block: a title row (`title_html`, already-safe markup, and
     the Percentage/Voltage control) over the two views, both built
     server-side from the same `rows` inside one `.battery-chart` wrapper.
-    Percentage is the default view. Returns `""` when there is nothing to
+    Percentage is the default view. `latest_mv` is the newest raw reading
+    (see `battery_sparkline_svg()`). Returns `""` when there is nothing to
     plot.
 
     The control is `hidden` until `battery-trend.js` runs, since it only
@@ -484,10 +496,11 @@ def battery_unit_chart(rows, now=None, daily=False, curve=None, title_html=""):
     value itself.
     """
     percent_chart = battery_sparkline_svg(
-        rows, now=now, daily=daily, unit=UNIT_PERCENT, curve=curve)
+        rows, now=now, daily=daily, unit=UNIT_PERCENT, curve=curve, latest_mv=latest_mv)
     if not percent_chart:
         return ""
-    mv_chart = battery_sparkline_svg(rows, now=now, daily=daily, unit=UNIT_MV, curve=curve)
+    mv_chart = battery_sparkline_svg(
+        rows, now=now, daily=daily, unit=UNIT_MV, curve=curve, latest_mv=latest_mv)
     control = (
         '<div class="battery-unit" role="radiogroup" aria-label="%s" hidden>%s%s</div>'
     ) % (

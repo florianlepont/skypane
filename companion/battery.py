@@ -62,6 +62,13 @@ LOW_BATTERY_DISPLAY_PERCENT = 20
 LOW_BATTERY_DISPLAY_MV = _curve_mv_at_percent(LOW_BATTERY_DISPLAY_PERCENT)
 
 
+def is_low(millivolts, curve=None):
+    """True when `millivolts` is under the low-battery display mark of
+    `curve`: the one rule the Battery card, the frame overview tile and the
+    page-wide severity share."""
+    return millivolts < low_display_mv(curve)
+
+
 def low_display_mv(curve=None):
     """The millivolt value of the low-battery display mark on `curve`;
     None selects the legacy curve (LOW_BATTERY_DISPLAY_MV)."""

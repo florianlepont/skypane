@@ -445,7 +445,7 @@ def compute_health_state(state_dir, now=None, fleet_root=None, curve=None):
     from the same read.
     """
     return health_state_from_signals(
-        health_signals(state_dir, now, fleet_root), curve)
+        health_signals(state_dir, now, fleet_root, curve), curve)
 
 
 def safe_health_state(state_dir, now=None):
@@ -578,7 +578,7 @@ def _battery_verdict(state, latest, curve=None):
     """`(state, text)` of the Battery card's verdict: a reading under the
     low-battery mark says so (a warning); otherwise the drop scan's own
     verdict. The scan's state still drives the page-wide severity."""
-    if latest is not None and battery_card.is_low(latest[0], curve):
+    if latest is not None and battery.is_low(latest[0], curve):
         return "warn", i18n.t(battery_card.LOW_VERDICT_TEXT)
     return state, i18n.t(BATTERY_STATE_TEXT.get(state, BATTERY_STATE_TEXT["warn"]))
 
@@ -617,7 +617,7 @@ def _battery_section(trend_rows, daily_rows=None, curve=None):
     # Through the state-only sibling, not a bare battery_status() call:
     # keeps this row's state and health_signals()'s severity
     # input reading identically from the same two early-exit cases.
-    state = _battery_state(trend_rows, daily_rows)
+    state = _battery_state(trend_rows, daily_rows, curve)
     now = history_db.utc_now_iso()
     # One predicate decides both the series and the caption, so they can
     # never disagree.
@@ -1169,10 +1169,11 @@ def _battery_tile(state, device):
     value = (
         i18n.t(_BATTERY_VALUE_TEMPLATE) % (percent, millivolts)
         if percent is not None else "%d mV" % millivolts)
-    battery_state = state["battery_state"]
-    verdict = i18n.t(BATTERY_STATE_TEXT.get(battery_state, BATTERY_STATE_TEXT["warn"]))
+    # The same verdict as the Battery card's status pill, so the tile and
+    # the card never disagree (a low level says so in words).
+    tile_state, verdict = _battery_verdict(state["battery_state"], latest, curve)
     return (
-        TileFacts(battery_state, verdict, value, ""),
+        TileFacts(tile_state, verdict, value, ""),
         _battery_curve_percents(inputs, curve))
 
 

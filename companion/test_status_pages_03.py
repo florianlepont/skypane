@@ -890,8 +890,8 @@ def test_battery_row_names_its_series_honestly_in_any_of_three_branches(tmp_path
         body = _row_html(health_page_composition.render(shp.ctx(state_dir, now_value=shp.iso(base))), "battery")
         assert 'class="text-label section-caption"' not in body and 'health-row__note' not in body, (
             "%s branch: expected no range caption in the battery row" % branch)
-        expected = {"daily": "Last 3 months, daily average", "sameday": "Latest 3 readings"}.get(branch)
-        for wording in ("Last 3 months, daily average", "Latest 3 readings"):
+        expected = {"daily": "Last 90 days", "sameday": "Latest 3 readings"}.get(branch)
+        for wording in ("Last 90 days", "Latest 3 readings"):
             assert (wording in body) == (wording == expected), (
                 "%s branch: expected the caption %r only" % (branch, expected))
     sameday_body = _row_html(health_page_composition.render(shp.ctx(sameday_dir, now_value=shp.iso(base))), "battery")

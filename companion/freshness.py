@@ -180,7 +180,7 @@ def _freshness_paris_date(now):
 # the frame strip) is therefore already covered without naming it twice.
 _FRESHNESS_SIGNAL_FIELDS = (
     "severity", "anomalies", "device_state", "pipeline_state",
-    "battery_state", "coverage_state", "disagreement_warn", "source_fault",
+    "battery_state", "battery_low", "coverage_state", "disagreement_warn", "source_fault",
     "offbox", "next_wake_iso", "effective_interval_s", "hold_reason",
 )
 
