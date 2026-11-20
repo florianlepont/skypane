@@ -722,6 +722,13 @@ ICON_IDS = ICON_IDS + (
     "icon-chevron-left",
 )
 
+# The System page's server, broadcast (radio) and cloud-upload glyphs.
+ICON_IDS = ICON_IDS + (
+    "icon-server",
+    "icon-radio",
+    "icon-cloud-upload",
+)
+
 # The brand mark's geometry on a 32x32 box, shared by the `icon-logo` sprite
 # symbol and the login page's inline copy (login_shell() carries no sprite).
 # Ink is currentColor; the flick carries LOGO_ACCENT_CLASS, which
@@ -929,6 +936,23 @@ ICON_DEFS_HTML = (
     '<symbol id="icon-chevron-left" viewBox="0 0 20 20" fill="none" '
     'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
     '<path d="M12 5l-5 5 5 5"/>'
+    "</symbol>"
+    '<symbol id="icon-server" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
+    '<rect x="2.5" y="3.5" width="15" height="5" rx="1.5"/>'
+    '<rect x="2.5" y="11.5" width="15" height="5" rx="1.5"/>'
+    '<path d="M5.8 6h.01M5.8 14h.01"/>'
+    "</symbol>"
+    '<symbol id="icon-radio" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
+    '<circle cx="10" cy="10" r="1.7"/>'
+    '<path d="M6.5 6.5a5 5 0 0 0 0 7M13.5 6.5a5 5 0 0 1 0 7'
+    'M4.1 4.1a8.3 8.3 0 0 0 0 11.8M15.9 4.1a8.3 8.3 0 0 1 0 11.8"/>'
+    "</symbol>"
+    '<symbol id="icon-cloud-upload" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M5.8 15a3.75 3.75 0 0 1-.5-7.47A5 5 0 0 1 15 8.75 3.2 3.2 0 0 1 14.6 15z"/>'
+    '<path d="M10 13.3V9M8.2 10.7L10 8.8l1.8 1.9"/>'
     "</symbol>"
     '<symbol id="icon-pencil" viewBox="0 0 20 20" fill="none" '
     'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
