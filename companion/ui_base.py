@@ -555,7 +555,6 @@ _CARD_STATUS_SUFFIXES = {
 # site for every icon in the app.
 ICON_IDS = (
     "icon-device",
-    "icon-pipeline",
     "icon-corroboration",
     # "icon-battery" has no consumer anywhere in the app today. Retained on
     # purpose: pruning it would also require a matching <symbol> deletion and
@@ -765,13 +764,6 @@ ICON_DEFS_HTML = (
     'stroke-linejoin="round">'
     '<rect x="5" y="2" width="10" height="16" rx="2"/>'
     '<path d="M7.5 10l2 2 4-4.5"/>'
-    "</symbol>"
-    '<symbol id="icon-pipeline" viewBox="0 0 20 20" fill="none" '
-    'stroke="currentColor" stroke-width="1.5" stroke-linecap="round" '
-    'stroke-linejoin="round">'
-    '<path d="M10 16v-3"/>'
-    '<path d="M6.5 11.5a5 5 0 0 1 7 0"/>'
-    '<path d="M4 8.5a9 9 0 0 1 12 0"/>'
     "</symbol>"
     '<symbol id="icon-corroboration" viewBox="0 0 20 20" fill="none" '
     'stroke="currentColor" stroke-width="1.5" stroke-linecap="round" '
