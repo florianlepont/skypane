@@ -17,14 +17,19 @@ SYSTEM_QUERY = "?view=system"
 
 
 TAB_SETTINGS = "settings"
+VIEW_HEALTH = "health"
+VIEW_VERSIONS = "versions"
 
 
-def frame_url(frame_id=None, tab=None):
-    """The Fleet page with `frame_id` selected (on the phone sub-tab `tab`, a
-    literal), or the Fleet page itself."""
+def frame_url(frame_id=None, tab=None, view=None):
+    """The Fleet page with `frame_id` selected (a phone brings the section `tab`
+    into view; `view` names a detail page: both literals), or the Fleet page
+    itself."""
     if not frame_id:
         return FLEET
     url = "%s?%s=%s" % (FLEET, FRAME_PARAM, quote(frame_id, safe=""))
+    if view:
+        url += "&view=" + view
     return url + "&tab=" + tab if tab else url
 
 
@@ -34,10 +39,13 @@ def with_flash(url, flash_key):
     return "%s%sflash=%s" % (url, "&" if "?" in url else "?", quote(flash_key))
 
 
-def health_target(device_id, tab=None):
+def health_target(device_id, tab=None, view=VIEW_HEALTH):
     """/health (platform wide) shows the System view; a frame's own health
-    page shows that frame."""
-    return frame_url(device_id, tab) if device_id else FLEET + SYSTEM_QUERY
+    page shows that frame's Health page (`view`), or its Settings (`tab`) for
+    the retired Device page."""
+    if not device_id:
+        return FLEET + SYSTEM_QUERY
+    return frame_url(device_id, tab) if tab else frame_url(device_id, view=view)
 
 
 def settings_target(back, route, device):
@@ -73,9 +81,10 @@ def _carried_flash(url, query):
 
 
 def retired_frame_page(h, m):
-    """303 target of the retired Health and Device pages: the Fleet view of the
-    frame the request resolved to (`/devices/<id>/health`, or the frame named
-    by `?frame=` among the caller's own), the System view when there is none."""
+    """303 target of the retired Health and Device pages: the Health page (the
+    Settings section for Device) of the frame the request resolved to
+    (`/devices/<id>/health`, or the frame named by `?frame=` among the
+    caller's own), the System view when there is none."""
     wanted = parse_qs(m.query or "").get(FRAME_PARAM, [""])[0]
     own = {device.id for device in device_scope.current_devices()}
     frame_id = wanted if wanted in own else (m.device.id if m.device else None)
@@ -84,7 +93,7 @@ def retired_frame_page(h, m):
 
 
 def retired_update_page(h, m, serve):
-    """The retired Update page: the Fleet view of the frame in a
+    """The retired Update page: the Versions page of the frame in a
     `/devices/<id>/update` path, else of the one named by `?frame=`
     (one of the caller's own), else of the requested
     firmware type; a type with no frame is still served by `serve()`."""
@@ -92,7 +101,8 @@ def retired_update_page(h, m, serve):
     if m.device_id is not None:
         own = device_scope.load_devices_for(h.args.state_dir, h._safe_principal())
         if m.device_id in {d.id for d in own}:
-            return h.redirect(_carried_flash(frame_url(m.device_id), m.query))
+            return h.redirect(_carried_flash(
+                frame_url(m.device_id, view=VIEW_VERSIONS), m.query))
         return h.send_html(404, h._not_found_page())
     wanted = parse_qs(m.query or "").get(FRAME_PARAM, [""])[0]
     hardware_type = update_page.posted_type(h._requested_update_type())
@@ -100,4 +110,4 @@ def retired_update_page(h, m, serve):
         frame_for_type(h, hardware_type) if hardware_type else None)
     if frame is None:
         return serve()
-    return h.redirect(_carried_flash(frame_url(frame), m.query))
+    return h.redirect(_carried_flash(frame_url(frame, view=VIEW_VERSIONS), m.query))

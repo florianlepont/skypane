@@ -1382,11 +1382,13 @@ class Handler(
             self._update_flash_url(FLASH_KEY_UPDATE_SCHEDULE_FAILED, hardware_type))
 
     def _update_flash_url(self, flash_key=None, hardware_type=hardware.LEGACY_KEY):
-        """The Fleet view of a frame of `hardware_type` (the one the action
+        """The Versions page of a frame of `hardware_type` (the one the action
         came from), carrying `flash_key` when given. A type with no frame has
         no Fleet view: its own Update page answers instead."""
         frame = fleet_moves.frame_for_type(self, hardware_type)
-        url = fleet_moves.frame_url(frame) if frame else update_page.page_route(hardware_type)
+        url = (
+            fleet_moves.frame_url(frame, view=fleet_moves.VIEW_VERSIONS) if frame
+            else update_page.page_route(hardware_type))
         return fleet_moves.with_flash(url, flash_key) if flash_key else url
 
     def _requested_update_type(self):

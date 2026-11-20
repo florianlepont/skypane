@@ -96,7 +96,10 @@ MESSAGES = {
     "admin_fleet.system_heading": "Système",
     "admin_fleet.block_state": "État",
     "admin_fleet.tabs_label": "Sections du cadre",
-    "admin_fleet.block_device_version": "Appareil et version",
+    "admin_fleet.tile_details": "Détails",
+    "admin_fleet.tile_firmware": "Micrologiciel",
+    "admin_fleet.back_to_frame": "Retour à %s",
+    "admin_fleet.health_frame_section": "Cadre",
     "admin_fleet.block_settings": "Réglages",
     "admin_fleet.block_access": "Accès",
     "admin_fleet.system_unavailable":

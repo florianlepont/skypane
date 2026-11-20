@@ -16,6 +16,8 @@ its own icon shape, and a visually hidden word names it for a screen
 reader.
 """
 
+import re
+
 from companion.layout import escape_html
 import companion.i18n as i18n
 import companion.layout as layout
@@ -80,6 +82,13 @@ def row_html(row_id, state, name, verdict, value_html, body_html):
         ROW_CLASS, state, ROW_ID_PREFIX, escape_html(row_id), open_attr,
         SUMMARY_CLASS, icon, escape_html(i18n.t(STATE_WORDS[state])),
         escape_html(name), escape_html(verdict), value_html, body_html)
+
+
+def opened_html(rows_html):
+    """`rows_html` with every row's disclosure open, for a page that shows the
+    evidence directly (a row in a warn or error state is open already)."""
+    return re.sub(
+        r'(<details class="%s" [^>]*?)(?<! open)>' % ROW_CLASS, r"\1 open>", rows_html)
 
 
 def group_html(group_id, heading, rows_html):

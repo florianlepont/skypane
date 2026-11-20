@@ -1,13 +1,15 @@
 """The Console Fleet page: the list of frames and the views it opens.
 
 `/fleet` shows the list of frames (live, pending and retired, each a link to
-`/fleet?frame=<id>`). A live frame opens one column of section cards: State,
-Device and version (the model, the running firmware and the version history),
-Settings and Access (owner, co-managers, reassign, retire). Each section reuses
-the content of the page that used to hold it (Health, Update, Device, Manage
-access) with the same forms and POST routes. A pending or retired frame opens
-its own page with only its useful action and appears nowhere else. The System
-view holds the platform-wide part of the Health page.
+`/fleet?frame=<id>`). A live frame opens one column of sections: State (four
+equal tiles, each with a Details link), Settings and Access (owner, co-managers,
+reassign, retire). Each section reuses the content of the page that used to hold
+it (Device, Manage access) with the same forms and POST routes. The tiles lead
+to two detail pages of the frame, `view=health` (every Health block) and
+`view=versions` (the installed version, the update and every earlier version).
+A pending or retired frame opens its own page with only its useful action and
+appears nowhere else. The System view holds the platform-wide part of the Health
+page.
 
 On a phone the list and a frame page are separate screens joined by the frame
 switch (a chip row); from 1200 px the list is a full-height column beside the
@@ -19,18 +21,21 @@ Selection is read from the query only to pick one of the rows the request
 scope already lists; a value matching none shows the list, so no request text
 reaches a path, a query or a filesystem call.
 """
-from companion import device_scope, i18n, ui_segmented
-from companion.pages import co_managers_card
+from companion import device_scope, i18n
+from companion.pages import co_managers_card, fleet_tiles
 from companion.ui_base import escape_html
 from server import history_db
 
 FRAME_QUERY = "frame"
 VIEW_QUERY = "view"
 VIEW_SYSTEM = "system"
-TAB_QUERY = "tab"
-TAB_STATE = "state"
-TAB_SETTINGS = "settings"
-TAB_ACCESS = "access"
+FOCUS_QUERY = "tab"
+SECTION_STATE = "state"
+SECTION_SETTINGS = "settings"
+SECTION_ACCESS = "access"
+VIEW_HEALTH = fleet_tiles.VIEW_HEALTH
+VIEW_VERSIONS = fleet_tiles.VIEW_VERSIONS
+DETAIL_VIEWS = (VIEW_HEALTH, VIEW_VERSIONS)
 SYSTEM_HREF = "/fleet?%s=%s" % (VIEW_QUERY, VIEW_SYSTEM)
 FRAME_HREF_PREFIX = "/fleet?%s=" % FRAME_QUERY
 
@@ -46,7 +51,9 @@ def page_scripts(system=False):
         ui_base.DIRTY_STATE_SCRIPT_SRC, ui_base.FRESHNESS_SCRIPT_SRC,
         ui_base.QUICK_SWITCH_SCRIPT_SRC, ui_base.VALUE_CONTROLS_SCRIPT_SRC)
     if not system:
-        return (ui_base.UPDATE_QUESTION_SCRIPT_SRC, ui_base.LIST_FILTER_SCRIPT_SRC) + base
+        return (
+            ui_base.UPDATE_QUESTION_SCRIPT_SRC, ui_base.LIST_FILTER_SCRIPT_SRC,
+            ui_base.FLEET_ANCHORS_SCRIPT_SRC) + base
     return (
         ui_base.COPY_BUTTON_SCRIPT_SRC, ui_base.LIST_FILTER_SCRIPT_SRC,
         ui_base.PANEL_LOOKUP_SCRIPT_SRC) + base
@@ -54,10 +61,13 @@ def page_scripts(system=False):
 
 _SYSTEM_HEADING = i18n.msg("admin_fleet.system_heading", "System")
 _STATE_HEADING = i18n.msg("admin_fleet.block_state", "State")
-_DEVICE_HEADING = i18n.msg("admin_fleet.block_device_version", "Device and version")
 _SETTINGS_HEADING = i18n.msg("admin_fleet.block_settings", "Settings")
 _ACCESS_HEADING = i18n.msg("admin_fleet.block_access", "Access")
-_TABS_LABEL = i18n.msg("admin_fleet.tabs_label", "Frame sections")
+_SECTIONS_LABEL = i18n.msg("admin_fleet.tabs_label", "Frame sections")
+_BACK_TO_FRAME = i18n.msg("admin_fleet.back_to_frame", "Back to %s")
+_HEALTH_HEADING = i18n.msg("nav.health", "Health")
+_VERSIONS_HEADING = i18n.msg("update.version_history", "Versions")
+_FRAME_GROUP_HEADING = i18n.msg("admin_fleet.health_frame_section", "Frame")
 _SYSTEM_EMPTY = i18n.msg(
     "admin_fleet.system_unavailable",
     "No system information is available yet.")
@@ -92,28 +102,36 @@ def selection(query, devices):
     return None, False
 
 
-def tab_selection(query):
-    """The phone sub-tab a query names: only the exact `tab=settings` or
-    `tab=access` (an old `access=` link too) leave State, the default."""
-    wanted = (query.get(TAB_QUERY) or [""])[0]
-    if wanted in (TAB_SETTINGS, TAB_ACCESS):
+def detail_view(query):
+    """The detail page a query names for a chosen frame (`view=health` or
+    `view=versions`), or ""."""
+    wanted = (query.get(VIEW_QUERY) or [""])[0]
+    return wanted if wanted in DETAIL_VIEWS else ""
+
+
+def section_focus(query):
+    """The section a phone brings into view on load: only the exact
+    `tab=settings` or `tab=access` (an old `access=` link too); "" otherwise."""
+    wanted = (query.get(FOCUS_QUERY) or [""])[0]
+    if wanted in (SECTION_SETTINGS, SECTION_ACCESS):
         return wanted
-    return TAB_ACCESS if query.get("access") else TAB_STATE
+    return SECTION_ACCESS if query.get("access") else ""
 
 
-def tabs_html(frame_id, tab):
-    """The State / Settings / Access segmented control (phone only, by the
-    stylesheet): three plain links to `/fleet?frame=<id>&tab=<tab>`, the current
-    one marked, so it works without script and can be linked to."""
+def anchors_html():
+    """The State / Settings / Access anchors (a phone only, by the stylesheet):
+    in-page links to the three sections, the first marked current; a script
+    marks the section in view as the page scrolls."""
     labels = (
-        (TAB_STATE, _STATE_HEADING), (TAB_SETTINGS, _SETTINGS_HEADING),
-        (TAB_ACCESS, _ACCESS_HEADING))
-    links = [
-        ("%s%s&amp;%s=%s" % (FRAME_HREF_PREFIX, _esc(frame_id), TAB_QUERY, key),
-         "<span>%s</span>" % _t(label), key == tab, "")
-        for key, label in labels]
-    return ui_segmented.segmented_links_html(
-        links, _t(_TABS_LABEL), "fleet-tabs", nav_attrs=' data-tabs="fleet"', carry=True)
+        (SECTION_STATE, _STATE_HEADING), (SECTION_SETTINGS, _SETTINGS_HEADING),
+        (SECTION_ACCESS, _ACCESS_HEADING))
+    links = "".join(
+        '<a class="fleet-anchor" href="#%s%s"%s>%s</a>' % (
+            fleet_tiles.SECTION_ID_PREFIX, key,
+            ' aria-current="true"' if key == SECTION_STATE else "", _t(label))
+        for key, label in labels)
+    return '<nav class="fleet-anchors" aria-label="%s" data-fleet-anchors>%s</nav>' % (
+        _t(_SECTIONS_LABEL), links)
 
 
 def _block(heading_msg, items_html, extra_class="", slug="", heading=""):
@@ -125,7 +143,8 @@ def _block(heading_msg, items_html, extra_class="", slug="", heading=""):
     from companion import ui_groups
     return ui_groups.group(
         items_html, label=heading or i18n.t(heading_msg), label_id="fleet-block-" + slug,
-        extra_class="fleet-block" + extra_class).replace(
+        extra_class="fleet-block" + extra_class,
+        attrs='id="%s%s"' % (fleet_tiles.SECTION_ID_PREFIX, slug)).replace(
             '<ul class="group">', '<ul class="group fleet-group">', 1)
 
 
@@ -148,8 +167,8 @@ def _access_html(device, access_views, row, view):
     rows = co_managers_card.access_rows_html(
         access, device.id, co_managers_card.RETURN_FLEET, _ID_PREFIX_INLINE,
         owner_action_html=fleet_page.reassign_action_html(row) if row else "",
-        add_as_dialog=True)
-    dismiss = "%s%s&%s=%s" % (FRAME_HREF_PREFIX, device.id, TAB_QUERY, TAB_ACCESS)
+        add_as_dialog=True, compact=True)
+    dismiss = "%s%s&%s=%s" % (FRAME_HREF_PREFIX, device.id, FOCUS_QUERY, SECTION_ACCESS)
     dialogs = co_managers_card.add_dialog_html(
         access, device.id, co_managers_card.RETURN_FLEET, dismiss)
     if row:
@@ -169,32 +188,76 @@ def _access_block(device, access_views, view):
     return _block(_ACCESS_HEADING, rows, " fleet-block--access", "access") + dialogs
 
 
-def frame_html(ctx, device, view, header_html="", tab=TAB_STATE):
+def frame_html(ctx, device, view, header_html="", focus=""):
     """The selected frame's header and sections. `ctx` is the page context
     built for `device`, whose state directory the History reads must be scoped
-    to; `view` is the page's `FleetView`."""
+    to; `view` is the page's `FleetView`. `focus` names the section a phone
+    brings into view (Settings or Access), "" for the top."""
     from companion.pages import config_page, health_page, update_page
     with history_db.connection_scope(device.state_dir):
-        device_html, versions_html, _parts = update_page.render_parts(
-            ctx, device.hardware_type)
+        tiles = health_page.frame_tiles(ctx)
+        firmware = update_page.firmware_summary(ctx, device.hardware_type)
         settings_html = config_page.render(
             ctx, scope=config_page.SCOPE_DEVICE, embedded=True)
         blocks = (
-            _block(
-                _STATE_HEADING, _item(health_page.frame_state_html(ctx), True),
-                " fleet-block--state", "state")
-            + _block(
-                _DEVICE_HEADING,
-                _item(device_html) + _item(versions_html),
-                " fleet-block--state fleet-block--device", "device")
+            fleet_tiles.tiles_section_html(device.id, tiles, firmware)
             + _block(
                 _SETTINGS_HEADING, _item(settings_html),
                 " fleet-block--settings", "settings")
             + _access_block(device, view.access, view))
     return (
-        '<div class="fleet-frame">' + header_html + tabs_html(device.id, tab)
-        + '<div class="fleet-blocks" data-fleet-tab="%s">%s</div></div>' % (tab, blocks)
+        '<div class="fleet-frame">' + header_html + anchors_html()
+        + '<div class="fleet-blocks"%s>%s</div></div>' % (
+            ' data-fleet-focus="%s"' % focus if focus else "", blocks)
         + config_page.docked_dirty_bar_html())
+
+
+def detail_head_html(device, name):
+    """The head of a detail page: the link back to the frame's page and the
+    page's one `<h1>`."""
+    from companion import ui_base
+    return (
+        '<a class="fleet-back" href="%s%s">%s<span>%s</span></a>' % (
+            FRAME_HREF_PREFIX, _esc(device.id), ui_base.icon_html("icon-chevron-left", 20),
+            _esc(i18n.t(_BACK_TO_FRAME) % name)))
+
+
+def health_html(ctx, device):
+    """The Health page of a frame: every block the page holds (the no-signal
+    notice, the source fault and the warnings banner above the rows; the
+    frame's connection and battery; for an administrator the platform data
+    rows: flight data, data sources, identification and the off-box backup)."""
+    from companion import health_rows
+    from companion.pages import health_page
+    with history_db.connection_scope(device.state_dir):
+        parts = health_page.health_sections(ctx)
+
+    def rows(items):
+        return "".join(
+            _item(health_rows.card_html(health_rows.opened_html(row)), True) for row in items)
+
+    if parts.empty_html:
+        blocks = _block(
+            _FRAME_GROUP_HEADING, _item(parts.empty_html, True),
+            " fleet-block--health", "health-frame")
+    else:
+        blocks = _block(
+            _FRAME_GROUP_HEADING, rows(parts.frame_rows), " fleet-block--health",
+            "health-frame") + _block(
+                health_page.SERVER_DATA_SECTION_HEADING, rows(parts.platform_rows),
+                " fleet-block--health", "health-server")
+    return parts.notices_html + '<div class="fleet-blocks fleet-blocks--detail">%s</div>' % blocks
+
+
+def versions_html(ctx, device):
+    """The Versions page of a frame: the installed version and whether an
+    update is available (with its install action), then every release with its
+    Install or Roll back action."""
+    from companion.pages import update_page
+    with history_db.connection_scope(device.state_dir):
+        device_html, releases_html, _summary = update_page.render_parts(
+            ctx, device.hardware_type)
+    return '<div class="fleet-versions">%s%s</div>' % (device_html, releases_html)
 
 
 def system_html(ctx):
@@ -256,12 +319,16 @@ def page_html(h, query, view):
             + system_html(h.page_context(device_scope.live_device(root))))
     if selected is not None:
         live = frames_list.find_row(view, selected.id)
+        detail = detail_view(query)
+        if detail:
+            return notice + _split(
+                "detail", "", _detail_html(h, selected, live, detail, frames_list))
         return notice + _split(
             "frame", frames_list.list_panel_html(view, selected.id),
             frames_list.switch_html(view, selected.id) + frame_html(
                 h.page_context(selected), selected, view,
                 frames_list.head_html(live, view) if live else frames_list.plain_head_html(selected),
-                tab_selection(query)))
+                section_focus(query)))
     if row is not None:
         return notice + _split(
             "other", frames_list.list_panel_html(view, row.frame_id),
@@ -272,6 +339,19 @@ def page_html(h, query, view):
         _auto_frame_html(h, view, watch, scope_device, frames_list))
 
 
+def _detail_html(h, device, row, detail, frames_list):
+    """The Health or Versions page of a frame: the way back to the frame, the
+    page's `<h1>` and its content. The list column is not part of it."""
+    from companion.pages import fleet_page
+    name = fleet_page.display_name(row) if row else device.name
+    ctx = h.page_context(device)
+    if detail == VIEW_HEALTH:
+        title, body = _t(_HEALTH_HEADING), health_html(ctx, device)
+    else:
+        title, body = _t(_VERSIONS_HEADING), versions_html(ctx, device)
+    return detail_head_html(device, name) + frames_list.title_head_html(title) + body
+
+
 def _auto_frame_html(h, view, watch, device, frames_list):
     """The first frame of the list, which a wide screen shows beside it when
     no frame is chosen; "" without a live frame. A frame the database does not
@@ -280,8 +360,7 @@ def _auto_frame_html(h, view, watch, device, frames_list):
         return ""
     return frame_html(
         h.page_context(device), device, view,
-        frames_list.head_html(watch, view) if watch else frames_list.plain_head_html(device),
-        TAB_STATE)
+        frames_list.head_html(watch, view) if watch else frames_list.plain_head_html(device))
 
 
 def query_flash_html(h, query):

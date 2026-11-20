@@ -11,6 +11,7 @@ live POST handlers for the forms this module renders.
 """
 import collections
 import re
+from typing import NamedTuple
 
 import companion.frame_state as frame_state
 import companion.i18n as i18n
@@ -821,7 +822,9 @@ def update_page(ctx, view, next_wake_text, wake_held=False, type_choice=None, em
         device_html + versions_html)
 
 
-def _loaded_parts(ctx, requested_type, pinned=False):
+def _loaded_view(ctx, requested_type, pinned=False):
+    """(ctx, update view, type choice, next-wake text, wake held) of the frame
+    `ctx` names, read fresh from the registry and the device report."""
     ctx = page_context.coerce(ctx)
     # The registry and the device report are fleet-wide documents kept in the
     # root state directory; a non-live frame's own directory does not hold them.
@@ -836,7 +839,30 @@ def _loaded_parts(ctx, requested_type, pinned=False):
     registry = firmware_registry.load_registry(state_dir, choice.selected)
     view = firmware_registry.update_view(registry, device_report, now)
     next_wake_text, wake_held = compute_next_wake_text(ctx)
+    return ctx, view, choice, next_wake_text, wake_held
+
+
+def _loaded_parts(ctx, requested_type, pinned=False):
+    ctx, view, choice, next_wake_text, wake_held = _loaded_view(ctx, requested_type, pinned)
     return update_parts(ctx, view, next_wake_text, wake_held, choice)
+
+
+class FirmwareSummary(NamedTuple):
+    """What the Fleet page's Firmware tile shows: the running version ("" when
+    none is reported), the headline Message of the card (up to date, update
+    available, scheduled ...) and its tone (ok, warn, error or neutral)."""
+    version: str
+    headline: object
+    tone: str
+
+
+def firmware_summary(ctx, requested_type):
+    """The Firmware tile's facts for the frame's own hardware type."""
+    ctx, view, _choice, next_wake_text, wake_held = _loaded_view(
+        ctx, requested_type, pinned=True)
+    tone, _icon, headline, _details, _action = _cta_for_state(
+        view, _owner_releases(view), ctx.now, next_wake_text, wake_held)
+    return FirmwareSummary(view.get("running_version") or "", headline, tone)
 
 
 def render_parts(ctx, requested_type=None):
