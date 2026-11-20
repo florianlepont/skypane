@@ -219,6 +219,8 @@ _MANY_DISAGREEMENTS_TEMPLATE = i18n.msg(
     "health.row_n_disagreements", "%d disagreements")
 _IDENTIFIED_TEMPLATE = i18n.msg(
     "health.row_identified", "%s%% of flights identified")
+_IDENTIFIED_SHORT_TEMPLATE = i18n.msg(
+    "health.sys_identified_short", "%s\u00a0%% identified")
 _TO_RESOLVE_TEMPLATE = i18n.msg("health.row_to_resolve", "%d to resolve")
 _NOTHING_TO_RESOLVE_TEXT = i18n.msg(
     "health.row_nothing_to_resolve", "Nothing to resolve")
@@ -1027,7 +1029,7 @@ def _identification_tile(stats, unresolved_count):
     shown_percent = min(percent, 99.9) if unresolved_count else percent
     return SystemTile(
         "identification", "off", "icon-nav-airlines", label,
-        i18n.t(_IDENTIFIED_TEMPLATE) % _percent_text(shown_percent), to_resolve)
+        i18n.t(_IDENTIFIED_SHORT_TEMPLATE) % _percent_text(shown_percent), to_resolve)
 
 
 def _backup_tile(offbox, now):
@@ -1094,11 +1096,13 @@ def _page_parts(ctx):
         "now": now, "state": state, "banner_html": banner_html,
         "unreachable_html": unreachable_html, "screen_rows": screen_rows,
         "server_group_html": "", "source_fault_html": "",
-        "server_topics": [], "system_tiles": ()}
+        "server_topics": [], "system_tiles": (), "system_cards": []}
     if user_view.platform_visible():
+        from companion.pages import system_cards
         parts["server_group_html"] = _server_group_html(state, stats, registry_rows, now)
         parts["server_topics"] = _server_topics(state, stats, registry_rows, now)
         parts["system_tiles"] = _system_tiles(state, stats, registry_rows, now)
+        parts["system_cards"] = system_cards.topics(state, stats, registry_rows, now)
         parts["source_fault_html"] = _source_fault_block(state["source_fault_raw"])
     return parts
 
@@ -1237,7 +1241,7 @@ def system_html(ctx):
     above one tile per topic, each linking to its block; then one glass group
     per topic (flight data, ADS-B sources, identification and backups)."""
     from companion import ui_groups
-    from companion.pages import fleet_tiles
+    from companion.pages import fleet_tiles, system_cards
     ctx = page_context.coerce(ctx)
     parts = _page_parts(ctx)
     if parts is None or not parts["server_group_html"]:
@@ -1245,13 +1249,17 @@ def system_html(ctx):
     groups = "".join(
         ui_groups.group(
             '<li class="fleet-group__item fleet-group__item--flush">%s</li>'
-            % health_rows.card_html(row),
+            % row,
             label=label, label_id="system-" + key,
             extra_class="fleet-block system-topic",
             attrs='id="%s%s"' % (fleet_tiles.SYSTEM_BLOCK_ID_PREFIX, key)).replace(
                 '<ul class="group">', '<ul class="group fleet-group">', 1)
-        for key, label, row in parts["server_topics"])
+        for key, label, row in parts["system_cards"])
+    state = parts["state"]
+    banner = (
+        system_cards.banner(state["severity"], state["anomalies"])
+        if state["severity"] != "ok" else "")
     return (
-        parts["source_fault_html"] + parts["banner_html"]
+        parts["source_fault_html"] + banner
         + fleet_tiles.system_tiles_html(parts["system_tiles"])
         + '<div class="system-topics">%s</div>' % groups)

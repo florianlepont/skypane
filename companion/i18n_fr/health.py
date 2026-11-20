@@ -197,6 +197,23 @@ MESSAGES = {
     "health.row_n_disagreements": "%d\u00a0désaccords",
     "health.row_identified": "%s\u00a0%% des vols identifiés",
     "health.row_to_resolve": "%d à résoudre",
+    # System page cards. Real U+00A0 before "%" and before the colon.
+    "health.sys_last_detection": "Dernière détection",
+    "health.sys_both_note":
+        "Les deux sources de données de vol du cadre ont choisi le même avion.",
+    "health.sys_only_one_note":
+        "Une seule des deux sources a renvoyé un avion à ce cycle.",
+    "health.sys_disagree_note": "Les deux sources ont choisi des avions différents.",
+    "health.sys_identified": "%s\u00a0%% des vols identifiés",
+    "health.sys_identified_short": "%s\u00a0%% identifiés",
+    "health.sys_window": "%d derniers jours\u00a0: %d vols",
+    "health.sys_window_one": "%d derniers jours\u00a0: 1 vol",
+    "health.sys_src_fresh": "Trajet trouvé à l’instant",
+    "health.sys_src_cached": "Trajet repris d’une recherche précédente",
+    "health.sys_src_airline": "Seule la compagnie est connue",
+    "health.sys_src_manual": "Nommée par le propriétaire",
+    "health.sys_src_miss": "Rien trouvé",
+    "health.sys_src_other": "Autres cas",
     "health.row_nothing_to_resolve": "Rien à résoudre",
 
     # --- Screen / Server & data group headings ---------------------------

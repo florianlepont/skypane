@@ -105,3 +105,69 @@ def test_french_labels(app_server_in_process, tmp_path, monkeypatch):
     assert [t[0] for t in _tiles(page)] == [
         "Serveur", "Sources de données", "Identification", "Sauvegarde hors serveur"]
     assert "Détails" in page and "Le serveur derrière chaque cadre." in page
+
+
+def _cards(page):
+    found = {}
+    for key in ("flight-data", "sources", "identification", "backup"):
+        m = re.search(r'<div class="sys-card" data-state="(\w+)" id="system-card-%s">(.*?)</div></li>'
+                      % key, page, re.S)
+        if m:
+            found[key] = (m.group(1), html.unescape(re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", m.group(2)))))
+    return found
+
+
+def test_section_labels_are_visible_and_each_card_has_a_header_and_right_aligned_rows(
+        app_server_in_process, tmp_path, monkeypatch):
+    server = app_server_in_process
+    page = _page(server, _seed(server, tmp_path, monkeypatch))
+    for label in ("Flight data", "Data sources", "Identification", "Off-box backup"):
+        assert re.search(r'<h2 class="section-label" id="system-\w[\w-]*">%s</h2>' % label, page)
+    cards = _cards(page)
+    assert set(cards) == {"flight-data", "sources", "identification", "backup"}
+    assert "Last run" in cards["flight-data"][1] and "Last detection" in cards["flight-data"][1]
+    assert "Last off-box backup" in cards["backup"][1]
+    assert page.count('class="sys-card__head"') == 4
+    assert page.count('<dl class="sys-card__facts">') == 2
+
+
+def test_sources_outcomes_are_three_rows_with_one_short_sentence(
+        app_server_in_process, tmp_path, monkeypatch):
+    server = app_server_in_process
+    page = _page(server, _seed(server, tmp_path, monkeypatch))
+    outcomes = re.search(r'<ul class="sys-card__outcomes">(.*?)</ul>', page, re.S).group(1)
+    assert outcomes.count("<li>") == 3
+    assert "Only one of the two sources returned an aircraft this cycle." in outcomes
+    assert "The two sources picked different aircraft." in outcomes
+    assert "4 disagreements" in _cards(page)["sources"][1]
+
+
+def test_identification_header_window_and_flat_table(app_server_in_process, tmp_path, monkeypatch):
+    server = app_server_in_process
+    page = _page(server, _seed(server, tmp_path, monkeypatch))
+    text = _cards(page)["identification"][1].replace("\xa0", " ")
+    assert "of flights identified" in text and "Last 30 days: 20 flights" in text
+    assert "Description" in text and "Route found just now" in text and "Other cases" in text
+    assert "<table" in page and "data-table" not in re.search(
+        r'id="system-card-identification">.*?</table>', page, re.S).group(0)
+    assert "Unresolved airlines" not in page
+
+
+def test_warnings_banner_is_a_card_with_pills_and_the_sentence(
+        app_server_in_process, tmp_path, monkeypatch):
+    server = app_server_in_process
+    page = _page(server, _seed(server, tmp_path, monkeypatch))
+    banner = re.search(r'<div class="sys-banner health-anomaly".*?</div>', page, re.S).group(0)
+    assert re.search(r"\d warnings?:", banner)
+    assert "sys-banner__pill" in banner
+    assert "Something needs attention" in banner
+
+
+def test_french_cards_use_the_french_sentences(app_server_in_process, tmp_path, monkeypatch):
+    server = app_server_in_process
+    page = _page(server, _seed(server, tmp_path, monkeypatch), "fr")
+    cards = _cards(page)
+    assert "Dernière détection" in cards["flight-data"][1]
+    assert "Une seule des deux sources a renvoyé un avion à ce cycle." in cards["sources"][1]
+    assert "des vols identifiés" in cards["identification"][1]
+    assert "derniers jours" in cards["identification"][1]

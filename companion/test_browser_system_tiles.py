@@ -78,3 +78,23 @@ def test_a_tile_brings_its_block_into_view(
         assert 0 <= box["y"] < viewport["height"]
     finally:
         context.close()
+
+
+@pytest.mark.parametrize("viewport", VIEWPORTS, ids=["320", "390", "1440"])
+def test_detail_cards_show_their_labels_and_right_aligned_values(
+        app_server_in_process, new_context, tmp_path, monkeypatch, viewport):
+    context, page = _open(
+        new_context, app_server_in_process, tmp_path, monkeypatch, viewport, "en", "light")
+    labels = page.locator(".system-topic > .section-label")
+    assert labels.count() == 4
+    for index in range(4):
+        assert labels.nth(index).is_visible()
+    facts = page.locator(".sys-card__facts").first
+    dt = facts.locator("dt").first.bounding_box()
+    dd = facts.locator("dd").first.bounding_box()
+    card = page.locator(".sys-card").first.bounding_box()
+    assert dt["x"] < card["x"] + card["width"] / 2
+    assert dd["x"] + dd["width"] > card["x"] + card["width"] - 40
+    assert not _assert_no_page_overflow(
+        page, "system cards at %d" % viewport["width"], viewport["width"])
+    context.close()

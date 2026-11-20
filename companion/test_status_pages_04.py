@@ -874,7 +874,7 @@ def test_swap_selectors_pinned_both_directions(freshness_js):
 
 def test_swap_registry_has_one_definition_site_and_one_key_set(freshness_js):
     """The swap registry has ONE definition site (health_page.REFRESH_SWAP_SELECTORS resolves
-    from layout.REFRESH_SWAP_SELECTORS_BY_PAGE and is that same object, with the Fleet page's four regions
+    from layout.REFRESH_SWAP_SELECTORS_BY_PAGE and is that same object, with the Fleet page's regions
     in their documented order) and ONE key set (the script's registry keys equal the Python's, in
     both directions), with every selector appearing exactly once per registry entry in the
     script's comment-stripped code and the registry actually read"""
@@ -887,10 +887,11 @@ def test_swap_registry_has_one_definition_site_and_one_key_set(freshness_js):
         "copy of it — a copy is a second definition site with extra steps")
     assert health_page.REFRESH_SWAP_SELECTORS == (
         ".health-row__summary",
+        ".sys-card__head",
         "div.health-anomaly",
         "section.health-source-fault",
         'a[href$="/fleet"]'), (
-        "the Fleet page's four regions: each health row's summary, the anomaly banner, the "
+        "the Fleet page's regions: each health row's summary, each System card's header, the anomaly banner, the "
         "source-fault block and the Fleet navigation link")
 
     js = freshness_js

@@ -550,6 +550,7 @@ REFRESH_SWAP_SELECTORS_BY_PAGE = {
     ),
     REFRESH_PAGE_FLEET: (
         ".health-row__summary",
+        ".sys-card__head",
         "div." + HEALTH_ANOMALY_CLASS,
         "section." + HEALTH_SOURCE_FAULT_CLASS,
         'a[href$="/fleet"]',

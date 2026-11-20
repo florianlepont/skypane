@@ -1941,18 +1941,212 @@ dialog.access-sheet .modal__actions {
   margin-inline: 0;
 }
 
-/* A System topic's own row already carries the topic's title, so its section
- * label only names the group for assistive technology. */
-.system-topic > .section-label {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip-path: inset(50%);
+/* The System detail cards: a header row (icon, small label, bold verdict and a
+ * short value at the right), a hairline, then label/value rows, outcome rows or
+ * a table. The state is carried by the icon shape and a hidden word, never the
+ * colour alone. */
+.sys-card {
+  --sys-tone: color-mix(in srgb, var(--color-text) 50%, transparent);
+  --sys-pad: calc(var(--space-sm) + var(--space-xs));
+  color: var(--color-text);
+}
+
+.sys-card[data-state="ok"] {
+  --sys-tone: var(--color-status-ok);
+}
+
+.sys-card[data-state="warn"] {
+  --sys-tone: var(--color-status-warn);
+}
+
+.sys-card[data-state="error"] {
+  --sys-tone: var(--color-status-error);
+}
+
+.sys-card__head {
+  display: flex;
+  align-items: center;
+  gap: var(--sys-pad);
+  min-height: 64px;
+  padding: var(--space-sm) var(--space-md);
+}
+
+.sys-card__icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--sys-tone) 16%, transparent);
+  color: var(--sys-tone);
+}
+
+.sys-card__who {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.sys-card__label,
+.sys-card__sub,
+.sys-card__sentence,
+.sys-card__note {
+  font-size: var(--font-caption-size);
+  line-height: 1.3;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.sys-card__verdict {
+  font-weight: var(--weight-semibold);
+  line-height: 1.3;
+}
+
+.sys-card__value {
+  flex: none;
+  font-size: var(--font-label-size);
+  font-variant-numeric: tabular-nums;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.sys-card__head > .banner__pill {
+  height: auto;
+  min-height: 28px;
+  padding-block: var(--space-xs);
   white-space: nowrap;
-  border: 0;
+}
+
+.sys-card__facts {
+  display: grid;
+  gap: var(--space-sm);
+  margin: 0;
+  padding: var(--sys-pad) var(--space-md);
+  border-top: 1px solid var(--color-border);
+  font-size: var(--font-label-size);
+}
+
+.sys-card__facts > div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.sys-card__facts dt {
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.sys-card__facts dd {
+  margin: 0;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.sys-card__note {
+  margin: 0;
+  padding: var(--sys-pad) var(--space-md);
+  border-top: 1px solid var(--color-border);
+}
+
+.sys-card__outcomes {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--color-border);
+}
+
+.sys-card__outcomes > li {
+  padding: var(--sys-pad) var(--space-md);
+}
+
+.sys-card__outcomes > li + li {
+  border-top: 1px solid var(--color-border);
+}
+
+.sys-card__outcome {
+  display: flex;
+  align-items: center;
+  margin: 0;
+  font-weight: var(--weight-semibold);
+}
+
+.sys-card__count {
+  margin-left: auto;
+  padding-left: var(--space-md);
+  font-variant-numeric: tabular-nums;
+}
+
+.sys-card__sentence {
+  margin: var(--space-xs) 0 0;
+}
+
+.sys-card__table {
+  width: 100%;
+  border-top: 1px solid var(--color-border);
+  border-collapse: collapse;
+  font-size: var(--font-label-size);
+}
+
+.sys-card__table th {
+  padding: var(--space-sm) var(--space-md);
+  text-align: left;
+  font-size: var(--font-caption-size);
+  font-weight: var(--weight-semibold);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.sys-card__table td {
+  padding: var(--space-sm) var(--space-md);
+  border-top: 1px solid var(--color-border);
+  vertical-align: top;
+}
+
+.sys-card__num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* The warnings banner: a bordered card, the count in bold, one outlined pill
+ * per failing category, then the sentence that points at the cards. */
+.sys-banner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin: var(--space-md) 0;
+  padding: var(--sys-pad, calc(var(--space-sm) + var(--space-xs))) var(--space-md);
+  border: 1px solid var(--color-status-warn);
+  border-radius: var(--radius-card);
+  background: var(--glass-solid);
+  color: var(--color-text);
+}
+
+.sys-banner[data-severity="error"] {
+  border-color: var(--color-status-error);
+}
+
+.sys-banner__pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs) calc(var(--space-sm) - var(--space-xs) / 2);
+}
+
+.sys-banner__pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 calc(var(--space-sm) + var(--space-xs) / 2);
+  border: 1px solid var(--color-status-warn);
+  border-radius: var(--radius-pill);
+  background: var(--glass-solid);
+  font-size: var(--font-caption-size);
+}
+
+.sys-banner[data-severity="error"] .sys-banner__pill {
+  border-color: var(--color-status-error);
+}
+
+.sys-banner__tail {
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
 /* Components reference page (administrators): the index of anchors, one
