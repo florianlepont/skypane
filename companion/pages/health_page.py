@@ -983,14 +983,14 @@ def _server_tile(state, now):
     label = i18n.t(_SERVER_TILE_TEXT)
     inputs = state["inputs"]
     if inputs["pipeline_ts"] is _DB_UNAVAILABLE:
-        return _unavailable_tile("flight-data", "icon-pipeline", label)
+        return _unavailable_tile("flight-data", "icon-server", label)
     pipeline_ts = inputs["pipeline_ts"]
     pipeline_state = state["pipeline_state"]
     meta = ""
     if pipeline_ts:
         meta = "%s %s" % (escape_html(i18n.t(_LAST_RUN_TEXT)), _age_html(pipeline_ts, now))
     return SystemTile(
-        "flight-data", pipeline_state, "icon-pipeline", label,
+        "flight-data", pipeline_state, "icon-server", label,
         i18n.t(PIPELINE_STATE_TEXT.get(pipeline_state, PIPELINE_STATE_TEXT["warn"])), meta)
 
 
@@ -999,15 +999,15 @@ def _sources_tile(state):
     label = i18n.t(ROW_SOURCES_NAME)
     counts = state["inputs"]["corroboration_counts"]
     if counts is _DB_UNAVAILABLE:
-        return _unavailable_tile("sources", "icon-corroboration", label)
+        return _unavailable_tile("sources", "icon-radio", label)
     counts = counts or {}
     if not any(counts.values()):
         return SystemTile(
-            "sources", "off", "icon-corroboration", label,
+            "sources", "off", "icon-radio", label,
             i18n.t(_NOTHING_TO_COMPARE_YET_TEXT), "")
     verdict_state = "warn" if state["disagreement_warn"] else "ok"
     return SystemTile(
-        "sources", verdict_state, "icon-corroboration", label,
+        "sources", verdict_state, "icon-radio", label,
         i18n.t(CORROBORATION_STATE_TEXT[verdict_state]),
         escape_html(_disagreements_text(counts.get("False", 0) or 0)))
 
@@ -1039,7 +1039,7 @@ def _backup_tile(offbox, now):
         return None
     backup_state = offbox["state"]
     return SystemTile(
-        "backup", backup_state, "icon-upload", i18n.t(_OFFBOX_BACKUP_TEXT),
+        "backup", backup_state, "icon-cloud-upload", i18n.t(_OFFBOX_BACKUP_TEXT),
         i18n.t(BACKUP_STATE_TEXT.get(backup_state, BACKUP_STATE_TEXT["warn"])),
         _age_html(offbox["snapshot_ts"], now))
 
@@ -1070,7 +1070,8 @@ def _page_parts(ctx):
         state_dir, now, ctx.root_state_dir, page_context.device_curve(ctx.device))
 
     severity = state["severity"]
-    anomalies = state["anomalies"]
+    anomalies = health_signals_module.battery_both_sentences(
+        state["anomalies"], state["inputs"]["trend_rows"])
     banner_html = (
         _anomaly_banner_html(severity, anomalies) if severity != "ok" else "")
     unreachable_html = (

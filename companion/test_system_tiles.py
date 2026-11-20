@@ -171,3 +171,27 @@ def test_french_cards_use_the_french_sentences(app_server_in_process, tmp_path, 
     assert "Une seule des deux sources a renvoyé un avion à ce cycle." in cards["sources"][1]
     assert "des vols identifiés" in cards["identification"][1]
     assert "derniers jours" in cards["identification"][1]
+
+
+def test_french_verdicts_use_the_shared_wording(app_server_in_process, tmp_path, monkeypatch):
+    server = app_server_in_process
+    page = _page(server, _seed(server, tmp_path, monkeypatch), "fr")
+    assert _tiles(page)[1][1] == "Les sources ont divergé récemment"
+    assert "Les sources ont divergé récemment" in _cards(page)["sources"][1]
+    banner = re.search(r'<div class="sys-banner health-anomaly".*?</div>', page, re.S).group(0)
+    assert ">Les sources ont divergé récemment<" in banner
+    assert "Quelque chose demande votre attention — vérifiez les lignes ci-dessous." in banner
+    assert "contredites" not in page
+
+
+def test_topic_glyphs_on_tiles_and_cards(app_server_in_process, tmp_path, monkeypatch):
+    server = app_server_in_process
+    page = _page(server, _seed(server, tmp_path, monkeypatch))
+    section = re.search(r'<ul class="fleet-tiles fleet-tiles--system">.*?</ul>', page, re.S).group(0)
+    for glyph in ("icon-server", "icon-radio", "icon-cloud-upload"):
+        assert 'href="#%s"' % glyph in section
+        assert 'id="%s"' % glyph in page
+    for key, glyph in (("flight-data", "icon-server"), ("sources", "icon-radio"),
+                       ("backup", "icon-cloud-upload")):
+        card = re.search(r'id="system-card-%s">(.*?)</div></li>' % key, page, re.S).group(1)
+        assert 'href="#%s"' % glyph in card

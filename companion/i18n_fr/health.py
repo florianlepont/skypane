@@ -66,7 +66,7 @@ MESSAGES = {
 
     # --- Anomaly banner --------------------------------------------
     "health.something_needs_attention_check_the_tiles_below":
-        "Quelque chose nécessite votre attention — consultez les lignes ci-dessous.",
+        "Quelque chose demande votre attention — vérifiez les lignes ci-dessous.",
     "health.warning": "avertissement",
     "health.error": "erreur",
     "health.issue": "problème",
@@ -79,7 +79,7 @@ MESSAGES = {
     "health.battery_dropped_abnormally":
         "Baisse anormale de batterie.",
     "health.data_sources_disagreed_recently":
-        "Sources en désaccord récemment.",
+        "Les sources ont divergé récemment.",
     "health.some_airlines_are_unidentified": "Compagnies non identifiées.",
     "health.all_data_sources_failed": "Toutes les sources ont échoué.",
 
@@ -108,7 +108,7 @@ MESSAGES = {
     "health.the_frame_has_not_reported_a_flight_since_it":
         "Le cadre n’a signalé aucun vol depuis son démarrage.",
     "health.sources_agree": "Les sources concordent",
-    "health.sources_disagreed_recently": "Les sources se sont contredites récemment",
+    "health.sources_disagreed_recently": "Les sources ont divergé récemment",
     "health.nothing_to_compare_yet": "Rien à comparer pour l’instant",
     "health.this_appears_once_the_frame_has_recorded_at":
         "Ceci apparaît une fois que le cadre a enregistré au moins un vol.",

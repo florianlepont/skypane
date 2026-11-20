@@ -76,15 +76,15 @@ def _note(text):
     return '<p class="sys-card__note">%s</p>' % escape_html(text)
 
 
-def _unavailable(key, label):
-    return _card(key, "off", "icon-info", label, i18n.t(hp._ROW_UNAVAILABLE_TEXT))
+def _unavailable(key, icon_id, label):
+    return _card(key, "off", icon_id, label, i18n.t(hp._ROW_UNAVAILABLE_TEXT))
 
 
 def flight_data(state, now):
     label = i18n.t(hp.ROW_FLIGHT_DATA_NAME)
     inputs = state["inputs"]
     if inputs["pipeline_ts"] is hp._DB_UNAVAILABLE:
-        return _unavailable("flight-data", label)
+        return _unavailable("flight-data", "icon-server", label)
     pipeline_ts = inputs["pipeline_ts"]
     last_detection = hp._available(inputs["last_detection"])
     pipeline_state = state["pipeline_state"]
@@ -95,8 +95,7 @@ def flight_data(state, now):
             (hp._LAST_RUN_TEXT, hp._age_html(pipeline_ts, now)),
             (_LAST_DETECTION, hp._age_html(last_detection, now))])
     return _card(
-        "flight-data", pipeline_state, health_rows.STATE_ICON_IDS[
-            health_rows.resolved_state(pipeline_state)], label,
+        "flight-data", pipeline_state, "icon-server", label,
         i18n.t(hp.PIPELINE_STATE_TEXT.get(pipeline_state, hp.PIPELINE_STATE_TEXT["warn"])),
         body_html=body)
 
@@ -117,16 +116,16 @@ def sources(state):
     label = i18n.t(hp.ROW_SOURCES_NAME)
     counts = state["inputs"]["corroboration_counts"]
     if counts is hp._DB_UNAVAILABLE:
-        return _unavailable("sources", label)
+        return _unavailable("sources", "icon-radio", label)
     counts = counts or {}
     if not any(counts.values()):
         return _card(
-            "sources", "off", "icon-info", label,
+            "sources", "off", "icon-radio", label,
             i18n.t(hp._NOTHING_TO_COMPARE_YET_TEXT),
             body_html=_note(i18n.t(hp._APPEARS_ONCE_RECORDED_TEXT)))
     verdict_state = "warn" if state["disagreement_warn"] else "ok"
     return _card(
-        "sources", verdict_state, health_rows.STATE_ICON_IDS[verdict_state], label,
+        "sources", verdict_state, "icon-radio", label,
         i18n.t(hp.CORROBORATION_STATE_TEXT[verdict_state]),
         value_html=_value(hp._disagreements_text(counts.get("False", 0) or 0)),
         body_html=_outcomes(counts))
@@ -158,7 +157,7 @@ def _source_table(stats):
 def identification(stats, unresolved_count):
     label = i18n.t(hp.STATS_SECTION_HEADING)
     if stats is hp._DB_UNAVAILABLE:
-        return _unavailable("identification", label)
+        return _unavailable("identification", "icon-nav-airlines", label)
     to_resolve = (
         hp.ui_components.pill_html(i18n.t(hp._TO_RESOLVE_TEMPLATE) % unresolved_count)
         if unresolved_count
@@ -191,8 +190,7 @@ def backup(offbox, now):
     if anomaly:
         body += _note(anomaly)
     return _card(
-        "backup", backup_state, health_rows.STATE_ICON_IDS[
-            health_rows.resolved_state(backup_state)], i18n.t(hp._OFFBOX_BACKUP_TEXT),
+        "backup", backup_state, "icon-cloud-upload", i18n.t(hp._OFFBOX_BACKUP_TEXT),
         i18n.t(hp.BACKUP_STATE_TEXT.get(backup_state, hp.BACKUP_STATE_TEXT["warn"])),
         body_html=body)
 

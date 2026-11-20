@@ -289,3 +289,66 @@ def test_the_low_mark_is_the_cards_own_mark(fleet):
         page = _page(server, cookie, "/fleet?frame=" + seed.live_id)
         assert _tiles(page)[1][4] == state
         assert (_NAV_DOT.search(page) is not None) == (state == "warn")
+
+
+# ---- Low level plus an abnormal drop; the error page has no device curve ---
+
+def _seed_low_and_dropping_readings(state_dir):
+    from companion import battery, health_signals
+    low = battery.low_display_mv()
+    now = datetime.datetime.now(datetime.timezone.utc)
+    with history_db.open_db(state_dir) as conn:
+        for i in range(12):
+            stamp = now - datetime.timedelta(hours=6 * (11 - i), seconds=20)
+            mv = low - 40 - 2 * i + 22
+            if i < 6:
+                mv += health_signals.BATTERY_DROP_WARN_MV + 50
+            history_db.record_device_health(
+                conn, stamp.isoformat(timespec="seconds"), battery_mv=mv,
+                fw_version="1.0.0", boot_reason="wake", rssi="-60")
+    device_config.save_device_config(state_dir, wake_interval_s=600)
+
+
+@pytest.mark.parametrize("lang,low,dropped", [
+    ("en", "Battery level is low", "Battery dropped abnormally"),
+    ("fr", "Niveau de batterie bas", "Baisse anormale de batterie")])
+def test_frame_health_banner_names_both_battery_sentences(fleet, lang, low, dropped):
+    server, seed, cookie = fleet
+    _seed_low_and_dropping_readings(server.state_dir)
+    health = html.unescape(_page(server, cookie, "/fleet?frame=%s&view=health" % seed.live_id, lang))
+    banner = re.search(r'class="[^"]*health-anomaly.*?</div></div>', health, re.S).group(0)
+    assert low in banner and dropped in banner
+    assert re.search(r"2 (warnings|avertissements)", banner), banner
+    overview = html.unescape(_page(server, cookie, "/fleet?view=system", lang))
+    assert low in overview and dropped not in overview
+
+
+def test_frame_health_banner_names_only_the_low_sentence_without_a_drop(fleet):
+    server, seed, cookie = fleet
+    _seed_low_readings(server.state_dir)
+    health = html.unescape(_page(server, cookie, "/fleet?frame=%s&view=health" % seed.live_id))
+    assert "Battery level is low" in health and "Battery dropped abnormally" not in health
+
+
+def _not_found(server, cookie):
+    status, _headers, body = fx.get(server, cookie, "/no-such-page-here")
+    assert status == 404
+    return body if isinstance(body, str) else body.decode("utf-8")
+
+
+def test_the_error_page_nav_dot_never_reads_a_guessed_battery_curve(fleet):
+    server, seed, cookie = fleet
+    _seed_low_readings(server.state_dir)
+    assert _NAV_DOT.search(_page(server, cookie, "/fleet?frame=" + seed.live_id)).group(1) == "dot--warn"
+    assert _NAV_DOT.search(_not_found(server, cookie)) is None
+
+
+def test_the_error_page_nav_dot_keeps_the_other_signals(fleet):
+    server, seed, cookie = fleet
+    stale = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(seconds=4000)
+    with history_db.open_db(server.state_dir) as conn:
+        history_db.record_device_health(
+            conn, stale.isoformat(timespec="seconds"), battery_mv=4000,
+            fw_version="1.0.0", boot_reason="wake", rssi="-60")
+    device_config.save_device_config(server.state_dir, wake_interval_s=600)
+    assert _NAV_DOT.search(_not_found(server, cookie)) is not None

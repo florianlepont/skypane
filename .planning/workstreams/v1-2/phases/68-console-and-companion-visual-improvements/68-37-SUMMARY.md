@@ -98,3 +98,32 @@ The owner compared the build with `68-MOCKUP-system.html` and asked for the mock
 5. Real data replaces sample data: counts, 30-day window, the number and labels of warnings (the page can carry the device-stale warning as well).
 6. Font and spacing use tokens: 15 px for fact rows (mock 14), 12 px paddings as `calc(space-sm + space-xs)`.
 7. The mock's frames column and phone chip row are the existing shell, unchanged.
+
+## Follow-up (French verdicts, icons)
+
+Owner decisions of 2026-11-20 on the two remaining divergences from `68-MOCKUP-system.html`.
+
+### French and English wording (changed everywhere the string is used, including the frame Health page)
+
+| Id | Before | After |
+| --- | --- | --- |
+| `health.sources_disagreed_recently` (FR) | Les sources se sont contredites récemment | Les sources ont divergé récemment |
+| `health.data_sources_disagreed_recently` (FR, banner pill) | Sources en désaccord récemment. | Les sources ont divergé récemment. |
+| `health.data_sources_disagreed_recently` (EN, banner pill) | Data sources disagreed recently. | Sources disagreed recently. |
+| `health.something_needs_attention_check_the_tiles_below` (FR) | Quelque chose nécessite votre attention — consultez les lignes ci-dessous. | Quelque chose demande votre attention — vérifiez les lignes ci-dessous. |
+
+The rest of the mock's FR/EN dictionary (tile titles, "Fonctionne comme prévu", "À jour", "Dernière exécution", outcome names and sentences, identification strings, "Sauvegarde hors serveur") already matched. The Health page's own long outcome sentences ("ont identifié", the "pas un désaccord" explanation) are a different, longer text from the System card's short ones and were left. No ids were added or orphaned. Tests: `test_french_verdicts_use_the_shared_wording` (tile, card, banner pill and sentence in French); `test_status_pages_01.py` pins moved to the new EN pill.
+
+### Icons
+
+The sprite gained `icon-server`, `icon-radio` and `icon-cloud-upload`, redrawn from the mock's 24 grid on the sprite's 20 grid (stroke 1.6, round caps and joins, `currentColor`). Server tile and card use the server glyph, Data sources the radio, Off-box backup the cloud-upload; Identification keeps the tag. The cards now carry the topic glyph (the state word stays in the hidden text and the tone colour carries the state). Sprite pin 59 to 62 (`test_companion_app_01.py`), the sign-in surface golden hashes (error pages, shell digest) moved with the embedded sprite, and the render baseline was regenerated once at the end. Tile sizes unchanged (17 px value, 32 px icon, 8 px gap). New test `test_topic_glyphs_on_tiles_and_cards`. `icon-pipeline` is now unused but kept in the sprite.
+
+### Extra owner decisions (battery)
+
+- Frame Health banner only: when the battery is low and has also dropped abnormally, both sentences show ("Battery level is low." and "Battery dropped abnormally.", FR "Niveau de batterie bas." and "Baisse anormale de batterie."; the count reads 2 in the title). `health_signals.battery_both_sentences()` adds the second sentence in `health_page._page_parts`; the snapshot, the Overview tile, the System page banner and the nav dot are unchanged.
+- Error pages (404, credits) have no device, so no known discharge curve: `health_signals(..., curve_known=False)` no longer computes the low-battery mark from the legacy curve (`battery_low` False, battery state from the drop rule only); every other signal is kept. `app._health_alert_for_admin` passes it.
+- Tests (`test_fleet_tiles.py`): `test_frame_health_banner_names_both_battery_sentences` (EN/FR, and the System page still names only the low sentence), `test_frame_health_banner_names_only_the_low_sentence_without_a_drop`, `test_the_error_page_nav_dot_never_reads_a_guessed_battery_curve`, `test_the_error_page_nav_dot_keeps_the_other_signals`.
+
+### Captures
+
+`/tmp/claude-0/-home-user-skypane/1ebaf6ab-90c3-5997-a366-609c87d2992c/scratchpad/p37c/`: `system_desktop_en_light.png`, `system_phone_fr_dark.png`, `health_phone_fr_dark.png`.
