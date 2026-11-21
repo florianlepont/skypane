@@ -194,7 +194,8 @@ def _reset_form(page, row):
         text = i18n.t(MENU_RESET)
     elif manual is not None and not manual[1]:
         action = page._manual_delete_action(manual[0])
-        hidden = ""
+        hidden = '<p class="text-label section-caption airlines-menu__note">%s</p>' % (
+            escape_html(i18n.t(page.MANUAL_DELETE_CAPTION)))
         text = i18n.t(page.DELETE_BUTTON_TEXT)
     else:
         return ""

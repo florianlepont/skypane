@@ -1248,6 +1248,12 @@ dialog.modal .airlines-remove {
 .airlines-menu__form {
   margin: 0;
 }
+
+/* The outcome sentence above a menu item that deletes something. */
+.airlines-menu__note {
+  margin: 0;
+  padding: var(--space-xs) var(--space-md);
+}
 @media (min-width: 70rem) {
 
   .airlines-table thead {
