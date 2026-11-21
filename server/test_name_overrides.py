@@ -2,6 +2,7 @@
 """Contract tests for server/plane/name_overrides.py - the owner's airline
 name overrides. Every fixture is `tmp_path`."""
 import json
+import os
 
 import server.plane.manual_resolutions as manual_resolutions
 import server.plane.name_overrides as no
@@ -155,3 +156,15 @@ def test_set_names_refuses_a_name_another_airline_carries_and_writes_nothing(tmp
     assert no.set_names(state, ["XYZ"], "Skyline") == no.SET_NAME_TAKEN
     assert {p: e["airline_name"] for p, e in no.load_name_overrides(state).items()} == {
         "AFR": "AIR FRANCE", "TFV": "skyline", "TVF": "skyline"}
+
+
+def test_overrides_are_one_fleet_file_whatever_frame_writes_them(tmp_path):
+    from server import device_dirs
+    frame_a = device_dirs.provision_device_dir(str(tmp_path), "d_0123abcd", 800, 480)
+    frame_b = device_dirs.provision_device_dir(str(tmp_path), "d_4567cdef", 800, 480)
+    assert no.set_names(frame_a, ["AFR"], "Skyline Air", own_builtin_name="Air France") == no.SET_OK
+    assert not os.path.exists(os.path.join(frame_a, no.NAME_OVERRIDES_FILENAME))
+    assert no.load_name_overrides(frame_b)["AFR"]["airline_name"] == "Skyline Air"
+    assert no.load_name_overrides(str(tmp_path)) == no.load_name_overrides(frame_a)
+    no.clear_names(frame_b, ["AFR"])
+    assert no.load_name_overrides(frame_a) == {}

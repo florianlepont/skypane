@@ -355,3 +355,31 @@ def test_no_setter_or_module_global_remains():
     for name in ("set_manual_registry_state_dir", "_cached_registry"):
         assert not hasattr(m, name), "manual_resolutions module still has %r, expected it removed" % (name,)
 
+
+def _frame_dir(root, device_id="d_0123abcd"):
+    from server import device_dirs
+    return device_dirs.provision_device_dir(str(root), device_id, 800, 480)
+
+
+def test_a_frame_directory_reads_and_writes_the_fleet_file(tmp_path):
+    """naming on one frame writes only the state root's file; every frame (and the root) reads it"""
+    frame_a = _frame_dir(tmp_path, "d_0123abcd")
+    frame_b = _frame_dir(tmp_path, "d_4567cdef")
+    assert m.add_entry(frame_a, "OCN", "Oceanic") == m.ADD_OK
+    assert os.path.exists(os.path.join(str(tmp_path), m.MANUAL_RESOLUTIONS_FILENAME))
+    assert not os.path.exists(os.path.join(frame_a, m.MANUAL_RESOLUTIONS_FILENAME))
+    for state_dir in (str(tmp_path), frame_a, frame_b):
+        assert m.load_manual_resolutions(state_dir)["OCN"]["airline_name"] == "Oceanic"
+    assert m.delete_entry(frame_b, "OCN") is True
+    assert m.load_manual_resolutions(frame_a) == {}
+
+
+def test_load_registry_file_reads_exactly_the_given_path(tmp_path):
+    """the path-based loader never maps a frame directory to the fleet file"""
+    frame = _frame_dir(tmp_path)
+    m.add_entry(str(tmp_path), "RYR", "Ryan")
+    own = os.path.join(frame, m.MANUAL_RESOLUTIONS_FILENAME)
+    with open(own, "w") as fh:
+        json.dump({"OCN": {"airline_name": "Oceanic", "created_at": "2026-01-01T00:00:00+00:00"}}, fh)
+    assert list(m.load_registry_file(own)) == ["OCN"]
+    assert list(m.load_manual_resolutions(frame)) == ["RYR"]

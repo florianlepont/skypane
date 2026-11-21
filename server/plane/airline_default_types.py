@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """The owner's default aircraft type per airline: `{airline illustration key:
-type code}`, stored in `{state_dir}/airline_default_types.json`.
+type code}`, stored in `{fleet root}/airline_default_types.json`, one file
+for every frame.
 
 The companion's airline editor writes it (a star on one type row) and reads
 it back to mark that row; nothing on the live frame's path reads it. Same file
@@ -13,7 +14,7 @@ import os
 import re
 import threading
 
-from server import atomic_io
+from server import atomic_io, device_dirs
 
 DEFAULT_TYPES_FILENAME = "airline_default_types.json"
 MAX_ENTRIES = 300
@@ -32,7 +33,7 @@ _WRITE_LOCK = threading.Lock()
 
 
 def default_types_path(state_dir):
-    return os.path.join(state_dir, DEFAULT_TYPES_FILENAME)
+    return os.path.join(device_dirs.fleet_root_for(state_dir), DEFAULT_TYPES_FILENAME)
 
 
 def normalise_code(raw):
@@ -48,8 +49,15 @@ def load_default_types(state_dir):
     Never raises."""
     if not state_dir:
         return {}
+    return load_default_types_file(default_types_path(state_dir))
+
+
+def load_default_types_file(path):
+    """`{airline key: type code}` read from exactly the file at `path`, with
+    the same validation and cap as `load_default_types`; `{}` for a missing
+    or invalid file. Never raises."""
     try:
-        with open(default_types_path(state_dir)) as fh:
+        with open(path) as fh:
             data = json.load(fh)
     except (OSError, ValueError):
         return {}
@@ -83,8 +91,9 @@ def set_default_type(state_dir, key, code):
         else:
             registry[key] = normalised
         try:
-            os.makedirs(state_dir, exist_ok=True)
-            atomic_io.atomic_write(default_types_path(state_dir), json.dumps(registry, indent=1))
+            path = default_types_path(state_dir)
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            atomic_io.atomic_write(path, json.dumps(registry, indent=1))
         except Exception:
             return SET_FAILED
     return SET_OK

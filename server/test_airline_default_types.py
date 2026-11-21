@@ -47,3 +47,17 @@ def test_the_registry_is_capped(tmp_path):
         json.dump({"k%d" % n: "A320" for n in range(adt.MAX_ENTRIES)}, fh)
     assert adt.set_default_type(state, "one-more", "A320") == adt.SET_FULL
     assert adt.set_default_type(state, "k1", "B738") == adt.SET_OK
+
+
+def test_default_types_are_one_fleet_file_and_the_file_loader_is_path_based(tmp_path):
+    from server import device_dirs
+    frame_a = device_dirs.provision_device_dir(str(tmp_path), "d_0123abcd", 800, 480)
+    frame_b = device_dirs.provision_device_dir(str(tmp_path), "d_4567cdef", 800, 480)
+    assert adt.set_default_type(frame_a, "air-france", "A321") == adt.SET_OK
+    assert not os.path.exists(os.path.join(frame_a, adt.DEFAULT_TYPES_FILENAME))
+    assert adt.load_default_types(frame_b) == {"air-france": "A321"}
+    own = os.path.join(frame_b, adt.DEFAULT_TYPES_FILENAME)
+    with open(own, "w") as fh:
+        json.dump({"zz-air": "b738", "../x": "A320"}, fh)
+    assert adt.load_default_types_file(own) == {"zz-air": "B738"}
+    assert adt.load_default_types(frame_b) == {"air-france": "A321"}

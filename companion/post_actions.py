@@ -362,7 +362,9 @@ class SettingsActionsMixin:
         back = resolve_dialog.return_route(form.get(resolve_dialog.RETURN_FIELD))
 
         row = unresolved_row_for_prefix(state_dir, form.get("prefix"))
-        if row is None:
+        # A prefix named on another frame since this row was drawn is stale
+        # too: the registry is fleet-wide and must not be overwritten here.
+        if row is None or row[0] in manual_resolutions.load_manual_resolutions(state_dir):
             return self._scoped_redirect(
                 resolve_dialog.with_query(back, "flash=%s" % quote(FLASH_KEY_MANUAL_PREFIX_STALE)))
         prefix = row[0]
