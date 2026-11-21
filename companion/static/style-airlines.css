@@ -1146,7 +1146,8 @@ dialog.modal .airlines-remove {
 }
 
 /* An airline known by name only: its name over its prefix, and the button
- * that adds its first artwork. Read-only: the row holds no form. */
+ * that adds its first artwork, then the "..." menu of an airline the owner
+ * can change. */
 .airlines-known {
   display: flex;
   align-items: center;
@@ -1186,6 +1187,12 @@ dialog.modal .airlines-remove {
   min-height: 44px;
   min-width: 44px;
   text-align: center;
+}
+
+.airlines-known > .row-menu,
+.airlines-known > .airlines-known__slot {
+  flex: none;
+  width: 44px;
 }
 
 /* The filter chips: five segments do not fit a phone's line, so they wrap

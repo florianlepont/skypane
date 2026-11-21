@@ -7,8 +7,11 @@ type seen for it. The artwork belongs to the aircraft types: a type row says
 whether it has a picture of its own or follows the default type's, offers one
 upload entry, and its menu sets the default type or deletes the uploaded
 picture. Unidentified prefixes sit above as compact rows (`airline_rows`)
-named in a dialog. A name typed by hand keeps its row, marked "Named by
-hand". Below 70rem every row is a card.
+named in a dialog. The table lists only airlines with artwork: one without
+(the application's own name for a prefix, or a name the owner typed or
+accepted) is a row of the "Known by name only" block above it, with the
+"..." menu of its row, and moves here once it has artwork. Below 70rem every
+row is a card.
 
 Every control posts to a route of the editor: the rename and reset routes,
 the illustration upload route, the manual-name delete route, the resolve
@@ -217,20 +220,24 @@ def _rename_dialog(row):
         device_scope.scoped(page.MANAGE_ROUTE), open_=row["focus"])
 
 
-def _menu_cell(page, row):
-    """The airline's menu: Rename for an airline the built-in prefix table
-    knows, the way back to the original name after a rename (or Delete my
-    name for an owner-named one). An airline with no aircraft-type row to
-    carry a picture keeps "Change artwork" so it is never a dead end. Empty
-    when nothing applies."""
+def _menu_parts(page, row, with_art=True):
+    """`(menu, rename dialog)` of an airline: Rename for an airline the
+    built-in prefix table knows, the way back to the original name after a
+    rename (or Delete my name for an owner-named one). With `with_art`, an
+    airline with no aircraft-type row to carry a picture keeps "Change
+    artwork" so it is never a dead end. Both empty when nothing applies."""
     items = airline_rows.rename_item_html(row["index"]) if row["sheet"] is not None else ""
     items += _reset_form(page, row)
-    if not row["sub_rows"] and not row["needs_artwork"]:
+    if with_art and not row["sub_rows"] and not row["needs_artwork"]:
         items += _change_art_form(page, row["key"])
     if not items:
-        return ""
-    return _menu_html(items, i18n.t(MENU_ARIA) % row["name"]) + (
-        _rename_dialog(row) if row["sheet"] is not None else "")
+        return "", ""
+    return (_menu_html(items, i18n.t(MENU_ARIA) % row["name"]),
+            _rename_dialog(row) if row["sheet"] is not None else "")
+
+
+def _menu_cell(page, row):
+    return "".join(_menu_parts(page, row))
 
 
 def _default_type_text(row):
@@ -239,28 +246,15 @@ def _default_type_text(row):
 
 
 def _artwork_cell(page, row):
-    """The airline's default type: its picture (the airline's own when the
-    default type has none) with the type's code. An owner-named airline still
-    without artwork links to the resolve step; a tap on the picture enlarges it."""
+    """The default type of an airline with artwork: its picture (the airline's
+    own when the default type has none) with the type's code; a tap on the
+    picture enlarges it."""
     code = _default_type_text(row)
     key = row["thumb_key"]
-    if row["needs_artwork"]:
-        inner = _thumb_html(page, row["key"], row["state_dir"])
-        card = {
-            "name": row["name"], "state_dir": row["state_dir"], "sheet": None,
-            "manual_fields": row["manual_fields"], "types": [],
-        }
-        trigger = page._type_trigger_html(
-            card, page.ANY_TYPE_ID, row["name"], row["key"], "airlines-thumb", inner,
-            i18n.t(page.ACTION_LABEL_TEMPLATE) % (i18n.t(page.ADD_ACTION_TEXT), row["name"]))
-        return '<span class="airlines-deftype-cell">%s%s</span>' % (trigger, code)
-    if row["has_art"]:
-        if key != row["key"]:
-            row = dict(row, manual_fields=_NO_MANUAL_FIELDS)
-        return '<span class="airlines-deftype-cell">%s%s</span>' % (
-            _enlarge_html(page, row, key, row["name"]), code)
-    return '<span class="airlines-deftype-cell"><span class="airlines-thumb">%s</span>%s</span>' % (
-        _thumb_html(page, row["key"], row["state_dir"]), code)
+    if key != row["key"]:
+        row = dict(row, manual_fields=_NO_MANUAL_FIELDS)
+    return '<span class="airlines-deftype-cell">%s%s</span>' % (
+        _enlarge_html(page, row, key, row["name"]), code)
 
 
 def _meta_html(row, prefixes):
@@ -280,9 +274,13 @@ def _expand_cell(row):
     ) % escape_html(i18n.t(EXPAND_ARIA) % row["name"])
 
 
-def _main_row_html(page, row):
-    prefixes = " ".join(row["sheet"]["prefixes"]) if row["sheet"] else (
+def _row_prefixes(row):
+    return " ".join(row["sheet"]["prefixes"]) if row["sheet"] else (
         row["manual_info"][0] if row["manual_info"] else row["promoted_prefix"])
+
+
+def _main_row_html(page, row):
+    prefixes = _row_prefixes(row)
     return (
         '<tr class="airlines-row">'
         '<th scope="row" class="airlines-cell airlines-cell--name">'
@@ -430,7 +428,7 @@ def _row_facts(page, data, index, builtin_name, shapes):
     facts["sub_rows"] = _sub_rows(page, entry, builtin_name, shapes, facts)
     facts["thumb_key"] = next(
         (sub["slot"] for sub in facts["sub_rows"] if sub["is_default"] and sub["has_own"]), key)
-    facts["kinds"] = airline_rows.row_kinds(facts["has_art"], facts["views"])
+    facts["kinds"] = airline_rows.row_kinds(facts["views"])
     return facts
 
 
@@ -566,14 +564,23 @@ def table_and_chips(data):
                         suggestion_for(page, data.root_state_dir, gap_row[0], budget))
         for index, gap_row in enumerate(data.gap_rows))
     groups = []
-    counts = {airline_rows.KIND_UNIDENTIFIED: len(data.gap_rows),
-              airline_rows.KIND_KNOWN: len(data.known_rows)}
+    known = [(name.casefold(), prefix, {"prefix": prefix, "name": name})
+             for prefix, name in data.known_rows]
+    counts = {airline_rows.KIND_UNIDENTIFIED: len(data.gap_rows)}
     for index, (builtin_name, shapes) in enumerate(data.pairs):
         row = _row_facts(page, data, index, builtin_name, shapes)
-        if row is not None:
-            groups.append(_airline_group_html(page, row, data.types_open))
-            for kind in row["kinds"].split():
-                counts[kind] = counts.get(kind, 0) + 1
+        if row is None:
+            continue
+        if not row["has_art"]:
+            # An airline without artwork is listed by name, with the menu of its row.
+            menu, dialog = _menu_parts(page, row, with_art=False)
+            known.append((row["name"].casefold(), _row_prefixes(row), {
+                "prefix": _row_prefixes(row), "name": row["name"], "key": row["key"],
+                "filter_text": _filter_text(row), "menu_html": menu, "dialog_html": dialog}))
+            continue
+        groups.append(_airline_group_html(page, row, data.types_open))
+        counts[row["kinds"]] = counts.get(row["kinds"], 0) + 1
+    counts[airline_rows.KIND_KNOWN] = len(known)
     gap_table = (
         '<table class="airlines-table airlines-table--gaps"><caption class="airlines-label">%s</caption>%s</table>%s'
     ) % (escape_html("%s · %d" % (i18n.t(airline_rows.CHIP_UNIDENTIFIED), len(data.gap_rows))),
@@ -581,10 +588,12 @@ def table_and_chips(data):
     table = (
         '<table class="airlines-table"><caption class="airlines-label">%s</caption>%s%s</table>'
     ) % (escape_html("%s · %d" % (i18n.t(CAPTION_TEXT), len(groups))), _head_html(), "".join(groups))
-    known = airline_known_rows.table_html(page, data.state_dir, data.known_rows)
-    table = gap_table + known + table
-    return table, airline_rows.chips(
-        counts, len(data.gap_rows) + len(data.known_rows) + len(groups))
+    slot = any(args.get("menu_html") for _name, _prefix, args in known)
+    known_table = airline_known_rows.table_html([
+        airline_known_rows.group_html(page, data.state_dir, slot=slot, **args)
+        for _name, _prefix, args in sorted(known, key=lambda item: item[:2])])
+    table = gap_table + known_table + table
+    return table, airline_rows.chips(counts, len(data.gap_rows) + len(known) + len(groups))
 
 
 def table_html(data):
