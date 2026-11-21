@@ -130,6 +130,52 @@ def test_wrong_expired_used_and_malformed_codes_get_one_identical_answer(rig):
     assert len(failed) == 4 and all('"invalid"' in row["detail"] for row in failed)
 
 
+def _refusal_page(server, cookie, lang=None):
+    _status, headers, _body = _claim(server, cookie, WRONG_CODE)
+    kept = _with_kept(cookie, headers.get("Set-Cookie"))
+    if lang:
+        kept += "; %s=%s" % (auth.UI_LANG_COOKIE_NAME, lang)
+    return fx.get(server, kept, headers["Location"])[2]
+
+
+def test_a_refused_code_is_one_alert_with_the_sentence_and_the_validity_line(rig):
+    server, _seed, cookie = rig
+    page = _refusal_page(server, cookie)
+    alerts = parse_html(_card(page)).find_all(attrs={"role": "alert"})
+    assert len(alerts) == 1
+    alert = alerts[0]
+    assert alert.find_all("svg")
+    text = alert.text()
+    assert text.startswith("Code not recognised. Check the code and try again.")
+    assert "The code stays valid for about 35 minutes" in text
+    assert _card(page).count("The code stays valid for about 35 minutes") == 1
+    assert 'aria-describedby="%s"' % alert.attrs["id"] in _card(page)
+    assert "press its Reset button" not in _card(page)
+
+
+def test_a_refused_code_reads_in_french(rig):
+    server, _seed, cookie = rig
+    page = _refusal_page(server, cookie, "fr")
+    alert = parse_html(_card(page)).find(attrs={"role": "alert"})
+    text = alert.text()
+    assert text.startswith("Code non reconnu. Vérifiez le code et réessayez.")
+    assert "Le code reste valable environ" in text
+
+
+@pytest.mark.parametrize("lang,sentence", [
+    (None, "If your frame shows no code, press its Reset button."),
+    ("fr", "Si votre cadre n’affiche aucun code, appuyez sur son bouton Reset."),
+])
+def test_the_plain_form_tells_a_frame_without_a_code_to_press_reset(rig, lang, sentence):
+    server, _seed, cookie = rig
+    if lang:
+        cookie += "; %s=%s" % (auth.UI_LANG_COOKIE_NAME, lang)
+    page = fx.get(server, cookie, PATH)[2]
+    card = parse_html(_card(page))
+    assert sentence in card.text()
+    assert card.find_all(attrs={"role": "alert"}) == []
+
+
 def _with_kept(cookie, set_cookie):
     """`cookie` plus the cookie a refusal asked the browser to keep."""
     if not set_cookie:

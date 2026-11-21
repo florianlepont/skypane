@@ -149,6 +149,14 @@ def test_a_user_pairs_a_frame_from_the_empty_state_and_lands_on_its_home(
         assert page.locator(".pair-form .toast").count() == 0
         assert page.locator(".pair-form .field-error").count() == 1
         assert text["refused"] in page.locator(".pair-form").inner_text()
+        alert = page.locator(".pair-form [role=alert]")
+        assert alert.count() == 1 and alert.locator("svg").is_visible()
+        assert "35" in alert.inner_text()
+        alert_box, form_box = alert.bounding_box(), page.locator(".pair-form").bounding_box()
+        assert form_box["x"] <= alert_box["x"] and (
+            alert_box["x"] + alert_box["width"] <= form_box["x"] + form_box["width"] + 0.5)
+        assert alert.evaluate("e => getComputedStyle(e).backgroundColor") != "rgba(0, 0, 0, 0)"
+        assert _no_sideways_scroll(page)
         # Post/Redirect/Get: the refusal is its own page (a reload re-sends nothing), the
         # typed code is back in the field from a short-lived cookie and never in the address.
         assert page.url.endswith("/pair-frame?refused=1")

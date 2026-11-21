@@ -1186,6 +1186,38 @@ a.pair-link--primary:hover {
   width: 100%;
 }
 
+/* The refused code: a tinted error box, the icon beside a bold sentence with the
+ * validity line under it. */
+.pair-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 10px 0;
+  padding: 12px var(--space-md);
+  border: 1px solid color-mix(in srgb, var(--color-status-error) 35%, transparent);
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--color-status-error) 10%, transparent);
+}
+
+.pair-alert__icon {
+  flex: none;
+  margin-top: 2px;
+  color: var(--color-status-error);
+}
+
+.pair-alert__text > p {
+  margin: 0;
+}
+
+.pair-alert__text > .text-label {
+  font-size: 14px;
+}
+
+.pair-alert__text > .pair-alert__title {
+  margin-bottom: var(--space-xs);
+  font-weight: var(--weight-semibold);
+}
+
 .pair-form__actions {
   display: flex;
   flex-wrap: wrap;
