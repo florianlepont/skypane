@@ -15,14 +15,6 @@ from companion.layout import escape_html
 from companion.pages import health_page as hp
 
 _LAST_DETECTION = i18n.msg("health.sys_last_detection", "Last detection")
-_BOTH_NOTE = i18n.msg(
-    "health.sys_both_note",
-    "Both flight-data sources on the frame picked the same aircraft.")
-_ONLY_ONE_NOTE = i18n.msg(
-    "health.sys_only_one_note",
-    "Only one of the two sources returned an aircraft this cycle.")
-_DISAGREE_NOTE = i18n.msg(
-    "health.sys_disagree_note", "The two sources picked different aircraft.")
 _IDENTIFIED = i18n.msg("health.sys_identified", "%s %% of flights identified")
 _IDENTIFIED_SHORT = i18n.msg("health.sys_identified_short", "%s %% identified")
 _WINDOW = i18n.msg("health.sys_window", "Last %d days: %d flights")
@@ -37,12 +29,6 @@ _SHORT_SOURCES = (
     ("miss", i18n.msg("health.sys_src_miss", "Nothing found")),
 )
 _SHORT_OTHER = i18n.msg("health.sys_src_other", "Other cases")
-
-_OUTCOME_NOTES = {
-    "True": _BOTH_NOTE,
-    "None": _ONLY_ONE_NOTE,
-    "False": _DISAGREE_NOTE,
-}
 
 SYSTEM_CARD_CLASS = "sys-card"
 
@@ -103,12 +89,12 @@ def flight_data(state, now):
 def _outcomes(counts):
     statuses = hp.corroboration_status(counts)
     items = []
-    for key, label, _state, _note_text in hp._CORROBORATION_ROWS:
+    for key, label, _state, note in hp._CORROBORATION_ROWS:
         items.append(
             '<li><p class="sys-card__outcome">%s<span class="sys-card__count">%d</span></p>'
             '<p class="sys-card__sentence">%s</p></li>' % (
                 layout.status_dot(statuses[key], i18n.t(label)),
-                counts.get(key, 0) or 0, escape_html(i18n.t(_OUTCOME_NOTES[key]))))
+                counts.get(key, 0) or 0, escape_html(i18n.t(note))))
     return '<ul class="sys-card__outcomes">%s</ul>' % "".join(items)
 
 

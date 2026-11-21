@@ -127,3 +127,14 @@ The sprite gained `icon-server`, `icon-radio` and `icon-cloud-upload`, redrawn f
 ### Captures
 
 `/tmp/claude-0/-home-user-skypane/1ebaf6ab-90c3-5997-a366-609c87d2992c/scratchpad/p37c/`: `system_desktop_en_light.png`, `system_phone_fr_dark.png`, `health_phone_fr_dark.png`.
+
+## Follow-up 2 (state mark removed, sprite, short outcomes)
+
+Owner decisions of 2026-11-20 on the open questions of the previous follow-up.
+
+- **State mark (tried and removed).** A small round state badge (tick, triangle, cross, circled "i") was added at the corner of the topic glyph chips on the System cards and tiles, then removed at the owner's request the same day ("retire ces pastilles d'état, c'est horrible"). `health_rows.state_mark_html`, the `.state-mark` CSS and the chips' `position: relative` are gone. The chips carry the topic glyph and the hidden state word only; the state is still spelled in words and shown by the tone colour on the chip. The frame Overview tiles are untouched.
+- **Sprite.** `icon-pipeline` removed from the sprite and `ICON_IDS` (62 to 61, pin updated). Sign-in golden hashes (error pages, shell digest) and `companion/testdata/render_baseline.json` moved with the sprite (baseline regenerated once, at the end).
+- **Short outcome sentences.** The frame Health page's outcome rows now use the System cards' short sentences (EN and FR) through the shared `_CORROBORATION_ROWS`; the long strings ("ont identifié", "pas un désaccord", "kept the previous image" and their ids) are removed, no orphan ids.
+- **Pill wording.** "Sources disagreed recently." stays shared with the Health page and toast; no change.
+- **Tests.** `test_card_and_tile_glyph_chip_has_the_topic_glyph_and_no_badge` (4 states x EN/FR, card and tile: one topic glyph, hidden word), `test_frame_health_outcomes_use_the_short_sentences`, browser `test_glyph_chips_carry_only_the_topic_glyph_and_the_hidden_state_word` (320/390/1440 x EN/FR x light/dark: one glyph, not a state shape, hidden word present, no overflow). The System test module resets the request language after each test.
+- **Captures:** `/tmp/claude-0/-home-user-skypane/1ebaf6ab-90c3-5997-a366-609c87d2992c/scratchpad/p37d/` (`system_desktop_en_light_warn.png`, `system_phone_fr_dark_warn.png`, `health_phone_en_light.png`).

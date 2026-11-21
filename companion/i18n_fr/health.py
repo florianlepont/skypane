@@ -113,17 +113,8 @@ MESSAGES = {
     "health.this_appears_once_the_frame_has_recorded_at":
         "Ceci apparaît une fois que le cadre a enregistré au moins un vol.",
     "health.both_agree": "Les deux concordent",
-    "health.both_flight_data_sources_on_the_frame_picked":
-        "Les deux sources de données de vol du cadre ont identifié le même avion.",
     "health.only_one_saw_it": "Une seule l’a vu",
-    "health.only_one_of_the_two_sources_returned_an":
-        "Une seule des deux sources a renvoyé un avion ce cycle — ce n’est "
-        "pas un désaccord, il n’y avait simplement rien à comparer du "
-        "côté de l’autre source.",
     "health.they_disagree": "Elles se contredisent",
-    "health.the_two_sources_named_different_aircraft_so":
-        "Les deux sources ont identifié des avions différents, donc rien "
-        "n’a été affiché ce cycle — l’écran a conservé l’image précédente.",
 
     # --- Flight identification row ---------------------------------------
     "health.over_the_last_days_events": "au cours des %d derniers jours, %d événements",

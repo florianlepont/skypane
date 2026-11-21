@@ -88,22 +88,18 @@ _CORROBORATION_ROWS = (
     # history_db.save_poll_state() writes and must never be renamed.
     ("True", i18n.msg("health.both_agree", "Both agree"), "ok",
      i18n.msg(
-         "health.both_flight_data_sources_on_the_frame_picked",
+         "health.sys_both_note",
          "Both flight-data sources on the frame picked the same aircraft.")),
     # "off", not "ok": this state means there was nothing to compare
     # against, not that agreement was confirmed — a neutral, everyday
     # state, never a problem, so never "warn" either.
     ("None", i18n.msg("health.only_one_saw_it", "Only one saw it"), "off",
      i18n.msg(
-         "health.only_one_of_the_two_sources_returned_an",
-         "Only one of the two sources returned an aircraft this cycle — "
-         "that is not the same as a disagreement, there was simply nothing "
-         "from the other source to compare it against.")),
+         "health.sys_only_one_note",
+         "Only one of the two sources returned an aircraft this cycle.")),
     ("False", i18n.msg("health.they_disagree", "They disagree"), "warn",
      i18n.msg(
-         "health.the_two_sources_named_different_aircraft_so",
-         "The two sources named different aircraft, so nothing was shown "
-         "that cycle — the display kept the previous image instead.")),
+         "health.sys_disagree_note", "The two sources picked different aircraft.")),
 )
 
 # Kept as a literal, human-maintained list rather than importing

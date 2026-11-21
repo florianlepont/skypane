@@ -226,9 +226,9 @@ def test_new_login_surfaces_render_the_approved_french():
 # (Home, Flights, Airlines, Style, Location; French Vols, Compagnies, Lieu).
 _LOGIN_BASELINE = {
     "en": {
-        "nf": "1f3daed5eeee46f1b880834921da15564f2627782c45579a4f48148858f83799",
-        "nf2": "1f3daed5eeee46f1b880834921da15564f2627782c45579a4f48148858f83799",
-        "forb": "dc6fc3efdce42bcf739618927c22d4b5e3dd09d88c2917ef6b3088c7c751bb4e",
+        "nf": "1fd0775503cbf0b850c18d04528d80d30497d37acbd43caa485067633f773d91",
+        "nf2": "1fd0775503cbf0b850c18d04528d80d30497d37acbd43caa485067633f773d91",
+        "forb": "346a52d2d92f07ba632fc08353801c7be6bf9ff1e702dfa3cf5da8bc5367fbca",
     },
 }
 
@@ -349,7 +349,7 @@ def test_unrecognised_principal_clears_to_default():
 # Only the pages in the Console space (health, device, update) moved from the earlier digest,
 # by the System cell and the Audit log sheet row of the console tab bar; every personal page is byte-identical.
 _SHELL_BASELINE_DIGEST = (
-    "421b0b3435ca2bb7f4c39e48a5bea3f891fad832ec4cbdda7406baead84b370a")
+    "da04a9aa6ce8a145c6ea5b07e5087101061d30832f49a47b6d4466818f85a5da")
 
 
 def test_shell_without_a_principal_is_byte_identical_to_before():

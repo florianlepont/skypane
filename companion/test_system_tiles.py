@@ -18,6 +18,7 @@ PATH = "/fleet?view=system"
 def _english():
     prefs.set_request_prefs(lang="en")
     yield
+    prefs.set_request_prefs(lang="en")
 
 
 def _seed(server, tmp_path, monkeypatch, disagree=True, backup=True):
@@ -195,3 +196,43 @@ def test_topic_glyphs_on_tiles_and_cards(app_server_in_process, tmp_path, monkey
                        ("backup", "icon-cloud-upload")):
         card = re.search(r'id="system-card-%s">(.*?)</div></li>' % key, page, re.S).group(1)
         assert 'href="#%s"' % glyph in card
+
+
+@pytest.mark.parametrize("state", ["ok", "warn", "error", "off"])
+@pytest.mark.parametrize("lang", ["en", "fr"])
+def test_card_and_tile_glyph_chip_has_the_topic_glyph_and_no_badge(state, lang):
+    from companion import i18n, health_rows
+    from companion.pages import fleet_tiles, system_cards
+    prefs.set_request_prefs(lang=lang)
+    word = i18n.t(health_rows.STATE_WORDS[state])
+    card = system_cards._card("sources", state, "icon-radio", "Label", "Verdict")
+    tile = fleet_tiles.system_tiles_html([type("T", (), dict(
+        key="sources", state=state, icon="icon-radio", label="Label",
+        value="Value", meta_html=""))()])
+    for chip in (
+            re.search(r'<span class="sys-card__icon">(.*?)</span></span>', card, re.S).group(1)
+            + "</span>",
+            re.search(r'<span class="fleet-tile__icon">(.*?)</span></span>', tile, re.S).group(1)
+            + "</span>"):
+        assert chip.count("<svg") == 1, "the topic glyph is the only drawing in the chip"
+        assert 'href="#icon-radio"' in chip, "the topic glyph stays"
+        assert '<span class="visually-hidden">%s</span>' % word in chip, "the word stays"
+
+
+@pytest.mark.parametrize("lang, sentences, gone", [
+    ("en", ["Both flight-data sources on the frame picked the same aircraft.",
+            "Only one of the two sources returned an aircraft this cycle.",
+            "The two sources picked different aircraft."],
+     ["not the same as a disagreement", "kept the previous image"]),
+    ("fr", ["Les deux sources de données de vol du cadre ont choisi le même avion.",
+            "Une seule des deux sources a renvoyé un avion à ce cycle.",
+            "Les deux sources ont choisi des avions différents."],
+     ["ont identifié", "pas un désaccord"])])
+def test_frame_health_outcomes_use_the_short_sentences(lang, sentences, gone):
+    from companion.pages import health_page
+    prefs.set_request_prefs(lang=lang)
+    text = html.unescape(health_page._corroboration_outcomes_html({"True": 3, "None": 2, "False": 1}))
+    for sentence in sentences:
+        assert sentence in text
+    for fragment in gone:
+        assert fragment not in text

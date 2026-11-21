@@ -98,3 +98,27 @@ def test_detail_cards_show_their_labels_and_right_aligned_values(
     assert not _assert_no_page_overflow(
         page, "system cards at %d" % viewport["width"], viewport["width"])
     context.close()
+
+
+@pytest.mark.parametrize("scheme", UI_THEMES_EXPLICIT)
+@pytest.mark.parametrize("lang", ["en", "fr"])
+@pytest.mark.parametrize("viewport", VIEWPORTS, ids=["320", "390", "1440"])
+def test_glyph_chips_carry_only_the_topic_glyph_and_the_hidden_state_word(
+        new_context, app_server_in_process, tmp_path, monkeypatch, viewport, lang, scheme):
+    context, page = _open(
+        new_context, app_server_in_process, tmp_path, monkeypatch, viewport, lang, scheme)
+    where = "system-chip/%d/%s/%s" % (viewport["width"], lang, scheme)
+    state_glyphs = {"#icon-check", "#icon-warning", "#icon-toast-error", "#icon-info"}
+    try:
+        for chip_selector in (
+                ".fleet-tiles--system .fleet-tile__icon", ".sys-card__icon"):
+            chips = page.locator(chip_selector)
+            assert chips.count() == 4, where
+            for i in range(4):
+                chip = chips.nth(i)
+                assert chip.locator("svg").count() == 1, where
+                assert chip.locator("svg use").get_attribute("href") not in state_glyphs, where
+                assert chip.locator(".visually-hidden").inner_text().strip(), where
+        assert not _assert_no_page_overflow(page, where, viewport["width"])
+    finally:
+        context.close()
