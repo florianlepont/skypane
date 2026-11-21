@@ -144,3 +144,12 @@ Page-level differences I found while comparing and did not change (outside the d
 5. Retry after a failed first attempt is a renewal (24 hours): the local row exists, so the page cannot tell whether Auth0 created the account. Acceptable?
 6. Optional `SKYPANE_AUTH0_CUSTOM_DOMAIN`: keep, or require the tenant domain only?
 7. Dialog radius and title size follow the tokens (22 px, 22 px/600) instead of the mock's 24 px and 20 px bold: accept or match the mock literally?
+
+## Flaky tests, root cause
+
+Both failures were test defects (no person can hit them); each was reproduced under CPU load.
+
+- `test_a_preset_reaches_disk_through_the_dialog`: `_wait_at_rest` waited for every finite animation on the document to end. Home's countdown `<time>` gets `.is-breathing` (15 beats of 2 s, 30 s) once its target has passed; under load that happens during the test, so the wait hit its 10 s timeout while the field already owned its centre (diagnostic dump: the hit element was the field, the only running animation was `TIME.is-breathing`). The wait now counts only finite animations whose target contains, or is contained by, the field (the dialog rise, a root view transition).
+- `test_one_tap_on_the_more_panel_switch_moves_between_the_two_spaces`: after the click the predicate `!document.querySelector('.tab-bar__more').open` also ran against the new document while it was still being parsed, where the tab bar does not exist yet (null). The wait now requires the panel to exist and be closed; the opener check waits for the panel first.
+
+Each ran 32 times in four concurrent streams under 8 CPU burners (all passed), and the two files ran eight times with `-n 3` under load (38/38 each). Other browser tests copy the global "no finite animation" wait and share the 30 s pulse exposure; they were not touched.
