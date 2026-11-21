@@ -56,7 +56,7 @@ Filled by the owner. Leave a row empty if the item was not measured.
 | 4 Busy wait after power-off (min / median / max) | 0.15 s / 0.15 s / 0.15 s | 2026-11-17 | 84:c7:bb:70:b2:7c | Same instrumented build and five cycles as item 2; BUSY wait after the power-off command | measured |
 | 5 Flash size | 16 MB (quad, 3.3 V, manufacturer 0x85, device 0x2018); chip ESP32-S3 (QFN56) v0.2, 8 MB embedded PSRAM | 2026-11-15 | 84:c7:bb:70:b2:7c | `esptool --chip esp32s3 --port /dev/cu.usbmodem101 flash-id` (esptool v5.4.0), "Detected flash size" line | measured |
 | 6 Battery sense GPIO and ratio | First reading, one level: multimeter 4.12 V (4120 mV) at the battery connector at 11:07 Europe/Paris; `X-Battery-Mv` 4098 mV on the wake after one RESET (10:07:40 UTC, 11:07:40 Paris); difference -22 mV (-0.5 %), ratio 0.995. Two more levels (about 3.9 V, about 3.7 V) not yet taken. GPIO and divider ratio not derived from one point | 2026-11-18 | 84:c7:bb:70:b2:7c (as reported by the owner) | LiPo, about 3000 mAh (owner's figure from memory, not a measurement), fully charged on USB, USB unplugged, left to rest 10 to 30 minutes, not swollen. Multimeter in DC volts at the battery connector with USB unplugged; then one press of RESET and the `X-Battery-Mv` of that wake read by the owner in the companion console for this frame (the minute of that wake was found afterwards in the frame's battery-history export, see the notes below: the two readings are within the same minute) | provisional, first reading, 1 of 3 levels |
-| 7 Battery ADC enable pin | | | | | |
+| 7 Battery ADC enable pin | Not measured directly. Owner decision: kept as indirect evidence only (GPIO6 enable, GPIO1 sense, stable reading with a cell, see the 2026-11-21 notes) | 2026-11-21 | | Owner decision, not a measurement | owner decision (no `measured` status) |
 | 8 LED pin and polarity | GPIO21, lit when the pin is LOW (active low) | 2026-11-17 | 84:c7:bb:70:b2:7c | Visual check on the unit with the pin level printed in the log (same throwaway bench build) | measured |
 | 9a KEY0 GPIO | GPIO5 (right arrow key); idle high, pressed low | 2026-11-17 | 84:c7:bb:70:b2:7c | Pressed the three keys in turn, left to right, with the log showing each GPIO going 1 -> 0 then 0 -> 1 (internal pull-up, idle high). Silkscreen symbols read by the owner, left to right: circular arrow, left arrow, right arrow | measured |
 | 9b KEY1 GPIO | GPIO3 (left arrow key); idle high, pressed low | 2026-11-17 | 84:c7:bb:70:b2:7c | Same key test as 9a | measured |
@@ -116,3 +116,53 @@ Filled by the owner. Leave a row empty if the item was not measured.
   does not show which GPIO enables it or its level during sampling.
 - Item 10 (discharge profile) is still not measured.
 
+
+## Notes on the 2026-11-21 readings (full wakes in production, item 7)
+
+Full-wake timings of the EE04 in production, from the frame's read-only
+battery-history export (`GET /api/export/battery-history?since=<UTC>&device=d_3d94b8f5`,
+read by the assistant on 2026-11-21). Firmware fw-v1.2.1 on every row. The figures
+are the previous-wake fields of each row. Window: 2026-11-18 09:00 UTC to
+2026-11-21 07:20 UTC, 1752 wakes, of which 387 redrew the panel (`prev_redraw` = 1).
+These are real full wakes (Wi-Fi, TLS, download, draw), not the bench program of
+2026-11-17.
+
+| Field (previous wake) | Rows | Min | Median | Max |
+|-----------------------|------|-----|--------|-----|
+| `prev_draw_ms` (panel init, data, refresh, power-off) | 387 redraws | 31.185 s | 31.195 s | 59.213 s |
+| `prev_awake_ms` (whole wake with a redraw) | 387 redraws | 32.406 s | 33.436 s | 61.604 s |
+| `prev_download_ms` | redraws | 0.624 s | 0.702 s | 1.528 s |
+| `wifi_ms` | redraws | 0.161 s | 1.158 s | 1.341 s |
+| `boot_ms` | redraws | | 35 ms | 95 ms |
+| `prev_awake_ms`, wakes without a redraw | 1357 rows | | 1.406 s | 19.535 s (not analysed further) |
+
+- 386 of the 387 draws are 31 s (rounded). One is 59.213 s: the row at
+  2026-11-18T12:12:47+00:00 (13:12 Paris), `prev_awake_ms` 61.604 s, outcome ok,
+  battery 4086 mV, boot reason `rtc`. The cause is not known and was not
+  investigated (panel temperature, a panel retry or another cause are all
+  possible; none is claimed).
+- That draw is close to the BUSY timeout: the firmware gives up waiting for BUSY
+  after `BUSY_TIMEOUT_MS` = 60000 ms (per wait) in `firmware/main/epd7in3e.c`. The
+  draw figure also includes the init and power-off waits (about 0.17 s and 0.15 s),
+  so the refresh wait itself was a little under 59.2 s: the margin to the 60 s
+  timeout was about 1 s at best.
+- The observed maximum whole wake of 61.6 s is far below the 190 s blit stage
+  (`3 * 60 + 10` in `firmware/main/wake_deadline.h`) and the 700 s wake budget
+  (`CONFIG_SKYPANE_WAKE_BUDGET_S`). This answers the earlier remark that these two
+  limits were never measured as a full wake. The limits stay as they are and no
+  firmware value is changed here; raising `BUSY_TIMEOUT_MS` or tightening a limit
+  would be a separate firmware decision (new release) for the owner.
+- `FP_MIN_REFRESH_SPACING_S` is still not set in `firmware/sdkconfig.second.defaults`.
+- Item 7 (battery ADC enable pin, GPIO6, `CONFIG_FP_PIN_BATTERY_ADC_EN`): owner
+  decision of 2026-11-21 to keep it as indirect evidence only, not measured
+  directly. Basis: `firmware/main/battery.c` sets the enable pin high, waits
+  `FP_BATTERY_SETTLE_MS`, reads the sense input (GPIO1) and sets the pin low; with
+  a cell connected the reading is stable and within 0.5 % of a multimeter at
+  4.12 V (first reading, 2026-11-18); with no cell it floated between 3630 and
+  4180 mV; the measurement programme of 2026-11-17 did not touch GPIO6 or GPIO1.
+  A direct measurement was offered and declined (it needs a probe on a tiny pin
+  during a wake, or a new bench flash with the risk of overwriting the secret
+  partition when the partition layout differs from production). This is an owner
+  decision, not a measurement: row 7 has no `measured` status.
+- Still not measured: battery sense levels 2 and 3 (item 6), the discharge profile
+  (item 10) and currents.

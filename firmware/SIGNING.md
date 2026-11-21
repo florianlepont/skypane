@@ -148,10 +148,16 @@ GitHub Release (see "Per-hardware-type releases" in
 `deploy/README.md`). The server imports a typed pair only when that type
 is available in its environment.
 
-Status: the first typed release is not yet published, and the release
-workflow does not build the second board yet. The second board's image
-has been built and size-checked in CI only; it has never run on a
-panel.
+Status (2026-11-21): `.github/workflows/firmware-release.yml` builds
+both boards from one tag and publishes the typed pair
+`skypane-seeed-ee04-7in3-spectra6-<tag>.bin` and
+`release-seeed-ee04-7in3-spectra6.json` next to the live frame's
+assets. Releases `fw-v1.2.0` and `fw-v1.2.1` carry both. The second
+board runs on a real unit: the owner's EE04 was cable-flashed with
+`fw-v1.2.0`, was updated over the air to `fw-v1.2.1` on 2026-11-15, and
+runs it in production. Evidence: `64-OWNER-VALIDATION.md` and
+`64-VERIFICATION.md` of Phase 64 (owner reports and production journal),
+and `hardware/SECOND-HARDWARE-VALIDATION.md`.
 
 ## One-time key generation (human only)
 
