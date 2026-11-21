@@ -71,7 +71,8 @@ from companion.settings import form_post
 from companion.pages.airlines_page import unresolved_row_for_prefix
 from server import atomic_io, device_config
 from server.plane import (
-    airline_default_types, calendar_rules, colour_rules, enrich, illustrations, manual_resolutions, name_overrides,
+    airline_default_types, airline_suggest, calendar_rules, colour_rules, enrich, illustrations,
+    manual_resolutions, name_overrides,
 )
 import server.poll_cycle as poll_cycle
 
@@ -113,16 +114,19 @@ def _illustration_filenames(state_dir=None):
     return frozenset(filenames)
 
 
-def _record_resolution(handler, state_dir, key, default_type):
+def _record_resolution(handler, state_dir, key, default_type, suggestion=""):
     """The side effects of naming an airline: the optional default aircraft
-    type chosen in the same row, and the audit row."""
+    type chosen in the same row, and the audit row, which says when the name
+    came from a suggestion (`accepted`) or started from one (`edited`)."""
     if not key:
         return
     chosen = airline_default_types.normalise_code(default_type)
     if chosen:
         airline_default_types.set_default_type(state_dir, key, chosen)
-    airline_actions.record(
-        handler, airline_actions.ACTION_RESOLVE, key, {"type": chosen} if chosen else None)
+    detail = {"type": chosen} if chosen else {}
+    if suggestion:
+        detail["suggestion"] = suggestion
+    airline_actions.record(handler, airline_actions.ACTION_RESOLVE, key, detail or None)
 
 
 def type_slugs():
@@ -369,7 +373,9 @@ class SettingsActionsMixin:
             registry = manual_resolutions.load_manual_resolutions(state_dir)
             entry = registry.get(prefix) or {}
             key = manual_resolutions.illustration_key_for_name(entry.get("airline_name"))
-            _record_resolution(self, state_dir, key, form.get("default_type"))
+            outcome = airline_suggest.record_outcome(
+                self.args.state_dir, prefix, entry.get("airline_name") or "")
+            _record_resolution(self, state_dir, key, form.get("default_type"), outcome)
             # The editor's inline row stays on the table: artwork is added
             # from the row itself, not from a second step.
             if form.get("inline") or (

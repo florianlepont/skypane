@@ -11,6 +11,7 @@ fixtures can both use it. Placeholder values only.
 
 import json
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 DUMMY_KEY = "test-key-not-a-secret"
@@ -57,6 +58,8 @@ class FakeAnthropic:
         self._server = None
         self._thread = None
         self.delay_s = 0.0
+        self.active = 0
+        self.max_active = 0
 
     def start(self):
         handler = _make_handler(self)
@@ -97,6 +100,15 @@ class FakeAnthropic:
         with self._lock:
             self.requests.append({"path": path, "headers": headers, "body": body})
 
+    def enter(self):
+        with self._lock:
+            self.active += 1
+            self.max_active = max(self.max_active, self.active)
+
+    def leave(self):
+        with self._lock:
+            self.active -= 1
+
     @property
     def call_count(self):
         with self._lock:
@@ -116,10 +128,12 @@ def _make_handler(fake):
             except ValueError:
                 body = None
             fake.record(self.path, {k.lower(): v for k, v in self.headers.items()}, body)
-            if fake.delay_s:
-                import time
+            fake.enter()
+            try:
                 time.sleep(fake.delay_s)
-            answer = fake.next_answer(body)
+                answer = fake.next_answer(body)
+            finally:
+                fake.leave()
             payload = answer.raw if answer.raw is not None else json.dumps(answer.body).encode()
             self.send_response(answer.status)
             self.send_header("Content-Type", "application/json")
