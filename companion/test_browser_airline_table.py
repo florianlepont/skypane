@@ -56,6 +56,7 @@ _OWNS_CENTRE = (
 
 
 _seed = seed_airline_editor
+KNOWN_ROW = 'tbody.airline-group--known:has(.airlines-known__name:text-is("%s"))'
 
 
 @pytest.fixture(scope="module")
@@ -178,7 +179,9 @@ def test_the_unidentified_prefix_is_a_compact_row_on_top_named_in_a_dialog(
             "'tbody.airline-group--gap')", timeout=15000)
         page.wait_for_function(_SETTLED, timeout=15000)
         assert page.locator(DIALOG + "[open]").count() == 0
-        row = 'tbody.airline-group:has(.airlines-name--fixed:text-is("Xyz Wings"))'
+        row = KNOWN_ROW % "Xyz Wings"
+        assert page.locator(row).count() == 1
+        assert page.locator(row + " .airlines-known__prefix").inner_text() == "XYZ"
         assert page.locator(row + " .airlines-pill").count() == 0
         assert "Named by hand" not in page.locator(row).inner_text()
         saved = manual_resolutions.load_manual_resolutions(server.state_dir)
@@ -511,8 +514,9 @@ def _chip(page, label):
 @pytest.mark.parametrize("name,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
 def test_the_chips_filter_by_kind_and_clearing_restores_every_row(
         new_context, server, name, viewport):
-    """the chips carry their counts: Unidentified shows the prefix rows, No artwork the airlines
-    without a picture, Seen and Not seen yet split by sightings; All brings everything back"""
+    """the chips carry their counts: Unidentified shows the prefix rows, Known by name only every
+    airline without a picture (the owner-named ones too), Seen and Not seen yet split the airlines
+    of the table by sightings; All brings everything back"""
     context, page = _open(new_context, server, viewport)
     try:
         total = page.locator("tbody.airline-group").count()
@@ -521,8 +525,9 @@ def test_the_chips_filter_by_kind_and_clearing_restores_every_row(
         assert labels[:2] == ["All", "Unidentified"], labels
         assert counts[0] == total and counts[1] == 1, counts
         known = counts[2]
-        seen, unseen = counts[4], counts[5]
-        assert known >= 1 and seen >= 1 and seen + unseen == total - 1 - known, counts
+        seen, unseen = counts[3], counts[4]
+        assert len(counts) == 5 and known >= 1 and seen >= 1, counts
+        assert seen + unseen == total - 1 - known, counts
         assert labels[2] == "Known by name only", labels
         _chip(page, "Unidentified").click()
         _visible_group_count_is(page, 1)
@@ -536,8 +541,8 @@ def test_the_chips_filter_by_kind_and_clearing_restores_every_row(
         _chip(page, "Known by name only").click()
         _visible_group_count_is(page, known)
         assert page.locator("tbody.airline-group--known:not([hidden])").count() == known
-        _chip(page, "No artwork").click()
-        assert "Lufthansa" in page.locator(_NAMES).all_inner_texts()
+        assert "Lufthansa" in page.locator(
+            "tbody.airline-group--known:not([hidden]) .airlines-known__name").all_inner_texts()
         _chip(page, "All").click()
         _visible_group_count_is(page, total)
     finally:
@@ -547,14 +552,16 @@ def test_the_chips_filter_by_kind_and_clearing_restores_every_row(
 def test_a_needs_artwork_airline_opens_the_add_artwork_step(new_context, server):
     context, page = _open(new_context, server, VIEWPORT_MIN_SUPPORTED)
     try:
-        link = 'a.airlines-thumb[href$="resolve=DLH"]'
-        _settle(page, link)
-        page.locator(link).click()
+        button = 'tbody.airline-group--known[data-filter-text^="lufthansa "] .airlines-known__add'
+        _settle(page, button)
+        page.locator(button).click()
         dialog = page.locator(DIALOG)
         dialog.wait_for(state="visible")
-        assert dialog.locator(".lightbox__heading").inner_text() == "Add an illustration for Lufthansa"
+        assert "Lufthansa" in dialog.inner_text()
         assert dialog.locator(".resolve-upload-zone").is_visible()
-        assert dialog.locator("form.lightbox__delete").is_visible()
+        assert page.locator("#airline-lufthansa").count() == 1
+        assert page.locator("tbody.airline-group:not(.airline-group--known) .airlines-name").filter(
+            has_text="Lufthansa").count() == 0
     finally:
         context.close()
 
@@ -773,7 +780,7 @@ def test_the_filter_chips_scroll_sideways_on_one_line_on_a_phone(new_context, se
         assert metrics["bar"] == "none" and metrics["legend"], metrics
         last = page.locator(group + " input").last
         page.locator(group + " input").first.focus()
-        for _ in range(5):
+        for _ in range(4):
             page.keyboard.press("ArrowRight")
         page.wait_for_function(
             "g => { const c = document.querySelector(g + ' input:checked').closest('label').getBoundingClientRect();"

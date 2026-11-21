@@ -1,6 +1,6 @@
 """The airlines known by name only in the Airlines editor: one read-only row each, with the name, the
 prefix and the Artwork button that opens the shared add-artwork step; a chip filters them; an airline
-that gains artwork or a hand-made name leaves the block. Checked over HTTP against a real server."""
+that gains artwork leaves the block, an airline named by hand without artwork joins it. Checked over HTTP against a real server."""
 import html
 import os
 import re
@@ -83,11 +83,46 @@ def test_an_airline_with_artwork_leaves_the_block(known):
     assert "FIN" in re.search(r'<tbody[^>]*id="airline-finnair".*?</tbody>', page, re.S).group(0)
 
 
-def test_an_airline_named_by_hand_leaves_the_block(known):
+def test_an_airline_named_by_hand_without_artwork_is_listed_once_in_the_block(known):
     state_dir, get = known
-    assert "KLM Royal" in " ".join(_rows(get()))
+    count = len(_rows(get()))
     manual_resolutions.add_entry(state_dir, "KLM", "KLM Royal Dutch Airlines")
-    assert "KLM Royal" not in " ".join(_rows(get()))
+    page = get()
+    names = [html.unescape(re.search(r'airlines-known__name">([^<]*)<', r).group(1)) for r in _rows(page)]
+    assert names.count("KLM Royal Dutch Airlines") == 1 and len(names) == count
+    assert "Known by name only · %d" % count in page
+    assert 'id="airline-klm-royal-dutch-airlines"' in page
+
+
+def test_a_hand_named_airline_without_artwork_is_in_the_block_with_its_menu_and_not_in_the_table(known):
+    state_dir, get = known
+    count = len(_rows(get()))
+    manual_resolutions.add_entry(state_dir, "ZPH", "Zephyr Air")
+    page = get()
+    row = next(r for r in _rows(page) if "Zephyr Air" in r)
+    assert "ZPH" in row and "Delete my name" in row
+    assert "/airlines/manual-resolutions/ZPH/delete" in row
+    assert "Known by name only · %d" % (count + 1) in page
+    table = page.split("Airlines · ")[-1]
+    assert "Zephyr Air" not in table
+    assert re.search(r'value="known"[^>]*>.*?filter-chip__count">%d<' % (count + 1), page, re.S)
+    assert "No artwork" not in page
+    fr = html.unescape(get("fr"))
+    assert "Supprimer mon nom" in next(r for r in _rows(fr) if "Zephyr Air" in r)
+    assert "Connues par leur nom seulement · %d" % (count + 1) in fr and "Sans illustration" not in fr
+
+
+def test_a_hand_named_airline_with_artwork_is_in_the_table_and_not_in_the_block(known):
+    state_dir, get = known
+    manual_resolutions.add_entry(state_dir, "ZPH", "Zephyr Air")
+    path = illustrations.override_path_for_key("zephyr-air", state_dir)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "wb") as handle:
+        handle.write(b"\x89PNG")
+    page = get()
+    assert "Zephyr Air" not in " ".join(_rows(page))
+    assert 'id="airline-zephyr-air"' in page
+    assert "airline-group--known\" id=\"airline-zephyr-air" not in page
 
 
 def test_an_upload_for_a_known_by_name_airline_is_accepted_and_an_unknown_key_is_not(known):

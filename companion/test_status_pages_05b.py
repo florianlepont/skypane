@@ -455,10 +455,10 @@ def test_gallery_filter_bar_carries_all_four_contract_markers_exactly_once(tmp_p
     assert 'data-filter-clear-all' in rendered
     labels = re.findall(r'<span class="filter-chip__text">([^<]*)</span>', rendered)
     assert labels == [
-        "All", "Unidentified", "Known by name only", "No artwork", "Seen", "Not seen yet"]
+        "All", "Unidentified", "Known by name only", "Seen", "Not seen yet"]
     counts = re.findall(r'<span class="filter-chip__count">([^<]*)</span>', rendered)
     known = len(enrich.names_without_artwork())
-    assert counts == [str(36 + known), "0", str(known), "0", "0", "36"]
+    assert counts == [str(36 + known), "0", str(known), "0", "36"]
 
 
 def test_gallery_filter_clear_controls_are_real_buttons(tmp_path):

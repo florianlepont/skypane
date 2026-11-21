@@ -1,12 +1,13 @@
 """The airlines known by name only, as read-only rows of the Airlines editor.
 
-An airline whose name the application knows from its callsign prefix but
-that has no artwork has no row in the table: it is listed in its own block,
-one row each with the name, the prefix and an "Artwork" button. The button
-opens the shared add-artwork step (the same trigger an owner-named airline
-without artwork uses), so nothing here stores anything and no route is
-added: the rows have no form of their own. Names reach the markup only
-through `escape_html`.
+An airline that has a name but no artwork has no row in the table: it is
+listed in its own block, one row each with the name, the prefix and an
+"Artwork" button, whoever named it (the application, from its callsign
+prefix, or the owner, by hand or by accepting a suggestion). The button
+opens the shared add-artwork step; once an artwork exists the airline moves
+to the table. Nothing here stores anything and no route is added; the "..."
+menu of an owner-named airline is the table's own. Names reach the markup
+only through `escape_html`.
 """
 import companion.i18n as i18n
 import companion.layout as layout
@@ -24,9 +25,11 @@ _NO_MANUAL_FIELDS = ("art", False, False, "", "", "", "", "", "", "", "", "")
 
 
 def rows(state_dir, registry):
-    """The `(prefix, name)` pairs still known by name only, sorted by name:
-    an airline that has artwork (its own or an uploaded one), or whose prefix
-    the owner has named by hand, is no longer listed."""
+    """The `(prefix, name)` pairs the application knows by name only, sorted
+    by name: an airline that has artwork (its own or an uploaded one) is not
+    listed, nor one whose prefix the owner named by hand (that airline has a
+    row of its own, which the table lists as known by name while it has no
+    artwork)."""
     registry = registry or {}
     pairs = []
     for prefix, name in enrich.names_without_artwork():
@@ -71,28 +74,34 @@ def _add_button(page, state_dir, name):
         i18n.t(ADD_ARIA) % name, extra_attrs='%s="" ' % page.ASK_TYPE_ATTR)
 
 
-def group_html(page, index, state_dir, prefix, name):
-    """One known-by-name airline as a `<tbody>`: the name over the prefix and
-    the button that adds its first artwork."""
+def group_html(page, state_dir, prefix, name, key="", filter_text="", menu_html="", dialog_html="",
+               slot=False):
+    """One airline known by name only as a `<tbody>`: the name over the prefix,
+    the button that adds its first artwork and, for an airline the owner can
+    change (named by hand or renamed), the "..." menu of its row with the
+    dialog that menu opens. `key` makes the row the target of an anchor; `slot`
+    keeps the menu's room on a row without one so the buttons line up."""
+    if slot and not menu_html:
+        menu_html = '<span class="airlines-known__slot" aria-hidden="true"></span>'
+    anchor = ' id="airline-%s"' % escape_html(key) if key else ""
     return (
-        '<tbody class="airline-group airline-group--known" data-filter-text="%s" '
-        'data-filter-group="known%d" data-filter-kind="%s"><tr class="airlines-row airlines-row--gap">'
+        '<tbody class="airline-group airline-group--known"%s data-filter-text="%s" '
+        'data-filter-group="known-%s" data-filter-kind="%s"><tr class="airlines-row airlines-row--gap">'
         '<th scope="row" colspan="6" class="airlines-cell airlines-cell--resolve">'
         '<div class="airlines-known"><span class="airlines-known__who">'
         '<span class="airlines-known__name">%s</span>'
-        '<span class="airlines-known__prefix mono">%s</span></span>%s</div></th></tr></tbody>'
-    ) % (escape_html(("%s %s" % (name, prefix)).lower()), index, airline_rows.KIND_KNOWN,
-         escape_html(name), escape_html(prefix), _add_button(page, state_dir, name))
+        '<span class="airlines-known__prefix mono">%s</span></span>%s%s</div>%s</th></tr></tbody>'
+    ) % (anchor, escape_html(filter_text or ("%s %s" % (name, prefix)).lower()),
+         escape_html("%s-%s" % (prefix, name)), airline_rows.KIND_KNOWN, escape_html(name), escape_html(prefix),
+         _add_button(page, state_dir, name), menu_html, dialog_html)
 
 
-def table_html(page, state_dir, pairs):
-    """The block of every known-by-name airline: a captioned table of rows."""
-    if not pairs:
+def table_html(groups):
+    """The block of every airline known by name only: a captioned table of
+    the rows `group_html` made, empty when there is none."""
+    if not groups:
         return ""
-    body = "".join(
-        group_html(page, index, state_dir, prefix, name)
-        for index, (prefix, name) in enumerate(pairs))
     return (
         '<table class="airlines-table airlines-table--gaps airlines-table--known">'
         '<caption class="airlines-label">%s</caption>%s</table>'
-    ) % (escape_html(caption_text(len(pairs))), body)
+    ) % (escape_html(caption_text(len(groups))), "".join(groups))
