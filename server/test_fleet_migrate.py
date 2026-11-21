@@ -616,3 +616,93 @@ def test_mac_in_devices_and_pending_does_not_crash(seeded, capsys):
     assert _run(seeded, "--dry-run") == 0
     assert _run(seeded) == 0
     assert _macs(seeded, "devices") == [seeded.mac]
+
+
+# ---- per-frame artwork merge ----------------------------------------------
+
+def _png_bytes(shade):
+    import io
+
+    from PIL import Image
+    buffer = io.BytesIO()
+    Image.new("RGBA", (1200, 400), (shade, 30, 30, 128)).save(buffer, format="PNG")
+    return buffer.getvalue()
+
+
+def _put_picture(directory, name, data, mtime):
+    folder = os.path.join(directory, "illustration_overrides")
+    os.makedirs(folder, exist_ok=True)
+    path = os.path.join(folder, name)
+    with open(path, "wb") as fh:
+        fh.write(data)
+    os.utime(path, (mtime, mtime))
+
+
+def _seed_frames_with_pictures(state_dir):
+    from server import device_dirs
+    a = device_dirs.provision_device_dir(state_dir, "d_0000000a", 800, 480)
+    b = device_dirs.provision_device_dir(state_dir, "d_0000000b", 800, 480)
+    _put_picture(a, "ocn.png", _png_bytes(1), 1_700_000_000)
+    _put_picture(b, "ocn.png", _png_bytes(2), 1_710_000_000)
+    _put_picture(b, "zzz.png", b"x" * (5 * 1024 * 1024), 1_700_000_000)
+    _put_picture(state_dir, "ryr.png", _png_bytes(3), 1_700_000_000)
+
+
+def test_artwork_merge_dry_run_writes_nothing_then_real_run_applies_then_is_idempotent(seeded, capsys):
+    _run(seeded)
+    _seed_frames_with_pictures(seeded.state_dir)
+    capsys.readouterr()
+    before = _without_wal_sides(live.snapshot_dir(seeded.state_dir))
+
+    assert _run(seeded, "--dry-run") == 0
+    out = capsys.readouterr().out
+    assert "artwork: would merge 2 picture(s) from 2 frame(s)" in out
+    assert "artwork: conflict ocn.png: keep [frame d_0000000b," in out
+    assert "artwork: skipped zzz.png of frame d_0000000b: over the" in out
+    assert _without_wal_sides(live.snapshot_dir(seeded.state_dir)) == before
+    assert not os.path.exists(os.path.join(seeded.state_dir, "illustration_conflicts"))
+    assert not os.path.exists(os.path.join(seeded.state_dir, "illustration_migration.json"))
+
+    assert _run(seeded) == 0
+    out = capsys.readouterr().out
+    assert "artwork: merged 2 picture(s)" in out
+    root_dir = os.path.join(seeded.state_dir, "illustration_overrides")
+    assert sorted(os.listdir(root_dir)) == ["ocn.png", "ryr.png"]
+    with open(os.path.join(root_dir, "ocn.png"), "rb") as fh:
+        assert fh.read() == _png_bytes(2)
+    after = _without_wal_sides(live.snapshot_dir(seeded.state_dir))
+    assert {k: v for k, v in after.items() if k.startswith("devices")} == {
+        k: v for k, v in before.items() if k.startswith("devices")}
+
+    assert _run(seeded) == 0
+    out = capsys.readouterr().out
+    assert "artwork: nothing to do" in out
+    assert _without_wal_sides(live.snapshot_dir(seeded.state_dir)) == after
+
+
+def test_artwork_merge_is_silent_without_per_frame_pictures(seeded, capsys):
+    assert _run(seeded) == 0
+    assert "artwork" not in capsys.readouterr().out
+    assert not os.path.exists(os.path.join(seeded.state_dir, "illustration_migration.json"))
+
+
+def test_registry_and_artwork_merges_share_one_report_and_work_alone(seeded, capsys):
+    _run(seeded)
+    _seed_frames_with_a_conflict(seeded.state_dir)
+    _seed_frames_with_pictures(seeded.state_dir)
+    capsys.readouterr()
+    assert _run(seeded) == 0
+    out = capsys.readouterr().out
+    assert "airline names: merged 2 per-frame file(s)" in out and "artwork: merged 2 picture(s)" in out
+    assert _run(seeded) == 0
+    out = capsys.readouterr().out
+    assert "airline names: nothing to do" in out and "artwork: nothing to do" in out
+
+
+def test_an_artwork_write_failure_exits_1(seeded, monkeypatch, capsys):
+    _run(seeded)
+    _seed_frames_with_pictures(seeded.state_dir)
+    monkeypatch.setattr(fleet_migrate.fleet_artwork, "apply_merge",
+                        lambda *a, **k: (_ for _ in ()).throw(OSError("disk full")))
+    assert _run(seeded) == 1
+    assert "OSError" in capsys.readouterr().err

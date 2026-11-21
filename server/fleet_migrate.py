@@ -31,6 +31,11 @@ Invariants:
 - A legacy MAC that is a pending or retired frame in fleet.db is skipped:
   the pairing flow owns it, and importing it would bypass pairing. Once it
   is paired it is in devices and follows the normal reconcile.
+- The per-frame artwork directories (`devices/<id>/illustration_overrides/`)
+  are merged into the fleet directory by `server.plane.fleet_artwork` under
+  the same rules: read, never written, renamed or deleted; latest file time
+  wins; losers are archived under `illustration_conflicts/`; a marker keeps a
+  second run from changing anything.
 - Output names MACs, airline names, prefixes and counts only; never a
   token, secret hash or other file content.
 """
@@ -51,7 +56,7 @@ if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
 from server import fleet_db, hardware  # noqa: E402
-from server.plane import fleet_registries  # noqa: E402
+from server.plane import fleet_artwork, fleet_registries  # noqa: E402
 
 LEGACY_REGISTRY_FILE = "devices.json"
 LEGACY_STATE_FILE = "byos_state.json"
@@ -390,16 +395,20 @@ def _with_skipped(lines: list[str], legacy: LegacyState) -> list[str]:
 
 def migrate(state_dir: str, owner_email: str | None, dry_run: bool) -> MigrationReport:
     """Plan and (unless dry_run) apply the fleet.db import, then merge the
-    per-frame airline registries into the fleet root. The registry merge is
-    reported on every path, including "nothing to do" for fleet.db."""
+    per-frame airline registries and artwork directories into the fleet root.
+    Both merges are reported on every path, including "nothing to do" for
+    fleet.db."""
     report = _migrate_database(state_dir, owner_email, dry_run)
     registry_plan = fleet_registries.plan_merge(state_dir)
+    artwork_plan = fleet_artwork.plan_merge(state_dir)
     if dry_run:
         extra = fleet_registries.report_lines(registry_plan, dry_run=True)
+        extra += fleet_artwork.report_lines(artwork_plan, dry_run=True)
         changed = report.changed
     else:
         extra = fleet_registries.apply_merge(state_dir, registry_plan)
-        changed = report.changed or registry_plan.needs_write
+        extra += fleet_artwork.apply_merge(state_dir, artwork_plan)
+        changed = report.changed or registry_plan.needs_write or artwork_plan.needs_write
     return MigrationReport(list(report.lines) + extra, changed=changed)
 
 
