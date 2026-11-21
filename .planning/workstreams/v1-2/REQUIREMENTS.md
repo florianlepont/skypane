@@ -105,6 +105,12 @@ Runs in parallel with v1.1 Phase 47 (open, untouched). Phase numbering continues
 
 - [ ] **CON-01**: The visual improvements the owner lists for the console and the companion are made within the design system, in English and French and at phone width, with mockups approved first and no behaviour change beyond the list.
 
+### Design System Consistency
+
+- [ ] **DSY-01**: After Phase 68, the design system is checked against the deployed site (console and companion, English and French, phone and desktop, light and dark) and the result is written down.
+- [ ] **DSY-02**: Every deviation between the design system and the site is listed with a decision and settled: the site is fixed, or the design system is corrected, with no behaviour change and the render baseline regenerated with the repo's tool.
+- [ ] **DSY-03**: Improvements and animations of the design system are proposed to the owner with sketches, reasons, costs and accessibility and performance effects, and only the proposals the owner approves are built.
+
 ### Rear Enclosure
 
 - [ ] **ENC-01**: The second-hardware frame has a printed rear enclosure (tray, lid with wall hooks, loose stand plate, centring shim) that fits an IKEA RÖDALM 13 x 18 cm frame, hangs on a wall and stands on furniture, keeps USB-C, switch and buttons reachable, does not degrade the Wi-Fi signal, and is documented and validated by the owner.
@@ -180,6 +186,9 @@ Coverage: 47/47 v1.2 requirements mapped, each to exactly one phase.
 | TRK-02 | Phase 65 | Complete (Orly 06/24 not in use, left untested by the owner's decision of 2026-11-18) |
 | BAT-01 | SEED-019 (v1.4) | Moved out of Phase 65 on 2026-11-15 |
 | CON-01 | Phase 68 | Pending |
+| DSY-01 | Phase 68.1 | Pending |
+| DSY-02 | Phase 68.1 | Pending |
+| DSY-03 | Phase 68.1 | Pending |
 | SEC-AUD-01 | Phase 66 | Pending |
 | QUAL-01 | Phase 67 | Pending |
 | ENC-01 | Phase 69 | Pending |

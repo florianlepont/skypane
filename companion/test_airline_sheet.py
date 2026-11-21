@@ -6,6 +6,7 @@ Nothing here reads production source text.
 """
 import os
 import re
+import shutil
 import urllib.parse
 
 import companion.prefs as prefs
@@ -78,7 +79,9 @@ def test_manual_only_and_unidentified_rows_have_no_rename_dialog(tmp_path):
     for trigger in triggers:
         for attr in airline_sheet.SHEET_ATTRS:
             assert ('%s="' % attr) in trigger, (attr, trigger[:120])
-    novel = _card(rendered, "Totally Novel Airline")
+    assert 'airlines-name--fixed">Totally Novel Airline<' not in rendered
+    novel = rendered[rendered.index('airlines-known__name">Totally Novel Airline<'):]
+    novel = novel[:novel.index("</tbody>")]
     assert 'name="airline_name"' not in novel and "<dialog" not in novel
     gap = re.search(r'<tbody class="airline-group airline-group--gap".*?</tbody>', rendered, re.S).group(0)
     assert ">Name it</a>" in gap and 'name="airlines-resolve"' not in gap
@@ -108,6 +111,9 @@ def test_a_renamed_airline_shows_its_new_name_and_new_artwork_key_without_a_chip
     and carries no status chip"""
     tmp = str(tmp_path)
     name_overrides.set_names(tmp, ["TFV", "TVF"], "Transavia", now="2026-01-01T00:00:00+00:00")
+    target = illustrations.override_path_for_key("transavia", tmp)
+    os.makedirs(os.path.dirname(target), exist_ok=True)
+    shutil.copy(os.path.join(illustrations.ILLUSTRATION_DIR, "transavia-france.png"), target)
     rendered = airlines_page.render(shp.ctx(tmp) | {"types_open": "all", "name_overrides": name_overrides.load_name_overrides(tmp)})
     card = _card(rendered, "Transavia")
     assert 'name="airline" value="Transavia France"' in card

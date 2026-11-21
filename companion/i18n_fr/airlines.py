@@ -40,7 +40,6 @@ MESSAGES = {
     "airlines.chip_all": "Toutes",
     "airlines.chip_unidentified": "Non identifiées",
     "airlines.chip_known": "Connues par leur nom",
-    "airlines.chip_no_artwork": "Sans illustration",
     "airlines.chip_seen": "Vues",
     "airlines.chip_not_seen": "Pas encore vues",
     "airlines.chips_legend": "Filtrer les compagnies",

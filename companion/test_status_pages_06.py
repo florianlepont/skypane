@@ -8,6 +8,7 @@ calls companion.pages.airlines_page/companion.layout directly, in-process.
 """
 import os
 import re
+import shutil
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -43,6 +44,15 @@ def _card_slice(rendered, airline_name):
     assert name_index >= 0, airline_name
     card_start = rendered.rindex('<tbody class="airline-group"', 0, name_index)
     return rendered[card_start:rendered.index("</tbody>", card_start)]
+
+
+def _known_slice(rendered, airline_name):
+    """The one known-by-name `<tbody>` of `airline_name`."""
+    marker = 'airlines-known__name">%s<' % layout.escape_html(airline_name)
+    index = rendered.find(marker)
+    assert index >= 0, airline_name
+    start = rendered.rindex('<tbody class="airline-group airline-group--known"', 0, index)
+    return rendered[start:rendered.index("</tbody>", start)]
 
 
 def _grid_section(rendered):
@@ -176,7 +186,7 @@ def test_replace_control_escapes_hostile_airline_name(monkeypatch):
         rendered, re.DOTALL)
     assert form_match, "expected to find the lightbox replace form's own markup"
     assert "script" not in form_match.group(0).lower()
-    assert '<span class="airlines-name airlines-name--fixed">%s</span>' % (
+    assert '<span class="airlines-known__name">%s</span>' % (
         layout.escape_html(hostile_name)) in rendered
 
 
@@ -600,16 +610,12 @@ def test_active_manual_states_render_expected_attributes_and_no_chip(tmp_path):
     assert "Delete my name" in card_art
     assert "airline-card__chip" not in card_art
 
-    card_needs = _card_slice(rendered, "Totally Novel Airline")
-    expected_open = '<a href="%s?%s=XQZ" class="airlines-thumb"' % (
-        airlines_page.MANAGE_ROUTE, airlines_page.RESOLVE_QUERY_PARAM)
-    assert expected_open in card_needs
-    assert 'data-view-panel-mode="needs-artwork"' in card_needs
-    expected_heading = airlines_page.STEP_B_HEADING_TEMPLATE % "Totally Novel Airline"
-    assert ('data-view-panel-heading="%s"' % expected_heading) in card_needs
-    assert 'data-view-panel-upload-action="/illustration/totally-novel-airline.png"' in card_needs
-    assert "airline-card__chip" not in card_needs
-    assert 'class="airline-card__placeholder"' in card_needs
+    assert "Totally Novel Airline" not in _grid_section(rendered)
+    known = _known_slice(rendered, "Totally Novel Airline")
+    assert 'aria-label="Add the first artwork for Totally Novel Airline"' in known
+    assert 'data-view-panel-upload-action="/illustration/totally-novel-airline.png"' in known
+    assert 'action="%s"' % airlines_page._manual_delete_action("XQZ") in known
+    assert ">XQZ<" in known and "airline-card__chip" not in known
 
 
 def test_needs_artwork_sighting_context_conditional_on_live_gap(tmp_path):
@@ -630,15 +636,13 @@ def test_needs_artwork_sighting_context_conditional_on_live_gap(tmp_path):
     })
     for tmp in (tmp_live, tmp_cleared):
         manual_resolutions.add_entry(tmp, "XQZ", "Totally Novel Airline", now="2026-01-01T00:00:00+00:00")
-    card_live = _card_slice(airlines_page.render(shp.ctx(tmp_live)), "Totally Novel Airline")
-    assert re.search(r'data-view-panel-first-seen="[^"]+"', card_live)
-    assert re.search(r'data-view-panel-last-seen="[^"]+"', card_live)
-    assert 'data-view-panel-count="5"' in card_live
-
-    card_cleared = _card_slice(airlines_page.render(shp.ctx(tmp_cleared)), "Totally Novel Airline")
-    assert 'data-view-panel-first-seen=""' in card_cleared
-    assert 'data-view-panel-last-seen=""' in card_cleared
-    assert 'data-view-panel-count=""' in card_cleared
+    fields = {}
+    for name, tmp in (("live", tmp_live), ("cleared", tmp_cleared)):
+        fields[name] = airlines_page._airline_card_manual_fields(
+            ("XQZ", False, True), "Totally Novel Airline", "totally-novel-airline", tmp,
+            "2026-01-03T00:00:00+00:00")
+    assert all(fields["live"][9:12]) and fields["live"][11] == "5"
+    assert fields["cleared"][9:12] == ("", "", "")
 
 
 def test_airline_row_html_superseded_shows_built_in_state_never_operator_upload(tmp_path):
@@ -674,9 +678,15 @@ def test_render_grid_injection_adds_exactly_one_novel_row_and_none_for_supersede
     os.makedirs(tmp_none)
     manual_resolutions.add_entry(tmp_novel, "XQZ", "Totally Novel Airline", now="2026-01-01T00:00:00+00:00")
     rendered_novel = airlines_page.render(shp.ctx(tmp_novel))
-    novel_count = _grid_section(rendered_novel).count(
-        '<span class="airlines-name airlines-name--fixed">Totally Novel Airline</span>')
-    assert novel_count == 1
+    assert "Totally Novel Airline" not in _grid_section(rendered_novel)
+    assert rendered_novel.count('<span class="airlines-known__name">Totally Novel Airline</span>') == 1
+    key_path = illustrations.override_path_for_key("totally-novel-airline", tmp_novel)
+    os.makedirs(os.path.dirname(key_path), exist_ok=True)
+    shutil.copy(os.path.join(illustrations.ILLUSTRATION_DIR, "vueling-airlines.png"), key_path)
+    rendered_art = airlines_page.render(shp.ctx(tmp_novel))
+    assert _grid_section(rendered_art).count(
+        '<span class="airlines-name airlines-name--fixed">Totally Novel Airline</span>') == 1
+    assert "airlines-known__name\">Totally Novel Airline" not in rendered_art
 
     manual_resolutions.add_entry(tmp_none, "AFR", "Some Other Airline", now="2026-01-01T00:00:00+00:00")
     manual_resolutions.add_entry(tmp_none, "OLD", "Air France", now="2026-01-01T00:00:00+00:00")
@@ -1429,9 +1439,8 @@ def test_airlines_page_drops_decorative_labels_and_explains_owner_actions(tmp_pa
         assert retired not in rendered
     assert 'aria-label="Airline name: Air France"' in card
     assert ">Replace artwork</" not in card
-    novel = _card_slice(rendered, "Totally Novel Airline")
-    assert 'aria-label="Add artwork: Totally Novel Airline"' in novel
-    assert 'class="airline-card__placeholder"' in novel
+    novel = _known_slice(rendered, "Totally Novel Airline")
+    assert 'aria-label="Add the first artwork for Totally Novel Airline"' in novel
     assert "airline-card__chip" not in novel
     assert "Resolved by hand" not in novel
     assert ">Add artwork</" not in novel
