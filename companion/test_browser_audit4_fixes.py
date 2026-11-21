@@ -206,10 +206,18 @@ def test_the_picture_dialog_caption_uses_the_body_font(new_context, app_server_i
 
 
 def test_a_hand_named_airline_keeps_its_row_one_line_tall(new_context, app_server_in_process):
-    from server.plane import manual_resolutions
+    """With artwork the airline is a row of the table, like the others; without it, a row of the
+    "Known by name only" block, as tall and as aligned as the block's other rows."""
+    import os
+    import shutil
+    from server.plane import illustrations, manual_resolutions
     server = app_server_in_process
-    manual_resolutions.add_entry(
-        server.state_dir, "RYR", "Ryanair", now="2026-01-01T00:00:00+00:00")
+    for prefix, name in (("RYR", "Ryanair"), ("ZPH", "Zephyr Air")):
+        manual_resolutions.add_entry(server.state_dir, prefix, name, now="2026-01-01T00:00:00+00:00")
+    override = illustrations.override_path_for_key(
+        manual_resolutions.illustration_key_for_name("Ryanair"), server.state_dir)
+    os.makedirs(os.path.dirname(override), exist_ok=True)
+    shutil.copyfile(os.path.join(illustrations.ILLUSTRATION_DIR, "vueling-airlines.png"), override)
     context, page, _seed = _open(
         new_context, server, "/airlines/manage", VIEWPORT_DESKTOP, "fr", theme="dark")
     try:
@@ -220,6 +228,14 @@ def test_a_hand_named_airline_keeps_its_row_one_line_tall(new_context, app_serve
             return [mine.getBoundingClientRect().height, other.getBoundingClientRect().height,
                     left(mine), left(other)]; }""")
         assert abs(sizes[0] - sizes[1]) <= 2 and abs(sizes[2] - sizes[3]) <= 1, sizes
+        known = page.evaluate("""() => { const rows = [...document.querySelectorAll(
+                'tbody.airline-group--known .airlines-known')];
+            const zephyr = rows.find(r => r.textContent.includes('Zephyr Air'));
+            const other = rows.find(r => !r.textContent.includes('Zephyr Air'));
+            const left = el => el.querySelector('.airlines-known__name').getBoundingClientRect().left;
+            return [zephyr.getBoundingClientRect().height, other.getBoundingClientRect().height,
+                    left(zephyr), left(other)]; }""")
+        assert abs(known[0] - known[1]) <= 2 and abs(known[2] - known[3]) <= 1, known
     finally:
         context.close()
 

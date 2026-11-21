@@ -77,6 +77,18 @@ DIALOG_ZONE = "#panel-lookup-dialog [%s='%s']" % (
 )
 
 
+def _open_artwork_step(page, base_url, pick_type=True):
+    """Opens the add-artwork step of the hand-named airline from its row of the
+    "Known by name only" block, and waits for its drop zone. The step asks the
+    aircraft type of the first artwork (required); `pick_type` answers it."""
+    page.goto(base_url + "/airlines/manage")
+    page.locator("tbody.airline-group--known", has_text=ARTWORK_NAME).locator(
+        ".airlines-known__add").click()
+    _await_upload_zone(page, DIALOG_ZONE)
+    if pick_type:
+        page.locator("#panel-lookup-dialog #airline_artwork_type").select_option("A320")
+
+
 def _seed_with_needs_artwork_entry(state_dir):
     seed_state_dir(state_dir)
     if manual_resolutions.add_entry(
@@ -1034,8 +1046,7 @@ def test_dropped_and_picked_files_are_stored_identically(new_context, make_app_s
                 % (ARTWORK_KEY,))
         page = context.new_page()
         _login(page, base_url)
-        page.goto(base_url + ARTWORK_ROUTE)
-        _await_upload_zone(page, DIALOG_ZONE)
+        _open_artwork_step(page, base_url)
         submit = "#%s button[type=\"submit\"]" % (
             airlines_page.MANUAL_UPLOAD_FORM_ID + "-dialog")
 
@@ -1048,8 +1059,7 @@ def test_dropped_and_picked_files_are_stored_identically(new_context, make_app_s
                 page.click(submit)
             written = _stored_artwork(server)
             _clear_stored_artwork(server)
-            page.goto(base_url + ARTWORK_ROUTE)
-            _await_upload_zone(page, DIALOG_ZONE)
+            _open_artwork_step(page, base_url)
             return written
 
         # THE FIXTURES, PROVED NON-VACUOUS AGAINST THE APP'S OWN NUMBER
@@ -1126,8 +1136,7 @@ def test_dropped_and_picked_files_are_stored_identically(new_context, make_app_s
                 "(%r was holding %r, now %r) - declining to perform its own act is "
                 "the script doing nothing; removing somebody else's choice is the "
                 "script doing harm" % (shown["name"], shown["size"], after))
-        page.goto(base_url + ARTWORK_ROUTE)
-        _await_upload_zone(page, DIALOG_ZONE)
+        _open_artwork_step(page, base_url)
 
         # --- THE EQUIVALENCE, WHICH IS THE WHOLE POINT ---
         _clear_stored_artwork(server)
@@ -1233,8 +1242,7 @@ def test_the_artwork_drop_zone_meets_its_floors_at_360px_in_both_themes(
     try:
         page = context.new_page()
         _login(page, base_url)
-        page.goto(base_url + ARTWORK_ROUTE)
-        _await_upload_zone(page, DIALOG_ZONE)
+        _open_artwork_step(page, base_url)
 
         hit = _assert_hit_target(
             page, DIALOG_ZONE, "the artwork drop zone on Airlines at 360px")
@@ -1382,8 +1390,7 @@ def test_the_artwork_drop_zone_is_operable_from_the_keyboard_alone(
 
         page = context.new_page()
         _login(page, base_url)
-        page.goto(base_url + ARTWORK_ROUTE)
-        _await_upload_zone(page, DIALOG_ZONE)
+        _open_artwork_step(page, base_url, pick_type=False)
         _set_ui_theme(page, theme)
 
         input_sel = "#%s" % (airlines_page.MANUAL_UPLOAD_INPUT_ID + "-dialog")
@@ -1403,7 +1410,14 @@ def test_the_artwork_drop_zone_is_operable_from_the_keyboard_alone(
             " return !!(i.files && i.files.length); }",
             arg=input_sel, timeout=5000)
 
-        _tab_until_focused(page, submit_sel, theme, "after choosing a file")
+        type_sel = "#panel-lookup-dialog #airline_artwork_type"
+        _tab_until_focused(page, type_sel, theme, "after choosing a file")
+        page.keyboard.press("ArrowDown")
+        if not page.evaluate("sel => document.querySelector(sel).value", type_sel):
+            raise AssertionError(
+                "theme=%s: ArrowDown did not answer the aircraft type question" % theme)
+
+        _tab_until_focused(page, submit_sel, theme, "after answering the aircraft type")
 
         with page.expect_navigation():
             page.keyboard.press("Enter")
@@ -1514,10 +1528,9 @@ def test_deleting_a_manual_name_states_its_outcome_and_removes_the_entry(
         page = context.new_page()
         _login(page, server.base_url())
         page.goto(server.base_url() + "/airlines/manage")
-        page.locator('a.airlines-thumb[data-view-panel-resolve-prefix="%s"]'
-                     % ARTWORK_PREFIX).click()
-        dialog = page.locator("#panel-lookup-dialog")
-        delete_form = dialog.locator("form.lightbox__delete")
+        row = page.locator("tbody.airline-group--known", has_text=ARTWORK_NAME)
+        row.locator(".row-menu__toggle").click()
+        delete_form = row.locator("form.airlines-menu__form")
         delete_form.wait_for(state="visible")
         if "become unidentified again" not in delete_form.text_content():
             raise AssertionError("delete form does not state its outcome: %r"
