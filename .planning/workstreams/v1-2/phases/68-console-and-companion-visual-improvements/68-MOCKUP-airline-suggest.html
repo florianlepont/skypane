@@ -1,0 +1,515 @@
+<!--
+OWNER-APPROVED: NOT YET APPROVED
+Airline-suggestion mockup, plan 68-39 (run 1). The owner decisions are listed in the top note and in "Questions for the owner".
+Approved items 4 and 5 of 68-MOCKUP-editor.html (tag, check, dialog) are reused; this adds the suggestion states.
+-->
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SkyPane mockup: Airline suggestion (Phase 68, plan 39)</title>
+<style>
+/* Standalone mockup, no external asset. Tokens follow companion/static/style.css (light and dark only).
+   Each mock sits in a [data-viewport] box, 390 px (phone) or 1440 px (desktop); every translated block is a
+   [data-lang] wrapper and the toggle at the top shows one language at a time. All names are invented. */
+
+/* Standalone mockup, no external asset. Tokens follow companion/static/style.css (light and dark only).
+   Each mock sits in a [data-viewport] box, 390 px (phone) or 1440 px (desktop); every translated block is a
+   [data-lang] wrapper and the toggle at the top shows one language at a time. All names and addresses are invented. */
+:root{
+  --sky:linear-gradient(#E7EEF7,#F1F3F6 45%,#EDF1F6); --canvas:#F1F3F6; --stage:#E4E9F0;
+  --text:#17191F; --muted:#5B6372; --border:#DAE1EB; --chip:#E9EEF5; --card:#fff;
+  --accent:#1F2430; --on-accent:#fff; --glass:rgba(255,255,255,.78); --tab:#fff; --shadow:0 6px 20px rgba(20,30,50,.08);
+  --ok:#16A34A; --okbg:#DDF3E4; --warn:#D97706; --err:#BE123C;
+}
+@media (prefers-color-scheme:dark){:root:not([data-ui-theme="light"]){
+  --sky:linear-gradient(#12151D,#161A24 45%,#1A1F2B); --canvas:#161A24; --stage:#0E1117;
+  --text:#F1F3F6; --muted:#A3ABBB; --border:#2A3040; --chip:#232A38; --card:#1C222D;
+  --accent:#F2EFE9; --on-accent:#14171F; --glass:rgba(34,40,54,.82); --tab:#1C222D; --shadow:0 6px 20px rgba(0,0,0,.35);
+  --ok:#4ADE80; --okbg:#173225; --warn:#FBBF24; --err:#FB7185; color-scheme:dark}}
+:root[data-ui-theme="dark"]{
+  --sky:linear-gradient(#12151D,#161A24 45%,#1A1F2B); --canvas:#161A24; --stage:#0E1117;
+  --text:#F1F3F6; --muted:#A3ABBB; --border:#2A3040; --chip:#232A38; --card:#1C222D;
+  --accent:#F2EFE9; --on-accent:#14171F; --glass:rgba(34,40,54,.82); --tab:#1C222D; --shadow:0 6px 20px rgba(0,0,0,.35);
+  --ok:#4ADE80; --okbg:#173225; --warn:#FBBF24; --err:#FB7185; color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--stage);color:var(--text);font:16px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;padding:32px 16px 96px}
+button,input{font:inherit;color:inherit}
+a{color:inherit;text-decoration:none}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.num{font-variant-numeric:tabular-nums}
+.top{max-width:1500px;margin:0 auto 24px;display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between;align-items:flex-end}
+.top h1{margin:0 0 8px;font-size:34px;letter-spacing:-.03em}
+.top p{margin:0;color:var(--muted);max-width:75ch}
+.toggles{display:flex;gap:16px;flex-wrap:wrap}
+.seg{display:inline-flex;background:var(--chip);border-radius:32px;padding:4px;gap:4px}
+.seg button{border:0;background:none;min-height:44px;padding:0 16px;border-radius:32px;cursor:pointer;font-size:15px}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent)}
+.sec{max-width:1500px;margin:56px auto 0}
+.sec>h2{margin:0 0 4px;font-size:26px;letter-spacing:-.02em}
+.sec>p.lead{margin:0 0 24px;color:var(--muted);max-width:85ch}
+.row2{display:flex;flex-wrap:wrap;gap:32px;align-items:flex-start}
+.mock{margin:0;display:flex;flex-direction:column;gap:8px;min-width:0}
+.mock>figcaption{font-size:15px;font-weight:600}
+.mock>figcaption small{display:block;font-weight:400;color:var(--muted);font-size:13px}
+.scroller{max-width:100%;overflow-x:auto;padding-bottom:8px}
+[data-ui-lang="en"] [data-lang="fr"],[data-ui-lang="fr"] [data-lang="en"]{display:none}
+.note{margin:12px 0 0;padding:12px 16px;border:1px dashed var(--border);border-radius:14px;color:var(--muted);font-size:14px;max-width:85ch}
+.note b{color:var(--text)}
+
+[data-viewport]{position:relative;overflow:hidden;border:1px solid var(--border);background:var(--sky) var(--canvas);box-shadow:0 12px 40px rgba(20,30,50,.12)}
+[data-viewport="phone"]{width:390px;height:780px;border-radius:36px}
+[data-viewport="desktop"]{width:1440px;height:900px;border-radius:16px}
+[data-viewport] [data-lang]{height:100%;position:relative}
+
+/* shared pieces */
+.ic{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--ok);flex:none;display:inline-block}
+.dot.idle{background:var(--muted)}.dot.err{background:var(--err)}.dot.pend{background:var(--warn)}
+.label{margin:0 0 6px 16px;font-size:13px;font-weight:600;color:var(--muted)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:22px;box-shadow:var(--shadow);overflow:hidden}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 18px;border:1px solid var(--border);border-radius:14px;background:var(--card);font-size:15px;font-weight:600;cursor:pointer}
+.btn.dark{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.btn.sq{width:44px;padding:0}
+.field{display:flex;align-items:center;gap:8px;min-height:44px;padding:0 14px;border:1px solid var(--border);border-radius:14px;background:var(--card)}
+.field input{flex:1;min-width:0;border:0;background:none;min-height:42px;outline:0}
+.title{margin:0;font-size:40px;line-height:1.1;font-weight:700;letter-spacing:-.03em}
+.sub{color:var(--muted);font-size:15px}
+.state{margin:6px 0 0;display:flex;align-items:center;gap:8px;font-weight:600}
+
+/* rows */
+.item{display:flex;align-items:center;gap:12px;min-height:64px;padding:10px 16px;border-top:1px solid var(--border)}
+.item:first-child{border-top:0}
+.item .who{flex:1;min-width:0}
+.item .who small{display:block;color:var(--muted);font-size:13px}
+.item .who b{display:block;font-weight:600}
+.item .val{color:var(--muted);font-size:14px;white-space:nowrap}
+.ico{width:36px;height:36px;border-radius:50%;background:var(--chip);display:flex;align-items:center;justify-content:center;flex:none}
+.ico.ok{background:var(--okbg);color:var(--ok)}
+.sw{flex:none;width:51px;height:31px;border-radius:31px;background:#7C8696;position:relative;cursor:pointer}
+.sw::after{content:"";position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.sw.on{background:var(--accent)}.sw.on::after{left:22px}
+.badge{display:inline-flex;align-items:center;min-height:24px;padding:0 10px;border-radius:32px;border:1px solid var(--border);font-size:12px;color:var(--muted)}
+.range{height:6px;border-radius:6px;background:var(--border);position:relative;margin:14px 0 4px}
+.range i{position:absolute;left:0;top:0;bottom:0;width:26%;border-radius:6px;background:var(--accent)}
+.range b{position:absolute;left:26%;top:50%;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;background:var(--accent)}
+.section{display:flex;flex-direction:column}
+.danger b{color:var(--err)}
+
+/* frame list rows */
+.frow{display:flex;align-items:center;gap:12px;min-height:56px;padding:6px 14px;border-top:1px solid var(--border);cursor:pointer}
+.frow:first-child{border-top:0}
+.frow .who{flex:1;min-width:0}
+.frow .who b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.frow .who small{display:block;color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.frow .seen{font-size:13px;color:var(--muted);white-space:nowrap}
+.frow.retired{opacity:.8}
+.frow.sel{background:var(--chip)}
+.chev{color:var(--muted)}
+
+/* phone shell */
+.ptop{position:absolute;left:0;right:0;top:0;height:64px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;z-index:5}
+.brand{display:flex;align-items:center;gap:8px;font-size:22px;font-weight:700;letter-spacing:-.02em}
+.screen{position:absolute;inset:64px 0 0 0;overflow-y:auto;padding:8px 16px 120px;display:flex;flex-direction:column;gap:16px;scrollbar-width:none}
+.screen::-webkit-scrollbar{display:none}
+.screen>*{flex-shrink:0}
+.tabs{position:absolute;left:12px;right:12px;bottom:14px;display:flex;justify-content:space-around;padding:8px 6px;background:var(--tab);border:1px solid var(--border);border-radius:34px;box-shadow:0 8px 24px rgba(20,30,50,.14);z-index:6}
+.tab{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-width:60px;min-height:52px;border-radius:26px;font-size:11px;color:var(--text)}
+.tab.on{background:var(--accent);color:var(--on-accent);font-weight:600}
+.chips{display:flex;gap:8px;overflow-x:auto;margin:0 -16px;padding:0 16px 4px;scrollbar-width:none}
+.chip{flex:none;display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 14px;border-radius:32px;background:var(--card);border:1px solid var(--border);font-size:14px;white-space:nowrap}
+.chip[aria-current="page"]{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.chip.all{background:var(--chip)}
+.anchors{position:sticky;top:-8px;z-index:3;margin:0 -16px;padding:8px 16px;display:flex;gap:8px;background:var(--canvas)}
+.anchors button{flex:1;min-height:44px;border:1px solid var(--border);border-radius:32px;background:var(--card);font-size:14px;cursor:pointer}
+.anchors button[aria-current="true"]{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.blk{scroll-margin-top:72px}
+
+/* desktop shell */
+.side{position:absolute;left:0;top:0;bottom:0;width:240px;padding:24px 16px;background:var(--glass);border-right:1px solid var(--border);display:flex;flex-direction:column;gap:8px}
+.side .brand{padding:0 8px;margin-bottom:8px}
+.space{display:flex;gap:4px;padding:4px;border-radius:16px;background:var(--chip);margin-bottom:8px}
+.space span{flex:1;text-align:center;min-height:36px;display:flex;align-items:center;justify-content:center;border-radius:12px;font-size:14px;font-weight:600;color:var(--muted)}
+.space span.on{background:var(--accent);color:var(--on-accent)}
+.nlabel{margin:12px 8px 0;font-size:13px;font-weight:600;color:var(--muted)}
+.nav{display:flex;align-items:center;gap:12px;min-height:46px;padding:0 12px;border-radius:14px;font-size:15px}
+.nav.on{background:var(--accent);color:var(--on-accent);font-weight:600}
+.sep{height:1px;background:var(--border);margin:8px 0}
+.signout{margin-top:auto}
+.listp{position:absolute;left:240px;top:0;bottom:0;width:350px;background:var(--glass);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.listp .lhead{flex:none;padding:20px 16px 12px;display:flex;flex-direction:column;gap:12px;border-bottom:1px solid var(--border)}
+.listp .lbody{flex:1;min-height:0;overflow-y:auto;padding:12px 12px 20px;display:flex;flex-direction:column;gap:14px}
+.main{position:absolute;left:590px;right:0;top:0;bottom:0;overflow-y:auto;padding:32px 44px 64px}
+.dcol{display:flex;flex-direction:column;gap:24px;max-width:760px;margin-top:20px}
+.titlerow{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.iconbtns{display:flex;gap:8px;flex:none}
+.sparkline{display:block;width:100%;height:44px}
+.sub2{display:flex;flex-direction:column;gap:6px;width:100%;padding-left:48px;font-size:13px;color:var(--muted)}
+.item.wrap{flex-wrap:wrap}
+.tiles2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.tile2{display:flex;flex-direction:column;gap:6px;min-height:132px;padding:14px;border-radius:22px;background:var(--card);border:1px solid var(--border);box-shadow:var(--shadow);min-width:0}
+.tile2 .th{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+.tile2 .tv{font-size:19px;font-weight:700;letter-spacing:-.01em}
+.tile2 .tm{font-size:13px;color:var(--muted)}
+.tile2 .more{margin-top:auto;display:flex;align-items:center;gap:4px;font-size:13px;font-weight:600}
+.bigspark{display:block;width:100%;height:120px;color:var(--accent)}
+.kv{display:grid;grid-template-columns:1fr auto;gap:6px 16px;padding:12px 16px;border-top:1px solid var(--border);font-size:14px}
+.kv span:nth-child(odd){color:var(--muted)}
+.kv span:nth-child(even){text-align:right}
+.rtable{width:100%;border-collapse:collapse;font-size:14px}
+.rtable th{text-align:left;color:var(--muted);font-weight:600;font-size:13px;padding:8px 16px}
+.rtable td{padding:8px 16px;border-top:1px solid var(--border)}
+.rtable td:last-child,.rtable th:last-child{text-align:right}
+.banner{display:flex;flex-direction:column;gap:8px;padding:12px 16px;border-radius:18px;border:1px solid var(--warn);background:var(--card)}
+.banner b{font-weight:700}
+.pills{display:flex;flex-wrap:wrap;gap:6px}
+.pill{display:inline-flex;align-items:center;min-height:26px;padding:0 10px;border-radius:32px;background:var(--chip);font-size:13px}
+.pill.warn{background:var(--card);border:1px solid var(--warn)}
+.unit{display:inline-flex;gap:4px;padding:3px;border-radius:12px;background:var(--chip)}
+.unit span{min-height:32px;padding:0 12px;display:flex;align-items:center;border-radius:9px;font-size:13px}
+.unit span.on{background:var(--accent);color:var(--on-accent);font-weight:600}
+details.rd{border-top:1px solid var(--border)}
+details.rd summary{min-height:48px;display:flex;align-items:center;padding:0 16px;font-size:14px;font-weight:600;cursor:pointer}
+.outcomes{list-style:none;margin:0;padding:0}
+.outcomes li{padding:10px 16px;border-top:1px solid var(--border)}
+.outcomes p{margin:0;display:flex;align-items:center;gap:8px;font-weight:600}
+.outcomes p span.n{margin-left:auto}
+.outcomes small{display:block;color:var(--muted);font-size:13px;margin:2px 0 0 16px}
+.rtable.l td:last-child,.rtable.l th:last-child{text-align:left}
+.pagehead{display:flex;flex-direction:column;gap:6px;margin-bottom:8px}
+.backl{display:inline-flex;align-items:center;gap:6px;min-height:44px;font-size:15px;font-weight:600}
+.ring{width:64px;height:64px;border-radius:50%;background:conic-gradient(var(--ok) 0 47%,var(--border) 0);display:flex;align-items:center;justify-content:center;flex:none}
+.ring b{width:48px;height:48px;border-radius:50%;background:var(--card);display:flex;align-items:center;justify-content:center;font-size:14px}
+.vrow{display:flex;align-items:center;gap:12px;min-height:52px;padding:6px 16px;border-top:1px solid var(--border)}
+.vrow .who{flex:1}
+.btn.quiet{min-height:40px;font-weight:500;color:var(--muted)}
+
+@media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+
+.tbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.tbar .field{flex:1;min-width:220px}
+.fchips{display:flex;gap:8px;flex-wrap:wrap}
+[data-viewport="phone"] .fchips{flex-wrap:nowrap;overflow-x:auto;margin:0 -16px;padding:0 16px 4px;scrollbar-width:none}
+.fchip{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 14px;border-radius:32px;border:1px solid var(--border);background:var(--card);font-size:14px;white-space:nowrap}
+.fchip.on{background:var(--accent);color:var(--on-accent);border-color:var(--accent);font-weight:600}
+.fchip i{font-style:normal;font-size:12px;opacity:.75}
+[data-viewport="phone"] .urow{flex-wrap:wrap;row-gap:4px}
+[data-viewport="phone"] .urow .who{flex:1 1 calc(100% - 70px)}
+[data-viewport="phone"] .urow>.tlink,[data-viewport="phone"] .urow>.btn{margin-left:auto}
+[data-viewport="phone"] .urow.nw{flex-wrap:nowrap}
+[data-viewport="phone"] .urow.nw .who{flex:1 1 0}
+[data-viewport="phone"] .trow{flex-wrap:wrap;row-gap:6px}
+[data-viewport="phone"] .trow .who{flex:1 1 calc(100% - 110px)}
+[data-viewport="phone"] .trow>.btn.quiet{margin-left:auto}
+.tlink{display:inline-flex;align-items:center;min-height:44px;padding:0 6px;font-size:14px;font-weight:600;color:var(--muted);text-decoration:underline;text-underline-offset:3px}
+.urow2{display:flex;align-items:center;gap:12px;min-height:64px;padding:8px 14px;border-top:1px solid var(--border)}
+.urow2:first-child{border-top:0}
+.pfx{font-family:ui-monospace,Menlo,monospace;font-weight:700;font-size:13px;padding:6px 8px;border-radius:10px;background:var(--chip);min-width:50px;text-align:center;flex:none}
+.ub{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.utop{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.utop b{font-size:16px}
+.tag{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;color:var(--accent);background:var(--chip);padding:2px 8px;border-radius:32px;white-space:nowrap}
+.tag .ic{width:14px;height:14px}
+.ub small{color:var(--muted);font-size:13px}
+.uact{display:flex;align-items:center;gap:4px;flex:none}
+.ck{width:44px;height:44px;border-radius:50%;background:var(--accent);color:var(--on-accent);display:flex;align-items:center;justify-content:center;flex:none}
+.ck .ic{width:22px;height:22px;stroke-width:2.4}
+.ck.off{opacity:.3}
+.field.slim{min-height:40px;border-radius:12px;padding:0 12px}
+.sugg{display:flex;align-items:center;gap:6px;font-size:15px}
+.sugg .ic{color:var(--accent);width:18px;height:18px}
+.sugg b{font-weight:700}
+[data-viewport="phone"] .dlgd{display:none}
+[data-viewport="desktop"] .sheetd{display:none}
+.sheet h4{margin:0;font-size:20px}
+.sheet .row{display:flex;gap:10px}.sheet .row .btn{flex:1}
+.sheet .sub{font-size:15px}
+.mono{font-family:ui-monospace,Menlo,monospace;font-size:13px}
+.thumb{width:84px;height:44px;border-radius:12px;background:var(--chip);display:flex;align-items:center;justify-content:center;flex:none;overflow:hidden}
+.thumb.none{border:1px dashed var(--border);background:transparent;color:var(--muted);font-size:11px}
+.thumb svg{width:70px;height:26px}
+.etable{width:100%;border-collapse:collapse}
+.etable th{text-align:left;color:var(--muted);font-weight:600;font-size:13px;padding:10px 12px;border-bottom:1px solid var(--border)}
+.etable td{padding:8px 12px;border-top:1px solid var(--border);vertical-align:middle}
+.etable tr:first-child td{border-top:0}
+.etable .exp td{background:var(--chip);padding:12px 12px 12px 56px}
+.rname{font-weight:600}
+.rmenu{position:relative}
+.menu{position:absolute;right:12px;top:44px;z-index:8;min-width:250px;background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:0 12px 32px rgba(20,30,50,.2);padding:6px}
+.menu a{display:flex;align-items:center;min-height:44px;padding:0 12px;border-radius:10px;font-size:15px}
+.menu a:hover{background:var(--chip)}
+.menu a.dg{color:var(--err)}
+.urow{display:flex;align-items:center;gap:12px;min-height:60px;padding:8px 16px;border-top:1px solid var(--border)}
+.urow:first-child{border-top:0}
+.urow .who{flex:1;min-width:0}
+.urow .who b{display:block}
+.urow .who small{display:block;color:var(--muted);font-size:13px}
+.uform{display:grid;grid-template-columns:1fr 1fr auto;gap:10px;padding:12px 16px 16px;background:var(--chip);border-top:1px solid var(--border)}
+.uform .field{background:var(--card)}
+.types{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.trow{display:flex;align-items:center;gap:12px;padding:8px 12px;border-radius:14px;background:var(--card);border:1px solid var(--border);min-height:60px}
+.trow .who{flex:1;min-width:0}
+.trow .who small{display:block;color:var(--muted);font-size:13px}
+.scrim{position:absolute;inset:0;background:rgba(10,14,22,.45);z-index:20}
+.sheet{position:absolute;left:0;right:0;bottom:0;z-index:21;background:var(--card);border-radius:28px 28px 0 0;padding:12px 16px 24px;display:flex;flex-direction:column;gap:12px}
+.sheet .grab{width:44px;height:5px;border-radius:5px;background:var(--border);margin:0 auto 4px}
+.dlg{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:21;width:min(440px,86%);background:var(--card);border:1px solid var(--border);border-radius:24px;padding:20px;display:flex;flex-direction:column;gap:14px;box-shadow:0 20px 50px rgba(20,30,50,.3)}
+.dlg h4{margin:0;font-size:20px}
+.dlg .row{display:flex;gap:10px;justify-content:flex-end}
+.pr{display:flex;flex-wrap:wrap;gap:6px}
+.main{overflow-y:auto}
+select.sel{min-height:44px;border:1px solid var(--border);border-radius:14px;background:var(--card);padding:0 12px;width:100%}
+
+/* airline-suggestion additions */
+.utop{flex-wrap:wrap;min-width:0}
+.nm{flex:0 1 auto;min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:16px;font-weight:700}
+.tag.pend{color:var(--muted);background:transparent;border:1px dashed var(--border)}
+.tag.pend .pd{width:8px;height:8px;border-radius:50%;background:var(--warn);animation:pulse 1.4s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:.35;transform:scale(.8)}50%{opacity:1;transform:scale(1)}}
+@media (prefers-reduced-motion:reduce){.tag.pend .pd{animation:none;opacity:1}}
+.cap{display:block;color:var(--muted);font-size:13px}
+.anno{padding:6px 14px;border-top:1px dashed var(--border);border-bottom:1px dashed var(--border);background:var(--chip);font-size:12px;font-weight:600;color:var(--muted)}
+.hint{display:flex;gap:8px;align-items:flex-start;color:var(--muted);font-size:14px}
+.hint .ic{width:18px;height:18px;margin-top:1px}
+.dact{display:flex;gap:10px;align-items:center;justify-content:flex-end;flex-wrap:wrap}
+.dact .rm{margin-right:auto;color:var(--err);border-color:transparent;background:none}
+[data-viewport="phone"] .dact{flex-direction:column-reverse;align-items:stretch}
+[data-viewport="phone"] .dact .btn{width:100%}
+[data-viewport="phone"] .dact .rm{margin-right:0}
+.toast{position:absolute;z-index:30;display:flex;align-items:center;gap:12px;padding:10px 16px 10px 10px;background:var(--card);border:1px solid var(--border);border-radius:18px;box-shadow:0 12px 32px rgba(20,30,50,.2);font-weight:600}
+[data-viewport="phone"] .toast{left:16px;right:16px;bottom:96px}
+[data-viewport="desktop"] .toast{left:50%;transform:translateX(-50%);bottom:28px;max-width:460px}
+.ib{width:44px;height:44px;border-radius:50%;border:1px solid var(--border);background:var(--card);display:flex;align-items:center;justify-content:center;flex:none;color:var(--muted)}
+.mini{width:390px;max-width:100%}
+.open{max-width:1500px;margin:0 auto 8px;padding:16px 20px;border:1px solid var(--warn);border-radius:18px;background:var(--card)}
+.open h2{margin:0 0 8px;font-size:18px}
+.open ol{margin:0;padding-left:22px;display:grid;gap:4px;font-size:15px}
+.qa{max-width:900px;display:grid;gap:12px}
+.qa .q{padding:14px 18px;border:1px solid var(--border);border-radius:18px;background:var(--card)}
+.qa .q b{display:block;margin-bottom:4px}
+.qa .q p{margin:0;color:var(--muted);font-size:14px}
+.priv{max-width:900px;display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.priv>div{padding:14px 18px;border-radius:18px;border:1px solid var(--border);background:var(--card)}
+.priv h3{margin:0 0 6px;font-size:16px}
+.priv ul{margin:0;padding-left:20px;display:grid;gap:3px;font-size:14px}
+.priv .no{border-color:var(--err)}
+@media (max-width:760px){.priv{grid-template-columns:1fr}}
+[data-show="phone"] [data-vp="desktop"],[data-show="desktop"] [data-vp="phone"]{display:none!important}
+</style>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-logo" viewBox="0 0 24 24"><rect x="4" y="3" width="14" height="18" rx="3"/><path d="M9 10l2 2 4-4"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8v.5"/></symbol>
+  <symbol id="i-fleet" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="3"/><path d="M9 11l2 2 4-4"/></symbol>
+  <symbol id="i-team" viewBox="0 0 24 24"><circle cx="9" cy="12" r="5"/><circle cx="15" cy="12" r="5"/></symbol>
+  <symbol id="i-tag" viewBox="0 0 24 24"><path d="M3 12V4h8l10 10-8 8z"/><circle cx="8" cy="8" r="1.4"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></symbol>
+  <symbol id="i-battery" viewBox="0 0 24 24"><rect x="2" y="7" width="17" height="10" rx="2"/><path d="M22 11v2"/></symbol>
+  <symbol id="i-plane" viewBox="0 0 24 24"><path d="M2 14l8-2 3-8 2 1-1 7 6 2v2l-6-1-2 4-2-.5.5-3.5L2 16z"/></symbol>
+  <symbol id="i-chip" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/></symbol>
+  <symbol id="i-timer" viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M9 2h6"/></symbol>
+  <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z"/></symbol>
+  <symbol id="i-frame" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2.5"/><rect x="7" y="8" width="10" height="8" rx="1"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+  <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM18 15l.8 2.2L21 18l-2.2.8L18 21l-.8-2.2L15 18l2.2-.8z"/></symbol>
+</svg>
+<div class="top">
+  <div>
+    <h1>Airline suggestion</h1>
+    <p>Mockup for the owner, on the real Airlines editor shell (CON-01, plan 39). Unidentified callsign prefixes get a name proposed by a small AI model; a person always presses the check. Sample data is invented.</p>
+  </div>
+  <div class="toggles">
+    <div class="seg" id="theme" role="group" aria-label="Theme"><button type="button" data-t="auto" aria-pressed="true">Auto</button><button type="button" data-t="light" aria-pressed="false">Light</button><button type="button" data-t="dark" aria-pressed="false">Dark</button></div>
+    <div class="seg" id="lang" role="group" aria-label="Language"><button type="button" data-l="en" aria-pressed="true">English</button><button type="button" data-l="fr" aria-pressed="false">Fran&ccedil;ais</button></div>
+    <div class="seg" id="vp" role="group" aria-label="Viewport"><button type="button" data-v="all" aria-pressed="true">All</button><button type="button" data-v="phone" aria-pressed="false">Phone 390</button><button type="button" data-v="desktop" aria-pressed="false">Desktop 1440</button></div>
+  </div>
+</div>
+<aside class="open" id="open-questions">
+  <h2>Owner decisions still open (details in &ldquo;Questions for the owner&rdquo;)</h2>
+  <ol>
+    <li>Tag wording: &ldquo;Suggestion&rdquo; or &ldquo;AI suggestion&rdquo; / &ldquo;Suggestion IA&rdquo;.</li>
+    <li>When the service fails: silent (looks like Name it) or a muted caption.</li>
+    <li>Where to reject a suggestion: the Edit dialog, or a visible icon on the row.</li>
+    <li>Caps: 10 calls an hour, 60 a day, one request per prefix ever.</li>
+    <li>Model (Claude Haiku 5.5) and the privacy statement.</li>
+    <li>Livery illustration: stays deferred, not part of this feature.</li>
+  </ol>
+</aside>
+<div id="app"></div>
+<script>
+(function(){
+  function nb(s){return s.replace(/ ([:;?!»])/g,' $1').replace(/« /g,'« ');}
+  var LONG='Oceanair Regional Passenger and Freight Services of the Southern Atlantic Coast Holding Company Ltd.';
+  var S={
+    en:{title:'Airlines editor',search:'Airline or prefix…',count:'36 of 36 shown',
+      f:['All','Unidentified','Known by name only','No artwork','Seen','Not seen yet'],
+      unid:'Unidentified',seen:function(n,d){return (n===1?'Seen once':'Seen '+n+'×')+' · '+d;},
+      nameph:'Airline name',validate:'Validate',cancel:'Cancel',
+      byname:'Known by name only',noart:'No artwork',addart:'Add the first artwork',addshort:'Artwork',
+      airlines:'Airlines',colA:'Airline',colP:'Prefixes',colD:'Default type',colV:'Views',colL:'Last seen',views:function(n){return n+' views';},never:'Not seen yet',openmenu:'Actions for Air France',
+      tabs:['Fleet','Team','Editor','Journal','More'],nav:['Fleet','Users','Editor','Audit log'],account:'Account',space:['Console','My frames'],admin:'Administration',signout:'Sign out',
+      sugg:'Suggestion',suggAi:'AI suggestion',pend:'Looking for a name',nameit:'Name it',edit:'Edit',
+      useFor:function(n,p){return 'Use the suggestion '+n+' for '+p;},
+      nosug:'No suggestion right now. Name it yourself.',
+      editT:'Edit the name',hint:'Suggested automatically from the callsign. Check it before using it.',remove:'Remove the suggestion',removeIc:'Remove the suggestion for ',
+      toast:function(p,n){return 'Airline named for '+p+': '+n+'.';},
+      annoA:'Variant A: silent. Identical to Name it only.',annoB:'Variant B: muted caption.',annoOff:'Service off (no key set): identical to today’s Name it rows.',annoPend:'Pending: Name it stays available while the name is looked up.',
+      wA:'Tag: Suggestion',wB:'Tag: AI suggestion',wC:'Tag: Suggestion IA (French)'},
+    fr:{title:'Éditeur de compagnies',search:'Compagnie ou indicatif…',count:'36 sur 36 affichées',
+      f:['Toutes','Non identifiées','Connues par leur nom','Sans illustration','Vues','Pas encore vues'],
+      unid:'Non identifiées',seen:function(n,d){return (n===1?'Vue une fois':'Vue '+n+'×')+' · '+d;},
+      nameph:'Nom de la compagnie',validate:'Valider',cancel:'Annuler',
+      byname:'Connues par leur nom seulement',noart:'Sans illustration',addart:'Ajouter la première illustration',addshort:'Illustration',
+      airlines:'Compagnies',colA:'Compagnie',colP:'Préfixes',colD:'Type par défaut',colV:'Vues',colL:'Dernière vue',views:function(n){return n+' vues';},never:'Pas encore vue',openmenu:'Actions pour Air France',
+      tabs:['Flotte','Équipe','Éditeur','Journal','Plus'],nav:['Flotte','Utilisateurs','Éditeur','Journal d’audit'],account:'Compte',space:['Console','Mes cadres'],admin:'Administration',signout:'Se déconnecter',
+      sugg:'Suggestion',suggAi:'Suggestion IA',pend:'Recherche d’un nom',nameit:'Nommer',edit:'Modifier',
+      useFor:function(n,p){return 'Utiliser la suggestion '+n+' pour '+p;},
+      nosug:'Aucune suggestion pour le moment. Nommez-la vous-même.',
+      editT:'Modifier le nom',hint:'Suggéré automatiquement à partir de l’indicatif. Vérifiez-le avant de l’utiliser.',remove:'Retirer la suggestion',removeIc:'Retirer la suggestion pour ',
+      toast:function(p,n){return 'Compagnie nommée pour '+p+' : '+n+'.';},
+      annoA:'Variante A : silencieux. Identique à Nommer seul.',annoB:'Variante B : légende discrète.',annoOff:'Service désactivé (pas de clé) : identique aux lignes Nommer actuelles.',annoPend:'En attente : Nommer reste disponible pendant la recherche.',
+      wA:'Étiquette : Suggestion',wB:'Étiquette : Suggestion IA (anglais : AI suggestion)',wC:'Étiquette : Suggestion IA'}
+  };
+  ['fr'].forEach(function(l){Object.keys(S[l]).forEach(function(k){var v=S[l][k];if(typeof v==='string')S[l][k]=nb(v);else if(Array.isArray(v))S[l][k]=v.map(nb);});});
+  function ic(n){return '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-'+n+'"/></svg>';}
+  function plane(c){return '<svg viewBox="0 0 70 26" aria-hidden="true"><path d="M2 14l30-3 18-9 4 1-8 9 14 2 8-3 2 1-6 4-12 2-14 7-4-1 5-7-24 0z" fill="'+(c||'#9AA3B2')+'"/></svg>';}
+  function thumb(c){return c?'<span class="thumb">'+plane(c)+'</span>':'<span class="thumb none">—</span>';}
+  var AIR=[['Air France','AFR','#1F3A8A',37,'10:29','A320'],['Iberia Airlines','IBE','#DC2626',0,'','A320'],['TAP Portugal','TAP','#16A34A',0,'','A321'],['Air Algérie','DAH','#DC2626',3,'17 nov.','B737-800']];
+  var UNID={OCN:['OCN',4,'17 Nov','Oceanair','A320 · A321'],ITI:['ITI',2,'16 Nov','Itavia Express','B737'],CMA:['CMA',1,'15 Nov','Cielo Mar Aviation','A320'],ZLN:['ZLN',6,'17 Nov','Zephyr Lines','ATR 72']};
+  var BYNAME=[['Turkish Airlines','THY'],['KLM','KLM'],['FedEx','FDX']];
+
+  function sidebar(t){
+    var icons=['fleet','team','tag','clock'];
+    return '<div class="side"><span class="brand">'+ic('logo')+'SkyPane</span><div class="space"><span>'+t.space[1]+'</span><span class="on">'+ic('check')+t.space[0]+'</span></div><div class="sep"></div><div class="nlabel">'+t.admin+'</div>'+
+      t.nav.map(function(x,i){return (i===2?'<div class="sep"></div>':'')+'<div class="nav'+(i===2?' on':'')+'">'+ic(icons[i])+x+'</div>';}).join('')+
+      '<div class="sep"></div><div class="nav">'+ic('user')+t.account+'</div><div class="signout"><a class="btn" href="#">'+t.signout+'</a></div></div>';
+  }
+  function phoneShell(t,inner,overlay){
+    var icons=['fleet','team','tag','clock','more'];
+    return '<div class="ptop"><span class="brand">'+ic('logo')+'SkyPane</span></div><div class="screen">'+inner+'</div><div class="tabs">'+t.tabs.map(function(x,i){return '<div class="tab'+(i===2?' on':'')+'">'+ic(icons[i])+x+'</div>';}).join('')+'</div>'+(overlay||'');
+  }
+  function toolbar(t,vp,n){
+    var cnt=[36,n,3,6,9,27];
+    return '<div class="tbar"><label class="field">'+ic('search')+'<input type="search" placeholder="'+t.search+'" aria-label="'+t.search+'"></label>'+(vp==='desktop'?'<span class="sub">'+t.count+'</span>':'')+'</div>'+
+      '<div class="fchips">'+t.f.map(function(x,i){return '<span class="fchip'+(i===0?' on':'')+'">'+x+' <i>'+cnt[i]+'</i></span>';}).join('')+'</div>';
+  }
+  function meta(t,u){return '<small>'+t.seen(u[1],u[2])+' · '+u[4]+'</small>';}
+  function pfx(u){return '<span class="pfx">'+u[0]+'</span>';}
+  function ck(t,name,p){return '<a class="ck" href="#" aria-label="'+t.useFor(name,p)+'" title="'+t.useFor(name,p)+'">'+ic('check')+'</a>';}
+  function nameBtn(t){return '<a class="btn" href="#" style="min-height:44px">'+ic('edit')+t.nameit+'</a>';}
+  /* kind: s (suggested), pend, none, errB (muted caption); opts.tagKey picks the tag wording; opts.rm adds the row icon variant */
+  function row(t,kind,u,o){
+    o=o||{};var name=o.name||u[3];var tag=t[o.tagKey||'sugg'];
+    if(kind==='s'){
+      return '<div class="urow2">'+pfx(u)+'<span class="ub"><span class="utop"><span class="tag">'+ic('spark')+tag+'</span><span class="nm">'+name+'</span></span>'+meta(t,u)+'</span><span class="uact"><a class="tlink" href="#">'+t.edit+'</a>'+(o.rm?'<a class="ib" href="#" aria-label="'+t.removeIc+u[0]+'" title="'+t.remove+'">'+ic('x')+'</a>':'')+ck(t,name,u[0])+'</span></div>';
+    }
+    if(kind==='pend'){
+      return '<div class="urow2">'+pfx(u)+'<span class="ub"><span class="utop"><span class="tag pend" role="status"><span class="pd"></span>'+t.pend+'</span></span>'+meta(t,u)+'</span><span class="uact">'+nameBtn(t)+'</span></div>';
+    }
+    return '<div class="urow2">'+pfx(u)+'<span class="ub">'+meta(t,u)+(kind==='errB'?'<span class="cap">'+t.nosug+'</span>':'')+'</span><span class="uact">'+nameBtn(t)+'</span></div>';
+  }
+  function anno(x){return '<div class="anno">'+x+'</div>';}
+  function unidBlock(t,rows){return '<div><p class="label">'+t.unid+' · '+rows.length+'</p><div class="card">'+rows.join('')+'</div></div>';}
+  function bynameBlock(t){
+    return '<div><p class="label">'+t.byname+' · 3</p><div class="card">'+BYNAME.map(function(b){return '<div class="urow nw"><span class="who"><b>'+b[0]+'</b><small class="mono">'+b[1]+'</small></span><a class="btn" href="#" style="min-height:40px" aria-label="'+t.addart+'" title="'+t.addart+'">'+ic('plus')+t.addshort+'</a></div>';}).join('')+'</div></div>';
+  }
+  function tableBlock(t){
+    var head='<tr><th>'+t.colA+'</th><th>'+t.colP+'</th><th>'+t.colD+'</th><th>'+t.colV+'</th><th>'+t.colL+'</th><th style="width:56px"></th></tr>';
+    var rows=AIR.map(function(a){return '<tr><td class="rname">'+a[0]+'</td><td class="mono">'+a[1]+'</td><td><span style="display:flex;align-items:center;gap:10px">'+thumb(a[2])+'<span class="mono">'+a[5]+'</span></span></td><td class="num">'+(a[3]?t.views(a[3]):t.never)+'</td><td class="sub">'+a[4]+'</td><td style="text-align:right"><span class="btn sq" style="border:0;background:none">'+ic('more')+'</span></td></tr>';}).join('');
+    return '<div><p class="label">'+t.airlines+' · 36</p><div class="card"><table class="etable">'+head+rows+'</table></div></div>';
+  }
+  function phoneRows(t){
+    return '<div><p class="label">'+t.airlines+' · 36</p><div class="card">'+AIR.map(function(a){
+      return '<div class="urow nw">'+thumb(a[2])+'<span class="who"><b>'+a[0]+'</b><small class="mono">'+a[1]+' · '+a[5]+' · '+(a[3]?t.views(a[3]):t.never)+'</small></span><span class="btn sq" style="border:0;background:none" aria-label="'+t.openmenu+'">'+ic('more')+'</span></div>';}).join('')+'</div></div>';
+  }
+  function toast(t,p,n){return '<div class="toast" role="status"><span class="ico ok">'+ic('check')+'</span>'+t.toast(p,n)+'</div>';}
+  function page(vp,t,o){
+    var head='<h3 class="title"'+(vp==='phone'?' style="font-size:34px"':'')+'>'+t.title+'</h3>';
+    var body=toolbar(t,vp,o.rows.length)+unidBlock(t,o.rows)+bynameBlock(t)+(vp==='phone'?phoneRows(t):tableBlock(t));
+    if(vp==='phone')return phoneShell(t,head+body,(o.overlay||'')+(o.toast||''));
+    return sidebar(t)+'<div class="main" style="left:240px"><div style="max-width:1100px;display:flex;flex-direction:column;gap:20px">'+head+body+'</div></div>'+(o.overlay||'')+(o.toast||'');
+  }
+  function ovd(c){return '<div class="scrim"></div><div class="dlg dlgd" role="dialog">'+c+'</div><div class="sheet sheetd" role="dialog"><span class="grab"></span>'+c+'</div>';}
+  function editDlg(t){
+    return ovd('<h4><span class="mono">OCN</span> · '+t.editT+'</h4><label class="field" style="min-height:52px"><input value="Oceanair" aria-label="'+t.nameph+'"></label><span class="hint">'+ic('info')+t.hint+'</span><div class="dact"><a class="btn rm" href="#">'+t.remove+'</a><a class="btn" href="#">'+t.cancel+'</a><a class="btn dark" href="#">'+ic('check')+t.validate+'</a></div>');
+  }
+
+  /* row sets */
+  var U=UNID;
+  function setSuggested(t){return [row(t,'s',U.OCN),row(t,'s',U.ITI),row(t,'none',U.CMA)];}
+  function setDesktop(t){return [row(t,'s',U.OCN),row(t,'s',U.ITI),row(t,'pend',U.ZLN),row(t,'none',U.CMA)];}
+  function setPending(t){return [row(t,'pend',U.OCN),anno(t.annoPend),row(t,'s',U.ITI),row(t,'none',U.CMA)].filter(function(x){return x.indexOf('anno')<0;});}
+  function setNone(t){return [row(t,'none',U.OCN),row(t,'none',U.ITI),row(t,'none',U.CMA)];}
+  function setError(t){return [anno(t.annoA)+row(t,'none',U.OCN),anno(t.annoB)+row(t,'errB',U.ITI),row(t,'none',U.CMA)];}
+  function setOff(t){return [anno(t.annoOff)+row(t,'none',U.OCN),row(t,'none',U.ITI),row(t,'none',U.CMA)];}
+  function setLong(t){return [row(t,'s',U.OCN,{name:LONG}),row(t,'s',U.ITI),row(t,'none',U.CMA)];}
+  function setAfter(t){return [row(t,'s',U.ITI),row(t,'none',U.CMA)];}
+
+  function mock(vp,caption,sub,builder,o){
+    o=o||{};
+    var langs=['en','fr'].map(function(l){return '<div data-lang="'+l+'">'+builder(vp,S[l])+'</div>';}).join('');
+    var st=o.width?' style="width:'+o.width+'px"':'';
+    var box='<div data-viewport="'+vp+'"'+st+'>'+langs+'</div>';
+    return '<figure class="mock"'+(o.id?' id="'+o.id+'"':'')+' data-vp="'+vp+'"><figcaption>'+caption+(sub?'<small>'+sub+'</small>':'')+'</figcaption>'+(vp==='desktop'?'<div class="scroller">'+box+'</div>':box)+'</figure>';
+  }
+  function pg(rowsFn,extra){return function(vp,t){var e=extra?extra(t):{};e.rows=rowsFn(t);return page(vp,t,e);};}
+  function section(h,lead,body,vp){return '<section class="sec"'+(vp?' data-vp="'+vp+'"':'')+'><h2>'+h+'</h2><p class="lead">'+lead+'</p>'+body+'</section>';}
+  function mini(caption,rowsFn,o){
+    var langs=['en','fr'].map(function(l){var t=S[l];return '<div data-lang="'+l+'"><div class="card">'+rowsFn(t).join('')+'</div></div>';}).join('');
+    return '<figure class="mock mini"'+(o&&o.id?' id="'+o.id+'"':'')+'><figcaption>'+caption+'</figcaption>'+langs+'</figure>';
+  }
+
+  var html='';
+  html+=section('1. Desktop 1440: the Airlines editor with suggestions',
+    'Each unidentified prefix stays one compact row. With a cached suggestion: the prefix, a <b>Suggestion</b> tag (spark icon) with the proposed name in bold, sightings and aircraft seen on the second line, an <b>Edit</b> link and the round 44 px <b>check</b> that names the airline like manual naming. While the name is being looked up (third row): a <b>Looking for a name</b> tag and the Name it button meanwhile. No suggestion (fourth row): Name it only. Nothing is ever applied without pressing the check.',
+    '<div class="row2">'+mock('desktop','Editor with suggestions','Suggested, suggested, pending, no suggestion',pg(setDesktop),{id:'d-editor'})+
+    mock('desktop','Edit dialog (centred card)','Prefilled, provenance hint, Remove the suggestion',pg(setDesktop,function(t){return {overlay:editDlg(t)};}),{id:'d-dialog'})+
+    mock('desktop','After the check is pressed','OCN leaves the list; same flash as manual naming',pg(function(t){return [row(t,'s',U.ITI),row(t,'pend',U.ZLN),row(t,'none',U.CMA)];},function(t){return {toast:toast(t,'OCN','Oceanair')};}),{id:'d-success'})+'</div>','desktop');
+  html+=section('2. Phone 390: every state',
+    'The same rows on the phone. Edit and Name it open a bottom sheet so the keyboard never hides the field. The check has the accessible name &ldquo;Use the suggestion &lt;name&gt; for &lt;prefix&gt;&rdquo;.',
+    '<div class="row2">'+
+    mock('phone','Suggested','Tag, name, Edit, check',pg(setSuggested),{id:'p-suggested'})+
+    mock('phone','Pending: Looking for a name','Pulse stops under reduced motion',pg(setPending),{id:'p-pending'})+
+    mock('phone','No suggestion (manual)','The model did not know: Name it only',pg(setNone),{id:'p-none'})+'</div>'+
+    '<div style="height:32px"></div><div class="row2">'+
+    mock('phone','Error or rate cap','Variant A (silent) then variant B (muted caption)',pg(setError),{id:'p-error'})+
+    mock('phone','Service off','No key set: identical to today',pg(setOff),{id:'p-off'})+
+    mock('phone','After the check','Success toast names the airline',pg(setAfter,function(t){return {toast:toast(t,'OCN','Oceanair')};}),{id:'p-success'})+'</div>'+
+    '<div style="height:32px"></div><div class="row2">'+
+    mock('phone','Edit dialog (bottom sheet)','Validate, Cancel, Remove the suggestion',pg(setSuggested,function(t){return {overlay:editDlg(t)};}),{id:'p-dialog'})+
+    mock('phone','Hostile 100-character name at 360 px','Truncated with an ellipsis, no overflow',pg(setLong),{id:'p-long',width:360})+'</div>','phone');
+  html+=section('3. Variants for the owner',
+    'Three decisions shown side by side: the tag wording (a), the error behaviour (b, in the error state above) and where to reject a suggestion (c).',
+    '<div class="row2">'+
+    mini('(a) Tag wording: Suggestion / AI suggestion (French: Suggestion IA)',function(t){return [row(t,'s',U.OCN),row(t,'s',U.ITI,{tagKey:'suggAi'})];},{id:'v-tag'})+
+    mini('(c) Reject on the row: a visible x icon next to the check (instead of only inside the Edit dialog)',function(t){return [row(t,'s',U.OCN,{rm:true}),row(t,'s',U.ITI,{rm:true})];},{id:'v-reject'})+'</div>');
+  html+=section('4. Privacy',
+    'What leaves the server when a suggestion is requested.',
+    '<div class="priv"><div><h3>Sent to the AI service</h3><ul><li>The callsign prefix (3 letters, for example OCN).</li><li>Up to 4 sample callsigns of that prefix (for example OCN123).</li></ul></div><div class="no"><h3>Never sent</h3><ul><li>No frame, owner, user or device data.</li><li>No location, address or account.</li><li>No history, photo or other flight detail.</li><li>The API key never appears in a page, a log or a file the browser can read.</li></ul></div></div>'+
+    '<p class="note"><b>Limits:</b> one request per prefix ever (cached with the model and the date), at most 10 calls an hour and 60 a day, a short timeout, one attempt. The page never waits for the service. Only administrators see and use suggestions.</p>');
+  html+=section('Questions for the owner',
+    'Answer these, or change the decisions, then approve the mockup. Nothing is built before that.',
+    '<div class="qa">'+
+    '<div class="q"><b>(a) Tag wording</b><p>&ldquo;Suggestion&rdquo; (current) or &ldquo;AI suggestion&rdquo; / &ldquo;Suggestion IA&rdquo;. Naming the AI is more honest; the shorter word is calmer.</p></div>'+
+    '<div class="q"><b>(b) When the service fails or is capped</b><p>Variant A: nothing shown, the row looks like Name it only. Variant B: a muted caption &ldquo;No suggestion right now. Name it yourself.&rdquo;</p></div>'+
+    '<div class="q"><b>(c) Where to reject</b><p>Only in the Edit dialog (&ldquo;Remove the suggestion&rdquo;, as drawn) or also a visible x icon on the row (section 3).</p></div>'+
+    '<div class="q"><b>(d) Caps</b><p>10 calls an hour, 60 a day, and one request per prefix forever (a removed, named or unknown prefix is never asked again).</p></div>'+
+    '<div class="q"><b>(e) Model and privacy</b><p>Claude Haiku 5.5, and the privacy statement above (only the prefix and up to 4 sample callsigns are sent).</p></div>'+
+    '<div class="q"><b>(f) Livery illustration</b><p>Confirm it stays deferred: a different feature (image generation, storage, moderation, cost) that would need its own mockup and plan.</p></div></div>');
+  document.getElementById('app').innerHTML=html;
+  var r=document.documentElement;r.setAttribute('data-ui-lang','en');r.setAttribute('data-show','all');
+  function wire(sel,attr,apply){document.querySelectorAll(sel+' button').forEach(function(b){b.addEventListener('click',function(){apply(b);document.querySelectorAll(sel+' button').forEach(function(x){x.setAttribute('aria-pressed',String(x===b));});});});}
+  wire('#theme','t',function(b){if(b.dataset.t==='auto')r.removeAttribute('data-ui-theme');else r.setAttribute('data-ui-theme',b.dataset.t);});
+  wire('#lang','l',function(b){r.setAttribute('data-ui-lang',b.dataset.l);r.lang=b.dataset.l;});
+  wire('#vp','v',function(b){r.setAttribute('data-show',b.dataset.v);});
+})();
+</script>
+</html>
