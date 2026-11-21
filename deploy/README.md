@@ -877,6 +877,42 @@ rollback keeps the frame working, but Health shows a fleet fault until the
 new release is live again. Backups now contain the `sessions` table
 (hashes only); restoring one brings back unexpired sessions.
 
+## AI-suggested airline names
+
+In the Airlines editor (`/airlines/manage`, administrators only) each
+unidentified callsign prefix can carry a name proposed by a small Claude
+model (`claude-haiku-5-5`). The proposal is shown as a "Suggestion" with a
+round check; nothing is applied until a person presses the check or types a
+name, and the check posts to the same route as manual naming. A suggestion
+only fills a gap: "Name it" stays when there is none, when the service is off
+or when it fails.
+
+- **Off by default.** The feature exists only while `SKYPANE_ANTHROPIC_API_KEY`
+  is set in `/opt/skypane/skypane.env` (`root:root 0600`). Without it the
+  editor is exactly the manual flow and no network call is made. To switch it
+  off or revoke it, delete the line (and revoke the key in the Anthropic
+  console), then `sudo systemctl restart skypane-companion`.
+  `SKYPANE_ANTHROPIC_BASE_URL` is a loopback-only test seam; never set it in
+  production (a non-loopback host is ignored).
+- **What leaves the server.** The three-letter prefix and up to four sample
+  callsigns of that prefix, nothing else: no frame, owner, user, location or
+  device data. The call is made from the companion's administrator route (one
+  request at a time, after the page has rendered), never from the poll timer.
+- **Cache.** `airline_suggestions.json` in the state root (`SKYPANE_STATE_DIR`):
+  one entry per prefix with the proposed name, the model id and the date. A
+  prefix is asked once ever; "no idea", a removed suggestion and a named
+  prefix are kept as decisions and never asked again. A failed request is
+  retried after 15 minutes (6 hours for an authentication, billing or request
+  error). To ask again for one prefix, delete its entry from the file (the
+  file is read on each request, no restart needed).
+- **Caps.** At most 10 calls per rolling hour and 60 per rolling day across all
+  prefixes; over the cap the editor simply shows "Name it". One attempt per
+  call, 3.05 s connect and 8 s read timeout.
+- **Logs.** A failed call writes one line to the companion's journal:
+  `airline_suggest: prefix=OCN reason=http_529 request_id=req_...`. The key,
+  the request and the response body are never logged; `request_id` is the
+  Anthropic request id for support.
+
 ## Read-only battery-history export
 
 The companion can serve the `device_health` table (battery history) as
