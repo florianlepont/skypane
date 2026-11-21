@@ -14,7 +14,9 @@ MESSAGES = {
         "Ses données sont conservées.",
     "admin_lifecycle.flash_reactivated": "Cadre réactivé",
     "admin_lifecycle.flash_reactivated_detail":
-        "Il repasse en association et affichera un nouveau code à sa prochaine mise à jour.",
+        "Sur le cadre, appuyez sur Reset pour afficher tout de suite son code "
+        "d’association. Sinon, il apparaît à sa prochaine mise à jour, dans "
+        "24\u00a0h au plus.",
     "admin_lifecycle.flash_action_refused": "Action refusée",
     "admin_lifecycle.flash_live_protected_detail":
         "Le cadre actif ne peut pas être retiré.",

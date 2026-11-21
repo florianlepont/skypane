@@ -282,11 +282,11 @@ def _add_dialog(view):
 
 def _frame_dialog(
         row, dialog_id, suffix, title, sentence, body_extra, submit, dismiss,
-        with_hardware=True, **flags):
+        with_hardware=True, sentence_class="text-body", **flags):
     return ui_modal.dialog_html(
         dialog_id, title % _display_name(row),
         _routes().FRAME_ACTION_PREFIX + row.frame_id + suffix, _ui().csrf_field(),
-        '<p class="text-body">%s</p>%s' % (_esc(sentence), body_extra),
+        '<p class="%s">%s</p>%s' % (sentence_class, _esc(sentence), body_extra),
         i18n.t(submit), i18n.t(dismiss),
         _routes().FLEET_ROUTE if row.kind != KIND_LIVE else "%s?frame=%s&tab=access" % (
             _routes().FLEET_ROUTE, row.frame_id),
@@ -347,7 +347,7 @@ def _row_dialogs(row):
             row, _slug("dlg-reactivate", row.frame_id),
             _routes().FRAME_REACTIVATE_SUFFIX, i18n.t(_TITLE_REACTIVATE),
             i18n.t(_REACTIVATE_SENTENCE), "", _CONFIRM_REACTIVATE, _KEEP_RETIRED,
-            destructive=True, confirm_only=True)
+            destructive=True, confirm_only=True, sentence_class="text-body modal__question")
     if row.kind != KIND_LIVE or row.is_live_frame:
         return ""
     return _frame_dialog(

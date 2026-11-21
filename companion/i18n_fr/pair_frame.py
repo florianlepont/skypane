@@ -11,6 +11,8 @@ MESSAGES = {
     "pair_frame.the_code_stays_valid_for_about_35_minutes":
         "Le code reste valable environ 35\u00a0minutes\u00a0; un nouveau s’affiche ensuite "
         "sur le cadre.",
+    "pair_frame.if_your_frame_shows_no_code_press_its_reset_button":
+        "Si votre cadre n’affiche aucun code, appuyez sur son bouton Reset.",
     "pair_frame.add_frame": "Ajouter le cadre",
     "pair_frame.cancel": "Annuler",
     "pair_frame.your_frames_will_appear_here": "Vos cadres apparaîtront ici",
