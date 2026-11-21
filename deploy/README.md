@@ -305,6 +305,10 @@ migration never runs at service start.
   modified or removed by the migration and stay valid, so rolling back to
   the previous release works. A later roll-forward reconciles anything
   that was written only to the legacy files in the meantime.
+- **Pending frames are skipped.** A legacy MAC that is already a pending
+  (or retired) frame in `fleet.db` is not imported as a device, since the
+  pairing flow owns it; the migration prints `skip device <mac>: already a
+  pending frame`. Once the frame is paired it is an ordinary device.
 - **Operator tool.** `stub-server/fleet_cli.py` manages the database:
 
   ```bash
