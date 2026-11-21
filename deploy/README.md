@@ -636,6 +636,48 @@ To close the switch again, remove the `SKYPANE_ENABLE_SECOND_HARDWARE`
 line (or set it to anything but `1`), restart the same services and deploy once more. Releases already
 imported stay in the state directory and nothing is deleted.
 
+### Fleet-wide airline names
+
+The airline vocabulary is one per fleet. `manual_resolutions.json` (names
+given by hand), `airline_name_overrides.json` (renamed built-in airlines) and
+`airline_default_types.json` (default aircraft type) live once, in the state
+root, and every frame's editor and poll cycle reads that one file. Before this
+release each frame had its own copy under `devices/<id>/`; the live frame's
+copy was already the root file.
+
+The same `fleet_migrate` step that imports `fleet.db` merges the per-frame
+files into the root files, before the symlink swap, after the automatic
+pre-migration backup (which archives the root and every per-frame file). It
+never runs at service start, and a failed write exits 1 and stops the deploy.
+
+- **Conflict rule** (one total order, the same on every run): for a prefix
+  named differently on several frames the entry with the newest `created_at`
+  wins; on a tie the live frame (root) wins, then the lowest frame id; an
+  unparsable stamp counts as the oldest. Default types carry no stamp: root,
+  then the lowest frame id. Nothing is discarded: every loser is printed with
+  both names and both stamps, and the last 50 are kept in
+  `airline_registry_migration.json`. An override that would take the name of
+  another built-in airline (or of another airline's override), and entries
+  beyond the 200 (names, overrides) or 300 (types) cap, are not merged and
+  are printed.
+- **Reading the log.** Lines start with `airline names:`. `would merge N
+  per-frame file(s)` (dry-run) or `merged N per-frame file(s)` (real run) is
+  followed by one `<registry>: A added, R replaced` line per registry, then
+  one `conflict <registry> <prefix>: keep '<name>' [frame <id>, <stamp>] over
+  '<name>' [frame <id>, <stamp>]` line per conflict and `not merged ...` /
+  `skipped ...` lines for refusals (symlinked or oversized or invalid files).
+  `airline names: nothing to do` means every per-frame file was merged
+  already. An install with no per-frame registry file prints nothing.
+- **Idempotent.** The marker `airline_registry_migration.json` records the
+  SHA-256 of every per-frame file already merged. A second run changes no
+  byte, and a name deleted from the root afterwards is not brought back. A
+  per-frame file that changed since (see the rollback caveat) is merged once
+  more.
+- **Expand only.** The per-frame files are never modified, renamed or deleted
+  by this release. They become frozen copies that nothing reads or writes; they
+  disappear with their frame. A later release removes them after the rollback
+  window.
+
 ## Backups
 
 A nightly systemd timer (`skypane-backup.timer`, 03:15 UTC,
@@ -645,7 +687,7 @@ consistent online copy of `history.db` and `fleet.db` with SQLite's own backup A
 (never a raw copy of the live `-wal`/`-shm` files), and copies everything
 else that cannot be regenerated from an **include list** — device
 tokens, device/colour/calendar/manual-resolution config, the airline
-name overrides, default aircraft types and AI-suggestion cache, the calendar
+name overrides, default aircraft types, AI-suggestion cache and the airline merge marker, the calendar
 secret, uploaded illustration overrides, the poll enrichment cache, and
 `gallery/` (the last ~25 rendered panels — kept for the visual history,
 per D-24). Regenerable files (`panel.bin`, theme preview caches, the shared route
@@ -659,7 +701,7 @@ the newest 14 on the VPS.
 the same file set as the root; the live frame stays at the root and is never
 moved. The backup archives each `devices/<id>/` entry under the same path in
 the archive: `device_config.json`, `poll_state.json`, `battery_state.json`,
-the calendar, colour, manual-resolution, airline name override and default-type files, `illustration_overrides/`,
+the calendar, colour, manual-resolution, airline name override and default-type files (frozen copies since the airline names became fleet-wide; the rollback source), `illustration_overrides/`,
 `gallery/` and a WAL-safe snapshot of `history.db`. It does not archive
 `panel.bin`, `img/`, lock files, temp files, WAL/SHM files or symlinks. A
 directory under `devices/` with a malformed name, or an unexpected file
@@ -672,6 +714,18 @@ that device to Paris. A device created through the CLI is also written to the
 legacy `devices.json` and `byos_state.json`, so the previous release
 authenticates it and would serve it the live frame's image. This only affects
 devices created after this change; none exist in production yet.
+
+**Rollback caveat (airline names).** The previous release reads the airline
+files per frame, so after a rollback every non-live frame sees its own old
+names again, and names given or changed after the upgrade exist only in the
+root files (the previous release reads them for the live frame only). A later
+roll-forward merges again only the per-frame files that changed in the
+meantime (their hash differs from the marker), by the same conflict rule,
+which can bring back a name that was deleted fleet-wide before the rollback:
+re-check the Airlines editor after a roll-forward that followed a rollback.
+The merge runs for a few milliseconds before the symlink swap while the
+previous release may still write the live frame's root file; the
+pre-migration backup exists and a re-run is idempotent.
 
 **The off-box copy is pulled, not pushed.** A dedicated `skypane-backup`
 system user (never a member of the `skypane` group, so it can never write

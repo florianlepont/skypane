@@ -444,3 +444,66 @@ def test_pending_schema_is_previewed_applied_and_idempotent(seeded, capsys):
         conn.close()
     assert _run(seeded) == 0
     assert "nothing to do" in capsys.readouterr().out
+
+
+# ---- per-frame airline registry merge -------------------------------------
+
+def _seed_frames_with_a_conflict(state_dir):
+    from server import device_dirs
+    older, newer = "2026-01-01T00:00:00+00:00", "2026-02-01T00:00:00+00:00"
+    for device_id, entries in (
+            ("d_0000000a", {"OCN": {"airline_name": "Oceanic", "created_at": older}}),
+            ("d_0000000b", {"OCN": {"airline_name": "Oceanic Airways", "created_at": newer},
+                            "ZZZ": {"airline_name": "Zed Air", "created_at": older}})):
+        directory = device_dirs.provision_device_dir(state_dir, device_id, 800, 480)
+        _write(os.path.join(directory, "manual_resolutions.json"), entries)
+
+
+def test_registry_merge_dry_run_writes_nothing_then_real_run_applies_then_is_idempotent(seeded, capsys):
+    _run(seeded)
+    _seed_frames_with_a_conflict(seeded.state_dir)
+    capsys.readouterr()
+    before = _without_wal_sides(live.snapshot_dir(seeded.state_dir))
+
+    assert _run(seeded, "--dry-run") == 0
+    out = capsys.readouterr().out
+    assert "airline names: would merge 2 per-frame file(s)" in out
+    assert "conflict manual_resolutions OCN: keep 'Oceanic Airways'" in out
+    assert _without_wal_sides(live.snapshot_dir(seeded.state_dir)) == before
+
+    assert _run(seeded) == 0
+    out = capsys.readouterr().out
+    assert "airline names: merged 2 per-frame file(s)" in out
+    root = json.load(open(os.path.join(seeded.state_dir, "manual_resolutions.json")))
+    assert {k: v["airline_name"] for k, v in root.items()} == {"OCN": "Oceanic Airways", "ZZZ": "Zed Air"}
+    after = _without_wal_sides(live.snapshot_dir(seeded.state_dir))
+    assert {k: v for k, v in after.items() if k.startswith("devices")} == {
+        k: v for k, v in before.items() if k.startswith("devices")}
+
+    assert _run(seeded) == 0
+    assert "airline names: nothing to do" in capsys.readouterr().out
+    assert _without_wal_sides(live.snapshot_dir(seeded.state_dir)) == after
+
+
+def test_registry_merge_is_silent_without_per_frame_files(seeded, capsys):
+    assert _run(seeded) == 0
+    assert "airline names" not in capsys.readouterr().out
+    assert not os.path.exists(os.path.join(seeded.state_dir, "airline_registry_migration.json"))
+
+
+def test_registry_merge_is_reported_when_fleet_db_is_already_migrated(seeded, capsys):
+    assert _run(seeded) == 0
+    _seed_frames_with_a_conflict(seeded.state_dir)
+    capsys.readouterr()
+    assert _run(seeded) == 0
+    out = capsys.readouterr().out
+    assert "nothing to do" in out and "airline names: merged 2 per-frame file(s)" in out
+
+
+def test_a_registry_write_failure_exits_1(seeded, monkeypatch, capsys):
+    _run(seeded)
+    _seed_frames_with_a_conflict(seeded.state_dir)
+    monkeypatch.setattr(fleet_migrate.fleet_registries, "apply_merge",
+                        lambda *a, **k: (_ for _ in ()).throw(OSError("disk full")))
+    assert _run(seeded) == 1
+    assert "OSError" in capsys.readouterr().err

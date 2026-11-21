@@ -138,6 +138,7 @@ files = [
     "server/screen_layouts.py",
     "server/net/safe_fetch.py",
     "server/plane/calendar_rules/ics.py",
+    "server/plane/fleet_registries.py",
     "server/plane/calendar_rules/match.py",
     "server/wake.py",
     "server/panel_format.py",
