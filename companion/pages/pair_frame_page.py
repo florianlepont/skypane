@@ -29,6 +29,9 @@ _CODE_LABEL = i18n.msg("pair_frame.pairing_code", "Pairing code")
 _CODE_HELP = i18n.msg(
     "pair_frame.the_code_stays_valid_for_about_35_minutes",
     "The code stays valid for about 35 minutes; a new one then appears on the frame.")
+_NO_CODE_HELP = i18n.msg(
+    "pair_frame.if_your_frame_shows_no_code_press_its_reset_button",
+    "If your frame shows no code, press its Reset button.")
 _SUBMIT = i18n.msg("pair_frame.add_frame", "Add frame")
 _CANCEL = i18n.msg("pair_frame.cancel", "Cancel")
 
@@ -79,31 +82,47 @@ def empty_state_html():
         + '<p class="pair-actions">%s</p>' % primary_link_html())
 
 
+# A circled exclamation mark: the refusal alert's own icon (the shared sprite
+# has the toast cross and the plain warning triangle only).
+_ALERT_ICON = (
+    '<svg class="pair-alert__icon" width="20" height="20" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">'
+    '<circle cx="10" cy="10" r="7.5"/><path d="M10 6v5M10 13.6v.01"/></svg>')
+
+
+def _refusal_html(error_id, message):
+    """The refused-code alert: the sentence in bold under an error icon, the
+    validity line under it, in one tinted box the field points at."""
+    return (
+        '<div class="pair-alert" id="%s" role="alert">%s<div class="pair-alert__text">'
+        '<p class="field-error pair-alert__title">%s</p><p class="text-label">%s</p></div></div>'
+    ) % (error_id, _ALERT_ICON, _esc(message), _t(_CODE_HELP))
+
+
 def _code_field(view):
-    attrs, error = "", ""
+    attrs, below = "", '<p class="text-label">%s</p>' % _t(_CODE_HELP)
     if view.code_error:
         error_id = "pair-code-error"
         attrs = ' aria-invalid="true" aria-describedby="%s"' % error_id
-        error = '<p class="field-error" id="%s">%s</p>' % (error_id, _esc(view.code_error))
+        below = _refusal_html(error_id, view.code_error)
     return (
         '<div class="modal__field"><label for="pair-code">%s</label>'
         '<input type="text" id="pair-code" name="%s" class="mono" autocomplete="off" '
         'data-1p-ignore data-lpignore="true" data-bwignore="true" data-form-type="other" '
         'autocapitalize="characters" spellcheck="false" inputmode="text" '
-        'maxlength="12" placeholder="XXXX-XXXX" value="%s" required%s autofocus%s>%s'
-        '<p class="text-label">%s</p></div>') % (
-            _t(_CODE_LABEL), CODE_FIELD, _esc(view.code_value), validation_attrs("text"), attrs, error,
-            _t(_CODE_HELP))
+        'maxlength="12" placeholder="XXXX-XXXX" value="%s" required%s autofocus%s>%s</div>') % (
+            _t(_CODE_LABEL), CODE_FIELD, _esc(view.code_value), validation_attrs("text"), attrs, below)
 
 
 def render(view=PairView()):
     """The Add a frame page body."""
+    no_code_help = "" if view.code_error else '<p class="text-label">%s</p>' % _t(_NO_CODE_HELP)
     form = (
         '<form class="%s" method="post" action="%s">%s%s%s'
         '<div class="pair-form__actions"><button type="submit">%s</button>'
-        '<a class="pair-form__cancel" href="/account">%s</a></div></form>') % (
+        '<a class="pair-form__cancel" href="/account">%s</a></div>%s</form>') % (
             FORM_CLASS, PAIR_FRAME_ROUTE, ui_components.csrf_field(),
-            view.toast_html, _code_field(view), _t(_SUBMIT), _t(_CANCEL))
+            view.toast_html, _code_field(view), _t(_SUBMIT), _t(_CANCEL), no_code_help)
     return (
         layout.page_header(i18n.t(PAIR_TITLE), purpose=i18n.t(PAIR_PURPOSE))
         + '<section class="page-section">%s</section>' % form)

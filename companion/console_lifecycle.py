@@ -56,7 +56,8 @@ console_flash.register_flash(
     i18n.msg("admin_lifecycle.flash_reactivated", "Frame re-activated"),
     i18n.msg(
         "admin_lifecycle.flash_reactivated_detail",
-        "It returns to pairing and shows a new code at its next update."))
+        "Press Reset on the frame to show its pairing code now. Otherwise it "
+        "appears at its next wake, up to 24 hours from now."))
 console_flash.register_flash(
     FLASH_LIVE_PROTECTED, "error",
     i18n.msg("admin_lifecycle.flash_action_refused", "Action refused"),
