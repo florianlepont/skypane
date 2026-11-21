@@ -31,7 +31,22 @@
     return button.getAttribute("data-copied-text") || FALLBACK_FEEDBACK_TEXT;
   }
 
-  function fallbackCopy(value) {
+  // The element the fallback textarea joins: the open dialog around the
+  // button when there is one (the rest of the page is inert while a modal
+  // dialog is open and a textarea there cannot be selected), else the body.
+  function hostFor(button) {
+    var node = button;
+    while (node && node.nodeType === 1) {
+      if (node.nodeName.toLowerCase() === "dialog") {
+        return node;
+      }
+      node = node.parentNode;
+    }
+    return document.body;
+  }
+
+  function fallbackCopy(value, button) {
+    var host = hostFor(button);
     var textarea = document.createElement("textarea");
     // Off-screen, not display:none — some browsers refuse to select()
     // an element with no rendered box.
@@ -39,14 +54,14 @@
     textarea.style.top = "-9999px";
     textarea.style.left = "-9999px";
     textarea.value = value;
-    document.body.appendChild(textarea);
+    host.appendChild(textarea);
     try {
       textarea.select();
       // Propagate the real result, so handleClick() below never shows
       // success feedback for a copy that silently failed.
       return document.execCommand("copy");
     } finally {
-      document.body.removeChild(textarea);
+      host.removeChild(textarea);
     }
   }
 
@@ -120,14 +135,14 @@
         function () {
           // Only report success when fallbackCopy() actually succeeded;
           // a failed copy must never show a false success indication.
-          if (fallbackCopy(value)) {
+          if (fallbackCopy(value, button)) {
             showFeedback(button);
           }
         }
       );
       return;
     }
-    if (fallbackCopy(value)) {
+    if (fallbackCopy(value, button)) {
       showFeedback(button);
     }
   }

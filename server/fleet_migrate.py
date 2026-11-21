@@ -28,6 +28,9 @@ Invariants:
   `server.plane.fleet_registries`: expand only, they are read and never
   written, renamed or deleted, and a marker in the root keeps a second run
   from changing anything.
+- A legacy MAC that is a pending or retired frame in fleet.db is skipped:
+  the pairing flow owns it, and importing it would bypass pairing. Once it
+  is paired it is in devices and follows the normal reconcile.
 - Output names MACs, airline names, prefixes and counts only; never a
   token, secret hash or other file content.
 """
@@ -91,6 +94,8 @@ class Snapshot:
     location_names: frozenset[str] = frozenset()
     secrets: dict[str, str] = field(default_factory=dict)
     tokens: dict[str, str | None] = field(default_factory=dict)
+    # MACs of pending and retired frames: owned by the pairing flow, never imported.
+    pending_macs: frozenset[str] = frozenset()
 
 
 Action = tuple[str, ...]
@@ -101,6 +106,7 @@ class MigrationPlan:
     actions: tuple[Action, ...]
     needs_write: bool
     schema_upgrade: tuple[int, int] | None = None  # (from, to) when behind
+    skipped_pending: tuple[str, ...] = ()  # legacy MACs left to the pairing flow
 
 
 @dataclass(frozen=True)
@@ -177,7 +183,8 @@ def _device_actions(legacy: LegacyState, snapshot: Snapshot) -> list[Action]:
     actions: list[Action] = []
     for mac in sorted(legacy.devices):
         if mac not in snapshot.secrets:
-            actions.append(("add_device", mac))
+            if mac not in snapshot.pending_macs:
+                actions.append(("add_device", mac))
             continue
         if snapshot.secrets[mac] != legacy.devices[mac]:
             actions.append(("sync_secret", mac))
@@ -197,6 +204,10 @@ def plan_migration(
             "--owner-email is required for the first migration"
         )
     device_actions = _device_actions(legacy, snapshot)
+    skipped_pending = tuple(
+        mac for mac in sorted(legacy.devices)
+        if mac not in snapshot.secrets and mac in snapshot.pending_macs
+    )
     actions: list[Action] = []
     if not snapshot.marker:
         actions.append(("ensure_owner",))
@@ -211,10 +222,19 @@ def plan_migration(
         actions=tuple(actions),
         needs_write=bool(actions) or not snapshot.marker or upgrade is not None,
         schema_upgrade=upgrade,
+        skipped_pending=skipped_pending,
     )
 
 
 # ---- reading fleet.db --------------------------------------------------
+
+
+def _has_table(conn: sqlite3.Connection, name: str) -> bool:
+    # pending_devices arrived with schema 3; older databases lack it.
+    row = conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (name,)
+    ).fetchone()
+    return row is not None
 
 
 def _snapshot_from(conn: sqlite3.Connection) -> Snapshot:
@@ -227,6 +247,9 @@ def _snapshot_from(conn: sqlite3.Connection) -> Snapshot:
     for row in conn.execute("SELECT mac, secret_sha256, token FROM devices"):
         secrets[str(row["mac"])] = str(row["secret_sha256"])
         tokens[str(row["mac"])] = None if row["token"] is None else str(row["token"])
+    pending = frozenset(
+        str(r["mac"]) for r in conn.execute("SELECT mac FROM pending_devices")
+    ) if _has_table(conn, "pending_devices") else frozenset()
     return Snapshot(
         schema=version,
         marker=fleet_db.meta_get(conn, fleet_db.META_MIGRATED) is not None,
@@ -235,6 +258,7 @@ def _snapshot_from(conn: sqlite3.Connection) -> Snapshot:
         location_names=frozenset(str(r["name"]) for r in fleet_db.list_locations(conn)),
         secrets=secrets,
         tokens=tokens,
+        pending_macs=pending,
     )
 
 
@@ -351,6 +375,8 @@ def _describe(plan: MigrationPlan, dry_run: bool) -> list[str]:
     for action in plan.actions:
         text = labels[action[0]]
         lines.append(f"{text} {action[1]}" if len(action) == 2 else text)
+    for mac in plan.skipped_pending:
+        lines.append(f"skip device {mac}: already a pending frame")
     return lines
 
 

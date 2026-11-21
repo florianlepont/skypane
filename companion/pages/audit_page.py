@@ -87,6 +87,8 @@ ACTION_LABELS = {
     "device.co_manager_remove": i18n.msg(
         "admin_lifecycle.action_device_co_manager_remove", "Co-manager removed"),
     "user.invite": i18n.msg("admin_lifecycle.action_user_invite", "User invited"),
+    "user.invitation": i18n.msg(
+        "admin_lifecycle.action_user_invitation", "Invitation link"),
     "user.role": i18n.msg("admin_lifecycle.action_user_role", "Role changed"),
     "user.disable": i18n.msg("admin_lifecycle.action_user_disable", "User disabled"),
     "user.enable": i18n.msg("admin_lifecycle.action_user_enable", "User enabled"),

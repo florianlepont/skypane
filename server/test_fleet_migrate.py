@@ -507,3 +507,112 @@ def test_a_registry_write_failure_exits_1(seeded, monkeypatch, capsys):
                         lambda *a, **k: (_ for _ in ()).throw(OSError("disk full")))
     assert _run(seeded) == 1
     assert "OSError" in capsys.readouterr().err
+
+
+PENDING_MAC = "02:00:00:00:60:01"
+PENDING_SECRET = "ab" * 32
+
+
+def _legacy_with_extra_mac(seeded, mac=PENDING_MAC):
+    path = os.path.join(seeded.state_dir, fleet_migrate.LEGACY_REGISTRY_FILE)
+    with open(path, encoding="utf-8") as fh:
+        doc = json.load(fh)
+    doc["devices"][mac] = {"secret_sha256": PENDING_SECRET}
+    _write(path, doc)
+
+
+def _make_pending(seeded, mac=PENDING_MAC):
+    conn = fleet_db.connect(seeded.state_dir)
+    try:
+        fleet_db.register_pending(conn, mac, PENDING_SECRET, hardware.LEGACY_KEY, None)
+    finally:
+        conn.close()
+
+
+def _macs(seeded, table):
+    conn = fleet_db.connect_readonly(seeded.state_dir)
+    try:
+        return sorted(r["mac"] for r in conn.execute(f"SELECT mac FROM {table}"))
+    finally:
+        conn.close()
+
+
+def test_pending_legacy_mac_is_skipped_in_dry_run_and_real_run(seeded, capsys):
+    _legacy_with_extra_mac(seeded)
+    _make_pending(seeded)
+    legacy_files = live.snapshot_dir(seeded.state_dir)
+    legacy_files = {k: v for k, v in legacy_files.items() if not k.startswith("fleet.db")}
+    capsys.readouterr()
+
+    assert _run(seeded, "--dry-run") == 0
+    out = capsys.readouterr().out
+    assert f"skip device {PENDING_MAC}: already a pending frame" in out
+    assert f"add device {PENDING_MAC}" not in out
+    assert f"would add device {seeded.mac}" in out
+
+    assert _run(seeded) == 0
+    out = capsys.readouterr().out
+    assert f"skip device {PENDING_MAC}: already a pending frame" in out
+    assert _macs(seeded, "devices") == [seeded.mac]
+    assert _macs(seeded, "pending_devices") == [PENDING_MAC]
+    after = live.snapshot_dir(seeded.state_dir)
+    assert {k: v for k, v in after.items() if not k.startswith("fleet.db")} == legacy_files
+
+
+def test_second_run_with_pending_legacy_mac_is_a_noop(seeded, capsys):
+    _legacy_with_extra_mac(seeded)
+    _make_pending(seeded)
+    assert _run(seeded) == 0
+    capsys.readouterr()
+    main_before = _db_main(seeded.state_dir)
+    logical = _logical(seeded.state_dir)
+    assert _run(seeded) == 0
+    assert "nothing to do" in capsys.readouterr().out
+    assert _db_main(seeded.state_dir) == main_before
+    assert _logical(seeded.state_dir) == logical
+
+
+def test_non_pending_legacy_mac_is_still_added_beside_a_pending_one(seeded):
+    _legacy_with_extra_mac(seeded)
+    _legacy_with_extra_mac(seeded, "02:00:00:00:60:02")
+    _make_pending(seeded)
+    assert _run(seeded) == 0
+    assert _macs(seeded, "devices") == sorted([seeded.mac, "02:00:00:00:60:02"])
+    assert _macs(seeded, "pending_devices") == [PENDING_MAC]
+
+
+def test_pending_frame_paired_later_is_not_re_added_or_resynced(seeded, capsys):
+    _legacy_with_extra_mac(seeded)
+    _make_pending(seeded)
+    assert _run(seeded) == 0
+    conn = fleet_db.connect(seeded.state_dir)
+    try:
+        owner = fleet_db.meta_get(conn, fleet_db.META_BOOTSTRAP_OWNER)
+        conn.execute("DELETE FROM pending_devices WHERE mac = ?", (PENDING_MAC,))
+        fleet_db.add_device(
+            conn, PENDING_MAC, PENDING_SECRET, hardware.LEGACY_KEY, int(owner),
+            state_path="auto",
+        )
+    finally:
+        conn.close()
+    capsys.readouterr()
+    assert _run(seeded) == 0
+    assert "nothing to do" in capsys.readouterr().out
+    assert PENDING_MAC in _macs(seeded, "devices")
+
+
+def test_mac_in_devices_and_pending_does_not_crash(seeded, capsys):
+    assert _run(seeded) == 0
+    conn = fleet_db.connect(seeded.state_dir)
+    try:
+        conn.execute(
+            "INSERT INTO pending_devices (id, mac, secret_sha256, hardware_type, "
+            "status, created_at) VALUES ('p_00000001', ?, ?, ?, 'pending', 'x')",
+            (seeded.mac, PENDING_SECRET, hardware.LEGACY_KEY),
+        )
+    finally:
+        conn.close()
+    capsys.readouterr()
+    assert _run(seeded, "--dry-run") == 0
+    assert _run(seeded) == 0
+    assert _macs(seeded, "devices") == [seeded.mac]

@@ -27,54 +27,75 @@ MESSAGES = {
     "admin_users.promote_what":
         "%s pourra gérer tous les cadres, tous les utilisateurs et tous les réglages.",
     "admin_users.promote_submit": "Nommer administrateur",
-    "admin_users.promote_keep": "Laisser utilisateur",
+    "admin_users.promote_keep": "Garder utilisateur",
     "admin_users.demote_title": "Retirer les droits d’administrateur\u00a0?",
     "admin_users.demote_what":
         "%s perdra la console d’administration et ne verra plus que les cadres "
         "qu’il possède ou co-gère.",
     "admin_users.demote_submit": "Retirer les droits",
-    "admin_users.demote_keep": "Laisser administrateur",
+    "admin_users.demote_keep": "Garder administrateur",
     "admin_users.delete_user_title": "Supprimer cet utilisateur\u00a0?",
     "admin_users.delete_user_keep": "Garder cet utilisateur",
     "admin_users.delete_user_what":
-        "%s est retiré de SkyPane. Ses sessions de connexion sont fermées, il perd "
-        "l’accès aux cadres qu’il co-gère et son compte est supprimé. Le journal "
-        "d’audit conserve son adresse. Cette action est irréversible.",
-    "admin_users.delete_user_owner_rule":
-        "Une personne qui possède un cadre ne peut pas être supprimée\u00a0: "
-        "réaffectez ou retirez d’abord le cadre.",
+        "%s est retiré de SkyPane et perd l’accès à ses cadres. Cette action est "
+        "définitive.",
     "admin_users.unlink_identity_hint":
         "Déconnecte cette personne\u00a0; elle relie de nouveau son compte de connexion à "
         "sa prochaine connexion.",
     "admin_users.invite_a_user": "Inviter un utilisateur",
-    "admin_users.they_sign_in_with_this_email_through_auth0_skypane_does":
-        "Ils se connectent avec cette adresse via Auth0. SkyPane ne leur envoie "
-        "aucun message\u00a0: prévenez-les vous-même.",
     "admin_users.invite_a_user_button": "+ Inviter un utilisateur",
     "admin_users.invite_user": "Inviter",
-    "admin_users.back_to_users": "Retour aux utilisateurs",
+    "admin_users.cancel": "Annuler",
+    "admin_users.done": "Terminé",
+    "admin_users.copy": "Copier",
+    "admin_users.send_new_invitation": "Envoyer une nouvelle invitation",
+    "admin_users.invitation_ready": "Invitation prête",
+    "admin_users.send_this_link_to": "Envoyez ce lien à %s",
+    "admin_users.invitation_hint":
+        "Il n’est affiché qu’une fois. Traitez-le comme un secret\u00a0: il expire "
+        "dans {ttl}. La personne choisit son mot de passe, puis ouvre {url} et se "
+        "connecte.",
+    "admin_users.invitation_hint_no_url":
+        "Il n’est affiché qu’une fois. Traitez-le comme un secret\u00a0: il expire "
+        "dans {ttl}. La personne choisit son mot de passe, puis ouvre l’application "
+        "et se connecte.",
+    "admin_users.ttl_days": "%d jours",
+    "admin_users.ttl_hours": "%d heures",
+    "admin_users.invitation_link_message":
+        "Bonjour, vous êtes invité(e) sur SkyPane. Ouvrez ce lien pour choisir votre "
+        "mot de passe (il expire dans {ttl})\u00a0: {link} Ouvrez ensuite {url} et "
+        "connectez-vous avec l’adresse {email}.",
+    "admin_users.invitation_link_message_no_url":
+        "Bonjour, vous êtes invité(e) sur SkyPane. Ouvrez ce lien pour choisir votre "
+        "mot de passe (il expire dans {ttl})\u00a0: {link} Ouvrez ensuite l’application "
+        "et connectez-vous avec l’adresse {email}.",
+    "admin_users.invitation_not_created": "Lien d’invitation non créé",
+    "admin_users.invitation_not_created_lead":
+        "%s est invité(e), mais aucun lien d’invitation n’a été créé.",
+    "admin_users.try_again": "Réessayer",
+    "admin_users.invitation_failed_busy":
+        "Le service de connexion est occupé. Réessayez dans un instant.",
+    "admin_users.invitation_failed_generic":
+        "Le service de connexion n’a pas accepté la demande. Réessayez\u00a0; si cela "
+        "persiste, vérifiez les réglages Auth0 du serveur.",
+    "admin_users.invitation_failed_not_set_up":
+        "Les invitations automatiques ne sont pas configurées sur ce serveur. Créez "
+        "leur compte dans Auth0 à la main.",
+    "admin_users.invitation_failed_connection_id":
+        "Une nouvelle invitation pour une personne qui a déjà un compte Auth0 demande "
+        "l’identifiant de connexion Auth0 sur le serveur "
+        "(SKYPANE_AUTH0_DB_CONNECTION_ID). Voir le guide de déploiement.",
     "admin_users.n_frames": "%d cadres",
     "admin_users.one_frame": "1 cadre",
     "admin_users.you": "Vous",
     "admin_users.status_active": "Actif",
     "admin_users.co_manager_suffix": "cogestionnaire",
     "admin_users.self_lock": "Vous ne pouvez pas vous désactiver ni vous rétrograder.",
-    "admin_users.copy_invitation": "Copier le message d’invitation",
     "admin_users.copied": "Copié",
-    "admin_users.col_invitation": "Message d’invitation",
-    "admin_users.invitation_message":
-        "Bonjour, vous êtes invité(e) sur SkyPane. Ouvrez {url} et connectez-vous "
-        "avec l’adresse {email}.",
-    "admin_users.invitation_message_no_url":
-        "Bonjour, vous êtes invité(e) sur SkyPane. Ouvrez l’application et "
-        "connectez-vous avec l’adresse {email}.",
     "admin_users.enter_a_valid_email_address": "Saisissez une adresse e-mail valide.",
     "admin_users.that_email_is_already_invited": "Cet e-mail est déjà invité.",
     "admin_users.choose_a_role": "Choisissez un rôle.",
     "admin_users.flash_action_refused": "Action refusée",
-    "admin_users.flash_invitation_saved": "Invitation enregistrée",
-    "admin_users.flash_invitation_saved_detail":
-        "Dites à {email} de se connecter avec cette adresse.",
     "admin_users.flash_role_saved": "Rôle enregistré",
     "admin_users.flash_role_saved_detail": "{email} est maintenant {role}.",
     "admin_users.flash_user_disabled": "Utilisateur désactivé",

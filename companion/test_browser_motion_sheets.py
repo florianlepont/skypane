@@ -11,7 +11,7 @@ import fleet_console_support as fx
 from companion import auth
 from companion.test_browser_ux_helpers import (
     VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED, VIEWPORT_PHONE, _login, seed_state_dir)
-from server import device_config
+from server import device_config, fleet_db
 
 pytestmark = pytest.mark.browser
 
@@ -276,15 +276,23 @@ def test_a_sheet_closed_by_drag_leaves_the_forms_unsent(new_context, app_server_
 # ---- swipeable toast ------------------------------------------------------------------
 
 
-def _invite_toast(new_context, server, reduced=False, lang="en", viewport=VIEWPORT_PHONE):
+def _user_id(server, email):
+    conn = fleet_db.connect(server.state_dir)
+    try:
+        return conn.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()[0]
+    finally:
+        conn.close()
+
+
+def _flash_toast(new_context, server, reduced=False, lang="en", viewport=VIEWPORT_PHONE):
+    """A page toast from a real flash: confirming a role change on the Users page."""
     context, page = _context(new_context, server, viewport, reduced=reduced, lang=lang)
-    page.goto(server.base_url() + "/users")
-    page.locator(INVITE_LINK).wait_for(state="visible")
+    user_id = _user_id(server, fx.USER_EMAIL)
+    dialog = "#dlg-role-user-%d" % user_id
+    page.goto(server.base_url() + "/users?role_change=%d&role=admin" % user_id)
+    page.locator(dialog + ".is-modal[open]").wait_for(state="visible")
     page.wait_for_function(_SETTLED, timeout=10000)
-    page.locator(INVITE_LINK).click()
-    page.locator(INVITE + ".is-modal[open]").wait_for(state="visible")
-    page.fill("#invite-email", "swipe.person@example.test")
-    page.locator(INVITE + " button[type=submit]").click()
+    page.locator(dialog + " button[type=submit]").click()
     page.locator(TOAST).wait_for(state="visible")
     # The pointer rests where the submit button was, which may now be under the toast, and a
     # hovered toast pauses its countdown on its own.
@@ -301,7 +309,7 @@ def test_the_toast_drops_in_with_a_spring_and_settles_in_place(
         new_context, app_server_in_process):
     server = app_server_in_process
     fx.seed_users(server.state_dir)
-    context, page = _invite_toast(new_context, server)
+    context, page = _flash_toast(new_context, server)
     try:
         assert _transform(page, TOAST) == "none"
         assert page.locator(TOAST).evaluate(
@@ -314,7 +322,7 @@ def test_swiping_the_toast_sideways_past_the_threshold_dismisses_it(
         new_context, app_server_in_process):
     server = app_server_in_process
     fx.seed_users(server.state_dir)
-    context, page = _invite_toast(new_context, server)
+    context, page = _flash_toast(new_context, server)
     try:
         box = page.locator(TOAST).bounding_box()
         start = (box["x"] + box["width"] / 2, box["y"] + 6)
@@ -333,7 +341,7 @@ def test_a_short_toast_swipe_springs_back_and_the_toast_stays(
         new_context, app_server_in_process):
     server = app_server_in_process
     fx.seed_users(server.state_dir)
-    context, page = _invite_toast(new_context, server)
+    context, page = _flash_toast(new_context, server)
     try:
         box = page.locator(TOAST).bounding_box()
         start = (box["x"] + box["width"] / 2, box["y"] + 6)
@@ -356,7 +364,7 @@ def test_the_dwell_bar_pauses_during_the_gesture_and_resumes_after(
     letting go short of the threshold resumes it"""
     server = app_server_in_process
     fx.seed_users(server.state_dir)
-    context, page = _invite_toast(new_context, server)
+    context, page = _flash_toast(new_context, server)
     try:
         page.evaluate(
             """async s => { const t = document.querySelector(s); const r = t.getBoundingClientRect();
@@ -383,7 +391,7 @@ def test_the_dwell_bar_pauses_during_the_gesture_and_resumes_after(
 def test_the_toast_close_button_still_dismisses_it(new_context, app_server_in_process):
     server = app_server_in_process
     fx.seed_users(server.state_dir)
-    context, page = _invite_toast(new_context, server)
+    context, page = _flash_toast(new_context, server)
     try:
         page.locator(TOAST + " [data-toast-dismiss]").click()
         page.wait_for_function(
@@ -396,7 +404,7 @@ def test_with_reduced_motion_a_swipe_still_dismisses_the_toast(
         new_context, app_server_in_process):
     server = app_server_in_process
     fx.seed_users(server.state_dir)
-    context, page = _invite_toast(new_context, server, reduced=True)
+    context, page = _flash_toast(new_context, server, reduced=True)
     try:
         box = page.locator(TOAST).bounding_box()
         _drag(page, (box["x"] + box["width"] / 2, box["y"] + 6), 0, dx=150)

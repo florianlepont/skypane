@@ -6434,6 +6434,209 @@ a.modal__dismiss {
 }
 
 
+/* Compact dialogs (ui_modal variant "compact"): the Users page's invite,
+ * invitation and confirmation dialogs. Every rule hangs on .modal--compact, so
+ * no other dialog changes. The title, the content and the buttons sit 14px
+ * apart on every edge; the two buttons share one row, dismiss first. */
+dialog.modal.modal--compact {
+  width: min(420px, 88%);
+  padding: 20px 20px 0;
+}
+
+dialog.modal.modal--compact[open],
+.modal--compact form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.modal--compact .modal__body {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+dialog.modal--compact[open] > *,
+.modal--compact form > * {
+  min-width: 0;
+}
+
+.modal--compact .modal__body p {
+  margin: 0;
+}
+
+.modal--compact .modal__actions {
+  flex-direction: row-reverse;
+  justify-content: stretch;
+  gap: 10px;
+  margin: 0;
+  padding: 0 0 20px;
+}
+
+.modal--compact .modal__actions > * {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.modal--compact .modal__actions > form {
+  display: contents;
+}
+
+.modal--compact .modal__actions > form > button {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.modal--compact .modal__note {
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  font-size: var(--font-label-size);
+}
+
+.modal--compact .modal__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.modal--compact .modal__field > label {
+  margin: 0;
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
+}
+
+.modal--compact .modal__field input:not([type="hidden"]) {
+  min-height: 48px;
+}
+
+/* A labelled checkbox: a 26px rounded box and its words on one 48px line.
+ * The native input is transparent and covers the whole line, so its hit area
+ * is the line (48px tall); the box is drawn beside it. */
+.modal__check {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  margin: 0;
+  font-size: var(--font-body-size);
+}
+
+.modal__check input[type="checkbox"] {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  min-height: 48px;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.modal__check-box {
+  display: grid;
+  flex: none;
+  place-content: center;
+  box-sizing: border-box;
+  width: 26px;
+  height: 26px;
+  border: 2px solid color-mix(in srgb, var(--color-text) 70%, transparent);
+  border-radius: 8px;
+}
+
+.modal__check input:checked + .modal__check-box {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.modal__check input:checked + .modal__check-box::after {
+  content: "";
+  width: 6px;
+  height: 12px;
+  margin-top: -2px;
+  border: solid var(--color-on-accent);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.modal__check input:focus-visible + .modal__check-box {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* The invitation link and its Copy button, on one rounded strip. The link is
+ * text to select, never an anchor: opening it would use it up. */
+.modal__linkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 6px 6px 12px;
+  background: var(--color-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+}
+
+.modal__linkbox code {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  user-select: all;
+}
+
+.modal__linkbox .btn {
+  flex: none;
+}
+
+.modal__linkbox .copy-btn__label {
+  display: inline;
+  position: static;
+  transform: none;
+  margin: 0;
+  font-size: inherit;
+}
+
+/* A confirmation to delete: the destructive button is a solid error colour. */
+.modal--compact .btn.btn--danger {
+  background: var(--color-status-error);
+  border-color: var(--color-status-error);
+  color: var(--color-on-accent);
+}
+
+@media (min-width: 700px) {
+  dialog.modal.modal--top {
+    margin: 16svh auto auto;
+  }
+}
+
+/* On a phone the dialog is a bottom sheet with a 44px grabber. The on-screen
+ * keyboard shrinks the visual viewport but not the layout viewport the sheet
+ * is anchored to: modal.js sets --keyboard-inset to the covered height so the
+ * sheet, and the field in it, stay above the keyboard. */
+@media (max-width: 699.98px) {
+  dialog.modal.modal--compact {
+    inset: auto 0 var(--keyboard-inset, 0px);
+    width: 100%;
+    max-height: min(85svh, calc(100svh - var(--keyboard-inset, 0px) - 12px));
+    padding: 33px max(16px, var(--safe-right)) 0 max(16px, var(--safe-left));
+  }
+
+  dialog.modal.modal--compact::before {
+    top: 12px;
+    width: 44px;
+    height: 5px;
+    margin-left: -22px;
+  }
+
+  .modal--compact .modal__actions {
+    padding-bottom: calc(24px + var(--safe-bottom));
+  }
+}
+
 /* A dialog that opens on its heading: the heading is a focus target, not a
  * control, so it draws no ring. */
 .modal__title:focus,

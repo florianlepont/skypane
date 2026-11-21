@@ -305,6 +305,10 @@ migration never runs at service start.
   modified or removed by the migration and stay valid, so rolling back to
   the previous release works. A later roll-forward reconciles anything
   that was written only to the legacy files in the meantime.
+- **Pending frames are skipped.** A legacy MAC that is already a pending
+  (or retired) frame in `fleet.db` is not imported as a device, since the
+  pairing flow owns it; the migration prints `skip device <mac>: already a
+  pending frame`. Once the frame is paired it is an ordinary device.
 - **Operator tool.** `stub-server/fleet_cli.py` manages the database:
 
   ```bash
@@ -829,7 +833,9 @@ Host header.
 
 Optional. When configured, inviting someone from the companion also creates
 their Auth0 database user and shows a one-time link to set a password; the
-link is shown once and is never stored or logged. Without it the invitation
+link is shown once and is never stored or logged. The first link of a person
+lasts 5 days; a link created again ("Send a new invitation") lasts 24 hours.
+Without it the invitation
 stays local and you create the Auth0 user by hand. These steps are the
 owner's, in the Auth0 dashboard:
 
@@ -839,16 +845,23 @@ owner's, in the Auth0 dashboard:
    permissions, `create:users` and `create:user_tickets`, and no other (no
    read, update or delete permission).
 3. Note the name of the database connection the people are created on
-   (Authentication, Database) and, optionally, its connection id
-   (`con_...`, shown on the connection page). The id is only used to send a
-   new invitation to someone who already has an Auth0 account.
+   (Authentication > Database) and its connection id (`con_` followed by 16
+   letters or digits, on the same connection's settings page). The id is
+   required to send a new invitation to someone who already has an Auth0
+   account: without it (or with a malformed one) that action fails closed
+   with a message to the administrator and the audit row says
+   `user_exists_connection_id_missing` or `connection_id_invalid`. It is not
+   a secret, but a real value never goes in this repository.
 4. In `/opt/skypane/skypane.env` (`root:root 0600`, the same file and mode
    as the other Auth0 secret) add:
 
    - `SKYPANE_AUTH0_MGMT_CLIENT_ID=<auth0-mgmt-client-id>`
    - `SKYPANE_AUTH0_MGMT_CLIENT_SECRET=<auth0-mgmt-client-secret>`
    - `SKYPANE_AUTH0_DB_CONNECTION=<auth0-database-connection-name>`
-   - `SKYPANE_AUTH0_DB_CONNECTION_ID=<auth0-database-connection-id>` (optional)
+   - `SKYPANE_AUTH0_DB_CONNECTION_ID=<auth0-database-connection-id>`
+   - `SKYPANE_AUTH0_CUSTOM_DOMAIN=<auth0-custom-domain>` (only if the tenant
+     uses a custom domain: the invitation link is shown only when it is an
+     https address on the tenant domain or this one)
 
    then `sudo systemctl restart skypane-companion`. The values reach the
    service only through the environment file; no unit file carries them.

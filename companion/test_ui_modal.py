@@ -158,6 +158,55 @@ def test_field_error_ids_match_between_paragraph_and_helper():
     assert not paragraph.select("script")
 
 
+def test_compact_variant_is_a_modifier_on_that_dialog_only():
+    doc = _dialog(variant="compact-top", subtitle="hidden by the variant")
+    dialog = doc.select_one("dialog")
+    assert dialog.attrs["class"].split() == ["modal", "modal--compact", "modal--top"]
+    assert not doc.select("a.modal__close") and not doc.select(".modal__subtitle")
+    assert doc.select_one("h2#dlg-invite-title.modal__title").text() == "Invite a user"
+    dismiss = doc.select_one(".modal__actions a")
+    assert dismiss.attrs["class"].split() == ["modal__dismiss", "modal__dismiss--button"]
+    assert _dialog().select_one("dialog").attrs["class"] == "modal"
+    assert _dialog(variant="compact").select_one("dialog").attrs["class"] == "modal modal--compact"
+    assert _dialog().select_one("a.modal__close") is not None
+
+
+def test_an_unknown_variant_is_refused():
+    with pytest.raises(ValueError):
+        _dialog(variant="wide")
+
+
+def test_result_dialog_is_open_returns_home_and_can_forget_a_one_time_value():
+    html = ui_modal.result_dialog_html(
+        "dlg-result", "Ready", "<p>body</p>", "Done", "/users", once=True)
+    doc = parse_html(html)
+    dialog = doc.select_one("dialog")
+    assert dialog.attrs["class"].split() == ["modal", "modal--compact", "modal--top"]
+    assert "open" in dialog.attrs and dialog.attrs["aria-labelledby"] == "dlg-result-title"
+    assert dialog.attrs["data-modal-return"] == "/users" and "data-modal-once" in dialog.attrs
+    done = doc.select_one(".modal__actions a")
+    assert done.attrs["href"] == "/users" and "data-modal-close" in done.attrs
+    assert "autofocus" in done.attrs and done.text() == "Done"
+    assert not doc.select("form")
+    plain = ui_modal.result_dialog_html("dlg-result", "Ready", "<p>b</p>", "Done", "/users")
+    assert "data-modal-once" not in plain
+
+
+def test_result_dialog_with_a_retry_form_puts_it_before_a_secondary_done():
+    retry = '<form method="post" action="/users/invite"><button type="submit">Again</button></form>'
+    doc = parse_html(ui_modal.result_dialog_html(
+        "dlg-result", "Failed", "<p>b</p>", "Done", "/users", retry_form_html=retry))
+    actions = doc.select_one(".modal__actions")
+    assert actions.select_one('form[action="/users/invite"] button').text() == "Again"
+    assert "modal__dismiss--button" in actions.select_one("a").attrs["class"]
+
+
+def test_result_dialog_text_is_escaped():
+    doc = parse_html(ui_modal.result_dialog_html(
+        "dlg-result", HOSTILE, "<p>b</p>", HOSTILE, "/x?a=%s" % HOSTILE))
+    assert not doc.select("script")
+
+
 # --- served assets -----------------------------------------------------------
 
 
@@ -221,3 +270,22 @@ def test_modal_has_a_phone_bottom_sheet_and_a_no_script_card(app_server_in_proce
     assert declarations_for(css, "a.modal__close")["width"] == "44px"
     assert declarations_for(
         css, "dialog.modal.is-modal[open]", ("@starting-style",))["opacity"] == "0"
+
+
+def test_compact_rules_hang_on_the_modifier_and_leave_the_shared_dialog_alone(
+        app_server_in_process):
+    css = served_stylesheet(app_server_in_process)
+    selectors = _selectors(css_rules(css))
+    assert "dialog.modal.modal--compact" in selectors
+    compact = declarations_for(css, "dialog.modal.modal--compact")
+    assert compact["width"] == "min(420px, 88%)" and compact["padding"] == "20px 20px 0"
+    # The shared rules keep their values, so Fleet, quiet hours and the leave
+    # dialog are unchanged.
+    base = declarations_for(css, "dialog.modal")
+    assert base["width"] == "min(480px, calc(100% - 48px))"
+    assert base["padding"] == "var(--space-lg) var(--space-lg) 0"
+    assert declarations_for(css, ".modal__actions")["margin-top"] == "var(--space-md)"
+    phone = ("@media (max-width: 699.98px)",)
+    sheet = declarations_for(css, "dialog.modal.modal--compact", phone)
+    assert "var(--keyboard-inset, 0px)" in sheet["inset"]
+    assert declarations_for(css, "dialog.modal.modal--compact::before", phone)["width"] == "44px"

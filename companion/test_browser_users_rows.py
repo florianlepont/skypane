@@ -50,8 +50,7 @@ _ROWS = """() => [...document.querySelectorAll('.users-table .users-row')].map((
           seenCut: seen.scrollWidth > seen.clientWidth + 1,
           frames: frames.textContent.trim(),
           parts: [...frames.querySelectorAll('.users-frames__part')].map((part) => (
-            {lines: lines(part), cut: part.scrollWidth > part.clientWidth})),
-          invite: !!row.querySelector('.users-copy')};
+            {lines: lines(part), cut: part.scrollWidth > part.clientWidth}))};
 })"""
 
 
@@ -137,8 +136,8 @@ def test_the_last_sign_in_is_one_line_and_the_frames_never_break_inside_a_part(
 @pytest.mark.parametrize("lang", ["en", "fr"])
 @pytest.mark.parametrize("viewport", WIDTHS)
 def test_rows_that_show_the_same_parts_are_equally_tall(new_context, rig, viewport, lang):
-    """In the table every row has one height. As cards, a person who has not signed in yet
-    carries one more line (the Copy invitation button); cards are equal within each kind."""
+    """In the table every row has one height. As cards, a card is as tall as its address and its
+    frames line need: cards that wrap alike are equal, whether or not the person has signed in."""
     context, page = _users(new_context, rig, viewport, lang)
     try:
         rows = page.evaluate(_ROWS)
@@ -148,8 +147,10 @@ def test_rows_that_show_the_same_parts_are_equally_tall(new_context, rig, viewpo
         if table:
             assert len({row["height"] for row in rows}) == 1, rows
         else:
-            for invited in (True, False):
-                heights = {row["height"] for row in rows if row["invite"] == invited}
+            shapes = {(row["emailLines"], len(row["parts"])) for row in rows}
+            for shape in shapes:
+                heights = {row["height"] for row in rows
+                           if (row["emailLines"], len(row["parts"])) == shape}
                 assert len(heights) <= 1, rows
     finally:
         context.close()

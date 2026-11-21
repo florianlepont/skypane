@@ -1363,8 +1363,7 @@ a.row-action {
   grid-template-areas:
     "user user"
     "role active"
-    "frames seen"
-    "invite invite";
+    "frames seen";
   position: relative;
   align-items: center;
   gap: var(--space-sm) var(--space-md);
@@ -1410,8 +1409,6 @@ a.row-action {
 }
 
 .users-cell--role { grid-area: role; }
-.users-cell--invite { grid-area: invite; }
-.users-cell--invite:empty { display: none; }
 .users-cell--active { grid-area: active; justify-self: end; }
 .users-cell--menu {
   position: absolute;
@@ -1522,35 +1519,6 @@ a.row-action {
   background: color-mix(in srgb, var(--color-status-error) 16%, var(--color-dominant));
 }
 
-/* The copy button: full-width on a phone card, hidden without script. */
-.users-copy {
-  display: none;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-sm);
-  width: 100%;
-  min-height: 44px;
-  padding: 0 var(--space-md);
-  background: var(--glass-solid);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-control);
-  box-shadow: none;
-  color: var(--color-text);
-  font-weight: var(--weight-semibold);
-}
-
-.js .users-copy {
-  display: flex;
-}
-
-.users-copy .copy-btn__label {
-  display: inline;
-  position: static;
-  transform: none;
-  margin: 0;
-  font-size: inherit;
-}
-
 .users-role-form,
 .users-active-form {
   display: flex;
@@ -1579,7 +1547,8 @@ a.row-action {
   display: flex;
   align-items: center;
   min-height: 44px;
-  font-weight: var(--weight-semibold);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  font-weight: var(--weight-regular);
 }
 
 /* On the narrowest cards the role select needs the room of the switch's text:
@@ -1597,8 +1566,7 @@ a.row-action {
     grid-template-areas:
       "user user user"
       "role role active"
-      "frames seen seen"
-      "invite invite invite";
+      "frames seen seen";
   }
 
   .users-cell--seen {
@@ -1628,6 +1596,9 @@ a.row-action {
 }
 
 .users-cell--menu .row-menu__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   white-space: nowrap;
   overflow-wrap: normal;
 }
@@ -1690,7 +1661,6 @@ a.row-action {
   .users-col--frames { width: 132px; }
   .users-col--seen { width: 136px; }
   .users-col--active { width: 60px; }
-  .users-col--invite { width: 60px; }
   .users-col--menu { width: 52px; }
 
   .users-frames__part {
@@ -1737,29 +1707,6 @@ a.row-action {
   .users-pills {
     grid-column: 2;
     grid-row: 2;
-  }
-
-  .users-cell--invite:empty {
-    display: table-cell;
-  }
-
-  /* An icon-only button in the table; its name is the label, read aloud. */
-  .users-copy {
-    width: 44px;
-    padding: 0;
-  }
-
-  .users-copy .copy-btn__label {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
-
-  .users-copy.copy-btn--copied {
-    border-color: var(--color-accent);
   }
 
   .users-cell--active .users-active-label {

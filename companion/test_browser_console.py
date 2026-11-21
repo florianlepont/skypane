@@ -177,7 +177,7 @@ def test_forms_and_confirm_controls_meet_the_touch_target(
         assert _height(page, "tr.users-row select") >= MIN_TAP_PX
         page.locator("a.page-header__action").click()
         for selector in (
-                "#invite-email", "#invite-role", 'form[action="/users/invite"] button'):
+                "#invite-email", "#invite-role", '#dlg-invite-user button[type=submit]'):
             assert _height(page, selector) >= MIN_TAP_PX, selector
     finally:
         context.close()
@@ -223,9 +223,8 @@ def test_console_works_with_scripts_blocked(new_context, app_server_in_process):
         page.goto(server.base_url() + "/users")
         page.click("a.page-header__action")
         page.fill("#invite-email", "invited@example.test")
-        page.click('form[action="/users/invite"] button')
-        page.wait_for_url("**/users")
-        assert _flash(page).is_visible()
+        page.click('#dlg-invite-user button[type=submit]')
+        page.locator("#dlg-invitation-failed").wait_for(state="visible")
         assert "invited@example.test" in page.content()
     finally:
         context.close()

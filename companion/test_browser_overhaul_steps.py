@@ -210,10 +210,10 @@ def test_a2_invite_a_user(world, new_context):
     try:
         steps.tap(page.locator(".tab-bar a[href='/users']"), "Users tab")
         steps.tap(page.locator("a.page-header__action"), "Invite a user")
-        assert page.input_value("#invite-role") == "user"
+        assert not page.is_checked("#invite-role")
         steps.type_value(page.locator("#invite-email"), "new.person@example.test", "email")
-        steps.tap(page.locator("#dlg-invite-user button[type=submit]"), "Invite user")
-        page.wait_for_url("**/users")
+        steps.tap(page.locator("#dlg-invite-user button[type=submit]"), "Invite")
+        page.locator("#dlg-invitation-failed").wait_for(state="visible")
         conn = fleet_db.connect(world.state_dir)
         try:
             row = conn.execute(

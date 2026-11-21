@@ -423,6 +423,7 @@ class Handler(
         post_actions.SettingsActionsMixin, server_error.ErrorPageMixin,
         BaseHTTPRequestHandler):
     server_version = "skypane-companion"
+    referrer_policy = "same-origin"  # a one-time page sets "no-referrer"
     # (body, over_cap) of the upload being handled; see upload_form.read_upload().
     upload_body = (None, False)
     args = None
@@ -444,7 +445,7 @@ class Handler(
         """
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("X-Frame-Options", "DENY")
-        self.send_header("Referrer-Policy", "same-origin")
+        self.send_header("Referrer-Policy", self.referrer_policy)
         self.send_header("Content-Security-Policy", policy.content_security_policy)
         self.send_header("Permissions-Policy", policy.permissions_policy)
 
