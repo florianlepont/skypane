@@ -182,6 +182,7 @@ files = [
     # partially annotated.
     "server/poll_cycle.py",
     "companion/auth0_management.py",
+    "server/plane/airline_suggest.py",
 ]
 
 # mypy's own `strict` preset is a global-only switch; these per-flag
@@ -218,6 +219,7 @@ module = [
     "server.wake_stats",
     "server.check_interval",
     "companion.auth0_management",
+    "server.plane.airline_suggest",
 ]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true

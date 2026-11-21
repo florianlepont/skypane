@@ -105,7 +105,8 @@ def dialog_html(
         dialog_id, title, form_action, csrf_html, body_html, submit_label,
         dismiss_label, dismiss_href, destructive=False, confirm_only=False,
         open_=False, subtitle=None, focus_id=None, focus_title=False,
-        return_on_close=False, return_focus_id=None, secondary_dismiss=False):
+        return_on_close=False, return_focus_id=None, secondary_dismiss=False,
+        extra_action_html=""):
     """One modal dialog wrapping a POST form.
 
     `dismiss_href` is the host page path: the close and dismiss links go
@@ -127,6 +128,9 @@ def dialog_html(
     address opened).
     `secondary_dismiss` draws the dismiss link as a secondary button under
     the submit button instead of a plain text link.
+    `extra_action_html` (already escaped, empty by default) is a further
+    control placed after the dismiss link in the action row, for a second
+    submit button of the same form (one with its own `formaction`).
     """
     slug = validated_slug(dialog_id)
     dismiss_class = (
@@ -174,7 +178,7 @@ def dialog_html(
         '<div class="modal__actions">'
         '<button type="submit"%(submit_class)s%(submit_focus)s>%(submit)s</button>'
         '<a class="%(dismiss_class)s" href="%(href)s" data-modal-close%(dismiss_focus)s>%(dismiss)s</a>'
-        '</div></form></dialog>\n'
+        '%(extra_action)s</div></form></dialog>\n'
     ) % {
         "id": slug,
         "title_id": title_id,
@@ -195,6 +199,7 @@ def dialog_html(
         "dismiss_focus": dismiss_focus,
         "dismiss_class": dismiss_class,
         "dismiss": escape_html(dismiss_label),
+        "extra_action": extra_action_html,
     }
 
 

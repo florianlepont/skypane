@@ -8,14 +8,15 @@ It uses the same per-source shape `server/assets/fonts/VENDOR.md` and
 source, upstream link, the date the terms were checked, what the terms
 require, and a verdict.
 
-Twelve sources are covered, not the three originally scoped by D-14 —
+Thirteen sources are covered, not the three originally scoped by D-14 —
 `server/plane/enrich.py` reaches a fourth aggregator in production
 (adsbdb.com) that predates this document, `server/plane/detect.py` gained
 a fifth (adsb.lol, 2026-08-27) as a second default ADS-B source, the
 OurAirports catalogue joined as build-time data (never fetched at run
 time), the location page's map reaches three more from the browser (the
-Leaflet library and the OpenStreetMap tile and search services), and leaving
-any of them out would make this document incomplete.
+Leaflet library and the OpenStreetMap tile and search services), the Airlines
+editor optionally reaches the Anthropic API from the server, and leaving any
+of them out would make this document incomplete.
 
 Every behavioural claim below (request cadence, caching, what is and is
 not republished) is grounded in the file that implements it, named
@@ -501,6 +502,43 @@ is relaxed.
   thirty days for a hit), so a callsign seen by several devices costs one
   lookup.
 
+---
+
+## Anthropic API
+
+- **Used in shipped code:** Yes, optionally — only while
+  `SKYPANE_ANTHROPIC_API_KEY` is set on the server. One call per unidentified
+  callsign prefix, made by `server/plane/airline_suggest.py` from the
+  companion's administrator route (`POST /airlines/suggest`), to
+  `https://api.anthropic.com/v1/messages` with model `claude-haiku-5-5`. It is
+  never called from the poll cycle or while a page renders.
+- **Upstream:** https://www.anthropic.com/legal/commercial-terms and
+  https://platform.claude.com/docs/en/manage-claude/api-and-data-retention
+- **Terms checked:** 2026-11-21 (the Messages API, versioning, errors and
+  data-retention pages fetched directly; the key is the owner's own account).
+- **What is sent:** only the three-letter callsign prefix and up to four sample
+  callsigns of that prefix (public ADS-B identifiers). Never a frame, owner,
+  user, location or device datum, and never a history, photo or timestamp.
+  `build_request()` is the only place the request is built and a test asserts
+  its whole body.
+- **What comes back:** a proposed airline name, validated (at most 100
+  characters, no control characters or markup, no path separators) and stored
+  in `airline_suggestions.json` as a suggestion only. A person must press the
+  check or type a name before it reaches `manual_resolutions.json`; no
+  background job applies it.
+- **Retention at the provider:** the API documentation states that
+  conversation content is not retained by default (with a documented exception
+  for some model classes) and that retained data is never used for training
+  without express permission; the account and its terms belong to the owner.
+- **Cost bound:** one request per prefix ever (the answer, "no idea", a removal
+  and a named prefix are all kept), at most 10 calls an hour and 60 a day, one
+  attempt with a short timeout, failures cached for 15 minutes (6 hours for an
+  authentication or billing error).
+- **Verdict — compliant:** public identifiers only, optional, off without the
+  key, bounded, never applied without a human.
+
+---
+
 ## Status table
 
 | Source | Used in shipped code | Terms status | Open action |
@@ -517,6 +555,7 @@ is relaxed.
 | OpenStreetMap tile server | Browser-side, Location and detection page only | Confirmed (usage policy fetched 2026-11-03) | Map plan implements Referer, attribution and no-prefetch behaviour |
 | Nominatim | Browser-side, Location and detection page only | Confirmed (usage policy fetched 2026-11-03) | Map plan implements user-triggered, rate-limited search with Referer |
 | Leaflet | Yes, vendored | Confirmed (BSD-2-Clause) | None |
+| Anthropic API | Yes, optional (key set on the server), administrator route only | Confirmed (docs fetched 2026-11-21; owner-held account) | None — only a prefix and up to 4 sample callsigns are sent |
 
 The two OpenStreetMap rows name behaviour that the map page plan completes in
 `companion/static/place-map.js`; nothing else is open. PRIM's "revisit at v2 planning" note is a

@@ -72,6 +72,7 @@ PLACE_SEARCH_SCRIPT_ROUTE = "/static/place-search.js"
 PLACE_START_SCRIPT_ROUTE = "/static/place-start.js"
 PLACE_AIRPORT_LIST_SCRIPT_ROUTE = "/static/place-airport-list.js"
 AIRLINE_TYPES_SCRIPT_ROUTE = "/static/airline-types.js"
+AIRLINE_SUGGEST_SCRIPT_ROUTE = "/static/airline-suggest.js"
 UPDATE_QUESTION_SCRIPT_ROUTE = "/static/update-question.js"
 FLEET_ANCHORS_SCRIPT_ROUTE = "/static/fleet-anchors.js"
 # Brand icons. Browsers fetch these before any session exists (the login page
@@ -115,6 +116,7 @@ _PLACE_SEARCH_JS_PATH = os.path.join(STATIC_DIR, "place-search.js")
 _PLACE_START_JS_PATH = os.path.join(STATIC_DIR, "place-start.js")
 _PLACE_AIRPORT_LIST_JS_PATH = os.path.join(STATIC_DIR, "place-airport-list.js")
 _AIRLINE_TYPES_JS_PATH = os.path.join(STATIC_DIR, "airline-types.js")
+_AIRLINE_SUGGEST_JS_PATH = os.path.join(STATIC_DIR, "airline-suggest.js")
 _UPDATE_QUESTION_JS_PATH = os.path.join(STATIC_DIR, "update-question.js")
 _FLEET_ANCHORS_JS_PATH = os.path.join(STATIC_DIR, "fleet-anchors.js")
 _FAVICON_PATH = os.path.join(STATIC_DIR, "favicon.svg")
@@ -188,6 +190,8 @@ STATIC_ROUTES = {
         _PLACE_AIRPORT_LIST_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
     AIRLINE_TYPES_SCRIPT_ROUTE: StaticAsset(
         _AIRLINE_TYPES_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
+    AIRLINE_SUGGEST_SCRIPT_ROUTE: StaticAsset(
+        _AIRLINE_SUGGEST_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
     UPDATE_QUESTION_SCRIPT_ROUTE: StaticAsset(
         _UPDATE_QUESTION_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
     FLEET_ANCHORS_SCRIPT_ROUTE: StaticAsset(

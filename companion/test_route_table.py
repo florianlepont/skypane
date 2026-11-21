@@ -168,6 +168,8 @@ def test_owner_device_routes_are_exactly_the_user_reachable_frame_routes():
         ("POST", routes.Exact(routes.airlines_page.RENAME_RESET_ROUTE)),
         ("POST", routes.Exact(routes.airlines_page.ARTWORK_DELETE_ROUTE)),
         ("POST", routes.Exact(routes.airlines_page.DEFAULT_TYPE_ROUTE)),
+        ("POST", routes.Exact(routes.airlines_page.AIRLINE_SUGGEST_ROUTE)),
+        ("POST", routes.Exact(routes.airlines_page.AIRLINE_SUGGEST_REJECT_ROUTE)),
         ("POST", routes.PrefixSuffix(
             routes.airlines_page.MANUAL_DELETE_ROUTE_PREFIX,
             routes.airlines_page.MANUAL_DELETE_ROUTE_SUFFIX)),

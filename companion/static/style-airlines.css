@@ -1000,6 +1000,151 @@ table.airlines-table {
   flex: none;
 }
 
+/* A suggested name: the "Suggestion" tag and the proposed name over the
+ * sightings line, then Edit and the round check that names the airline. */
+/* On a very narrow screen the controls drop under the text instead of
+ * squeezing the name and the sightings into a column of a few letters. */
+.airlines-gap--suggest {
+  flex-wrap: wrap;
+}
+
+.airlines-gap--suggest .airlines-gap__body {
+  flex: 1 1 96px;
+}
+
+.airlines-gap--suggest .airlines-gap__actions,
+.airlines-gap--suggest > .btn {
+  margin-left: auto;
+}
+
+.airlines-gap__top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+  max-width: 100%;
+}
+
+.airlines-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: 2px var(--space-sm);
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--color-text) 8%, transparent);
+  color: var(--color-accent);
+  font-size: 12px;
+  font-weight: var(--weight-semibold);
+  white-space: nowrap;
+}
+
+.airlines-tag--pending {
+  background: transparent;
+  border-color: var(--color-border);
+  border-style: dashed;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.airlines-tag__dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-status-warn);
+}
+
+.airlines-gap__name {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-body-size);
+  font-weight: var(--weight-title);
+}
+
+.airlines-gap__actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.airlines-gap__edit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 6px;
+  box-sizing: border-box;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  font-size: 14px;
+  font-weight: var(--weight-semibold);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.airlines-gap__check {
+  display: flex;
+  margin: 0;
+}
+
+.airlines-check {
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  cursor: pointer;
+}
+
+.airlines-check:hover,
+.airlines-check:focus-visible {
+  background: var(--color-accent-hover);
+}
+
+.airlines-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  margin: 0;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  font-size: 14px;
+}
+
+.airlines-hint .icon {
+  flex: none;
+  margin-top: 1px;
+}
+
+dialog.modal .airlines-remove {
+  color: var(--color-status-error);
+}
+
+/* Without script nothing looks the name up, so the pending tag would only
+ * promise something that never comes. */
+@media (scripting: none) {
+  .airlines-tag--pending {
+    display: none;
+  }
+}
+
+@media (min-width: 700px) {
+  dialog.modal .airlines-remove {
+    margin-right: auto;
+  }
+}
+
 /* An airline known by name only: its name over its prefix, and the button
  * that adds its first artwork. Read-only: the row holds no form. */
 .airlines-known {

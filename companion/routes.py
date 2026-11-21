@@ -33,7 +33,7 @@ admin role (every global page and mutation).
 import re
 
 from companion import (
-    airline_actions, co_managers, console_routes, device_scope, fleet_moves, frame_rename, user_pairing, layout, page_policy, route_types,
+    airline_actions, airline_suggest_actions, co_managers, console_routes, device_scope, fleet_moves, frame_rename, user_pairing, layout, page_policy, route_types,
     static_files, theme_preview, upload_form)
 from companion.pages import (
     airline_collection_page, airline_types_fragment, airlines_page, co_managers_card, config_page, detection_page, place_page,
@@ -294,6 +294,12 @@ _POST_ROUTES = (
         "POST", Exact(airlines_page.DEFAULT_TYPE_ROUTE),
         lambda h, m: airline_actions.handle_default_type(h, m), ADMIN_DEVICE, csrf=True),
     Route(
+        "POST", Exact(airlines_page.AIRLINE_SUGGEST_ROUTE),
+        lambda h, m: airline_suggest_actions.handle_suggest(h, m), ADMIN_DEVICE, csrf=True),
+    Route(
+        "POST", Exact(airlines_page.AIRLINE_SUGGEST_REJECT_ROUTE),
+        lambda h, m: airline_suggest_actions.handle_reject(h, m), ADMIN_DEVICE, csrf=True),
+    Route(
         "POST",
         PrefixSuffix(airlines_page.MANUAL_DELETE_ROUTE_PREFIX, airlines_page.MANUAL_DELETE_ROUTE_SUFFIX),
         lambda h, m: h._handle_manual_resolution_delete(m.device, m.captured), ADMIN_DEVICE),
@@ -371,6 +377,8 @@ _ACTION_KEYS = (
     ("POST", Exact(airlines_page.RENAME_RESET_ROUTE)),
     ("POST", Exact(airlines_page.ARTWORK_DELETE_ROUTE)),
     ("POST", Exact(airlines_page.DEFAULT_TYPE_ROUTE)),
+    ("POST", Exact(airlines_page.AIRLINE_SUGGEST_ROUTE)),
+    ("POST", Exact(airlines_page.AIRLINE_SUGGEST_REJECT_ROUTE)),
     ("POST", PrefixSuffix(
         airlines_page.MANUAL_DELETE_ROUTE_PREFIX, airlines_page.MANUAL_DELETE_ROUTE_SUFFIX)),
     ("POST", PrefixSuffix(ILLUSTRATION_IMAGE_ROUTE_PREFIX, ".png")),

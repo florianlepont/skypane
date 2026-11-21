@@ -16,6 +16,8 @@ ROWS = {
     ("POST", "/airlines/rename/reset"): KIND,
     ("POST", "/airlines/artwork/delete"): KIND,
     ("POST", "/airlines/default-type"): KIND,
+    ("POST", "/airlines/suggest"): KIND,
+    ("POST", "/airlines/suggest/reject"): KIND,
     ("POST", "/airlines/manual-resolutions/{}/delete"): KIND,
     ("POST", "/illustration/{}.png"): KIND,
 }

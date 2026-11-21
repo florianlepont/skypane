@@ -50,6 +50,8 @@ EXPECTED_DEVICE_SCOPED = {
     ("POST", "/airlines/rename/reset"),
     ("POST", "/airlines/artwork/delete"),
     ("POST", "/airlines/default-type"),
+    ("POST", "/airlines/suggest"),
+    ("POST", "/airlines/suggest/reject"),
     ("POST", ("/airlines/manual-resolutions/", "/delete")),
     ("POST", ("/illustration/", ".png")),
     ("POST", "/settings/rules/add"),
@@ -84,7 +86,7 @@ def _spec_of(route):
 class TestPrefixMatching:
     def test_flagged_routes_equal_the_explicit_list(self):
         flagged = {(r.method, _spec_of(r)) for r in routes.ROUTES if r.device_scoped}
-        assert len(EXPECTED_DEVICE_SCOPED) == 47
+        assert len(EXPECTED_DEVICE_SCOPED) == 49
         assert flagged == EXPECTED_DEVICE_SCOPED
 
     @pytest.mark.parametrize("method,spec", sorted(EXPECTED_DEVICE_SCOPED, key=str))
