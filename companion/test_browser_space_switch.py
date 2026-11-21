@@ -46,8 +46,17 @@ _BAR_SWITCH = (
     " inBar: !!document.querySelector('.tab-bar > .tab-bar__link--switch')}; }")
 
 
+def _wait_more_panel_closed(page):
+    """The new page's More panel is closed. Right after a link click the predicate also runs
+    against the document that is still loading, whose tab bar is not parsed yet."""
+    page.wait_for_function(
+        "() => { const more = document.querySelector('.tab-bar__more');"
+        " return !!more && !more.open; }")
+
+
 def _check_bar_switch(page, lang, space, where):
     """The switch row of the More panel, opened and read once it owns its centre."""
+    page.locator(".tab-bar__more").wait_for(state="attached")
     if not page.evaluate("() => document.querySelector('.tab-bar__more').open"):
         page.locator(".tab-bar__more > summary").click()
     page.wait_for_function(
@@ -187,11 +196,11 @@ def test_one_tap_on_the_more_panel_switch_moves_between_the_two_spaces(
         _check_bar_switch(page, "en", "console", "console/phone")
         page.locator(".tab-bar__space-link").click()
         page.wait_for_function("() => !location.pathname.endsWith('/fleet')")
-        page.wait_for_function("() => !document.querySelector('.tab-bar__more').open")
+        _wait_more_panel_closed(page)
         _check_bar_switch(page, "en", "personal", "personal/phone")
         page.locator(".tab-bar__space-link").click()
         page.wait_for_function("() => location.pathname === '/fleet'")
-        page.wait_for_function("() => !document.querySelector('.tab-bar__more').open")
+        _wait_more_panel_closed(page)
         _check_bar_switch(page, "en", "console", "console/phone-again")
     finally:
         context.close()
