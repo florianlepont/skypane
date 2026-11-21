@@ -246,11 +246,10 @@ def _t(message):
     return _esc(i18n.t(message))
 
 
-def _pill(label_html, tone="", attrs=""):
-    css = "banner__pill users-pill"
-    if tone:
-        css += " users-pill--" + tone
-    return '<span class="%s"%s>%s</span>' % (css, attrs, label_html)
+def _pill(text, tone, attrs=""):
+    """A status or "You" badge, built by the catalogue's pill helper (the
+    text is escaped there)."""
+    return _ui().pill_html(text, None, "users-pill users-pill--" + tone, attrs=attrs)
 
 
 _STATUS_LABELS = {
@@ -270,9 +269,9 @@ def _status_pill(row):
         spoken = "%s. %s" % (i18n.t(_STATUS_INVITED), i18n.t(_STATUS_INVITED_HELP))
         help_attrs = ' title="%s" aria-label="%s"' % (_esc(spoken), _esc(spoken))
     return (
-        _pill(_t(_STATUS_LABELS[enabled]), enabled,
+        _pill(i18n.t(_STATUS_LABELS[enabled]), enabled,
               (" hidden" if off else "") + " data-quick-state-on" + help_attrs)
-        + _pill(_t(_STATUS_DISABLED), STATUS_DISABLED,
+        + _pill(i18n.t(_STATUS_DISABLED), STATUS_DISABLED,
                 ("" if off else " hidden") + " data-quick-state-off"))
 
 
@@ -427,6 +426,14 @@ def _role_dialog(view):
         return_focus_id="role-%d" % user_id)
 
 
+# A paper plane for "Send a new invitation", drawn inline: a new sprite symbol would change
+# the markup of every page.
+_SEND_ICON = (
+    '<svg class="icon" width="20" height="20" viewBox="0 0 20 20" aria-hidden="true" '
+    'focusable="false" fill="none" stroke="currentColor" stroke-width="1.6" '
+    'stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 9l15-6.5-6.5 15-2-6.5z"/></svg>')
+
+
 def _renew_form(row):
     """The menu item that asks for a new invitation link: the invite form
     with this person's address (the same route, no new one)."""
@@ -435,7 +442,7 @@ def _renew_form(row):
         '<input type="hidden" name="%s" value="%s">'
         '<button type="submit" class="row-menu__item">%s%s</button></form>' % (
             _esc(_routes().USERS_INVITE_ROUTE), _ui().csrf_field(), EMAIL_FIELD,
-            _esc(row.email), icon_html("icon-send"), _t(_RENEW_BUTTON)))
+            _esc(row.email), _SEND_ICON, _t(_RENEW_BUTTON)))
 
 
 def _menu_cell(row):
@@ -471,7 +478,7 @@ def _breakable(email):
 
 
 def _row_html(row, view):
-    you = _pill(_t(_YOU), "you") if row.is_self else ""
+    you = _pill(i18n.t(_YOU), "you") if row.is_self else ""
     return (
         '<tr class="users-row%s" id="user-%d" data-quick-region>'
         '<th scope="row" class="users-cell users-cell--user">'

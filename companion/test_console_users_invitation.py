@@ -221,7 +221,7 @@ def test_the_row_menu_offers_a_new_invitation_only_to_a_person_who_has_not_signe
     assert len(forms) == 3  # the waiting user, the second administrator and the idle user
     waiting = [f for f in forms if 'value="%s"' % fx.USER_EMAIL in f]
     assert len(waiting) == 1 and "Send a new invitation" in waiting[0]
-    assert 'name="csrf_token"' in waiting[0] and "icon-send" in waiting[0]
+    assert 'name="csrf_token"' in waiting[0] and "<svg" in waiting[0]
     assert not [f for f in forms if 'value="%s"' % fx.OWNER_EMAIL in f]
     # Posting that form (address only) renews the link without touching the role.
     status, _headers, body = _invite(server, cookie, email=fx.USER_EMAIL)
@@ -294,7 +294,7 @@ def test_a_refusal_is_generic_for_the_administrator_and_specific_in_the_audit(
         _status, _headers, body = _invite(server, cookie)
         dialog = _failed_dialog(body)
         assert "did not accept the request" in dialog
-        assert code not in body and str(status) not in dialog
+        assert code not in body and not re.search(r"\b%d\b" % status, dialog)
     rows = _audit(server.state_dir, "user.invitation")
     assert len(rows) == 3 and all(code in _detail(row) for row in rows)
 
