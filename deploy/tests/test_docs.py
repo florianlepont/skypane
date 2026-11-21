@@ -206,6 +206,6 @@ def test_signing_md_has_per_type_release_section():
         "build-ee02",
         "build-second",
         "check_production_config.sh built",
-        "not yet published",
+        "firmware-release.yml",
     ):
         assert name in section, name
