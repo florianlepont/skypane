@@ -2034,6 +2034,33 @@ def test_a_rename_on_frame_a_reaches_the_next_flight_of_frame_b(tmp_path, clock)
     assert cycle("d4e5f6") == "Oceanic Airways"
 
 
+def test_artwork_added_for_frame_a_is_the_picture_frame_b_renders(tmp_path, clock, monkeypatch):
+    """a picture placed through frame A's directory is the file frame B's own poll cycle selects, from the one fleet directory"""
+    root = str(tmp_path)
+    frame_a = device_dirs.provision_device_dir(root, "d_0123abcd", 800, 480)
+    frame_b = device_dirs.provision_device_dir(root, "d_4567cdef", 800, 480)
+    fleet_file = os.path.join(root, "illustration_overrides", "air-france.png")
+    os.makedirs(os.path.dirname(fleet_file))
+    with open(fleet_file, "wb") as fh:
+        fh.write(b"path-existence fixture only")
+    assert render.illustrations.override_path_for_key("air-france", frame_a) == fleet_file
+
+    resolved = []
+    original = render.illustrations.select_illustration
+
+    def spy(route, aircraft_type=None, state_dir=None):
+        resolved.append(original(route, aircraft_type, state_dir=state_dir))
+        return resolved[-1]
+
+    monkeypatch.setattr(render.illustrations, "select_illustration", spy)
+    _tick(clock, poll_cycle.MIN_ADVANCE_INTERVAL_S + 30)
+    poll_cycle.run_once(
+        snapshot=_snapshot("aaaaaa", "AFR1234", CLIMB), state_dir=frame_b,
+        geofence=GEOFENCE_PATH, ledger_root=root)
+    assert fleet_file in resolved, resolved
+    assert not os.path.exists(os.path.join(frame_b, "illustration_overrides"))
+
+
 def test_clear_resolved_unresolved_prefix_removes_resolvable_entry(tmp_path, clock):
     """a cycle detecting a flight whose prefix is now resolvable via the manual registry removes that prefix's entry from unresolved_prefixes and persists the removal, leaving a still-unresolvable prefix's entry byte-identical"""
     d14a_dir = _mkdir(tmp_path, "d14-clear")

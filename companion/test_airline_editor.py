@@ -58,14 +58,17 @@ class Rig:
         return status, headers
 
     def stored(self):
-        """Every file the editing flows write, by relative path with its bytes."""
+        """Every file the editing flows write, by relative path with its bytes:
+        the frame's own files plus the fleet artwork directory at the root."""
         found = {}
-        for root, _dirs, names in os.walk(self.owned_dir):
-            for name in names:
-                if name.endswith((".json", ".png")):
-                    path = os.path.join(root, name)
-                    with open(path, "rb") as handle:
-                        found[os.path.relpath(path, self.owned_dir)] = handle.read()
+        fleet_art = os.path.join(self.server.state_dir, "illustration_overrides")
+        for base, anchor in ((self.owned_dir, self.owned_dir), (fleet_art, self.server.state_dir)):
+            for root, _dirs, names in os.walk(base):
+                for name in names:
+                    if name.endswith((".json", ".png")):
+                        path = os.path.join(root, name)
+                        with open(path, "rb") as handle:
+                            found[os.path.relpath(path, anchor)] = handle.read()
         return found
 
 
@@ -285,7 +288,7 @@ def test_a_hand_named_airline_with_artwork_keeps_its_table_row_and_a_delete_item
 
 
 def _override(rig, key):
-    folder = os.path.join(rig.owned_dir, "illustration_overrides")
+    folder = os.path.join(rig.server.state_dir, "illustration_overrides")
     os.makedirs(folder, exist_ok=True)
     path = os.path.join(folder, key + ".png")
     with open(os.path.join(VENDORED, "vueling-airlines.png"), "rb") as handle:

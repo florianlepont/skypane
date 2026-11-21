@@ -36,6 +36,8 @@ _REPO_ROOT = os.path.dirname(os.path.dirname(_HERE))
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
+from server import device_dirs  # noqa: E402
+
 # --- Constants ---------------------------------------------------------------
 
 ILLUSTRATION_DIR = os.path.normpath(
@@ -620,18 +622,22 @@ def generic_fallback_path():
 # An uploaded replacement must survive a redeploy, so it cannot live
 # inside git-tracked ILLUSTRATION_DIR (`deploy/deploy.sh` rsyncs `server/`
 # with `--delete`, excluding only `state`). An override instead lives at
-# `{state_dir}/illustration_overrides/{key}.png`.
+# `{fleet root}/illustration_overrides/{key}.png`: one directory shared by
+# every frame, whichever frame's state directory is passed in.
 ILLUSTRATION_OVERRIDE_DIRNAME = "illustration_overrides"
 
 
 def override_dir_for_state_dir(state_dir=None):
-    """`{state_dir}/ILLUSTRATION_OVERRIDE_DIRNAME`, or `None` when
-    `state_dir` is falsy - no state dir means vendored-only, no override
-    directory exists to look in. Never creates the directory.
+    """`{fleet root}/ILLUSTRATION_OVERRIDE_DIRNAME` for any frame's
+    `state_dir` (the live frame's directory is the fleet root, another
+    frame's lives under `devices/<id>`), or `None` when `state_dir` is
+    falsy - no state dir means vendored-only, no override directory exists
+    to look in. Never creates the directory.
     """
     if not state_dir:
         return None
-    return os.path.join(state_dir, ILLUSTRATION_OVERRIDE_DIRNAME)
+    return os.path.join(device_dirs.fleet_root_for(state_dir),
+                        ILLUSTRATION_OVERRIDE_DIRNAME)
 
 
 def override_path_for_key(key, state_dir=None):
