@@ -49,6 +49,7 @@ Phase 47 measures the live frame on the live VPS. This milestone must not modify
 - [ ] **Phase 64: Second Hardware in Production** - The second hardware type is built, released, deployed, updated over the air and managed in production the way the first type is, so a second kind of frame is a supported product and not only a bench unit. (added 2026-11-14 at the owner's request, after the Phase 58 bench showed that nothing builds, publishes or deploys a release for it; Phase 59 stays last)
 - [x] **Phase 65: Detection Robustness (Runway 3 and Multi-Airport Validation)** - The detection tracks the right aircraft on Paris-Orly runway 3, on the other Orly runways and on other French airports: what a device shows matches an independent source. (added 2026-11-15 at the owner's request; battery work moved out to SEED-019 for v1.4 on 2026-11-15; scope widened to several runways and airports on 2026-11-15; completed 2026-11-18, Orly 06/24 left untested by the owner's decision; Phase 59 stays last)
 - [ ] **Phase 68: Console and Companion Visual Improvements** - The visual improvements the owner lists for the console and the companion are made, within the design system, before the security audit and the code cleanup so that those two work on the final code. (added 2026-11-16 at the owner's request, moved up from v1.3 SEED-020; runs before Phase 66)
+- [ ] **Phase 68.1: Design System Consistency, Deviations and Improvements (INSERTED)** - After Phase 68, the design system is checked against the real site, every deviation is listed and fixed, and improvements and animations of the design system are proposed to the owner. (added 2026-11-21 at the owner's request; depends on Phase 68; runs before Phases 66, 67 and 59)
 - [ ] **Phase 66: Security Audit** - The whole platform (server, companion, device protocol, firmware update path, deploy and secrets) is audited, and every finding is fixed or recorded with the owner's decision. (added 2026-11-15 at the owner's request)
 - [ ] **Phase 67: Project and Code Optimisation for a Clean, Industrial Result** - The repository, the code, the tests and the documents are cleaned and made consistent so the project can be maintained and handed over like an industrial product. (added 2026-11-15 at the owner's request; Phase 59 stays last)
 - [ ] **Phase 69: Rear Enclosure for the 7.3 Inch Frame (Design, Print, Fit)** - The four printed parts (tray, lid with wall hooks, loose stand plate, centring shim) are designed, printed, fitted into an IKEA RÖDALM 13 x 18 cm frame with the second-hardware frame, and validated on the wall and on furniture. (added 2026-11-18 at the owner's request as an owner-driven parallel track, physical part of SEED-014; the administrator flashing tool stays in v1.4)
@@ -749,6 +750,28 @@ Plans:
 
 Plans: TBD
 
+### Phase 68.1: Design System Consistency, Deviations and Improvements (INSERTED)
+
+**Goal**: The design system and the site say the same thing again after the visual work of Phase 68: the system describes what the site really does, every difference between the two is listed and settled, and the owner has concrete, reviewed proposals for improving the design system and its animations.
+**Depends on**: Phase 68 (the visual changes must be merged and deployed first). Runs before Phase 66 (security audit), Phase 67 (code cleanup) and Phase 59, so that those work on the final pages.
+**Requirements**: DSY-01, DSY-02, DSY-03
+**Why this phase exists**: the owner's request of 2026-11-21. Phase 68 changes many pages in many small steps; the design system (`sketch-findings-skypane` skill, its tokens, colour and contrast, typography, spacing, cards, control density, navigation and page patterns) is kept up to date by hand and can drift from the site.
+**Success Criteria** (what must be TRUE):
+
+  1. A written consistency check compares the design system with the deployed site, page by page and component by component (administrator console and user companion, English and French, phone and desktop width, light and dark theme), and records what matches and what does not.
+  2. Every deviation is listed with where it is, what the design system says, what the site does, and a decision: fix the site, or correct the design system when the site is right. Nothing is left unlisted.
+  3. The deviations decided as "fix the site" are fixed with behaviour-preserving changes, covered by the existing browser and render checks (render baseline regenerated with the repo's tool, never by hand); the ones decided as "correct the design system" are written into the skill and its documents.
+  4. The design system's tokens and patterns that the site bypasses (hard-coded values, one-off styles) are found and either moved onto tokens or recorded with a reason.
+  5. A short proposal document lists improvements of the design system and animation ideas, each with a small mockup or sketch, the reason, the cost and the effect on battery-free use (the companion only), accessibility (reduced motion respected, contrast kept) and performance; the owner chooses which to keep.
+  6. Only the proposals the owner approves are built, each as its own small change, in English and French and at phone width, with browser tests; the others are recorded as candidates for v1.3 or v1.4.
+  7. The owner validates the result on the deployed companion.
+
+**Not in this phase**: new pages and features (the photo mode screens, the wizard and the Wi-Fi setup come later, to the same design system), the security audit and the code cleanup, and any change to the e-ink frame screens (the plane screen design is covered by Phase 62).
+**Open decisions** (for discuss-phase): where the design system is the source of truth (the skill, a document, or the site's own stylesheet and a components page), how animations are judged (motion budget, reduced motion, performance on a phone), and whether the proposal step is a separate checkpoint with the owner before any build.
+**Must not break**: the access rules of Phases 54, 55 and 60, every golden hash of the legacy render, `stub-server/test_phase47_freeze.py`, and the English and French parity of the companion.
+
+Plans: TBD
+
 ### Phase 69: Rear Enclosure for the 7.3 Inch Frame (Design, Print, Fit)
 
 **Goal**: The second-hardware frame (Seeed EE04 with the 7.3 inch Spectra 6 screen) has a working printed rear enclosure that fits an IKEA RÖDALM 13 x 18 cm black frame: it can hang on a wall, stand on a piece of furniture, and be opened for the battery, the USB-C port and the buttons.
@@ -861,6 +884,7 @@ Plans: TBD
 | 64. Second Hardware in Production | v1.2 | 13/15 | Verified with open points (64-VERIFICATION.md, 2026-11-15): criteria 1-6, 8 and 9 validated (6 and 9 on 2026-11-16: hold marks on rendered images only; 9 partly by owner decision for rows 2, 9, 10, 11), 5 with the failing update on Phase 58 bench evidence; criterion 7 open (partly measured; busy waits, LED and buttons measured 2026-11-17 (LED and keys equal the repository values), battery profile provisional and moved to production use and SEED-019, v1.4; wake-stage blit 190 s and 700 s budget formula-derived); not complete | - |
 | 65. Detection Robustness (Runway 3 and Multi-Airport Validation) | v1.2 | 14/14 | Complete, closed 2026-11-18 (PR #470, deployed); verified with open points in `65-VERIFICATION.md`; Orly 06/24 left untested by the owner's decision; battery work moved to SEED-019 (v1.4) | 2026-11-18 |
 | 68. Console and Companion Visual Improvements | v1.2 | 30/36 | In Progress|  |
+| 68.1. Design System Consistency, Deviations and Improvements (INSERTED) | v1.2 | 0/0 | Added 2026-11-21, not planned yet; starts when Phase 68 is done | - |
 | 66. Security Audit | v1.2 | 0/0 | Added 2026-11-15, not planned yet | - |
 | 67. Project and Code Optimisation for a Clean, Industrial Result | v1.2 | 0/0 | Added 2026-11-15, not planned yet | - |
 | 69. Rear Enclosure for the 7.3 Inch Frame (Design, Print, Fit) | v1.2 | 1/5 | In progress: plan 02 waits for the owner's slice check; owner-driven parallel track | - |
