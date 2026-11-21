@@ -184,3 +184,22 @@ def test_the_owner_cannot_reach_the_upload_route(fleet):
         extra_headers={"Origin": fleet.server.base_url()})[0]
     assert status in (403, 404)
     assert fleet.fleet_listing() == []
+
+
+@pytest.mark.parametrize("what", ["not_png", "wide", "good"])
+def test_the_raw_upload_is_gone_before_the_answer_is_sent(fleet, monkeypatch, what):
+    from companion.app import Handler
+    payload = {"not_png": b"not an image at all",
+               "wide": _png(width=illustrations.ILLUSTRATION_MAX_PIXELS // 400 + 50),
+               "good": _png()}[what]
+    real_redirect = Handler.redirect
+    seen = []
+
+    def spying_redirect(handler, location, set_cookie=None):
+        seen.append(sorted(n for n in os.listdir(fleet.fleet_dir) if n.endswith(".tmp"))
+                    if os.path.isdir(fleet.fleet_dir) else [])
+        return real_redirect(handler, location, set_cookie)
+
+    monkeypatch.setattr(Handler, "redirect", spying_redirect)
+    fleet.upload(fleet.seed.owned_id, KEY, payload)
+    assert seen == [[]]

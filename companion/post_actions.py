@@ -287,6 +287,16 @@ class SettingsActionsMixin:
         # which owns its own unique temp name and cleans it up on any
         # failure.
         raw_tmp_path = None
+
+        def discard_raw_tmp():
+            # Called before every answer is sent: the client must never see
+            # the response while the raw upload still sits in the directory.
+            if raw_tmp_path is not None:
+                try:
+                    os.unlink(raw_tmp_path)
+                except OSError:
+                    pass
+
         try:
             raw_tmp_fd, raw_tmp_path = tempfile.mkstemp(
                 dir=override_dir, prefix="." + key + ".upload.", suffix=".tmp")
@@ -300,6 +310,7 @@ class SettingsActionsMixin:
             if problems:
                 for problem in problems:
                     print("illustration replace rejected for %r: %s" % (key, problem))
+                discard_raw_tmp()
                 return refused(_REFUSAL_FLASH.get(
                     illustrations.problem_category(problems), FLASH_KEY_ILLUSTRATION_REJECTED))
 
@@ -307,6 +318,7 @@ class SettingsActionsMixin:
                 rgba = img.convert("RGBA")
                 buffer = io.BytesIO()
                 rgba.save(buffer, format="PNG")
+            discard_raw_tmp()
 
             override_path = illustrations.override_path_for_key(key, state_dir)
             atomic_io.atomic_write(override_path, buffer.getvalue())
@@ -317,13 +329,10 @@ class SettingsActionsMixin:
             return self._scoped_redirect(
                 resolve_dialog.with_query(back, "flash=%s" % quote(flash_key)))
         except Exception:
+            discard_raw_tmp()
             return refused(FLASH_KEY_ILLUSTRATION_REPLACE_FAILED)
         finally:
-            if raw_tmp_path is not None:
-                try:
-                    os.unlink(raw_tmp_path)
-                except OSError:
-                    pass
+            discard_raw_tmp()
 
     def _handle_manual_resolve_post(self, device):
         """POST /airlines/resolve — Step A of the two-step resolve flow.
