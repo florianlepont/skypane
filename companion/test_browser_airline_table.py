@@ -552,7 +552,7 @@ def test_the_chips_filter_by_kind_and_clearing_restores_every_row(
 def test_a_needs_artwork_airline_opens_the_add_artwork_step(new_context, server):
     context, page = _open(new_context, server, VIEWPORT_MIN_SUPPORTED)
     try:
-        button = KNOWN_ROW % "Lufthansa" + " .airlines-known__add"
+        button = 'tbody.airline-group--known[data-filter-text^="lufthansa "] .airlines-known__add'
         _settle(page, button)
         page.locator(button).click()
         dialog = page.locator(DIALOG)

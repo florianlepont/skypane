@@ -59,6 +59,6 @@ def test_artwork_uploaded_for_a_known_by_name_airline_gives_it_a_row_of_the_tabl
         assert row.locator("img").count() >= 1
         assert row.locator(".row-menu__toggle").count() == 1
         captions = page.locator("caption.airlines-label").all_inner_texts()
-        assert any(c.startswith(known_label) and c.endswith("· 6") for c in captions)
+        assert any(c.startswith(known_label) and c.endswith("· 7") for c in captions)
     finally:
         context.close()
