@@ -222,13 +222,13 @@ def test_new_login_surfaces_render_the_approved_french():
 # --- Defaults are unchanged -------------------------------------------
 
 # The pinned digests cover the shared sprite (icon-fit, icon-eye, icon-chevron-left,
-# icon-departure, icon-arrival) and the shared nav names and order
+# icon-departure, icon-arrival, icon-spark) and the shared nav names and order
 # (Home, Flights, Airlines, Style, Location; French Vols, Compagnies, Lieu).
 _LOGIN_BASELINE = {
     "en": {
-        "nf": "1fd0775503cbf0b850c18d04528d80d30497d37acbd43caa485067633f773d91",
-        "nf2": "1fd0775503cbf0b850c18d04528d80d30497d37acbd43caa485067633f773d91",
-        "forb": "346a52d2d92f07ba632fc08353801c7be6bf9ff1e702dfa3cf5da8bc5367fbca",
+        "nf": "8760ea9b90386a787b5d4c967708326b2be0ae78c8da9fb35df37e9e87e15bd0",
+        "nf2": "8760ea9b90386a787b5d4c967708326b2be0ae78c8da9fb35df37e9e87e15bd0",
+        "forb": "e232c51fa6ed60b42b5aadf0754ed79f0ff39c927e57526b1b911b160541da55",
     },
 }
 
@@ -349,7 +349,7 @@ def test_unrecognised_principal_clears_to_default():
 # Only the pages in the Console space (health, device, update) moved from the earlier digest,
 # by the System cell and the Audit log sheet row of the console tab bar; every personal page is byte-identical.
 _SHELL_BASELINE_DIGEST = (
-    "da04a9aa6ce8a145c6ea5b07e5087101061d30832f49a47b6d4466818f85a5da")
+    "126a68025abfea00b40ca2e67a1ac53220d8aab9fd145488230ff68d159a620d")
 
 
 def test_shell_without_a_principal_is_byte_identical_to_before():

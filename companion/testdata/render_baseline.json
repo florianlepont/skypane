@@ -538,6 +538,14 @@
    "location": "/login?expired=1",
    "status": 303
   },
+  "POST /airlines/suggest": {
+   "location": "/login?expired=1",
+   "status": 303
+  },
+  "POST /airlines/suggest/reject": {
+   "location": "/login?expired=1",
+   "status": 303
+  },
   "POST /co-managers/add": {
    "location": "/login?expired=1",
    "status": 303

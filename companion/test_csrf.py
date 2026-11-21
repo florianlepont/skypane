@@ -384,7 +384,9 @@ def test_only_the_known_routes_and_the_console_posts_are_flagged():
     pair_frame_post = {("POST", routes.Exact("/pair-frame"))}
     airline_posts = {
         ("POST", routes.Exact(routes.airlines_page.ARTWORK_DELETE_ROUTE)),
-        ("POST", routes.Exact(routes.airlines_page.DEFAULT_TYPE_ROUTE))}
+        ("POST", routes.Exact(routes.airlines_page.DEFAULT_TYPE_ROUTE)),
+        ("POST", routes.Exact(routes.airlines_page.AIRLINE_SUGGEST_ROUTE)),
+        ("POST", routes.Exact(routes.airlines_page.AIRLINE_SUGGEST_REJECT_ROUTE))}
     assert len(routes.CSRF_ROUTE_KEYS) == 20
     assert flagged == (
         set(routes.CSRF_ROUTE_KEYS) | console_posts | co_manager_posts | quiet_window_post

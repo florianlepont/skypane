@@ -15,6 +15,8 @@ from companion_app_server import InProcessAppServer, http_request, with_csrf
 from server import fleet_db
 from server.plane import airline_suggest as ais
 
+__test__ = False
+
 EDITOR = "/airlines/manage"
 STAMP = "2026-11-17T10:29:00+00:00"
 CO_EMAIL = "co-manager@example.test"
