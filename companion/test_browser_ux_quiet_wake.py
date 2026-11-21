@@ -38,10 +38,16 @@ SAVE = DIALOG + " button[type=submit]"
 PRESETS = DIALOG + " .quiet-cards button"
 MIN_PX = 43.5
 
-# Finite animations only: the live pulse never ends and must not hold the test.
-_AT_REST = (
-    "document.getAnimations().every((a) => a.effect && "
-    "a.effect.getComputedTiming().iterations === Infinity || a.playState !== 'running')")
+# Finite animations that act on the element, one of its ancestors (the dialog's rise, a view
+# transition on the root) or one of its descendants. An ambient pulse elsewhere on the page
+# (the countdown on Home breathes for thirty seconds once its target has passed) neither
+# moves the element nor covers it, so it must not hold the test.
+_MOVING_NEAR = (
+    "(e) => document.getAnimations().some((a) => {"
+    " if (a.playState !== 'running' || !a.effect"
+    " || a.effect.getComputedTiming().iterations === Infinity) return false;"
+    " const t = a.effect.target;"
+    " return !!t && (t.contains(e) || e.contains(t)); })")
 
 
 def _quiet_hours_on_disk(state_dir):
@@ -50,19 +56,20 @@ def _quiet_hours_on_disk(state_dir):
 
 
 def _wait_at_rest(page, selector):
-    """Wait until the document is complete, the finite animations ended and `selector` owns
-    its own centre (right after a navigation a view transition answers with the root)."""
+    """Wait until the document is complete, no finite animation on or around `selector` runs
+    and it owns its own centre (right after a navigation a view transition answers with the
+    root)."""
     page.wait_for_function("() => document.readyState === 'complete'", timeout=10000)
     page.eval_on_selector(selector, "el => el.scrollIntoView({block: 'center'})")
     page.wait_for_function(
         """sel => {
-          if (!(%s)) return false;
           const e = document.querySelector(sel);
           if (!e) return false;
+          if ((%s)(e)) return false;
           const r = e.getBoundingClientRect();
           const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
           return !!hit && (hit === e || e.contains(hit));
-        }""" % _AT_REST, arg=selector, timeout=10000)
+        }""" % _MOVING_NEAR, arg=selector, timeout=10000)
 
 
 def _open_dialog(page, base_url):
