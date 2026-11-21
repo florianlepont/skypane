@@ -39,7 +39,7 @@ NAME_OVERRIDES_FILENAME = "airline_name_overrides.json"
 # maps one vocabulary onto its flash keys.
 SET_OK = manual_resolutions.ADD_OK
 # The name's artwork key already belongs to another airline.
-SET_NAME_TAKEN = "name_taken"
+SET_NAME_TAKEN = manual_resolutions.RENAME_NAME_TAKEN
 
 # One process-wide lock around the load-modify-write cycle, for the same
 # reason as `manual_resolutions._WRITE_LOCK`.

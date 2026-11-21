@@ -2015,6 +2015,25 @@ def test_a_name_given_on_frame_a_reaches_frame_bs_poll_cycle(tmp_path, clock, mo
     assert not os.path.exists(os.path.join(frame_b, "manual_resolutions.json"))
 
 
+def test_a_rename_on_frame_a_reaches_the_next_flight_of_frame_b(tmp_path, clock):
+    """renaming a hand-named airline through frame A's directory changes the name frame B's next cycle stores"""
+    root = str(tmp_path)
+    frame_a = device_dirs.provision_device_dir(root, "d_0123abcd", 800, 480)
+    frame_b = device_dirs.provision_device_dir(root, "d_4567cdef", 800, 480)
+    manual_resolutions.add_entry(frame_a, "OCN", "Oceanic")
+
+    def cycle(hex_code):
+        _tick(clock, poll_cycle.MIN_ADVANCE_INTERVAL_S + 30)
+        poll_cycle.run_once(
+            snapshot=_snapshot(hex_code, "OCN1234", CLIMB), state_dir=frame_b,
+            geofence=GEOFENCE_PATH, ledger_root=root)
+        return state_store.load_poll_state(frame_b).get("last_route")["airline_name"]
+
+    assert cycle("a1b2c3") == "Oceanic"
+    assert manual_resolutions.rename_entries(frame_a, ["OCN"], "Oceanic Airways", set()) == manual_resolutions.ADD_OK
+    assert cycle("d4e5f6") == "Oceanic Airways"
+
+
 def test_clear_resolved_unresolved_prefix_removes_resolvable_entry(tmp_path, clock):
     """a cycle detecting a flight whose prefix is now resolvable via the manual registry removes that prefix's entry from unresolved_prefixes and persists the removal, leaving a still-unresolvable prefix's entry byte-identical"""
     d14a_dir = _mkdir(tmp_path, "d14-clear")

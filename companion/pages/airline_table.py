@@ -215,26 +215,39 @@ def _menu_html(items, aria):
 def _rename_dialog(row):
     page = _page()
     sheet = row["sheet"]
+    if sheet is None:
+        return airline_rows.manual_rename_dialog_html(
+            row["index"], row["manual_info"][0], row["name"],
+            device_scope.scoped(page.RENAME_MANUAL_ROUTE, "POST"), csrf_field(),
+            device_scope.scoped(page.MANAGE_ROUTE), open_=row["focus"])
     return airline_rows.rename_dialog_html(
         row["index"], sheet["builtin"], row["name"],
         device_scope.scoped(airline_sheet.RENAME_ROUTE, "POST"), csrf_field(),
         device_scope.scoped(page.MANAGE_ROUTE), open_=row["focus"])
 
 
+def _hand_named(row):
+    """An airline the owner named by hand and the built-in tables do not cover."""
+    manual = row["manual_info"]
+    return (row["sheet"] is None and manual is not None and not manual[1]
+            and _page().manual_prefix_renamable(manual[0]))
+
+
 def _menu_parts(page, row, with_art=True):
     """`(menu, rename dialog)` of an airline: Rename for an airline the
-    built-in prefix table knows, the way back to the original name after a
+    built-in prefix table knows or the owner named by hand, the way back to the original name after a
     rename (or Delete my name for an owner-named one). With `with_art`, an
     airline with no aircraft-type row to carry a picture keeps "Change
     artwork" so it is never a dead end. Both empty when nothing applies."""
-    items = airline_rows.rename_item_html(row["index"]) if row["sheet"] is not None else ""
+    renamable = row["sheet"] is not None or _hand_named(row)
+    items = airline_rows.rename_item_html(row["index"]) if renamable else ""
     items += _reset_form(page, row)
     if with_art and not row["sub_rows"] and not row["needs_artwork"]:
         items += _change_art_form(page, row["key"])
     if not items:
         return "", ""
     return (_menu_html(items, i18n.t(MENU_ARIA) % row["name"]),
-            _rename_dialog(row) if row["sheet"] is not None else "")
+            _rename_dialog(row) if renamable else "")
 
 
 def _menu_cell(page, row):

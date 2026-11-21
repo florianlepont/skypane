@@ -12,6 +12,7 @@ from companion_app_server import InProcessAppServer
 from server import fleet_db, state_store
 from server.plane import airline_default_types, manual_resolutions, name_overrides
 
+UNIDENTIFIED = "OCN123"
 UNRESOLVED = {"OCN": {"count": 5, "first_seen": "t1", "last_seen": "t2", "example_callsign": "OCN123"}}
 
 
@@ -51,14 +52,14 @@ def fleet(tmp_path):
 
 def test_a_name_given_on_one_frame_is_listed_as_named_on_another(fleet):
     _s, _h, before = fleet.manage(fleet.second_id)
-    assert 'value="OCN"' in before
+    assert UNIDENTIFIED in before
     status, headers, _b = fleet.post(
         fleet.seed.owned_id, "/airlines/resolve", {"prefix": "OCN", "airline_name": "Oceanic"})
     assert status == 303
     status, _h, after = fleet.manage(fleet.second_id)
     assert status == 200
     assert "Oceanic" in after
-    assert 'value="OCN"' not in after
+    assert UNIDENTIFIED not in after
     assert not os.path.exists(os.path.join(fleet.frame_a, "manual_resolutions.json"))
     assert not os.path.exists(os.path.join(fleet.frame_b, "manual_resolutions.json"))
 

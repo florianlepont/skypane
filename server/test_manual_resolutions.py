@@ -383,3 +383,38 @@ def test_load_registry_file_reads_exactly_the_given_path(tmp_path):
         json.dump({"OCN": {"airline_name": "Oceanic", "created_at": "2026-01-01T00:00:00+00:00"}}, fh)
     assert list(m.load_registry_file(own)) == ["OCN"]
     assert list(m.load_manual_resolutions(frame)) == ["RYR"]
+
+
+def test_rename_entries_renames_the_group_in_one_write_and_leaves_the_rest_byte_identical(tmp_path):
+    state = str(tmp_path)
+    for prefix, name in (("OCN", "Oceanic"), ("OCP", "Oceanic"), ("ZPH", "Zephyr Air")):
+        assert m.add_entry(state, prefix, name, now="2026-01-01T00:00:00+00:00") == m.ADD_OK
+    before = m.load_manual_resolutions(state)
+    assert m.rename_entries(state, ["OCN", "OCP"], "Oceanic Airways", set(), now="2026-02-01T00:00:00+00:00") == m.ADD_OK
+    after = m.load_manual_resolutions(state)
+    assert after["OCN"] == after["OCP"] == {"airline_name": "Oceanic Airways", "created_at": "2026-02-01T00:00:00+00:00"}
+    assert after["ZPH"] == before["ZPH"]
+    # The same key with another case is allowed (nothing else holds it).
+    assert m.rename_entries(state, ["ZPH"], "ZEPHYR AIR", {"oceanic-airways"}) == m.ADD_OK
+
+
+def test_rename_entries_refuses_and_writes_nothing(tmp_path):
+    state = str(tmp_path)
+    m.add_entry(state, "ZPH", "Zephyr Air", now="2026-01-01T00:00:00+00:00")
+    path = m.manual_resolutions_path(state)
+    before = open(path).read()
+    cases = (
+        (["ZPH"], "", set(), m.ADD_REJECTED_NAME_EMPTY),
+        (["ZPH"], "x" * 101, set(), m.ADD_REJECTED_NAME_TOO_LONG),
+        (["ZPH"], "generic-x", set(), m.ADD_REJECTED_NAME_RESERVED),
+        (["ZPH"], "../x", set(), m.ADD_REJECTED_NAME_EMPTY),
+        (["ZPH"], "Taken Air", {"taken-air"}, m.RENAME_NAME_TAKEN),
+        (["NOP"], "Fine", set(), m.ADD_REJECTED_PREFIX),
+        (["ZPH", "NOP"], "Fine", set(), m.ADD_REJECTED_PREFIX),
+        (["z"], "Fine", set(), m.ADD_REJECTED_PREFIX),
+        ([], "Fine", set(), m.ADD_REJECTED_PREFIX),
+        (None, "Fine", set(), m.ADD_REJECTED_PREFIX),
+    )
+    for prefixes, name, taken, expected in cases:
+        assert m.rename_entries(state, prefixes, name, taken) == expected, (prefixes, name)
+    assert open(path).read() == before

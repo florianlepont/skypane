@@ -101,6 +101,9 @@ def test_a_hand_named_airline_without_artwork_is_in_the_block_with_its_menu_and_
     page = get()
     row = next(r for r in _rows(page) if "Zephyr Air" in r)
     assert "ZPH" in row and "Delete my name" in row
+    assert 'href="#rename-airline-' in row and 'data-modal-open' in row
+    assert row.index(">Rename<") < row.index("Delete my name")
+    assert 'name="prefix" value="ZPH"' in row and "/airlines/rename/manual" in row
     assert "/airlines/manual-resolutions/ZPH/delete" in row
     assert "Known by name only · %d" % (count + 1) in page
     table = page.split("Airlines · ")[-1]

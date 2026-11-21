@@ -285,6 +285,9 @@ _POST_ROUTES = (
         "POST", Exact(airlines_page.RENAME_ROUTE),
         lambda h, m: h._handle_airline_rename_post(m.device), ADMIN_DEVICE),
     Route(
+        "POST", Exact(airlines_page.RENAME_MANUAL_ROUTE),
+        lambda h, m: airline_actions.handle_manual_rename(h, m), ADMIN_DEVICE, csrf=True),
+    Route(
         "POST", Exact(airlines_page.RENAME_RESET_ROUTE),
         lambda h, m: h._handle_airline_rename_reset_post(m.device), ADMIN_DEVICE),
     Route(
@@ -374,6 +377,7 @@ _ACTION_KEYS = (
     ("POST", Exact(QUICK_LED_ROUTE)),
     ("POST", Exact(airlines_page.RESOLVE_ROUTE)),
     ("POST", Exact(airlines_page.RENAME_ROUTE)),
+    ("POST", Exact(airlines_page.RENAME_MANUAL_ROUTE)),
     ("POST", Exact(airlines_page.RENAME_RESET_ROUTE)),
     ("POST", Exact(airlines_page.ARTWORK_DELETE_ROUTE)),
     ("POST", Exact(airlines_page.DEFAULT_TYPE_ROUTE)),
