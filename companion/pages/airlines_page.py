@@ -249,6 +249,8 @@ TYPES_QUERY_PARAM = airline_table.TYPES_PARAM
 # Re-exported so page_context reads one query-parameter vocabulary here.
 SHEET_QUERY_PARAM = airline_sheet.SHEET_QUERY_PARAM
 RENAME_ROUTE = airline_sheet.RENAME_ROUTE
+# The rename of an airline the owner named by hand (identified by its stored prefix).
+RENAME_MANUAL_ROUTE = "/airlines/rename/manual"
 RENAME_RESET_ROUTE = airline_sheet.RENAME_RESET_ROUTE
 FLASH_RENAMED = airline_sheet.FLASH_RENAMED
 FLASH_RENAME_RESET = airline_sheet.FLASH_RENAME_RESET
@@ -1170,6 +1172,14 @@ def _illustration_url(key, method="GET"):
     url = device_scope.scoped(
         "%s%s.png" % (ILLUSTRATION_ROUTE_PREFIX, escape_html(key)), method)
     return url
+
+
+def manual_prefix_renamable(prefix):
+    """Whether a hand-named prefix can be renamed: the built-in tables, the
+    airlines known by name only included, do not name it (their name wins at
+    runtime, so a rename would change nothing)."""
+    return not enrich.static_airline_name_for_prefix(prefix) and prefix not in dict(
+        enrich.names_without_artwork())
 
 
 def _manual_resolution_rows(state_dir, registry):

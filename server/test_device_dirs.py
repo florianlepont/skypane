@@ -153,3 +153,37 @@ def test_wipe_refuses_a_symlinked_directory_and_spares_the_target(tmp_path):
     with pytest.raises(ValueError):
         device_dirs.wipe_device_dir(str(tmp_path), "devices/" + DEV)
     assert (outside / "keep.txt").read_text() == "keep"
+
+
+@pytest.mark.parametrize("state_dir", [
+    "/s/devices/d_0123abcd/",
+    "/s/devices/d_0123abcd",
+])
+def test_fleet_root_of_a_frame_directory_is_the_state_root(state_dir):
+    assert device_dirs.fleet_root_for(state_dir) == "/s"
+
+
+def test_fleet_root_of_a_root_or_relative_path():
+    assert device_dirs.fleet_root_for("/s") == "/s"
+    assert device_dirs.fleet_root_for("devices/d_0123abcd") == "."
+    assert device_dirs.fleet_root_for("x/devices/d_0123abcd") == "x"
+    assert device_dirs.fleet_root_for("/devices/d_0123abcd") == "/"
+
+
+@pytest.mark.parametrize("state_dir", [
+    "",
+    "/s/devices/not-an-id",
+    "/s/devices/d_0123ABCD",
+    "/s/devices/d_0123abcd/extra",
+    "/s/other/d_0123abcd",
+    "/s/d_0123abcd",
+    "/s/devices",
+])
+def test_fleet_root_leaves_every_other_shape_alone(state_dir):
+    assert device_dirs.fleet_root_for(state_dir) == state_dir
+
+
+def test_fleet_root_never_touches_the_filesystem(tmp_path):
+    missing = str(tmp_path / "gone" / "devices" / DEV)
+    assert device_dirs.fleet_root_for(missing) == str(tmp_path / "gone")
+    assert not (tmp_path / "gone").exists()

@@ -62,6 +62,28 @@ def valid_state_path(state_path: str) -> bool:
     return is_valid_device_id(state_path[len(_DEVICE_PATH_PREFIX):])
 
 
+def fleet_root_for(state_dir: str) -> str:
+    """The fleet root a frame's state directory belongs to.
+
+    A per-frame directory (`<root>/devices/<id>`) maps to `<root>`; any other
+    directory, the live frame's included, is its own root. Pure shape check:
+    the result is `state_dir` itself or `state_dir` with its two trailing
+    segments removed, and nothing is read from the filesystem.
+    """
+    if not isinstance(state_dir, str) or not state_dir:
+        return state_dir
+    stripped = state_dir.rstrip("/")
+    parent, leaf = os.path.split(stripped)
+    if not is_valid_device_id(leaf):
+        return state_dir
+    root, parent_name = os.path.split(parent.rstrip("/"))
+    if parent_name != DEVICES_DIRNAME:
+        return state_dir
+    if not root:
+        return "/" if parent.startswith("/") else "."
+    return root
+
+
 def real_devices_dir(root: str) -> str:
     """The resolved `<root>/devices` directory; a caller resolving many
     state paths in a row computes it once and passes it to resolve_state_dir."""

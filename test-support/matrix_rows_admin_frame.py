@@ -13,6 +13,7 @@ ROWS = {
     ("GET", "/airlines/manage"): KIND,
     ("POST", "/airlines/resolve"): KIND,
     ("POST", "/airlines/rename"): KIND,
+    ("POST", "/airlines/rename/manual"): KIND,
     ("POST", "/airlines/rename/reset"): KIND,
     ("POST", "/airlines/artwork/delete"): KIND,
     ("POST", "/airlines/default-type"): KIND,

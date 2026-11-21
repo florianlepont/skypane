@@ -177,6 +177,7 @@ _UNAUTH_POST_REQUESTS = (
     routes.SESSION_CHECK_ROUTE,
     airlines_page.RESOLVE_ROUTE,
     airlines_page.RENAME_ROUTE,
+    airlines_page.RENAME_MANUAL_ROUTE,
     airlines_page.RENAME_RESET_ROUTE,
     airlines_page.ARTWORK_DELETE_ROUTE,
     airlines_page.DEFAULT_TYPE_ROUTE,

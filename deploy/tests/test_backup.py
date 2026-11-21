@@ -756,7 +756,7 @@ class TestAirlineFiles:
         from fnmatch import fnmatch
         from server.plane import (
             airline_default_types, airline_suggest, manual_resolutions,
-            name_overrides, shared_route_cache)
+            fleet_registries, name_overrides, shared_route_cache)
 
         archived = {
             manual_resolutions.MANUAL_RESOLUTIONS_FILENAME,
@@ -766,7 +766,9 @@ class TestAirlineFiles:
         for name in archived:
             assert name in skypane_backup.INCLUDE_FILES
             assert name in skypane_backup.DEVICE_INCLUDE_FILES
-        # The suggestion cache lives in the state root only.
+        # The merge marker and the suggestion cache live in the state root only.
+        assert fleet_registries.MARKER_FILENAME in skypane_backup.INCLUDE_FILES
+        assert fleet_registries.MARKER_FILENAME not in skypane_backup.DEVICE_INCLUDE_FILES
         assert airline_suggest.CACHE_FILENAME in skypane_backup.INCLUDE_FILES
         assert airline_suggest.CACHE_FILENAME not in skypane_backup.DEVICE_INCLUDE_FILES
         cache = shared_route_cache.SHARED_CACHE_FILENAME
@@ -779,20 +781,22 @@ class TestAirlineFiles:
         ddir = _seed_device(state_dir)
         for name in (
             "airline_name_overrides.json", "airline_default_types.json",
-            "airline_suggestions.json", "adsbdb_shared_cache.json",
+            "airline_suggestions.json", "airline_registry_migration.json",
+            "manual_resolutions.json", "adsbdb_shared_cache.json",
             "adsbdb_shared_cache.json.lock",
         ):
             (state_dir / name).write_text("{}")
-        for name in ("airline_name_overrides.json", "airline_default_types.json"):
+        for name in ("manual_resolutions.json", "airline_name_overrides.json", "airline_default_types.json"):
             (ddir / name).write_text("{}")
 
         rc, archive_dir = _run_backup(tmp_path)
         assert rc == 0
         members = _members(archive_dir / _archive_names(archive_dir)[0])
         base = "devices/" + _DEV + "/"
-        for kept in ("airline_name_overrides.json", "airline_default_types.json", "airline_suggestions.json"):
+        for kept in ("manual_resolutions.json", "airline_name_overrides.json", "airline_default_types.json",
+                     "airline_suggestions.json", "airline_registry_migration.json"):
             assert kept in members
-        for kept in ("airline_name_overrides.json", "airline_default_types.json"):
+        for kept in ("manual_resolutions.json", "airline_name_overrides.json", "airline_default_types.json"):
             assert base + kept in members
         assert "adsbdb_shared_cache.json" not in members
         assert "not in include list" not in capsys.readouterr().out

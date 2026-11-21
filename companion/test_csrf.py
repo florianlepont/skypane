@@ -411,6 +411,7 @@ def test_only_the_known_routes_and_the_console_posts_are_flagged():
     quiet_window_post = {("POST", routes.Exact(routes.QUICK_QUIET_HOURS_WINDOW_ROUTE))}
     pair_frame_post = {("POST", routes.Exact("/pair-frame"))}
     airline_posts = {
+        ("POST", routes.Exact(routes.airlines_page.RENAME_MANUAL_ROUTE)),
         ("POST", routes.Exact(routes.airlines_page.ARTWORK_DELETE_ROUTE)),
         ("POST", routes.Exact(routes.airlines_page.DEFAULT_TYPE_ROUTE)),
         ("POST", routes.Exact(routes.airlines_page.AIRLINE_SUGGEST_ROUTE)),

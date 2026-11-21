@@ -37,6 +37,8 @@ MESSAGES = {
     "airlines.rename_title": "Renommer la compagnie",
     "airlines.rename_hint":
         "Le nouveau nom remplace le nom d’origine dans le companion et sur le cadre.",
+    "airlines.rename_manual_hint":
+        "Le nouveau nom s’applique à tous les cadres. Les vols déjà enregistrés gardent leur nom.",
     "airlines.chip_all": "Toutes",
     "airlines.chip_unidentified": "Non identifiées",
     "airlines.chip_known": "Connues par leur nom",

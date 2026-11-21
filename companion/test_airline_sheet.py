@@ -66,7 +66,8 @@ def test_a_builtin_row_shows_its_name_as_text_and_renames_through_a_dialog(tmp_p
 
 def test_manual_only_and_unidentified_rows_have_no_rename_dialog(tmp_path):
     """an owner-named airline (no built-in prefix to rename by) shows its name as plain text
-    and has no rename dialog, and an unidentified prefix is one compact row with a Name it
+    and its rename dialog posts the stored prefix to the hand-named rename route, never a
+    built-in airline name, and an unidentified prefix is one compact row with a Name it
     button whose dialog posts to the resolve route with the prefix and a name field with
     suggestions; no aircraft type is asked and nothing offers to ignore the prefix"""
     tmp = str(tmp_path)
@@ -82,7 +83,9 @@ def test_manual_only_and_unidentified_rows_have_no_rename_dialog(tmp_path):
     assert 'airlines-name--fixed">Totally Novel Airline<' not in rendered
     novel = rendered[rendered.index('airlines-known__name">Totally Novel Airline<'):]
     novel = novel[:novel.index("</tbody>")]
-    assert 'name="airline_name"' not in novel and "<dialog" not in novel
+    dialog_of_novel = novel[novel.index("<dialog"):novel.index("</dialog>")]
+    assert 'action="/airlines/rename/manual"' in dialog_of_novel
+    assert 'name="prefix" value="XQZ"' in dialog_of_novel and 'name="airline"' not in dialog_of_novel
     gap = re.search(r'<tbody class="airline-group airline-group--gap".*?</tbody>', rendered, re.S).group(0)
     assert ">Name it</a>" in gap and 'name="airlines-resolve"' not in gap
     dialog = gap[gap.index("<dialog"):gap.index("</dialog>")]

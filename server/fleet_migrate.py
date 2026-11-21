@@ -22,11 +22,17 @@ Invariants:
   removal) is skipped and counted, never copied into fleet.db. So is a
   token whose key is not the canonical lowercase MAC: byos lowercases MACs,
   so such a key can never match a device.
+- The per-frame airline registry files (`manual_resolutions.json`,
+  `airline_name_overrides.json`, `airline_default_types.json` under
+  `devices/<id>/`) are merged into the root files by
+  `server.plane.fleet_registries`: expand only, they are read and never
+  written, renamed or deleted, and a marker in the root keeps a second run
+  from changing anything.
 - A legacy MAC that is a pending or retired frame in fleet.db is skipped:
   the pairing flow owns it, and importing it would bypass pairing. Once it
   is paired it is in devices and follows the normal reconcile.
-- Output names MACs and counts only; never a token, secret hash or file
-  content.
+- Output names MACs, airline names, prefixes and counts only; never a
+  token, secret hash or other file content.
 """
 from __future__ import annotations
 
@@ -45,6 +51,7 @@ if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
 from server import fleet_db, hardware  # noqa: E402
+from server.plane import fleet_registries  # noqa: E402
 
 LEGACY_REGISTRY_FILE = "devices.json"
 LEGACY_STATE_FILE = "byos_state.json"
@@ -382,6 +389,21 @@ def _with_skipped(lines: list[str], legacy: LegacyState) -> list[str]:
 
 
 def migrate(state_dir: str, owner_email: str | None, dry_run: bool) -> MigrationReport:
+    """Plan and (unless dry_run) apply the fleet.db import, then merge the
+    per-frame airline registries into the fleet root. The registry merge is
+    reported on every path, including "nothing to do" for fleet.db."""
+    report = _migrate_database(state_dir, owner_email, dry_run)
+    registry_plan = fleet_registries.plan_merge(state_dir)
+    if dry_run:
+        extra = fleet_registries.report_lines(registry_plan, dry_run=True)
+        changed = report.changed
+    else:
+        extra = fleet_registries.apply_merge(state_dir, registry_plan)
+        changed = report.changed or registry_plan.needs_write
+    return MigrationReport(list(report.lines) + extra, changed=changed)
+
+
+def _migrate_database(state_dir: str, owner_email: str | None, dry_run: bool) -> MigrationReport:
     """Plan and (unless dry_run) apply the import; reads legacy files first."""
     email: str | None = None
     if owner_email:

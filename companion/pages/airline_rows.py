@@ -33,6 +33,9 @@ RENAME_TITLE = i18n.msg("airlines.rename_title", "Rename the airline")
 RENAME_HINT = i18n.msg(
     "airlines.rename_hint",
     "The new name replaces the original on the companion and on the frame.")
+RENAME_MANUAL_HINT = i18n.msg(
+    "airlines.rename_manual_hint",
+    "The new name applies to every frame. Flights already stored keep their name.")
 NAME_ARIA = i18n.msg("airlines.name_aria", "Airline name: %s")
 NAME_PLACEHOLDER = i18n.msg("airlines.resolve_name_placeholder", "Airline name")
 NAME_FOR_PREFIX_ARIA = i18n.msg(
@@ -110,16 +113,30 @@ def _name_field(name, aria, placeholder="", value=""):
          validation_attrs("text"))
 
 
-def rename_dialog_html(index, builtin, name, action, csrf_html, dismiss_href, open_=False):
-    """The dialog behind "Rename": the airline's name in one field, posted to
-    the rename route with the airline's built-in name."""
+def _rename_dialog(index, identity, name, action, csrf_html, dismiss_href, hint, open_):
+    """One rename dialog: the airline's name in one field and the hidden
+    `identity` field `(field name, value)` saying which airline it renames."""
     aria = i18n.t(NAME_ARIA) % name
-    body = '<input type="hidden" name="airline" value="%s">%s' % (
-        escape_html(builtin), _name_field("airline_name", aria, value=name))
+    body = '<input type="hidden" name="%s" value="%s">%s' % (
+        identity[0], escape_html(identity[1]), _name_field("airline_name", aria, value=name))
     return ui_modal.dialog_html(
         rename_dialog_id(index), i18n.t(RENAME_TITLE), action, csrf_html, body,
         i18n.t(DIALOG_SAVE), i18n.t(DIALOG_CANCEL), dismiss_href,
-        subtitle=i18n.t(RENAME_HINT), open_=open_, secondary_dismiss=True)
+        subtitle=i18n.t(hint), open_=open_, secondary_dismiss=True)
+
+
+def rename_dialog_html(index, builtin, name, action, csrf_html, dismiss_href, open_=False):
+    """The dialog behind "Rename": the airline's name in one field, posted to
+    the rename route with the airline's built-in name."""
+    return _rename_dialog(
+        index, ("airline", builtin), name, action, csrf_html, dismiss_href, RENAME_HINT, open_)
+
+
+def manual_rename_dialog_html(index, prefix, name, action, csrf_html, dismiss_href, open_=False):
+    """The same dialog for an airline the owner named by hand: it posts the
+    stored prefix, and says the new name applies to the whole fleet."""
+    return _rename_dialog(
+        index, ("prefix", prefix), name, action, csrf_html, dismiss_href, RENAME_MANUAL_HINT, open_)
 
 
 @dataclass(frozen=True)

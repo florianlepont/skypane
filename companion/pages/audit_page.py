@@ -98,6 +98,8 @@ ACTION_LABELS = {
     "location.update": i18n.msg("admin_lifecycle.action_location_update", "Location updated"),
     "location.delete": i18n.msg("admin_lifecycle.action_location_delete", "Location deleted"),
     "airline.resolve": i18n.msg("admin_lifecycle.action_airline_resolve", "Airline named"),
+    "airline.rename_manual": i18n.msg(
+        "admin_lifecycle.action_airline_rename_manual", "Airline renamed"),
     "airline.artwork_delete": i18n.msg(
         "admin_lifecycle.action_airline_artwork_delete", "Airline artwork removed"),
     "airline.default_type": i18n.msg(

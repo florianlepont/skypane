@@ -22,7 +22,7 @@ the poll loop's writes.
 Same file contract as `manual_resolutions` (never-raising load through
 its shared `load_registry_file()`, so the same name allowlist guards both
 files; validate-before-write through `check_name()`; atomic write; hard
-cap, no eviction). Lives at `{state_dir}/airline_name_overrides.json`.
+cap, no eviction). Lives at `{fleet root}/airline_name_overrides.json`, one file for every frame.
 Imports `manual_resolutions`, never `enrich` (which imports this).
 """
 import json
@@ -30,7 +30,7 @@ import os
 import threading
 from datetime import datetime, timezone
 
-from server import atomic_io
+from server import atomic_io, device_dirs
 from server.plane import illustrations, manual_resolutions
 
 NAME_OVERRIDES_FILENAME = "airline_name_overrides.json"
@@ -39,7 +39,7 @@ NAME_OVERRIDES_FILENAME = "airline_name_overrides.json"
 # maps one vocabulary onto its flash keys.
 SET_OK = manual_resolutions.ADD_OK
 # The name's artwork key already belongs to another airline.
-SET_NAME_TAKEN = "name_taken"
+SET_NAME_TAKEN = manual_resolutions.RENAME_NAME_TAKEN
 
 # One process-wide lock around the load-modify-write cycle, for the same
 # reason as `manual_resolutions._WRITE_LOCK`.
@@ -47,8 +47,8 @@ _WRITE_LOCK = threading.Lock()
 
 
 def name_overrides_path(state_dir):
-    """Join `state_dir` and `NAME_OVERRIDES_FILENAME`."""
-    return os.path.join(state_dir, NAME_OVERRIDES_FILENAME)
+    """The fleet-wide overrides file for `state_dir` (at the fleet root)."""
+    return os.path.join(device_dirs.fleet_root_for(state_dir), NAME_OVERRIDES_FILENAME)
 
 
 def load_name_overrides(state_dir):
@@ -76,8 +76,9 @@ def names_by_prefix(overrides):
 
 
 def _write(state_dir, registry):
-    os.makedirs(state_dir, exist_ok=True)
-    atomic_io.atomic_write(name_overrides_path(state_dir), json.dumps(registry, indent=1))
+    path = name_overrides_path(state_dir)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    atomic_io.atomic_write(path, json.dumps(registry, indent=1))
 
 
 def _name_is_taken(name, own_builtin_name, clean_prefixes, registry):

@@ -74,6 +74,7 @@ MESSAGES = {
     "admin_lifecycle.audit_reason_remove_delete": "Cadre supprimé",
     "admin_lifecycle.audit_reason_remove_owner_disabled": "Le propriétaire du cadre a été désactivé",
     "admin_lifecycle.action_airline_resolve": "Compagnie nommée",
+    "admin_lifecycle.action_airline_rename_manual": "Compagnie renommée",
     "admin_lifecycle.action_airline_artwork_delete": "Illustration de compagnie supprimée",
     "admin_lifecycle.action_airline_default_type": "Type d’appareil par défaut modifié",
     "admin_lifecycle.action_user_invite": "Utilisateur invité",

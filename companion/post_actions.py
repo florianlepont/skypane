@@ -166,31 +166,10 @@ def _renamed_illustration_filenames(state_dir):
 
 
 def _carry_artwork_to_new_name(state_dir, from_name, to_name, shapes):
-    """Best-effort copy of the artwork flights use under `from_name` to the
-    key `to_name` resolves to, so renaming does not blank the airline's
-    pictures on new flights. Copies, never moves, and only when `to_name`
-    has no artwork at all (it may be another airline's name); the old
-    key's files stay, so a reset (and every older picture) still finds them.
-    """
-    from_key = illustrations.normalise_airline_key(from_name)
-    to_key = illustrations.normalise_airline_key(to_name)
-    if not from_key or not to_key or from_key == to_key:
-        return
-    suffixes = [""] + ["-" + shape for shape in shapes]
-    if any(illustrations.resolved_illustration_path(to_key + suffix, state_dir) for suffix in suffixes):
-        return
-    for suffix in suffixes:
-        source = illustrations.resolved_illustration_path(from_key + suffix, state_dir)
-        target = illustrations.override_path_for_key(to_key + suffix, state_dir)
-        if source is None or target is None:
-            continue
-        try:
-            with open(source, "rb") as fh:
-                data = fh.read()
-            os.makedirs(os.path.dirname(target), exist_ok=True)
-            atomic_io.atomic_write(target, data)
-        except OSError as exc:
-            print("airline rename: could not carry artwork %s: %s" % (suffix or "base", exc))
+    """Carry a built-in airline's artwork to its new name through the one
+    function both renames share."""
+    airline_actions.carry_artwork_to_new_name(
+        state_dir, from_name, to_name, [""] + ["-" + shape for shape in shapes])
 
 
 _RENAME_FLASH_BY_RESULT = {
@@ -362,7 +341,9 @@ class SettingsActionsMixin:
         back = resolve_dialog.return_route(form.get(resolve_dialog.RETURN_FIELD))
 
         row = unresolved_row_for_prefix(state_dir, form.get("prefix"))
-        if row is None:
+        # A prefix named on another frame since this row was drawn is stale
+        # too: the registry is fleet-wide and must not be overwritten here.
+        if row is None or row[0] in manual_resolutions.load_manual_resolutions(state_dir):
             return self._scoped_redirect(
                 resolve_dialog.with_query(back, "flash=%s" % quote(FLASH_KEY_MANUAL_PREFIX_STALE)))
         prefix = row[0]

@@ -530,6 +530,10 @@
    "location": "/login?expired=1",
    "status": 303
   },
+  "POST /airlines/rename/manual": {
+   "location": "/login?expired=1",
+   "status": 303
+  },
   "POST /airlines/rename/reset": {
    "location": "/login?expired=1",
    "status": 303

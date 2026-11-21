@@ -16,7 +16,7 @@ name, no leftover file on failure). The
 companion writes this file (`add_entry()`/`delete_entry()`, from an
 authenticated HTTP route) and the server reads it
 (`load_manual_resolutions()`/`airline_name_for_prefix()`, wired into
-`enrich`). Lives at `{state_dir}/manual_resolutions.json`, outside the
+`enrich`). Lives at `{fleet root}/manual_resolutions.json` (one file for every frame), outside the
 git-tracked tree, so it survives a redeploy.
 
 Imports `server.plane.illustrations` but must never import
@@ -41,7 +41,7 @@ import re
 import threading
 from datetime import datetime, timezone
 
-from server import atomic_io
+from server import atomic_io, device_dirs
 from server.plane import illustrations
 
 MANUAL_RESOLUTIONS_FILENAME = "manual_resolutions.json"
@@ -84,6 +84,9 @@ ADD_REJECTED_NAME_TOO_LONG = "rejected_name_too_long"
 ADD_REJECTED_NAME_RESERVED = "rejected_name_reserved"
 ADD_REJECTED_FULL = "rejected_full"
 ADD_FAILED = "failed"
+# A rename refused because the new name belongs to another airline; the same
+# string as `name_overrides.SET_NAME_TAKEN`, so one vocabulary maps onto flash keys.
+RENAME_NAME_TAKEN = "name_taken"
 
 # Derived from illustrations.GENERIC_FALLBACK_FILENAME rather than a
 # second hardcoded string, so the two can never drift apart.
@@ -99,8 +102,16 @@ _WRITE_LOCK = threading.Lock()
 
 
 def manual_resolutions_path(state_dir):
-    """Join `state_dir` and `MANUAL_RESOLUTIONS_FILENAME`."""
-    return os.path.join(state_dir, MANUAL_RESOLUTIONS_FILENAME)
+    """The fleet-wide registry file for `state_dir`: the registry lives at
+    the fleet root, so a frame's own directory resolves to the same file as
+    every other frame's."""
+    return os.path.join(device_dirs.fleet_root_for(state_dir), MANUAL_RESOLUTIONS_FILENAME)
+
+
+def _write(state_dir, registry):
+    path = manual_resolutions_path(state_dir)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    atomic_io.atomic_write(path, json.dumps(registry, indent=1))
 
 
 def normalise_prefix(raw):
@@ -318,11 +329,42 @@ def add_entry(state_dir, prefix, airline_name, now=None):
         registry[normalised_prefix] = {"airline_name": name, "created_at": now}
 
         try:
-            os.makedirs(state_dir, exist_ok=True)
-            atomic_io.atomic_write(manual_resolutions_path(state_dir), json.dumps(registry, indent=1))
+            _write(state_dir, registry)
         except Exception:
             return ADD_FAILED
 
+    return ADD_OK
+
+
+def rename_entries(state_dir, prefixes, airline_name, taken_keys, now=None):
+    """Give every prefix in `prefixes` the new name `airline_name` in one
+    atomic write, each with a fresh `created_at`. Returns an `ADD_*` value or
+    `RENAME_NAME_TAKEN`; never raises. Nothing is written unless every check
+    passes: at least one well-formed prefix, all of them already in the
+    registry, a usable name (`check_name()`) and an illustration key outside
+    `taken_keys` (the keys of the other airlines). Entries of other prefixes
+    stay as they are. The checks and the write run under `_WRITE_LOCK`, shared
+    with `add_entry()`.
+    """
+    clean = sorted({p for p in (normalise_prefix(x) for x in prefixes or ()) if p})
+    if not clean:
+        return ADD_REJECTED_PREFIX
+    name, rejection = check_name(airline_name)
+    if rejection is not None:
+        return rejection
+    if illustration_key_for_name(name) in taken_keys:
+        return RENAME_NAME_TAKEN
+    with _WRITE_LOCK:
+        registry = load_manual_resolutions(state_dir)
+        if any(prefix not in registry for prefix in clean):
+            return ADD_REJECTED_PREFIX
+        stamp = now or datetime.now(timezone.utc).isoformat(timespec="seconds")
+        for prefix in clean:
+            registry[prefix] = {"airline_name": name, "created_at": stamp}
+        try:
+            _write(state_dir, registry)
+        except Exception:
+            return ADD_FAILED
     return ADD_OK
 
 
@@ -356,8 +398,7 @@ def delete_entry(state_dir, prefix):
         del registry[normalised_prefix]
 
         try:
-            os.makedirs(state_dir, exist_ok=True)
-            atomic_io.atomic_write(manual_resolutions_path(state_dir), json.dumps(registry, indent=1))
+            _write(state_dir, registry)
         except Exception:
             return False
 

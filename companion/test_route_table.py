@@ -165,6 +165,7 @@ def test_owner_device_routes_are_exactly_the_user_reachable_frame_routes():
         ("GET", routes.Exact(routes.MANAGE_ROUTE)),
         ("POST", routes.Exact(routes.airlines_page.RESOLVE_ROUTE)),
         ("POST", routes.Exact(routes.airlines_page.RENAME_ROUTE)),
+        ("POST", routes.Exact(routes.airlines_page.RENAME_MANUAL_ROUTE)),
         ("POST", routes.Exact(routes.airlines_page.RENAME_RESET_ROUTE)),
         ("POST", routes.Exact(routes.airlines_page.ARTWORK_DELETE_ROUTE)),
         ("POST", routes.Exact(routes.airlines_page.DEFAULT_TYPE_ROUTE)),
