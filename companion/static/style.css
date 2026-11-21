@@ -6315,6 +6315,21 @@ a.modal__close {
   background: var(--color-dominant);
 }
 
+/* A short confirmation question: the sentence sits close to the title block
+ * above it and to the buttons below it. */
+.modal__question {
+  margin: 0;
+}
+
+dialog.modal:has(.modal__question) .modal__body {
+  margin-top: 6px;
+}
+
+dialog.modal:has(.modal__question) .modal__actions {
+  gap: 6px;
+  margin-top: var(--space-sm);
+}
+
 dialog.modal button {
   height: auto;
   min-height: 44px;

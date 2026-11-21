@@ -263,6 +263,54 @@ def test_reactivate_from_the_retired_frames_page(new_context, app_server_in_proc
         context.close()
 
 
+_REACTIVATED = {
+    "en": ("Frame re-activated", "Press Reset on the frame", "up to 24 hours from now"),
+    "fr": ("Cadre réactivé", "appuyez sur Reset", "24\u00a0h au plus"),
+}
+_GAPS = """d => {
+  const box = s => d.querySelector(s).getBoundingClientRect();
+  const sub = box('.modal__subtitle'), q = box('.modal__question'),
+        ok = box('button[type=submit]');
+  return {above: q.top - sub.bottom, below: ok.top - q.bottom, margin: getComputedStyle(
+    d.querySelector('.modal__question')).marginTop};
+}"""
+
+
+@pytest.mark.parametrize("lang", ["en", "fr"])
+@pytest.mark.parametrize("viewport", [VIEWPORT_MIN_SUPPORTED, VIEWPORT_DESKTOP],
+                         ids=["360", "1280"])
+def test_the_reactivation_question_sits_close_and_the_confirmation_explains_the_wake(
+        new_context, app_server_in_process, viewport, lang):
+    server = app_server_in_process
+    context, page, seed = _open(new_context, server, viewport=viewport, lang=lang)
+    try:
+        page.goto(server.base_url() + "/fleet?frame=" + seed.retired_id)
+        page.locator("main").wait_for(state="visible")
+        page.locator(".fleet-other a.fleet-action-button").click()
+        dialog = page.locator("#dlg-reactivate-%s" % _slug(seed.retired_id))
+        assert dialog.evaluate("d => d.open")
+        page.wait_for_function("() => document.getAnimations().length === 0")
+        gaps = dialog.evaluate(_GAPS)
+        assert gaps["margin"] == "0px"
+        assert 0 <= gaps["above"] <= 12 and 0 <= gaps["below"] <= 28, gaps
+        for selector in ("button[type=submit]", "a.modal__dismiss"):
+            _assert_hit_target(page, "#dlg-reactivate-%s %s" % (_slug(seed.retired_id), selector),
+                               "the re-activation dialog")
+        fit = dialog.evaluate(_FIT)
+        assert fit["sw"] <= fit["cw"]
+        dialog.locator("button[type=submit]").click()
+        toast = page.locator(".toast").first
+        toast.wait_for(state="visible")
+        text = toast.inner_text()
+        for part in _REACTIVATED[lang]:
+            assert part in text, (part, text)
+        box = toast.bounding_box()
+        assert box["x"] >= 0 and box["x"] + box["width"] <= viewport["width"]
+        assert _assert_no_page_overflow(page, "Fleet after re-activation") == ""
+    finally:
+        context.close()
+
+
 def test_the_add_dialog_pairs_through_the_hash_link_without_script(
         new_context, app_server_in_process):
     server = app_server_in_process

@@ -1,6 +1,7 @@
 """Reassign, retire and re-activate over real HTTP: data handling, the live
 frame guard, access loss for the previous owner, refusals and CSRF/role gates."""
 import hashlib
+import html
 import json
 import os
 
@@ -8,7 +9,7 @@ import pytest
 
 import fleet_console_support as fx
 import provisioned_fleet as pf
-from companion import console_lifecycle, console_routes, device_scope, prefs
+from companion import auth, console_lifecycle, console_routes, device_scope, prefs
 from companion_app_server import http_request
 from server import device_dirs, fleet_db, history_db, state_store
 
@@ -208,6 +209,24 @@ def test_reactivate_returns_the_frame_to_pairing_with_a_wiped_directory(rig):
     assert row["status"] == "pending" and row["code_hash"] is None
     assert not os.path.exists(directory)
     assert fx.audit_rows(server.state_dir, "device.reactivate")[-1]["outcome"] == "ok"
+
+
+@pytest.mark.parametrize("lang,expected", [
+    (None, ("Frame re-activated", "Press Reset on the frame to show its pairing code now.",
+            "up to 24 hours from now")),
+    ("fr", ("Cadre réactivé", "appuyez sur Reset pour afficher tout de suite son code",
+            "dans 24\u00a0h au plus")),
+])
+def test_the_reactivation_flash_explains_the_wake_and_how_to_wake_the_frame(
+        rig, lang, expected):
+    server, fleet, cookie = rig
+    status, headers, _ = _frame_post(server, cookie, fleet.retired, "reactivate")
+    assert status == 303
+    if lang:
+        cookie += "; %s=%s" % (auth.UI_LANG_COOKIE_NAME, lang)
+    page = html.unescape(_flash_page(server, cookie, headers))
+    for part in expected:
+        assert part in page
 
 
 def test_reactivating_a_row_that_is_not_retired_changes_nothing(rig):
