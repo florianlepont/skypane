@@ -1002,6 +1002,21 @@ table.airlines-table {
 
 /* A suggested name: the "Suggestion" tag and the proposed name over the
  * sightings line, then Edit and the round check that names the airline. */
+/* On a very narrow screen the controls drop under the text instead of
+ * squeezing the name and the sightings into a column of a few letters. */
+.airlines-gap--suggest {
+  flex-wrap: wrap;
+}
+
+.airlines-gap--suggest .airlines-gap__body {
+  flex: 1 1 96px;
+}
+
+.airlines-gap--suggest .airlines-gap__actions,
+.airlines-gap--suggest > .btn {
+  margin-left: auto;
+}
+
 .airlines-gap__top {
   display: flex;
   flex-wrap: wrap;

@@ -236,7 +236,8 @@ def gap_group_html(index, prefix, meta_html, filter_text, action, csrf_html, dis
         '<tbody class="airline-group airline-group--gap" data-filter-text="%s" '
         'data-filter-group="gap%d" data-filter-kind="%s"%s><tr class="airlines-row airlines-row--gap">'
         '<th scope="row" colspan="6" class="airlines-cell airlines-cell--resolve">'
-        '<div class="airlines-gap"><span class="airlines-gap__prefix mono">%s</span>'
+        '<div class="airlines-gap%s"><span class="airlines-gap__prefix mono">%s</span>'
         '<span class="airlines-gap__body">%s</span>%s</div>%s</th></tr></tbody>'
-    ) % (escape_html(filter_text), index, KIND_UNIDENTIFIED, pending, escape_html(prefix),
+    ) % (escape_html(filter_text), index, KIND_UNIDENTIFIED, pending,
+         " airlines-gap--suggest" if suggestion is not None else "", escape_html(prefix),
          body, actions, dialog)
