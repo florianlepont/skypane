@@ -246,3 +246,11 @@ def test_the_editor_offers_rename_on_a_hand_named_row_and_not_on_a_built_in_or_s
     assert html.escape(rig.frame + ROUTE) in row or (rig.frame + ROUTE) in row
     assert page.count('name="prefix" value="KLM"') == 0
     assert "Flights already stored keep their name." in page
+
+
+def test_a_hostile_stored_name_is_escaped_everywhere_in_the_row_and_dialog(rig):
+    hostile = 'Evil <b onmouseover="x()">&\' Air'
+    manual_resolutions.add_entry(rig.root, "EVL", hostile, now=STAMP)
+    _s, _h, page = rig.get("admin", rig.frame + EDITOR)
+    assert "<b onmouseover" not in page
+    assert html.escape(hostile) in page or html.escape(hostile, quote=False) in page
