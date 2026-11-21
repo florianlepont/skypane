@@ -52,3 +52,14 @@ Results: core suite 12310 passed, 7 skipped, 0 failed; airline browser tests 128
 ## Open owner questions
 
 - Rename of a hand-named airline is not possible today (the rename route only knows built-in airlines; the existing correction path is Delete my name then name the prefix again). It is therefore not offered on these rows; adding it needs a route.
+
+## CI follow-up
+
+CI was red in browser shards 3 and 4: tests still assumed an airline without artwork is a row of the table with a thumbnail and the per-row resolve dialog.
+
+- One real regression, fixed in code: the old resolve dialog's delete form said "Flights with this prefix become unidentified again. Your artwork stays."; the row menu's "Delete my name" that replaced it said nothing. The same sentence now sits above the item (`airline_table._reset_form`, one CSS rule `.airlines-menu__note`). Render baseline regenerated once (`style-airlines.css` hash).
+- Tests moved to the control that carries the behaviour (none skipped or loosened):
+  - `test_browser_ux_04.py`: drop zone floors at 360 px, keyboard operability (Tab, Space, and now ArrowDown on the required aircraft type select, still zero pointer events), dropped and picked files stored identically, now open the dialog from the block's Artwork button (`_open_artwork_step`, which answers the aircraft type question the step asks); "delete states its outcome" uses the row's "..." menu.
+  - `test_browser_resolve_buttons.py`: the dialog test opens the Artwork dialog (one shared button) and measures the menu's Delete my name (44 px). The no-script deep-link panel tests are unchanged.
+  - `test_browser_audit4_fixes.py`: the one-line-tall test keeps its table assertion with artwork seeded and adds the same height and alignment check for the block's row.
+- Results: core 12315 passed, 7 skipped, 1 failed (render baseline, regenerated, then 2 passed); browser shards 0..4: 1047, 707 (+1 skipped), 1052, 652, 615 passed. One failure under load, `test_browser_space_switch.py::test_one_tap_on_the_more_panel_switch_moves_between_the_two_spaces` (shard 1), unrelated to airlines; the file passes alone (32 passed). ruff, mypy, function-size, comment-history all pass.
