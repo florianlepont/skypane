@@ -100,8 +100,8 @@ def test_deleting_a_user_from_the_menu_confirms_then_removes_them(
         dialog = _open_delete_dialog(page, seed.user_id, "Delete user")
         assert page.locator(dialog + " .modal__title").inner_text() == "Delete this user?"
         text = page.locator(dialog).inner_text()
-        assert fx.USER_EMAIL in text and "audit log keeps their address" in text
-        assert "reassign or retire the frame first" in text
+        assert fx.USER_EMAIL in text and "loses access to their frames" in text
+        assert "This cannot be undone." in text
         surface = page.evaluate(_SURFACE, dialog)
         assert surface["alpha"] == 1 and surface["filter"] == "none", surface
         assert page.evaluate(_REACHABLE, dialog) == []

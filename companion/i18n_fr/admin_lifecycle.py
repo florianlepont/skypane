@@ -77,6 +77,7 @@ MESSAGES = {
     "admin_lifecycle.action_airline_artwork_delete": "Illustration de compagnie supprimée",
     "admin_lifecycle.action_airline_default_type": "Type d’appareil par défaut modifié",
     "admin_lifecycle.action_user_invite": "Utilisateur invité",
+    "admin_lifecycle.action_user_invitation": "Lien d’invitation",
     "admin_lifecycle.action_user_role": "Rôle modifié",
     "admin_lifecycle.action_user_disable": "Utilisateur désactivé",
     "admin_lifecycle.action_user_enable": "Utilisateur activé",

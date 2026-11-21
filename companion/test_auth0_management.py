@@ -3,6 +3,7 @@ for a new and an existing user, the not-configured path, failure results,
 and proof that no secret, token or ticket link leaks into logs, results or
 reprs. No real network is used.
 """
+import json
 import logging
 
 import pytest
@@ -13,7 +14,7 @@ from fake_auth0 import MGMT_TOKEN, FakeAuth0
 MGMT_ID = "mgmt-client-id"
 MGMT_SECRET = "mgmt-secret-placeholder-value"
 CONNECTION = "test-db-connection"
-CONNECTION_ID = "con_testplaceholder"
+CONNECTION_ID = "con_testplaceholder1"
 RESULT_URL = "https://companion.example.test/login"
 EMAIL = "invitee@example.test"
 
@@ -27,9 +28,10 @@ def fake():
     server.stop()
 
 
-def _invite(fake, environ=None, email=EMAIL, result_url=RESULT_URL, **kw):
+def _invite(fake, environ=None, email=EMAIL, result_url=RESULT_URL,
+            ttl=mgmt.FIRST_TICKET_TTL_SECONDS, **kw):
     env = fake.mgmt_env() if environ is None else environ
-    return mgmt.create_invitation(env, email, result_url, **kw)
+    return mgmt.create_invitation(env, email, result_url, ttl, **kw)
 
 
 def test_new_user_gets_a_ticket_link_and_no_password_is_returned(fake):
@@ -127,7 +129,10 @@ def test_secret_is_sent_only_in_the_token_request(fake):
     ("mgmt_token_status", 401, mgmt.REASON_TOKEN),
     ("mgmt_users_status", 500, mgmt.REASON_CREATE),
     ("mgmt_users_status", 403, mgmt.REASON_CREATE),
-    ("mgmt_ticket_status", 429, mgmt.REASON_TICKET),
+    ("mgmt_ticket_status", 400, mgmt.REASON_TICKET),
+    ("mgmt_token_status", 429, mgmt.REASON_RATE_LIMITED),
+    ("mgmt_users_status", 429, mgmt.REASON_RATE_LIMITED),
+    ("mgmt_ticket_status", 429, mgmt.REASON_RATE_LIMITED),
 ])
 def test_provider_errors_become_a_short_reason(fake, knob, value, reason):
     fake.set_knob(knob, value)
@@ -228,3 +233,106 @@ def test_malformed_domain_counts_as_not_configured(fake, domain):
     env = fake.mgmt_env()
     env["SKYPANE_AUTH0_DOMAIN"] = domain
     assert mgmt.from_env(env) is None
+
+
+def _tickets(fake):
+    return [body for path, body, _ in fake.mgmt.requests
+            if path.endswith("password-change")]
+
+
+def test_the_caller_chooses_the_link_lifetime(fake):
+    assert _invite(fake, ttl=mgmt.RENEWED_TICKET_TTL_SECONDS).ok
+    assert _invite(fake, ttl=mgmt.FIRST_TICKET_TTL_SECONDS).ok
+    assert [t["ttl_sec"] for t in _tickets(fake)] == [86400, 432000]
+
+
+@pytest.mark.parametrize("ttl", [0, -1, "86400", None, True, 1.5])
+def test_a_bad_lifetime_is_refused_before_any_call(fake, ttl):
+    result = _invite(fake, ttl=ttl)
+    assert not result.ok and result.reason == mgmt.REASON_BAD_TTL
+    assert fake.calls == []
+
+
+def test_the_address_is_lowercased_before_every_call(fake):
+    assert _invite(fake, email="Mixed.Case@Example.TEST").ok
+    assert _invite(fake, email="Mixed.Case@Example.TEST").ok
+    for path, body, _ in fake.mgmt.requests:
+        if "email" in body:
+            assert body["email"] == "mixed.case@example.test"
+
+
+def test_requests_carry_exactly_the_documented_fields(fake):
+    assert _invite(fake).ok
+    assert _invite(fake).ok
+    users = [b for p, b, _ in fake.mgmt.requests if p == "/api/v2/users"]
+    assert {frozenset(b) for b in users} == {frozenset(
+        ("email", "connection", "email_verified", "verify_email", "password"))}
+    assert users[0]["verify_email"] is False
+    tickets = _tickets(fake)
+    assert frozenset(tickets[0]) == frozenset(
+        ("user_id", "result_url", "ttl_sec", "mark_email_as_verified"))
+    assert frozenset(tickets[1]) == frozenset(
+        ("email", "connection_id", "result_url", "ttl_sec",
+         "mark_email_as_verified"))
+
+
+@pytest.mark.parametrize("link", [
+    "http://tenant.example.test/lo/reset?ticket=x",
+    "https://evil.example.test/lo/reset?ticket=x",
+    "https://127.0.0.1.evil.test/lo/reset",
+    "https://user:pw@127.0.0.1/lo/reset",
+    "https://127.0.0.1/a b",
+    "javascript:alert(1)",
+    "//127.0.0.1/lo/reset",
+    "https://127.0.0.1/" + "a" * 3000,
+    "http://127.0.0.1:1/lo/reset",
+    "http://127.0.0.1/lo/reset",
+])
+def test_a_ticket_link_off_the_auth0_domain_is_never_returned(fake, link):
+    fake.set_knob("mgmt_ticket_status", 201)
+    fake.set_knob("mgmt_ticket_body", json.dumps({"ticket": link}))
+    result = _invite(fake)
+    assert not result.ok and result.link == ""
+    assert result.reason == mgmt.REASON_BAD_TICKET_URL
+
+
+def test_a_plain_http_ticket_link_needs_the_loopback_test_flag(fake):
+    env = fake.mgmt_env()
+    del env["SKYPANE_AUTH0_ALLOW_INSECURE_LOOPBACK"]
+    cfg = mgmt.from_env(env)
+    own = "http://%s/lo/reset?ticket=t" % fake.domain
+    assert mgmt._ticket_url_ok(cfg, own, True)
+    assert not mgmt._ticket_url_ok(cfg, own, False)
+
+
+def test_a_ticket_link_on_the_custom_domain_is_accepted(fake):
+    fake.set_knob("mgmt_ticket_status", 201)
+    fake.set_knob("mgmt_ticket_body",
+                  '{"ticket": "https://login.example.test/lo/reset?ticket=t"}')
+    env = fake.mgmt_env()
+    assert _invite(fake, env).reason == mgmt.REASON_BAD_TICKET_URL
+    env["SKYPANE_AUTH0_CUSTOM_DOMAIN"] = "login.example.test"
+    result = _invite(fake, env)
+    assert result.ok
+    assert result.link == "https://login.example.test/lo/reset?ticket=t"
+
+
+def test_a_malformed_custom_domain_counts_as_not_configured(fake):
+    env = fake.mgmt_env()
+    env["SKYPANE_AUTH0_CUSTOM_DOMAIN"] = "https://login.example.test/x"
+    assert mgmt.from_env(env) is None
+
+
+@pytest.mark.parametrize("connection_id", [
+    "con_short", "con_" + "a" * 17, "xon_" + "a" * 16, "con_" + "a" * 15 + "!",
+    "con_" + "a" * 15 + "\n"])
+def test_a_malformed_connection_id_fails_closed_with_its_own_reason(
+        fake, connection_id):
+    env = fake.mgmt_env()
+    env["SKYPANE_AUTH0_DB_CONNECTION_ID"] = connection_id
+    assert _invite(fake, env).ok
+    result = _invite(fake, env)
+    assert not result.ok and result.link == ""
+    assert result.reason in (
+        mgmt.REASON_BAD_CONNECTION_ID, mgmt.REASON_EXISTS_NO_CONNECTION_ID)
+    assert len(_tickets(fake)) == 1

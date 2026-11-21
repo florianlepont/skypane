@@ -80,19 +80,20 @@ def _user(server, user_id):
         server, "SELECT role, disabled, iss FROM users WHERE id = ?", (user_id,))[0]
 
 
-def test_invite_in_three_actions_with_role_defaulting_to_user(
-        new_context, app_server_in_process):
+def test_invite_in_three_actions_with_a_plain_user_by_default(
+        new_context, app_server_in_process, invitation_auth0):
     server = app_server_in_process
     context, page, _seed = _open(new_context, server)
     try:
         page.locator("a.page-header__action").click()  # 1
         assert page.locator(INVITE).evaluate("d => d.open")
-        assert page.input_value("#invite-role") == "user"
+        assert not page.is_checked("#invite-role")
         page.keyboard.type("new.person@example.test")  # 2: focus starts on the email
         page.locator(INVITE + " button[type=submit]").click()  # 3
-        page.wait_for_url("**/users")
-        page.locator('[role="status"], [role="alert"]').first.wait_for()
-        assert "Tell new.person@example.test to sign in with this address." in _body_text(page)
+        ready = page.locator("#dlg-invitation-ready.is-modal[open]")
+        ready.wait_for(state="visible")
+        assert "new.person@example.test" in ready.inner_text()
+        assert "http://127.0.0.1:%d/lo/reset" % invitation_auth0.port in ready.inner_text()
         row = _sql(server, "SELECT role, iss FROM users WHERE email = ?",
                    ("new.person@example.test",))[0]
         assert row == ("user", None)
@@ -105,8 +106,12 @@ def test_invite_in_three_actions_with_role_defaulting_to_user(
 def test_a_duplicate_email_reopens_the_dialog_with_a_field_error(
         new_context, app_server_in_process):
     server = app_server_in_process
-    context, page, _seed = _open(new_context, server)
+    context, page, seed = _open(new_context, server)
     try:
+        _sql(server, "UPDATE users SET iss = 'https://t.example.test/', sub = 's' "
+                     "WHERE id = ?", (seed.user_id,))
+        page.reload()
+        _settled(page)
         page.locator("a.page-header__action").click()
         page.fill("#invite-email", fx.USER_EMAIL)
         page.locator(INVITE + " button[type=submit]").click()
@@ -273,8 +278,9 @@ def test_unlink_an_identity_from_the_overflow_menu_only_when_one_is_linked(
         _settled(page)
         plain = _row(page, fx.USER_EMAIL)
         assert plain.locator("details.row-menu").count() == 1
-        assert plain.locator("form.users-menu__form").count() == 0
+        assert plain.locator('form[action$="/unlink"]').count() == 0
         assert plain.locator("a.row-menu__item").count() == 1
+        assert plain.locator('form[action="/users/invite"]').count() == 1
         row = _row(page, fx.OWNER_EMAIL)
         row.locator("summary").click()
         item = row.get_by_role("button", name="Reset sign-in")
@@ -341,8 +347,10 @@ def test_invite_and_row_controls_work_without_script(new_context, app_server_in_
         assert page.locator(INVITE).is_visible()
         page.fill("#invite-email", "nojs@example.test")
         page.locator(INVITE + " button[type=submit]").click()
-        page.wait_for_url("**/users")
+        page.locator("#dlg-invitation-failed").wait_for(state="visible")
         assert _sql(server, "SELECT COUNT(*) FROM users WHERE email = 'nojs@example.test'") == [(1,)]
+        page.locator("#dlg-invitation-failed a.modal__done").click()
+        page.wait_for_url("**/users")
         row = _row(page, fx.OWNER_EMAIL)
         row.locator("select[name=role]").select_option("admin")
         row.locator(".users-role-save").click()
@@ -404,7 +412,7 @@ def test_table_and_cards_fit_and_every_control_is_44px(
         fit = dialog.evaluate(_FIT)
         assert fit["sw"] <= fit["cw"], (where, fit)
         for control in ("#invite-email", "#invite-role", "button[type=submit]",
-                        "a.modal__dismiss", "a.modal__close"):
+                        "a.modal__dismiss"):
             _assert_hit_target(page, "%s %s" % (INVITE, control), where)
         page.keyboard.press("Escape")
         assert not dialog.evaluate("d => d.open")
@@ -465,9 +473,14 @@ def test_the_row_menu_keeps_every_item_on_one_line_inside_the_screen(
             const box = panel.getBoundingClientRect();
             const items = [...panel.querySelectorAll('.row-menu__item')].map(item => {
                 const r = item.getBoundingClientRect();
-                const range = document.createRange();
-                range.selectNodeContents(item);
-                return {height: r.height, lines: range.getClientRects().length,
+                const tops = new Set();
+                const walker = document.createTreeWalker(item, NodeFilter.SHOW_TEXT);
+                while (walker.nextNode()) {
+                    const range = document.createRange();
+                    range.selectNodeContents(walker.currentNode);
+                    for (const line of range.getClientRects()) tops.add(Math.round(line.top));
+                }
+                return {height: r.height, lines: tops.size,
                         overflow: item.scrollWidth - item.clientWidth};
             });
             return {items, left: box.left, right: box.right, vw: document.documentElement.clientWidth};

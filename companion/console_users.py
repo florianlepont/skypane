@@ -14,13 +14,20 @@ Security invariants:
   signed-in administrator and for the last active administrator, and its
   audit row names the person by e-mail because the id means nothing after.
 - The page never shows the issuer or subject of a linked identity.
+- An invitation link is a one-time credential. It is rendered once, into the
+  response of the POST that created it, sent `no-store` with `Pragma:
+  no-cache` and `Referrer-Policy: no-referrer`. It is never put in the
+  database, an audit row, a log record, a cookie, a flash or an address. The
+  local invite is the only access gate: an Auth0 account alone grants nothing.
 """
 import datetime
+import os
 import re
 import sqlite3
 from urllib.parse import parse_qs, urlencode, urlsplit
 
-from companion import audit, console_flash, i18n, route_types, ui_base
+from companion import (
+    audit, auth0_management, console_flash, i18n, route_types, static_files, ui_base)
 from companion.pages import users_page
 from server import fleet_db, fleet_sessions
 
@@ -42,7 +49,6 @@ _USER_ID_RE = re.compile(r"\A[0-9]{1,9}\Z")
 _MAX_EMAIL_CHARS = 254
 _ROLES = (users_page.ROLE_USER, users_page.ROLE_ADMIN)
 
-FLASH_INVITED = "users.invited"
 FLASH_ROLE_SAVED = "users.role_saved"
 FLASH_DISABLED = "users.disabled"
 FLASH_ENABLED = "users.enabled"
@@ -56,12 +62,6 @@ FLASH_NOT_LINKED = "users.not_linked"
 FLASH_BAD_ROLE = "users.bad_role"
 
 _REFUSED_TITLE = i18n.msg("admin_users.flash_action_refused", "Action refused")
-console_flash.register_flash(
-    FLASH_INVITED, "success",
-    i18n.msg("admin_users.flash_invitation_saved", "Invited"),
-    i18n.msg(
-        "admin_users.flash_invitation_saved_detail",
-        "Tell {email} to sign in with this address."))
 console_flash.register_flash(
     FLASH_ROLE_SAVED, "success",
     i18n.msg("admin_users.flash_role_saved", "Role saved"),
@@ -211,10 +211,23 @@ def handle_users_get(h, m):
 # ---- invite -------------------------------------------------------------
 
 
-def handle_invite(h, m):
+INVITE_ACTION = "user.invite"
+INVITATION_ACTION = "user.invitation"
+
+_FAILURE_KIND = {
+    auth0_management.REASON_NOT_CONFIGURED: users_page.FAIL_NOT_SET_UP,
+    auth0_management.REASON_EXISTS_NO_CONNECTION_ID: users_page.FAIL_CONNECTION_ID,
+    auth0_management.REASON_BAD_CONNECTION_ID: users_page.FAIL_CONNECTION_ID,
+    auth0_management.REASON_RATE_LIMITED: users_page.FAIL_BUSY,
+}
+
+
+def _parse_invite(h):
+    """(raw address, normalised address or None, role, field errors). An
+    unticked Administrator box posts no role, which means a plain user."""
     form = h.read_form()
     raw_email = form.get(users_page.EMAIL_FIELD, "").strip()
-    role = form.get(users_page.ROLE_FIELD, "")
+    role = form.get(users_page.ROLE_FIELD, "") or users_page.ROLE_USER
     errors = {}
     email = None
     if len(raw_email) <= _MAX_EMAIL_CHARS:
@@ -226,23 +239,85 @@ def handle_invite(h, m):
         errors["email_error"] = i18n.t(users_page.INVITE_EMAIL_ERROR)
     if role not in _ROLES:
         errors["role_error"] = i18n.t(users_page.INVITE_ROLE_ERROR)
+    return raw_email, email, role, errors
+
+
+def _awaiting_first_sign_in(conn, email):
+    """The id of the enabled person with this address who has not signed in
+    yet, else None: only such a person is sent a new link."""
+    for row in _build_rows(conn, None):
+        if row.email == email:
+            if users_page.status_of(row) == users_page.STATUS_INVITED:
+                return row.user_id
+            return None
+    return None
+
+
+def handle_invite(h, m):
+    raw_email, email, role, errors = _parse_invite(h)
     if errors:
         return _invite_failure(h, raw_email, role, errors)
+    renewed = False
     conn = fleet_db.connect(h.args.state_dir)
     try:
         try:
             with fleet_db.transaction(conn):
                 user_id = fleet_db.add_user(conn, email, role)
                 audit.record_in(
-                    h, conn, "user.invite", "user", str(user_id), "ok", {"role": role})
+                    h, conn, INVITE_ACTION, "user", str(user_id), "ok", {"role": role})
         except sqlite3.IntegrityError:
-            return _invite_failure(
-                h, raw_email, role,
-                {"email_error": i18n.t(users_page.INVITE_DUPLICATE_ERROR)})
+            user_id = _awaiting_first_sign_in(conn, email)
+            if user_id is None:
+                return _invite_failure(
+                    h, raw_email, role,
+                    {"email_error": i18n.t(users_page.INVITE_DUPLICATE_ERROR)})
+            renewed = True
     finally:
         conn.close()
-    return h.redirect(USERS_PATH, set_cookie=console_flash.queue_flash(
-        FLASH_INVITED, email=email, role=users_page.role_name(role)))
+    return _send_invitation(h, email, user_id, renewed)
+
+
+def _send_invitation(h, email, user_id, renewed):
+    """Ask Auth0 for the person's link after the local invite is committed and
+    show the outcome. The local invite stays whatever Auth0 answers."""
+    ttl = (auth0_management.RENEWED_TICKET_TTL_SECONDS if renewed
+           else auth0_management.FIRST_TICKET_TTL_SECONDS)
+    result = auth0_management.create_invitation(os.environ, email, _app_url(h), ttl)
+    detail = {"renewed": renewed}
+    if result.ok:
+        detail["ttl_sec"] = ttl
+    else:
+        detail["reason"] = result.reason
+    audit.record_standalone(
+        h, INVITATION_ACTION, "user", str(user_id), "ok" if result.ok else "failed", detail)
+    if not result.ok:
+        return _render(h, invite_failure=users_page.InviteFailure(
+            email, _FAILURE_KIND.get(result.reason, users_page.FAIL_GENERIC)))
+    return _render_one_time(h, invitation=users_page.Invitation(email, result.link, ttl))
+
+
+def _send_one_time_html(h, code, html_str, set_cookies=()):
+    """The response that carries a one-time link: never cached, never
+    referred."""
+    body = static_files.version_static_urls(html_str).encode("utf-8")
+    h.send_response(code)
+    h.send_header("Content-Type", "text/html; charset=utf-8")
+    h.send_header("Content-Length", str(len(body)))
+    h.send_header("Cache-Control", "no-store")
+    h.send_header("Pragma", "no-cache")
+    for cookie in set_cookies:
+        h.send_header("Set-Cookie", cookie)
+    h._send_hardening_headers()
+    h.end_headers()
+    h.wfile.write(body)
+
+
+def _render_one_time(h, **invite_state):
+    # Both settings live on this request's handler instance only.
+    h.referrer_policy = "no-referrer"
+    h.send_html = lambda code, html_str, **kw: _send_one_time_html(
+        h, code, html_str, kw.get("set_cookies", ()))
+    return _render(h, **invite_state)
 
 
 def _invite_failure(h, raw_email, role, errors):
