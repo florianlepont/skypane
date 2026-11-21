@@ -149,6 +149,10 @@
     clearHash();
     forgetQuestion(dialog);
     returnFocus(dialog);
+    // A dialog that carries a one-time value leaves the page with it.
+    if (dialog.hasAttribute("data-modal-once") && dialog.parentNode) {
+      dialog.parentNode.removeChild(dialog);
+    }
   }
 
   // A dialog the address itself opened (one pending confirmation) names the
@@ -186,6 +190,50 @@
       return true;
     }
   };
+
+  // The on-screen keyboard shrinks the visual viewport but not the layout
+  // viewport a bottom sheet is anchored to. A compact sheet is lifted by the
+  // covered height (a CSS custom property, set through the CSSOM) so its
+  // field stays above the keyboard; a small difference is browser chrome,
+  // not a keyboard.
+  var KEYBOARD_MIN_PX = 80;
+
+  function keyboardInset() {
+    var vv = window.visualViewport;
+    if (!vv) {
+      return 0;
+    }
+    var covered = Math.round(window.innerHeight - vv.height - vv.offsetTop);
+    return covered > KEYBOARD_MIN_PX ? covered : 0;
+  }
+
+  function liftCompactSheets() {
+    var sheets = document.querySelectorAll("dialog.modal--compact[open]");
+    var inset = keyboardInset() + "px";
+    for (var i = 0; i < sheets.length; i += 1) {
+      sheets[i].style.setProperty("--keyboard-inset", inset);
+    }
+  }
+
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", liftCompactSheets);
+    window.visualViewport.addEventListener("scroll", liftCompactSheets);
+  }
+
+  // A focused field of a compact dialog is kept in view: the sheet is lifted
+  // first, then the field is scrolled into the dialog's visible part.
+  document.addEventListener("focusin", function (evt) {
+    var field = evt.target;
+    var dialog = closestTag(field, "dialog");
+    if (!dialog || !dialog.classList.contains("modal--compact") ||
+        !field.matches || !field.matches(HOLD_SELECTOR)) {
+      return;
+    }
+    liftCompactSheets();
+    if (field.scrollIntoView) {
+      field.scrollIntoView({block: "nearest"});
+    }
+  });
 
   // A dialog marked data-focus-title opens on its heading, so no field
   // raises the keyboard or a native picker unasked.

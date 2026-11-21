@@ -59,7 +59,7 @@ def test_the_active_switch_acts_in_place_without_reloading_the_page(
     try:
         row = "#user-%d" % seed.user_id
         switch = page.locator(row + " button.switch")
-        switch.scroll_into_view_if_needed()
+        switch.evaluate("e => e.scrollIntoView({block: 'center'})")
         page.wait_for_function(_OWNS_CENTRE, arg=row + " button.switch", timeout=10000)
         page.evaluate("() => { window.__same_document = true; }")
         switch.click()
@@ -72,6 +72,11 @@ def test_the_active_switch_acts_in_place_without_reloading_the_page(
         assert page.locator(row + " .users-pill--disabled").is_visible()
         assert page.locator(row + " .users-status .users-pill:visible").count() == 1
         assert _disabled(server, seed.user_id) == 1
+        # The first answer's toast floats above the tab bar and can cover the last card on a
+        # short page (hovering it pauses its dismissal): move away and let it go first.
+        page.mouse.move(2, 2)
+        page.wait_for_function("() => !document.querySelector('[data-toast]')", timeout=20000)
+        switch.evaluate("e => e.scrollIntoView({block: 'center'})")
         switch.click()
         page.wait_for_function(
             "sel => document.querySelector(sel).getAttribute('aria-checked') === 'true'"

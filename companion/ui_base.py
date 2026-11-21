@@ -722,6 +722,11 @@ ICON_IDS = ICON_IDS + (
     "icon-logo",
 )
 
+# A paper plane, for the Users row menu's "Send a new invitation".
+ICON_IDS = ICON_IDS + (
+    "icon-send",
+)
+
 # The foreign-frame marker's two glyphs: an eye (looking at someone else's
 # frame) and a back chevron on its Back to Fleet button.
 ICON_IDS = ICON_IDS + (
@@ -1078,6 +1083,10 @@ ICON_DEFS_HTML = (
     '<symbol id="icon-sign-out" viewBox="0 0 20 20" fill="none" '
     'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
     '<path d="M8 3.5H4.5v13H8M13 6.5l3.5 3.5-3.5 3.5M16.5 10H8"/>'
+    "</symbol>"
+    '<symbol id="icon-send" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M2.5 9l15-6.5-6.5 15-2-6.5z"/>'
     "</symbol>"
     '<symbol id="icon-logo" viewBox="0 0 32 32">%s</symbol>'
     "</defs>"
