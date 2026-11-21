@@ -644,11 +644,12 @@ A nightly systemd timer (`skypane-backup.timer`, 03:15 UTC,
 consistent online copy of `history.db` and `fleet.db` with SQLite's own backup API
 (never a raw copy of the live `-wal`/`-shm` files), and copies everything
 else that cannot be regenerated from an **include list** — device
-tokens, device/colour/calendar/manual-resolution config, the calendar
+tokens, device/colour/calendar/manual-resolution config, the airline
+name overrides, default aircraft types and AI-suggestion cache, the calendar
 secret, uploaded illustration overrides, the poll enrichment cache, and
 `gallery/` (the last ~25 rendered panels — kept for the visual history,
-per D-24). Regenerable files (`panel.bin`, theme preview caches, Caddy's
-access log) are excluded. An unlisted top-level file in `state/` is
+per D-24). Regenerable files (`panel.bin`, theme preview caches, the shared route
+cache, Caddy's access log) are excluded. An unlisted top-level file in `state/` is
 logged as drift rather than silently skipped or silently included. Each
 run writes a checksummed `skypane-state-<UTC timestamp>.tar.gz` and keeps
 the newest 14 on the VPS.
@@ -658,7 +659,7 @@ the newest 14 on the VPS.
 the same file set as the root; the live frame stays at the root and is never
 moved. The backup archives each `devices/<id>/` entry under the same path in
 the archive: `device_config.json`, `poll_state.json`, `battery_state.json`,
-the calendar, colour and manual-resolution files, `illustration_overrides/`,
+the calendar, colour, manual-resolution, airline name override and default-type files, `illustration_overrides/`,
 `gallery/` and a WAL-safe snapshot of `history.db`. It does not archive
 `panel.bin`, `img/`, lock files, temp files, WAL/SHM files or symlinks. A
 directory under `devices/` with a malformed name, or an unexpected file
