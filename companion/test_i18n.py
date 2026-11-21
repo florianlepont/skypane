@@ -196,6 +196,8 @@ _UNCHANGED_IN_FRENCH = frozenset({
     "update.col_version", "update.col_action", "update.notes_n",
     # "Rare" is spelled identically in French.
     "airlines.collection_rarity_rare",
+    # "Suggestion" is spelled identically in French.
+    "airlines.suggest_tag",
     # Place names spelled identically in French.
     "display.timezone_opt_martinique", "display.timezone_opt_guadeloupe",
     "display.timezone_opt_mayotte",

@@ -235,6 +235,8 @@ FLASH_MANUAL_NAME_UNUSABLE = "manual_name_unusable"
 # disappearing from the management list is the confirmation.
 
 RESOLVE_ROUTE = "/airlines/resolve"
+AIRLINE_SUGGEST_ROUTE = "/airlines/suggest"
+AIRLINE_SUGGEST_REJECT_ROUTE = "/airlines/suggest/reject"
 MANUAL_DELETE_ROUTE_PREFIX = "/airlines/manual-resolutions/"
 MANUAL_DELETE_ROUTE_SUFFIX = "/delete"
 # The read-only Airline collection; every link of this editing page uses
@@ -1260,7 +1262,8 @@ def _table_data(ctx):
     data = airline_table.TableData(
         pairs=pairs, state_dir=state_dir, now=now, sheets_by_name=sheets_by_name,
         manual_info_by_name=manual_info_by_name, entries_by_slug=_entries_by_slug(ctx, now),
-        gap_rows=gap_shown, known_rows=airline_known_rows.rows(state_dir, registry),
+        gap_rows=gap_shown, root_state_dir=ctx.root_state_dir or "",
+        known_rows=airline_known_rows.rows(state_dir, registry),
         promoted_prefixes=promoted_prefixes,
         focus_key=focus_key,
         default_types=airline_default_types.load_default_types(state_dir),

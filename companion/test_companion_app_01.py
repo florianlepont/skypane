@@ -497,13 +497,14 @@ def test_icon_sprite_integrity():
     # icon-sign-out, the More panel's Language and Sign out rows), then to 55 (icon-fit,
     # the map's Show all of France button), then to 59 (icon-departure and
     # icon-arrival, the Flights direction glyphs; icon-eye and icon-chevron-left,
-    # the foreign-frame marker's glyphs).
-    assert len(layout.ICON_IDS) == 61
-    assert len(set(layout.ICON_IDS)) == 61, "expected ICON_IDS to have no duplicates"
+    # the foreign-frame marker's glyphs), then to 62 (icon-spark, the Airlines
+    # editor's Suggestion tag).
+    assert len(layout.ICON_IDS) == 62
+    assert len(set(layout.ICON_IDS)) == 62, "expected ICON_IDS to have no duplicates"
     symbol_ids = re.findall(r'<symbol[^>]*id="([^"]+)"', layout.ICON_DEFS_HTML)
     assert sorted(symbol_ids) == sorted(layout.ICON_IDS), (
         "sprite symbol ids %r do not match ICON_IDS %r" % (symbol_ids, layout.ICON_IDS))
-    assert layout.ICON_DEFS_HTML.count("<symbol") == 61
+    assert layout.ICON_DEFS_HTML.count("<symbol") == 62
     assert 'stroke="currentColor"' in layout.ICON_DEFS_HTML
     assert 'fill="#' not in layout.ICON_DEFS_HTML, "a hard-coded hex fill would defeat the per-status tint"
 
@@ -546,7 +547,7 @@ def test_page_shell_emits_sprite_once_no_inline_styles():
     # (icon-more). : 22 -> 23 (icon-gear). : 23 -> 24 (icon-nav-update).
     # 24 -> 26 (icon-warning, icon-chevron-right). 26 -> 34 (the toasts).
     # 34 -> 36 (icon-pencil, icon-plus).
-    assert doc.count("<symbol") == 61
+    assert doc.count("<symbol") == 62
     assert doc.index("icon-defs") < doc.index("dashboard-shell"), (
         "expected the sprite to precede the dashboard-shell div")
     assert ' style="' not in doc, "page_shell() must emit no inline styles"

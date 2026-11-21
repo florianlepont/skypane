@@ -15,6 +15,7 @@ the illustration upload route, the manual-name delete route, the resolve
 route, the artwork-delete route and the default-type route. Stored text
 reaches the markup only through `escape_html`.
 """
+import time
 from dataclasses import dataclass, field
 
 import companion.airline_display as airline_display
@@ -25,6 +26,7 @@ import companion.layout as layout
 from companion.layout import csrf_field, escape_html
 from companion.pages import airline_known_rows, airline_rows, airline_sheet
 from server.plane import airline_default_types
+from server.plane import airline_suggest
 from server.plane import illustrations
 from server.plane import render as panel_render
 
@@ -64,6 +66,9 @@ SHOW_TYPES_TEXT = i18n.msg(
     "airlines.show_all_types", "Show the aircraft types of every airline")
 TYPES_PARAM = "types"
 TYPES_ALL = "all"
+# At most this many rows of one page show the pending lookup; the script
+# asks for them one at a time, the others are asked on a later visit.
+MAX_PENDING_ROWS = 3
 
 
 @dataclass
@@ -76,6 +81,8 @@ class TableData:
     manual_info_by_name: dict = field(default_factory=dict)
     entries_by_slug: dict = field(default_factory=dict)
     gap_rows: list = field(default_factory=list)
+    # The fleet root, where the suggestion cache lives ("" shows no suggestion).
+    root_state_dir: str = ""
     known_rows: tuple = ()
     promoted_prefixes: dict = field(default_factory=dict)
     focus_key: str = ""
@@ -482,9 +489,30 @@ def _airline_group_html(page, row, types_open=False):
          _main_row_html(page, row), subs)
 
 
-def _gap_group_html(page, index, gap_row, now):
+def suggestion_for(page, root_state_dir, prefix, pending_budget=None):
+    """What the row of `prefix` shows besides "Name it": the cached suggestion,
+    the pending lookup while `pending_budget` (a one-item list counted down
+    here) allows one, else nothing. Reads the cache only: a page render
+    never calls the service and never writes."""
+    if not root_state_dir or not airline_suggest.enabled():
+        return None
+    entry = airline_suggest.cached(root_state_dir, prefix)
+    if entry is not None and entry.get("state") == airline_suggest.STATE_SUGGESTED:
+        return airline_rows.Suggestion(
+            name=entry["name"],
+            reject_action=device_scope.scoped(page.AIRLINE_SUGGEST_REJECT_ROUTE, "POST"))
+    if pending_budget and airline_suggest.pending(root_state_dir, prefix, time.time()):
+        pending_budget.pop()
+        return airline_rows.Suggestion(
+            ask_action=device_scope.scoped(page.AIRLINE_SUGGEST_ROUTE, "POST"))
+    return None
+
+
+def suggest_row_html(page, index, gap_row, now, suggestion=None):
     """One unidentified prefix: a compact row with a "Name it" button whose
-    dialog names it through the resolve route."""
+    dialog names it through the resolve route, or, with a `suggestion`, the
+    proposed name with Edit and the check. The one definition of the row,
+    used by the page and by the answer to the suggestion script."""
     prefix, count, _first_seen, last_seen, callsign = gap_row
     callsign = callsign if isinstance(callsign, str) else str(callsign)
     meta = '%s<span class="cell-inline-sep">·</span>%s<span class="cell-inline-sep">·</span>%s' % (
@@ -493,7 +521,11 @@ def _gap_group_html(page, index, gap_row, now):
     return airline_rows.gap_group_html(
         index, prefix, meta, "%s %s" % (callsign.lower(), prefix.lower()),
         device_scope.scoped(page.RESOLVE_ROUTE, "POST"), csrf_field(),
-        device_scope.scoped(page.MANAGE_ROUTE))
+        device_scope.scoped(page.MANAGE_ROUTE), suggestion)
+
+
+def _gap_group_html(page, index, gap_row, now, suggestion=None):
+    return suggest_row_html(page, index, gap_row, now, suggestion)
 
 
 def _known_names_html():
@@ -528,8 +560,10 @@ def table_and_chips(data):
     """`(table markup, filter chips)` for `data`: unidentified rows first, then
     one group per airline; the chips carry the count of each kind of row."""
     page = _page()
+    budget = [None] * MAX_PENDING_ROWS
     gaps = "".join(
-        _gap_group_html(page, index, gap_row, data.now)
+        _gap_group_html(page, index, gap_row, data.now,
+                        suggestion_for(page, data.root_state_dir, gap_row[0], budget))
         for index, gap_row in enumerate(data.gap_rows))
     groups = []
     counts = {airline_rows.KIND_UNIDENTIFIED: len(data.gap_rows),

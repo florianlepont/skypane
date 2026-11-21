@@ -262,6 +262,8 @@ PLACE_START_SCRIPT_SRC = "/static/place-start.js"
 PLACE_AIRPORT_LIST_SCRIPT_SRC = "/static/place-airport-list.js"
 # Opens an airline's aircraft-type rows in the airline editor.
 AIRLINE_TYPES_SCRIPT_SRC = "/static/airline-types.js"
+# Asks for the pending airline-name suggestions in the airline editor.
+AIRLINE_SUGGEST_SCRIPT_SRC = "/static/airline-suggest.js"
 # Asks the Install and Revert question in the shared dialog.
 UPDATE_QUESTION_SCRIPT_SRC = "/static/update-question.js"
 # Marks the section in view among the phone anchors of a frame's page.
@@ -699,6 +701,12 @@ ICON_IDS = ICON_IDS + (
     "icon-plane",
 )
 
+# A four-point sparkle with a small one beside it: marks a suggestion made
+# for the person to check (the Airlines editor's "Suggestion" tag).
+ICON_IDS = ICON_IDS + (
+    "icon-spark",
+)
+
 # The SkyPane brand mark (32x32 viewBox, unlike the 20x20 glyphs): an "S"
 # in a portrait pane whose top-right corner is open, with one accent flick
 # leaving through the gap.
@@ -1027,6 +1035,10 @@ ICON_DEFS_HTML = (
     '<symbol id="icon-arrival" viewBox="0 0 24 24" fill="none" '
     'stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'
     '<path d="M4 20h16M6 5l12 8M18 6v7h-7"/>'
+    "</symbol>"
+    '<symbol id="icon-spark" viewBox="0 0 24 24" fill="none" '
+    'stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM18 15l.8 2.2L21 18l-2.2.8L18 21l-.8-2.2L15 18l2.2-.8z"/>'
     "</symbol>"
     '<symbol id="icon-undo" viewBox="0 0 20 20" fill="none" '
     'stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'
