@@ -51,11 +51,18 @@ def test_legacy_output_is_byte_identical(profile):
 
 @pytest.mark.parametrize("profile", [None, LEGACY])
 def test_legacy_cache_names_are_unchanged(profile):
-    assert theme_preview.frame_cache_path(
-        "/s", "white", "departing", "small", profile=profile).endswith(
-        "/s/frame_previews/" + LEGACY_FRAME_NAME)
-    assert theme_preview.cache_path("/s", "white", profile=profile).endswith(
-        "/s/theme_previews/" + LEGACY_CHIP_NAME)
+    """a legacy file name keeps its theme, state, size and layout parts, and its signature is
+    the pre-profile one with the picture's stamp folded in on top"""
+    frame = theme_preview.frame_cache_path("/s", "white", "departing", "small", profile=profile)
+    chip = theme_preview.cache_path("/s", "white", profile=profile)
+    assert frame.startswith("/s/frame_previews/white-departing-small-classic-")
+    assert chip.startswith("/s/theme_previews/white-sample-classic-")
+    assert theme_preview.frame_preview_signature("white", "departing", "small") == (
+        LEGACY_FRAME_NAME.rsplit("-", 1)[1][:-4])
+    assert theme_preview.preview_signature("white") == LEGACY_CHIP_NAME.rsplit("-", 1)[1][:-4]
+    assert frame.endswith(theme_preview.frame_preview_signature(
+        "white", "departing", "small", None, profile,
+        theme_preview.artwork_stamp("/s", theme_preview._fixed_scenes())) + ".png")
 
 
 @pytest.mark.parametrize("size", theme_preview.FRAME_PREVIEW_SIZES)
