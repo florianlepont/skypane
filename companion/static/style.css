@@ -7840,7 +7840,6 @@ button.row-menu__item {
 /* After a minute without a touch (motion.js sets data-ambient="rest") the
  * ambient loops stop, so a wall tablet's compositor is idle. */
 html[data-ambient="rest"] .home-state__dot--pulse,
-html[data-ambient="rest"] .home-state__dot--pulse::after,
 html[data-ambient="rest"] .is-breathing {
   animation-iteration-count: 0;
 }
@@ -7848,10 +7847,8 @@ html[data-ambient="rest"] .is-breathing {
 /* The same while the More sheet or any modal dialog is open: nothing
  * repaints under a blurred scrim. */
 html:has(.tab-bar__more[open]) .home-state__dot--pulse,
-html:has(.tab-bar__more[open]) .home-state__dot--pulse::after,
 html:has(.tab-bar__more[open]) .is-breathing,
 html:has(dialog[open]) .home-state__dot--pulse,
-html:has(dialog[open]) .home-state__dot--pulse::after,
 html:has(dialog[open]) .is-breathing {
   animation-iteration-count: 0;
 }
