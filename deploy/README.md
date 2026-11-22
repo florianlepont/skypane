@@ -735,8 +735,8 @@ tokens, device/colour/calendar/manual-resolution config, the airline
 name overrides, default aircraft types, AI-suggestion cache and the airline merge marker, the calendar
 secret, uploaded illustration overrides (and the `illustration_conflicts/` archive and its marker), the poll enrichment cache, and
 `gallery/` (the last ~25 rendered panels — kept for the visual history,
-per D-24). Regenerable files (`panel.bin`, theme preview caches, the shared route
-cache, Caddy's access log) are excluded. An unlisted top-level file in `state/` is
+per D-24). Regenerable or short-lived files (`panel.bin`, theme and frame preview caches, the shared route
+cache, the ADS-B request ledger, the check-interval experiment file, Caddy's access log) are excluded. An unlisted top-level file in `state/` is
 logged as drift rather than silently skipped or silently included. Each
 run writes a checksummed `skypane-state-<UTC timestamp>.tar.gz` and keeps
 the newest 14 on the VPS.

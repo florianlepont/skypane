@@ -802,6 +802,54 @@ class TestAirlineFiles:
         assert "not in include list" not in capsys.readouterr().out
 
 
+class TestTransientStateFiles:
+    """Short-lived or regenerable state is classified as excluded, so it is
+    neither archived nor reported as drift, at the root and per device."""
+
+    NAMES = ("request_ledger.json", "check_interval_experiment.json", "frame_previews")
+
+    def _seed(self, directory):
+        directory.mkdir(parents=True, exist_ok=True)
+        (directory / "request_ledger.json").write_text("{}")
+        (directory / "check_interval_experiment.json").write_text("{}")
+        (directory / "frame_previews").mkdir()
+        (directory / "frame_previews" / "p.png").write_bytes(b"PNG")
+
+    def test_not_archived_and_not_drift_at_the_root(self, tmp_path, capsys):
+        state_dir = tmp_path / "state"
+        archive_dir = tmp_path / "archives"
+        _seed_minimal_state(state_dir)
+        self._seed(state_dir)
+
+        rc = skypane_backup.main(["--state-dir", str(state_dir), "--archive-dir", str(archive_dir)])
+        assert rc == 0
+
+        out = capsys.readouterr().out
+        for name in self.NAMES:
+            assert name not in out
+        members = _members(archive_dir / _archive_names(archive_dir)[0])
+        assert not any(m.split("/")[0] in self.NAMES for m in members)
+
+    def test_not_archived_and_not_drift_per_device(self, tmp_path, capsys):
+        state_dir = tmp_path / "state"
+        archive_dir = tmp_path / "archives"
+        _seed_minimal_state(state_dir)
+        device_dir = state_dir / "devices" / "d_0000000a"
+        device_dir.mkdir(parents=True)
+        (device_dir / "device_config.json").write_text("{}")
+        self._seed(device_dir)
+
+        rc = skypane_backup.main(["--state-dir", str(state_dir), "--archive-dir", str(archive_dir)])
+        assert rc == 0
+
+        out = capsys.readouterr().out
+        for name in self.NAMES:
+            assert name not in out
+        members = _members(archive_dir / _archive_names(archive_dir)[0])
+        assert "devices/d_0000000a/device_config.json" in members
+        assert not any(m.rsplit("/", 1)[-1] in self.NAMES or "frame_previews" in m for m in members)
+
+
 class TestArtworkMergeBackup:
     def test_fleet_artwork_directories_and_marker_reach_the_archive_without_drift(self, tmp_path, capsys):
         state_dir = tmp_path / "state"
