@@ -77,7 +77,7 @@ def _check_bar_switch(page, lang, space, where):
     assert not cell["big"] and not cell["inBar"], (where, cell)
     assert not _assert_no_page_overflow(page, where, page.viewport_size["width"])
     return cell
-_LABELS = {"en": ("Console", "My frames"), "fr": ("Console", "Mes cadres")}
+_LABELS = {"en": ("My frames", "Console"), "fr": ("Mes cadres", "Console")}
 
 
 def _visible_switch(page):
@@ -137,7 +137,7 @@ def test_the_sidebar_switch_shows_both_spaces_and_marks_the_current_one(
     context, page = _admin_page(
         new_context, app_server_in_process, path, viewport, lang, scheme)
     try:
-        current = _LABELS[lang][0 if space == "console" else 1]
+        current = _LABELS[lang][1 if space == "console" else 0]
         _check_switch(page, lang, current, "%s/%s/%s/%s" % (space, name, lang, scheme))
         first = page.locator(".dashboard-sidebar > *:not(.brand)").first
         assert "space-switch" in first.get_attribute("class")
