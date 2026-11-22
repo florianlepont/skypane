@@ -97,8 +97,15 @@
     }
     if (!target && dialog) {
       // A dialog the address opened names the control it came from.
-      var named = dialog.getAttribute("data-modal-return-focus");
-      target = named ? document.getElementById(named) : null;
+      // Several ids may be named, the first one on screen wins (a phone card
+      // hides the select a wide table shows, and has its menu instead).
+      var named = (dialog.getAttribute("data-modal-return-focus") || "").split(" ");
+      for (var n = 0; n < named.length && !target; n += 1) {
+        var candidate = named[n] ? document.getElementById(named[n]) : null;
+        if (candidate && candidate.getClientRects().length > 0) {
+          target = candidate;
+        }
+      }
     }
     if (target && document.body.contains(target)) {
       var menu = closestMenu(target);
@@ -192,7 +199,7 @@
   };
 
   // The on-screen keyboard shrinks the visual viewport but not the layout
-  // viewport a bottom sheet is anchored to. A compact sheet is lifted by the
+  // viewport a bottom sheet is anchored to. Every open sheet is lifted by the
   // covered height (a CSS custom property, set through the CSSOM) so its
   // field stays above the keyboard; a small difference is browser chrome,
   // not a keyboard.
@@ -207,8 +214,8 @@
     return covered > KEYBOARD_MIN_PX ? covered : 0;
   }
 
-  function liftCompactSheets() {
-    var sheets = document.querySelectorAll("dialog.modal--compact[open]");
+  function liftSheets() {
+    var sheets = document.querySelectorAll("dialog.modal[open]");
     var inset = keyboardInset() + "px";
     for (var i = 0; i < sheets.length; i += 1) {
       sheets[i].style.setProperty("--keyboard-inset", inset);
@@ -216,20 +223,20 @@
   }
 
   if (window.visualViewport) {
-    window.visualViewport.addEventListener("resize", liftCompactSheets);
-    window.visualViewport.addEventListener("scroll", liftCompactSheets);
+    window.visualViewport.addEventListener("resize", liftSheets);
+    window.visualViewport.addEventListener("scroll", liftSheets);
   }
 
-  // A focused field of a compact dialog is kept in view: the sheet is lifted
-  // first, then the field is scrolled into the dialog's visible part.
+  // A focused field of a dialog is kept in view: the sheet is lifted first,
+  // then the field is scrolled into the dialog's visible part.
   document.addEventListener("focusin", function (evt) {
     var field = evt.target;
     var dialog = closestTag(field, "dialog");
-    if (!dialog || !dialog.classList.contains("modal--compact") ||
+    if (!dialog || !dialog.classList.contains("modal") ||
         !field.matches || !field.matches(HOLD_SELECTOR)) {
       return;
     }
-    liftCompactSheets();
+    liftSheets();
     if (field.scrollIntoView) {
       field.scrollIntoView({block: "nearest"});
     }
