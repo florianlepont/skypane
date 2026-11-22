@@ -88,8 +88,10 @@ def test_every_health_row_shows_its_evidence_without_a_tap(
         rows = page.locator("div.health-row")
         assert rows.count() >= 5
         _assert_health_rows_flat(page)
-        # One card per topic, none of them a collapsible row.
-        assert page.locator("main ul.group:has(> li > .health-rows)").count() == rows.count()
+        # One card per topic (the route directories are two rows of one card), none of them a
+        # collapsible row.
+        cards = page.locator("main ul.group:has(> li > .health-rows)")
+        assert cards.count() == page.locator(".health-rows").count() <= rows.count()
         for row in range(rows.count()):
             assert rows.nth(row).locator(".health-row__body").is_visible()
         # The battery row's chart and readings table are on the page.

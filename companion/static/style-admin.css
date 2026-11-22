@@ -1093,6 +1093,26 @@ div.update-item__summary {
   --row-tone: var(--color-status-error);
 }
 
+/* The share bar of the route directories: the first directory's segment in
+ * the accent colour, the fallback's in the border colour, each as wide as
+ * its flight count (the count arrives as --seg on the segment). */
+.route-bar {
+  display: flex;
+  height: calc(var(--space-sm) + var(--space-xs));
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+  background: var(--color-border);
+}
+
+.route-bar__seg {
+  flex: var(--seg, 0) 1 0;
+  background: var(--color-border);
+}
+
+.route-bar__seg--first {
+  background: var(--color-accent);
+}
+
 @container health-rows (min-width: 600px) {
   .health-rows__group {
     padding: var(--space-sm) var(--space-lg);

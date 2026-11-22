@@ -941,15 +941,16 @@ def _server_group_html(state, stats, registry_rows, now):
         SERVER_DATA_SECTION_ID, i18n.t(SERVER_DATA_SECTION_HEADING), server_rows)
 
 
-def _server_topics(state, stats, registry_rows, now):
+def _server_topics(state, stats, registry_rows, now, route_topics=()):
     """The platform rows as separate topics: (id, label, row html), one per
-    flight data, sources, identification and backups. A topic with no row (no
-    backup marker) is left out."""
+    flight data, sources, identification, the route directories and backups.
+    A topic with no row (no backup marker) is left out."""
     topics = (
         ("flight-data", ROW_FLIGHT_DATA_NAME, _flight_data_row(state, now)),
         ("sources", ROW_SOURCES_NAME, _sources_row(state)),
         ("identification", STATS_SECTION_HEADING,
          _identification_row(stats, len(registry_rows))),
+        *route_topics,
         ("backup", _OFFBOX_BACKUP_TEXT, _backup_row(state.get("offbox"), now)))
     return [(key, i18n.t(label), row) for key, label, row in topics if row]
 
@@ -1095,9 +1096,13 @@ def _page_parts(ctx):
         "server_group_html": "", "source_fault_html": "",
         "server_topics": [], "system_tiles": (), "system_cards": []}
     if user_view.platform_visible():
-        from companion.pages import system_cards
+        from companion.pages import route_sources_card, system_cards
+        route_data = _safe_query(
+            state_dir, lambda conn: route_sources_card.read(conn, now))
+        route_topics = route_sources_card.topics(route_data, now)
         parts["server_group_html"] = _server_group_html(state, stats, registry_rows, now)
-        parts["server_topics"] = _server_topics(state, stats, registry_rows, now)
+        parts["server_topics"] = _server_topics(
+            state, stats, registry_rows, now, route_topics)
         parts["system_tiles"] = _system_tiles(state, stats, registry_rows, now)
         parts["system_cards"] = system_cards.topics(state, stats, registry_rows, now)
         parts["source_fault_html"] = _source_fault_block(state["source_fault_raw"])

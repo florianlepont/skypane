@@ -142,7 +142,8 @@ def test_the_health_page_keeps_every_block_as_always_open_cards(fleet):
     assert "Server &amp; data · Visible to administrators" in page and ">Frame<" in page
     # Flat rows: no collapse control, one card per topic.
     assert "<summary" not in page.split('id="fleet-block-health-frame"')[1].split("readings-disclosure")[0]
-    assert len(re.findall(r'<ul class="group fleet-group"><li[^>]*><div class="health-rows">', page)) == 5
+    # The route directories are two rows of one card, the answered-by bar its own card.
+    assert len(re.findall(r'<ul class="group fleet-group"><li[^>]*><div class="health-rows">', page)) == 7
     # The battery row keeps its readout, chart and readings table.
     assert 'class="battery-readout' in page and "battery-unit" in page and "readings-disclosure" in page
     # The list column is not part of this page, and the old tiles are not either.

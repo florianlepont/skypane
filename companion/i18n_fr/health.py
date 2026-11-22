@@ -293,4 +293,27 @@ MESSAGES = {
         "et à portée du Wi-Fi.",
     "health.device_battery_empty_heading": "Aucune mesure de batterie",
     "health.device_battery_empty_body": "Affichée après la première connexion.",
+
+    # Route directories (Health page). Real U+00A0 before "%" and before
+    # the colon.
+    "health.rd_directories": "Annuaires de routes",
+    "health.rd_answered_by": "Répondu par",
+    "health.rd_vrs_name": "Données VRS",
+    "health.rd_vrs_role": "Interrogées en premier",
+    "health.rd_adsbdb_role": "Utilisé quand le premier n’a pas de route",
+    "health.rd_reachable": "Joignable",
+    "health.rd_not_reachable": "Injoignable",
+    "health.rd_no_request": "Aucune requête pour l’instant",
+    "health.rd_no_request_note":
+        "Affichée après la première recherche envoyée à cet annuaire.",
+    "health.rd_last_answer": "Dernière réponse",
+    "health.rd_last_24h": "Dernières 24\u00a0h",
+    "health.rd_lookups": "Recherches %d",
+    "health.rd_found": "Route trouvée",
+    "health.rd_failed": "En échec",
+    "health.rd_percent": "%d\u00a0%%",
+    "health.rd_never": "jamais",
+    "health.rd_no_answers": "Aucune route d’un annuaire sur les %d derniers jours",
+    "health.rd_no_answers_note":
+        "Affichée dès qu’un vol reçoit sa route de l’un des annuaires.",
 }
