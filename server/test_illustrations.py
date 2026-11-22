@@ -849,3 +849,13 @@ def test_an_a350_1000_flight_reaches_its_own_picture_and_an_a350_900_keeps_the_p
     assert os.path.basename(ill.select_illustration(caraibes, "A359")) == "air-caraibes.png"
     assert os.path.basename(
         ill.select_illustration({"airline_name": "French Bee"}, "A35K")) == "french-bee.png"
+
+
+def test_override_dir_is_shared_by_the_live_frame_and_every_device_frame(tmp_path):
+    frame = tmp_path / "devices" / "d_0123abcd"
+    shared = os.path.join(str(tmp_path), ill.ILLUSTRATION_OVERRIDE_DIRNAME)
+    assert ill.override_dir_for_state_dir(str(tmp_path)) == shared
+    assert ill.override_dir_for_state_dir(str(frame)) == shared
+    assert ill.override_dir_for_state_dir(None) is None
+    assert ill.override_path_for_key("../x", str(frame)) is None
+    assert not os.path.exists(shared)

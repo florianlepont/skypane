@@ -83,15 +83,18 @@ def _others_unchanged(app, device, before, ignore=()):
 
 # --- illustration -------------------------------------------------------------
 
-def test_illustration_upload_writes_only_that_devices_override(app):
+def test_illustration_upload_lands_in_the_fleet_directory_only(app):
     fleet = app.fleet
     before = snapshot_all(app.server, fleet)
     status, headers = _post_upload(app, _prefix(fleet.dev_a) + "/illustration/air-france.png")
     assert status == 303
     assert headers["Location"].startswith(_prefix(fleet.dev_a) + "/airlines/manage?flash=")
-    assert os.path.exists(
-        illustrations.override_path_for_key("air-france", fleet.dev_a.state_dir))
-    _others_unchanged(app, fleet.dev_a, before)
+    fleet_file = os.path.join(app.server.state_dir, "illustration_overrides", "air-france.png")
+    assert os.path.isfile(fleet_file)
+    assert illustrations.override_path_for_key("air-france", fleet.dev_a.state_dir) == fleet_file
+    # Neither frame's own directory gains an image directory.
+    assert not os.path.exists(os.path.join(fleet.dev_a.state_dir, "illustration_overrides"))
+    assert snapshot(fleet.dev_b.state_dir) == before[2]
 
 
 def test_live_illustration_upload_writes_only_the_root(app):

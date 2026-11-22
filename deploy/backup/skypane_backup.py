@@ -44,12 +44,14 @@ INCLUDE_FILES = (
     "airline_default_types.json",
     "airline_suggestions.json",
     "airline_registry_migration.json",
+    "illustration_migration.json",
     "poll_state.json",
     "battery_state.json",
     "live_frame_macs.json",
 )
 INCLUDE_DIRS = (
     "illustration_overrides",
+    "illustration_conflicts",
     "gallery",
     "firmware",
 )

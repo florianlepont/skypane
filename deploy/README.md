@@ -640,7 +640,7 @@ To close the switch again, remove the `SKYPANE_ENABLE_SECOND_HARDWARE`
 line (or set it to anything but `1`), restart the same services and deploy once more. Releases already
 imported stay in the state directory and nothing is deleted.
 
-### Fleet-wide airline names
+### Fleet-wide airline names and artwork
 
 The airline vocabulary is one per fleet. `manual_resolutions.json` (names
 given by hand), `airline_name_overrides.json` (renamed built-in airlines) and
@@ -648,6 +648,14 @@ given by hand), `airline_name_overrides.json` (renamed built-in airlines) and
 root, and every frame's editor and poll cycle reads that one file. Before this
 release each frame had its own copy under `devices/<id>/`; the live frame's
 copy was already the root file.
+
+Uploaded artwork is fleet-wide too. Every picture lives once, in
+`<state root>/illustration_overrides/<key>.png` (per-type pictures
+`<key>-<slug>.png` included): the live frame's directory was already that
+directory, so the poll render path, the Airlines editor, the previews, the
+upload and delete routes of every frame all read and write it. Before this
+release each other frame kept its pictures under
+`devices/<id>/illustration_overrides/`.
 
 The same `fleet_migrate` step that imports `fleet.db` merges the per-frame
 files into the root files, before the symlink swap, after the automatic
@@ -682,6 +690,39 @@ never runs at service start, and a failed write exits 1 and stops the deploy.
   disappear with their frame. A later release removes them after the rollback
   window.
 
+**Artwork merge.** The same step (before the swap, after the same
+pre-migration backup, never at service start) merges every
+`devices/<id>/illustration_overrides/` into the fleet directory.
+
+- **Conflict rule.** When the fleet directory and one or more frames hold
+  different bytes under the same file name, the file with the latest
+  modification time wins; on a tie the fleet file wins, then the lowest frame
+  id. Copies keep the source's modification time. Identical bytes are not a
+  conflict. Every loser, a replaced fleet file included, is first copied to
+  `illustration_conflicts/<frame id or live>/<file name>` (a numeric suffix
+  `.1`, `.2` before `.png` keeps an earlier archive of different bytes); no
+  page or render reads that folder, and the nightly backup archives it.
+- **What is merged.** Only regular files (never symlinks) named `<key>.png`
+  (lowercase letters, digits, hyphens), at most 4 MiB, and accepted by the
+  same PNG, size and pixel-cap check as an upload. Dot-files and `*.tmp`
+  leftovers, symlinked directories and anything else are skipped, reported by
+  name and reason, and never deleted. At most 1000 files and 256 MiB are added
+  to the fleet directory per run (latest first); the rest stay pending for the
+  next run.
+- **Reading the log.** Lines start with `artwork:`. `would merge N picture(s)
+  from M frame(s) into the fleet directory: A new, R replaced, I identical, C
+  conflict(s)` (dry-run) or `merged ...` (real run), then one `conflict
+  <file>: keep [frame <id>, <time>, <size>] over [frame <id>, <time>, <size>]`
+  line per loser, and `skipped ...` / `not merged ...` lines. `artwork: nothing
+  to do` means every per-frame picture was merged already. An install with no
+  per-frame pictures prints nothing.
+- **Idempotent, expand only.** `illustration_migration.json` records the
+  SHA-256 of every per-frame picture merged, so a second run changes nothing
+  and a picture deleted from the fleet directory afterwards is not brought
+  back. The per-frame image directories are never modified, renamed or
+  deleted; they become frozen copies that disappear with their frame, and a
+  later release removes them after the rollback window.
+
 ## Backups
 
 A nightly systemd timer (`skypane-backup.timer`, 03:15 UTC,
@@ -692,7 +733,7 @@ consistent online copy of `history.db` and `fleet.db` with SQLite's own backup A
 else that cannot be regenerated from an **include list** — device
 tokens, device/colour/calendar/manual-resolution config, the airline
 name overrides, default aircraft types, AI-suggestion cache and the airline merge marker, the calendar
-secret, uploaded illustration overrides, the poll enrichment cache, and
+secret, uploaded illustration overrides (and the `illustration_conflicts/` archive and its marker), the poll enrichment cache, and
 `gallery/` (the last ~25 rendered panels — kept for the visual history,
 per D-24). Regenerable files (`panel.bin`, theme preview caches, the shared route
 cache, Caddy's access log) are excluded. An unlisted top-level file in `state/` is
@@ -705,7 +746,7 @@ the newest 14 on the VPS.
 the same file set as the root; the live frame stays at the root and is never
 moved. The backup archives each `devices/<id>/` entry under the same path in
 the archive: `device_config.json`, `poll_state.json`, `battery_state.json`,
-the calendar, colour, manual-resolution, airline name override and default-type files (frozen copies since the airline names became fleet-wide; the rollback source), `illustration_overrides/`,
+the calendar, colour, manual-resolution, airline name override and default-type files and `illustration_overrides/` (frozen copies since the airline names and artwork became fleet-wide; the rollback source),
 `gallery/` and a WAL-safe snapshot of `history.db`. It does not archive
 `panel.bin`, `img/`, lock files, temp files, WAL/SHM files or symlinks. A
 directory under `devices/` with a malformed name, or an unexpected file
@@ -730,6 +771,15 @@ re-check the Airlines editor after a roll-forward that followed a rollback.
 The merge runs for a few milliseconds before the symlink swap while the
 previous release may still write the live frame's root file; the
 pre-migration backup exists and a re-run is idempotent.
+
+**Rollback caveat (artwork).** The previous release reads per-frame image
+directories, so after a rollback every non-live frame sees its own old
+pictures again, and pictures added after the upgrade exist only in the root
+directory (visible to the previous release on the live frame only). A later
+roll-forward merges again only the per-frame pictures whose hash changed in
+the meantime, by the same rule, which can bring back a picture deleted
+fleet-wide before the rollback: re-check the Airlines editor after a
+roll-forward that followed a rollback.
 
 **The off-box copy is pulled, not pushed.** A dedicated `skypane-backup`
 system user (never a member of the `skypane` group, so it can never write

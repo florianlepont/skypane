@@ -800,3 +800,25 @@ class TestAirlineFiles:
             assert base + kept in members
         assert "adsbdb_shared_cache.json" not in members
         assert "not in include list" not in capsys.readouterr().out
+
+
+class TestArtworkMergeBackup:
+    def test_fleet_artwork_directories_and_marker_reach_the_archive_without_drift(self, tmp_path, capsys):
+        state_dir = tmp_path / "state"
+        _seed_minimal_state(state_dir)
+        ddir = _seed_device(state_dir)
+        (state_dir / "illustration_overrides").mkdir()
+        (state_dir / "illustration_overrides" / "ocn.png").write_bytes(b"o")
+        (state_dir / "illustration_conflicts" / "live").mkdir(parents=True)
+        (state_dir / "illustration_conflicts" / "live" / "ocn.png").write_bytes(b"c")
+        (state_dir / "illustration_migration.json").write_text("{}")
+        (ddir / "illustration_overrides").mkdir()
+        (ddir / "illustration_overrides" / "ocn.png").write_bytes(b"d")
+
+        rc, archive_dir = _run_backup(tmp_path)
+        assert rc == 0
+        members = _members(archive_dir / _archive_names(archive_dir)[0])
+        for kept in ("illustration_overrides/ocn.png", "illustration_conflicts/live/ocn.png",
+                     "illustration_migration.json", "devices/" + _DEV + "/illustration_overrides/ocn.png"):
+            assert kept in members, kept
+        assert "not in include list" not in capsys.readouterr().out
