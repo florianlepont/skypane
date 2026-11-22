@@ -1357,30 +1357,42 @@ a.row-action {
   display: none;
 }
 
+/* Below 79.5rem the table is one card and every person is a row of it, a
+ * divider between rows: avatar, address, status and "Role . frames" on the
+ * left, the Active switch and the "..." menu on the right. The role changes
+ * from the menu, so the select, the frames and the last sign-in cells stay
+ * for the wide table. */
 .users-table .users-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-areas:
-    "user user"
-    "role active"
-    "frames seen";
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-areas: "user active menu";
   position: relative;
   align-items: center;
-  gap: var(--space-sm) var(--space-md);
-  margin-bottom: var(--space-md);
-  padding: var(--space-md);
-  background: var(--glass-solid);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-card);
-  box-shadow: var(--shadow-glass);
+  gap: var(--space-sm);
+  min-height: 76px;
+  padding: var(--space-sm) var(--space-sm) var(--space-sm) var(--space-md);
+  background: none;
+  border: 0;
+  border-top: 1px solid var(--glass-hairline);
+  border-radius: 0;
+  box-shadow: none;
 }
 
+/* The first row keeps the divider's room, so every card is as tall as it
+ * needs and no taller. */
+/* The card is solid, as the rows were: a switch's track is measured against
+ * a flat surface, not a blurred one. */
 @media (max-width: 79.49rem) {
   .users-section .users-table {
-    background: none;
-    border: 0;
-    box-shadow: none;
-  }}
+    background: var(--glass-solid);
+    border-color: var(--color-border);
+    box-shadow: var(--shadow-glass);
+  }
+}
+
+.users-table .users-row:first-child {
+  border-top-color: transparent;
+}
 
 /* The section around the table or the phone cards is plain layout, not a
  * card: the table (from 79.5rem) or each card is the one glass surface, with the
@@ -1403,28 +1415,22 @@ a.row-action {
   gap: var(--space-sm);
 }
 
-/* Room for the "..." menu. */
-.users-row--menu .users-cell--user {
-  padding-right: 44px;
+.users-cell--role {
+  display: none;
 }
 
-.users-cell--role { grid-area: role; }
 .users-cell--active { grid-area: active; justify-self: end; }
-.users-cell--menu {
-  position: absolute;
-  top: var(--space-xs);
-  right: var(--space-sm);
-}
+.users-cell--menu { grid-area: menu; }
 
 .users-cell--frames {
-  grid-area: frames;
+  display: none;
   font-size: var(--font-label-size);
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
 /* The last sign-in is one line. */
 .users-cell--seen {
-  grid-area: seen;
+  display: none;
   font-size: var(--font-label-size);
   white-space: nowrap;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
@@ -1498,6 +1504,31 @@ a.row-action {
   display: none;
 }
 
+/* On a narrow card the status words may take two lines rather than run under
+ * the switch. */
+@media (max-width: 79.49rem) {
+  .users-status .users-pill {
+    flex: 0 1 auto;
+    height: auto;
+    min-height: 20px;
+    padding-block: 1px;
+    line-height: 16px;
+    text-align: left;
+  }
+}
+
+/* "Role . frames" under the status, the phone card's only detail line. */
+.users-meta {
+  grid-column: 1 / -1;
+  min-width: 0;
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.users-menu__role {
+  display: block;
+}
+
 /* Status pills reuse the battery and charging pill recipes: the status colour
  * mixed toward the text colour on a tint of itself, so the small label holds
  * 4.5:1 in both themes. */
@@ -1527,19 +1558,34 @@ a.row-action {
   margin: 0;
 }
 
-/* The browser draws the select's arrow in room of its own, beside the
- * padding: the same small padding on both sides leaves the longest role
- * name whole. */
-.users-role-form select {
-  flex: 1 1 auto;
+/* The role select is a compact bordered chip with a chevron drawn over its
+ * right edge: the native arrow is off, the control stays a real select. */
+.users-role-chip {
+  position: relative;
+  display: inline-flex;
   min-width: 0;
-  width: 100%;
   max-width: 100%;
-  padding-inline: var(--space-sm);
+}
+
+.users-role-chip select {
+  appearance: none;
+  min-width: 0;
+  max-width: 100%;
+  padding: 0 30px 0 var(--space-sm);
+  background: var(--color-dominant);
+  font-size: var(--font-label-size);
+}
+
+.users-role-chip .icon {
+  position: absolute;
+  top: 50%;
+  right: var(--space-sm);
+  transform: translateY(-50%);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  pointer-events: none;
 }
 
 .users-cell--role .users-role-form {
-  width: 100%;
   max-width: 14rem;
 }
 
@@ -1551,27 +1597,11 @@ a.row-action {
   font-weight: var(--weight-regular);
 }
 
-/* On the narrowest cards the role select needs the room of the switch's text:
- * the status mark above already says Active, Invited or Disabled. */
-@media (max-width: 26rem) {
-  .users-cell--active .users-active-label {
-    display: none;
-  }
-
-  /* Three columns, so the last line can split differently from the one above
-   * it: the last sign-in gets the room of its longest wording and the frames
-   * wrap between the count and the co-manager mark. */
-  .users-table .users-row {
-    grid-template-columns: minmax(0, 11fr) minmax(0, 7fr) minmax(0, 8fr);
-    grid-template-areas:
-      "user user user"
-      "role role active"
-      "frames seen seen";
-  }
-
-  .users-cell--seen {
-    text-align: right;
-  }}
+/* The switch is labelled for assistive technology; the status mark beside
+ * the address already says Active, Invited or Disabled. */
+.users-cell--active .users-active-label {
+  display: none;
+}
 
 .users-table button.users-role-save {
   min-height: 44px;
@@ -1613,6 +1643,7 @@ a.row-action {
   .users-table .users-row {
     display: table-row;
     position: static;
+    min-height: 0;
     margin: 0;
     padding: 0;
     background: none;
@@ -1716,6 +1747,11 @@ a.row-action {
   .users-cell--menu {
     position: static;
     padding-left: 0;
+  }
+
+  .users-meta,
+  .users-menu__role {
+    display: none;
   }}
 
 @media (max-width: 599.98px) {

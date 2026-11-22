@@ -7049,10 +7049,16 @@ dialog.access-sheet[open],
 }
 
 /* Users table ----------------------------------------------------------
- * One <table> of users. Below 79.5rem every row is a card: avatar and
- * email with the "..." menu on top, the role select and the Active switch
- * under it, frames and last sign-in at the bottom. */
-.users-table,
+ * One <table> of users. Below 79.5rem the table is one card and every row
+ * is a person in it: avatar, address and status with "Role . frames" under
+ * them, the Active switch and the "..." menu on the right. */
+.users-table {
+  display: block;
+  background: var(--glass-solid);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+}
+
 .users-table tbody {
   display: block;
 }
@@ -7069,10 +7075,30 @@ button.row-menu__item {
   text-align: left;
   color: var(--color-text);
 }
+
+/* The invite trigger is the words on a wide screen and a square plus button
+ * beside the title on a phone. */
+.page-header__action-icon {
+  display: none;
+}
+
 @media (max-width: 699.98px) {
-  .page-header:has(> .page-header__actions--stack) {
-    grid-template-columns: minmax(0, 1fr);
-    row-gap: var(--space-md);
+  .page-header__action-icon {
+    display: inline-flex;
+  }
+
+  .page-header__action-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  a.page-header__action:has(> .page-header__action-icon) {
+    width: 44px;
+    padding: 0;
   }
 }
 
@@ -7083,9 +7109,6 @@ button.row-menu__item {
     width: 100%;
     border-collapse: separate;
     border-spacing: 0;
-    background: var(--glass-solid);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-card);
   }
 
   .users-table tbody {

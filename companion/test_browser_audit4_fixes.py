@@ -95,13 +95,13 @@ def test_user_cards_wrap_addresses_at_separators_and_show_the_whole_role(
                 previous = text[offset]; previousTop = rect.top; offset += 1; } }
             return bad; })""")
         assert breaks and all(not bad for bad in breaks), breaks
-        clipped = page.evaluate("""() => [...document.querySelectorAll('.users-role-form select')].map(s => {
-            const c = document.createElement('canvas').getContext('2d'); const cs = getComputedStyle(s);
-            c.font = cs.fontWeight + ' ' + cs.fontSize + ' ' + cs.fontFamily;
-            const widest = Math.max(...[...s.options].map(o => c.measureText(o.text).width));
-            return s.getBoundingClientRect().width - widest - parseFloat(cs.paddingLeft)
-              - parseFloat(cs.paddingRight); })""")
-        assert clipped and min(clipped) >= 8, clipped
+        # A phone card has no select: its detail line starts with the whole role name, uncut.
+        roles = page.evaluate("""() => [...document.querySelectorAll('.users-meta')].map(m => ({
+            text: m.textContent, cut: m.scrollWidth > m.clientWidth + 1,
+            shown: m.getClientRects().length > 0}))""")
+        names = ("Administrator", "User") if lang == "en" else ("Administrateur", "Utilisateur")
+        assert roles and all(r["shown"] and not r["cut"] and r["text"].startswith(names)
+                             for r in roles), roles
         assert not page.evaluate(
             "() => document.documentElement.scrollWidth > document.documentElement.clientWidth")
     finally:

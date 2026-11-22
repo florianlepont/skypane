@@ -30,7 +30,7 @@ MAP_TILES = "() => document.querySelectorAll('#place-map .leaflet-tile-loaded').
 # Measured counts, asserted exactly. Targets are in the design record.
 MEASURED = {
     "U4a": 3, "U4b": 4, "U4c": 4, "L1": 4, "L1-pin": 5, "L2": 4, "L3": 5, "L4": 3,
-    "S1": 2, "S2": 2, "A7": 1, "A8": 5, "A9": 3, "V1-phone": 1, "V1-desktop": 1}
+    "S1": 2, "S2": 2, "A7": 1, "A8": 5, "A9": 4, "V1-phone": 1, "V1-desktop": 1}
 _OFFSCREEN = (
     "el => { const r = el.getBoundingClientRect();"
     " return r.top < 0 || r.bottom > window.innerHeight; }")
@@ -660,13 +660,16 @@ def test_a8_rename_an_airline_in_the_editor(world, new_context):
 
 
 def test_a9_change_a_users_role_in_the_users_table(world, new_context):
+    """On a phone: the Users tab, the person's menu, the menu item, the confirmation."""
     context, page, steps = _admin(world, new_context)
     try:
         steps.tap(page.locator(".tab-bar a[href='/users']"), "Users tab")
         page.wait_for_url("**/users")
         page.wait_for_function("() => document.readyState === 'complete'", timeout=10000)
-        select = page.locator("#user-%d select[name=role]" % world.seed.owner_id)
-        steps.choose(select, "Administrator", "role")
+        # A phone card has no role select: the role changes from the person's menu.
+        row = page.locator("#user-%d" % world.seed.owner_id)
+        steps.tap(row.locator(".row-menu__toggle"), "person's menu")
+        steps.tap(row.locator(".users-menu__role button"), "Make administrator in the menu")
         confirm = page.locator("#dlg-role-user-%d button[type=submit]" % world.seed.owner_id)
         confirm.wait_for(state="visible")
         page.wait_for_function("() => document.readyState === 'complete'", timeout=10000)

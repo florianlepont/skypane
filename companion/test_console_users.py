@@ -144,7 +144,8 @@ def test_the_header_opens_a_short_invite_dialog_with_administrator_unticked(rig)
     body = fx.get(server, cookie, "/users")[2]
     assert re.search(
         r'<a href="#dlg-invite-user" class="page-header__action" data-modal-open>'
-        r'\+ Invite a user</a>', body)
+        r'<span class="page-header__action-icon" aria-hidden="true">.*?</span>'
+        r'<span class="page-header__action-label">\+ Invite a user</span></a>', body, re.S)
     dialog = re.search(
         r'<dialog class="modal modal--compact modal--top" id="dlg-invite-user".*?</dialog>',
         body, re.S)

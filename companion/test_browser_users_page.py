@@ -3,6 +3,8 @@ email refused with the dialog reopened, a role change that asks before it
 saves, the Active switch, unlink and Delete user in the "..." menu, the guard sentences,
 keyboard use of the menu, the no-script controls, and table and card geometry
 at 360 and 1280px in both languages and both themes."""
+import re
+
 import pytest
 
 import fleet_console_support as fx
@@ -133,11 +135,18 @@ DIALOG_SHOWN = (
 
 
 def _change_role(page, seed, email, role):
-    """Changes the row's select and waits for the confirmation it lands on."""
+    """Changes the row's role (the select, or the menu item of a phone card) and waits for the
+    confirmation it lands on."""
     dialog = ROLE_DIALOG % seed.owner_id
     row = _row(page, email)
     assert row.locator(".users-role-save").count() == 0
-    row.locator("select[name=role]").select_option(role)
+    select = row.locator("select[name=role]")
+    if select.is_visible():
+        select.select_option(role)
+    else:
+        # A phone card has no select: the role changes from the person's menu.
+        row.locator(".row-menu__toggle").click()
+        row.locator(".users-menu__role button").click()
     page.wait_for_function("() => document.readyState === 'complete'")
     page.wait_for_function(DIALOG_SHOWN, arg=dialog, timeout=10000)
     return dialog
@@ -196,10 +205,14 @@ def test_backing_out_of_the_role_confirmation_changes_nothing(
 
 @pytest.mark.parametrize("how", ["escape", "keep"])
 @pytest.mark.parametrize("lang", ["en", "fr"])
-def test_closing_the_role_confirmation_returns_the_focus_to_that_roles_select(
-        new_context, app_server_in_process, how, lang):
+@pytest.mark.parametrize("viewport,returns_to", [
+    (VIEWPORT_DESKTOP, "role-%d"), (VIEWPORT_MIN_SUPPORTED, "users-menu-%d")])
+def test_closing_the_role_confirmation_returns_the_focus_to_where_the_role_was_changed(
+        new_context, app_server_in_process, how, lang, viewport, returns_to):
+    """The table's select takes the focus back; a phone card, which has no select, hands it
+    back to the person's menu button."""
     server = app_server_in_process
-    context, page, seed = _open(new_context, server, viewport=VIEWPORT_MIN_SUPPORTED, lang=lang)
+    context, page, seed = _open(new_context, server, viewport=viewport, lang=lang)
     try:
         _settled(page)
         dialog = _change_role(page, seed, fx.OWNER_EMAIL, "admin")
@@ -210,7 +223,7 @@ def test_closing_the_role_confirmation_returns_the_focus_to_that_roles_select(
         page.wait_for_function(
             "id => !document.querySelector('dialog[open]')"
             " && document.activeElement && document.activeElement.id === id",
-            arg="role-%d" % seed.owner_id, timeout=5000)
+            arg=returns_to % seed.owner_id, timeout=5000)
         assert page.locator("#role-%d" % seed.owner_id).input_value() == "user"
     finally:
         context.close()
@@ -337,11 +350,15 @@ def test_guard_sentences_replace_the_role_select_and_lock_the_switch(
         context.close()
 
 
-def test_invite_and_row_controls_work_without_script(new_context, app_server_in_process):
+@pytest.mark.parametrize(
+    "viewport", [VIEWPORT_MIN_SUPPORTED, VIEWPORT_DESKTOP], ids=["360", "1280"])
+def test_invite_and_row_controls_work_without_script(
+        new_context, app_server_in_process, viewport):
+    """a phone card changes the role from the person's menu, the table from its select and
+    Save button; both land on the same confirmation"""
     server = app_server_in_process
     seed = fx.seed_users(server.state_dir)
-    with _no_js_page(new_context, server.base_url(), "/users",
-                     viewport=VIEWPORT_MIN_SUPPORTED) as page:
+    with _no_js_page(new_context, server.base_url(), "/users", viewport=viewport) as page:
         assert not page.locator(INVITE).is_visible()
         page.locator("a.page-header__action").click()
         assert page.locator(INVITE).is_visible()
@@ -352,8 +369,12 @@ def test_invite_and_row_controls_work_without_script(new_context, app_server_in_
         page.locator("#dlg-invitation-failed a.modal__done").click()
         page.wait_for_url("**/users")
         row = _row(page, fx.OWNER_EMAIL)
-        row.locator("select[name=role]").select_option("admin")
-        row.locator(".users-role-save").click()
+        if viewport["width"] >= 1272:
+            row.locator("select[name=role]").select_option("admin")
+            row.locator(".users-role-save").click()
+        else:
+            row.locator(".row-menu__toggle").click()
+            row.locator(".users-menu__role button").click()
         confirm = page.locator("#dlg-role-user-%d" % seed.owner_id)
         confirm.wait_for(state="visible")
         assert _user(server, seed.owner_id)[0] == "user"
@@ -398,12 +419,17 @@ def test_table_and_cards_fit_and_every_control_is_44px(
         assert _row(page, LONG_EMAIL).evaluate("e => e.scrollWidth <= e.clientWidth + 1")
         assert page.locator("thead").is_visible() == wide
         owner = "#user-%d" % seed.owner_id
+        # The role is a select in the table and an item of the person's menu on a phone card.
+        role = owner + (" select" if wide else " .users-menu__role .row-menu__item")
         for control in (
-                "a.page-header__action", owner + " select",
-                owner + " button[role=switch]", owner + " summary"):
+                "a.page-header__action", owner + " button[role=switch]", owner + " summary"):
             _assert_hit_target(page, control, where)
+        if wide:
+            _assert_hit_target(page, role, where)
+        assert page.locator(owner + " select").is_visible() == wide
         page.locator(owner + " summary").click()
-        _assert_hit_target(page, owner + " .row-menu__item", where)
+        _assert_hit_target(
+            page, role if not wide else owner + " .row-menu__item--destructive", where)
         assert not _assert_no_page_overflow(page, where, viewport["width"])
         page.keyboard.press("Escape")
         page.locator("a.page-header__action").click()
@@ -431,8 +457,8 @@ _BOXES = (
 @pytest.mark.parametrize("width", (360, 390, 1280))
 def test_the_invite_button_never_overlaps_the_title(
         new_context, app_server_in_process, width, lang):
-    """on a phone the invite action is a full-width button under the title; on desktop it
-    shares the title's row; the title and the button never overlap"""
+    """the invite action shares the title's row: a square plus button on a phone, the words on
+    a wide screen; the title and the button never overlap and the button keeps its name"""
     viewport = {"width": width, "height": 844}
     context, page, _seed = _open(new_context, app_server_in_process, viewport, lang)
     try:
@@ -442,13 +468,22 @@ def test_the_invite_button_never_overlaps_the_title(
         overlap = (title["l"] < button["r"] and button["l"] < title["r"]
                    and title["t"] < button["b"] and button["t"] < title["b"])
         assert not overlap, (width, lang, boxes)
-        if width < 700:
-            assert button["t"] >= title["b"], (width, lang, boxes)
-            assert button["r"] - button["l"] >= boxes["main"]["r"] - boxes["main"]["l"] - 2 * 24
-        else:
-            assert button["l"] >= title["r"] - 1, (width, lang, boxes)
-            assert button["t"] < title["b"], (width, lang, boxes)
+        assert button["l"] >= title["r"] - 1, (width, lang, boxes)
+        assert button["t"] < title["b"], (width, lang, boxes)
         assert button["b"] - button["t"] >= 44
+        action = page.locator("a.page-header__action")
+        if width < 700:
+            assert button["r"] - button["l"] == pytest.approx(44, abs=1), boxes
+            assert button["r"] <= boxes["main"]["r"] - 16 + 1, boxes
+            assert action.locator(".page-header__action-icon svg").is_visible()
+            assert action.locator(".page-header__action-label").bounding_box()["width"] <= 1
+        else:
+            assert button["r"] - button["l"] > 100, boxes
+            assert not action.locator(".page-header__action-icon").is_visible()
+            assert action.locator(".page-header__action-label").is_visible()
+        # The words are the accessible name in both layouts (a phone only clips the label away).
+        name = re.compile("Invite a user|Inviter un utilisateur")
+        assert page.get_by_role("link", name=name).count() == 1
     finally:
         context.close()
 
@@ -471,7 +506,8 @@ def test_the_row_menu_keeps_every_item_on_one_line_inside_the_screen(
         report = page.evaluate("""() => {
             const panel = document.querySelector('details.row-menu[open] .row-menu__panel');
             const box = panel.getBoundingClientRect();
-            const items = [...panel.querySelectorAll('.row-menu__item')].map(item => {
+            const shown = item => item.getClientRects().length > 0;
+            const items = [...panel.querySelectorAll('.row-menu__item')].filter(shown).map(item => {
                 const r = item.getBoundingClientRect();
                 const tops = new Set();
                 const walker = document.createTreeWalker(item, NodeFilter.SHOW_TEXT);
