@@ -271,41 +271,36 @@ def test_stat_tile_caption_title_is_escaped():
 
 
 def test_health_rows_read_in_plain_language(tmp_path):
-    """Health's rows read in plain language: 'Corroboration', 'Single-source (uncorroborated)',
-    'pipeline last ran' and 'ADS-B pipeline' are all absent from visible text, and every row is
-    named by its plain-language subject"""
+    """the Battery page and the System view read in plain language: 'Corroboration',
+    'Single-source (uncorroborated)', 'pipeline last ran' and 'ADS-B pipeline' are all absent from
+    visible text, and every row or card is named by its plain-language subject"""
     tmp = str(tmp_path)
     now = shp.now()
     shp.seed_device_health(tmp, [(shp.iso(now), 4200)])
     from server import history_db
     shp.seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: shp.iso(now)})
     shp.seed_runway_events(tmp, [{"ts": shp.iso(now), "hex": "abc123", "corroborated": True}])
-    rendered = health_page_composition.render(shp.ctx(tmp, shp.iso(now)))
+    battery = health_page_composition.render(shp.ctx(tmp, shp.iso(now)))
+    system = health_page.system_html(shp.ctx(tmp, shp.iso(now)))
 
-    visible = _visible_text_outside_title_attributes(rendered)
-    for banned in ("Corroboration", "Single-source (uncorroborated)", "pipeline last ran", "ADS-B pipeline"):
-        assert banned not in visible, (
-            "expected %r to be absent from visible text (outside a title attribute)" % banned)
+    for rendered in (battery, system):
+        visible = _visible_text_outside_title_attributes(rendered)
+        for banned in ("Corroboration", "Single-source (uncorroborated)", "pipeline last ran", "ADS-B pipeline"):
+            assert banned not in visible, (
+                "expected %r to be absent from visible text (outside a title attribute)" % banned)
 
-    names = [name.text() for name in parse_html(rendered).select(".health-row__name")]
-    assert names == [
-        health_page.ROW_CONNECTION_NAME, health_page.ROW_BATTERY_NAME,
+    names = [name.text() for name in parse_html(battery).select(".health-row__name")]
+    assert names == [health_page.ROW_BATTERY_NAME]
+    labels = [label.text() for label in parse_html(system).select(".sys-card__label")]
+    assert labels[:3] == [
         health_page.ROW_FLIGHT_DATA_NAME, health_page.ROW_SOURCES_NAME,
         health_page.STATS_SECTION_HEADING]
 
 
-@pytest.mark.parametrize(
-    ("lang", "connection_help", "identification_heading"),
-    (
-        ("en", "This is when the frame last contacted the server.", "Identification"),
-        ("fr", "Moment où le cadre a contacté le serveur pour la dernière fois.",
-         "Identification"),
-    ),
-)
-def test_health_keeps_status_primary_and_explains_details_on_request(
-        tmp_path, lang, connection_help, identification_heading):
-    """Health keeps optional technical explanations out of the primary scan: they live in each
-    row's body, behind a row that renders closed while it reads healthy."""
+@pytest.mark.parametrize("lang", ("en", "fr"))
+def test_health_keeps_status_primary_and_explains_details_on_request(tmp_path, lang):
+    """the Battery page and the System view keep optional technical explanations out of the primary
+    scan: they live in each card's body, never in its header, and the readings stay closed by default."""
     state_dir = str(tmp_path)
     now = shp.now()
     shp.seed_device_health(state_dir, [(shp.iso(now), 4200)])
@@ -317,27 +312,19 @@ def test_health_keeps_status_primary_and_explains_details_on_request(
     try:
         prefs.set_request_prefs(lang=lang)
         rendered = health_page_composition.render(shp.ctx(state_dir, shp.iso(now)))
+        system = health_page.system_html(shp.ctx(state_dir, shp.iso(now)))
     finally:
         prefs.set_request_prefs(lang="en")
 
     assert "data-loaded-at" not in rendered
     assert "data-refresh-pill" not in rendered
-    doc = parse_html(rendered)
-    connection = doc.select_one("#health-row-connection")
-    assert connection_help in connection.select_one(".health-row__body").text()
-    assert connection_help not in connection.select_one(".health-row__summary").text()
-    assert identification_heading in doc.select_one("#health-row-identification").select_one(
-        ".health-row__name").text()
-    sources = doc.select_one("#health-row-sources")
+    sources = parse_html(system).select_one("#system-card-sources")
     explanations = [
         i18n.t_lang(explanation, lang)
         for _key, _label, _status, explanation in health_page._CORROBORATION_ROWS]
     for explanation in explanations:
-        assert explanation in sources.select_one(".health-row__body").text()
-        assert explanation not in sources.select_one(".health-row__summary").text()
-    for row in doc.select("div.health-row"):
-        assert "open" not in row.attrs, (
-            "a healthy page renders every row closed, got %r open" % row.attrs["id"])
+        assert explanation in sources.text()
+        assert explanation not in sources.select_one(".sys-card__head").text()
     assert "readings-disclosure" in _battery_row_html(rendered), (
         "the raw-readings action stays available inside the Battery row, closed by default")
     assert "readings-disclosure\" open" not in rendered
@@ -346,13 +333,13 @@ def test_health_keeps_status_primary_and_explains_details_on_request(
 
 def _battery_row_html(rendered):
     start = rendered.index('id="health-row-battery"')
-    return rendered[start:rendered.index('<h2 id="%s"' % health_page.SERVER_DATA_SECTION_ID, start)]
+    return rendered[start:]
 
 
 def test_health_registry_and_stats_prose_has_no_adsbdb_or_requirement_id(tmp_path):
-    """a full Health render with a non-empty unresolved registry and stats rows (every
-    branch rendered) contains no 'adsbdb' and no CFG-\\d requirement id outside a title
-    attribute"""
+    """a full System view with a non-empty unresolved registry and stats rows (every
+    branch rendered) has no 'adsbdb' in its identification card and no CFG-\\d requirement id
+    outside a title attribute"""
     tmp = str(tmp_path)
     now = shp.now()
     from server import history_db
@@ -366,12 +353,13 @@ def test_health_registry_and_stats_prose_has_no_adsbdb_or_requirement_id(tmp_pat
     for source in ("fresh_hit", "cache_hit", "airline_only", "miss", "manual"):
         events.append({"ts": shp.iso(now), "hex": "abc123", "route_source": source})
     shp.seed_runway_events(tmp, events)
-    rendered = health_page_composition.render(shp.ctx(tmp, shp.iso(now)))
+    rendered = health_page.system_html(shp.ctx(tmp, shp.iso(now)))
 
-    assert health_page.STATS_SECTION_HEADING in rendered and "% of flights identified" in rendered, (
-        "fixture gap: expected the identification row to actually render")
-    assert "data-table--prose" in rendered, "fixture gap: expected the breakdown table to render"
-    assert "adsbdb" not in rendered
+    card = parse_html(rendered).select_one("#system-card-identification")
+    assert health_page.STATS_SECTION_HEADING in card.text() and "% of flights identified" in card.text().replace(
+        "\u00a0", " "), "fixture gap: expected the identification card to actually render"
+    assert card.select(".sys-card__table"), "fixture gap: expected the breakdown table to render"
+    assert "adsbdb" not in card.text()
     visible = _visible_text_outside_title_attributes(rendered)
     assert not re.search(r"CFG-\d", visible), "expected no requirement id (CFG-\\d) in visible text"
 
@@ -620,7 +608,7 @@ def test_health_page_no_longer_defines_section_intro_html():
 
 def test_device_timestamp_only_carries_no_verdict_text():
     """_device_timestamp_only() emits no widget-verdict class and no DEVICE_STATE_TEXT
-    value, while the Frame connection row still carries exactly one"""
+    value, while the Connection tile still carries exactly one, in its verdict and not in its lines"""
     now = shp.iso(shp.now())
     ts = shp.ago(120)
     detail_only = health_page._device_timestamp_only({"ts": ts}, now)
@@ -629,13 +617,12 @@ def test_device_timestamp_only_carries_no_verdict_text():
         assert verdict_text not in detail_only
     state = {
         "inputs": {"device_health": {"ts": ts}}, "device_state": "ok",
-        "next_wake_clock": None, "wake_interval_s": None}
-    full_row = health_page._connection_row(state, now)
-    verdict_occurrences = sum(
-        1 for verdict_text in health_page.DEVICE_STATE_TEXT.values() if verdict_text in full_row)
-    assert verdict_occurrences == 1, (
-        "expected the connection row to carry exactly one DEVICE_STATE_TEXT verdict, "
-        "got %d" % verdict_occurrences)
+        "next_wake_clock": "14:32", "wake_interval_s": None}
+    tile = health_page._connection_tile(state, now)
+    assert tile.verdict == i18n.t(health_page.DEVICE_STATE_TEXT["ok"])
+    for verdict_text in health_page.DEVICE_STATE_TEXT.values():
+        assert i18n.t(verdict_text) not in tile.age_html
+    assert "14:32" in tile.age_html
 
 
 def test_compute_health_state_carries_device_detail_html(tmp_path):

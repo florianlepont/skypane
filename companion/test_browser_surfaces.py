@@ -223,7 +223,7 @@ def fleet_server(module_app_server_factory):
 @pytest.mark.parametrize("width", (360, 1000, 1280, 1440))
 def test_fleet_state_rows_never_overlap(new_context, fleet_server, width, lang, scheme):
     context, page = _open(
-        new_context, fleet_server, "/fleet?frame=%s&view=health" % fleet_server.frame_id,
+        new_context, fleet_server, "/fleet?frame=%s&view=battery" % fleet_server.frame_id,
         {"width": width, "height": 900}, lang, scheme)
     try:
         page.locator(".fleet-block .health-row__summary").first.wait_for(state="visible")

@@ -86,8 +86,9 @@ def test_detail_cards_show_their_labels_and_right_aligned_values(
     context, page = _open(
         new_context, app_server_in_process, tmp_path, monkeypatch, viewport, "en", "light")
     labels = page.locator(".system-topic > .section-label")
-    assert labels.count() == 4
-    for index in range(4):
+    # Flight data, sources, identification, the two route topics and the backup.
+    assert labels.count() == 6
+    for index in range(6):
         assert labels.nth(index).is_visible()
     facts = page.locator(".sys-card__facts").first
     dt = facts.locator("dt").first.bounding_box()
@@ -110,11 +111,13 @@ def test_glyph_chips_carry_only_the_topic_glyph_and_the_hidden_state_word(
     where = "system-chip/%d/%s/%s" % (viewport["width"], lang, scheme)
     state_glyphs = {"#icon-check", "#icon-warning", "#icon-toast-error", "#icon-info"}
     try:
-        for chip_selector in (
-                ".fleet-tiles--system .fleet-tile__icon", ".sys-card__icon"):
+        # One chip per tile; one per card (the two route directories and the answered-by card
+        # add three to the four of the other topics).
+        for chip_selector, expected in (
+                (".fleet-tiles--system .fleet-tile__icon", 4), (".sys-card__icon", 7)):
             chips = page.locator(chip_selector)
-            assert chips.count() == 4, where
-            for i in range(4):
+            assert chips.count() == expected, where
+            for i in range(expected):
                 chip = chips.nth(i)
                 assert chip.locator("svg").count() == 1, where
                 assert chip.locator("svg use").get_attribute("href") not in state_glyphs, where

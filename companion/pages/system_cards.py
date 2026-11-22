@@ -1,16 +1,14 @@
 """The System page's detail cards and warnings banner.
 
-One card per topic (flight data, data sources, identification, off-box
-backup), built from the same snapshot the tiles and the frame Health page
-read. A card is a header row (state icon, small label, bold verdict, a short
-value at the right), a hairline, then label/value rows, outcome rows or a
-table. The frame Health page keeps its own rows (`health_rows`); nothing
-here is shared with it except the wording and the data.
+One card per topic (flight data, data sources, identification, the route
+directories, off-box backup), built from the same snapshot the tiles read.
+A card is a header row (state icon, small label, bold verdict, a short value
+at the right), a hairline, then label/value rows, outcome rows or a table.
 
 Every dynamic part is escaped; the `*_html` arguments are the caller's own
 already-safe markup.
 """
-from companion import health_rows, i18n, layout
+from companion import health_rows, i18n, layout, ui_components
 from companion.layout import escape_html
 from companion.pages import health_page as hp
 
@@ -145,7 +143,7 @@ def identification(stats, unresolved_count):
     if stats is hp._DB_UNAVAILABLE:
         return _unavailable("identification", "icon-nav-airlines", label)
     to_resolve = (
-        hp.ui_components.pill_html(i18n.t(hp._TO_RESOLVE_TEMPLATE) % unresolved_count)
+        ui_components.pill_html(i18n.t(hp._TO_RESOLVE_TEMPLATE) % unresolved_count)
         if unresolved_count
         else _value(i18n.t(hp._NOTHING_TO_RESOLVE_TEXT)))
     if stats["total"] == 0:
@@ -181,16 +179,20 @@ def backup(offbox, now):
         body_html=body)
 
 
-def topics(state, stats, registry_rows, now):
+def topics(state, stats, registry_rows, now, route_topics=()):
     """(key, section label, card html) per topic; a topic with no card (no
-    backup marker) is left out."""
+    backup marker) is left out. `route_topics` are the route directory topics
+    (already in this shape, label translated), placed after identification."""
     cards = (
         ("flight-data", hp.ROW_FLIGHT_DATA_NAME, flight_data(state, now)),
         ("sources", hp.ROW_SOURCES_NAME, sources(state)),
         ("identification", hp.STATS_SECTION_HEADING,
-         identification(stats, len(registry_rows))),
-        ("backup", hp._OFFBOX_BACKUP_TEXT, backup(state.get("offbox"), now)))
-    return [(key, i18n.t(label), html) for key, label, html in cards if html]
+         identification(stats, len(registry_rows))))
+    backup_card = ("backup", hp._OFFBOX_BACKUP_TEXT, backup(state.get("offbox"), now))
+    translated = [(key, i18n.t(label), html) for key, label, html in cards if html]
+    return (
+        translated + list(route_topics)
+        + [(key, i18n.t(label), html) for key, label, html in (backup_card,) if html])
 
 
 def banner(severity, anomalies):

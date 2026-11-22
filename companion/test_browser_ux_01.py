@@ -248,16 +248,17 @@ def test_airlines_filter_bar_is_a_16px_search_pill_with_a_visible_quiet_count_at
 
 
 def test_the_no_js_floor_holds_for_the_fleet_state_and_system_views(new_context, server):
-    """With scripts blocked the Fleet page's State block renders in full: every health row with
-    its icon/name/verdict/value slots each exactly once and its evidence visible without a tap; its System view carries no unresolved-prefix table (those prefixes are
+    """With scripts blocked the frame's Battery page renders its row in full, with its
+    icon/name/verdict/value slots each exactly once and its evidence visible without a tap; the
+    System view renders its cards and carries no unresolved-prefix table (those prefixes are
     named in the Airlines table).
     """
     with _no_js_page(new_context, server.base_url(), "/health") as page:
         rows = page.eval_on_selector_all("div.health-row", "els => els.length")
-        if rows < 3:
+        if rows != 1:
             raise AssertionError(
-                "expected the health rows to render with scripts blocked, "
-                "got %d" % (rows,))
+                "expected the battery row to render with scripts blocked, "
+                "got %d rows" % (rows,))
         # Every row must be complete, not merely present.
         slots = page.eval_on_selector_all(
             "div.health-row",
@@ -281,6 +282,10 @@ def test_the_no_js_floor_holds_for_the_fleet_state_and_system_views(new_context,
             raise AssertionError(
                 "expected every row body to be visible with scripts blocked, %d stayed empty" % (hidden,))
     with _no_js_page(new_context, server.base_url(), "/fleet?view=system") as page:
+        cards = page.eval_on_selector_all(".sys-card .sys-card__head", "els => els.length")
+        if cards < 4:
+            raise AssertionError(
+                "expected the System cards to render with scripts blocked, got %d" % (cards,))
         # Unidentified prefixes are named in the Airlines table, not listed here.
         for selector in (".filter-bar [data-filter-input]", "[data-filter-clear]",
                          'a[href^="/airlines/manage?resolve="]'):

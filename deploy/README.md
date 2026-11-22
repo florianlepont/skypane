@@ -331,8 +331,8 @@ migration never runs at service start.
   `/opt/skypane/state` (`tar -xzf <archive> -C /opt/skypane/state fleet.db`),
   `chown skypane:skypane` it, `chmod 0600` it, and start `skypane-byos`.
 - **Health signal.** byos writes `fleet_status.json` in the state directory
-  (`ok`, `absent` or `fault`) for the Health page. It is derived, so it is
-  not backed up.
+  (`ok`, `absent` or `fault`) for the companion's health signals (the
+  navigation dot and the System view). It is derived, so it is not backed up.
 
 ## Pairing, retiring and re-activating a frame
 
@@ -803,7 +803,7 @@ Useful commands: `launchctl kickstart -k gui/$(id -u)/com.skypane.backup-pull`
 to run it immediately, and `tail -f ~/Library/Logs/skypane-backup-pull.log`
 to watch it.
 
-The companion Health page reads that marker and shows "last off-box
+The companion's System view reads that marker and shows "last off-box
 backup N ago", turning into a warning once the archive's own snapshot
 timestamp is more than 3 days old, or if no pull has ever happened.
 

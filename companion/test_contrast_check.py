@@ -216,11 +216,11 @@ def test_charging_pill_text_on_its_tint_meets_wcag_aa_normal_text(
         % (theme, surface_token, text, background, ratio, WCAG_AA_NORMAL_TEXT))
 
 
-@pytest.mark.parametrize("selector", (".toast__detail", ".toast__pill"))
+@pytest.mark.parametrize("selector", (".toast__detail",))
 @pytest.mark.parametrize("theme", ("light", "dark"))
 def test_muted_toast_text_on_toast_surface_meets_wcag_aa_normal_text(
         theme, selector, theme_tokens, served_css):
-    """the toast's muted detail and its pill text (each a `color-mix()` of --color-toast-fg)
+    """the toast's muted detail (a `color-mix()` of --color-toast-fg)
     still clear WCAG AA once composited over the toast surface"""
     percentage = _color_mix_percentage(declarations_for(served_css, selector)["color"])
     surface = theme_tokens[theme]["--color-toast-bg"]

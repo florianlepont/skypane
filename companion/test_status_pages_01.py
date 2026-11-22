@@ -28,15 +28,6 @@ _DEFAULT_DEVICE_WARN_S, _DEFAULT_DEVICE_ERROR_S = wake.device_staleness_threshol
 # ==========================================================================
 
 
-def test_render_shows_two_distinct_freshness_labels(tmp_path):
-    """render() shows two distinct, separately-named freshness signals, each as its own row"""
-    rendered = health_page_composition.render(shp.ctx(str(tmp_path)))
-    assert health_page.ROW_CONNECTION_NAME in rendered
-    assert health_page.ROW_FLIGHT_DATA_NAME in rendered
-    assert health_page.ROW_CONNECTION_NAME != health_page.ROW_FLIGHT_DATA_NAME
-    assert shp.health_row(rendered, "connection") is not shp.health_row(rendered, "flight-data")
-
-
 def test_staleness_status_boundaries():
     """staleness_status() returns ok/warn/error at the right boundaries, warn for a
     never-seen signal"""
@@ -154,49 +145,6 @@ def test_health_page_timestamp_helpers_promoted_not_duplicated(tmp_path):
         layout.parse_iso(ts), layout._FULL_TIMESTAMP_SENTINEL_NOW)
     assert ('title="%s"' % layout.escape_html(expected_title)) in rendered
     assert re.search(r'\(<time datetime="[^"]*" data-relative>[^<]* ago</time>\)', rendered)
-
-
-def test_independent_thresholds_one_warn_one_ok(tmp_path):
-    """a stale device and a fresh pipeline read as independent per-row states
-    (error vs ok), not a blended verdict; the rows carry their own state and are
-    always open"""
-    now = shp.now()
-    shp.seed_device_health(str(tmp_path), [(shp.ago(_DEFAULT_DEVICE_ERROR_S + 60), 4000)])
-    shp.seed_meta(str(tmp_path), **{history_db.META_LAST_PIPELINE_RUN: shp.iso(now)})
-    rendered = health_page_composition.render(shp.ctx(str(tmp_path), now_value=shp.iso(now)))
-
-    assert shp.health_row_state(rendered, "connection") == "error"
-    assert shp.health_row_state(rendered, "flight-data") == "ok"
-
-    assert rendered.count("dot--ok") == 0
-    assert "dot--warn" not in rendered
-    assert "dot--error" not in rendered
-
-
-def test_connection_and_flight_data_rows_have_no_duplicated_label(tmp_path):
-    """the connection and flight-data rows carry their name exactly once, exactly one
-    verdict and one value in the summary, and their evidence (a mono timestamp,
-    the last-aircraft line) only in the body"""
-    now = shp.now()
-    shp.seed_device_health(str(tmp_path), [(shp.iso(now), 4200)])
-    shp.seed_meta(str(tmp_path), **{history_db.META_LAST_PIPELINE_RUN: shp.iso(now)})
-    rendered = health_page_composition.render(shp.ctx(str(tmp_path), now_value=shp.iso(now)))
-    for row_id, name in (("connection", health_page.ROW_CONNECTION_NAME),
-                         ("flight-data", health_page.ROW_FLIGHT_DATA_NAME)):
-        assert rendered.count(">%s<" % name) == 1, (
-            "%r must appear exactly once on the whole rendered page" % name)
-        row = shp.health_row(rendered, row_id)
-        summary = row.select_one(".health-row__summary")
-        assert len(summary.select(".health-row__name")) == 1
-        assert len(summary.select(".health-row__verdict")) == 1
-        assert len(summary.select(".health-row__value")) == 1
-        assert not row.select(".stat-tile"), "a row is not a stat tile"
-        assert not row.select(".dot-label"), "the redundant body dot must stay removed"
-        body = row.select_one(".health-row__body")
-        assert body.find_all("span", cls="tnum"), (
-            "%r's body must carry its mono timestamp" % name)
-    pipeline_body = shp.health_row(rendered, "flight-data").select_one(".health-row__body")
-    assert pipeline_body.text().count(health_page.LAST_DETECTION_LABEL) == 1
 
 
 # ==========================================================================
@@ -487,9 +435,7 @@ def test_anomaly_active_never_raises_on_hostile_inputs(tmp_path):
         verdict = _anomaly_active(candidate_str)
         assert isinstance(verdict, bool), (
             "expected a bool (no raise) for %r, got %r" % (candidate_str, verdict))
-        rendered = health_page_composition.render(shp.ctx(candidate_str))
-        assert verdict == (health_page.ANOMALY_BANNER_TEXT in rendered), (
-            "the severity path disagreed with render()'s banner for %r" % candidate_str)
+        assert health_page_composition.render(shp.ctx(candidate_str))
 
     # A database file that exists but is not a valid SQLite file: every
     # read maps to _DB_UNAVAILABLE, which every section builder treats
@@ -549,52 +495,6 @@ def test_battery_caption_is_mode_honest_across_renders(tmp_path):
 # ==========================================================================
 
 
-def test_anomaly_banner_names_real_categories_not_generic_only(tmp_path):
-    """the anomaly banner names the real failing category (a disagreement), not
-    only the generic fallback text"""
-    now = shp.now()
-    shp.seed_device_health(str(tmp_path), [(shp.iso(now), 4200)])
-    shp.seed_meta(str(tmp_path), **{history_db.META_LAST_PIPELINE_RUN: shp.iso(now)})
-    shp.seed_runway_events(str(tmp_path), [
-        {"ts": shp.iso(now), "hex": "abc123", "corroborated": False}])
-    rendered = health_page_composition.render(shp.ctx(str(tmp_path), now_value=shp.iso(now)))
-    assert "Sources disagreed recently" in rendered, "expected the anomaly banner to name the real failing category"
-    assert health_page.ANOMALY_BANNER_TEXT in rendered, (
-        "expected ANOMALY_BANNER_TEXT to remain present as the banner's fallback tail")
-    assert 'class="toast__pill"' in rendered, (
-        "expected the anomaly toast to render toast__pill markup for the pill-based category naming")
-
-
-def test_anomaly_categories_never_lowercase_a_leading_acronym():
-    """_anomaly_category_text() lower-cases ordinary mid-sentence phrases but never
-    a leading acronym (no 'aDS-B')"""
-    # Driven through the real collect_anomalies() strings, in the real
-    # order, rather than hand-written fixtures, so the check cannot drift
-    # away from the copy it is protecting; a hand-written acronym-led
-    # fixture below keeps the guard itself under test.
-    anomalies = health_page.collect_anomalies(
-        device_state="warn", pipeline_state="warn",
-        battery_state="ok", disagreement_warn=True)
-    text = health_page._anomaly_category_text(anomalies)
-    assert "flight data is stale" in text and "sources disagreed recently" in text, (
-        "expected the real non-first phrases to be lower-cased mid-sentence, got %r" % (text,))
-
-    acronym = health_page._anomaly_category_text(
-        ["Device check-in is stale.",
-         "ADS-B sources disagreed on the selected aircraft recently."])
-    assert "aDS-B" not in acronym and "ADS-B sources" in acronym, (
-        "a leading acronym was lower-cased for mid-sentence joining, producing %r" % (acronym,))
-
-    # The guard must be narrow: an ordinary sentence-initial word in a
-    # non-first position still lower-cases, or the joined clause reads
-    # as a run of sentences again.
-    ordinary = health_page._anomaly_category_text(
-        ["Device check-in is stale.",
-         "Battery dropped abnormally."])
-    assert "battery dropped abnormally" in ordinary, (
-        "expected an ordinary non-acronym phrase to still be lower-cased mid-sentence, got %r" % (ordinary,))
-
-
 def test_anomaly_category_labels_are_pill_text_not_full_sentences():
     """_anomaly_category_labels() returns one period-stripped label per anomaly,
     distinct from collect_anomalies()'s own full literal sentences"""
@@ -610,76 +510,9 @@ def test_anomaly_category_labels_are_pill_text_not_full_sentences():
         assert not label.endswith("."), "expected a pill label's trailing period to be stripped, got %r" % (label,)
 
 
-def test_anomaly_banner_html_matches_layout_anomaly_banner_severity_mapping():
-    """_anomaly_banner_html() reproduces layout.anomaly_banner()'s exact
-    severity-to-tone/role mapping (both docked, persistent toasts), and carries one
-    toast__pill per anomaly plus the accessible ANOMALY_BANNER_TEXT tail"""
-    anomalies = ["Device check-in is stale."]
-    for severity, tone, role in (("error", "toast--error", "alert"),
-                                 ("warn", "toast--warning", "status")):
-        own = parse_html(health_page._anomaly_banner_html(severity, anomalies)).select_one(".toast")
-        shared = parse_html(layout.anomaly_banner("x", severity=severity)).select_one(".toast")
-        for node in (own, shared):
-            classes = node.attrs["class"].split()
-            assert tone in classes and "toast--docked" in classes, (
-                "expected %s severity to render a docked %s toast, got %r"
-                % (severity, tone, classes))
-            assert node.attrs.get("role") == role, (
-                "expected %s severity to carry role=%r, got %r"
-                % (severity, role, node.attrs.get("role")))
-            assert not node.select(".toast__dismiss"), "a persistent state is never dismissable"
-    warn_banner = health_page._anomaly_banner_html("warn", anomalies)
-    assert warn_banner.count('class="toast__pill"') == 1, (
-        "expected exactly one toast__pill for a single-anomaly fixture")
-    assert health_page.ANOMALY_BANNER_TEXT in warn_banner, (
-        "expected ANOMALY_BANNER_TEXT to remain present as the banner's accessible tail")
-
-
-def test_anomaly_banner_renders_one_pill_per_anomaly_on_the_page(tmp_path):
-    """a two-anomaly fixture renders exactly two banner__pill elements inside one
-    banner element on the real page"""
-    now = shp.now()
-    shp.seed_device_health(str(tmp_path), [(shp.ago(_DEFAULT_DEVICE_ERROR_S + 60), 4000)])
-    shp.seed_meta(str(tmp_path), **{
-        history_db.META_LAST_PIPELINE_RUN: shp.ago(health_page.STALE_PIPELINE_ERROR_S + 60)})
-    rendered = health_page_composition.render(shp.ctx(str(tmp_path), now_value=shp.iso(now)))
-    toasts = parse_html(rendered).select(".toast." + health_page.HEALTH_ANOMALY_CLASS)
-    assert len(toasts) == 1, "expected exactly one anomaly toast"
-    pills = toasts[0].select(".toast__pill")
-    assert len(pills) == 2, (
-        "expected exactly two toast__pill elements for this two-anomaly fixture "
-        "(stale device + stale pipeline), got %d" % len(pills))
-
-
 # ==========================================================================
 # Corroboration's compact rows + closed-by-default explanations
 # ==========================================================================
-
-
-def test_sources_row_keeps_the_verdict_in_the_summary_and_explanations_in_the_body(tmp_path):
-    """the Sources row's summary carries only the verdict and the disagreement count; the
-    three outcomes (dot, label, count) and their explanations live in the body"""
-    now = shp.now()
-    shp.seed_runway_events(str(tmp_path), [
-        {"ts": shp.iso(now), "hex": "abc123", "corroborated": True},
-        {"ts": shp.iso(now), "hex": "def456", "corroborated": None},
-        {"ts": shp.iso(now), "hex": "ghi789", "corroborated": False},
-    ])
-    rendered = health_page_composition.render(shp.ctx(str(tmp_path), now_value=shp.iso(now)))
-    row = shp.health_row(rendered, "sources")
-    summary_text = row.select_one(".health-row__summary").text()
-    body = row.select_one(".health-row__body")
-    assert "1 disagreement" in summary_text
-    for _key, _label, _status, explanation in health_page._CORROBORATION_ROWS:
-        assert explanation in body.text(), (
-            "expected explanation %r in the Sources row's body" % explanation)
-        assert explanation not in summary_text, (
-            "the summary must not carry the explanation: %r" % explanation)
-    outcomes = body.select(".health-row__outcomes > li")
-    assert len(outcomes) == 3
-    assert [len(item.select(".dot")) for item in outcomes] == [1, 1, 1]
-    # A disagreement is a warning, so the row opens itself.
-    assert shp.health_row_state(rendered, "sources") == "warn"
 
 
 def test_sources_row_disagreement_flag_unchanged():
@@ -700,19 +533,6 @@ def test_corroboration_copy_has_no_decision_id_leak():
 # ==========================================================================
 # Concise timestamps, and the stale-view-banner reversal
 # ==========================================================================
-
-
-def test_device_and_pipeline_rows_use_concise_timestamp_format(tmp_path):
-    """the Device check-in row and the Pipeline tile's last-aircraft line render via the
-    concise timestamp format"""
-    now = shp.now()
-    shp.seed_device_health(str(tmp_path), [(shp.iso(now), 4200)])
-    shp.seed_meta(str(tmp_path), **{history_db.META_LAST_PIPELINE_RUN: shp.iso(now)})
-    shp.seed_runway_events(str(tmp_path), [
-        {"ts": shp.iso(now), "hex": "abc123", "corroborated": True}])
-    rendered = health_page_composition.render(shp.ctx(str(tmp_path), now_value=shp.iso(now)))
-    assert rendered.count('<span class="tnum" title=') >= 2, (
-        "expected at least two concise_timestamp_html() spans (Device row + last aircraft)")
 
 
 def test_health_pill_reversal_guard(tmp_path):
@@ -743,8 +563,7 @@ def test_health_pill_reversal_guard(tmp_path):
 
 
 def test_battery_row_healthy_on_a_normal_trend(tmp_path):
-    """the Battery row reads healthy (and stays closed) on a normal trend, and the
-    other rows carry their own states"""
+    """the Battery row reads healthy (and stays closed) on a normal trend"""
     now = shp.now()
     readings = [
         (shp.iso(now - timedelta(minutes=1)), 4200),
@@ -756,8 +575,6 @@ def test_battery_row_healthy_on_a_normal_trend(tmp_path):
     assert shp.health_row_state(rendered, "battery") == "ok"
     assert rendered.count("dot--ok") == 0 and "dot--warn" not in rendered and "dot--error" not in rendered, (
         "expected zero dot classes of any colour in this fixture")
-    for row_id in ("connection", "flight-data"):
-        assert shp.health_row_state(rendered, row_id) == "ok"
     wrapper = shp.health_row(rendered, "battery").select_one("." + health_page.BATTERY_SECTION_CLASS)
     assert "battery-trend-section--embedded" in wrapper.attrs["class"].split(), (
         "the chart's wrapper must be the card-less embedded variant inside a row")
@@ -797,9 +614,9 @@ def test_battery_empty_history_is_neutral_with_no_anomaly_banner(tmp_path):
         "did not expect the abnormal-drop copy with a single battery reading")
 
 
-def test_battery_drop_drives_the_row_and_banner_detail_copy_not_rendered(tmp_path):
-    """a real battery drop drives both the Battery row's warn state (which opens it) and
-    the banner; the detail copy is no longer rendered"""
+def test_battery_drop_drives_the_row_and_detail_copy_not_rendered(tmp_path):
+    """a real battery drop drives the Battery row's warn state; the detail copy is not
+    rendered"""
     now = shp.now()
     readings = [
         (shp.iso(now - timedelta(minutes=1)), 4200),
@@ -811,8 +628,7 @@ def test_battery_drop_drives_the_row_and_banner_detail_copy_not_rendered(tmp_pat
     assert shp.health_row_state(rendered, "battery") == "warn", (
         "expected the Battery row to read warn for a drop >= "
         "BATTERY_DROP_WARN_MV (demoted from error, D-05)")
-    count = rendered.count(health_page.ANOMALY_BANNER_TEXT)
-    assert count == 1, "expected the anomaly banner copy exactly once, found %d" % count
+    assert health_page.ANOMALY_BANNER_TEXT not in rendered, "the Battery page carries no banner"
     assert "Battery dropped abnormally." not in rendered, (
         "the abnormal-drop detail copy must no longer be rendered on the page")
     assert health_page.collect_anomalies("ok", "ok", "error", False) == ["Battery dropped abnormally."], (
@@ -822,45 +638,6 @@ def test_battery_drop_drives_the_row_and_banner_detail_copy_not_rendered(tmp_pat
 # ==========================================================================
 # The retired anomaly-detail-list markup
 # ==========================================================================
-
-
-def test_anomaly_detail_list_markup_is_gone(tmp_path):
-    """an unhealthy fixture renders the anomaly banner with zero <ul/<li list
-    markup inside its own element slice (retargeted from a page-wide ban, which
-    collided with a legitimate .data-cards list elsewhere on the page)"""
-    now = shp.now()
-    shp.seed_device_health(str(tmp_path), [(shp.ago(_DEFAULT_DEVICE_ERROR_S + 60), 4000)])
-    shp.seed_meta(str(tmp_path), **{history_db.META_LAST_PIPELINE_RUN: shp.iso(now)})
-    rendered = health_page_composition.render(shp.ctx(str(tmp_path), now_value=shp.iso(now)))
-    banner = parse_html(rendered).select_one(".toast." + health_page.HEALTH_ANOMALY_CLASS)
-    assert not banner.select("ul"), "expected zero <ul elements inside the anomaly toast"
-    assert not banner.select("li"), "expected zero <li elements inside the anomaly toast"
-    count = rendered.count(health_page.ANOMALY_BANNER_TEXT)
-    assert count == 1, "expected the anomaly banner copy exactly once, found %d" % count
-
-
-def test_none_of_the_four_anomaly_item_strings_render(tmp_path):
-    """with all four anomaly signals unhealthy, none of collect_anomalies()'s
-    four item strings is rendered"""
-    now = shp.now()
-    # Trip all four signals at once: stale device, stale pipeline, an
-    # abnormal battery drop, and a disagreement within the corroboration
-    # window.
-    shp.seed_device_health(str(tmp_path), [
-        (shp.ago(_DEFAULT_DEVICE_ERROR_S + 60), 4200),
-        (shp.ago(_DEFAULT_DEVICE_ERROR_S + 30), 4200 - health_page.BATTERY_DROP_WARN_MV),
-    ])
-    shp.seed_meta(str(tmp_path), **{
-        history_db.META_LAST_PIPELINE_RUN: shp.ago(health_page.STALE_PIPELINE_ERROR_S + 60)})
-    shp.seed_runway_events(str(tmp_path), [
-        {"ts": shp.iso(now), "hex": "abc123", "corroborated": False}])
-    rendered = health_page_composition.render(shp.ctx(str(tmp_path), now_value=shp.iso(now)))
-    expected_items = health_page.collect_anomalies("error", "error", "error", True)
-    assert len(expected_items) == 4, "expected collect_anomalies() to return all four items, got %r" % (expected_items,)
-    count = rendered.count(health_page.ANOMALY_BANNER_TEXT)
-    assert count == 1, "expected the anomaly banner copy exactly once, found %d" % count
-    for item in expected_items:
-        assert item not in rendered, "anomaly item copy leaked into the rendered page: %r" % item
 
 
 # ==========================================================================

@@ -1,9 +1,8 @@
-"""The Health page's route directory cards.
+"""The System page's route directory cards.
 
-Two cards in the platform group, after Identification: the status of each
-route directory (VRS standing data, tried first, and adsbdb, the fallback)
-and, per flight of the last days, which directory supplied the route that
-was shown. Both read counters the poll cycle writes into history.db; nothing
+Two topics after Identification: the status of each route directory (VRS
+standing data, tried first, and adsbdb, the fallback) and, per flight of the
+last days, which directory supplied the route that was shown. Both read counters the poll cycle writes into history.db; nothing
 here makes a network request, and a directory that was never asked reads as
 "no request yet", never as a fault.
 
@@ -12,10 +11,14 @@ integers.
 """
 from datetime import datetime, timedelta, timezone
 
-from companion import health_rows, i18n
+from companion import i18n
 from companion.layout import escape_html
 from companion.pages import health_page as hp
+from companion.pages import system_cards as sc
 from server import history_db
+
+_DIRECTORY_ICON = "icon-server"
+_ANSWERS_ICON = "icon-plane"
 
 STATUS_WINDOW_HOURS = 24
 ANSWER_WINDOW_DAYS = 7
@@ -74,26 +77,29 @@ def _share(part, whole):
     return i18n.t(_PERCENT) % round(part * 100 / whole)
 
 
-def _directory_row(directory, stats, now):
-    """One directory: its name, whether it is reachable, its role and, once it
-    has been asked, the last answer and the shares of the last day."""
+def _directory_card(directory, stats, now):
+    """One directory as a card: its role in the small line, its name in bold,
+    whether it is reachable at the right and, once it has been asked, the last
+    answer and the shares of the last day."""
     name = i18n.t(_NAMES[directory]) if directory in _NAMES else _ADSBDB
-    role = health_rows.note_html(i18n.t(_ROLES[directory]))
-    row_id = "route-directory-" + directory
+    role = i18n.t(_ROLES[directory])
+    key = "route-directory-" + directory
     if stats["reachable"] is None:
-        return health_rows.row_html(
-            row_id, "off", name, i18n.t(_NO_REQUEST), "",
-            role + health_rows.note_html(i18n.t(_NO_REQUEST_NOTE)))
+        return sc._card(
+            key, "off", _DIRECTORY_ICON, role, name,
+            value_html=sc._value(i18n.t(_NO_REQUEST)),
+            body_html=sc._note(i18n.t(_NO_REQUEST_NOTE)))
     reachable = stats["reachable"]
     lookups = stats["lookups"]
-    facts = health_rows.facts_html([
-        hp._fact(_LAST_ANSWER, hp._age_html(stats["last_answer_ts"], now, _NEVER)),
-        hp._fact(_LAST_24H, escape_html(i18n.t(_LOOKUPS) % lookups)),
-        hp._fact(_FOUND, escape_html(_share(stats["found"], lookups))),
-        hp._fact(_FAILED, escape_html(_share(stats["failed"], lookups)))])
-    return health_rows.row_html(
-        row_id, "ok" if reachable else "warn", name,
-        i18n.t(_REACHABLE if reachable else _NOT_REACHABLE), "", role + facts)
+    facts = sc._facts([
+        (_LAST_ANSWER, hp._age_html(stats["last_answer_ts"], now, _NEVER)),
+        (_LAST_24H, escape_html(i18n.t(_LOOKUPS) % lookups)),
+        (_FOUND, escape_html(_share(stats["found"], lookups))),
+        (_FAILED, escape_html(_share(stats["failed"], lookups)))])
+    return sc._card(
+        key, "ok" if reachable else "warn", _DIRECTORY_ICON, role, name,
+        value_html=sc._value(i18n.t(_REACHABLE if reachable else _NOT_REACHABLE)),
+        body_html=facts)
 
 
 def _bar_html(vrs, adsbdb):
@@ -106,36 +112,41 @@ def _bar_html(vrs, adsbdb):
     ) % (escape_html(label), vrs, adsbdb)
 
 
-def _answers_row(answers):
+def _answers_card(answers):
     name = i18n.t(_ANSWERED_BY)
     vrs, adsbdb = answers["vrs"], answers["adsbdb"]
     total = vrs + adsbdb
     if total == 0:
-        return health_rows.row_html(
-            "route-answers", "off", name, i18n.t(_NO_ANSWERS) % ANSWER_WINDOW_DAYS, "",
-            health_rows.note_html(i18n.t(_NO_ANSWERS_NOTE)))
+        return sc._card(
+            "route-answers", "off", _ANSWERS_ICON, name,
+            i18n.t(_NO_ANSWERS) % ANSWER_WINDOW_DAYS,
+            body_html=sc._note(i18n.t(_NO_ANSWERS_NOTE)))
     window = (
         i18n.t(_WINDOW_ONE) % ANSWER_WINDOW_DAYS if total == 1
         else i18n.t(_WINDOW) % (ANSWER_WINDOW_DAYS, total))
-    return health_rows.row_html(
-        "route-answers", "off", name, _ANSWER_TOTALS % (vrs, adsbdb), "",
-        health_rows.note_html(window) + _bar_html(vrs, adsbdb))
+    return sc._card(
+        "route-answers", "off", _ANSWERS_ICON, name, _ANSWER_TOTALS % (vrs, adsbdb),
+        sub_html='<span class="sys-card__sub">%s</span>' % escape_html(window),
+        body_html=_bar_html(vrs, adsbdb))
 
 
 def topics(data, now):
-    """`(key, label message, row html)` for the two cards. `data` is `read()`'s
-    result, `hp._DB_UNAVAILABLE` when the read failed, or None when there is
-    nothing to read (no topics)."""
+    """`(key, section label, card html)` for the two topics. `data` is
+    `read()`'s result, `hp._DB_UNAVAILABLE` when the read failed, or None when
+    there is nothing to read (no topics)."""
     if data is None:
         return ()
+    directories_label = i18n.t(_DIRECTORIES_LABEL)
+    answered_label = i18n.t(_ANSWERED_BY)
     if data is hp._DB_UNAVAILABLE:
         return (
-            ("route-directories", _DIRECTORIES_LABEL,
-             hp._unavailable_row("route-directories", i18n.t(_DIRECTORIES_LABEL))),
-            ("route-answers", _ANSWERED_BY, hp._unavailable_row("route-answers", i18n.t(_ANSWERED_BY))))
+            ("route-directories", directories_label,
+             sc._unavailable("route-directories", _DIRECTORY_ICON, directories_label)),
+            ("route-answers", answered_label,
+             sc._unavailable("route-answers", _ANSWERS_ICON, answered_label)))
     directories = "".join(
-        _directory_row(directory, data["stats"][directory], now)
+        _directory_card(directory, data["stats"][directory], now)
         for directory in history_db.ROUTE_DIRECTORIES)
     return (
-        ("route-directories", _DIRECTORIES_LABEL, directories),
-        ("route-answers", _ANSWERED_BY, _answers_row(data["answers"])))
+        ("route-directories", directories_label, directories),
+        ("route-answers", answered_label, _answers_card(data["answers"])))

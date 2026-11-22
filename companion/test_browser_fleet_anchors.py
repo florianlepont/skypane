@@ -92,7 +92,7 @@ def test_the_state_section_is_four_equal_tiles_in_two_columns(
             "() => document.documentElement.scrollWidth - document.documentElement.clientWidth") <= 0
         assert [a.inner_text().split("\n")[-1].strip() for a in
                 page.locator("a.fleet-tile .fleet-tile__more").all()] == [
-            "Details" if lang == "en" else "Détails"] * 4
+            "Details" if lang == "en" else "Détails"] * 3
     finally:
         context.close()
 

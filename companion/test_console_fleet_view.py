@@ -156,8 +156,9 @@ def test_the_system_view_shows_the_platform_wide_blocks(fleet):
     server, _seed, cookie = fleet
     status, _headers, page = fx.get(server, cookie, "/fleet?view=system")
     assert status == 200
-    # One glass group per topic: flight data, sources and identification.
-    assert _blocks(page) == ["Flight data", "Data sources", "Identification"]
+    # One glass group per topic: flight data, sources, identification and the two route topics.
+    assert _blocks(page) == [
+        "Flight data", "Data sources", "Identification", "Route directories", "Answered by"]
     assert not [h for h, mark in _tiles(page) if mark]
     assert '<h1 class="fleet-head__title">System</h1>' in page
 

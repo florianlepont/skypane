@@ -1,10 +1,10 @@
-"""The Health page's route directory cards: the status of each directory and
+"""The System view's route directory cards: the status of each directory and
 the flights each one answered, read from the counters the poll cycle writes.
 
 Covers the empty, healthy and degraded states in English and French, the
-cards' place in the platform group, and that nothing read from the database
-reaches the markup unescaped. The cards live on the existing frame Health
-page, so no route and no access rule is added.
+cards' place among the System topics, and that nothing read from the database
+reaches the markup unescaped. The cards live on the existing System view, so
+no route and no access rule is added.
 """
 import datetime
 import os
@@ -75,11 +75,10 @@ def _seed_degraded(state_dir):
             conn, ts=_ago(hours=1), callsign="AFR1001", route_directory="<img src=x onerror=alert(1)>")
 
 
-def _health(make_app_server, seed, lang):
+def _system(make_app_server, seed, lang):
     server = make_app_server(seed=seed)
     cookie = "%s; %s=%s" % (companion_app_server.login(server), auth.UI_LANG_COOKIE_NAME, lang)
-    _code, headers, _ = companion_app_server.get(server, "/health", cookie=cookie)
-    code, _, body = companion_app_server.get(server, headers["Location"], cookie=cookie)
+    code, _, body = companion_app_server.get(server, "/fleet?view=system", cookie=cookie)
     assert code == 200
     html = body.decode("utf-8")
     return companion_markup.parse_html(html), html
@@ -91,35 +90,36 @@ def _plain(text):
     return text.replace("\u00a0", " ")
 
 
-def _facts(row):
+def _facts(card):
     return {
         item.select_one("dt").text(): item.select_one("dd").text()
-        for item in row.select(".health-row__facts > div")}
+        for item in card.select(".sys-card__facts > div")}
 
 
 @pytest.mark.parametrize("lang", ["en", "fr"])
 def test_a_directory_never_asked_says_so_and_a_failure_is_not_implied(make_app_server, lang):
-    root, _html = _health(make_app_server, _seed_empty, lang)
+    root, _html = _system(make_app_server, _seed_empty, lang)
     for directory in ("vrs", "adsbdb"):
-        row = root.select_one("#health-row-route-directory-" + directory)
-        assert row.attrs["data-state"] == "off"
-        assert row.select_one(".health-row__verdict").text() == TEXT[lang]["none"]
-        assert row.select(".health-row__facts") == []
-    answers = root.select_one("#health-row-route-answers")
-    assert answers.select_one(".health-row__verdict").text() == TEXT[lang]["empty_answers"]
+        card = root.select_one("#system-card-route-directory-" + directory)
+        assert card.attrs["data-state"] == "off"
+        assert card.select_one(".sys-card__value").text() == TEXT[lang]["none"]
+        assert card.select(".sys-card__facts") == []
+    answers = root.select_one("#system-card-route-answers")
+    assert answers.select_one(".sys-card__verdict").text() == TEXT[lang]["empty_answers"]
     assert answers.select(".route-bar") == []
 
 
 @pytest.mark.parametrize("lang", ["en", "fr"])
 def test_a_healthy_directory_shows_its_last_answer_and_its_shares(make_app_server, lang):
-    root, _html = _health(make_app_server, _seed_degraded, lang)
+    root, _html = _system(make_app_server, _seed_degraded, lang)
     text = TEXT[lang]
-    row = root.select_one("#health-row-route-directory-vrs")
-    assert row.attrs["data-state"] == "ok"
-    assert row.select_one(".health-row__name").text() == {"en": "VRS standing data", "fr": "Données VRS"}[lang]
-    assert row.select_one(".health-row__verdict").text() == text["reachable"]
-    assert text["role_vrs"] in row.text()
-    facts = _facts(row)
+    card = root.select_one("#system-card-route-directory-vrs")
+    assert card.attrs["data-state"] == "ok"
+    assert card.select_one(".sys-card__verdict").text() == {
+        "en": "VRS standing data", "fr": "Données VRS"}[lang]
+    assert card.select_one(".sys-card__value").text() == text["reachable"]
+    assert card.select_one(".sys-card__label").text() == text["role_vrs"]
+    facts = _facts(card)
     assert list(facts) == [_plain(label) for label in text["facts"]]
     assert facts[_plain(text["facts"][1])] == text["lookups"] % 21
     assert facts[_plain(text["facts"][2])] == _plain(text["percent"] % 90)
@@ -129,13 +129,13 @@ def test_a_healthy_directory_shows_its_last_answer_and_its_shares(make_app_serve
 
 @pytest.mark.parametrize("lang", ["en", "fr"])
 def test_a_directory_whose_last_request_failed_needs_attention(make_app_server, lang):
-    root, _html = _health(make_app_server, _seed_degraded, lang)
+    root, _html = _system(make_app_server, _seed_degraded, lang)
     text = TEXT[lang]
-    row = root.select_one("#health-row-route-directory-adsbdb")
-    assert row.attrs["data-state"] == "warn"
-    assert row.select_one(".health-row__name").text() == "adsbdb"
-    assert row.select_one(".health-row__verdict").text() == text["down"]
-    facts = _facts(row)
+    card = root.select_one("#system-card-route-directory-adsbdb")
+    assert card.attrs["data-state"] == "warn"
+    assert card.select_one(".sys-card__verdict").text() == "adsbdb"
+    assert card.select_one(".sys-card__value").text() == text["down"]
+    facts = _facts(card)
     # Requests of the last 24 hours: 4 found, 3 none, 3 failed.
     assert facts[_plain(text["facts"][1])] == text["lookups"] % 10
     assert facts[_plain(text["facts"][2])] == _plain(text["percent"] % 40)
@@ -144,28 +144,38 @@ def test_a_directory_whose_last_request_failed_needs_attention(make_app_server, 
 
 @pytest.mark.parametrize("lang", ["en", "fr"])
 def test_flights_are_split_by_the_directory_that_answered(make_app_server, lang):
-    root, _html = _health(make_app_server, _seed_degraded, lang)
-    row = root.select_one("#health-row-route-answers")
-    assert row.select_one(".health-row__verdict").text() == TEXT[lang]["answers"]
-    assert row.select_one(".health-row__name").text() == TEXT[lang]["answered_by"]
-    assert _plain(TEXT[lang]["window"]) in row.text()
-    bar = row.select_one(".route-bar")
+    root, _html = _system(make_app_server, _seed_degraded, lang)
+    card = root.select_one("#system-card-route-answers")
+    assert card.select_one(".sys-card__verdict").text() == TEXT[lang]["answers"]
+    assert card.select_one(".sys-card__label").text() == TEXT[lang]["answered_by"]
+    assert _plain(TEXT[lang]["window"]) in card.text()
+    bar = card.select_one(".route-bar")
     assert bar.attrs["role"] == "img" and bar.attrs["aria-label"] == TEXT[lang]["answers"]
     assert [seg.attrs["style"] for seg in bar.select(".route-bar__seg")] == ["--seg: 4", "--seg: 1"]
 
 
-def test_the_cards_follow_identification_and_precede_the_backup(make_app_server):
-    root, _html = _health(make_app_server, _seed_degraded, "en")
-    ids = [row.attrs["id"] for row in root.select(".health-row")]
-    assert ids.index("health-row-identification") < ids.index("health-row-route-directory-vrs")
-    assert ids.index("health-row-route-directory-vrs") < ids.index("health-row-route-directory-adsbdb")
-    assert ids.index("health-row-route-directory-adsbdb") < ids.index("health-row-route-answers")
-    backup = "health-row-backup"
+def test_the_topics_follow_identification_and_precede_the_backup(make_app_server):
+    root, _html = _system(make_app_server, _seed_degraded, "en")
+    ids = [card.attrs["id"] for card in root.select(".sys-card")]
+    assert ids.index("system-card-identification") < ids.index("system-card-route-directory-vrs")
+    assert ids.index("system-card-route-directory-vrs") < ids.index("system-card-route-directory-adsbdb")
+    assert ids.index("system-card-route-directory-adsbdb") < ids.index("system-card-route-answers")
+    backup = "system-card-backup"
     if backup in ids:
-        assert ids.index("health-row-route-answers") < ids.index(backup)
+        assert ids.index("system-card-route-answers") < ids.index(backup)
+
+
+def test_the_route_topics_are_not_on_the_battery_view(make_app_server):
+    server = make_app_server(seed=_seed_degraded)
+    cookie = companion_app_server.login(server)
+    _code, headers, _ = companion_app_server.get(server, "/health", cookie=cookie)
+    code, _, body = companion_app_server.get(server, headers["Location"], cookie=cookie)
+    assert code == 200
+    page = body.decode("utf-8")
+    assert "route-directory" not in page and "route-answers" not in page
 
 
 def test_a_value_stored_in_the_database_never_reaches_the_markup_raw(make_app_server):
-    _root, html = _health(make_app_server, _seed_degraded, "en")
+    _root, html = _system(make_app_server, _seed_degraded, "en")
     assert "onerror=alert" not in html
     assert "<img src=x" not in html

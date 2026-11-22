@@ -1,4 +1,4 @@
-"""Real-browser checks of the route directory cards on a frame's Health page: both directories and the
+"""Real-browser checks of the route directory cards on the System view: both directories and the
 answered-by bar are visible without a tap, the bar has width, and nothing overflows at 360 and 1280 px in
 English and French and both themes."""
 import datetime
@@ -29,7 +29,7 @@ def _ago(**delta):
 
 
 def _seed(server, with_counters):
-    seed = fx.seed_fleet(server.state_dir)
+    fx.seed_fleet(server.state_dir)
     with history_db.open_db(server.state_dir) as conn:
         history_db.record_device_health(conn, _ago(minutes=2), battery_mv=4000)
         if with_counters:
@@ -41,17 +41,16 @@ def _seed(server, with_counters):
             history_db.record_route_lookups(conn, _ago(hours=3), [("adsbdb", "failed")] * 4)
             for directory in ["vrs"] * 118 + ["adsbdb"] * 30:
                 history_db.record_runway_event(conn, ts=_ago(hours=1), route_directory=directory)
-    return seed
 
 
 def _open(new_context, server, viewport, lang, theme, with_counters=True):
-    seed = _seed(server, with_counters)
+    _seed(server, with_counters)
     context = new_context(viewport=viewport)
     context.add_cookies([{
         "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": server.base_url()}])
     page = context.new_page()
     _login(page, server.base_url())
-    page.goto(server.base_url() + "/fleet?frame=%s&view=health" % seed.live_id)
+    page.goto(server.base_url() + "/fleet?view=system")
     page.locator("main").wait_for(state="visible")
     page.wait_for_function(_SETTLED, timeout=15000)
     _set_ui_theme(page, theme)
@@ -69,14 +68,14 @@ def test_the_route_cards_show_both_directories_and_overflow_nowhere(
     try:
         assert not _assert_no_page_overflow(page, where, viewport["width"])
         reachable, down = VERDICTS[lang]
-        vrs = page.locator("#health-row-route-directory-vrs")
-        adsbdb = page.locator("#health-row-route-directory-adsbdb")
-        assert vrs.locator(".health-row__verdict").inner_text() == reachable, where
-        assert adsbdb.locator(".health-row__verdict").inner_text() == down, where
-        for row in (vrs, adsbdb):
-            assert row.locator(".health-row__facts").is_visible(), where
-            assert row.locator(".health-row__facts > div").count() == 4, where
-        bar = page.locator("#health-row-route-answers .route-bar")
+        vrs = page.locator("#system-card-route-directory-vrs")
+        adsbdb = page.locator("#system-card-route-directory-adsbdb")
+        assert vrs.locator(".sys-card__value").inner_text() == reachable, where
+        assert adsbdb.locator(".sys-card__value").inner_text() == down, where
+        for card in (vrs, adsbdb):
+            assert card.locator(".sys-card__facts").is_visible(), where
+            assert card.locator(".sys-card__facts > div").count() == 4, where
+        bar = page.locator("#system-card-route-answers .route-bar")
         box = bar.bounding_box()
         assert box["width"] > 100 and box["height"] >= 8, (where, box)
         segments = bar.locator(".route-bar__seg")
@@ -94,8 +93,8 @@ def test_a_frame_with_no_counters_yet_says_so_without_overflow(
     try:
         assert not _assert_no_page_overflow(page, "route-sources-empty", viewport["width"])
         for directory in ("vrs", "adsbdb"):
-            row = page.locator("#health-row-route-directory-" + directory)
-            assert row.locator(".health-row__verdict").inner_text() == "No request yet"
-        assert page.locator("#health-row-route-answers .route-bar").count() == 0
+            card = page.locator("#system-card-route-directory-" + directory)
+            assert card.locator(".sys-card__value").inner_text() == "No request yet"
+        assert page.locator("#system-card-route-answers .route-bar").count() == 0
     finally:
         context.close()
