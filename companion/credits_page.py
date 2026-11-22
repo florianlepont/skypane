@@ -168,13 +168,16 @@ def credits_body(sources=None, back=login_page.BACK_SIGN_IN, home_route=None):
     if lang not in LANGUAGES:
         lang = "en"
     back_html = _back_link_html(back)
-    top = back_html if back != login_page.BACK_SIGN_IN else ""
-    bottom = back_html if back == login_page.BACK_SIGN_IN else ""
+    signed_in = back != login_page.BACK_SIGN_IN
+    # The signed-in way back sits inside the header, above the title, so it
+    # opens with the header rather than as a block of its own.
+    title_html = back_html + '<h1 class="page-title">%s</h1>' % layout.escape_html(
+        i18n.t(TITLE_TEXT)) if signed_in else None
     return (
-        top
-        + layout.page_header(i18n.t(TITLE_TEXT), purpose=i18n.t(_INTRO_TEXT))
+        layout.page_header(
+            i18n.t(TITLE_TEXT), purpose=i18n.t(_INTRO_TEXT), title_html=title_html)
         + "".join(_source_card_html(source, lang) for source in sources)
-        + bottom)
+        + ("" if signed_in else back_html))
 
 
 def credits_page(ui_theme, health_alert, sources=None, back=login_page.BACK_SIGN_IN,

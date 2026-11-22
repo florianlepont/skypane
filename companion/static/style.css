@@ -5643,7 +5643,7 @@ a.btn[aria-disabled="true"] {
 
 /* The way back above the title: a chevron and the label, semibold. */
 .credits-back--top {
-  margin: 0;
+  margin: 0 0 var(--space-sm);
 }
 
 .credits-back--top .text-link {
