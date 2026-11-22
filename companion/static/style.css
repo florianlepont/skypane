@@ -6064,6 +6064,24 @@ a.btn[aria-disabled="true"] {
   }
 }
 
+/* On the narrowest phones the sheet's rows, label column and segments give up
+ * some padding, so the three theme segments keep their whole words
+ * (French "Auto", "Clair", "Sombre") instead of being cut to an ellipsis. */
+@media (max-width: 359.98px) {
+  .tab-bar__prefs .group > .row.tab-bar__pref {
+    padding-inline: var(--space-sm);
+  }
+
+  .tab-bar__prefs .group .row .row__main {
+    flex-basis: 6.25rem;
+  }
+
+  .tab-bar__pref .theme-form .theme-option {
+    padding-inline: 2px;
+  }
+}
+
+
 .look-frame__picture {
   position: relative;
   padding: 8px;
