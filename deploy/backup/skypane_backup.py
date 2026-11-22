@@ -84,6 +84,14 @@ KNOWN_EXCLUDED = (
     "*.lock",
     "*.tmp",
     "img",
+    # Spacing and pause bookkeeping of the ADS-B request budget: a few
+    # seconds of state, rebuilt from nothing on the next request.
+    "request_ledger.json",
+    # Operator-set, expires within 72 hours and is re-created with
+    # `python3 -m server.check_interval set`.
+    "check_interval_experiment.json",
+    # Cache of the rendered frame previews, rebuilt on demand.
+    "frame_previews",
 )
 
 # Per-device directories under <state>/devices/. This script is deliberately
