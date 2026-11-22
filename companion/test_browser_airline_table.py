@@ -15,6 +15,7 @@ State is always waited for (settled page, owned centres, focus), never read righ
 import os
 import re
 
+import animation_settle
 import pytest
 
 from companion import auth
@@ -43,10 +44,7 @@ FRANCE_FIELD = FRANCE_DIALOG + ' input[name="airline_name"]'
 TRANSAVIA = "#airline-transavia-france"
 VISIBLE_GROUPS = "tbody.airline-group:not([hidden])"
 
-_SETTLED = (
-    "() => document.readyState === 'complete'"
-    " && document.getAnimations().every(a => a.effect && a.effect.getTiming().iterations !== Infinity"
-    " ? a.playState !== 'running' : true)")
+_SETTLED = animation_settle.SETTLED
 _OWNS_CENTRE = (
     "sel => { const el = document.querySelector(sel); if (!el) return false;"
     " const r = el.getBoundingClientRect();"

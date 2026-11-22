@@ -3,6 +3,7 @@ refuse a wrong code with the dialog reopened, retire in two actions (the one
 confirmation dialog), reassign from the owner row's button with one confirmation, re-activate; initial focus, Tab containment, Esc and focus return; and
 the same forms through plain hash links with scripts blocked. Dialog geometry
 holds at 360 and 1280px, in English and French, in both themes."""
+import animation_settle
 import pytest
 
 import fleet_console_support as fx
@@ -289,7 +290,7 @@ def test_the_reactivation_question_sits_close_and_the_confirmation_explains_the_
         page.locator(".fleet-other a.fleet-action-button").click()
         dialog = page.locator("#dlg-reactivate-%s" % _slug(seed.retired_id))
         assert dialog.evaluate("d => d.open")
-        page.wait_for_function("() => document.getAnimations().length === 0")
+        animation_settle.wait_settled(page, "#dlg-reactivate-%s" % _slug(seed.retired_id))
         gaps = dialog.evaluate(_GAPS)
         assert gaps["margin"] == "0px"
         assert 0 <= gaps["above"] <= 12 and 0 <= gaps["below"] <= 28, gaps

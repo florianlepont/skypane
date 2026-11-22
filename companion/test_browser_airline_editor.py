@@ -6,6 +6,7 @@ keeps its row with a pill and no separate list exists; "Delete my name" in its r
 name, with and without scripts. Renaming an airline works end to end.
 
 State is always waited for (settled page, owned centres, focus), never read right after an input."""
+import animation_settle
 import pytest
 
 import fleet_console_support as fx
@@ -27,10 +28,7 @@ FRANCE_MENU = FRANCE + " .airlines-row .row-menu__toggle"
 FRANCE_DIALOG = FRANCE + " dialog"
 FRANCE_FIELD = FRANCE_DIALOG + ' input[name="airline_name"]'
 
-_SETTLED = (
-    "() => document.readyState === 'complete'"
-    " && document.getAnimations().every(a => a.effect && a.effect.getTiming().iterations !== Infinity"
-    " ? a.playState !== 'running' : true)")
+_SETTLED = animation_settle.SETTLED
 _OWNS_CENTRE = (
     "sel => { const el = document.querySelector(sel); if (!el) return false;"
     " const r = el.getBoundingClientRect();"

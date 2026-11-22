@@ -3,6 +3,7 @@ under three anchors that stay at the top while the page scrolls, each 44 px and 
 390 px in English and French, the section in view marked current, plain links that work without
 scripts, a saved-section landing, the four equal State tiles, the full single column on a desktop,
 the unsaved-changes bar, and the designed empty picture on Home."""
+import animation_settle
 import pytest
 
 import fleet_console_support as fx
@@ -16,9 +17,7 @@ pytestmark = pytest.mark.browser
 PHONE = {"width": 390, "height": 844}
 LABELS = {"en": ["State", "Settings", "Access"], "fr": ["État", "Réglages", "Accès"]}
 SECTIONS = ("state", "settings", "access")
-_SETTLED = (
-    "() => document.readyState === 'complete' && document.getAnimations().every("
-    "a => !a.effect || a.effect.getTiming().iterations === Infinity || a.playState !== 'running')")
+_SETTLED = animation_settle.SETTLED
 _PROBE = """() => {
   const nav = document.querySelector('nav.fleet-anchors');
   const shown = (el) => el.getClientRects().length > 0;

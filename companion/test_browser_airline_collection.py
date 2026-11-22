@@ -12,6 +12,7 @@ import re
 import time
 from datetime import datetime, timedelta, timezone
 
+import animation_settle
 import pytest
 
 from companion import auth
@@ -35,10 +36,7 @@ SEEN_CARD = CARD + ":not(.collection-card--unseen)"
 UNSEEN_CARD = CARD + ".collection-card--unseen"
 TOTAL_SPOTTED = 3
 
-_SETTLED = (
-    "() => document.readyState === 'complete'"
-    " && document.getAnimations().every(a => a.effect && a.effect.getTiming().iterations !== Infinity"
-    " ? a.playState !== 'running' : true)")
+_SETTLED = animation_settle.SETTLED
 _OWNS_CENTRE = (
     "el => { const r = el.getBoundingClientRect();"
     " const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);"
@@ -78,7 +76,7 @@ def _wait_theme_painted(page):
         " const key = s.backgroundColor + '|' + s.color + '|' +"
         " getComputedStyle(document.documentElement).backgroundColor;"
         " const same = window.__paintKey === key; window.__paintKey = key;"
-        " return same && document.getAnimations().length === 0; }", timeout=10000)
+        " return same && " + animation_settle.DONE_EXPR + "; }", timeout=10000)
 
 
 def _open(new_context, base_url, viewport, lang="en", theme="light", query=""):
@@ -620,7 +618,7 @@ def test_the_detail_sheet_fits_the_screen_with_its_head_and_close_in_reach(
         page.wait_for_function(
             "() => { const d = document.querySelector('dialog.collection-sheet[open]');"
             " return !!d && d.contains(document.activeElement) && d.getBoundingClientRect().height > 0"
-            " && document.getAnimations().every(a => a.playState !== 'running'); }", timeout=10000)
+            " && " + animation_settle.DONE_EXPR + "; }", timeout=10000)
         geometry = page.evaluate(
             "() => { const d = document.querySelector('dialog.collection-sheet[open]');"
             " const box = sel => d.querySelector(sel).getBoundingClientRect();"

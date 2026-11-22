@@ -1,6 +1,7 @@
 """Real-browser checks that French wording, which runs longer than English, is never cut:
 the owner row of a frame's Access tab on a phone, the role select of the Users table on a
 desktop, and the "Applies to" segments of the special-look form on a phone."""
+import animation_settle
 import pytest
 
 import fleet_console_support as fx
@@ -15,9 +16,7 @@ PHONES = (
     pytest.param(VIEWPORT_MIN_SUPPORTED, id="360"),
     pytest.param(VIEWPORT_PHONE, id="390"))
 
-_READY = (
-    "() => document.readyState === 'complete' && document.getAnimations().every("
-    "(a) => a.playState !== 'running' || a.effect.getComputedTiming().iterations === Infinity)")
+_READY = animation_settle.SETTLED
 
 
 class _Rig:

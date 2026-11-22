@@ -3,6 +3,7 @@ name and speaks kilometres and a typed radius past the limit is pulled back to t
 caption gives way once something is typed, the runway cards keep the length and the surface each on
 one unbroken line, and the Console tab bar labels fit inside their pills at 360 px in both languages.
 Waits are on the page's own state, never fixed sleeps."""
+import animation_settle
 import pytest
 
 from companion import auth
@@ -17,9 +18,7 @@ RADIUS_MAX = 28
 READY = "() => document.documentElement.classList.contains('map-ready')"
 TILES_LOADED = "() => document.querySelectorAll('#place-map .leaflet-tile-loaded').length >= 1"
 # Finite animations and transitions are over; a never-ending one is not waited for.
-ANIMATIONS_DONE = (
-    "() => document.getAnimations().every("
-    "(a) => a.playState !== 'running' || a.effect.getComputedTiming().iterations === Infinity)")
+ANIMATIONS_DONE = animation_settle.ANIMATIONS_DONE
 
 
 def _open_place(new_context, server, viewport, lang="en", route="/detection", scheme=None):

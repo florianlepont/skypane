@@ -4,6 +4,7 @@ table (picture, name, prefix, views, menu) and no longer a row of the "Known by 
 English and French, on a phone."""
 import os
 
+import animation_settle
 import pytest
 
 from companion import auth
@@ -16,10 +17,7 @@ pytestmark = pytest.mark.browser
 _PNG = os.path.join(illustrations.ILLUSTRATION_DIR, "vueling-airlines.png")
 KNOWN = "tbody.airline-group--known"
 BUTTON = KNOWN + ":has-text('Finnair') a[data-modal-open], " + KNOWN + ":has-text('Finnair') button"
-_SETTLED = (
-    "() => document.readyState === 'complete'"
-    " && document.getAnimations().every(a => a.effect && a.effect.getTiming().iterations !== Infinity"
-    " ? a.playState !== 'running' : true)")
+_SETTLED = animation_settle.SETTLED
 
 
 @pytest.mark.parametrize("lang,known_label", (("en", "Known by name only"), ("fr", "Connues par leur nom")))

@@ -6,6 +6,7 @@ and French, at 320, 390 and 1440 px."""
 import json
 import os
 
+import animation_settle
 import pytest
 from fake_anthropic import FakeAnthropic
 
@@ -24,10 +25,7 @@ _PNG = os.path.join(illustrations.ILLUSTRATION_DIR, "vueling-airlines.png")
 KNOWN = "tbody.airline-group--known"
 TABLE_ROWS = "tbody.airline-group:not(.airline-group--known):not(.airline-group--gap)"
 SIZES = ((320, 700), (390, 844), (1440, 900))
-_SETTLED = (
-    "() => document.readyState === 'complete'"
-    " && document.getAnimations().every(a => a.effect && a.effect.getTiming().iterations !== Infinity"
-    " ? a.playState !== 'running' : true)")
+_SETTLED = animation_settle.SETTLED
 FLASH = {"en": "Airline name saved", "fr": "Nom de compagnie enregistré"}
 CHIP = {"en": "Known by name only", "fr": "Connues par leur nom"}
 CAPTION = {"en": "Known by name only", "fr": "Connues par leur nom seulement"}

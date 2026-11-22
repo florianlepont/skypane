@@ -3,6 +3,7 @@
 A retired frame opens its own page whose one action is Re-activate. The button must be fully in
 reach (a click on its centre and corners lands on it), at least 44px, and open its confirmation,
 at desktop and phone width, in English and French and in both themes."""
+import animation_settle
 import pytest
 
 import fleet_console_support as fx
@@ -14,9 +15,7 @@ pytestmark = pytest.mark.browser
 DESKTOP = {"width": 1280, "height": 800}
 PHONE = {"width": 390, "height": 844}
 _ACTION = ".fleet-other a.fleet-action-button"
-_SETTLED = (
-    "() => document.readyState === 'complete' && document.getAnimations().every("
-    "a => !a.effect || a.effect.getTiming().iterations === Infinity || a.playState !== 'running')")
+_SETTLED = animation_settle.SETTLED
 # Per button: every sample point (centre and the four corners, inset 16px: the radius) is inside the
 # viewport and the element found there is the option or one of its descendants.
 _REACHABLE = """

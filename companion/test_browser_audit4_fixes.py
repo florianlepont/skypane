@@ -2,6 +2,7 @@
 only on a change, user cards (e-mail wrapping, role select), the sidebar (one line per item, a
 focus ring hugging its item), the System column, the hero ring, the tab strip insets, the picture
 placeholders and the colour dots. Every read waits for a settled page first."""
+import animation_settle
 import pytest
 
 import fleet_console_support as fx
@@ -12,9 +13,7 @@ from server import device_config
 
 pytestmark = pytest.mark.browser
 
-_SETTLED = (
-    "() => document.readyState === 'complete' && document.getAnimations().every("
-    "a => !a.effect || a.effect.getTiming().iterations === Infinity || a.playState !== 'running')")
+_SETTLED = animation_settle.SETTLED
 
 
 def _open(new_context, server, path, viewport, lang="en", who="admin", theme="light",

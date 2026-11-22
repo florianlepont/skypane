@@ -6,6 +6,7 @@ are read off the rendered pages; the pages are measured one after the other in o
 context so the comparison is between pages, never against a hard-coded size."""
 from urllib.parse import quote, urlsplit
 
+import animation_settle
 import pytest
 
 from co_manager_browser_support import SUBPIXEL
@@ -23,9 +24,7 @@ DESKTOP = {"width": 1280, "height": 800}
 BAR = ".dirty-bar"
 WORDS = {"en": ("Cancel", "Save"), "fr": ("Annuler", "Enregistrer")}
 UNSAVED = {"en": "Unsaved changes", "fr": "Modifications non enregistrées"}
-_SETTLED = (
-    "() => document.readyState === 'complete' && document.getAnimations().every("
-    "a => !a.effect || a.effect.getTiming().iterations === Infinity || a.playState !== 'running')")
+_SETTLED = animation_settle.SETTLED
 _OWNS_CENTRE = (
     "sel => { const el = document.querySelector(sel); if (!el) return false;"
     " const r = el.getBoundingClientRect();"

@@ -6,6 +6,7 @@ picture still shows the empty picture, the blocks come in one after the other, a
 bar keeps its labels legible and uncramped in both themes."""
 from datetime import datetime, timedelta, timezone
 
+import animation_settle
 import pytest
 from companion_app_server import session_cookie_for_state_dir
 from skypane_contrast_check import WCAG_AA_NORMAL_TEXT, contrast_ratio
@@ -23,11 +24,7 @@ pytestmark = pytest.mark.browser
 
 LONG_NAME = "Maison de campagne chez Tante Marguerite-Louise"
 
-_SETTLED = """() => {
-  if (document.readyState !== 'complete') return false;
-  return document.getAnimations().every((a) => a.playState !== 'running'
-      || a.effect.getComputedTiming().iterations === Infinity);
-}"""
+_SETTLED = animation_settle.SETTLED
 
 _HERO = """() => {
   const box = (sel) => { const el = document.querySelector(sel);

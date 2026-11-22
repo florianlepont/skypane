@@ -1,6 +1,7 @@
 """Real-browser checks of the third audit's visual fixes: a long frame name next to the logo,
 the Flights picture dialog as one panel, the phone tab bar, a single-line entity row's dot,
 the Users table's addresses and the quiet-hours times in a 12-hour browser."""
+import animation_settle
 import pytest
 import fleet_console_support as fx
 from companion_app_server import session_cookie_for_state_dir
@@ -15,9 +16,7 @@ pytestmark = pytest.mark.browser
 
 LONG_NAME = "Maison de campagne chez Tante Marguerite-Louise"
 _COMPLETE = "() => document.readyState === 'complete'"
-_ANIMATIONS_DONE = (
-    "() => document.getAnimations().every(a => !a.effect || "
-    "a.effect.getComputedTiming().iterations === Infinity || a.playState !== 'running')")
+_ANIMATIONS_DONE = animation_settle.ANIMATIONS_DONE
 
 
 def _seed(fleet):

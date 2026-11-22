@@ -3,6 +3,7 @@ mid-word, a status pill (Active, Invited) and a You mark with readable ink, an e
 switch on the signed-in administrator's own row and a co-manager's frame count."""
 import io
 
+import animation_settle
 import pytest
 from PIL import Image
 
@@ -19,8 +20,7 @@ pytestmark = pytest.mark.browser
 LONG_EMAIL = "a" * 46 + "@example.test"
 ACTIVE_EMAIL = "signed.in@example.test"
 
-_SETTLED = """() => document.readyState === 'complete' && document.getAnimations().every(
-  (a) => a.playState !== 'running' || a.effect.getComputedTiming().iterations === Infinity)"""
+_SETTLED = animation_settle.SETTLED
 _OWNS_CENTRE = (
     "s => { const e = document.querySelector(s); if (!e) return false;"
     " const r = e.getBoundingClientRect();"
