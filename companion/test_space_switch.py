@@ -70,14 +70,14 @@ def test_an_administrator_sees_both_segments_and_the_current_one_is_marked(
     assert len(switches) == 1
     assert 'aria-label="Space"' in switches[0]
     segments = _segments(switches[0])
-    assert [_label(inner) for _c, _h, _a, _x, inner in segments] == ["Console", "My frames"]
-    assert [href for _c, href, _a, _x, _i in segments] == ["/fleet", "/"]
+    assert [_label(inner) for _c, _h, _a, _x, inner in segments] == ["My frames", "Console"]
+    assert [href for _c, href, _a, _x, _i in segments] == ["/", "/fleet"]
     for css, _href, _aria, attrs, inner in segments:
         is_current = _label(inner) == current
         assert ("aria-current=\"page\"" in attrs) is is_current
         assert ("space-switch__segment--current" in css) is is_current
         assert ("icon-check" in inner) is is_current
-    assert "icon-shield" in segments[0][4]
+    assert "icon-shield" in segments[1][4]
 
 
 def test_the_switch_labels_and_names_are_french_in_french(served):
@@ -85,8 +85,8 @@ def test_the_switch_labels_and_names_are_french_in_french(served):
     switch = _switches(markup)[0]
     assert 'aria-label="Espace"' in switch
     segments = _segments(switch)
-    assert [_label(inner) for _c, _h, _a, _x, inner in segments] == ["Console", "Mes cadres"]
-    assert segments[1][2] == "Passer aux pages de votre cadre"
+    assert [_label(inner) for _c, _h, _a, _x, inner in segments] == ["Mes cadres", "Console"]
+    assert segments[0][2] == "Passer aux pages de votre cadre"
 
 
 def test_the_phone_switch_is_a_more_panel_row_and_the_sidebar_keeps_its_own(served):

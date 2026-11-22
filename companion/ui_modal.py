@@ -157,7 +157,8 @@ def dialog_html(
     place, the address becomes `dismiss_href` so a reload does not ask again.
     `return_focus_id` names the control (by its `id`) that takes the focus when
     the dialog closes with no opener of its own to return to (a dialog the
-    address opened).
+    address opened); several ids separated by spaces name fallbacks, the
+    first one on screen wins.
     `secondary_dismiss` draws the dismiss link as a secondary button under
     the submit button instead of a plain text link.
     `extra_action_html` (already escaped, empty by default) is a further

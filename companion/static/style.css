@@ -6371,8 +6371,9 @@ a.modal__dismiss {
   .modal:target:not(.is-modal),
   .modal[open]:not(.is-modal) {
     position: fixed;
-    inset: auto 0 0;
+    inset: auto 0 var(--keyboard-inset, 0px);
     width: 100%;
+    max-height: min(88svh, calc(100svh - var(--keyboard-inset, 0px) - 12px));
     margin: 0;
     padding: 22px max(var(--space-md), var(--safe-right)) 0 max(var(--space-md), var(--safe-left));
     border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
@@ -6626,8 +6627,9 @@ dialog.modal--compact[open] > *,
 
 /* On a phone the dialog is a bottom sheet with a 44px grabber. The on-screen
  * keyboard shrinks the visual viewport but not the layout viewport the sheet
- * is anchored to: modal.js sets --keyboard-inset to the covered height so the
- * sheet, and the field in it, stay above the keyboard. */
+ * is anchored to: modal.js sets --keyboard-inset to the covered height on
+ * every open sheet, so the sheet, and the field in it, stay above the
+ * keyboard (the base sheet rule above lifts the others the same way). */
 @media (max-width: 699.98px) {
   dialog.modal.modal--compact {
     inset: auto 0 var(--keyboard-inset, 0px);
@@ -7053,15 +7055,21 @@ dialog.access-sheet[open],
   display: flex;
   flex-direction: column;
   max-height: 85vh;
-  max-height: 85dvh;
+  max-height: min(85dvh, calc(100dvh - var(--keyboard-inset, 0px) - 12px));
   overflow: hidden;
 }
 
 /* Users table ----------------------------------------------------------
- * One <table> of users. Below 79.5rem every row is a card: avatar and
- * email with the "..." menu on top, the role select and the Active switch
- * under it, frames and last sign-in at the bottom. */
-.users-table,
+ * One <table> of users. Below 79.5rem the table is one card and every row
+ * is a person in it: avatar, address and status with "Role . frames" under
+ * them, the Active switch and the "..." menu on the right. */
+.users-table {
+  display: block;
+  background: var(--glass-solid);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+}
+
 .users-table tbody {
   display: block;
 }
@@ -7078,10 +7086,30 @@ button.row-menu__item {
   text-align: left;
   color: var(--color-text);
 }
+
+/* The invite trigger is the words on a wide screen and a square plus button
+ * beside the title on a phone. */
+.page-header__action-icon {
+  display: none;
+}
+
 @media (max-width: 699.98px) {
-  .page-header:has(> .page-header__actions--stack) {
-    grid-template-columns: minmax(0, 1fr);
-    row-gap: var(--space-md);
+  .page-header__action-icon {
+    display: inline-flex;
+  }
+
+  .page-header__action-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  a.page-header__action:has(> .page-header__action-icon) {
+    width: 44px;
+    padding: 0;
   }
 }
 
@@ -7092,9 +7120,6 @@ button.row-menu__item {
     width: 100%;
     border-collapse: separate;
     border-spacing: 0;
-    background: var(--glass-solid);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-card);
   }
 
   .users-table tbody {

@@ -136,7 +136,8 @@ def test_desktop_sidebars_put_the_switch_first(
         assert switch.count() == 1
         assert page.locator(
             ".dashboard-sidebar > :not(.brand)").first.get_attribute("class") == "space-switch"
-        assert switch.locator("a").first.inner_text().strip() == "Console"
+        assert [a.strip() for a in switch.locator("a").all_inner_texts()] == [
+            "My frames", "Console"]
         assert page.locator(".sidebar-nav .nav-group__label").first.inner_text(
             ).strip().lower() == "administration"
         links = page.evaluate(_SIDEBAR_LINKS)

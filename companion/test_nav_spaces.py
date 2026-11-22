@@ -46,7 +46,7 @@ def test_admin_personal_sidebar_follows_the_spec():
     # The switch is its own landmark above the sidebar navigation, never inside it.
     assert "space-switch" not in sidebar
     switch = ui_nav.space_switch_html("home")
-    assert _hrefs(switch.replace("space-switch__segment", "x")) == ["/fleet", "/"]
+    assert _hrefs(switch.replace("space-switch__segment", "x")) == ["/", "/fleet"]
     assert "Advanced" not in sidebar and "Administration" not in sidebar
     for route in ("/update", "/health", "/device"):
         assert 'href="%s"' % route not in sidebar

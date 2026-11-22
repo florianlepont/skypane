@@ -548,18 +548,6 @@ button.row-menu__item--destructive,
 button.row-menu__item--destructive:hover {
   color: var(--color-status-error);
 }
-@media (max-width: 699.98px) {
-
-  .page-header__actions--stack {
-    grid-column: 1;
-    grid-row: 2;
-  }
-
-  .page-header__actions--stack a.page-header__action {
-    display: flex;
-    width: 100%;
-  }
-}
 
 @container health-rows (min-width: 420px) {
   .health-row__summary {
