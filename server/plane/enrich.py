@@ -262,7 +262,44 @@ def _fresh_entry(cache, key, now):
     return entry
 
 
-def _lookup(callsign, cache, transport, timeout, now):
+DIRECTORY_VRS = "vrs"
+DIRECTORY_ADSBDB = "adsbdb"
+
+OUTCOME_FOUND = "found"
+OUTCOME_NONE = "none"
+OUTCOME_FAILED = "failed"
+
+
+class LookupReport:
+    """What one or more `resolve_route()` calls asked the route directories.
+
+    `network` lists `(directory, outcome)` for each request that really left
+    the process (a fresh cache entry makes none): `"found"` for a usable
+    answer, `"none"` for a definite no-route answer and `"failed"` for a
+    transient failure. `directory` is the directory whose route the last call
+    returned, `None` when neither supplied one. Pass an instance as `report`;
+    it never changes what `resolve_route()` returns.
+    """
+
+    def __init__(self):
+        self.network = []
+        self.directory = None
+
+
+def _note_lookup(report, directory, outcome):
+    if report is not None:
+        report.network.append((directory, outcome))
+
+
+def _status_outcome(status_code, usable):
+    """The outcome of an HTTP answer: 404 and a 2xx without a usable body are
+    a definite "none"; any other status is a transient failure."""
+    if 200 <= status_code < 300:
+        return OUTCOME_FOUND if usable else OUTCOME_NONE
+    return OUTCOME_NONE if status_code == 404 else OUTCOME_FAILED
+
+
+def _lookup(callsign, cache, transport, timeout, now, report=None):
     """Shared resolution seam behind `lookup_route()`/`resolve_route()`:
     return `(route_or_None, from_cache)`.
 
@@ -291,14 +328,17 @@ def _lookup(callsign, cache, transport, timeout, now):
     try:
         status_code, body = fetch(normalised, timeout)
     except Exception:
+        _note_lookup(report, DIRECTORY_ADSBDB, OUTCOME_FAILED)
         return None, False
 
     if status_code == 404:
+        _note_lookup(report, DIRECTORY_ADSBDB, OUTCOME_NONE)
         cache[normalised] = {"found": False, "cached_at": now}
         return None, False
 
     if 200 <= status_code < 300:
         route = _parse_route(body)
+        _note_lookup(report, DIRECTORY_ADSBDB, _status_outcome(status_code, route is not None))
         if route is None:
             cache[normalised] = {"found": False, "cached_at": now}
             return None, False
@@ -310,7 +350,9 @@ def _lookup(callsign, cache, transport, timeout, now):
         cache[normalised] = cache_entry
         return route, False
 
-    # 429, another 5xx, or any other non-404 4xx: transient, never cached.
+    # 429, another 5xx, or any other non-404 4xx: transient, never cached,
+    # but counted.
+    _note_lookup(report, DIRECTORY_ADSBDB, OUTCOME_FAILED)
     return None, False
 
 
@@ -386,7 +428,7 @@ def _parse_vrs(body):
     return airports if len(airports) >= 2 else None
 
 
-def _vrs_lookup(key, cache, transport, timeout, now):
+def _vrs_lookup(key, cache, transport, timeout, now, report=None):
     """`(airports_or_None, from_cache)`, cached like `_lookup()`: a 404 or an
     unusable file for a day, a usable one for a month, a transient failure
     not at all."""
@@ -397,12 +439,15 @@ def _vrs_lookup(key, cache, transport, timeout, now):
     try:
         status_code, body = (transport or default_vrs_transport)(key, timeout)
     except Exception:
+        _note_lookup(report, DIRECTORY_VRS, OUTCOME_FAILED)
         return None, False
-    if status_code == 404 or (200 <= status_code < 300 and _parse_vrs(body) is None):
+    airports = _parse_vrs(body) if 200 <= status_code < 300 else None
+    outcome = _status_outcome(status_code, airports is not None)
+    _note_lookup(report, DIRECTORY_VRS, outcome)
+    if outcome == OUTCOME_NONE:
         cache[cache_key] = {"found": False, "cached_at": now}
         return None, False
-    if 200 <= status_code < 300:
-        airports = _parse_vrs(body)
+    if outcome == OUTCOME_FOUND:
         cache[cache_key] = {"found": True, "airports": airports, "cached_at": now}
         return airports, False
     return None, False
@@ -426,12 +471,12 @@ def route_leg(airports, state, watched):
     return found[0] if found else None
 
 
-def _vrs_route(callsign, cache, transport, timeout, now, manual_registry, state, watched):
+def _vrs_route(callsign, cache, transport, timeout, now, manual_registry, state, watched, report=None):
     """`(route_or_None, from_cache)` from the VRS file of `callsign`."""
     key = vrs_key(callsign)
     if key is None:
         return None, False
-    airports, from_cache = _vrs_lookup(key, cache, transport, timeout, now)
+    airports, from_cache = _vrs_lookup(key, cache, transport, timeout, now, report)
     leg = route_leg(airports, state, watched)
     if leg is None:
         return None, from_cache
@@ -842,7 +887,7 @@ def airline_only_route(airline_name):
 
 
 def resolve_route(callsign, cache, transport=None, timeout=DEFAULT_TIMEOUT, now=None, manual_registry=None,
-                  name_overrides=None, leg=None, vrs_transport=None):
+                  name_overrides=None, leg=None, vrs_transport=None, report=None):
     """Single resolution seam: classify `callsign`'s enrichment outcome
     into one of five sources and return `(route, source)`.
 
@@ -889,24 +934,33 @@ def resolve_route(callsign, cache, transport=None, timeout=DEFAULT_TIMEOUT, now=
     is asked first and its leg at the watched airports is the route when it
     has one; adsbdb answers otherwise. Without it only adsbdb is asked.
     `vrs_transport` replaces `default_vrs_transport()`. Never raises.
+
+    `report`, a `LookupReport`, collects the requests made and the directory
+    that supplied the route; it has no effect on the result.
     """
     if now is None:
         now = time.time()
     route, source = _resolve_route_unrenamed(
-        callsign, cache, transport, timeout, now, manual_registry, leg, vrs_transport)
+        callsign, cache, transport, timeout, now, manual_registry, leg, vrs_transport, report)
     return apply_name_override(callsign, route, name_overrides), source
 
 
 def _resolve_route_unrenamed(callsign, cache, transport, timeout, now, manual_registry, leg=None,
-                             vrs_transport=None):
+                             vrs_transport=None, report=None):
     """`resolve_route()` before the owner's name override is applied."""
+    if report is not None:
+        report.directory = None
     if leg is not None:
         route, from_cache = _vrs_route(
-            callsign, cache, vrs_transport, timeout, now, manual_registry, leg[0], leg[1])
+            callsign, cache, vrs_transport, timeout, now, manual_registry, leg[0], leg[1], report)
         if route is not None:
+            if report is not None:
+                report.directory = DIRECTORY_VRS
             return route, ("cache_hit" if from_cache else "fresh_hit")
-    route, from_cache = _lookup(callsign, cache, transport, timeout, now)
+    route, from_cache = _lookup(callsign, cache, transport, timeout, now, report)
     if route is not None:
+        if report is not None:
+            report.directory = DIRECTORY_ADSBDB
         corrected = apply_airline_name_correction(normalise_callsign(callsign), route)
         return corrected, ("cache_hit" if from_cache else "fresh_hit")
     return resolve_airline_only(callsign, manual_registry)

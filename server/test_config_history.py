@@ -1342,17 +1342,25 @@ def test_check_in_gaps_degenerate_windows_return_empty_without_raising(tmp_path)
             pytest.fail("a window containing both rows must yield their one interval")
 
 
-def test_history_db_introduces_no_migration_mechanism(tmp_path):
-    """init_schema() adds nullable columns by a guarded ALTER but never stamps a schema version: PRAGMA user_version stays 0 on a fresh and on a migrated database"""
+def test_history_db_stamps_its_schema_version_once(tmp_path):
+    """init_schema() stamps PRAGMA user_version = HISTORY_SCHEMA_VERSION on a fresh database, leaves it at that value when run again and never lowers a newer stamp"""
     path = os.path.join(str(tmp_path), "history.db")
     conn = sqlite3.connect(path)
     try:
         history_db.init_schema(conn)
-        version = conn.execute("PRAGMA user_version").fetchone()[0]
+        first = conn.execute("PRAGMA user_version").fetchone()[0]
+        history_db.init_schema(conn)
+        second = conn.execute("PRAGMA user_version").fetchone()[0]
+        conn.execute("PRAGMA user_version = %d" % (history_db.HISTORY_SCHEMA_VERSION + 5))
+        history_db.init_schema(conn)
+        newer = conn.execute("PRAGMA user_version").fetchone()[0]
     finally:
         conn.close()
-    if version != 0:
-        pytest.fail("init_schema() stamped a schema version: PRAGMA user_version = %r" % (version,))
+    if (first, second) != (history_db.HISTORY_SCHEMA_VERSION,) * 2:
+        pytest.fail("expected user_version %r after each run, got %r then %r"
+            % (history_db.HISTORY_SCHEMA_VERSION, first, second))
+    if newer != history_db.HISTORY_SCHEMA_VERSION + 5:
+        pytest.fail("init_schema() lowered a newer stamp to %r" % (newer,))
 
 
 def test_an_older_runway_events_table_gains_the_gallery_name_column(tmp_path):
@@ -1488,8 +1496,8 @@ def test_the_verdict_vocabulary_is_observed_never_honoured():
                 pytest.fail("%s uses the word %r, which this data cannot support" % (rel, banned))
 
 
-def test_every_create_table_is_guarded_and_there_are_exactly_five():
-    """every CREATE TABLE in history_db.py is guarded by IF NOT EXISTS and there are exactly five - wake_epochs is the whole migration story for its phase, poll_cycles is the bounded per-cycle trace"""
+def test_every_create_table_is_guarded_and_there_are_exactly_six():
+    """every CREATE TABLE in history_db.py is guarded by IF NOT EXISTS and there are exactly six - wake_epochs is the whole migration story for its phase, poll_cycles is the bounded per-cycle trace"""
     src_path = os.path.join(REPO_ROOT, "server", "history_db.py")
     with open(src_path) as fh:
         src = fh.read()
@@ -1498,9 +1506,9 @@ def test_every_create_table_is_guarded_and_there_are_exactly_five():
     if guarded != total:
         pytest.fail("%d of history_db.py's %d CREATE TABLE statements are not guarded by IF NOT EXISTS - "
             "an unguarded one raises on the second connection" % (total - guarded, total))
-    if total != 5:
-        pytest.fail("expected exactly five CREATE TABLE IF NOT EXISTS statements (runway_events, "
-            "device_health, meta, wake_epochs, poll_cycles), found %d" % (total,))
+    if total != 6:
+        pytest.fail("expected exactly six CREATE TABLE IF NOT EXISTS statements (runway_events, "
+            "device_health, meta, wake_epochs, poll_cycles, route_lookups), found %d" % (total,))
 
 
 def test_an_old_schema_database_gains_wake_epochs_without_losing_a_row(tmp_path):
