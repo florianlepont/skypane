@@ -103,7 +103,7 @@ def test_a_directory_never_asked_says_so_and_a_failure_is_not_implied(make_app_s
     for directory in ("vrs", "adsbdb"):
         row = root.select_one("#health-row-route-directory-" + directory)
         assert row.attrs["data-state"] == "off"
-        assert row.select_one(".health-row__value").text() == TEXT[lang]["none"]
+        assert row.select_one(".health-row__verdict").text() == TEXT[lang]["none"]
         assert row.select(".health-row__facts") == []
     answers = root.select_one("#health-row-route-answers")
     assert answers.select_one(".health-row__verdict").text() == TEXT[lang]["empty_answers"]
@@ -116,9 +116,9 @@ def test_a_healthy_directory_shows_its_last_answer_and_its_shares(make_app_serve
     text = TEXT[lang]
     row = root.select_one("#health-row-route-directory-vrs")
     assert row.attrs["data-state"] == "ok"
-    assert row.select_one(".health-row__name").text() == text["role_vrs"]
-    assert row.select_one(".health-row__verdict").text() == {"en": "VRS standing data", "fr": "Données VRS"}[lang]
-    assert row.select_one(".health-row__value").text() == text["reachable"]
+    assert row.select_one(".health-row__name").text() == {"en": "VRS standing data", "fr": "Données VRS"}[lang]
+    assert row.select_one(".health-row__verdict").text() == text["reachable"]
+    assert text["role_vrs"] in row.text()
     facts = _facts(row)
     assert list(facts) == [_plain(label) for label in text["facts"]]
     assert facts[_plain(text["facts"][1])] == text["lookups"] % 21
@@ -133,8 +133,8 @@ def test_a_directory_whose_last_request_failed_needs_attention(make_app_server, 
     text = TEXT[lang]
     row = root.select_one("#health-row-route-directory-adsbdb")
     assert row.attrs["data-state"] == "warn"
-    assert row.select_one(".health-row__verdict").text() == "adsbdb"
-    assert row.select_one(".health-row__value").text() == text["down"]
+    assert row.select_one(".health-row__name").text() == "adsbdb"
+    assert row.select_one(".health-row__verdict").text() == text["down"]
     facts = _facts(row)
     # Requests of the last 24 hours: 4 found, 3 none, 3 failed.
     assert facts[_plain(text["facts"][1])] == text["lookups"] % 10
@@ -147,8 +147,8 @@ def test_flights_are_split_by_the_directory_that_answered(make_app_server, lang)
     root, _html = _health(make_app_server, _seed_degraded, lang)
     row = root.select_one("#health-row-route-answers")
     assert row.select_one(".health-row__verdict").text() == TEXT[lang]["answers"]
-    assert row.select_one(".health-row__name").text() == "%s \u00b7 %s" % (
-        TEXT[lang]["answered_by"], _plain(TEXT[lang]["window"]))
+    assert row.select_one(".health-row__name").text() == TEXT[lang]["answered_by"]
+    assert _plain(TEXT[lang]["window"]) in row.text()
     bar = row.select_one(".route-bar")
     assert bar.attrs["role"] == "img" and bar.attrs["aria-label"] == TEXT[lang]["answers"]
     assert [seg.attrs["style"] for seg in bar.select(".route-bar__seg")] == ["--seg: 4", "--seg: 1"]

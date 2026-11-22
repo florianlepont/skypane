@@ -71,8 +71,8 @@ def test_the_route_cards_show_both_directories_and_overflow_nowhere(
         reachable, down = VERDICTS[lang]
         vrs = page.locator("#health-row-route-directory-vrs")
         adsbdb = page.locator("#health-row-route-directory-adsbdb")
-        assert vrs.locator(".health-row__value").inner_text() == reachable, where
-        assert adsbdb.locator(".health-row__value").inner_text() == down, where
+        assert vrs.locator(".health-row__verdict").inner_text() == reachable, where
+        assert adsbdb.locator(".health-row__verdict").inner_text() == down, where
         for row in (vrs, adsbdb):
             assert row.locator(".health-row__facts").is_visible(), where
             assert row.locator(".health-row__facts > div").count() == 4, where
@@ -95,7 +95,7 @@ def test_a_frame_with_no_counters_yet_says_so_without_overflow(
         assert not _assert_no_page_overflow(page, "route-sources-empty", viewport["width"])
         for directory in ("vrs", "adsbdb"):
             row = page.locator("#health-row-route-directory-" + directory)
-            assert row.locator(".health-row__value").inner_text() == "No request yet"
+            assert row.locator(".health-row__verdict").inner_text() == "No request yet"
         assert page.locator("#health-row-route-answers .route-bar").count() == 0
     finally:
         context.close()

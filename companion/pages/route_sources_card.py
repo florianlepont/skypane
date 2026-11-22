@@ -75,15 +75,15 @@ def _share(part, whole):
 
 
 def _directory_row(directory, stats, now):
-    """One directory as the mock draws it: its role as the small label, its
-    name as the verdict line and whether it is reachable at the right."""
+    """One directory: its name, whether it is reachable, its role and, once it
+    has been asked, the last answer and the shares of the last day."""
     name = i18n.t(_NAMES[directory]) if directory in _NAMES else _ADSBDB
-    role = i18n.t(_ROLES[directory])
+    role = health_rows.note_html(i18n.t(_ROLES[directory]))
     row_id = "route-directory-" + directory
     if stats["reachable"] is None:
         return health_rows.row_html(
-            row_id, "off", role, name, escape_html(i18n.t(_NO_REQUEST)),
-            health_rows.note_html(i18n.t(_NO_REQUEST_NOTE)))
+            row_id, "off", name, i18n.t(_NO_REQUEST), "",
+            role + health_rows.note_html(i18n.t(_NO_REQUEST_NOTE)))
     reachable = stats["reachable"]
     lookups = stats["lookups"]
     facts = health_rows.facts_html([
@@ -92,8 +92,8 @@ def _directory_row(directory, stats, now):
         hp._fact(_FOUND, escape_html(_share(stats["found"], lookups))),
         hp._fact(_FAILED, escape_html(_share(stats["failed"], lookups)))])
     return health_rows.row_html(
-        row_id, "ok" if reachable else "warn", role, name,
-        escape_html(i18n.t(_REACHABLE if reachable else _NOT_REACHABLE)), facts)
+        row_id, "ok" if reachable else "warn", name,
+        i18n.t(_REACHABLE if reachable else _NOT_REACHABLE), "", role + facts)
 
 
 def _bar_html(vrs, adsbdb):
@@ -118,8 +118,8 @@ def _answers_row(answers):
         i18n.t(_WINDOW_ONE) % ANSWER_WINDOW_DAYS if total == 1
         else i18n.t(_WINDOW) % (ANSWER_WINDOW_DAYS, total))
     return health_rows.row_html(
-        "route-answers", "off", "%s \u00b7 %s" % (name, window), _ANSWER_TOTALS % (vrs, adsbdb), "",
-        _bar_html(vrs, adsbdb))
+        "route-answers", "off", name, _ANSWER_TOTALS % (vrs, adsbdb), "",
+        health_rows.note_html(window) + _bar_html(vrs, adsbdb))
 
 
 def topics(data, now):
