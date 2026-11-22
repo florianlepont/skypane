@@ -107,7 +107,8 @@ class PreviewImagesMixin:
         # the current one is answered with a year-long entry. Any other value, or none,
         # keeps the short lifetime, so a stale link can never pin an outdated image.
         asked = parse_qs(urlsplit(self.path).query).get("v", [None])[0]
-        current = theme_preview.frame_preview_version(theme_id, state, size, layout, profile)
+        current = theme_preview.frame_preview_version(
+            theme_id, state, size, layout, profile, state_dir=device.state_dir)
         if asked is not None and asked == current:
             return self.send_bytes(200, "image/png", payload, cache_seconds=ADDRESSED_CACHE_SECONDS,
                                    immutable=True)

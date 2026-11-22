@@ -271,17 +271,19 @@ def result_dialog_html(
 def choice_dialog_html(
         dialog_id, title, text, primary_label, secondary_label, quiet_label, hook_attr,
         alt_primary_label=None, note=None):
-    """A modal dialog that asks a question and offers three actions, none of
-    them a form post: a primary, a secondary and a quiet one that closes the
-    dialog and changes nothing.
+    """A modal dialog that asks a question and offers two actions plus a
+    close cross, none of them a form post: a primary, a secondary and a
+    quiet one (the cross at the top right) that closes the dialog and
+    changes nothing. `quiet_label` is the cross's accessible name.
 
     The dialog is closed in the markup and only a script opens it (it has no
     opener link): a page uses it where a script intercepts a navigation, and
     without script the page keeps its plain links. `hook_attr` is a lowercase
-    slug; the buttons carry `data-<hook_attr>-primary`, `-secondary` and
-    `-quiet` for that script. The quiet button takes the initial focus so
-    Enter never confirms the primary action unasked, and Escape closes the
-    dialog as it does the quiet button.
+    slug; the controls carry `data-<hook_attr>-primary`, `-secondary` and
+    `-quiet` for that script. The cross takes the initial focus so Enter
+    never confirms the primary action unasked, and Escape closes the dialog
+    as it does the cross. The two buttons share one row of equal width from
+    700px up and stack below it (CSS: `.modal--choice`).
 
     `alt_primary_label` and `note` are for a script that sometimes cannot do
     what the primary promises: the primary carries the alternative label as
@@ -295,16 +297,16 @@ def choice_dialog_html(
     note_html = ('<p class="text-label" data-%s-note hidden>%s</p>' % (hook, escape_html(note))
                  if note else "")
     return (
-        '<dialog class="modal" id="%(id)s" aria-labelledby="%(title_id)s" data-%(hook)s>'
+        '<dialog class="modal modal--choice" id="%(id)s" aria-labelledby="%(title_id)s" data-%(hook)s>'
         '<header class="modal__head"><div>'
         '<h2 class="modal__title text-heading" id="%(title_id)s">%(title)s</h2>'
-        '</div></header>'
+        '</div>'
+        '<button type="button" class="modal__close" data-%(hook)s-quiet data-modal-close '
+        'autofocus aria-label="%(quiet)s">%(close_icon)s</button></header>'
         '<div class="modal__body"><p class="text-body">%(text)s</p>%(note)s</div>'
         '<div class="modal__actions">'
         '<button type="button" class="btn btn--primary" data-%(hook)s-primary%(alt)s>%(primary)s</button>'
         '<button type="button" class="btn btn--secondary" data-%(hook)s-secondary>%(secondary)s</button>'
-        '<button type="button" class="btn btn--ghost" data-%(hook)s-quiet data-modal-close '
-        'autofocus>%(quiet)s</button>'
         '</div></dialog>\n'
     ) % {
         "id": slug,
@@ -317,6 +319,7 @@ def choice_dialog_html(
         "primary": escape_html(primary_label),
         "secondary": escape_html(secondary_label),
         "quiet": escape_html(quiet_label),
+        "close_icon": icon_html("icon-close", size=20),
     }
 
 
