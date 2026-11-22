@@ -205,14 +205,10 @@
   --motion-toast-dwell: 6s;
   --motion-toast-dwell-long: 12s;
   --motion-dot-pulse: 3.2s;
-  /* Home's two slow ambient loops, content-neutral (the frame may show any
-   * picture): --motion-breathe is the ~6s breathing of the status dot and
-   * of the glow behind the picture, --motion-glint the 12s cycle of which
-   * the soft glass glint across the picture spends a short part. Only the
-   * rules that carry those animations may spend them; reduced motion turns
-   * both off outright. */
+  /* Home's slow ambient loop, content-neutral: --motion-breathe is the ~6s
+   * breathing of the status dot. Only the rule that carries that animation
+   * may spend it; reduced motion turns it off outright. */
   --motion-breathe: 6s;
-  --motion-glint: 12s;
   /* Home's plane flies in once along its trail; only that animation spends
    * this duration. */
 
@@ -1032,8 +1028,6 @@ a:hover {
   }
 
   .home-state__dot--pulse,
-  .hero__picture::before,
-  .hero__glass::after,
   .is-breathing {
     animation: none !important;
   }
@@ -6070,7 +6064,6 @@ a.btn[aria-disabled="true"] {
   }
 }
 
-
 .look-frame__picture {
   position: relative;
   padding: 8px;
@@ -7658,11 +7651,11 @@ button.row-menu__item {
   opacity: 1;
 }
 
-/* Grouped lists: section label, group, row, hero ----------------------------
+/* Grouped lists: section label, group, row -----------------------------------
  * The building blocks of every page (companion/ui_groups.py). A group is one
  * glass surface holding rows separated by hairlines; a row is at least 54px
- * tall and, when it acts, a link or button across its whole width. The hero
- * has no surface at all. Nothing nests: a group never holds another group. */
+ * tall and, when it acts, a link or button across its whole width. Nothing
+ * nests: a group never holds another group. */
 .group-block {
   min-width: 0;
   margin: 0 0 var(--space-lg);
@@ -7826,111 +7819,23 @@ button.row-menu__item {
   inset: 0;
 }
 
-/* The hero: no surface. The picture sits beside a prominent status line in
- * the display face, with secondary lines beneath it. */
-.hero {
-  --home-tone: var(--color-status-ok);
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--space-md) var(--space-lg);
-  align-items: center;
-  margin: 0 0 var(--space-lg);
-}
-
-.hero:has(.hero__picture) {
-  grid-template-columns: minmax(96px, 36%) minmax(0, 1fr);
-}
-@media (min-width: 700px) {
-  .hero:has(.hero__picture) {
-    grid-template-columns: 212px minmax(0, 1fr);
-  }
-}
-
-
-/* The cycle ring sits 5px outside the picture; the margin keeps it, and its
- * stroke, inside the page column instead of hanging out beside the cards. */
-.hero__picture {
-  position: relative;
-  min-width: 0;
-  margin: 6px;
-}
-
-/* The picture sits above the glow behind it. */
-.hero__picture .preview-frame {
-  position: relative;
-}
-
-/* A soft glow of the state's tone behind the picture, breathing on the
- * dot's period. Only opacity and a transform move; it is a pseudo-element,
- * so it takes no room. */
-.hero__picture::before {
-  content: "";
-  position: absolute;
-  inset: -14px;
-  border-radius: calc(var(--radius-control) + 14px);
-  pointer-events: none;
-  background: radial-gradient(closest-side, color-mix(in srgb, var(--home-tone) 26%, transparent), transparent);
-  opacity: 0.25;
-  animation: skypane-picture-breathe var(--motion-breathe) ease-in-out infinite;
-}
-
-/* A glint of glass crossing the picture, clipped to its rounded box. The
- * band rests off to the left for most of its cycle. */
-.hero__glass {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  border-radius: var(--radius-control);
-  pointer-events: none;
-}
-
-.hero__glass::after {
-  content: "";
-  position: absolute;
-  top: -10%;
-  bottom: -10%;
-  left: 0;
-  width: 50%;
-  opacity: 0;
-  transform: translateX(-140%) skewX(-18deg);
-  background: linear-gradient(
-    90deg,
-    transparent,
-    color-mix(in srgb, var(--color-text) 15%, transparent) 30%,
-    var(--glass-highlight) 50%,
-    color-mix(in srgb, var(--color-text) 15%, transparent) 70%,
-    transparent
-  );
-  animation: skypane-glint var(--motion-glint) cubic-bezier(0.45, 0, 0.3, 1) infinite;
-}
-
 /* After a minute without a touch (motion.js sets data-ambient="rest") the
  * ambient loops stop, so a wall tablet's compositor is idle. */
 html[data-ambient="rest"] .home-state__dot--pulse,
-html[data-ambient="rest"] .hero__picture::before,
-html[data-ambient="rest"] .hero__glass::after,
+html[data-ambient="rest"] .home-state__dot--pulse::after,
 html[data-ambient="rest"] .is-breathing {
   animation-iteration-count: 0;
 }
 
-/* The same while the More sheet is open: nothing repaints under its blurred
- * scrim. */
+/* The same while the More sheet or any modal dialog is open: nothing
+ * repaints under a blurred scrim. */
 html:has(.tab-bar__more[open]) .home-state__dot--pulse,
-html:has(.tab-bar__more[open]) .hero__picture::before,
-html:has(.tab-bar__more[open]) .hero__glass::after,
-html:has(.tab-bar__more[open]) .is-breathing {
+html:has(.tab-bar__more[open]) .home-state__dot--pulse::after,
+html:has(.tab-bar__more[open]) .is-breathing,
+html:has(dialog[open]) .home-state__dot--pulse,
+html:has(dialog[open]) .home-state__dot--pulse::after,
+html:has(dialog[open]) .is-breathing {
   animation-iteration-count: 0;
-}
-
-@keyframes skypane-picture-breathe {
-  0%, 100% {
-    opacity: 0.12;
-    transform: scale(0.98);
-  }
-  50% {
-    opacity: 0.5;
-    transform: scale(1.03);
-  }
 }
 
 @keyframes skypane-dot-breathe {
@@ -7940,46 +7845,6 @@ html:has(.tab-bar__more[open]) .is-breathing {
   50% {
     transform: scale(1.14);
   }
-}
-
-@keyframes skypane-glint {
-  0%, 34% {
-    opacity: 0;
-    transform: translateX(-140%) skewX(-18deg);
-  }
-  38%, 46% {
-    opacity: 0.85;
-  }
-  50%, 100% {
-    opacity: 0;
-    transform: translateX(330%) skewX(-18deg);
-  }
-}
-
-.hero__picture .preview-frame__image {
-  width: 100%;
-  max-height: none;
-  margin: 0;
-  border-radius: var(--radius-control);
-  box-shadow: var(--shadow-glass);
-}
-
-.hero__body {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-sm);
-  min-width: 0;
-}
-
-.hero__body > p {
-  margin: 0;
-}
-
-.hero__status {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
 }
 
 /* The frame's name as the page title, with its quiet icon action beside it on

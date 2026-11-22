@@ -117,13 +117,9 @@ _DOT_PULSE_TOKEN = "--motion-dot-pulse"
 _DOT_PULSE_KEYFRAMES = "skypane-dot-halo"
 _DOT_PULSE_SELECTOR = ".home-state__dot--pulse::after"
 
-# Home's two ambient loop periods (the ~6s breathing of the dot and of the glow behind the
-# picture, the 12s cycle of the glass glint) and the rules allowed to spend them.
+# Home's ambient loop period (the ~6s breathing of the dot) and the rule allowed to spend it.
 _AMBIENT_TOKENS = {
-    "--motion-breathe": (
-        ((".home-state__dot--pulse",), "skypane-dot-breathe"),
-        ((".hero__picture::before",), "skypane-picture-breathe")),
-    "--motion-glint": (((".hero__glass::after",), "skypane-glint"),),
+    "--motion-breathe": (((".home-state__dot--pulse",), "skypane-dot-breathe"),),
 }
 
 _ANIMATION_VALUE_KEYWORDS = frozenset((
