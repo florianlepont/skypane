@@ -174,7 +174,10 @@ def test_forms_and_confirm_controls_meet_the_touch_target(
             assert _height(page, selector) >= MIN_TAP_PX, selector
         page.goto(server.base_url() + "/users")
         assert _height(page, "a.page-header__action") >= MIN_TAP_PX
-        assert _height(page, "tr.users-row select") >= MIN_TAP_PX
+        # A phone card has no select: the role changes from the person's menu.
+        page.locator("tr.users-row .row-menu__toggle").first.click()
+        assert _height(page, "tr.users-row .users-menu__role .row-menu__item") >= MIN_TAP_PX
+        page.keyboard.press("Escape")
         page.locator("a.page-header__action").click()
         for selector in (
                 "#invite-email", "#invite-role", '#dlg-invite-user button[type=submit]'):
@@ -279,7 +282,7 @@ def test_console_renders_in_french(new_context, app_server_in_process):
         page.goto(server.base_url() + "/fleet")
         nav = page.locator("nav.sidebar-nav").inner_text()
         assert page.locator("nav.space-switch:visible").inner_text().split() == [
-            "Console", "Mes", "cadres"]
+            "Mes", "cadres", "Console"]
         for label in ("Flotte", "Utilisateurs", "Journal d’audit"):
             assert label in nav, label
         assert "Lieux" not in nav
