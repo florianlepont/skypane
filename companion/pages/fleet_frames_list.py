@@ -202,17 +202,24 @@ def switch_html(view, selected_id=""):
         _t(_SWITCH_ARIA), "".join(chips))
 
 
+def _seen_html(text):
+    """The detail after the status word; its dot separator is hidden where the
+    detail takes its own line."""
+    return (' <span class="fleet-head__seen"><span class="fleet-head__dot" '
+            'aria-hidden="true">·</span> %s</span>' % _esc(text))
+
+
 def _state_line(row, view):
     """The dot, the status word and, for a frame that is not simply online,
     when it was last seen."""
     word = _status_word(row)
     seen = _seen(row, view)
     quiet = frame_status.frame_status(row).key == frame_status.KEY_UP_TO_DATE
-    tail = "" if quiet or not seen else ' <span class="fleet-head__seen">· %s</span>' % _esc(seen)
+    tail = "" if quiet or not seen else _seen_html(seen)
     if row.kind == fleet_page.KIND_RETIRED:
         who = (i18n.t(_BELONGED_TO) % row.owner_email if row.owner_email
                else fleet_page.owner_line(row))
-        tail = ' <span class="fleet-head__seen">· %s</span>' % _esc(who)
+        tail = _seen_html(who)
     return '<p class="fleet-head__state">%s<span>%s</span>%s</p>' % (
         frame_status.status_dot_html(row), _esc(word), tail)
 
