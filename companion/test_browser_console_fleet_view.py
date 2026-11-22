@@ -310,3 +310,33 @@ def test_the_unsaved_changes_bar_docks_under_the_frame_column_clear_of_the_list(
         assert box["x"] + box["width"] <= VIEWPORT_DESKTOP["width"], box
     finally:
         context.close()
+
+
+_SELECTED_ROW = """() => {
+  const body = document.querySelector('.fleet-list__body');
+  const row = document.querySelector('.fleet-list__body .fleet-frame-row.is-selected');
+  const b = body.getBoundingClientRect(), r = row.getBoundingClientRect();
+  return {top: r.top - b.top, bottom: b.bottom - r.bottom, scrolled: body.scrollTop,
+          page: window.scrollY, overflow: body.scrollHeight - body.clientHeight}; }"""
+
+
+def test_the_selected_frame_is_scrolled_into_view_in_a_long_list(
+        new_context, app_server_in_process):
+    server = app_server_in_process
+    seed = fx.seed_fleet(server.state_dir)
+    ids = fx.add_frames(server.state_dir, 30, seed.owner_id)
+    context = new_context(viewport=VIEWPORT_DESKTOP, color_scheme="light")
+    page = context.new_page()
+    _login(page, server.base_url())
+    try:
+        for frame_id in (ids[0], ids[-1]):
+            page.goto(server.base_url() + "/fleet?frame=" + frame_id)
+            page.locator("main").wait_for(state="visible")
+            page.wait_for_function(_SETTLED, timeout=15000)
+            found = page.evaluate(_SELECTED_ROW)
+            assert found["overflow"] > 0, found
+            assert found["top"] >= 0 and found["bottom"] >= 0, found
+            assert found["page"] == 0, found
+        assert found["scrolled"] > 0, found
+    finally:
+        context.close()

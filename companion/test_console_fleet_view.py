@@ -367,3 +367,16 @@ def test_a_pending_row_with_no_code_keeps_the_waiting_wording(fleet):
     server, seed, cookie = fleet
     text = _row_text(fx.get(server, cookie, "/fleet")[2], seed.pending_id)
     assert "Waiting for pairing" in text and "Code shown" not in text, text
+
+
+@pytest.mark.parametrize("lang,words", [
+    ("en", "Retired · Belonged to owner@example.test"),
+    ("fr", "Retiré · Appartenait à owner@example.test")])
+def test_a_retired_frames_header_says_who_it_belonged_to(fleet, lang, words):
+    server, seed, cookie = fleet
+    cookie = "%s; %s=%s" % (cookie, auth.UI_LANG_COOKIE_NAME, lang)
+    page = fx.get(server, cookie, "/fleet?frame=%s" % seed.retired_id)[2]
+    state = re.search(r'<p class="fleet-head__state">(.*?)</p>', page, re.S).group(1)
+    text = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", state)).strip()
+    assert words in text, text
+    assert "Formerly" not in text and "Anciennement" not in text
