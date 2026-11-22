@@ -15,7 +15,7 @@ this module).
 """
 from urllib.parse import quote
 
-from companion import i18n, layout, prefs, ui_components
+from companion import i18n, layout, prefs, ui_components, ui_groups
 
 # Literal here, byte-identical to companion/app.py's own LOGIN_ROUTE
 # (and companion/routes.py's), since this module can never import
@@ -65,6 +65,22 @@ SERVER_ERROR_PURPOSE_TEXT = i18n.msg(
     "SkyPane hit an error and could not finish this request. Go back and try "
     "again; if it keeps happening, tell the administrator.")
 _CREDITS_LINK_TEXT = i18n.msg("credits.credits", "Credits")
+_NOT_FOUND_CAPTION_TEXT = i18n.msg(
+    "common.nothing_hangs_on_this_wall", "Nothing hangs on this wall.")
+
+# The 404 drawing: an empty frame on a wall. Inline and decorative (the line
+# under it carries the message), drawn in the page's own ink so it follows the
+# theme; no asset request and no font.
+_EMPTY_FRAME_SVG = (
+    '<svg class="not-found__art" viewBox="0 0 220 120" aria-hidden="true" '
+    'focusable="false">'
+    '<rect x="70" y="14" width="80" height="100" rx="10" fill="none" '
+    'stroke="currentColor" stroke-width="6"/>'
+    '<rect class="not-found__screen" x="82" y="26" width="56" height="76" rx="4"/>'
+    '<path d="M96 80l12-14 10 10 8-8 12 12" fill="none" stroke="currentColor" '
+    'stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity=".6"/>'
+    '<circle cx="118" cy="48" r="6" fill="currentColor" opacity=".6"/>'
+    "</svg>")
 
 # The Auth0 sign-in start route. A plain GET link, never a form: a form
 # POST would be blocked by the CSP `form-action 'self'` once the response
@@ -196,22 +212,23 @@ def _login_card_html(next_route, auth0_enabled, notice):
     """The card body. `notice` is an optional (tone, title, detail) triple
     of a tone and two Messages rendered as the page's one docked toast
     above the primary action. Without Auth0 the card says sign-in is not
-    configured and offers no way to start a session. The first-visit hint
-    shows only on the plain card, never beside an error.
+    configured and offers no way to start a session. The first-visit hint is
+    one small muted line under the Sign in button, on the plain card only,
+    never beside an error.
     """
     parts = [_login_heading_html(LOGIN_EXPLANATION_AUTH0_TEXT)]
     if not auth0_enabled and notice is None:
         notice = (layout.TOAST_TONE_ERROR, _NOT_CONFIGURED_TEXT, None)
-    if notice is None:
-        parts.append('<p class="text-label section-caption">%s</p>' % (
-            layout.escape_html(i18n.t(FIRST_VISIT_HINT_TEXT))))
-    else:
+    if notice is not None:
         tone, title, detail = notice
         parts.append(layout.toast_html(
             i18n.t(title), i18n.t(detail) if detail else None,
             tone=tone, docked=True))
     if auth0_enabled:
         parts.append(_sign_in_link_html(next_route))
+    if notice is None:
+        parts.append('<p class="text-label login-card__first">%s</p>' % (
+            layout.escape_html(i18n.t(FIRST_VISIT_HINT_TEXT))))
     return "".join(parts)
 
 
@@ -382,6 +399,10 @@ def not_found_page(ui_theme, health_alert, back=BACK_HOME, home_route=None,
     purpose = ADMIN_HINT_PURPOSE_TEXT if admin_hint else NOT_FOUND_PURPOSE_TEXT
     body = (
         layout.page_header(i18n.t(NOT_FOUND_TITLE), purpose=i18n.t(purpose))
+        + ui_groups.group_panel(
+            _EMPTY_FRAME_SVG + '<p class="text-body not-found__caption">%s</p>' % (
+                layout.escape_html(i18n.t(_NOT_FOUND_CAPTION_TEXT))),
+            extra_class="not-found")
         + _back_link_html(back, home_route)
     )
     return layout.page_shell(
