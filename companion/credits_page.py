@@ -145,30 +145,39 @@ def _source_card_html(source, lang):
                 "%s: %s" % (i18n.t(_VISIT_TEXT), source["name"]))))
 
 
-def _back_link_html(back, home_route):
-    """The way out of the page: back to sign-in for a visitor with no session,
-    back to the person's own Home or Account page for a signed-in one."""
-    if back == login_page.BACK_ACCOUNT:
-        route, label = "/account", login_page._BACK_TO_ACCOUNT_TEXT
-    elif back == login_page.BACK_SIGN_IN:
-        route, label = "/login", _BACK_TEXT
-    else:
-        route, label = home_route or layout.HOME_ROUTE, login_page._BACK_TO_HOME_TEXT
-    return '<p class="text-body credits-back"><a class="text-link" href="%s">%s</a></p>' % (
-        layout.escape_html(route), layout.escape_html(i18n.t(label)))
+def _back_link_html(back):
+    """The way out of the page: back to sign-in for a visitor with no session.
+    A signed-in person, user or administrator, came from the Account page and
+    goes back there: a chevron link above the title."""
+    if back == login_page.BACK_SIGN_IN:
+        return '<p class="text-body credits-back"><a class="text-link" href="/login">%s</a></p>' % (
+            layout.escape_html(i18n.t(_BACK_TEXT)))
+    return (
+        '<p class="credits-back credits-back--top"><a class="text-link" href="/account">'
+        '%s%s</a></p>' % (
+            layout.icon_html("icon-chevron-left", 20),
+            layout.escape_html(i18n.t(login_page._BACK_TO_ACCOUNT_TEXT))))
 
 
 def credits_body(sources=None, back=login_page.BACK_SIGN_IN, home_route=None):
-    """The page body for the request language set through prefs."""
+    """The page body for the request language set through prefs. `home_route`
+    is kept for callers; a signed-in person's way back is always Account."""
     if sources is None:
         sources = load_credits()
     lang = prefs.current_lang()
     if lang not in LANGUAGES:
         lang = "en"
+    back_html = _back_link_html(back)
+    signed_in = back != login_page.BACK_SIGN_IN
+    # The signed-in way back sits inside the header, above the title, so it
+    # opens with the header rather than as a block of its own.
+    title_html = back_html + '<h1 class="page-title">%s</h1>' % layout.escape_html(
+        i18n.t(TITLE_TEXT)) if signed_in else None
     return (
-        layout.page_header(i18n.t(TITLE_TEXT), purpose=i18n.t(_INTRO_TEXT))
+        layout.page_header(
+            i18n.t(TITLE_TEXT), purpose=i18n.t(_INTRO_TEXT), title_html=title_html)
         + "".join(_source_card_html(source, lang) for source in sources)
-        + _back_link_html(back, home_route))
+        + ("" if signed_in else back_html))
 
 
 def credits_page(ui_theme, health_alert, sources=None, back=login_page.BACK_SIGN_IN,

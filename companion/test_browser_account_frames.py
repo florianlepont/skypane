@@ -156,7 +156,18 @@ def test_the_card_and_its_dialog_fit_and_meet_the_tap_targets(
         assert _no_sideways_scroll(page)
         row = arig.row(page)
         action = row.locator("a[data-modal-open]")
-        assert action.inner_text() == labels["manage" if who == "owner" else "leave"]
+        assert action.inner_text() == ""
+        assert action.get_attribute("aria-label").startswith(
+            labels["manage" if who == "owner" else "leave"])
+        assert action.locator("svg").count() == 1
+        row_box, action_box = row.bounding_box(), action.bounding_box()
+        assert row.locator(".account-frame__status").bounding_box()["y"] >= row_box["y"] - SUBPIXEL
+        assert action_box["x"] + action_box["width"] <= row_box["x"] + row_box["width"] + SUBPIXEL
+        assert row_box["x"] + row_box["width"] - (action_box["x"] + action_box["width"]) <= 24
+        if who == "owner":
+            assert row_box["height"] <= 96, "the action adds no line to the row"
+        assert row.locator(".row__chevron").count() == 0
+        assert not row.locator(".account-frame__line", has_text="XIAO").count()
         assert action.bounding_box()["height"] >= MIN_TAP_PX - SUBPIXEL
         assert action.bounding_box()["width"] >= MIN_TAP_PX - SUBPIXEL
         assert row.locator("a.row__main").bounding_box()["height"] > 0

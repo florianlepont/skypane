@@ -283,3 +283,56 @@ def test_a_throttled_start_names_the_wait_and_offers_sign_in(rig, new_context, m
     page.get_by_text("Too many attempts").wait_for()
     assert "toast--warning" in page.locator(".toast--docked").get_attribute("class")
     _geometry_ok(page, ["a.login-signin"])
+
+
+@pytest.mark.parametrize("lang", ["en", "fr"])
+@pytest.mark.parametrize("theme", ["light", "dark"])
+def test_the_first_visit_line_sits_under_the_button_small_and_muted(
+        rig, new_context, lang, theme):
+    base = rig.server.base_url()
+    context = _context(new_context, base, theme=theme, width=_WIDTH, lang=lang)
+    page = context.new_page()
+    page.goto(base + "/login")
+    _geometry_ok(page, ["a.login-signin", "a.login-card__link"])
+    button = page.locator("a.login-signin").bounding_box()
+    hint = page.locator(".login-card__first")
+    line = hint.bounding_box()
+    credits = page.locator("a.login-card__link").bounding_box()
+    assert button["y"] + button["height"] <= line["y"] + 1
+    assert line["y"] + line["height"] <= credits["y"] + 1
+    assert hint.evaluate("e => getComputedStyle(e).textAlign") == "center"
+    sizes = page.evaluate(
+        "() => [parseFloat(getComputedStyle(document.querySelector('.login-card__first')).fontSize),"
+        " parseFloat(getComputedStyle(document.querySelector('a.login-signin')).fontSize)]")
+    assert sizes[0] < sizes[1]
+    assert page.locator("a.login-signin").get_attribute("href") == "/login/auth0"
+    assert ("First visit?" if lang == "en" else "Première visite") in hint.inner_text()
+
+
+@pytest.mark.parametrize("who", ["anonymous", "user", "admin"])
+@pytest.mark.parametrize("width", [_WIDTH, 1440])
+def test_the_404_draws_an_empty_frame_inline_for_every_caller(
+        rig, new_context, who, width):
+    base = rig.server.base_url()
+    context = _context(new_context, base, width=width)
+    page = context.new_page()
+    if who != "anonymous":
+        email = INVITED_USER if who == "user" else INVITED_ADMIN
+        _sign_in(page, rig, email, "auth0|" + who)
+        page.wait_for_url(re.compile("^%s/(account|fleet)" % re.escape(base)))
+    requested = []
+    page.on("request", lambda request: requested.append(request.url))
+    response = page.goto(base + "/no-such-page")
+    assert response.status == 404
+    art = page.locator("svg.not-found__art")
+    assert art.get_attribute("aria-hidden") == "true"
+    assert page.locator("img").count() == 0
+    assert page.locator(".not-found__caption").inner_text() == "Nothing hangs on this wall."
+    assert art.bounding_box()["width"] > 100
+    assert all(url.startswith(base) for url in requested)
+    assert not [u for u in requested if u.split("?")[0].endswith((".png", ".jpg", ".woff", ".woff2", ".svg"))
+                and "favicon" not in u and "logo" not in u]
+    button = page.locator("a.error-home-button")
+    assert button.bounding_box()["height"] >= 44
+    assert page.evaluate(
+        "() => document.documentElement.scrollWidth <= document.documentElement.clientWidth")

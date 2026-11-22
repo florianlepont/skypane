@@ -827,6 +827,7 @@ h3 {
 
 .page-header__purpose {
   margin: 0 0 var(--space-lg);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
 /* Block-level by element choice (a <p>), keeping .page-header's
@@ -881,12 +882,12 @@ h3 {
   stroke: var(--color-accent);
 }
 
-/* The login card's mark, centred above the heading. */
+/* The login card's mark, at the start of the heading's line. */
 .login-card .logo-mark {
   display: block;
   width: 40px;
   height: 40px;
-  margin: 0 auto var(--space-md);
+  margin: 0 0 var(--space-md);
 }
 
 .site-title {
@@ -4340,6 +4341,15 @@ a.airline-card {
   background: var(--color-accent-hover);
 }
 
+/* The first-visit hint: one small muted centred line under the button. */
+.login-card .login-card__first {
+  margin: var(--space-sm) 0 0;
+  text-align: center;
+  font-size: var(--font-caption-size);
+  text-wrap: balance;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
 /* A standalone text link inside the card keeps a 44px hit height. */
 .login-card .login-card__link {
   display: flex;
@@ -5626,6 +5636,17 @@ a.btn[aria-disabled="true"] {
   display: inline-flex;
   align-items: center;
   min-height: 44px;
+}
+
+/* The way back above the title: a chevron and the label, semibold. */
+.credits-back--top {
+  margin: 0 0 var(--space-sm);
+}
+
+.credits-back--top .text-link {
+  gap: var(--space-xs);
+  font-weight: var(--weight-semibold);
+  text-decoration: none;
 }
 
 .theme-form input[type="radio"] + label {
@@ -8049,6 +8070,32 @@ html:has(dialog[open]) .is-breathing {
 dialog.modal:focus,
 dialog.modal:focus-visible {
   outline: none;
+}
+
+/* The 404 card: the empty frame drawn in the page ink, one muted line under it. */
+.not-found .group--panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-lg);
+}
+
+.not-found__art {
+  width: 100%;
+  max-width: 260px;
+  height: auto;
+  color: var(--color-text);
+}
+
+.not-found__screen {
+  fill: var(--color-border);
+}
+
+.not-found__caption {
+  margin: 0;
+  text-align: center;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
 /* The one onward link of the error pages: a real primary button. */

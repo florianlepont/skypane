@@ -226,9 +226,9 @@ def test_new_login_surfaces_render_the_approved_french():
 # (Home, Flights, Airlines, Style, Location; French Vols, Compagnies, Lieu).
 _LOGIN_BASELINE = {
     "en": {
-        "nf": "8760ea9b90386a787b5d4c967708326b2be0ae78c8da9fb35df37e9e87e15bd0",
-        "nf2": "8760ea9b90386a787b5d4c967708326b2be0ae78c8da9fb35df37e9e87e15bd0",
-        "forb": "e232c51fa6ed60b42b5aadf0754ed79f0ff39c927e57526b1b911b160541da55",
+        "nf": "eebd9c27e34917fe4c1605d103aa1e0ce1ad9a5642564e2152b0c0518d9f875d",
+        "nf2": "eebd9c27e34917fe4c1605d103aa1e0ce1ad9a5642564e2152b0c0518d9f875d",
+        "forb": "20011e982e42cf5a252b902ee41cc67be2bbf6017434c595981ef27f2f970a12",
     },
 }
 
@@ -260,7 +260,7 @@ def test_account_page_shows_identity_preferences_frames_and_sign_out():
     assert doc.select_one("h1.page-title").text() == "Account"
     cards = [c for c in doc.select("section.group-block") if c.select("h2")]
     assert [c.select_one("h2").text() for c in cards] == [
-        "My frames", "Identity", "Preferences"]
+        "My frames", "Identity", "Preferences", "About"]
     identity = cards[1].text()
     assert "ada@example.com" in identity
     assert "User" in identity
@@ -278,7 +278,7 @@ def test_account_page_shows_identity_preferences_frames_and_sign_out():
     logout = doc.select_one("form[action=\"/logout\"]")
     assert logout.attrs["method"] == "post"
     assert logout.select_one("button").text() == "Sign out"
-    assert [a.attrs["href"] for a in doc.select("a")] == ["/pair-frame"]
+    assert [a.attrs["href"] for a in doc.select("a")] == ["/pair-frame", "/credits"]
 
 
 def test_account_page_role_labels_and_escaping():
@@ -297,7 +297,7 @@ def test_account_page_renders_in_french():
     doc = _doc(account_page.render(account_page.Identity("a@b.fr", "user")))
     assert doc.select_one("h1.page-title").text() == "Compte"
     assert [c.select_one("h2").text() for c in doc.select("section.group-block") if c.select("h2")] == [
-        "Mes cadres", "Identité", "Préférences"]
+        "Mes cadres", "Identité", "Préférences", "À propos"]
     assert "Vos cadres apparaîtront ici" in doc.text()
     assert "Ajouter votre cadre" in doc.text()
     assert "Utilisateur" in doc.text()
@@ -349,7 +349,7 @@ def test_unrecognised_principal_clears_to_default():
 # Only the pages in the Console space (health, device, update) moved from the earlier digest,
 # by the System cell and the Audit log sheet row of the console tab bar; every personal page is byte-identical.
 _SHELL_BASELINE_DIGEST = (
-    "126a68025abfea00b40ca2e67a1ac53220d8aab9fd145488230ff68d159a620d")
+    "151c595b91e13534ac4b5143eed5d3fcc6e8ab9edf51de88cadb928e6816c678")
 
 
 def test_shell_without_a_principal_is_byte_identical_to_before():

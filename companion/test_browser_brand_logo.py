@@ -114,8 +114,8 @@ def test_the_brand_is_one_decorative_link_home_and_the_chrome_keeps_its_hit_targ
 
 @pytest.mark.parametrize("viewport", [VIEWPORT_PHONE, VIEWPORT_DESKTOP], ids=["390", "1280"])
 def test_the_login_card_shows_the_mark_above_the_heading_without_scripts(new_context, server, viewport):
-    """scripts blocked, signed out: the inline mark has a box above the h1, centred in the card,
-    and the card does not overflow the viewport"""
+    """scripts blocked, signed out: the inline mark has a box above the h1, starts at the heading's left
+    edge, stays inside the card, and the card does not overflow the viewport"""
     with _no_js_page(new_context, server.base_url(), "/login", viewport=viewport, sign_in=False,
                      reduced_motion="reduce") as page:
         page.wait_for_load_state("load")
@@ -124,7 +124,8 @@ def test_the_login_card_shows_the_mark_above_the_heading_without_scripts(new_con
         card = page.locator(".login-card").bounding_box()
         assert mark["width"] > 0 and mark["height"] > 0
         assert mark["y"] + mark["height"] <= heading["y"]
-        assert abs((mark["x"] + mark["width"] / 2) - (card["x"] + card["width"] / 2)) <= 1
+        assert abs(mark["x"] - heading["x"]) <= 1
+        assert mark["x"] >= card["x"] and mark["x"] + mark["width"] <= card["x"] + card["width"]
         assert _assert_no_page_overflow(page, "login card") == ""
 
 

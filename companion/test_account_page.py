@@ -205,7 +205,7 @@ def _hrefs(body):
 def _is_allowed_user_target(target):
     return (
         target in (
-            "/account", "/logout", "/pair-frame", "/ui-theme", "/ui-lang")
+            "/account", "/logout", "/pair-frame", "/ui-theme", "/ui-lang", "/credits")
         or target.startswith("/static/")
         or target == "/favicon.ico"
         or target.startswith("#"))
@@ -289,7 +289,7 @@ def test_my_frames_is_the_first_card_and_an_empty_account_shows_the_empty_state(
         ("Add your frame", "/pair-frame")]
     sections = _sections(body)
     assert [s.select_one("h2").text() for s in sections if s.select("h2")] == [
-        "My frames", "Identity", "Preferences"]
+        "My frames", "Identity", "Preferences", "About"]
     assert sections[-1].select_one("form[action='/logout'] button").text() == "Sign out"
 
 
@@ -316,11 +316,13 @@ def test_a_user_sees_their_own_frames_ordered_by_name_with_a_dot_and_manage_acce
     assert attic.select_one(".row__main .account-frame__pic i") is not None
     last_seen_word = attic.select_one(".account-frame__status").text().split("Online")[-1]
     assert last_seen_word.startswith("Seen ") or "Not seen yet" in last_seen_word
-    # A person has no use for the hardware model: only an administrator sees it.
+    # The hardware model is shown to nobody on this page.
     assert not attic.select(".account-frame__line")
     assert hardware.REGISTRY[hardware.LEGACY_KEY].label not in attic.text()
     (action,) = attic.select("a[data-modal-open]")
-    assert action.text() == "Manage access"
+    assert action.text() == ""
+    assert action.attrs["aria-label"] == "Manage access: Attic"
+    assert action.select_one("svg use").attrs["href"] == "#icon-key"
     for banned in ("Last contact", "Battery", "%"):
         assert banned not in card.text()
 
@@ -345,16 +347,60 @@ def test_an_admin_sees_only_the_frames_they_own_on_the_account_page(fleet_server
     assert 'href="/devices/' not in body
 
 
-def test_an_administrator_still_sees_the_hardware_line_of_their_frame():
+def test_the_hardware_model_is_shown_to_nobody_not_even_an_administrator():
     from companion.pages import account_page
     frame = account_page.FrameSummary(
-        name="Attic", hardware="XIAO ePaper EE02", href="/devices/d_1/", device_id="d_1")
-    body = account_page.render(
-        account_page.Identity("a@example.com", account_page.ROLE_ADMIN), frames=(frame,))
-    user_body = account_page.render(
-        account_page.Identity("a@example.com", "user"), frames=(frame,))
-    assert 'class="account-frame__line">XIAO ePaper EE02<' in body
-    assert "XIAO ePaper EE02" not in user_body
+        name="Attic", hardware="XIAO ePaper EE02", href="/devices/d_1/", device_id="d_1",
+        battery_percent=57)
+    for role in (account_page.ROLE_ADMIN, "user"):
+        body = account_page.render(account_page.Identity("a@example.com", role), frames=(frame,))
+        assert "XIAO ePaper EE02" not in body
+        assert "account-frame__line" not in body
+        assert "57" not in body and "%" not in re.sub(r"<[^>]*>", "", body)
+
+
+def test_the_battery_is_a_named_dot_in_both_languages():
+    from companion import prefs
+    from companion.pages import account_page
+    frame = account_page.FrameSummary(
+        name="Attic", hardware="hw", href="/devices/d_1/", device_id="d_1",
+        last_seen=1000.0, battery_percent=5)
+    try:
+        for lang, word in (("en", "Low battery"), ("fr", "Batterie faible")):
+            prefs.set_request_prefs(lang=lang)
+            body = account_page.render(
+                account_page.Identity("a@example.com", "user"), frames=(frame,), now=1060.0)
+            tree = parse_html(body)
+            dot = tree.select_one('.account-frame__status [role="img"]')
+            assert dot.attrs["aria-label"] == word
+            assert "5%" not in tree.text()
+    finally:
+        prefs.set_request_prefs(lang="en")
+
+
+def test_the_credits_row_is_offered_to_a_user_and_to_an_administrator(server):
+    for role in ("user", "admin"):
+        cookie = _seed_session(server.state_dir, role)
+        tree = parse_html(_get(server, "/account", cookie)[2])
+        (about,) = [s for s in tree.select("section.group-block") if s.select("h2")
+                    and s.select_one("h2").text() == "About"]
+        assert [a.attrs["href"] for a in about.select("a.row__main")] == ["/credits"]
+        status, _headers, page = _get(server, "/credits", cookie)
+        assert status == 200
+        assert 'href="/account"' in page and "Back to Account" in page
+        assert "Back to Home" not in page and "Back to sign in" not in page
+        fr_page = _get(server, "/credits", cookie + "; sp_ui_lang=fr")[2]
+        assert "Retour au compte" in fr_page
+
+
+def test_the_account_credits_row_is_in_french():
+    from companion import prefs
+    prefs.set_request_prefs(lang="fr")
+    try:
+        body = account_page.render(account_page.Identity("a@b.c", "user"))
+    finally:
+        prefs.set_request_prefs(lang="en")
+    assert "À propos" in body and "Crédits" in body and "Sources de données et licences" in body
 
 
 def test_a_co_manager_gets_leave_frame_and_the_server_refuses_them_access_changes(
@@ -367,7 +413,8 @@ def test_a_co_manager_gets_leave_frame_and_the_server_refuses_them_access_change
         conn.close()
     tree = parse_html(_get(server, "/account", cookies["other"])[2])
     attic = [r for r in tree.select("li.account-frame") if "Attic" in r.text()][0]
-    assert [a.text() for a in attic.select("a[data-modal-open]")] == ["Leave frame"]
+    assert [a.attrs["aria-label"] for a in attic.select("a[data-modal-open]")] == [
+        "Leave frame: Attic"]
     assert "Shared by owner@example.test" in attic.text()
     assert not tree.select("dialog#dlg-access-" + second.replace("_", "-"))
     form = with_csrf(cookies["other"], {"email": "admin@example.com", "return_to": "/account"})

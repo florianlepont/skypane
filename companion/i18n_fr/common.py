@@ -24,6 +24,7 @@ MESSAGES = {
 
     # --- 404 page ----------------------------------------------------
     "common.page_not_found": "Page introuvable.",
+    "common.nothing_hangs_on_this_wall": "Rien n’est accroché à ce mur.",
     "common.this_page_is_missing_or_reserved_for_administrators":
         "Cette page n’existe pas, ou elle est réservée aux administrateurs.",
     "common.the_page_you_requested_doesn_t_exist_or_may":

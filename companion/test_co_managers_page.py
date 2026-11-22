@@ -642,7 +642,8 @@ def test_a_co_managed_frame_says_who_shared_it_and_offers_leave_not_manage_acces
     assert "Shared by %s" % fx.OWNER_EMAIL in row.text()
     assert row.select_one("a.row__main").attrs["href"] == rig.path
     (action,) = row.select("a[data-modal-open]")
-    assert (action.text(), action.attrs["href"]) == ("Leave frame", "#" + _leave_id(rig))
+    assert (action.attrs["aria-label"].split(":")[0], action.attrs["href"]) == (
+        "Leave frame", "#" + _leave_id(rig))
     assert tree.select_one("dialog#" + _leave_id(rig)) is not None
     assert not tree.select("dialog#" + _access_id(rig))
     assert "Manage access" not in tree.text()
@@ -661,7 +662,8 @@ def test_an_owned_frame_offers_manage_access_with_the_owner_dialog(rig):
     row = _row_of(tree, "Kitchen")
     assert "Shared by" not in row.text()
     (action,) = row.select("a[data-modal-open]")
-    assert (action.text(), action.attrs["href"]) == ("Manage access", "#" + _access_id(rig))
+    assert (action.attrs["aria-label"].split(":")[0], action.attrs["href"]) == (
+        "Manage access", "#" + _access_id(rig))
     dialog = tree.select_one("dialog#" + _access_id(rig))
     assert "open" not in dialog.attrs
     assert [n.text() for n in dialog.select("span.co-manager__email")] == [
@@ -693,9 +695,11 @@ def test_an_admin_sees_manage_access_only_on_frames_they_own(rig):
     rig.db(lambda c: fleet_db.add_co_manager(c, rig.seed.owned_id, admin_id, None))
     tree = parse_html(_account(rig, "admin"))
     kitchen = _row_of(tree, "Kitchen")
-    assert [a.text() for a in kitchen.select("a[data-modal-open]")] == ["Leave frame"]
+    assert [a.attrs["aria-label"].split(":")[0] for a in kitchen.select("a[data-modal-open]")] == [
+        "Leave frame"]
     own = _row_of(tree, "Orly frame")
-    assert [a.text() for a in own.select("a[data-modal-open]")] == ["Manage access"]
+    assert [a.attrs["aria-label"].split(":")[0] for a in own.select("a[data-modal-open]")] == [
+        "Manage access"]
 
 
 def test_adding_from_account_returns_to_account_with_the_dialog_open_and_a_toast(rig):
