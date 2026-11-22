@@ -8,6 +8,7 @@ the deleted notice, and changes nothing from "Keep special look". With scripts b
 shows the dialog and its POST removes the rule.
 
 State is always waited for (focus, open dialogs, navigations), never read right after a key press."""
+import animation_settle
 import pytest
 
 from companion import auth, layout
@@ -32,10 +33,7 @@ DISMISS = DIALOG + " a.modal__dismiss"
 SUBMIT = DIALOG + ' button[type="submit"]'
 RULE = ("prefix", "TVF")
 
-_SETTLED = (
-    "() => document.readyState === 'complete'"
-    " && document.getAnimations().every(a => a.effect && a.effect.getTiming().iterations !== Infinity"
-    " ? a.playState !== 'running' : true)")
+_SETTLED = animation_settle.SETTLED
 _OWNS_CENTRE = (
     "el => { const r = el.getBoundingClientRect();"
     " const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);"

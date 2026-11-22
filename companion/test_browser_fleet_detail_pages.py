@@ -3,6 +3,7 @@ one visible h1, a 44 px way back to the frame, nothing overflowing at 360, 390 a
 English and French and both themes, the Health rows open, and a tile reaching its page in one tap."""
 import datetime
 
+import animation_settle
 import pytest
 
 import fleet_console_support as fx
@@ -16,9 +17,7 @@ pytestmark = pytest.mark.browser
 
 PHONE = {"width": 390, "height": 844}
 VIEWPORTS = [VIEWPORT_MIN_SUPPORTED, PHONE, VIEWPORT_DESKTOP]
-_SETTLED = (
-    "() => document.readyState === 'complete' && document.getAnimations().every("
-    "a => !a.effect || a.effect.getTiming().iterations === Infinity || a.playState !== 'running')")
+_SETTLED = animation_settle.SETTLED
 TITLES = {"en": {"health": "Health", "versions": "Versions"},
           "fr": {"health": "Santé", "versions": "Versions"}}
 

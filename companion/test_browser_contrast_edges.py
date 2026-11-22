@@ -5,6 +5,7 @@ bar whose shadow is bounded so nothing it paints reaches beyond the gap under it
 import io
 import re
 
+import animation_settle
 import pytest
 from companion_app_server import session_cookie_for_state_dir
 from PIL import Image, ImageChops
@@ -19,8 +20,7 @@ from server import fleet_db
 
 pytestmark = pytest.mark.browser
 
-_SETTLED = """() => document.readyState === 'complete' && document.getAnimations().every(
-  (a) => a.playState !== 'running' || a.effect.getComputedTiming().iterations === Infinity)"""
+_SETTLED = animation_settle.SETTLED
 
 THEMES = ["light", "dark"]
 

@@ -8,6 +8,7 @@ Both external map hosts are answered by `page.route`; waits are on the page's ow
 """
 import os
 
+import animation_settle
 import pytest
 
 from companion import auth
@@ -21,9 +22,7 @@ VIEWPORT_PHONE = {"width": 390, "height": 844}
 VIEWPORT_MIN = {"width": 360, "height": 740}
 READY = "() => document.documentElement.classList.contains('map-ready')"
 TILES_LOADED = "() => document.querySelectorAll('#place-map .leaflet-tile-loaded').length >= 1"
-ANIMATIONS_DONE = (
-    "() => document.getAnimations().every("
-    "(a) => a.playState !== 'running' || a.effect.getComputedTiming().iterations === Infinity)")
+ANIMATIONS_DONE = animation_settle.ANIMATIONS_DONE
 SHOTS = os.environ.get("PLACE_BOOT_SHOTS", "")
 
 # What shows of the plain form and of the loading state.

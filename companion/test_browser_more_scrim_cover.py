@@ -4,6 +4,7 @@ below the page, which iOS draws under the status bar and under a tab's toolbar a
 layer sized to the window cannot reach.
 
 Headless Chromium has no safe area, so the insets are forced the way the Location tests do."""
+import animation_settle
 import pytest
 
 from companion import auth
@@ -13,9 +14,7 @@ from place_map_support import SETTLED, Hosts, seed as _seed
 pytestmark = pytest.mark.browser
 
 READY = "() => document.documentElement.classList.contains('map-ready')"
-ANIMATIONS_DONE = (
-    "() => document.getAnimations().every("
-    "(a) => a.playState !== 'running' || a.effect.getComputedTiming().iterations === Infinity)")
+ANIMATIONS_DONE = animation_settle.ANIMATIONS_DONE
 SAFE = (
     "() => { const s = document.documentElement.style;"
     " s.setProperty('--safe-top', '59px'); s.setProperty('--safe-bottom', '34px'); }")

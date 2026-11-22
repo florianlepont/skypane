@@ -5,6 +5,7 @@ clipping a label, four 44px segments inside one track, exactly one current segme
 navigation of plain links reachable and operable from the keyboard, and the Special looks and
 Calendar views as one group of rows with a dashed add row instead of a titled card.
 """
+import animation_settle
 import pytest
 
 from companion import auth, layout
@@ -24,9 +25,7 @@ LABELS = {
     "en": ["Departures", "Arrivals", "Special looks", "Calendar"],
     "fr": ["Départs", "Arrivées", "Allures spéciales", "Calendrier"],
 }
-_SETTLED = (
-    "() => document.readyState === 'complete' && document.getAnimations().every("
-    "(a) => a.playState !== 'running' || a.effect.getComputedTiming().iterations === Infinity)")
+_SETTLED = animation_settle.SETTLED
 _PROBE = """() => {
   const nav = document.querySelector('nav.personalisation-nav');
   const track = nav.getBoundingClientRect();

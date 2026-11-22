@@ -10,6 +10,7 @@ State is always waited for (settled page, owned centres), never read right after
 import re
 from datetime import datetime, timedelta, timezone
 
+import animation_settle
 import pytest
 
 import fleet_console_support as fx
@@ -28,9 +29,7 @@ LANGS = ("en", "fr")
 TABLET = {"width": 768, "height": 900}
 
 _COMPLETE = "() => document.readyState === 'complete'"
-_ANIMATIONS_DONE = (
-    "() => document.getAnimations().every(a => (a.effect && "
-    "a.effect.getComputedTiming().iterations === Infinity) || a.playState !== 'running')")
+_ANIMATIONS_DONE = animation_settle.ANIMATIONS_DONE
 
 
 def _airline_seed(state_dir):

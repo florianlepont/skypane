@@ -2506,6 +2506,18 @@ a.fleet-action-button {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
+/* On a narrow screen the detail takes its own line, so the separator that
+ * would start that line goes. */
+@media (max-width: 30rem) {
+  .fleet-head__seen {
+    flex-basis: 100%;
+  }
+
+  .fleet-head__dot {
+    display: none;
+  }
+}
+
 .fleet-head__sub {
   margin: var(--space-xs) 0 0;
   font-size: var(--font-label-size);

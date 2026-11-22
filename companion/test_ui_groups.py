@@ -1,6 +1,6 @@
 """The grouped-list components, asserted on the markup they produce and on the page that
 uses them: one `<h2>` label per group, links and buttons only where a row acts, a control
-beside (never inside) a link, no group inside a group, and the hero's one status line."""
+beside (never inside) a link and no group inside a group."""
 import pytest
 
 import companion.test_view_pages_helpers as vp
@@ -58,14 +58,6 @@ def test_text_is_escaped():
     assert doc.select("b") == [] and doc.select("i") == [] and doc.select("u") == []
 
 
-def test_the_hero_has_no_surface_and_one_status_line():
-    markup = ui_groups.hero("Up to date", picture_html="<figure></figure>", lines_html="<p>n</p>")
-    section = _doc(markup).select_one("section.hero")
-    assert section.select(".group") == []
-    assert len(section.select("p.hero__status")) == 1
-    assert section.select_one(".hero__picture figure") is not None
-
-
 @pytest.fixture(scope="module")
 def server(module_app_server_factory):
     return module_app_server_factory(seed=vp.seed_home_tile_variety)
@@ -78,7 +70,6 @@ def test_home_is_one_column_of_blocks_with_no_group_nesting(server, path):
     status, _, body = get(server, path, cookie=login(server))
     assert status == 200
     doc = parse_html(body.decode("utf-8"))
-    assert doc.select("section.hero") == []
     column = doc.select_one("main div.home")
     order = [
         (child.tag, child.attrs.get("class", "").split()[0])

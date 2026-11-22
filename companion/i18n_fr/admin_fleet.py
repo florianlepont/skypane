@@ -94,6 +94,7 @@ MESSAGES = {
     "admin_fleet.flash_frame_duplicate":
         "Un cadre avec cette adresse est déjà enregistré.",
     "admin_fleet.retired_on": "Retiré le %s",
+    "admin_fleet.belonged_to": "Appartenait à %s",
     "admin_fleet.code_shown_ago": "Code affiché %s",
     "admin_fleet.system_heading": "Système",
     "admin_fleet.block_state": "État",

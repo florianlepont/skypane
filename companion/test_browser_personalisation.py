@@ -8,6 +8,7 @@ the picture and the picker are two columns that both fit a 1280x800 screen. The 
 are plain links, one view each, with a highlight that slides to the current link (and does not
 under reduced motion); the retired Screen address lands on Departures; without scripts the
 look views offer the native look cards and tables."""
+import animation_settle
 import pytest
 
 from companion import auth, layout
@@ -45,10 +46,7 @@ _OWNS_CENTRE = (
     "el => { const r = el.getBoundingClientRect();"
     " const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);"
     " return !!hit && (hit === el || el.contains(hit) || hit.contains(el)); }")
-_SETTLED = (
-    "() => document.readyState === 'complete'"
-    " && document.getAnimations().every(a => a.effect && a.effect.getTiming().iterations !== Infinity"
-    " ? a.playState !== 'running' : true)")
+_SETTLED = animation_settle.SETTLED
 
 
 def _seed(state_dir):

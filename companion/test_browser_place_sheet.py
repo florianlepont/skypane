@@ -8,6 +8,7 @@ follows the pin; and the map runs behind the glass sidebar and the glass tab bar
 Both external hosts are answered by `page.route`; waits are on the page's own state, never fixed
 sleeps.
 """
+import animation_settle
 import pytest
 
 from companion import auth
@@ -23,9 +24,7 @@ MAP = "#place-map"
 READY = "() => document.documentElement.classList.contains('map-ready')"
 TILES_LOADED = "() => document.querySelectorAll('#place-map .leaflet-tile-loaded').length >= 1"
 # Finite animations and transitions are over; a never-ending one is not waited for.
-ANIMATIONS_DONE = (
-    "() => document.getAnimations().every("
-    "(a) => a.playState !== 'running' || a.effect.getComputedTiming().iterations === Infinity)")
+ANIMATIONS_DONE = animation_settle.ANIMATIONS_DONE
 BAR = ".place-panel > .dirty-bar"
 SAVE = BAR + " button.dirty-bar__save"
 CANCEL = BAR + " button.dirty-bar__cancel"

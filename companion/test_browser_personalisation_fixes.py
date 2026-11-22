@@ -7,6 +7,7 @@ special look clears the key typed for the old kind; choosing a background does n
 controls.
 
 State is always waited for (readiness, hit tests), never read right after an action."""
+import animation_settle
 import pytest
 
 from companion import auth, layout
@@ -30,10 +31,7 @@ OPENER = CALENDAR_ROW + " summary[data-look-open], " + CALENDAR_ROW + " button.l
 SHEET = "[data-look-sheet]"
 LONG_RULES = (("prefix", "FGN"), ("prefix", "CTM"), ("callsign", "AFR1234"))
 
-_READY = (
-    "() => document.readyState === 'complete'"
-    " && document.getAnimations().every(a => a.effect && a.effect.getTiming().iterations !== Infinity"
-    " ? a.playState !== 'running' : true)")
+_READY = animation_settle.SETTLED
 _OWNS_CENTRE = (
     "sel => { const el = document.querySelector(sel); if (!el) return false;"
     " const r = el.getBoundingClientRect();"

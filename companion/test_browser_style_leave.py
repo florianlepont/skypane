@@ -4,6 +4,7 @@ tapped destination, Discard leaves without saving, Stay here (and Escape)
 changes nothing and gives the focus back to the tapped link. Any unsaved value
 asks - the layout, a colour, a special look - and the bottom tab bar, the More
 sheet and the Style sub-tabs all ask. A clean page never asks."""
+import animation_settle
 import pytest
 
 from companion import auth, layout
@@ -43,10 +44,7 @@ CASE_IDS = ["%s-%s" % (name, lang) for name, _viewport, lang in CASES]
 # sidebar instead, so the two are exercised on their own viewport.
 PHONE_CASES = [case for case in CASES if case[0] == "360"]
 PHONE_IDS = ["%s-%s" % (name, lang) for name, _viewport, lang in PHONE_CASES]
-SETTLED = (
-    "() => document.readyState === 'complete'"
-    " && document.getAnimations().every(a => a.playState !== 'running'"
-    " || a.effect.getComputedTiming().iterations === Infinity)")
+SETTLED = animation_settle.SETTLED
 
 
 def _seed(state_dir):

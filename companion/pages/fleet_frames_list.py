@@ -28,6 +28,7 @@ _ALL_FRAMES = i18n.msg("admin_fleet.all_frames_n", "All frames (%d)")
 _NO_MATCH = i18n.msg("admin_fleet.no_frame_found", "No frame found")
 _SWITCH_ARIA = i18n.msg("nav.frame_strip_aria", "Your frames")
 _RETIRED_ON = i18n.msg("admin_fleet.retired_on", "Retired %s")
+_BELONGED_TO = i18n.msg("admin_fleet.belonged_to", "Belonged to %s")
 _CODE_SHOWN = i18n.msg("admin_fleet.code_shown_ago", "Code shown %s")
 _REACTIVATE_HINT = i18n.msg(
     "admin_fleet.reactivate_wake_hint",
@@ -201,15 +202,24 @@ def switch_html(view, selected_id=""):
         _t(_SWITCH_ARIA), "".join(chips))
 
 
+def _seen_html(text):
+    """The detail after the status word; its dot separator is hidden where the
+    detail takes its own line."""
+    return (' <span class="fleet-head__seen"><span class="fleet-head__dot" '
+            'aria-hidden="true">·</span> %s</span>' % _esc(text))
+
+
 def _state_line(row, view):
     """The dot, the status word and, for a frame that is not simply online,
     when it was last seen."""
     word = _status_word(row)
     seen = _seen(row, view)
     quiet = frame_status.frame_status(row).key == frame_status.KEY_UP_TO_DATE
-    tail = "" if quiet or not seen else ' <span class="fleet-head__seen">· %s</span>' % _esc(seen)
+    tail = "" if quiet or not seen else _seen_html(seen)
     if row.kind == fleet_page.KIND_RETIRED:
-        tail = ' <span class="fleet-head__seen">· %s</span>' % _esc(fleet_page.owner_line(row))
+        who = (i18n.t(_BELONGED_TO) % row.owner_email if row.owner_email
+               else fleet_page.owner_line(row))
+        tail = _seen_html(who)
     return '<p class="fleet-head__state">%s<span>%s</span>%s</p>' % (
         frame_status.status_dot_html(row), _esc(word), tail)
 

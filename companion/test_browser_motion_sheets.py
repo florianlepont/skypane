@@ -5,6 +5,7 @@ Every check drives the real served page with a real pointer: the box the sheet o
 what the document reports about focus and open state, and the transform the browser computed.
 State is always waited for, never read straight after a pointer action.
 """
+import animation_settle
 import pytest
 
 import fleet_console_support as fx
@@ -22,10 +23,7 @@ INVITE_LINK = "a.page-header__action"
 GRABBER = QUIET_DIALOG + " .modal__grabber"
 TOAST = ".toast-region--flash .toast"
 
-_SETTLED = (
-    "() => document.readyState === 'complete' && document.getAnimations().every("
-    "(a) => (a.effect && a.effect.getComputedTiming().iterations === Infinity)"
-    " || a.playState !== 'running')")
+_SETTLED = animation_settle.SETTLED
 
 
 def _seed_quiet(state_dir):

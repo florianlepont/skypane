@@ -1,6 +1,7 @@
 """Real-browser checks of small fit and target-size defects: a search hint that is not cut,
 44px targets on suggestion chips and stand-alone links, a tab bar whose cells line up, focus
 that is never left under the floating tab bar, and cards that keep to the page column."""
+import animation_settle
 import pytest
 
 import companion.test_view_pages_helpers as vp
@@ -17,9 +18,7 @@ PHONES = (
     pytest.param(VIEWPORT_PHONE, id="390"))
 LANGS = ("en", "fr")
 
-_READY = (
-    "() => document.readyState === 'complete' && document.getAnimations().every("
-    "(a) => a.playState !== 'running' || a.effect.getComputedTiming().iterations === Infinity)")
+_READY = animation_settle.SETTLED
 
 
 def _seed(state_dir):

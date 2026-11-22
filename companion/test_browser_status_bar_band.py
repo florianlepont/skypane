@@ -5,6 +5,7 @@ screenshot with Pillow), and the browser-chrome colour is the gradient's very fi
 both themes."""
 import io
 
+import animation_settle
 import pytest
 from companion_app_server import session_cookie_for_state_dir
 from PIL import Image
@@ -20,8 +21,7 @@ SAFE_TOP = 59
 STRIP = 200
 TOLERANCE = 2
 
-_SETTLED = """() => document.readyState === 'complete' && document.getAnimations().every(
-  (a) => a.playState !== 'running' || a.effect.getComputedTiming().iterations === Infinity)"""
+_SETTLED = animation_settle.SETTLED
 
 _SKY = """() => {
   const root = getComputedStyle(document.documentElement);

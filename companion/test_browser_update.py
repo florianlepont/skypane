@@ -22,6 +22,7 @@ import hashlib
 import json
 import os
 
+import animation_settle
 import pytest
 
 from companion import auth, layout
@@ -692,7 +693,7 @@ def test_twelve_releases_fit_at_every_width_with_unbroken_versions_and_full_targ
             details = rows.nth(index).locator("details")
             if not details.count():
                 continue
-            page.wait_for_function("() => document.getAnimations().length === 0")
+            animation_settle.wait_settled(page, "main")
             details.locator("summary").click()
             page.wait_for_function("d => d.open", arg=details.element_handle())
             box = details.locator("ul").bounding_box()

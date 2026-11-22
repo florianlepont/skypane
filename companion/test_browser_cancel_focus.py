@@ -1,6 +1,7 @@
 """Cancel in the save bar: the bar leaves and keyboard focus goes back to the
 control that was changed, so the next Tab continues from where the person was
 instead of from the top of the page."""
+import animation_settle
 import pytest
 
 from companion import layout
@@ -13,10 +14,7 @@ pytestmark = pytest.mark.browser
 VIEWPORTS = (("360", VIEWPORT_MIN_SUPPORTED), ("1280", VIEWPORT_DESKTOP))
 SAVED_LOOK = "band_red_field"
 GREEN = '[data-look-sheet][data-look-inline] input[data-look-axis="colour"][value="green"]'
-SETTLED = (
-    "() => document.readyState === 'complete'"
-    " && document.getAnimations().every(a => a.playState !== 'running'"
-    " || a.effect.getComputedTiming().iterations === Infinity)")
+SETTLED = animation_settle.SETTLED
 
 
 def _seed(state_dir):

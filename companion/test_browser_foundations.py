@@ -3,6 +3,7 @@ titles sit on the one type scale with the system display face (no serif anywhere
 tracked uppercase, every corner radius is one of the three radius tokens, the fixed bars, sheets
 and header pad themselves with the device safe-area tokens, and the page-shell theme-color tags
 follow the explicit theme."""
+import animation_settle
 import pytest
 
 from place_map_support import Hosts
@@ -17,10 +18,7 @@ DESKTOP = {"width": 1440, "height": 900}
 PAGES = ("/", "/flights", "/account", "/detection", "/airlines", "/display")
 SERIF_FACES = ("Iowan", "Georgia", "Charter", "Palatino", "Book Antiqua", "Times")
 
-FINITE_ANIMATIONS_DONE = (
-    "() => document.readyState === 'complete' && document.getAnimations().every("
-    "(a) => (a.effect && a.effect.getComputedTiming().iterations === Infinity)"
-    " || a.playState !== 'running')")
+FINITE_ANIMATIONS_DONE = animation_settle.SETTLED
 
 _TITLES = """
 () => {

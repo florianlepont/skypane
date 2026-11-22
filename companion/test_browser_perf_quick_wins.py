@@ -22,7 +22,7 @@ RUNNING_LOOPS = """() => document.getAnimations().filter((a) => {
   const t = a.effect && a.effect.getComputedTiming();
   return t && t.iterations === Infinity && a.playState === 'running'
     && a.effect.target && a.effect.target.closest(
-      '.home-state__dot--pulse, .hero__picture, .hero__glass');
+      '.home-state__dot--pulse');
 }).length"""
 
 
@@ -37,7 +37,7 @@ def test_the_ambient_loops_rest_after_a_minute_and_wake_on_a_touch(new_context, 
     page.wait_for_function("() => document.readyState === 'complete'")
     try:
         if not page.evaluate(
-                "() => !!document.querySelector('.home-state__dot--pulse, .hero__picture')"):
+                "() => !!document.querySelector('.home-state__dot--pulse')"):
             pytest.skip("this Home state shows no ambient loop")
         assert page.evaluate("() => document.documentElement.hasAttribute('data-ambient')") is False
         assert page.evaluate(RUNNING_LOOPS) > 0
@@ -48,11 +48,44 @@ def test_the_ambient_loops_rest_after_a_minute_and_wake_on_a_touch(new_context, 
             "() => !document.getAnimations().some((a) => a.playState === 'running'"
             " && a.effect && a.effect.getComputedTiming().iterations === Infinity"
             " && a.effect.target && a.effect.target.closest("
-            "'.home-state__dot--pulse, .hero__picture, .hero__glass'))")
+            "'.home-state__dot--pulse'))")
         page.mouse.click(5, 300)
         page.wait_for_function(
             "() => !document.documentElement.hasAttribute('data-ambient')")
         assert page.evaluate(RUNNING_LOOPS) > 0
+    finally:
+        context.close()
+
+
+_RUNNING_PULSES = """() => document.getAnimations().filter((a) => a.playState === 'running'
+  && a.effect && a.effect.target && a.effect.target.closest(
+    '.home-state__dot--pulse, .is-breathing')).length"""
+_PROBE = """() => {
+  const beat = document.createElement('span');
+  beat.className = 'is-breathing'; beat.textContent = 'live';
+  document.querySelector('main').appendChild(beat);
+  const dialog = document.createElement('dialog');
+  dialog.id = 'pulse-probe'; dialog.textContent = 'Dialog';
+  document.body.appendChild(dialog); }"""
+
+
+def test_home_pulses_stop_under_an_open_dialog_and_run_otherwise(new_context, make_app_server):
+    server = make_app_server(seed=_seed, fake_providers=True)
+    context = new_context(viewport=VIEWPORT_PHONE)
+    page = context.new_page()
+    _login(page, server.base_url())
+    page.goto(server.base_url() + layout.HOME_ROUTE)
+    page.locator("main").wait_for(state="visible")
+    page.wait_for_function("() => document.readyState === 'complete'")
+    try:
+        page.evaluate(_PROBE)
+        page.wait_for_function(
+            "() => document.querySelector('.is-breathing').getAnimations().length > 0")
+        assert page.evaluate(_RUNNING_PULSES) >= 2
+        page.evaluate("() => document.getElementById('pulse-probe').showModal()")
+        page.wait_for_function(_RUNNING_PULSES + " === 0")
+        page.evaluate("() => document.getElementById('pulse-probe').close()")
+        page.wait_for_function(_RUNNING_PULSES + " >= 2")
     finally:
         context.close()
 

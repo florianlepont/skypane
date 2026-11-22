@@ -23,6 +23,7 @@ import hashlib
 import re
 from datetime import datetime, timedelta, timezone
 
+import animation_settle
 import pytest
 
 import fleet_console_support as fx
@@ -468,10 +469,7 @@ def test_the_overdue_home_card_has_no_health_pill_on_desktop(
 # --- Home notification for an amber or red dot ------------------------------
 
 NOTICE = ".home-facts .home-notice"
-FINITE_ANIMATIONS_DONE = (
-    "() => document.readyState === 'complete' && document.getAnimations().every("
-    "(a) => (a.effect && a.effect.getComputedTiming().iterations === Infinity)"
-    " || a.playState !== 'running')")
+FINITE_ANIMATIONS_DONE = animation_settle.SETTLED
 
 _NOTICE_FITS = """
 (selector) => {
@@ -761,8 +759,7 @@ def test_controls_keep_44px_at_every_point_of_the_entrance(
 # the pale sky of Light and the ink gradient of Dark.
 THREE_PAGES = [c for c in PAGES if c.id in ("user-home", "user-account", "user-flight-history")]
 # Home's signature is the one other deliberate ambient motion, content-neutral and slow: the
-# dot's and the picture glow's 6s breathing and the 12s cycle of the glass glint. Each is
-# transform/opacity only and switched off under reduced motion; no other page may loop.
+# dot's 6s breathing. It is transform/opacity only and switched off under reduced motion; no other page may loop.
 # The allow-list is exact: an endless animation passes only with this name on this element
 # (and pseudo-element), each for the reason given. Anything else that loops for ever fails,
 # whatever it is called.
@@ -770,9 +767,6 @@ AMBIENT_LOOPS = {
     # The status dot read from across a room: a soft halo and a slow breath.
     ("skypane-dot-halo", ".home-state__dot--pulse", "::after"),
     ("skypane-dot-breathe", ".home-state__dot--pulse", None),
-    # The frame picture's signature: the glow behind it and the glint over its glass.
-    ("skypane-picture-breathe", ".hero__picture", "::before"),
-    ("skypane-glint", ".hero__glass", "::after"),
 }
 
 
@@ -1095,7 +1089,7 @@ _BLUR_AND_ANIMATIONS = """
     const target = a.effect && a.effect.target;
     return t && t.iterations === Infinity &&
       !(target && target.closest(
-        '.home-state__dot--pulse, [class*="dot--pulse"], .hero__picture, .hero__glass'));
+        '.home-state__dot--pulse, [class*="dot--pulse"]'));
   }).map((a) => (a.effect.target && a.effect.target.className) || a.id || 'animation');
   return {blurred, infinite};
 }
