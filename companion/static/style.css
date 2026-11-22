@@ -882,12 +882,12 @@ h3 {
   stroke: var(--color-accent);
 }
 
-/* The login card's mark, centred above the heading. */
+/* The login card's mark, at the start of the heading's line. */
 .login-card .logo-mark {
   display: block;
   width: 40px;
   height: 40px;
-  margin: 0 auto var(--space-md);
+  margin: 0 0 var(--space-md);
 }
 
 .site-title {
@@ -4346,6 +4346,7 @@ a.airline-card {
   margin: var(--space-sm) 0 0;
   text-align: center;
   font-size: var(--font-caption-size);
+  text-wrap: balance;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
