@@ -827,6 +827,7 @@ h3 {
 
 .page-header__purpose {
   margin: 0 0 var(--space-lg);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
 /* Block-level by element choice (a <p>), keeping .page-header's
@@ -4344,6 +4345,7 @@ a.airline-card {
 .login-card .login-card__first {
   margin: var(--space-sm) 0 0;
   text-align: center;
+  font-size: var(--font-caption-size);
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
