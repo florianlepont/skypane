@@ -1759,15 +1759,15 @@ a.row-action {
   }}
 
 /* Account: grouped rows. A frame row is the drawn frame, the name with its
- * hardware and status, a chevron, and the row's one action as a link line
- * under the text. */
+ * role pill and status, and the row's one action as a 44px icon button at
+ * the right (a row with an action shows no chevron). */
 .account-frame {
-  flex-wrap: wrap;
   padding-block: var(--space-sm);
 }
 
 .group > .account-frame > .row__main {
-  flex: 1 1 100%;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .account-frame__pic {
@@ -1808,16 +1808,17 @@ a.row-action {
 
 .account-frame__action {
   display: inline-flex;
+  flex: none;
   align-items: center;
+  justify-content: center;
   box-sizing: border-box;
-  min-height: 44px;
-  margin: 0 var(--space-md) var(--space-xs)
-    calc(var(--space-md) + 40px + var(--space-sm) + var(--space-xs));
-  color: var(--color-accent);
-  font-size: var(--font-label-size);
-  font-weight: var(--weight-semibold);
-  text-decoration: underline;
-  text-underline-offset: 3px;
+  width: 44px;
+  height: 44px;
+  margin: 0 var(--space-md) 0 0;
+  color: var(--color-text);
+  background: var(--color-dominant);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
 }
 
 /* A value row never widens the page: a long email ellipsises. */
@@ -1847,21 +1848,6 @@ a.row-action {
   min-width: 44px;
   padding: 0 var(--space-md);
 }
-
-/* Wide enough, the frame's action sits at the right of its row. */
-@media (min-width: 640px) {
-  .account-frame {
-    flex-wrap: nowrap;
-  }
-
-  .group > .account-frame > .row__main {
-    flex: 1 1 auto;
-  }
-
-  .account-frame__action {
-    margin: 0 var(--space-md);
-    white-space: nowrap;
-  }}
 
 /* Sign out is a group of its own: one row in the danger colour. */
 .account-sign-out-group .row > form {

@@ -736,6 +736,11 @@ ICON_IDS = ICON_IDS + (
     "icon-cloud-upload",
 )
 
+# The key of an owned frame's Manage access button on Account.
+ICON_IDS = ICON_IDS + (
+    "icon-key",
+)
+
 # The brand mark's geometry on a 32x32 box, shared by the `icon-logo` sprite
 # symbol and the login page's inline copy (login_shell() carries no sprite).
 # Ink is currentColor; the flick carries LOGO_ACCENT_CLASS, which
@@ -1078,6 +1083,10 @@ ICON_DEFS_HTML = (
     '<symbol id="icon-sign-out" viewBox="0 0 20 20" fill="none" '
     'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
     '<path d="M8 3.5H4.5v13H8M13 6.5l3.5 3.5-3.5 3.5M16.5 10H8"/>'
+    "</symbol>"
+    '<symbol id="icon-key" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
+    '<circle cx="6.5" cy="13" r="3.3"/><path d="M9 10.5l7.5-7.5M13.5 6.5l2.5 2.5M11.5 8.5l1.8 1.8"/>'
     "</symbol>"
     '<symbol id="icon-logo" viewBox="0 0 32 32">%s</symbol>'
     "</defs>"
