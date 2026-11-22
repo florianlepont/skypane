@@ -191,10 +191,12 @@ def _console_entries(active):
 
 
 _SPACE_NAV_LABEL = i18n.msg("nav.space", "Space")
+# The administrator's own frames first, then the Console.
 _SPACE_SEGMENTS = (
-    (CONSOLE_SPACE, console_routes.ADMIN_TAB_ROUTE, _CONSOLE_LABEL, _SWITCH_TO_CONSOLE_TEXT, "icon-shield"),
     (PERSONAL_SPACE, HOME_ROUTE, _PERSONAL_LABEL, _SWITCH_TO_PERSONAL_TEXT,
      "icon-device"),
+    (CONSOLE_SPACE, console_routes.ADMIN_TAB_ROUTE, _CONSOLE_LABEL, _SWITCH_TO_CONSOLE_TEXT,
+     "icon-shield"),
 )
 
 

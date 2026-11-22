@@ -144,7 +144,8 @@ def test_the_header_opens_a_short_invite_dialog_with_administrator_unticked(rig)
     body = fx.get(server, cookie, "/users")[2]
     assert re.search(
         r'<a href="#dlg-invite-user" class="page-header__action" data-modal-open>'
-        r'\+ Invite a user</a>', body)
+        r'<span class="page-header__action-icon" aria-hidden="true">.*?</span>'
+        r'<span class="page-header__action-label">\+ Invite a user</span></a>', body, re.S)
     dialog = re.search(
         r'<dialog class="modal modal--compact modal--top" id="dlg-invite-user".*?</dialog>',
         body, re.S)
@@ -170,7 +171,7 @@ def test_a_hostile_email_is_escaped_and_the_row_is_not_monospace(rig):
     css = served_stylesheet(server)
     declared = declarations_for(css, ".users-email")
     assert "monospace" not in str(declared)
-    assert declared.get("overflow-wrap") == "anywhere" and "text-overflow" not in declared
+    assert declared.get("text-overflow") == "ellipsis" and "overflow-wrap" in declared
 
 
 def test_own_row_shows_the_guard_in_place_of_the_role_select_and_locks_the_switch(rig):

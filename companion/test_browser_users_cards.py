@@ -87,8 +87,7 @@ def _rgb(css):
 @pytest.mark.parametrize("lang", ["en", "fr"])
 def test_a_long_email_stays_inside_its_cell_and_keeps_its_full_value_as_the_title(
         new_context, server, viewport, lang):
-    """A phone card wraps the address; the table keeps it on one line that ends in an
-    ellipsis."""
+    """At every width the address is one line that ends in an ellipsis."""
     context, page = _open(new_context, server, viewport, lang)
     try:
         email = _row(page, LONG_EMAIL).locator(".users-email")
@@ -98,11 +97,7 @@ def test_a_long_email_stays_inside_its_cell_and_keeps_its_full_value_as_the_titl
                       client: el.clientWidth, title: el.title, text: el.textContent,
                       cell: el.closest('.users-cell').getBoundingClientRect().right,
                       right: el.getBoundingClientRect().right}; }""")
-        if viewport["width"] >= 1272:
-            assert facts["over"] == "ellipsis" and facts["scroll"] > facts["client"], facts
-        else:
-            assert facts["over"] != "ellipsis" and facts["wrap"] == "anywhere"
-            assert facts["scroll"] <= facts["client"] + 1, "the address must wrap, not overflow"
+        assert facts["over"] == "ellipsis" and facts["scroll"] > facts["client"], facts
         assert facts["right"] <= facts["cell"] + 0.5
         assert facts["title"] == facts["text"] == LONG_EMAIL
         assert not _assert_no_page_overflow(page, "users")

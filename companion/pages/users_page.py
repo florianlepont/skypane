@@ -336,25 +336,28 @@ def _guard_html(row):
 
 
 def _role_cell(row):
-    """The role select that sends its form on change (a Save button shows
-    only without script) and lands on the confirmation dialog, or the plain role and the guard sentences for the
-    signed-in administrator and the last active administrator."""
-    guard = _guard_html(row)
-    if guard:
+    """The role select, drawn as a bordered chip with a chevron, that sends
+    its form on change (a Save button shows only without script) and lands on
+    the confirmation dialog, or the plain role for the signed-in administrator
+    and the last active administrator (their guard sentences sit in the
+    person's cell, which every layout shows)."""
+    if row.is_self or row.is_last_admin:
         # The explanation is a tooltip and a hidden description of the role,
         # not text in the cell: the "You" pill already marks the row.
         explained = " ".join(
             _t(note) for flag, note in (
                 (row.is_self, _SELF_LOCK), (row.is_last_admin, _LAST_ADMIN)) if flag)
-        return '<span class="users-role-fixed" title="%s">%s</span>%s' % (
-            explained, _esc(role_name(row.role)), guard)
+        return '<span class="users-role-fixed" title="%s">%s</span>' % (
+            explained, _esc(role_name(row.role)))
     select_id = "role-%d" % row.user_id
     controls = (
         '<label class="visually-hidden" for="%s">%s</label>'
-        '<select id="%s" name="%s" data-autosubmit>%s</select>'
+        '<span class="users-role-chip"><select id="%s" name="%s" data-autosubmit>%s</select>'
+        '%s</span>'
         '<noscript><button type="submit" class="users-role-save">%s</button></noscript>' % (
             select_id, _esc(i18n.t(_ROLE_OF_ARIA) % row.email), select_id, ROLE_FIELD,
-            _role_options(row.role), _t(_SAVE_ROLE)))
+            _role_options(row.role), icon_html("icon-chevron-down", size=16),
+            _t(_SAVE_ROLE)))
     return _post_form(row, _routes().USER_ROLE_SUFFIX, "users-role-form", controls)
 
 
@@ -423,7 +426,7 @@ def _role_dialog(view):
         _ui().csrf_field() + fields, body, i18n.t(submit), i18n.t(keep),
         _routes().USERS_ROUTE, destructive=not promote, confirm_only=True,
         open_=True, return_on_close=True, variant="compact",
-        return_focus_id="role-%d" % user_id)
+        return_focus_id="role-%d users-menu-%d" % (user_id, user_id))
 
 
 # A paper plane for "Send a new invitation", drawn inline: a new sprite symbol would change
@@ -445,12 +448,29 @@ def _renew_form(row):
             _esc(row.email), _SEND_ICON, _t(_RENEW_BUTTON)))
 
 
+def _role_menu_item(row):
+    """The menu item that changes the role where the table's select is not
+    shown (a phone card): it posts the other role without the confirmed mark,
+    so it lands on the same confirmation dialog as the select. None for the
+    two rows whose role is locked."""
+    if row.is_self or row.is_last_admin:
+        return ""
+    promote = row.role != ROLE_ADMIN
+    return _post_form(
+        row, _routes().USER_ROLE_SUFFIX, "users-menu__form users-menu__role",
+        '<input type="hidden" name="%s" value="%s">'
+        '<button type="submit" class="row-menu__item">%s</button>' % (
+            ROLE_FIELD, ROLE_ADMIN if promote else ROLE_USER,
+            _t(_PROMOTE_SUBMIT if promote else _DEMOTE_SUBMIT)))
+
+
 def _menu_cell(row):
     """The "..." menu: Send a new invitation to a person who has not signed
-    in yet, Reset sign-in for one who has, then Delete user, which opens its
-    confirmation. The signed-in administrator's own row offers no Delete
+    in yet, the role change (phone cards only), Reset sign-in for one who has,
+    then Delete user, which opens its confirmation. The signed-in administrator's own row offers no Delete
     (the server refuses it), and no menu at all when nothing else is left."""
     items = _renew_form(row) if status_of(row) == STATUS_INVITED else ""
+    items += _role_menu_item(row)
     if row.has_identity:
         items += _post_form(
             row, _routes().USER_UNLINK_SUFFIX, "users-menu__form",
@@ -464,10 +484,10 @@ def _menu_cell(row):
     if not items:
         return ""
     return (
-        '<details class="row-menu"><summary class="row-menu__toggle" aria-label="%s">'
-        '%s</summary><div class="row-menu__panel">%s</div></details>' % (
-            _esc(i18n.t(_MORE_ARIA) % row.email), icon_html("icon-more-vertical", size=20),
-            items))
+        '<details class="row-menu"><summary class="row-menu__toggle" id="users-menu-%d" '
+        'aria-label="%s">%s</summary><div class="row-menu__panel">%s</div></details>' % (
+            row.user_id, _esc(i18n.t(_MORE_ARIA) % row.email),
+            icon_html("icon-more-vertical", size=20), items))
 
 
 def _breakable(email):
@@ -485,7 +505,8 @@ def _row_html(row, view):
         '<span class="users-avatar" aria-hidden="true">%s</span>'
         '<span class="users-who"><span class="users-email" title="%s">%s</span>'
         '<span class="users-status">%s</span>'
-        '<span class="users-pills">%s</span></span></th>'
+        '<span class="users-pills">%s</span>'
+        '<span class="users-meta">%s \u00b7 %s</span>%s</span></th>'
         '<td class="users-cell users-cell--role">%s</td>'
         '<td class="users-cell users-cell--frames">%s</td>'
         '<td class="users-cell users-cell--seen">%s</td>'
@@ -493,6 +514,7 @@ def _row_html(row, view):
         '<td class="users-cell users-cell--menu">%s</td></tr>' % (
             " users-row--menu", row.user_id,
             _initial(row.email), _esc(row.email), _breakable(row.email), _status_pill(row), you,
+            _esc(role_name(row.role)), _frames_cell_html(row), _guard_html(row),
             _role_cell(row), _frames_cell_html(row),
             _last_sign_in_html(row, view.now), _active_cell(row), _menu_cell(row)))
 
@@ -618,10 +640,17 @@ def _result_dialog(view):
 
 
 def header_action_html():
-    """The page header's "+ Invite a user" trigger (opens the invite dialog)."""
+    """The page header's invite trigger (opens the invite dialog): the words on
+    a wide screen, a square plus button on a phone."""
+    # A phone shows the plus alone in a square button; the words stay in the
+    # markup as the accessible name.
     trigger = ui_modal.trigger_html(
-        INVITE_DIALOG_ID, _t(_INVITE_BUTTON), "page-header__action")
-    return '<div class="page-header__actions page-header__actions--stack">%s</div>' % trigger
+        INVITE_DIALOG_ID,
+        '<span class="page-header__action-icon" aria-hidden="true">%s</span>'
+        '<span class="page-header__action-label">%s</span>' % (
+            icon_html("icon-plus"), _t(_INVITE_BUTTON)),
+        "page-header__action")
+    return '<div class="page-header__actions">%s</div>' % trigger
 
 
 def render(view):
