@@ -2,6 +2,7 @@
 the shared buttons, 44px tall at 360 and 1280px in English and French, in the
 page's own panel (scripts blocked, the deep link), in the add-artwork dialog the
 row of the "Known by name only" block opens and in that row's menu."""
+import animation_settle
 import pytest
 
 from companion import auth
@@ -62,8 +63,7 @@ def test_the_resolve_dialog_buttons_are_shared_buttons(
         row.locator(".airlines-known__add").click()
         page.locator("#panel-lookup-dialog[open]").wait_for(state="visible")
         page.wait_for_function(
-            "() => document.readyState === 'complete' && document.getAnimations()"
-            ".every(a => a.playState !== 'running')", timeout=15000)
+            animation_settle.SETTLED, timeout=15000)
         _assert_shared_buttons(page.evaluate(_MEASURE, "#panel-lookup-dialog"), 1)
         # Delete my name is the row's menu item since the airline is listed
         # in the "Known by name only" block; it is a 44px target as well.

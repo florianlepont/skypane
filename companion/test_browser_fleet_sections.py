@@ -5,6 +5,7 @@ history on the Versions page as a flat list, and Retire this frame as the only c
 dialog. A phone stacks the same three sections under its anchors.
 
 State is always waited for (settled page, an open dialog), never read right after an input."""
+import animation_settle
 import pytest
 
 import fleet_console_support as fx
@@ -26,9 +27,7 @@ HEADINGS = {
 MODEL = "XIAO ePaper EE02 13.3in Spectra 6"
 COLUMN = ".fleet-frame"
 BAR = "[data-dirty-bar]"
-_SETTLED = (
-    "() => document.readyState === 'complete' && document.getAnimations().every("
-    "a => !a.effect || a.effect.getTiming().iterations === Infinity || a.playState !== 'running')")
+_SETTLED = animation_settle.SETTLED
 _OWNS_CENTRE = (
     "sel => { const el = document.querySelector(sel); if (!el) return false;"
     " const r = el.getBoundingClientRect();"

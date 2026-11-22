@@ -6,6 +6,7 @@ at 360 and 1280 px, in both languages and both themes. Save and continue lands
 on the tapped page where that page's save can return there, and saves and
 stays where it cannot; Discard leaves without saving; a post of another form
 (the theme switch) asks too."""
+import animation_settle
 import pytest
 
 from companion import auth, layout
@@ -42,9 +43,7 @@ WORDS = {
 SAVE_ONLY = {"en": ("Save", "After saving you stay on this page."),
              "fr": ("Enregistrer", "Après l’enregistrement, vous restez sur cette page.")}
 NOTE = DIALOG + " [data-leave-dialog-note]"
-SETTLED = (
-    "() => document.readyState === 'complete' && document.getAnimations().every("
-    "a => !a.effect || a.effect.getTiming().iterations === Infinity || a.playState !== 'running')")
+SETTLED = animation_settle.SETTLED
 
 
 def _seed(state_dir):

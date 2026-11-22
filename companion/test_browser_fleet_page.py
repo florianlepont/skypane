@@ -225,3 +225,24 @@ def test_the_versions_page_and_system_view_keep_their_text_inside_their_cards(
             assert read["blocks"] >= 1 and not read["bad"], (view, read)
     finally:
         context.close()
+
+
+@pytest.mark.parametrize("lang", ["en", "fr"])
+def test_a_retired_header_detail_takes_its_own_line_without_a_dangling_dot_on_a_phone(
+        new_context, app_server_in_process, lang):
+    viewport = {"width": 320, "height": 800}
+    context, page, seed = _open(new_context, app_server_in_process, viewport, lang)
+    try:
+        page.goto(app_server_in_process.base_url() + "/fleet?frame=" + seed.retired_id)
+        page.locator(".fleet-head__seen").wait_for(state="visible")
+        facts = page.evaluate(
+            "() => { const s = document.querySelector('.fleet-head__state > span');"
+            " const d = document.querySelector('.fleet-head__seen');"
+            " const dot = d.querySelector('.fleet-head__dot');"
+            " return {dot: getComputedStyle(dot).display,"
+            "  below: d.getBoundingClientRect().top >= s.getBoundingClientRect().bottom - 1,"
+            "  left: Math.abs(d.getBoundingClientRect().left"
+            "    - document.querySelector('.fleet-head__state').getBoundingClientRect().left) < 1}; }")
+        assert facts == {"dot": "none", "below": True, "left": True}, facts
+    finally:
+        context.close()

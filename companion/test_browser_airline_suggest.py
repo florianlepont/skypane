@@ -14,6 +14,7 @@ an input."""
 import json
 import time
 
+import animation_settle
 import pytest
 from fake_anthropic import DUMMY_KEY, FakeAnthropic, Scripted, airline_body, error_body
 
@@ -218,7 +219,7 @@ def test_the_edit_dialog_is_a_sheet_on_a_phone_and_a_card_on_a_desktop(
         page.locator(_row("OCN") + " .airlines-gap__edit").click()
         dialog = page.locator(_row("OCN") + " dialog")
         dialog.locator("input[name=airline_name]").wait_for(state="visible")
-        page.wait_for_function("() => document.getAnimations().every(a => a.playState !== 'running')")
+        animation_settle.wait_settled(page, "dialog[open]")
         box = dialog.bounding_box()
         if viewport["width"] < 700:
             assert box["y"] + box["height"] >= viewport["height"] - 1 and box["width"] >= viewport["width"] - 2

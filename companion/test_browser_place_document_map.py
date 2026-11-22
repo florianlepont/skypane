@@ -13,6 +13,7 @@ Both external hosts are answered by `page.route`; waits are on the page's own st
 """
 import io
 
+import animation_settle
 import pytest
 from PIL import Image, ImageChops
 
@@ -27,9 +28,7 @@ VIEWPORT_PHONE = {"width": 390, "height": 844}
 VIEWPORT_MIN = {"width": 360, "height": 740}
 READY = "() => document.documentElement.classList.contains('map-ready')"
 TILES_LOADED = "() => document.querySelectorAll('#place-map .leaflet-tile-loaded').length >= 1"
-ANIMATIONS_DONE = (
-    "() => document.getAnimations().every("
-    "(a) => a.playState !== 'running' || a.effect.getComputedTiming().iterations === Infinity)")
+ANIMATIONS_DONE = animation_settle.ANIMATIONS_DONE
 # The page at rest: on a phone scrolled exactly past the map's lead, on a wide screen at the top.
 AT_REST = (
     "() => Math.abs(window.scrollY - (parseFloat(getComputedStyle(document.documentElement)"

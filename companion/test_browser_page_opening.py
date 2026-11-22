@@ -10,6 +10,7 @@ including the ones that belong to no bar cell.
 """
 import json
 
+import animation_settle
 import pytest
 
 import fleet_console_support as fx
@@ -82,9 +83,7 @@ new MutationObserver((records, observer) => {
 """
 _OPENING_OVER = "() => !document.querySelector('main[data-page-open]')"
 
-_SETTLED_PAGE = (
-    "() => document.readyState === 'complete' && document.getAnimations().every("
-    "(a) => a.playState !== 'running' || a.effect.getComputedTiming().iterations === Infinity)")
+_SETTLED_PAGE = animation_settle.SETTLED
 
 _KEYFRAME_PROPERTIES = """(names) => {
   const found = [];

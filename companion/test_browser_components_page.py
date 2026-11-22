@@ -2,6 +2,7 @@
 light and dark, English and French: no overflow, labels centred in segmented controls and buttons,
 selected against unselected contrast in every segmented control, 44px tap targets, a switch knob
 inside its track with distinct on and off colours, and no overlap between siblings."""
+import animation_settle
 import pytest
 
 import fleet_console_support as fx
@@ -11,8 +12,7 @@ from companion_app_server import session_cookie_for_state_dir
 pytestmark = pytest.mark.browser
 
 VIEWPORTS = {"360": {"width": 360, "height": 740}, "1280": {"width": 1280, "height": 900}}
-SETTLED = """() => document.readyState === 'complete' && document.getAnimations().every(
-  (a) => a.playState !== 'running' || a.effect.getComputedTiming().iterations === Infinity)"""
+SETTLED = animation_settle.SETTLED
 
 # Page-side helpers: colours go through a 1x1 canvas so any CSS colour syntax (color-mix results
 # included) becomes plain RGBA; a background is the stack of translucent layers up to the root.

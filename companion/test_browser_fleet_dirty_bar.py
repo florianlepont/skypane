@@ -3,6 +3,7 @@ the bottom of the viewport (above the floating tab bar on a phone, inside the co
 on a desktop), is as wide as that column, says "Unsaved changes" with Cancel and Save, keeps
 44px targets, never overlaps the tab bar and, at the end of the page, never covers a card.
 Also the wake interval card: one visible label, the value in minutes beside the seconds."""
+import animation_settle
 import pytest
 
 import fleet_console_support as fx
@@ -17,9 +18,7 @@ PHONE = {"width": 390, "height": 844}
 SHORT_DESKTOP = {"width": 1280, "height": 520}
 WORDS = {"en": ("Unsaved changes", "Cancel", "Save"),
          "fr": ("Modifications non enregistrées", "Annuler", "Enregistrer")}
-_SETTLED = (
-    "() => document.readyState === 'complete' && document.getAnimations().every("
-    "a => !a.effect || a.effect.getTiming().iterations === Infinity || a.playState !== 'running')")
+_SETTLED = animation_settle.SETTLED
 _OWNS_CENTRE = (
     "sel => { const el = document.querySelector(sel); if (!el) return false;"
     " const r = el.getBoundingClientRect();"

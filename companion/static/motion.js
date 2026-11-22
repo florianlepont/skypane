@@ -1091,7 +1091,7 @@
     ambientTimer = window.setTimeout(ambientRest, AMBIENT_MS);
   }
 
-  if (document.querySelector(".home-state__dot--pulse, .hero__picture")) {
+  if (document.querySelector(".home-state__dot--pulse")) {
     ["pointerdown", "keydown"].forEach(function (name) {
       document.addEventListener(name, ambientWake, {passive: true});
     });

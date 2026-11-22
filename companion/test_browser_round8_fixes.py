@@ -11,6 +11,7 @@ import os
 import shutil
 from datetime import datetime, timedelta, timezone
 
+import animation_settle
 import pytest
 
 import companion.test_status_pages_helpers as shp
@@ -32,9 +33,7 @@ PHONES = (({"width": 390, "height": 844}, "390x844"), ({"width": 360, "height": 
 THEMES = ("light", "dark")
 
 _COMPLETE = "() => document.readyState === 'complete'"
-_ANIMATIONS_DONE = (
-    "() => document.getAnimations().every(a => a.effect && "
-    "a.effect.getComputedTiming().iterations === Infinity || a.playState !== 'running')")
+_ANIMATIONS_DONE = animation_settle.ANIMATIONS_DONE
 _OWNS_CENTRE = (
     "s => { const e = document.querySelector(s); if (!e) return false;"
     " const r = e.getBoundingClientRect();"
@@ -286,7 +285,7 @@ def test_the_picture_dialog_dims_the_whole_viewport_with_no_blurred_band(
         dialog = "#panel-lookup-dialog"
         page.wait_for_function(
             "s => { const d = document.querySelector(s); return d.open"
-            " && document.getAnimations().every(a => a.playState !== 'running'); }",
+            " && " + animation_settle.DONE_EXPR + "; }",
             arg=dialog, timeout=10000)
         surface = page.evaluate(_DIALOG_SURFACE, dialog)
         assert surface["filter"] == "none", surface

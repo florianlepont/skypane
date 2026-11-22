@@ -2,6 +2,7 @@
 (no page load, scroll and focus kept), the rename page's Save bar appears only on a change
 and saves, a typed wake interval is not snapped by the slider, and the System view is one
 column with counts at the right edge. Every read waits for a settled page first."""
+import animation_settle
 import pytest
 
 import fleet_console_support as fx
@@ -12,9 +13,7 @@ from server import device_config, fleet_db
 
 pytestmark = pytest.mark.browser
 
-_SETTLED = (
-    "() => document.readyState === 'complete' && document.getAnimations().every("
-    "a => !a.effect || a.effect.getTiming().iterations === Infinity || a.playState !== 'running')")
+_SETTLED = animation_settle.SETTLED
 _OWNS_CENTRE = (
     "sel => { const el = document.querySelector(sel); if (!el) return false;"
     " const r = el.getBoundingClientRect();"

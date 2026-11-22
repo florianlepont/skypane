@@ -3,6 +3,7 @@ that ends in an ellipsis when it is too long (the whole address is its title and
 name), the last sign-in never wraps, and rows that show the same parts are equally tall."""
 import time
 
+import animation_settle
 import pytest
 
 import fleet_console_support as fx
@@ -27,9 +28,7 @@ PHONES = (
     pytest.param({"width": 390, "height": 844}, id="390"))
 ALL_WIDTHS = PHONES + WIDTHS
 
-_READY = (
-    "() => document.readyState === 'complete' && document.getAnimations().every("
-    "(a) => a.playState !== 'running' || a.effect.getComputedTiming().iterations === Infinity)")
+_READY = animation_settle.SETTLED
 
 _ROWS = """() => [...document.querySelectorAll('.users-table .users-row')].map((row) => {
   const lines = (el) => { const range = document.createRange(); range.selectNodeContents(el);

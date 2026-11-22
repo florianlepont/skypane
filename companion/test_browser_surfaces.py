@@ -5,6 +5,7 @@ instead of the legacy beige fill, Home is a hero plus two or three groups that l
 390 and 1440px in English and French, and the Console Fleet State rows never overlap."""
 from datetime import datetime, timedelta, timezone
 
+import animation_settle
 import pytest
 
 import companion.test_view_pages_helpers as vp
@@ -18,10 +19,7 @@ pytestmark = pytest.mark.browser
 VIEWPORTS = (("360", {"width": 360, "height": 800}), ("390", {"width": 390, "height": 844}),
              ("1440", {"width": 1440, "height": 900}))
 THEMES = ("light", "dark")
-FINITE_ANIMATIONS_DONE = (
-    "() => document.readyState === 'complete' && document.getAnimations().every("
-    "(a) => (a.effect && a.effect.getComputedTiming().iterations === Infinity)"
-    " || a.playState !== 'running')")
+FINITE_ANIMATIONS_DONE = animation_settle.SETTLED
 
 
 @pytest.fixture(scope="module")

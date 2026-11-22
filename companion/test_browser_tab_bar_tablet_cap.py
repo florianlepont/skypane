@@ -1,6 +1,7 @@
 """Real-browser geometry of the tab bar and the More sheet on tablet widths: both are capped
 at 460px and centred instead of stretching across the screen, the dim layer still covers the
 whole viewport, the pill stays inside its cell, and a phone keeps the full-width bar."""
+import animation_settle
 import pytest
 from companion_app_server import session_cookie_for_state_dir
 from skypane_two_device_fleet import OWNER_EMAIL
@@ -16,8 +17,7 @@ TABLET = {"width": 768, "height": 1024}
 TABLET_WIDE = {"width": 940, "height": 1000}
 DESKTOP_SIDEBAR = {"width": 1024, "height": 800}
 
-_SETTLED = """() => document.readyState === 'complete' && document.getAnimations().every(
-  (a) => a.playState !== 'running' || a.effect.getComputedTiming().iterations === Infinity)"""
+_SETTLED = animation_settle.SETTLED
 
 _MORE_OWNS_CENTRE = """() => {
   const e = document.querySelector('.tab-bar__more > summary'); if (!e) return false;

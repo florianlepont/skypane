@@ -6,6 +6,7 @@ the Quiet hours dialog opens without a field focused and its 12-hour times are n
 
 Focus, layout and DOM state is always waited for, never read straight after a key or a navigation.
 """
+import animation_settle
 import pytest
 
 import fleet_console_support as fx
@@ -27,10 +28,7 @@ QUIET_LINK = "a.home-pill--quiet"
 START = "#quiet-window-start"
 END = "#quiet-window-end"
 
-_SETTLED = (
-    "() => document.readyState === 'complete' && document.getAnimations().every("
-    "(a) => (a.effect && a.effect.getComputedTiming().iterations === Infinity)"
-    " || a.playState !== 'running')")
+_SETTLED = animation_settle.SETTLED
 
 
 def _context(new_context, server, viewport, lang="en"):

@@ -3,6 +3,7 @@
 it opens centred on the frame's airport, a zoomed-out view groups airports into numbered
 bubbles that account for every airport, tapping a bubble zooms in, the followed airport is
 always a tappable pin, and the runway cards' "Current" badge keeps clear of the designator."""
+import animation_settle
 import pytest
 
 from companion import auth
@@ -13,9 +14,7 @@ pytestmark = pytest.mark.browser
 
 READY = "() => document.documentElement.classList.contains('map-ready')"
 TILES = "() => document.querySelectorAll('#place-map .leaflet-tile-loaded').length >= 1"
-IDLE = (
-    "() => document.getAnimations().every((a) => a.playState !== 'running'"
-    " || a.effect.getComputedTiming().iterations === Infinity)")
+IDLE = animation_settle.ANIMATIONS_DONE
 FRANCE = ".place-france"
 # The zoom the map shows now: the highest zoom among the tiles it has loaded.
 ZOOM = (

@@ -5,6 +5,7 @@ new frame's Home, geometry and tap targets at 360 and 1280px in both
 languages and themes, and the same flow with scripts blocked."""
 import re
 
+import animation_settle
 import pytest
 
 import fleet_console_support as fx
@@ -117,7 +118,7 @@ def test_the_add_your_frame_button_text_is_readable_on_its_fill(
         page.wait_for_function(
             "(sel) => { const s = getComputedStyle(document.querySelector(sel));"
             " return s.color !== s.backgroundColor"
-            " && document.getAnimations().length === 0; }", arg=selector)
+            " && " + animation_settle.DONE_EXPR + "; }", arg=selector)
         colours = page.eval_on_selector(
             selector, "e => { const s = getComputedStyle(e);"
             " return [s.color, s.backgroundColor]; }")

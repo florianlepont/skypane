@@ -6,6 +6,7 @@ page, ink and active pill contrast in both themes, a top bar that is
 transparent and clears the status bar, and reduced motion."""
 import re
 
+import animation_settle
 import pytest
 from companion_app_server import session_cookie_for_state_dir
 from skypane_contrast_check import WCAG_AA_NORMAL_TEXT, contrast_ratio
@@ -21,8 +22,7 @@ VIEWPORTS = [VIEWPORT_MIN_SUPPORTED, VIEWPORT_PHONE]
 VIEWPORT_IDS = ["360", "390"]
 INSET = 34
 
-_SETTLED = """() => document.readyState === 'complete' && document.getAnimations().every(
-  (a) => a.playState !== 'running' || a.effect.getComputedTiming().iterations === Infinity)"""
+_SETTLED = animation_settle.SETTLED
 
 _BAR = """() => {
   const bar = document.querySelector('.tab-bar');

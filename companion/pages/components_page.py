@@ -105,7 +105,6 @@ _OFFLINE = i18n.msg("components.sample_offline", "Offline")
 _COL_AIRLINE = i18n.msg("components.sample_col_airline", "Airline")
 _COL_FLIGHTS = i18n.msg("components.sample_col_flights", "Flights")
 _COL_LAST = i18n.msg("components.sample_col_last", "Last seen")
-_HERO_LINE = i18n.msg("components.sample_hero_line", "A320 landing on runway 3")
 _MENU_RENAME = i18n.msg("components.sample_menu_rename", "Rename")
 _MENU_REMOVE = i18n.msg("components.sample_menu_remove", "Remove")
 _MENU_LABEL = i18n.msg("components.sample_menu_label", "Row actions")
@@ -164,7 +163,6 @@ _M_STATE_SECTION_LABEL = i18n.msg("components.state_section_label", "Section lab
 _M_STATE_SECTION_INTRO = i18n.msg("components.state_section_intro", "Section introduction")
 _M_STATE_TILES = i18n.msg("components.state_tiles", "Tiles by status")
 _M_STATE_STATUS_ROWS = i18n.msg("components.state_status_rows", "Status rows")
-_M_STATE_HERO = i18n.msg("components.state_hero", "Hero")
 _M_STATE_LINK_CARD = i18n.msg("components.state_link_card", "Link card")
 _M_STATE_LINK_CARD_PLAIN = i18n.msg("components.state_link_card_plain", "Link card, title only")
 _SAMPLE_LINK_CARD_SUB = i18n.msg("components.sample_link_card_subtitle", "Fleet, users, audit")
@@ -467,8 +465,6 @@ def _cards():
         State(_M_STATE_TILES,
               '<div class="components-tiles">%s</div>' % tiles),
         State(_M_STATE_STATUS_ROWS, status_rows),
-        State(_M_STATE_HERO,
-              ui_groups.hero(_esc(_t(_HERO_LINE)))),
         State(_M_STATE_LINK_CARD,
               ui_components.link_card_html(
                   COMPONENTS_ROUTE, "icon-shield", _t(_SAMPLE_CARD),
@@ -724,7 +720,7 @@ CATALOGUE = (
     Family("cards", _M_FAMILY_CARDS,
            _M_FAMILY_CARDS_DESC,
            ("ui_groups.group", "ui_groups.group_panel", "ui_groups.row", "ui_groups.section_label",
-            "ui_groups.chip_html", "ui_groups.hero", "ui_components.section_intro_html",
+            "ui_groups.chip_html", "ui_components.section_intro_html",
             "ui_components.stat_tile", "ui_components.status_row",
             "ui_components.link_card_html"), _cards),
     Family("lists", _M_FAMILY_LISTS,

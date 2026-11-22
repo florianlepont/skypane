@@ -11,6 +11,7 @@ order and survives Load more, and without scripts the plain links still work and
 first new row of the list the viewport shows. The Airlines collection answers a search that
 matches nothing with the same empty card.
 """
+import animation_settle
 import pytest
 
 import companion.test_view_pages_helpers as vp
@@ -32,9 +33,7 @@ MORE = "a.history-more__link:visible"
 FIELD = "[data-flights-search]"
 ROW = "tr[data-flight-row]"
 EMPTY = "[data-flights-empty]"
-_SETTLED = (
-    "() => document.readyState === 'complete' && document.getAnimations().every("
-    "(a) => a.playState !== 'running' || a.effect.getComputedTiming().iterations === Infinity)")
+_SETTLED = animation_settle.SETTLED
 _TOPS = (
     "() => { const top = (s) => document.querySelector(s).getBoundingClientRect().top;"
     " return {chips: top('.filter-bar--chips'), card: top('li.history-card'),"

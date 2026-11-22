@@ -8,6 +8,7 @@ reaches the network. Waits are on the page's own state (`map-ready`, loaded tile
 animations, a control owning its centre), never fixed sleeps; boxes are measured only after the
 finite animations ended and the cross-document view transition is over.
 """
+import animation_settle
 import pytest
 
 from co_manager_browser_support import SUBPIXEL
@@ -27,9 +28,7 @@ MAP = "#place-map"
 READY = "() => document.documentElement.classList.contains('map-ready')"
 TILES_LOADED = "() => document.querySelectorAll('#place-map .leaflet-tile-loaded').length >= 1"
 # Finite animations and transitions are over; a never-ending one is not waited for.
-ANIMATIONS_DONE = (
-    "() => document.getAnimations().every("
-    "(a) => a.playState !== 'running' || a.effect.getComputedTiming().iterations === Infinity)")
+ANIMATIONS_DONE = animation_settle.ANIMATIONS_DONE
 NOTICE_SHOWN = "() => !document.getElementById('place-notice').hidden"
 STATUS_HAS = "text => document.getElementById('place-status').textContent.includes(text)"
 PIN_BOX = (

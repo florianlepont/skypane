@@ -1,5 +1,5 @@
 """The grouped-list components every page is built from: a section label, a
-group (one glass surface holding rows), a row, and a hero (no surface).
+group (one glass surface holding rows) and a row.
 
 Pure markup, no script: a row is a link or a button when it acts, a plain
 block when it only shows a value, and a trailing control (a switch, a
@@ -90,20 +90,3 @@ def group_panel(content_html, label="", label_id="", extra_class=""):
     labelled = ' aria-labelledby="%s"' % escape_html(label_id) if label and label_id else ""
     return '<section class="%s"%s>%s<div class="group group--panel">%s</div></section>' % (
         css, labelled, heading, content_html)
-
-
-def hero(status_line_html, *, picture_html="", lines_html="", extra_class="",
-         attrs="", status_class="", heading_html="", title_html=""):
-    """The hero: no surface. A picture (optional) beside an optional title
-    row, the status line (a pill with its status dot) and secondary lines
-    underneath. `heading_html` is an optional visually hidden heading
-    that names the section for assistive technology; it follows the title row,
-    so a page's h1 stays its first heading. `title_html` is an
-    optional already-safe title row rendered first in the text column."""
-    css = "hero" + (" " + extra_class if extra_class else "")
-    picture = ('<div class="hero__picture">%s</div>' % picture_html) if picture_html else ""
-    return (
-        '<section class="%s"%s>%s<div class="hero__body">'
-        '%s%s<p class="hero__status%s">%s</p>%s</div></section>'
-    ) % (css, attrs and " " + attrs, picture, title_html, heading_html,
-         " " + status_class if status_class else "", status_line_html, lines_html)
