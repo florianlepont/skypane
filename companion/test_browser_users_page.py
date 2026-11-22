@@ -403,18 +403,14 @@ def test_table_and_cards_fit_and_every_control_is_44px(
         assert not _assert_no_page_overflow(page, where, viewport["width"])
         email = _row(page, LONG_EMAIL).locator(".users-email")
         assert email.evaluate("e => getComputedStyle(e).fontFamily").lower().count("mono") == 0
-        # A long address never runs into the next column: a phone card wraps it, the table
-        # keeps it on one line that ends in an ellipsis. Its title is the whole address.
+        # A long address never runs into the next column: it is one line that ends in an
+        # ellipsis at every width. Its title is the whole address.
         wide = viewport["width"] >= 1272
-        if wide:
-            assert email.evaluate("e => getComputedStyle(e).textOverflow") == "ellipsis"
-            assert email.evaluate("e => e.scrollWidth > e.clientWidth")
-            assert email.evaluate(
-                "e => e.getBoundingClientRect().right"
-                " <= e.closest('.users-cell').getBoundingClientRect().right + 0.5")
-        else:
-            assert email.evaluate("e => getComputedStyle(e).overflowWrap") == "anywhere"
-            assert email.evaluate("e => e.scrollWidth <= e.clientWidth + 1")
+        assert email.evaluate("e => getComputedStyle(e).textOverflow") == "ellipsis"
+        assert email.evaluate("e => e.scrollWidth > e.clientWidth")
+        assert email.evaluate(
+            "e => e.getBoundingClientRect().right"
+            " <= e.closest('.users-cell').getBoundingClientRect().right + 0.5")
         assert email.get_attribute("title") == LONG_EMAIL
         assert _row(page, LONG_EMAIL).evaluate("e => e.scrollWidth <= e.clientWidth + 1")
         assert page.locator("thead").is_visible() == wide

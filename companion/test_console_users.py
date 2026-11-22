@@ -171,7 +171,7 @@ def test_a_hostile_email_is_escaped_and_the_row_is_not_monospace(rig):
     css = served_stylesheet(server)
     declared = declarations_for(css, ".users-email")
     assert "monospace" not in str(declared)
-    assert declared.get("overflow-wrap") == "anywhere" and "text-overflow" not in declared
+    assert declared.get("text-overflow") == "ellipsis" and "overflow-wrap" in declared
 
 
 def test_own_row_shows_the_guard_in_place_of_the_role_select_and_locks_the_switch(rig):

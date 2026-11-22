@@ -1468,8 +1468,11 @@ a.row-action {
 .users-email {
   grid-column: 1 / -1;
   min-width: 0;
-  overflow-wrap: anywhere;
+  overflow: hidden;
+  overflow-wrap: normal;
   font-weight: var(--weight-semibold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .users-status {
@@ -1477,20 +1480,11 @@ a.row-action {
   min-width: 0;
 }
 
-/* From a tablet width up an address is one line that ends in an ellipsis
- * (its title and the row header hold it whole), so rows are equally tall. */
-@media (min-width: 37.5rem) {
-  .users-email {
-    overflow: hidden;
-    overflow-wrap: normal;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  /* The phone card's break opportunities do not apply to a single line. */
-  .users-email wbr {
-    display: none;
-  }}
+/* An address is one line that ends in an ellipsis at every width (its title
+ * and the row header hold it whole), so rows are equally tall. */
+.users-email wbr {
+  display: none;
+}
 
 .users-pills {
   display: flex;
