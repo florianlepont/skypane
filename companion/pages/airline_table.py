@@ -425,13 +425,16 @@ def _sub_rows(entry, row, builtin_name, shapes):
     pictures = row["pictures"]
     groups = {}
 
-    def group_of(code):
+    def group_of(code, picture):
         designator = code.strip().upper()
         slug = illustrations.type_slug(designator)
+        if slug is None and picture is not None and picture.key.startswith(key + "-"):
+            # A curated label (A330, ATR72) names the slot its file is in.
+            slug = picture.key[len(key) + 1:]
         return groups.get(slug or designator), designator, slug
 
     def add(code, views, picture, merge_code=True):
-        group, designator, slug = group_of(code)
+        group, designator, slug = group_of(code, picture)
         if group is None:
             groups[slug or designator] = {
                 "codes": [designator], "views": views, "picture": picture, "slug": slug}
