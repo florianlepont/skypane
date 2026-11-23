@@ -181,6 +181,7 @@ MESSAGES = {
     "airlines.collection_fact_times": "Vue",
     "airlines.collection_fact_last": "Dernière fois",
     "airlines.collection_fact_types": "Avion",
+    "airlines.collection_purpose": "Les compagnies vues par votre cadre",
     "airlines.collection_empty_heading": "Votre collection commence avec le premier avion",
     "airlines.collection_empty_body":
         "Les compagnies apparaissent ici dès que votre cadre les voit.",

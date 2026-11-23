@@ -1,7 +1,12 @@
 """The Airline collection (`/airlines`): a read-only, quiet page of the
-airlines this frame has spotted, the same for every role.
+airlines the viewer's frames have spotted.
 
-Counts, rarity, dates, types and callsigns come from the frame's own
+A plain user's page covers their own frames (owned or co-managed) and no
+other: counts, rarity, dates, types, callsigns, names and pictures of an
+airline only another user's frame saw never reach it. For an administrator it
+covers the frame the page is opened on (the fleet-wide list is the editor).
+
+Counts, rarity, dates, types and callsigns come from those frames'
 `runway_events` and the curated airline list through
 `companion.airline_collection`; nothing is stored and nothing on the page
 edits an airline (the editing page is `/airlines/manage`, administrator
@@ -98,6 +103,7 @@ FACT_LAST = i18n.msg("airlines.collection_fact_last", "Last seen")
 FACT_TYPES = i18n.msg("airlines.collection_fact_types", "Aircraft")
 CLOSE_TEXT = i18n.msg("airlines.close", "Close")
 
+PURPOSE_TEXT = i18n.msg("airlines.collection_purpose", "Airlines your frame has seen")
 EMPTY_HEADING = i18n.msg(
     "airlines.collection_empty_heading", "Your collection starts with the first plane")
 EMPTY_BODY = i18n.msg(
@@ -444,10 +450,12 @@ def _no_match_html(action_html, attrs):
 
 
 def _entries_for(ctx, now):
+    """The collection over the frames this viewer's page covers: a user's
+    own frames (owned or co-managed), the page's frame for anyone else."""
     overrides = ctx.name_overrides or {}
+    dirs = device_scope.own_history_dirs(ctx.state_dir)
     try:
-        with history_db.open_db(ctx.state_dir) as conn:
-            return collection.airline_collection(conn, now, overrides)
+        return collection.collection_across(dirs, now, overrides)
     except _HISTORY_ERRORS:
         return collection.collection_from_events([], now, overrides)
 
@@ -461,7 +469,7 @@ def render(ctx, query_string=""):
     all_seen = bool(curated) and all(entry.seen for entry in curated)
     shown = _apply_view(entries, view)
     parts = [layout.page_header(
-        i18n.t(PAGE_TITLE), None, action_html=_status_html(summary, all_seen, len(entries)))]
+        i18n.t(PAGE_TITLE), i18n.t(PURPOSE_TEXT), action_html=_status_html(summary, all_seen, len(entries)))]
     if summary.spotted == 0:
         parts.append(layout.empty_state(
             i18n.t(EMPTY_HEADING), i18n.t(EMPTY_BODY), compact=True))

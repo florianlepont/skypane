@@ -141,6 +141,16 @@ def _is_user_view():
     return principal is not None and principal[1] == access.USER
 
 
+def own_history_dirs(page_dir):
+    """The state directories a personal history page reads. For a plain user
+    that is every frame in their scope (the frames they own or co-manage) and
+    nothing else, so another user's frame can never contribute; for anyone
+    else it is the page's own frame, `page_dir`."""
+    if _is_user_view():
+        return [device.state_dir for device in current_devices() if device.state_dir]
+    return [page_dir] if page_dir else []
+
+
 def _co_managed_ids(root, user_id):
     """Ids of the frames `user_id` co-manages; an empty set on any problem,
     so a database without the table or an unreadable one never hides the
