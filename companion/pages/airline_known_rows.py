@@ -36,7 +36,7 @@ def rows(state_dir, registry):
         key = manual_resolutions.illustration_key_for_name(name)
         if prefix in registry or not key:
             continue
-        if illustrations.resolved_illustration_path(key, state_dir) is not None:
+        if illustrations.has_pictures(key, state_dir):
             continue
         pairs.append((prefix, name))
     return tuple(pairs)
@@ -52,7 +52,7 @@ def promoted(state_dir, registry, taken):
         key = manual_resolutions.illustration_key_for_name(name)
         if prefix in registry or not key or name in taken or name in found:
             continue
-        if illustrations.resolved_illustration_path(key, state_dir) is not None:
+        if illustrations.has_pictures(key, state_dir):
             found[name] = prefix
     return found
 

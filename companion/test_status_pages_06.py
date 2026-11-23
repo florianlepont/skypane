@@ -148,7 +148,7 @@ def test_cache_buster_absent_with_no_state_dir_and_keyed_on_mtime_with_an_overri
     override_path.write_bytes(b"not a real png - only this file's own mtime matters to this check")
     mtime = int(os.stat(override_path).st_mtime)
 
-    rendered = airlines_page.render(shp.ctx(tmp))
+    rendered = airlines_page.render(shp.ctx(tmp) | {"types_open": "all"})
     expected_busted_url = "%s%s.png?v=%d" % (airlines_page.ILLUSTRATION_ROUTE_PREFIX, key, mtime)
     expected_unbusted_url = "%s%s.png" % (airlines_page.ILLUSTRATION_ROUTE_PREFIX, key)
     img_srcs = re.findall(r'<img class="airlines-thumb__image" src="([^"]+)"', rendered)
@@ -583,7 +583,7 @@ def test_plain_airline_row_has_a_link_enlarge_trigger_and_no_manual_state(tmp_pa
     """an airline with no sheet-independent manual history carries one thumbnail
     "Enlarge the artwork of ..." trigger: a real link to the picture (never a resolve link), mode="art", with every
     manual/resolve-prefix attribute empty and no status chip"""
-    rendered = airlines_page.render(shp.ctx(str(tmp_path)))
+    rendered = airlines_page.render(shp.ctx(str(tmp_path)) | {"types_open": "all"})
     card = _card_slice(rendered, "Air France")
     assert 'class="airlines-thumb" data-view-panel-src="/illustration/air-france.png"' in card
     assert 'data-view-panel-mode="art"' in card
@@ -600,7 +600,7 @@ def test_active_manual_states_render_expected_attributes_and_no_chip(tmp_path):
     tmp = str(tmp_path)
     manual_resolutions.add_entry(tmp, "OLD", "Air France", now="2026-01-01T00:00:00+00:00")
     manual_resolutions.add_entry(tmp, "XQZ", "Totally Novel Airline", now="2026-01-01T00:00:00+00:00")
-    rendered = airlines_page.render(shp.ctx(tmp))
+    rendered = airlines_page.render(shp.ctx(tmp) | {"types_open": "all"})
     card_art = _card_slice(rendered, "Air France")
     assert 'data-view-panel-mode="art"' in card_art
     assert 'data-view-panel-manual="active"' in card_art
@@ -653,7 +653,7 @@ def test_airline_row_html_superseded_shows_built_in_state_never_operator_upload(
     originally-stored name, the prefix and the built-in name"""
     tmp = str(tmp_path)
     manual_resolutions.add_entry(tmp, "AFR", "Some Other Airline", now="2026-01-01T00:00:00+00:00")
-    rendered = airlines_page.render(shp.ctx(tmp))
+    rendered = airlines_page.render(shp.ctx(tmp) | {"types_open": "all"})
     card = _card_slice(rendered, "Air France")
     assert 'data-view-panel-manual="superseded"' in card
     assert "airline-card__chip" not in card
@@ -934,7 +934,7 @@ def test_manual_section_supersession_symbols_retired_and_chip_still_renders(tmp_
         assert not hasattr(airlines_page, name), "expected airlines_page to no longer expose %r" % (name,)
     tmp = str(tmp_path)
     manual_resolutions.add_entry(tmp, "AFR", "Some Other Airline", now="2026-01-01T00:00:00+00:00")
-    rendered = airlines_page.render(shp.ctx(tmp))
+    rendered = airlines_page.render(shp.ctx(tmp) | {"types_open": "all"})
     assert 'data-view-panel-manual-note="Your name “Some Other Airline” for prefix AFR' in rendered
     assert "airline-card__chip" not in _grid_section(rendered)
     assert ">Superseded<" not in rendered
@@ -968,7 +968,7 @@ def test_manual_section_seed_helper_end_to_end(tmp_path):
         ("AFR", "Legacy Air France Ops"),
         ("XQZ", "Totally Novel Airline"),
     ])
-    rendered = airlines_page.render(shp.ctx(tmp))
+    rendered = airlines_page.render(shp.ctx(tmp) | {"types_open": "all"})
     assert "Legacy Air France Ops" in rendered
     assert "Totally Novel Airline" in rendered
 

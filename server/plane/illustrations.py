@@ -637,6 +637,19 @@ def _all_type_slugs():
         slug for slug in _TYPE_VARIANT_SLUGS.values() if slug not in SHAPE_SLUGS)
 
 
+def airline_key_of_artwork(key):
+    """The airline an artwork key belongs to: a per-type picture
+    (`{airline}-{type slug}`) belongs to its airline, any other key is the
+    airline's own key."""
+    if not isinstance(key, str):
+        return ""
+    for slug in sorted(_all_type_slugs(), key=len, reverse=True):
+        suffix = "-" + slug
+        if key.endswith(suffix) and len(key) > len(suffix):
+            return key[:-len(suffix)]
+    return key
+
+
 def builtin_name_for_key(airline_key, state_dir=None):
     """The built-in airline name whose curated picture the airline `airline_key`
     carries: the airline itself, or the built-in airline an owner's rename
@@ -725,6 +738,33 @@ def has_type_livery(airline_key, code, state_dir=None):
     raises."""
     designator = _designator(code)
     return bool(designator) and designator in type_pictures(airline_key, state_dir, (designator,))
+
+
+def effective_default_type(airline_key, state_dir=None, pictures=None):
+    """The type code of the airline's EFFECTIVE default: the stored default
+    type when it has a picture, else the airframe of the legacy picture, else
+    `None`. `pictures` is `type_pictures()`'s result when the caller has it."""
+    if pictures is None:
+        pictures = type_pictures(airline_key, state_dir)
+    stored = _default_type_of(airline_key, state_dir)
+    if stored and stored in pictures:
+        return stored
+    return legacy_picture_type(airline_key, state_dir)
+
+
+def display_key(airline_key, state_dir=None):
+    """The artwork key of the picture shown for the airline where no single
+    flight is meant (the airlines list, a thumbnail): the picture of its
+    effective default type, which is also what a frame draws for a type it has
+    no picture of. `None` when the airline has no picture."""
+    picture = default_picture(airline_key, state_dir)
+    return picture.key if picture is not None else None
+
+
+def has_pictures(airline_key, state_dir=None):
+    """Whether the airline has any picture: a typed one or the legacy one."""
+    return default_picture(airline_key, state_dir) is not None or bool(
+        type_pictures(airline_key, state_dir))
 
 
 def default_picture(airline_key, state_dir=None):

@@ -63,6 +63,20 @@ def _sub_rows(card_slice):
             for row in rows]
 
 
+def _expected_type_rows(airline_name, shapes):
+    """The type rows of a curated airline with no sightings, by code: its primary picture's
+    airframe (the legacy picture) and each curated variant, each uploading to its own key
+    and naming its type."""
+    key = illustrations.normalise_airline_key(airline_name)
+    rows = {}
+    primary = illustrations.aircraft_label(airline_name)
+    rows[primary] = "/illustration/%s.png?default_type=%s" % (key, primary)
+    for shape in shapes:
+        label = illustrations.aircraft_label(airline_name, shape)
+        rows[label] = "/illustration/%s-%s.png?default_type=%s" % (key, shape, label)
+    return [(layout.escape_html(code), rows[code]) for code in sorted(rows)]
+
+
 def _rendered_pages_with_search_inputs(tmp_path):
     """Render every page this app renders an <input type="search"> on today —
     Compagnies' gallery filter and Flights' history filter — and return their
@@ -377,43 +391,44 @@ def test_every_card_image_source_passes_route_membership_test(tmp_path):
 
 
 def test_air_caraibes_row_lists_every_known_type(tmp_path):
-    """with no sightings stored, the Air Caraïbes group has one sub-row per secondary type
-    (A330, A350-1000, ATR72), each with its own artwork upload to that type's own key, and
-    the airline's own row carries the chevron that expands them"""
+    """with no sightings stored, the Air Caraïbes group has one sub-row per type it has a
+    picture of (A330, A350-1000, ATR72 and the A350 of its legacy picture), each with its own
+    artwork upload to that picture's key naming the type, and the airline's own row carries
+    the chevron that expands them"""
     rendered = airlines_page.render(shp.ctx(str(tmp_path)) | {"types_open": "all"})
     card_slice = _card_slice(rendered, "Air Caraïbes")
     assert 'class="airlines-expand"' in card_slice
     assert _sub_rows(card_slice) == [
-        ("A330", "/illustration/air-caraibes-a330.png"),
-        ("A350-1000", "/illustration/air-caraibes-a350-1000.png"),
-        ("ATR72", "/illustration/air-caraibes-atr72.png"),
+        ("A330", "/illustration/air-caraibes-a330.png?default_type=A330"),
+        ("A350", "/illustration/air-caraibes.png?default_type=A350"),
+        ("A350-1000", "/illustration/air-caraibes-a350-1000.png?default_type=A350-1000"),
+        ("ATR72", "/illustration/air-caraibes-atr72.png?default_type=ATR72"),
     ]
     assert "Any aircraft" not in card_slice
 
 
 def test_every_airline_lists_each_of_its_types_as_text(tmp_path):
-    """every airline's group carries one sub-row per secondary type, labelled with that
-    type's designator and uploading to that type's own key; Transavia reads A320"""
+    """every airline's group carries one sub-row per type it has a picture of (its legacy
+    picture's airframe and each secondary type), labelled with that type's designator and
+    uploading to that picture's own key; Transavia reads A320 and B737"""
     rendered = airlines_page.render(shp.ctx(str(tmp_path)) | {"types_open": "all"})
     for airline_name, shapes in illustrations.target_variants_by_airline():
         card_slice = _card_slice(rendered, airline_name)
-        key = illustrations.normalise_airline_key(airline_name)
-        expected = [
-            (layout.escape_html(illustrations.aircraft_label(airline_name, shape)),
-             "/illustration/%s-%s.png" % (key, shape))
-            for shape in shapes]
-        assert _sub_rows(card_slice) == expected, airline_name
-    assert [label for label, _action in _sub_rows(_card_slice(rendered, "Transavia France"))] == ["A320"]
-    assert [label for label, _action in _sub_rows(_card_slice(rendered, "Royal Air Maroc"))] == ["E190"]
+        assert _sub_rows(card_slice) == _expected_type_rows(airline_name, shapes), airline_name
+    assert [label for label, _action in _sub_rows(_card_slice(rendered, "Transavia France"))] == [
+        "A320", "B737"]
+    assert [label for label, _action in _sub_rows(_card_slice(rendered, "Royal Air Maroc"))] == [
+        "B737", "E190"]
 
 
-def test_primary_only_airline_renders_no_sub_row_and_no_chevron(tmp_path):
-    """an airline with no variant entries and no sightings (Air France) renders its one row:
-    no sub-row, no chevron, no chip of any kind"""
-    rendered = airlines_page.render(shp.ctx(str(tmp_path)))
+def test_primary_only_airline_renders_its_one_type_row_with_its_airframe(tmp_path):
+    """an airline with no variant entries and no sightings (Air France) renders its row and
+    one type row, its legacy picture's airframe (A320), behind the chevron; no chip of any
+    kind"""
+    rendered = airlines_page.render(shp.ctx(str(tmp_path)) | {"types_open": "all"})
     card_slice = _card_slice(rendered, "Air France")
-    assert _sub_rows(card_slice) == []
-    assert 'class="airlines-expand"' not in card_slice
+    assert _sub_rows(card_slice) == [("A320", "/illustration/air-france.png?default_type=A320")]
+    assert 'class="airlines-expand"' in card_slice
     assert "airline-card__chip" not in card_slice
 
 
@@ -632,26 +647,27 @@ def test_airlines_page_module_exposes_no_deleted_diagnostics_symbol():
 # ==========================================================================
 
 
-def test_enlarge_menu_item_opens_the_lightbox_on_the_row_artwork(tmp_path):
-    """each airline row's artwork thumbnail is the "Enlarge the artwork of ..." trigger whose
-    data-view-panel-src is the row's own picture, whose caption and heading are the airline
+def test_enlarge_menu_item_opens_the_lightbox_on_the_type_row_artwork(tmp_path):
+    """each type row's artwork thumbnail is the "Enlarge the artwork of ..." trigger whose
+    data-view-panel-src is the type's own picture, whose caption and heading are the airline
     name, in art mode with the upload route as replace action; it is a plain link to the
     picture without a script"""
-    rendered = airlines_page.render(shp.ctx(str(tmp_path)))
-    for airline_name in ("Air Caraïbes", "Air France"):
+    rendered = airlines_page.render(shp.ctx(str(tmp_path)) | {"types_open": "all"})
+    for airline_name, label in (("Air Caraïbes", "A350"), ("Air France", "A320")):
         card_slice = _card_slice(rendered, airline_name)
-        trigger = re.search(r"<a\b[^>]*data-view-panel-src[^>]*>", card_slice).group(0)
+        shown = airline_display.shown_name(airline_name)
+        trigger = re.search(
+            r'<a\b[^>]*aria-label="Enlarge the artwork of %s, %s"[^>]*>' % (
+                re.escape(layout.escape_html(shown)), label), card_slice).group(0)
         assert 'class="airlines-thumb"' in trigger
-        img_src = re.search(r'<img class="airlines-thumb__image" src="([^"]+)"', card_slice).group(1)
         src_attr = re.search(r'data-view-panel-src="([^"]+)"', trigger).group(1)
         # The row shows the small WebP; the link and the lightbox open the full picture.
-        assert img_src == src_attr + "?w=264", (airline_name, src_attr, img_src)
+        assert 'src="%s?w=264"' % src_attr in card_slice, (airline_name, src_attr)
         assert 'href="%s"' % src_attr in trigger
-        escaped = layout.escape_html(airline_name)
-        assert re.search(r'data-view-panel-caption="([^"]+)"', trigger).group(1) == escaped
-        assert re.search(r'data-view-panel-heading="([^"]+)"', trigger).group(1) == escaped
+        escaped = layout.escape_html(shown)
+        assert re.search(r'data-view-panel-caption="([^"]+)"', trigger).group(1) == "%s, %s" % (
+            escaped, label)
         assert 'data-view-panel-mode="art"' in trigger
-        assert 'aria-label="Enlarge the artwork of %s"' % escaped in trigger
 
 
 def test_lightbox_dialog_renders_once_wide_with_own_note_text(tmp_path):
@@ -758,9 +774,11 @@ def test_replace_form_action_matches_trigger_attribute_membership(tmp_path):
             "%s-%s" % (illustrations.normalise_airline_key(name), shape)))
     assert len(actions) == expected + typed_with_art
     uploads = re.findall(r'<form class="airlines-art"[^>]* action="([^"]+)"', rendered)
+    # One per type row: the legacy picture's airframe and each secondary type.
     assert len(uploads) == sum(
-        len(shapes) or 1 for _name, shapes in illustrations.target_variants_by_airline())
+        len(shapes) + 1 for _name, shapes in illustrations.target_variants_by_airline())
     for action in actions + uploads:
+        action = action.split("?", 1)[0]
         assert action.startswith(prefix) and action.endswith(".png"), (
             "expected every upload action to be %s{key}.png, got %r" % (prefix, action))
         filename = action[len(prefix):]

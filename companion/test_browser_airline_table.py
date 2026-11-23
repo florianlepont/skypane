@@ -39,7 +39,6 @@ FRANCE_NAME = FRANCE + " .airlines-name"
 FRANCE_MENU = FRANCE + " .airlines-row .row-menu__toggle"
 FRANCE_DIALOG = FRANCE + " dialog"
 IBERIA = "#airline-iberia-airlines"
-IBERIA_MENU = IBERIA + " .airlines-row .row-menu__toggle"
 FRANCE_FIELD = FRANCE_DIALOG + ' input[name="airline_name"]'
 TRANSAVIA = "#airline-transavia-france"
 VISIBLE_GROUPS = "tbody.airline-group:not([hidden])"
@@ -129,12 +128,17 @@ def test_the_table_fits_and_every_control_is_a_44px_target_in_both_themes(
     try:
         wide = viewport["width"] >= 1120
         assert page.locator("thead").is_visible() == wide
+        # The airline's pictures are on its type rows.
+        _settle(page, TRANSAVIA + " .airlines-expand > summary")
+        page.locator(TRANSAVIA + " .airlines-expand > summary").click()
+        page.locator(TRANSAVIA + " .airlines-subrow").first.wait_for(state="visible")
         for _paint in _in_both_themes(page):
             page.wait_for_function(_SETTLED, timeout=15000)
             assert not _assert_no_page_overflow(page, "airlines", viewport["width"])
             for selector in (
                     TRANSAVIA + " .airlines-expand > summary",
-                    TRANSAVIA + " .airlines-thumb", TRANSAVIA + " .airlines-row .row-menu__toggle",
+                    TRANSAVIA + " .airlines-subrow a.airlines-thumb",
+                    TRANSAVIA + " .airlines-row .row-menu__toggle",
                     GAP_OPEN):
                 _settle(page, selector)
                 _assert_hit_target(page, selector, "airlines %s %s" % (name, lang))
@@ -206,9 +210,10 @@ def test_there_is_no_ignore_action_on_an_unidentified_prefix(new_context, make_a
 
 @pytest.mark.parametrize("name,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
 def test_the_chevron_expands_the_aircraft_type_sub_rows(new_context, server, name, viewport):
-    """one sub-row per type seen, every one editable: an A320 (a picture of its own: a tappable
-    thumbnail, Change artwork) and a B738 (the default type's picture, Add artwork); a type
-    with nothing to set or delete has no menu; a mouse click and the keyboard both toggle it"""
+    """one sub-row per type seen or pictured, every one editable: an A320 (a picture of its own: a
+    tappable thumbnail, Change artwork), a B738 (seen, no picture of its own: the default type's
+    picture, Add artwork) and the B737 of the airline's legacy picture; a type with nothing to
+    set or delete has no menu; a mouse click and the keyboard both toggle it"""
     context, page = _open(new_context, server, viewport)
     try:
         chevron = TRANSAVIA + " .airlines-expand > summary"
@@ -218,17 +223,10 @@ def test_the_chevron_expands_the_aircraft_type_sub_rows(new_context, server, nam
         page.locator(chevron).click()
         page.locator(subrows).first.wait_for(state="visible")
         rows = page.locator(subrows)
-        assert rows.count() == 2
-        first, second = rows.nth(0), rows.nth(1)
-        # A type row keeps the height of the airline row: its picture column is one line,
-        # whether the type has its own picture or shows the default type's.
-        parent_art = page.locator(TRANSAVIA + " .airlines-row .airlines-cell--art")
-        limit = parent_art.bounding_box()["height"] + 8
-        for sub in (first, second):
-            art = sub.locator(".airlines-cell--art")
-            if art.bounding_box() is None:
-                continue  # a phone's type card lays the picture out in its own grid
-            assert art.bounding_box()["height"] <= limit, (name, art.bounding_box(), limit)
+        assert rows.count() == 3
+        first, second, third = rows.nth(0), rows.nth(1), rows.nth(2)
+        # The airline's row carries no picture: only its type rows do.
+        assert page.locator(TRANSAVIA + " .airlines-row .airlines-thumb").count() == 0
         assert first.locator("th").inner_text().startswith("A320")
         assert first.locator("a.airlines-thumb").is_visible()
         assert first.locator(".row-menu__toggle").is_visible()
@@ -237,6 +235,8 @@ def test_the_chevron_expands_the_aircraft_type_sub_rows(new_context, server, nam
         assert first.locator(".airlines-act").inner_text() == "Change artwork"
         assert "Own artwork" in first.inner_text()
         assert second.locator("th").inner_text().startswith("B738")
+        assert third.locator("th").inner_text().startswith("B737")
+        assert third.locator("a.airlines-thumb").is_visible()
         if name == "1280":
             # A phone's type card leaves the views out, like the approved mockup.
             assert "2 views" in first.inner_text() and "1 view" in second.inner_text()
@@ -287,7 +287,7 @@ def test_opening_an_airline_among_the_full_list_is_quick(new_context, server):
         page.locator(TRANSAVIA + " .airlines-subrow").first.wait_for(state="visible")
         elapsed = page.evaluate("t => performance.now() - t", started)
         assert elapsed < 1500, elapsed
-        assert page.locator(".airlines-subrow").count() == before + 2
+        assert page.locator(".airlines-subrow").count() == before + 3
     finally:
         context.close()
 
@@ -347,6 +347,14 @@ def test_a_refused_name_returns_with_the_dialog_open_on_that_airline(new_context
         context.close()
 
 
+def _open_types(page, group):
+    """Expand the aircraft-type rows of the airline `group`."""
+    chevron = group + " .airlines-expand > summary"
+    _settle(page, chevron)
+    page.locator(chevron).click()
+    page.locator(group + " .airlines-subrow").first.wait_for(state="visible")
+
+
 def test_the_artwork_uploads_through_the_real_routes_for_an_airline_and_a_type(
         new_context, make_app_server):
     server = make_app_server(seed=_seed, fake_providers=True)
@@ -355,8 +363,10 @@ def test_the_artwork_uploads_through_the_real_routes_for_an_airline_and_a_type(
     requested = []
     page.on("request", lambda request: requested.append(request.url))
     try:
+        _open_types(page, IBERIA)
         form = page.locator('form[action^="/illustration/iberia-airlines.png"]')
         assert "csrf_token" not in form.get_attribute("action")
+        assert form.get_attribute("action").endswith("?default_type=A320")
         assert form.locator('input[name="csrf_token"]').get_attribute("value")
         with page.expect_navigation():
             form.locator("input[type=file]").set_input_files(png)
@@ -386,6 +396,7 @@ def test_a_refused_picture_names_its_airline_and_the_page_opens_on_that_row(
     bad.write_text("not an image")
     context, page = _open(new_context, server, VIEWPORT_MIN_SUPPORTED)
     try:
+        _open_types(page, IBERIA)
         form = page.locator('form[action^="/illustration/iberia-airlines.png"]')
         with page.expect_navigation():
             form.locator("input[type=file]").set_input_files(str(bad))
@@ -413,14 +424,6 @@ def test_the_menu_holds_only_its_items_and_escape_closes_it(new_context, server)
         page.keyboard.press("Escape")
         page.wait_for_function(
             "sel => !document.querySelector(sel).open", arg=group + " details.row-menu", timeout=5000)
-        # An airline with no aircraft-type row keeps an upload entry of its own.
-        _settle(page, IBERIA_MENU)
-        page.locator(IBERIA_MENU).click()
-        items = page.locator(IBERIA + " .airlines-row .row-menu__panel .row-menu__item")
-        items.first.wait_for(state="visible")
-        assert items.all_inner_texts() == ["Rename", "Change artwork"]
-        with page.expect_file_chooser():
-            items.nth(1).click()
     finally:
         context.close()
 
@@ -450,27 +453,24 @@ def test_the_menu_has_even_padding_and_44px_items(new_context, server, name, vie
 
 
 @pytest.mark.parametrize("name,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
-def test_tapping_a_thumbnail_enlarges_the_artwork_of_the_airline_and_of_a_type(
+def test_tapping_a_thumbnail_enlarges_the_artwork_of_a_type(
         new_context, server, name, viewport):
     context, page = _open(new_context, server, viewport)
     try:
-        thumb = TRANSAVIA + " .airlines-row a.airlines-thumb"
-        _settle(page, thumb)
-        page.locator(thumb).click()
+        _open_types(page, TRANSAVIA)
+        thumbs = TRANSAVIA + " .airlines-subrow a.airlines-thumb"
         dialog = page.locator(DIALOG)
+        _settle(page, thumbs)
+        page.locator(thumbs).nth(0).click()
         dialog.wait_for(state="visible")
-        assert "/illustration/transavia-france.png" in dialog.locator(".lightbox__image").get_attribute("src")
+        assert "/illustration/transavia-france-a320.png" in dialog.locator(
+            ".lightbox__image").get_attribute("src")
         assert dialog.locator(".lightbox__heading").inner_text() == "Transavia France"
         page.keyboard.press("Escape")
         dialog.wait_for(state="hidden")
-        chevron = TRANSAVIA + " .airlines-expand > summary"
-        _settle(page, chevron)
-        page.locator(chevron).click()
-        sub_thumb = TRANSAVIA + " .airlines-subrow a.airlines-thumb"
-        _settle(page, sub_thumb)
-        page.locator(sub_thumb).click()
+        page.locator(thumbs).nth(1).click()
         dialog.wait_for(state="visible")
-        assert "/illustration/transavia-france-a320.png" in dialog.locator(
+        assert "/illustration/transavia-france.png" in dialog.locator(
             ".lightbox__image").get_attribute("src")
     finally:
         context.close()
@@ -579,11 +579,8 @@ def test_without_scripts_the_chevron_the_rename_dialog_and_the_upload_button_wor
         _settle(page, chevron)
         page.locator(chevron).click()
         page.locator(TRANSAVIA + " .airlines-subrow").first.wait_for(state="visible")
-        upload = 'form[action^="/illustration/iberia-airlines.png"] .airlines-art__upload'
-        assert page.locator(upload).is_hidden()
-        page.locator(IBERIA_MENU).click()
+        upload = TRANSAVIA + ' form[action^="/illustration/transavia-france-a320.png"] .airlines-art__upload'
         assert page.locator(upload).is_visible()
-        page.locator(IBERIA_MENU).click()
         page.locator(FRANCE_MENU).click()
         page.locator(FRANCE + " .airlines-row .row-menu__panel a.row-menu__item").click()
         page.locator(FRANCE_FIELD).wait_for(state="visible")
@@ -707,10 +704,9 @@ def test_the_type_menu_sets_the_default_type_and_deletes_only_an_uploaded_pictur
         assert page.locator(star).inner_text() == "Default type"
         assert airline_default_types.load_default_types(server.state_dir) == {
             "transavia-france": "B738"}
-        # The airline row now shows the default type's code and its own picture.
+        # The airline row shows the default type's code, no picture of its own.
         assert page.locator(TRANSAVIA + " .airlines-row .airlines-deftype").inner_text() == "B738"
-        assert page.locator(TRANSAVIA + " .airlines-row .airlines-thumb__image").get_attribute(
-            "src").startswith("/illustration/transavia-france-b737.png")
+        assert page.locator(TRANSAVIA + " .airlines-row .airlines-thumb__image").count() == 0
         page.locator(B738_ROW + " .row-menu__toggle").click()
         items.first.wait_for(state="visible")
         assert items.all_inner_texts() == ["Stop using as the airline's default picture", "Delete the artwork"]
@@ -722,8 +718,10 @@ def test_the_type_menu_sets_the_default_type_and_deletes_only_an_uploaded_pictur
             "transavia-france-b737.png"))
         assert {"airline.default_type", "airline.artwork_delete"} <= set(
             _audit_actions(server.state_dir))
-        # The type left with no picture is no longer the airline's default.
-        assert airline_default_types.load_default_types(server.state_dir) == {}
+        # The type left with no picture is no longer the default: the first type the airline
+        # still has a picture for (alphabetically) takes over.
+        assert airline_default_types.load_default_types(server.state_dir) == {
+            "transavia-france": "A320"}
     finally:
         context.close()
 
@@ -827,24 +825,24 @@ def test_the_filter_chips_scroll_sideways_on_one_line_on_a_phone(new_context, se
 @pytest.mark.parametrize("lang", ("en", "fr"))
 def test_an_airline_row_on_a_phone_is_one_line_like_the_approved_mockup(
         new_context, server, lang):
-    """thumbnail at the left, the bold name over `AFR . A320 . 37 views` in small mono, the "..."
-    menu at the right, every control 44px and the row not taller than a compact line; opening
-    it lists the aircraft types in cards"""
+    """the bold name over `AFR . A320 . 37 views` in small mono, the "..." menu at the right
+    (an airline has no picture of its own: its types do), every control 44px and the row not
+    taller than a compact line; opening it lists the aircraft types in cards"""
     context, page = _open(new_context, server, VIEWPORT_MIN_SUPPORTED, lang=lang)
     try:
         row = TRANSAVIA + " .airlines-row"
         boxes = page.evaluate("""r => { const q = s => document.querySelector(r + ' ' + s).getBoundingClientRect();
             const row = document.querySelector(r).getBoundingClientRect();
-            return {row: row.toJSON(), thumb: q('.airlines-thumb').toJSON(), name: q('.airlines-name').toJSON(),
+            return {row: row.toJSON(), name: q('.airlines-name').toJSON(),
                     meta: q('.airlines-meta').toJSON(), menu: q('.row-menu__toggle').toJSON(),
                     metaText: document.querySelector(r + ' .airlines-meta').textContent}; }""", row)
         assert boxes["row"]["height"] <= 80, boxes["row"]
-        assert boxes["thumb"]["right"] <= boxes["name"]["left"] and boxes["name"]["right"] <= boxes["menu"]["left"] + 1
+        assert page.locator(row + " .airlines-thumb").count() == 0
+        assert boxes["name"]["right"] <= boxes["menu"]["left"] + 1
         assert boxes["name"]["bottom"] <= boxes["meta"]["top"] + 1, boxes
-        assert boxes["thumb"]["width"] >= 80 and boxes["menu"]["width"] >= 44 and boxes["menu"]["height"] >= 44
-        for key in ("thumb", "menu"):
-            middle = boxes[key]["top"] + boxes[key]["height"] / 2
-            assert abs(middle - (boxes["row"]["top"] + boxes["row"]["height"] / 2)) <= 4, (key, boxes)
+        assert boxes["menu"]["width"] >= 44 and boxes["menu"]["height"] >= 44
+        middle = boxes["menu"]["top"] + boxes["menu"]["height"] / 2
+        assert abs(middle - (boxes["row"]["top"] + boxes["row"]["height"] / 2)) <= 4, boxes
         assert re.fullmatch(r"\S+ \S+ · \S+ · \d+ \S+", boxes["metaText"]), boxes["metaText"]
         page.locator(TRANSAVIA + " .airlines-expand > summary").click()
         page.locator(TRANSAVIA + " .airlines-subrow").first.wait_for(state="visible")

@@ -1,12 +1,14 @@
 """The Console Airlines editor as one table.
 
 One `<tbody>` per airline: the airline's row (its name as plain text, callsign
-prefixes, the default aircraft type with its picture, views, last seen, a
-"..." menu) and, behind a native `<details>` chevron, one sub-row per aircraft
-type seen for it. The artwork belongs to the aircraft types: a type row says
-whether it has a picture of its own or follows the default type's, offers one
-upload entry, and its menu sets the default type or deletes the uploaded
-picture. Unidentified prefixes sit above as compact rows (`airline_rows`)
+prefixes, the code of its default aircraft type, views, last seen, a "..."
+menu) and, behind a native `<details>` chevron, one sub-row per aircraft type
+the airline has a picture for or was seen with. An airline has no picture of
+its own: the pictures belong to its aircraft types
+(`illustrations.type_pictures`, the legacy `{airline}.png` being the picture
+of its airframe type). A type row says whether it has a picture or follows the
+default type's, offers one upload entry, and its menu makes the type the
+airline's default picture or deletes the uploaded picture. Unidentified prefixes sit above as compact rows (`airline_rows`)
 named in a dialog. The table lists only airlines with artwork: one without
 (the application's own name for a prefix, or a name the owner typed or
 accepted) is a row of the "Known by name only" block above it, with the
@@ -18,6 +20,7 @@ the illustration upload route, the manual-name delete route, the resolve
 route, the artwork-delete route and the default-type route. Stored text
 reaches the markup only through `escape_html`.
 """
+import os
 import time
 from dataclasses import dataclass, field
 
@@ -125,7 +128,17 @@ def _thumb_html(page, key, state_dir):
          page.ILLUSTRATION_TARGET_WIDTH, page.ILLUSTRATION_TARGET_HEIGHT)
 
 
-def _change_art_form(page, key, text=None, css="row-menu__item"):
+def _upload_action(page, key, code):
+    """The upload address of the artwork `key`, naming the aircraft type `code`
+    the picture is for (an upload always says which type it shows)."""
+    action = page._illustration_url(key, "POST")
+    if not code:
+        return action
+    return "%s%s%s=%s" % (
+        action, "&" if "?" in action else "?", page.DEFAULT_TYPE_QUERY_PARAM, escape_html(code))
+
+
+def _change_art_form(page, key, text=None, css="row-menu__item", code=""):
     """The "Change artwork" control: a label wrapping the file input of a
     form that posts to the illustration upload route. With a script it sends
     on change; without one the Upload button sends it."""
@@ -140,7 +153,7 @@ def _change_art_form(page, key, text=None, css="row-menu__item"):
         'required data-autosubmit></label>'
         '<noscript><button type="submit" class="airlines-art__upload">%s</button></noscript>'
         "</form>"
-    ) % (page._illustration_url(key, "POST"), csrf_field(), css, label,
+    ) % (_upload_action(page, key, code), csrf_field(), css, label,
          escape_html(i18n.t(ART_UPLOAD_TEXT)))
 
 
@@ -234,17 +247,14 @@ def _hand_named(row):
             and _page().manual_prefix_renamable(manual[0]))
 
 
-def _menu_parts(page, row, with_art=True):
+def _menu_parts(page, row):
     """`(menu, rename dialog)` of an airline: Rename for an airline the
     built-in prefix table knows or the owner named by hand, the way back to the original name after a
-    rename (or Delete my name for an owner-named one). With `with_art`, an
-    airline with no aircraft-type row to carry a picture keeps "Change
-    artwork" so it is never a dead end. Both empty when nothing applies."""
+    rename (or Delete my name for an owner-named one). The artwork items are
+    on the type rows. Both empty when nothing applies."""
     renamable = row["sheet"] is not None or _hand_named(row)
     items = airline_rows.rename_item_html(row["index"]) if renamable else ""
     items += _reset_form(page, row)
-    if with_art and not row["sub_rows"] and not row["needs_artwork"]:
-        items += _change_art_form(page, row["key"])
     if not items:
         return "", ""
     return (_menu_html(items, i18n.t(MENU_ARIA) % row["name"]),
@@ -260,16 +270,10 @@ def _default_type_text(row):
     return '<span class="airlines-deftype mono">%s</span>' % escape_html(code or NO_VALUE)
 
 
-def _artwork_cell(page, row):
-    """The default type of an airline with artwork: its picture (the airline's
-    own when the default type has none) with the type's code; a tap on the
-    picture enlarges it."""
-    code = _default_type_text(row)
-    key = row["thumb_key"]
-    if key != row["key"]:
-        row = dict(row, manual_fields=_NO_MANUAL_FIELDS)
-    return '<span class="airlines-deftype-cell">%s%s</span>' % (
-        _enlarge_html(page, row, key, row["name"]), code)
+def _artwork_cell(row):
+    """The airline's default aircraft type, as its code: the airline has no
+    picture of its own, the pictures are on the type rows."""
+    return '<span class="airlines-deftype-cell">%s</span>' % _default_type_text(row)
 
 
 def _meta_html(row, prefixes):
@@ -308,32 +312,37 @@ def _main_row_html(page, row):
     ) % (
         _expand_cell(row), _name_cell(row), _meta_html(row, prefixes),
         _hidden_label(i18n.t(COL_PREFIXES)), escape_html(prefixes or NO_VALUE),
-        _artwork_cell(page, row), escape_html(_views_text(row["views"])),
+        _artwork_cell(row), escape_html(_views_text(row["views"])),
         _hidden_label(i18n.t(COL_LAST_SEEN)), row["last_seen_html"],
         _menu_cell(page, row))
 
 
 def _sub_art_html(page, sub, row):
-    """The type's own picture (enlargeable) with "Own artwork" beside it, else
-    the airline's picture dimmed and no words."""
+    """The type's picture (enlargeable) with "Own artwork" beside it, else the
+    picture the airline's default type gives it, dimmed and no words."""
     label = "%s, %s" % (row["name"], sub["code"])
-    if sub["slot"] is not None and sub["has_own"]:
-        thumb = _enlarge_html(page, dict(row, manual_fields=_NO_MANUAL_FIELDS), sub["slot"], label)
+    if sub["picture"] is not None:
+        # The airline's legacy picture keeps the airline's manual-name state
+        # in the dialog (its delete action and superseded note).
+        shown = row if sub["picture"].key == row["key"] else dict(row, manual_fields=_NO_MANUAL_FIELDS)
+        thumb = _enlarge_html(page, shown, sub["picture"].key, label)
         return '%s<span class="airlines-state text-label">%s</span>' % (
             thumb, escape_html(i18n.t(STATE_OWN)))
-    return '<span class="airlines-thumb airlines-thumb--inherited">%s</span>' % (
-        _thumb_html(page, row["key"], row["state_dir"]))
+    if row["default_key"]:
+        return '<span class="airlines-thumb airlines-thumb--inherited">%s</span>' % (
+            _thumb_html(page, row["default_key"], row["state_dir"]))
+    return ""
 
 
 def _sub_action_html(page, sub):
     """The type row's one upload entry: "Add artwork" for a type with no
-    picture, "Change artwork" for one that has any; nothing for a type no
-    picture slot exists for."""
+    picture, "Change artwork" for one that has it; nothing for a type no
+    picture slot exists for. The upload names the row's type."""
     if sub["slot"] is None:
         return ""
     return _change_art_form(
         page, sub["slot"], i18n.t(MENU_CHANGE_ART if sub["has_own"] else ACTION_ADD_ART),
-        "airlines-act")
+        "airlines-act", sub["code_ok"])
 
 
 def _sub_menu_html(page, sub, row):
@@ -341,13 +350,14 @@ def _sub_menu_html(page, sub, row):
     a picture of its own for this airline), clear it when it is the default,
     and delete the uploaded picture, which only exists as an owner's upload."""
     items = ""
-    if sub["code_ok"] and (sub["is_default"] or sub["has_livery"]):
+    stored = sub["code_ok"] and sub["code_ok"] == row["stored_default"]
+    if sub["code_ok"] and (stored or (sub["has_own"] and not sub["is_default"])):
         items += _post_form(
             airline_sheet.DEFAULT_TYPE_ROUTE,
-            (("airline_key", row["key"]), ("type", "" if sub["is_default"] else sub["code_ok"])),
-            i18n.t(MENU_CLEAR_DEFAULT_TYPE if sub["is_default"] else MENU_SET_DEFAULT_TYPE))
-    if sub["slot"] and sub["has_override"]:
-        items += _delete_art_form(sub["slot"])
+            (("airline_key", row["key"]), ("type", "" if stored else sub["code_ok"])),
+            i18n.t(MENU_CLEAR_DEFAULT_TYPE if stored else MENU_SET_DEFAULT_TYPE))
+    if sub["has_override"]:
+        items += _delete_art_form(sub["picture"].key)
     if not items:
         return ""
     return _menu_html(items, i18n.t(MENU_ARIA) % ("%s, %s" % (row["name"], sub["code"])))
@@ -383,36 +393,49 @@ def _slot_for(code, key):
     return "%s-%s" % (key, slug) if slug else None
 
 
-def _sub_rows(page, entry, builtin_name, shapes, row):
-    """One dict per aircraft type: seen types first (most seen first), then
-    the curated variants never seen. `slot` is the artwork key of the type's
-    own picture (`None` for a type that has no slot), `has_own` whether
-    that picture exists, `has_override` whether the owner uploaded it."""
+def _sub_row(code, views, model, picture, slot, row):
+    """One type row. `picture` is the type's `illustrations.TypePicture` (or
+    `None`), `slot` the artwork key an upload for the type goes to."""
+    code_ok = airline_default_types.normalise_code(code) or ""
+    override = picture is not None and bool(
+        illustrations.override_path_for_key(picture.key, row["state_dir"])
+        and os.path.isfile(illustrations.override_path_for_key(picture.key, row["state_dir"])))
+    return {
+        "code": code, "views": views, "model": model, "picture": picture,
+        "slot": picture.key if picture is not None else slot,
+        "has_own": picture is not None, "has_override": override, "code_ok": code_ok,
+        "is_default": bool(code_ok) and code_ok == row["default_type"]}
+
+
+def _sub_rows(entry, row, builtin_name, shapes):
+    """One dict per aircraft type: the types seen for the airline first (most
+    seen first), then the other types it has a picture for, then the curated
+    variants of its built-in original it has no picture of yet. `slot` is the
+    artwork key of the type's picture (`None` for a type that has no slot)."""
     key = row["key"]
-    subs = []
-    used = set()
     counts = entry.type_counts if entry is not None else ()
-    for code, views in counts:
-        slot = _slot_for(code, key)
-        used.add(slot)
-        subs.append({
-            "code": code, "views": views, "slot": slot,
-            "model": panel_render._TYPE_DISPLAY_LABELS.get(code, code)})
+    pictures = row["pictures"]
+    subs = [
+        _sub_row(code, views, panel_render._TYPE_DISPLAY_LABELS.get(code, code),
+                 pictures.get(code.strip().upper()), _slot_for(code, key), row)
+        for code, views in counts]
+    seen = {code.strip().upper() for code, _views in counts}
+    unseen = [
+        _sub_row(code, 0, code, picture, _slot_for(code, key), row)
+        for code, picture in pictures.items() if code not in seen]
+    listed = {sub["code"] for sub in subs} | {sub["code"] for sub in unseen} | seen
     for shape in shapes or []:
-        slot = "%s-%s" % (key, shape)
-        if slot not in used:
-            label = illustrations.aircraft_label(builtin_name, shape) or shape.upper()
-            subs.append({"code": label, "model": label, "views": 0, "slot": slot})
-    for sub in subs:
-        has_builtin, has_override = (
-            page._artwork_files(sub["slot"], row["state_dir"]) if sub["slot"] else (False, False))
-        code_ok = airline_default_types.normalise_code(sub["code"]) or ""
-        sub.update(
-            has_builtin=has_builtin, has_override=has_override,
-            has_own=has_builtin or has_override, code_ok=code_ok,
-            has_livery=has_builtin or has_override or (
-                bool(code_ok) and illustrations.has_type_livery(key, code_ok, row["state_dir"])),
-            is_default=bool(code_ok) and code_ok == row["default_type"])
+        code = illustrations.aircraft_label(builtin_name, shape) or shape.upper()
+        if code not in listed:
+            unseen.append(_sub_row(code, 0, code, None, "%s-%s" % (key, shape), row))
+    subs.extend(sorted(unseen, key=lambda sub: sub["code"]))
+    legacy = illustrations.resolved_illustration_path(key, row["state_dir"])
+    own = illustrations.TypePicture(key, legacy) if legacy else None
+    if own is not None and all(
+            sub["picture"] is None or sub["picture"].key != key for sub in subs):
+        # The airline's legacy picture of an airframe nobody named: listed so
+        # it is not hidden, under no type.
+        subs.append(_sub_row(NO_VALUE, 0, NO_VALUE, own, key, row))
     return subs
 
 
@@ -426,16 +449,20 @@ def _row_facts(page, data, index, builtin_name, shapes):
     manual_info = data.manual_info_by_name.get(builtin_name)
     manual_fields = page._airline_card_manual_fields(
         manual_info, name, key, data.state_dir, data.now)
-    has_builtin, has_override = page._artwork_files(key, data.state_dir)
     entry = data.entries_by_slug.get(illustrations.normalise_airline_key(builtin_name))
     seen = entry is not None and entry.last_ts
+    codes = [code for code, _views in entry.type_counts] if entry is not None else ()
+    pictures = illustrations.type_pictures(key, data.state_dir, codes)
+    default_type = illustrations.effective_default_type(key, data.state_dir, pictures) or ""
+    default_picture = illustrations.default_picture(key, data.state_dir)
     facts = {
         "index": index, "builtin": builtin_name, "name": airline_display.shown_name(name), "key": key, "sheet": sheet,
         "manual_info": manual_info, "manual_fields": manual_fields,
         "needs_artwork": manual_fields[0] == page._VIEW_PANEL_MODE_NEEDS_ARTWORK,
-        "has_art": has_builtin or has_override, "state_dir": data.state_dir,
-        "has_builtin": has_builtin, "has_override": has_override,
-        "default_type": data.default_types.get(key, ""),
+        "has_art": default_picture is not None or bool(pictures), "state_dir": data.state_dir,
+        "pictures": pictures, "default_type": default_type,
+        "stored_default": data.default_types.get(key, ""),
+        "default_key": default_picture.key if default_picture is not None else "",
         "views": entry.times_seen if entry is not None else 0,
         "last_seen_html": (
             layout.concise_timestamp_html(entry.last_ts, data.now, fallback="")
@@ -443,9 +470,7 @@ def _row_facts(page, data, index, builtin_name, shapes):
         "promoted_prefix": data.promoted_prefixes.get(builtin_name, ""),
         "focus": bool(data.focus_key) and sheet is not None and data.focus_key == key,
     }
-    facts["sub_rows"] = _sub_rows(page, entry, builtin_name, shapes, facts)
-    facts["thumb_key"] = next(
-        (sub["slot"] for sub in facts["sub_rows"] if sub["is_default"] and sub["has_own"]), key)
+    facts["sub_rows"] = _sub_rows(entry, facts, builtin_name, shapes)
     facts["kinds"] = airline_rows.row_kinds(facts["views"])
     return facts
 
@@ -591,7 +616,7 @@ def table_and_chips(data):
             continue
         if not row["has_art"]:
             # An airline without artwork is listed by name, with the menu of its row.
-            menu, dialog = _menu_parts(page, row, with_art=False)
+            menu, dialog = _menu_parts(page, row)
             known.append((row["name"].casefold(), _row_prefixes(row), {
                 "prefix": _row_prefixes(row), "name": row["name"], "key": row["key"],
                 "filter_text": _filter_text(row), "menu_html": menu, "dialog_html": dialog}))

@@ -153,7 +153,8 @@ def test_without_scripts_the_menu_opens_and_deleting_the_name_works(
         new_context, make_app_server):
     server = make_app_server(seed=_seed, fake_providers=True)
     context, page = _open(
-        new_context, server, VIEWPORT_MIN_SUPPORTED, java_script_enabled=False)
+        new_context, server, VIEWPORT_MIN_SUPPORTED, java_script_enabled=False,
+        reduced_motion="reduce")
     try:
         page.locator(DELETE_LINK).first.click()
         item = page.locator(ROW + " .row-menu__panel button.row-menu__item").first

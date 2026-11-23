@@ -1085,7 +1085,7 @@ def test_airlines_full_seeded_render_french_end_to_end(tmp_path):
     })
     try:
         prefs.set_request_prefs(lang="fr")
-        rendered_fr = airlines_page.render({"state_dir": str(tmp_path)})
+        rendered_fr = airlines_page.render({"state_dir": str(tmp_path), "types_open": "all"})
         resolve_fr = airlines_page.render({"state_dir": str(tmp_path), "resolve_prefix": "XYZ"})
     finally:
         prefs.set_request_prefs(lang="en")
@@ -1101,7 +1101,7 @@ def test_airlines_full_seeded_render_french_end_to_end(tmp_path):
     assert "XYZ123" in rendered_fr or "XYZ123" in resolve_fr, (
         "expected the seeded example callsign to stay untranslated data")
 
-    rendered_en = airlines_page.render({"state_dir": str(tmp_path)})
+    rendered_en = airlines_page.render({"state_dir": str(tmp_path), "types_open": "all"})
     for needle in ('<h1 class="page-title">Airline editor</h1>', ">Validate</button>",
                    "Change artwork"):
         assert needle in rendered_en, "expected the English %r in the default-language Airlines render" % (needle,)

@@ -190,7 +190,7 @@ def test_airlines_rows_carry_no_badge_or_per_row_control_but_full_vocabulary():
     anywhere — while every airline row trigger (its "Enlarge the artwork" menu item)
     still carries the SAME full data-view-panel-* vocabulary, its size derived from the
     module's own _VIEW_PANEL_*_ATTR constants rather than a hardcoded number"""
-    rendered = airlines_page.render({})
+    rendered = airlines_page.render({"types_open": "all"})
 
     assert "banner__pill" not in rendered, (
         "expected no Editing badge anywhere — the page-wide editing mode is gone")

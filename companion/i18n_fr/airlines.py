@@ -74,8 +74,6 @@ MESSAGES = {
     "airlines.views_many": "%d vues",
     "airlines.table_not_seen": "Pas encore vue",
     # --- Page header, gallery, cards --------------------------------
-    "airlines.aircraft_type": "Type d’appareil",
-    "airlines.all_types": "Tous types",
     "airlines.action_for": "%s : %s",
     "airlines.airline_illustration": "Illustration de la compagnie",
     "airlines.close": "Fermer",

@@ -74,7 +74,8 @@ def _picture_name(row, gallery_entries):
 def _illustration_src(row, state_dir):
     airline = row.get("airline")
     key = illustrations.normalise_airline_key(airline) if airline else None
-    if not key or not illustrations.resolved_illustration_path(key, state_dir):
+    key = illustrations.display_key(key, state_dir) if key else None
+    if not key:
         return None
     return device_scope.scoped(
         flight_card.ILLUSTRATION_ROUTE_PREFIX + key + ".png"

@@ -53,15 +53,6 @@ ASK_TYPE_ATTR = "data-view-panel-ask-type"
 ASK_TYPE_ID = "airline_artwork_type"
 ASK_TYPE_CLASS = "upload-type"
 ASK_TYPE_LABEL = i18n.msg("airlines.artwork_aircraft_type", "Aircraft type")
-TYPE_LABEL_TEXT = i18n.msg("airlines.aircraft_type", "Aircraft type")
-# The type label of an owner-named airline: its one picture is used for
-# every aircraft, so it names no single type. A built-in airline always
-# names the airframe its picture shows (`illustrations.aircraft_label()`).
-TYPE_ALL_TEXT = i18n.msg("airlines.all_types", "All types")
-
-# A row lists up to this many aircraft types, else its first two and "+N".
-ROW_TYPES_SHOWN_MAX = 3
-ROW_TYPES_SEP = " · "
 
 # A row's accessible name: ACTION_LABEL_TEMPLATE takes the action (or the
 # edit wording and the airline) then the airline's types / name.
@@ -1134,7 +1125,7 @@ def _resolve_section_html(ctx):
     # delete form is eligible in both.
     delete_form = _manual_delete_form_html(_manual_delete_action(prefix))
 
-    if illustrations.resolved_illustration_path(key, state_dir) is None:
+    if not illustrations.has_pictures(key, state_dir):
         # Step B: name already saved, no artwork exists yet.
         upload_action = _illustration_url(key, "POST")
         upload_zone = _resolve_upload_form_html(upload_action, "")
@@ -1193,7 +1184,7 @@ def _manual_resolution_rows(state_dir, registry):
         needs_artwork = False
         if not superseded:
             key = manual_resolutions.illustration_key_for_name(airline_name)
-            needs_artwork = bool(key) and illustrations.resolved_illustration_path(key, state_dir) is None
+            needs_artwork = bool(key) and not illustrations.has_pictures(key, state_dir)
         rows.append((prefix, airline_name, created_at, superseded, needs_artwork))
     return rows
 
