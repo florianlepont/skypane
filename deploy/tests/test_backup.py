@@ -783,6 +783,7 @@ class TestAirlineFiles:
             "airline_name_overrides.json", "airline_default_types.json",
             "airline_suggestions.json", "airline_registry_migration.json",
             "airline_default_types_migration.json", "airline_default_types_cleared.json",
+            "airline_default_types_set_migration.json", "airline_default_types_set.json",
             "manual_resolutions.json", "adsbdb_shared_cache.json",
             "adsbdb_shared_cache.json.lock",
         ):
@@ -796,7 +797,8 @@ class TestAirlineFiles:
         base = "devices/" + _DEV + "/"
         for kept in ("manual_resolutions.json", "airline_name_overrides.json", "airline_default_types.json",
                      "airline_suggestions.json", "airline_registry_migration.json",
-                     "airline_default_types_migration.json", "airline_default_types_cleared.json"):
+                     "airline_default_types_migration.json", "airline_default_types_cleared.json",
+                     "airline_default_types_set_migration.json", "airline_default_types_set.json"):
             assert kept in members
         for kept in ("manual_resolutions.json", "airline_name_overrides.json", "airline_default_types.json"):
             assert base + kept in members

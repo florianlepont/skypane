@@ -720,15 +720,46 @@ def test_default_types_without_a_picture_are_cleared_once(seeded, capsys):
     out = capsys.readouterr().out
     assert "airline default types: would clear 1" in out
     assert "airline default types: would clear air-france: B738" in out
+    assert "airline default types: would set air-france: A320 (rule a)" in out
+    assert not any("transavia-france" in line and "would set" in line for line in out.splitlines())
     assert _without_wal_sides(live.snapshot_dir(root)) == before
 
     assert _run(seeded) == 0
     out = capsys.readouterr().out
     assert "airline default types: cleared 1" in out
-    assert json.load(open(os.path.join(root, "airline_default_types.json"))) == {
-        "transavia-france": "A320"}
+    stored = json.load(open(os.path.join(root, "airline_default_types.json")))
+    # Air France lost its default for lack of a picture and gets its airframe back by rule a.
+    assert stored["transavia-france"] == "A320" and stored["air-france"] == "A320"
+    assert "airline default types: set air-france: A320 (rule a)" in out
     cleared = json.load(open(os.path.join(root, "airline_default_types_cleared.json")))
     assert [(r["airline_key"], r["type"]) for r in cleared] == [("air-france", "B738")]
+    after = _without_wal_sides(live.snapshot_dir(root))
+
+    assert _run(seeded) == 0
+    assert capsys.readouterr().out.count("airline default types: nothing to do") == 2
+    assert _without_wal_sides(live.snapshot_dir(root)) == after
+
+
+def test_every_airline_with_pictures_and_no_default_gets_one_once(seeded, capsys):
+    _run(seeded)
+    root = seeded.state_dir
+    capsys.readouterr()
+    before = _without_wal_sides(live.snapshot_dir(root))
+
+    assert _run(seeded, "--dry-run") == 0
+    out = capsys.readouterr().out
+    assert "airline default types: would set air-france: A320 (rule a)" in out
+    assert "airline default types: would set tap-portugal: A321 (rule a)" in out
+    assert _without_wal_sides(live.snapshot_dir(root)) == before
+    assert not os.path.exists(os.path.join(root, "airline_default_types.json"))
+
+    assert _run(seeded) == 0
+    out = capsys.readouterr().out
+    assert "airline default types: set air-france: A320 (rule a)" in out
+    stored = json.load(open(os.path.join(root, "airline_default_types.json")))
+    archive = json.load(open(os.path.join(root, "airline_default_types_set.json")))
+    assert sorted(record["airline_key"] for record in archive) == sorted(stored)
+    assert os.path.isfile(os.path.join(root, "airline_default_types_set_migration.json"))
     after = _without_wal_sides(live.snapshot_dir(root))
 
     assert _run(seeded) == 0

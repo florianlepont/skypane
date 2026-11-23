@@ -40,6 +40,9 @@ Invariants:
   `server.plane.fleet_default_types` after the merges: each is archived in
   `airline_default_types_cleared.json` first and a marker keeps a second run
   from doing anything.
+- Every airline that has pictures and no default type gets one by fixed rules
+  (`server.plane.fleet_set_defaults`, run after the clearing, archived in
+  `airline_default_types_set.json`, marker-guarded like the clearing).
 - Output names MACs, airline names, prefixes and counts only; never a
   token, secret hash or other file content.
 """
@@ -60,7 +63,8 @@ if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
 from server import fleet_db, hardware  # noqa: E402
-from server.plane import fleet_artwork, fleet_default_types, fleet_registries  # noqa: E402
+from server.plane import (  # noqa: E402
+    fleet_artwork, fleet_default_types, fleet_registries, fleet_set_defaults)
 
 LEGACY_REGISTRY_FILE = "devices.json"
 LEGACY_STATE_FILE = "byos_state.json"
@@ -410,6 +414,10 @@ def migrate(state_dir: str, owner_email: str | None, dry_run: bool) -> Migration
         extra = fleet_registries.report_lines(registry_plan, dry_run=True)
         extra += fleet_artwork.report_lines(artwork_plan, dry_run=True)
         extra += fleet_default_types.report_lines(defaults_plan, dry_run=True)
+        # The clearing has not happened in a dry run: judge as if it had.
+        set_plan = fleet_set_defaults.plan_set(
+            state_dir, cleared={key for key, _code in defaults_plan.to_clear})
+        extra += fleet_set_defaults.report_lines(set_plan, dry_run=True)
         changed = report.changed
     else:
         extra = fleet_registries.apply_merge(state_dir, registry_plan)
@@ -418,8 +426,12 @@ def migrate(state_dir: str, owner_email: str | None, dry_run: bool) -> Migration
         # re-plan so a default or picture they brought in is counted.
         extra += fleet_default_types.apply_clear(
             state_dir, fleet_default_types.plan_clear(state_dir))
+        # After the clearing, so a default that was cleared for lack of a
+        # picture is chosen again by the rules when the airline has pictures.
+        set_plan = fleet_set_defaults.plan_set(state_dir)
+        extra += fleet_set_defaults.apply_set(state_dir, set_plan)
         changed = (report.changed or registry_plan.needs_write or artwork_plan.needs_write
-                   or defaults_plan.needs_write)
+                   or defaults_plan.needs_write or set_plan.needs_write)
     return MigrationReport(list(report.lines) + extra, changed=changed)
 
 

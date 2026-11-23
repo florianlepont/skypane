@@ -47,6 +47,8 @@ INCLUDE_FILES = (
     "illustration_migration.json",
     "airline_default_types_migration.json",
     "airline_default_types_cleared.json",
+    "airline_default_types_set_migration.json",
+    "airline_default_types_set.json",
     "poll_state.json",
     "battery_state.json",
     "live_frame_macs.json",
