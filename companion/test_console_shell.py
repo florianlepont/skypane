@@ -210,7 +210,9 @@ def test_my_views_pages_of_an_admin_carry_no_admin_tab(served):
         prefix + "/", prefix + "/flights", prefix + "/airlines", prefix + "/display",
         prefix + "/detection"]
     sheet = bar.split('<div class="tab-bar__more-panel">')[1]
-    assert _hrefs(sheet) == ["/account", "/fleet"]
+    # Consulting the owner's frame, the way out is the notice's Back to Fleet:
+    # the sheet holds no switch row.
+    assert _hrefs(sheet) == ["/account"]
     assert "Admin<" not in page and "Administration" not in _sidebar(page)
 
 
@@ -228,9 +230,7 @@ def test_the_switch_is_a_row_of_the_more_panel_for_an_admin_and_absent_for_a_use
     _status, mine = _get(server, cookies["admin"], server.frame_prefix + "/")
     mine_bar = _tab_bar(mine)
     assert "tab-bar__link--switch" not in mine_bar
-    mine_panel = mine_bar.split('<div class="tab-bar__more-panel">')[1]
-    assert re.search(r'<a class="[^"]*tab-bar__space-link" href="/fleet"', mine_panel)
-    assert "Console<" in mine_panel
+    assert "tab-bar__space-link" not in mine_bar
     _status, account = _get(server, cookies["owner"], "/account")
     assert "space-switch" not in account and "tab-bar__space-link" not in account
 

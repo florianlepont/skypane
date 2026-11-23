@@ -681,9 +681,10 @@ def test_an_administrators_personal_page_equals_a_users(
     assert user["headings"] and user["nav"]
     for part in ("headings", "nav", "controls"):
         assert admin[part] == user[part], (page_path, viewport["width"], part)
-    # The switch and the foreign-frame notice are the whole difference.
+    # The foreign-frame notice is the whole difference: consulting someone else's frame
+    # offers no space switch either.
     assert user["switchControls"] == 0 and user["notice"] == 0
-    assert admin["switchControls"] >= 1 and admin["notice"] == 1
+    assert admin["switchControls"] == 0 and admin["notice"] == 1
 
 
 # --- Hit targets while a card is still arriving -------------------------------

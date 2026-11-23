@@ -169,6 +169,39 @@ def test_the_notice_names_the_owner_and_leads_back_to_the_viewed_frame(app, page
     assert strip.select_one("strong").text() == NASTY_OWNER
 
 
+@pytest.mark.parametrize("page", ("/", "/flights", "/airlines", "/detection"))
+def test_the_notice_is_the_first_block_of_the_page_above_the_shell(app, page):
+    _server, seed, _cookies = app
+    _status, _headers, body = _get(
+        app, "keeper", "/devices/%s%s" % (seed.nasty_frame, page))
+    root = parse_html(body)
+    assert root.select(".frame-notice")[0].parent.tag == "body"
+    assert root.select("main .frame-notice") == []
+    assert body.index('class="frame-notice"') < body.index('class="dashboard-shell"')
+
+
+@pytest.mark.parametrize("page", ("/", "/flights", "/airlines", "/detection"))
+def test_consulting_a_frame_offers_no_space_switch(app, page):
+    _server, seed, _cookies = app
+    _status, _headers, body = _get(
+        app, "keeper", "/devices/%s%s" % (seed.nasty_frame, page))
+    assert parse_html(body).select(".space-switch") == []
+    assert parse_html(body).select(".tab-bar__space-link") == []
+    assert parse_html(body).select(".frame-notice a")
+
+
+@pytest.mark.parametrize("page", ("/", "/flights", "/airlines", "/detection"))
+def test_the_space_switch_stays_on_the_administrators_own_frame_and_the_console(app, page):
+    _server, seed, _cookies = app
+    _status, _headers, body = _get(
+        app, "keeper", "/devices/%s%s" % (seed.keeper_frame, page))
+    root = parse_html(body)
+    assert root.select(".space-switch") and root.select(".tab-bar__space-link")
+    assert root.select(".frame-notice") == []
+    _status, _headers, body = _get(app, "keeper", "/fleet")
+    assert parse_html(body).select(".space-switch")
+
+
 def test_the_return_link_ignores_a_frame_named_in_the_query(app):
     _server, seed, _cookies = app
     _status, _headers, body = _get(

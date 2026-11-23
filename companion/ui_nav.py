@@ -650,7 +650,7 @@ def _sheet_preference_row(label, icon_id, form_html):
         i18n.t(label), lead_html=lead, trailing_html=form_html, extra_class="tab-bar__pref")
 
 
-def _more_panel_html(active, sheet, ui_theme, space):
+def _more_panel_html(active, sheet, ui_theme, space, consulting=False):
     """The More sheet, top to bottom: the Account row and, for an
     administrator, the row that switches to the other space; theme and
     language (one tap each, plain POST forms); Sign out.
@@ -659,7 +659,7 @@ def _more_panel_html(active, sheet, ui_theme, space):
     links = (
         _account_sheet_link(sheet[0])
         + "".join(_sheet_page_link(entry) for entry in sheet[1:])
-        + _switch_row_html(space))
+        + ("" if consulting else _switch_row_html(space)))
     links_html = '<div class="tab-bar__links">%s</div>' % links
     grab = '<span class="tab-bar__grab" aria-hidden="true"></span>'
     if active == ACCOUNT_NAV_SLUG:
@@ -677,7 +677,9 @@ def _more_panel_html(active, sheet, ui_theme, space):
             icon_html("icon-sign-out", 18), escape_html(i18n.t(_SIGN_OUT_TEXT))))
 
 
-def _tab_bar_html(active, health_alert=None, device_config=None, ui_theme="auto", no_tab=False):
+def _tab_bar_html(
+        active, health_alert=None, device_config=None, ui_theme="auto", no_tab=False,
+        consulting=False):
     """Bottom tab bar shown below 960px, the sub-960px nav.
 
     The destination cells and a "More" overflow are chosen by the caller's
@@ -686,6 +688,8 @@ def _tab_bar_html(active, health_alert=None, device_config=None, ui_theme="auto"
     overflow. The overflow uses a native <details>/<summary>
     so it works with scripts blocked. The Fleet severity dot is drawn on the
     Fleet cell, never on More.
+    `consulting` (an administrator on someone else's frame) drops the row that
+    switches space: the page's own Back to Fleet is the way out.
     `no_tab` marks a page that is in no tab and is not reached through More
     either (an error page): no cell is selected there.
     Returns "" when there is no session context: no device_config and no
@@ -732,7 +736,7 @@ def _tab_bar_html(active, health_alert=None, device_config=None, ui_theme="auto"
         % (alone, summary_class,
            _tab_bar_cell_body(
                TAB_BAR_MORE_ICON_ID, escape_html(i18n.t(TAB_BAR_MORE_LABEL))),
-           _more_panel_html(active, sheet, ui_theme, space)))
+           _more_panel_html(active, sheet, ui_theme, space, consulting)))
     return _tab_bar_nav_html(cells)
 
 

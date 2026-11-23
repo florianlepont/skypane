@@ -57,8 +57,6 @@ def _label(segment_inner):
 
 @pytest.mark.parametrize("path_of,current", [
     (lambda s: "/fleet", "Console"),
-    (lambda s: s.prefix + "/", "My frames"),
-    (lambda s: s.prefix + "/flights", "My frames"),
     (lambda s: "/users", "Console"),
 ])
 def test_an_administrator_sees_both_segments_and_the_current_one_is_marked(
