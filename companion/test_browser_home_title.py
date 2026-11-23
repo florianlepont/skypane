@@ -393,3 +393,18 @@ def test_tab_bar_labels_are_legible_and_uncramped(new_context, admin_server, vie
                 hex_ink = "#%02X%02X%02X" % tuple(rgb)
                 assert contrast_ratio(hex_ink, bar) >= WCAG_AA_NORMAL_TEXT, (
                     where, ink, bar, backdrop)
+
+
+@pytest.mark.parametrize("button, glyph", [
+    (".home-state .info-tip__button", ".home-state .info-tip__button .icon"),
+    (".title-action .btn--icon", ".title-action .btn--icon .icon")], ids=["info", "pencil"])
+def test_the_round_icon_buttons_hold_their_glyph_at_the_centre(new_context, fleet_app, button, glyph):
+    """the glyph of the "i" and the pencil sits at the centre of its button, so it is centred in
+    the circle drawn behind it"""
+    page = _fleet_page(new_context, fleet_app, _live(fleet_app), viewport=VIEWPORT_DESKTOP)
+    centres = page.evaluate(
+        "([b, g]) => { const c = (s) => { const r = document.querySelector(s).getBoundingClientRect();"
+        " return [r.left + r.width / 2, r.top + r.height / 2]; }; return [c(b), c(g)]; }",
+        [button, glyph])
+    assert abs(centres[0][0] - centres[1][0]) <= 0.5, centres
+    assert abs(centres[0][1] - centres[1][1]) <= 0.5, centres

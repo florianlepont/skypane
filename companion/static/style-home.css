@@ -60,6 +60,9 @@
 .home-state .info-tip__button .icon {
   width: 16px;
   height: 16px;
+  /* The clock's first-line offset of `.home-state__next .icon` does not apply
+   * to the glyph of a round button. */
+  margin: 0;
 }
 
 .home-state .title-action__action .btn.btn--icon:hover::before,
@@ -218,6 +221,8 @@
 .home-flight__picture {
   position: relative;
   flex: none;
+  /* Not stretched to a taller text column: the ring wraps the picture alone. */
+  align-self: flex-start;
   width: 132px;
 }
 

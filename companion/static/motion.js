@@ -376,11 +376,23 @@
     img.classList.remove("is-revealed");
   }
 
+  // True when the browser answered this picture from a copy it already held
+  // (the resource timing entry reports no bytes over the network), so the
+  // picture is not new to the person and must not fade in again.
+  function heldByBrowser(img) {
+    if (!window.performance || !window.performance.getEntriesByName) {
+      return false;
+    }
+    var entries = window.performance.getEntriesByName(img.currentSrc || img.src, "resource");
+    var last = entries[entries.length - 1];
+    return !!last && last.transferSize === 0 && last.decodedBodySize > 0;
+  }
+
   function pictureLoaded(img, ok) {
     if (img.parentNode) {
       img.parentNode.classList.remove("is-loading");
     }
-    if (ok && !reducedMotion()) {
+    if (ok && !reducedMotion() && !heldByBrowser(img)) {
       revealQueue.push(img);
       if (!revealFrame) {
         revealFrame = window.requestAnimationFrame(flushReveals);

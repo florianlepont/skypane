@@ -149,3 +149,31 @@ def test_the_cycle_ring_wraps_the_picture_of_either_shape(new_context, app, shap
         assert box["inside"], box
     finally:
         context.close()
+
+
+@pytest.mark.parametrize("viewport", [
+    {"width": 844, "height": 390}, {"width": 926, "height": 428}], ids=["844x390", "926x428"])
+@pytest.mark.parametrize("shape", ["landscape", "live"])
+def test_the_picture_box_hugs_the_picture_when_the_text_is_taller(new_context, app, viewport, shape):
+    """on a phone held sideways the text column may be taller than the picture; the picture's
+    box (the cycle ring's frame) must still end where the picture ends, leaving no empty strip
+    under it"""
+    context = new_context(viewport=viewport, color_scheme="light")
+    try:
+        base = app.server.base_url()
+        name, value = app.cookie.split("=", 1)
+        context.add_cookies([{"name": name, "value": value, "url": base, "httpOnly": True,
+                              "sameSite": "Strict"}])
+        page = context.new_page()
+        page.goto("%s/devices/%s/" % (base, getattr(app.fleet, shape).id))
+        page.wait_for_function(LOADED)
+        page.wait_for_selector(".home-ring")
+        heights = page.evaluate(
+            "() => ({box: document.querySelector('.home-flight__picture').getBoundingClientRect().height,"
+            " image: document.querySelector('.home-flight__picture img').getBoundingClientRect().height,"
+            " meta: document.querySelector('.home-flight__meta').getBoundingClientRect().height})")
+        assert abs(heights["box"] - heights["image"]) <= 1, heights
+        if shape == "landscape":
+            assert heights["meta"] > heights["image"], heights
+    finally:
+        context.close()

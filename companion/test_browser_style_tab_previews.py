@@ -118,3 +118,34 @@ def test_a_stale_or_missing_address_never_pins_an_image(new_context, server):
         assert answers[name][0] == "private, max-age=300", name
         assert answers[name][1] == answers["current"][1], name
     context.close()
+
+
+_RECORD_REVEALS = """
+window.__revealed = [];
+new MutationObserver(records => {
+  for (const r of records) {
+    if (r.target.tagName === 'IMG' && r.target.classList.contains('is-revealed')) {
+      window.__revealed.push(r.target.getAttribute('src'));
+    }
+  }
+}).observe(document, {subtree: true, attributes: true, attributeFilter: ['class']});
+"""
+
+
+def test_a_preview_already_loaded_does_not_fade_in_again_on_a_tab_switch(new_context, server):
+    """a picture the browser already holds appears as it is; only one fetched over the network
+    fades in, so moving between Style tabs does not make the previews blink"""
+    context = new_context(viewport={"width": 1280, "height": 900})
+    page = context.new_page()
+    _login(page, server.base_url())
+    context.unroute("**/*")
+    page.add_init_script(_RECORD_REVEALS)
+    revealed = {}
+    for route in TABS + (TABS[0],):
+        page.goto(server.base_url() + route)
+        page.wait_for_load_state("networkidle")
+        page.evaluate("async () => { for (const i of document.images) { try { await i.decode(); } catch (e) {} } }")
+        page.wait_for_timeout(300)
+        revealed[route + ("#again" if route in revealed else "")] = page.evaluate("window.__revealed")
+    assert revealed["/display"], "pictures fetched for the first time still fade in"
+    assert revealed["/display#again"] == []
