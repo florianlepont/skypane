@@ -7203,7 +7203,8 @@ button.row-menu__item {
 .dashboard-main[data-page-open] .personalisation > .personalisation-nav,
 .dashboard-main[data-page-open] .fleet-frame > .fleet-head,
 .dashboard-main[data-page-open] .fleet-split__main > .fleet-head,
-.dashboard-main[data-page-open] .fleet-frame > .fleet-anchors {
+.dashboard-main[data-page-open] .fleet-frame > .fleet-anchors,
+.dashboard-main[data-page-open] .fleet-tiles--system {
   animation:
     skypane-reveal var(--motion-enter) steps(12, end) backwards,
     skypane-reveal-fade var(--motion-enter) var(--ease-out) backwards;
@@ -7365,6 +7366,28 @@ button.row-menu__item {
   --reveal-index: 5;
 }
 
+/* The System tiles are the first block under the header; the topic blocks
+ * after them count on from there. */
+.dashboard-main[data-page-open] ul.fleet-tiles--system {
+  --reveal-index: 1;
+}
+
+.dashboard-main[data-page-open] .system-topics > .group-block:nth-child(1) {
+  --reveal-index: 2;
+}
+
+.dashboard-main[data-page-open] .system-topics > .group-block:nth-child(2) {
+  --reveal-index: 3;
+}
+
+.dashboard-main[data-page-open] .system-topics > .group-block:nth-child(3) {
+  --reveal-index: 4;
+}
+
+.dashboard-main[data-page-open] .system-topics > .group-block:nth-child(n + 4) {
+  --reveal-index: 5;
+}
+
 /* Where controls or other blocks always come first, the blocks count on from
  * them: the Flights days follow the filter bar, the Style and Fleet blocks
  * follow the two rows above them. */
@@ -7440,19 +7463,19 @@ button.row-menu__item {
     --reveal-index: 2;
   }
 
-  .dashboard-main[data-page-open] .fleet-split .fleet-blocks--system .group-block:nth-child(1) {
+  .dashboard-main[data-page-open] .fleet-split .fleet-tiles--system {
     --reveal-index: 2;
   }
 
-  .dashboard-main[data-page-open] .fleet-split .fleet-blocks--system .group-block:nth-child(2) {
+  .dashboard-main[data-page-open] .fleet-split .fleet-blocks--system .group-block:nth-child(1) {
     --reveal-index: 3;
   }
 
-  .dashboard-main[data-page-open] .fleet-split .fleet-blocks--system .group-block:nth-child(3) {
+  .dashboard-main[data-page-open] .fleet-split .fleet-blocks--system .group-block:nth-child(2) {
     --reveal-index: 4;
   }
 
-  .dashboard-main[data-page-open] .fleet-split .fleet-blocks--system .group-block:nth-child(n + 4) {
+  .dashboard-main[data-page-open] .fleet-split .fleet-blocks--system .group-block:nth-child(n + 3) {
     --reveal-index: 5;
   }
 }
