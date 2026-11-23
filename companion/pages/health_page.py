@@ -849,11 +849,10 @@ class TileFacts(NamedTuple):
 
 
 class FrameTiles(NamedTuple):
-    """The three state-backed tiles of a frame (connection, battery and flight
-    data) and the battery's recent percentages, oldest first."""
+    """The two state-backed tiles of a frame (connection and battery) and the
+    battery's recent percentages, oldest first."""
     connection: TileFacts
     battery: TileFacts
-    flight: TileFacts
     battery_curve: tuple
 
 
@@ -912,19 +911,8 @@ def _battery_tile(state, device):
         _battery_curve_percents(inputs, curve))
 
 
-def _flight_tile(state, now):
-    inputs = state["inputs"]
-    if inputs["pipeline_ts"] is _DB_UNAVAILABLE:
-        return TileFacts("off", i18n.t(_ROW_UNAVAILABLE_TEXT), "", "")
-    pipeline_state = state["pipeline_state"]
-    return TileFacts(
-        pipeline_state,
-        i18n.t(PIPELINE_STATE_TEXT.get(pipeline_state, PIPELINE_STATE_TEXT["warn"])), "",
-        _age_html(inputs["pipeline_ts"], now))
-
-
 def frame_tiles(ctx):
-    """The facts of the overview's connection, battery and flight data tiles,
+    """The facts of the overview's connection and battery tiles,
     built from the same snapshot as the Battery view; None for a frame that
     never checked in."""
     ctx = page_context.coerce(ctx)
@@ -934,7 +922,7 @@ def frame_tiles(ctx):
     state, now = parts
     battery_tile, curve = _battery_tile(state, ctx.device)
     return FrameTiles(
-        _connection_tile(state, now), battery_tile, _flight_tile(state, now), curve)
+        _connection_tile(state, now), battery_tile, curve)
 
 
 class BatteryView(NamedTuple):

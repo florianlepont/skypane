@@ -109,7 +109,7 @@ def test_the_connection_tile_states_the_last_and_next_connection_and_fits(
     try:
         assert not _assert_no_page_overflow(page, where, viewport["width"])
         tile = page.locator("div.fleet-tile")
-        assert tile.count() == 1 and page.locator("a.fleet-tile").count() == 3, where
+        assert tile.count() == 1 and page.locator("a.fleet-tile").count() == 2, where
         lines = tile.locator(".fleet-tile__line")
         assert lines.count() == 2, where
         box = tile.bounding_box()
@@ -137,8 +137,8 @@ def test_a_tile_opens_its_page_in_one_tap_and_the_way_back_returns(
         assert page.locator("main h1:visible").inner_text() == "Battery"
         page.locator("a.fleet-back").click()
         page.wait_for_url("**/fleet?frame=*")
-        assert page.locator(".fleet-tile").count() == 4
-        assert page.locator("a.fleet-tile").count() == 3
+        assert page.locator(".fleet-tile").count() == 3
+        assert page.locator("a.fleet-tile").count() == 2
         page.locator("a.fleet-tile", has_text="Firmware").click()
         page.wait_for_url("**view=versions")
         assert page.locator("main h1:visible").inner_text() == "Versions"

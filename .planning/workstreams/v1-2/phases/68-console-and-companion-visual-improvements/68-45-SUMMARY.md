@@ -69,3 +69,7 @@ None.
 ## Addendum: System tiles for the route topics
 
 Owner decision: the two route topics ("Route directories", "Answered by") also have tiles in the System tile row (six tiles, each linking to its card; `route_sources_card.tiles`). Tile tests updated, baseline regenerated, captures in `scratchpad/p45/after2/`.
+
+## Addendum: no Flight data tile on the frame
+
+Owner decision: flight data is platform data, so the frame State tiles are Connection, Battery, Firmware (the Flight data tile, its System link and `FrameTiles.flight` are removed). The System view keeps its own Flight data tile and card. No warning banner on the Battery view. Tests adapted (three tiles, two Details links), baseline regenerated, captures in `scratchpad/p45/after3/`.

@@ -1,4 +1,4 @@
-"""The State section of a frame's page (four equal tiles; all but Connection carry a Details
+"""The State section of a frame's page (three tiles; all but Connection carry a Details
 link) and the two pages the tiles open: Battery (the level, trend and readings) and Versions (the
 installed version, the update and every release), served by the real app and read as markup."""
 import datetime
@@ -60,13 +60,13 @@ def _tiles(page):
 
 
 LABELS = {
-    "en": ["Connection", "Battery", "Flight data", "Firmware"],
-    "fr": ["Connexion", "Batterie", "Données de vol", "Micrologiciel"]}
+    "en": ["Connection", "Battery", "Firmware"],
+    "fr": ["Connexion", "Batterie", "Micrologiciel"]}
 DETAILS = {"en": "Details", "fr": "Détails"}
 
 
 @pytest.mark.parametrize("lang", ["en", "fr"])
-def test_the_state_section_is_four_tiles_three_with_a_details_link(fleet, lang):
+def test_the_state_section_is_three_tiles_two_with_a_details_link(fleet, lang):
     server, seed, cookie = fleet
     _seed_readings(server.state_dir)
     seed_two_releases(server.state_dir)
@@ -74,20 +74,20 @@ def test_the_state_section_is_four_tiles_three_with_a_details_link(fleet, lang):
     tiles = _tiles(page)
     assert [t[0] for t in tiles] == LABELS[lang]
     base = "/fleet?frame=%s&view=" % seed.live_id
-    # Connection holds its own story; flight data is platform information.
-    assert [t[3] for t in tiles] == [
-        "", base + "battery", "/fleet?view=system#system-topic-flight-data", base + "versions"]
-    assert page.count('<span class="fleet-tile__more">%s' % DETAILS[lang]) == 3
+    # Connection holds its own story; flight data is platform data, on the System view only.
+    assert [t[3] for t in tiles] == ["", base + "battery", base + "versions"]
+    assert "system-topic-flight-data" not in page
+    assert page.count('<span class="fleet-tile__more">%s' % DETAILS[lang]) == 2
     battery = tiles[1]
     assert re.match(r"\d+\s?% · \d+\s?mV", battery[1]), battery
-    assert tiles[3][1] == "fw-v1.0.0" and tiles[3][2]
+    assert tiles[2][1] == "fw-v1.0.0" and tiles[2][2]
     # The battery tile draws the curve; the others carry no drawing.
     assert page.count("fleet-tile__spark") == 1
     # The three statuses of the old State block are not rows any more.
     assert "health-row" not in page
 
 
-def test_a_frame_that_never_checked_in_still_has_its_four_tiles(fleet):
+def test_a_frame_that_never_checked_in_still_has_its_three_tiles(fleet):
     server, seed, cookie = fleet
     page = _page(server, cookie, "/fleet?frame=" + seed.owned_id)
     tiles = _tiles(page)

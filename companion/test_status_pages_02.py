@@ -40,6 +40,12 @@ def battery_trend_js(_module_server):
 
 # --- shared helper for the row-anatomy sweep (used from Task 2 onward) ----
 
+def _system_tile(rendered, key):
+    """The System tile's `(data-state, headline)` pair."""
+    tile = parse_html(rendered).select_one('a.fleet-tile[href="#system-topic-%s"]' % key)
+    return tile.attrs["data-state"], tile.select_one(".fleet-tile__value").text()
+
+
 def _card_verdict(rendered, key):
     """The System card's `(data-state, verdict text)` pair."""
     card = parse_html(rendered).select_one("#system-card-%s" % key)
@@ -423,7 +429,7 @@ def test_connection_tile_verdict_matches_state_at_each_severity(tmp_path, age_s,
     [(0, "ok"), (health_page.STALE_PIPELINE_WARN_S + 30, "warn"), (health_page.STALE_PIPELINE_ERROR_S + 30, "error")],
     ids=["ok", "warn", "error"])
 def test_flight_data_card_and_tile_verdict_match_state_at_each_severity(tmp_path, age_s, expected_state):
-    """the Flight data tile and the System view's flight data card carry the
+    """the System view's flight data tile and card carry the
     PIPELINE_STATE_TEXT verdict of the same state at each of the three severities"""
     state_dir = str(tmp_path)
     now = shp.now()
@@ -431,8 +437,7 @@ def test_flight_data_card_and_tile_verdict_match_state_at_each_severity(tmp_path
     shp.seed_meta(state_dir, **{history_db.META_LAST_PIPELINE_RUN: shp.iso(now - timedelta(seconds=age_s))})
     ctx = shp.ctx(state_dir, now_value=shp.iso(now))
     verdict = i18n.t(health_page.PIPELINE_STATE_TEXT[expected_state])
-    tile = health_page.frame_tiles(ctx).flight
-    assert (tile.state, tile.verdict) == (expected_state, verdict)
+    assert _system_tile(health_page.system_html(ctx), "flight-data") == (expected_state, verdict)
     assert _card_verdict(health_page.system_html(ctx), "flight-data") == (expected_state, verdict)
 
 
@@ -662,8 +667,7 @@ def test_pipeline_never_ran_renders_neutral_no_warn_no_banner(tmp_path):
     rendered = health_page.system_html(ctx)
     never = i18n.t(health_page.PIPELINE_STATE_TEXT["off"])
     assert _card_verdict(rendered, "flight-data") == ("off", never)
-    tile = health_page.frame_tiles(ctx).flight
-    assert (tile.state, tile.verdict) == ("off", never)
+    assert _system_tile(rendered, "flight-data") == ("off", never)
     card = parse_html(rendered).select_one("#system-card-flight-data")
     card_html = rendered[rendered.index('id="system-card-flight-data"'):rendered.index('id="system-card-sources"')]
     assert "dot--warn" not in card_html, "expected zero dot--warn occurrences in a never-ran pipeline card"
