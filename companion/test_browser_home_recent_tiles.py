@@ -121,6 +121,40 @@ def test_desktop_shows_the_same_tiles(new_context, server):
         context.close()
 
 
+_CARD_WIDTHS = (
+    "() => { const box = (s) => document.querySelector(s).getBoundingClientRect();"
+    " const card = box('.home-flight'), pic = box('.home-flight__picture'),"
+    " meta = box('.home-flight__meta'), column = box('.home-state');"
+    " return {card: card.width, column: column.width, left: card.left, columnLeft: column.left,"
+    " picRight: pic.right, metaLeft: meta.left, metaRight: meta.right, cardRight: card.right}; }")
+
+
+@pytest.mark.parametrize("lang", ["en", "fr"])
+@pytest.mark.parametrize("width", [1280, 1440, 1920])
+def test_the_flight_card_hugs_its_content_on_a_wide_screen(new_context, server, width, lang):
+    """on a desktop the flight card is a capped block (the picture and its flight side by side)
+    at the column's left edge, not a band spanning the whole column"""
+    context, page = _open_home(new_context, server, {"width": width, "height": 900}, lang)
+    try:
+        seen = page.evaluate(_CARD_WIDTHS)
+        assert seen["card"] <= 36 * 16 + 1, seen
+        assert seen["card"] < seen["column"] - 100, seen
+        assert abs(seen["left"] - seen["columnLeft"]) < 1.5, seen
+        assert seen["picRight"] <= seen["metaLeft"] and seen["metaRight"] <= seen["cardRight"], seen
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("width", [360, 390])
+def test_the_flight_card_still_spans_the_column_on_a_phone(new_context, server, width):
+    context, page = _open_home(new_context, server, {"width": width, "height": 780})
+    try:
+        seen = page.evaluate(_CARD_WIDTHS)
+        assert abs(seen["card"] - seen["column"]) < 1.5, seen
+    finally:
+        context.close()
+
+
 def test_the_strip_section_is_a_region_the_refresh_swaps(new_context, server):
     """the strip's section matches a selector in the page's refresh registry, so its ages are
     repainted from the server's clock about every 45 s instead of staying as first rendered"""
