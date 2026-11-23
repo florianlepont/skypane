@@ -48,13 +48,28 @@ A type has a livery when its artwork (built in or fleet-wide upload) exists for 
 
 Tests: `test_airline_editor.py` (refused POST writes nothing and is not audited; built-in and uploaded accepted; clearing allowed; deleting the default's artwork clears it; kept while a built-in remains), `test_browser_airline_table.py::test_only_a_type_with_a_picture_offers_to_be_the_default` (360/1280, EN/FR) and two existing browser tests updated (a type with no picture has no menu; deleting the default's artwork leaves no default). Seeded default in the existing editor test now has the artwork it needs.
 
+## Follow-up decisions (owner, same day)
+
+**Frame-switch chip removed while consulting.** `page_shell` renders no frame menu when the notice is shown; the banner's Back to Fleet is the only way out. Tests adapted: `test_device_selector.py::test_single_device_consulted_by_an_administrator_has_no_frame_selector` (was "lists one frame and the add row" on a foreign frame), `test_browser_admin_personal_scope.py` (frame name no longer read from the chip; new assertion that no `.frame-menu` exists). Captures: `scratchpad/p52/after2/`.
+
+**Livery rule is central.** `airline_default_types.set_default_type` refuses (`SET_REJECTED`, nothing written) a type with no picture; clearing is always allowed. Every path obeys it: the row menu action, the naming/resolve flow (refused default gives the existing failure flash, the name is still saved) and the upload flow. Order of operations: the upload stores the file first and passes it as `livery_key`, so a first upload of a type set as default in the same request is accepted (`test_a_valid_aircraft_type_becomes_the_default_type_of_the_airline`, `test_a_picture_stored_in_the_same_request_counts_through_livery_key`). Existing tests that stored a default without a picture now create the picture first (`test_airline_default_types.py`, `test_fleet_airline_names.py`, the inline naming test split in two).
+
+**Default type is now a function: tier 2b.** `select_illustration`: exact airline+type, airline picture, **default type's picture (`{airline}-{slug}`, built in or fleet override)**, generic by shape, universal. The default file is read once per change (cached by mtime and size, never raises, unreadable or invalid = no default). Example: Acme Air has A320 and B737 pictures, no airline picture, default A320: a flight on an E190 showed the generic Embraer before, now `acme-air-a320.png`. Note: the frame image can change for airlines that already have a default type with a picture and no airline-level picture. Tests: tier order, removed picture falls through, invalid file changes nothing, mtime re-read (`test_illustrations.py`); the golden renders and `test_giant_compose` / `test_orly_replay` are unchanged and green.
+
+**Menu wording.** "Set as default type" / "Remove as the default type" became "Use as the airline's default picture" / "Stop using as the airline's default picture" (FR "Utiliser comme image par défaut de la compagnie" / "Ne plus utiliser comme image par défaut de la compagnie"); the row pill still reads "Default type".
+
+**Migration of existing defaults without a livery** (`server/plane/fleet_default_types.py`, called by `fleet_migrate.migrate` after the names and artwork merges; deploy/activate.sh unchanged). Defaults are fleet-wide (`airline_default_types.json` at the fleet root; per-frame files are frozen copies and untouched), so there are no per-frame conflicts. Each cleared entry is first appended to `airline_default_types_cleared.json` (airline key, type, source, time), then cleared, then `airline_default_types_migration.json` is written; both files are in the backup include list. Only a run that clears something writes anything; once the marker exists later runs do nothing. Log lines:
+
+- dry run: `airline default types: would clear N` then one `airline default types: would clear <key>: <type>` per entry
+- real run: `airline default types: cleared N` and the same per-entry lines
+- otherwise: `airline default types: nothing to do`
+
+The dry run judges the fleet root before the same run's merges (a picture or default still pending in the per-frame merge is not counted). After deploy: check the log lines, open the Editor to see the cleared airlines without a default, and read the archive file to restore an entry on purpose (upload the type's picture first). Tests: `server/test_fleet_default_types.py`, `server/test_fleet_migrate.py::test_default_types_without_a_picture_are_cleared_once`, `deploy/tests/test_default_types_migration_log.py`, `deploy/tests/test_backup.py`.
+
 ## Verification
 
-Targeted and full results are listed in the hand-back report; ruff, mypy, function-size and comment-history clean.
+Server + companion + deploy non-browser: 11473 passed, 7 skipped (one timing test, `test_status_pages_01::test_battery_trend_timestamps_show_concise_format`, failed once under load and passes alone). Targeted browser files (admin scope, airline table, Home, nav, switch, frame menu, page opening, overhaul sweep, device selector, Home cards): 1235 passed. ruff, mypy, function-size, comment-history clean. `render_baseline.json` regenerated, no change.
 
 ## Owner decisions needed
 
-1. Frame-switch chip while consulting: kept. Remove it too if "the pill to switch screens" meant it.
-2. Lookup-panel / upload naming flows can still set a default type without a livery; apply the same rule there?
-3. Pre-existing defaults without a livery stay until the owner removes them (or clear them in a one-off migration).
-4. Sidebar clearance under the banner uses a one-line height; a banner wrapped on 2 lines on desktop (very long address) overlaps the top of the sticky sidebar only while scrolling.
+None open. Sidebar clearance under the banner assumes a one-line banner; a banner wrapped on two lines on desktop (very long address) overlaps the top of the sticky sidebar only while scrolling.
