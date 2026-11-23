@@ -883,6 +883,19 @@ def _tier_rig(tmp_path, monkeypatch, files):
         _make_fixture_png(tmp_path / "art" / name)
 
 
+def test_default_type_picture_is_used_when_the_exact_type_has_none_even_with_an_airline_picture(tmp_path, monkeypatch):
+    _tier_rig(tmp_path, monkeypatch, ["acme-air.png", "acme-air-a320.png", "generic-b737.png"])
+    assert _pick(tmp_path, "B738") == "acme-air.png"
+    _default(tmp_path / "state", {"acme-air": "A320"})
+    assert _pick(tmp_path, "B738") == "acme-air-a320.png"
+
+
+def test_a_default_without_a_picture_falls_through_to_the_airline_picture(tmp_path, monkeypatch):
+    _tier_rig(tmp_path, monkeypatch, ["acme-air.png", "generic-b737.png"])
+    _default(tmp_path / "state", {"acme-air": "A320"})
+    assert _pick(tmp_path, "B738") == "acme-air.png"
+
+
 def test_default_type_picture_is_used_when_the_exact_type_and_the_airline_have_none(tmp_path, monkeypatch):
     _tier_rig(tmp_path, monkeypatch, ["acme-air-a320.png", "generic-b737.png", ill.GENERIC_FALLBACK_FILENAME])
     assert _pick(tmp_path, "B738") == "generic-b737.png"
@@ -890,17 +903,17 @@ def test_default_type_picture_is_used_when_the_exact_type_and_the_airline_have_n
     assert _pick(tmp_path, "B738") == "acme-air-a320.png"
 
 
-def test_tier_order_exact_type_then_airline_then_default_then_generic(tmp_path, monkeypatch):
+def test_tier_order_exact_type_then_default_then_airline_then_generic(tmp_path, monkeypatch):
     _tier_rig(tmp_path, monkeypatch, [
-        "acme-air-a320.png", "acme-air-b737.png", "generic-b737.png", ill.GENERIC_FALLBACK_FILENAME])
+        "acme-air-a320.png", "acme-air-b737.png", "acme-air.png", "generic-b737.png",
+        ill.GENERIC_FALLBACK_FILENAME])
     _default(tmp_path / "state", {"acme-air": "A320"})
     assert _pick(tmp_path, "B738") == "acme-air-b737.png"          # exact type
     (tmp_path / "art" / "acme-air-b737.png").unlink()
-    assert _pick(tmp_path, "B738") == "acme-air-a320.png"          # default type
-    _make_fixture_png(tmp_path / "art" / "acme-air.png")
+    assert _pick(tmp_path, "B738") == "acme-air-a320.png"          # default type, over the airline picture
+    (tmp_path / "art" / "acme-air-a320.png").unlink()
     assert _pick(tmp_path, "B738") == "acme-air.png"               # the airline's own picture
     (tmp_path / "art" / "acme-air.png").unlink()
-    (tmp_path / "art" / "acme-air-a320.png").unlink()
     assert _pick(tmp_path, "B738") == "generic-b737.png"           # generic by shape
     assert _pick(tmp_path, "ZZZZ") == ill.GENERIC_FALLBACK_FILENAME  # universal
 

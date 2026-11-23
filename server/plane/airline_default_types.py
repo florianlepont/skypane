@@ -6,7 +6,8 @@ for every frame.
 The companion's airline editor writes it (a star on one type row) and reads
 it back to mark that row. The live frame's picture choice reads it too
 (`illustrations.select_illustration`): an airline with no picture of its own
-shows the picture of its default type. Same file
+shows the picture of its default type in place of a type that has none, ahead
+of the airline's own picture. Same file
 contract as the other owner registries: a never-raising load that rebuilds
 every entry from scratch, validate-before-write, an atomic write, a hard cap
 and one process-wide lock around the load-modify-write cycle.
