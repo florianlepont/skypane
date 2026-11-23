@@ -112,6 +112,21 @@ tool actually used.
 | 22 | USB-C notch, buttons and switch notch, service bay | USB-C notch 13 mm, buttons and switch notch 47.5 mm, service bay 20 and 30 mm (design value, not measured) | Tool or finger | Tool or finger reaches each | | | | | |
 | 23 | Engraved text | 0.4 mm deep, 0.7 mm lines (design value, not measured) | By eye or loupe | Legible by eye or loupe | | | | | |
 
+## Fit trials by feel
+
+First trials of the printed parts, judged by trying them, without a calliper
+(prototype-first). Each row carries the date, the tool ("by feel" when nothing
+was measured) and "reported by the owner". The material is PLA, so a result
+holds for PLA only.
+
+| Part | Test | Frame (number or "not stated") | Result (fits, tight, loose, does not fit) | Tool | Date | Source |
+|------|------|--------------------------------|-------------------------------------------|------|------|--------|
+| Tray | Tray in the frame rebate | not stated | fits ("parfait", the owner's word) | by feel | 2026-11-23 | reported by the owner on 2026-11-23 |
+| Shim | Shim in the frame rebate | | | | | |
+| Lid | Lid on the tray | | | | | |
+| Lid | Lid with screws and magnets | | | | | |
+| Stand | Stand plate in its stop walls | | | | | |
+
 ## Adjustment ledger
 
 Rule: change a limited number of dimensions per round so each result is
