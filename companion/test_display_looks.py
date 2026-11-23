@@ -413,9 +413,9 @@ def test_frame_preview_cache_writes_once_and_reuses_the_file(tmp_path, monkeypat
     calls = []
     real = theme_preview.frame_preview_png_bytes
 
-    def counting(theme_id, state, size, layout=None):
+    def counting(theme_id, state, size, layout=None, state_dir=None):
         calls.append((theme_id, state, size))
-        return real(theme_id, state, size, layout)
+        return real(theme_id, state, size, layout, state_dir=state_dir)
 
     monkeypatch.setattr(theme_preview, "frame_preview_png_bytes", counting)
     state_dir = str(tmp_path)

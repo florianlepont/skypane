@@ -70,17 +70,20 @@ PAIRING_NAMES = {
 }
 
 
-def _radio_card_html(field, value, checked, saved, name, preview_src, alt, form_id=SETTINGS_FORM_ID):
+def _radio_card_html(
+        field, value, checked, saved, name, preview_src, alt, form_id=SETTINGS_FORM_ID,
+        extra_class=""):
     """One radio card: the small picture, the name and, on the selected one,
     a check. `saved` marks the value stored now, which keeps a quiet marker
     once another card is picked. `form_id` associates the radio with a form it
-    is not nested in; `None` leaves it to its enclosing form."""
+    is not nested in; `None` leaves it to its enclosing form. `extra_class` adds
+    one modifier class to the card."""
     badge = (
         ' %s="%s"' % (CURRENT_BADGE_ATTR, escape_html(i18n.t(CURRENT_BADGE_LABEL)))
         if saved else "")
     width, height = theme_preview.current_frame_preview_pixel_size(theme_preview.FRAME_PREVIEW_SIZE_SMALL)
     return (
-        '<label class="runway-card look-pick__card%s"%s>'
+        '<label class="runway-card look-pick__card%s%s"%s>'
         '<input type="radio" name="%s" value="%s" class="visually-hidden"%s%s>'
         '<img class="look-pick__preview" src="%s" width="%d" height="%d" alt="%s" '
         'loading="lazy" decoding="async" fetchpriority="low"%s>'
@@ -88,7 +91,7 @@ def _radio_card_html(field, value, checked, saved, name, preview_src, alt, form_
         '<span class="runway-card__check">%s<span class="visually-hidden">%s</span></span>'
         "</label>"
     ) % (
-        " runway-card--selected" if saved else "", badge,
+        " runway-card--selected" if saved else "", extra_class, badge,
         escape_html(field), escape_html(value),
         ' form="%s"' % escape_html(form_id) if form_id else "",
         " checked" if checked else "",
@@ -199,7 +202,7 @@ def _pairing_cards_html(field, selected, saved, usage, layout_id, state, form_id
             theme_preview.frame_preview_src(
                 pairing_id, state, theme_preview.FRAME_PREVIEW_SIZE_SMALL, layout=layout_id),
             i18n.t(LOOK_PREVIEW_ALT_TEMPLATE) % (usage_label, i18n.t(PAIRING_NAMES[pairing_id])),
-            form_id)
+            form_id, " look-pick__card--yellow" if pairing_id == "yellow_light" else "")
         for pairing_id in look.offered_pairing_ids())
 
 

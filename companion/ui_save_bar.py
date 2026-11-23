@@ -41,11 +41,11 @@ WAIT_ATTR = "data-dirty-wait"
 LEAVE_DIALOG_ID = "unsaved-changes"
 LEAVE_DIALOG_HOOK = "leave-dialog"
 LEAVE_RETURNS_ATTR = "data-leave-returns"
-LEAVE_TITLE = i18n.msg("display.leave_title", "Unsaved changes")
-LEAVE_TEXT = i18n.msg(
-    "display.leave_text", "You have changes that are not saved. What do you want to do?")
-LEAVE_SAVE = i18n.msg("display.leave_save", "Save and continue")
-LEAVE_DISCARD = i18n.msg("display.leave_discard", "Discard")
+LEAVE_TITLE = i18n.msg("display.leave_title", "Leave without saving?")
+LEAVE_TEXT = i18n.msg("display.leave_text", "Your changes are not saved yet.")
+LEAVE_SAVE = i18n.msg("display.leave_save", "Save and leave")
+LEAVE_DISCARD = i18n.msg("display.leave_discard", "Leave without saving")
+# The accessible name of the close cross at the top right.
 LEAVE_STAY = i18n.msg("display.leave_stay", "Stay here")
 # Where the save cannot land on the tapped address the question says so: the
 # primary reads plain "Save" and a note tells the page stays open.

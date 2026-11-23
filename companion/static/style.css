@@ -271,6 +271,9 @@
    * its worst-case contrast on light surfaces is 5.16:1 (up from 3.96),
    * safe as text. Enforced by test_contrast_check.py's separation section. */
   --color-status-error: #BE123C;
+  /* The edge drawn round the light-yellow look tile on screen: the panel's
+   * yellow is too close to white to show the tile's shape. */
+  --color-yellow-tile-edge: #7A6D1D;
   /* The switch thumb: white on light surfaces, a light grey on dark ones
    * so an unchecked thumb stays visible on its dark track. */
   --color-switch-thumb: #FFFFFF;
@@ -338,6 +341,7 @@
      * dark. Was too close to the dark accent (dE76 22.3/16.9°, worse
      * than the accent-vs-warn gap); now dE76 32.2/25.6°. */
     --color-status-error: #FB7185;
+    --color-yellow-tile-edge: #D9C24A;
     --color-switch-thumb: #E6E9EE;
     --color-switch-off: #6B7589;
     --color-switch-thumb-on: #14171F;
@@ -388,6 +392,9 @@ html[data-ui-theme="light"] {
   --color-status-ok: #16A34A;
   --color-status-warn: #D97706;
   --color-status-error: #BE123C;
+  /* The edge drawn round the light-yellow look tile on screen: the panel's
+   * yellow is too close to white to show the tile's shape. */
+  --color-yellow-tile-edge: #7A6D1D;
   --color-switch-thumb: #FFFFFF;
   --color-switch-off: #7C8799;
   --color-switch-thumb-on: #FFFFFF;
@@ -438,6 +445,7 @@ html[data-ui-theme="dark"] {
   --color-status-ok: #4ADE80;
   --color-status-warn: #FBBF24;
   --color-status-error: #FB7185;
+  --color-yellow-tile-edge: #D9C24A;
   --color-switch-thumb: #E6E9EE;
   --color-switch-off: #6B7589;
   --color-switch-thumb-on: #14171F;
@@ -6225,8 +6233,13 @@ dialog.modal.is-modal[open] {
   overflow-wrap: anywhere;
 }
 
-a.modal__close {
+a.modal__close,
+dialog.modal button.modal__close {
   display: grid;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
   flex: none;
   place-items: center;
   width: 44px;
@@ -6288,6 +6301,23 @@ dialog.modal button {
   min-width: 44px;
   padding: var(--space-sm) var(--space-md);
   font-size: var(--font-label-size);
+}
+
+/* The question with two answers (ui_modal.choice_dialog_html): both answers
+ * are the same 48px tall and as wide as each other, side by side from 700px
+ * up and stacked below it, and the bar of unsaved changes behind the unsaved
+ * question is hidden so only the question speaks. */
+dialog.modal--choice .modal__actions {
+  align-items: stretch;
+}
+
+dialog.modal--choice .modal__actions > .btn {
+  flex: 1 1 0;
+  min-height: 48px;
+}
+
+body:has(dialog[data-leave-dialog][open]) .dirty-bar {
+  visibility: hidden;
 }
 
 a.modal__dismiss {
