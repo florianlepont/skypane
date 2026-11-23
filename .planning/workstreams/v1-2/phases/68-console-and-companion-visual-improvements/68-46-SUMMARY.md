@@ -41,10 +41,18 @@ metrics:
 - User page: `device_scope.own_history_dirs` gives a plain user's scope (owned and co-managed frames) and nothing else; `airline_collection_page._entries_for` merges those frames' sightings. Anyone else (admin on the personal page) keeps the single page frame. One-line caption "Airlines your frame has seen" (FR "Les compagnies vues par votre cadre", `airlines.collection_purpose`, in `companion/i18n_fr/airlines.py`).
 - No route, role or permission changed; render baseline regenerated once (4 lines: the new caption).
 
-## Decisions (user side)
+## Follow-up after the owner's answers (second commit)
+
+- The user page is PER FRAME again: the merge across a user's frames and `device_scope.own_history_dirs` are gone; the page for frame X reads only frame X's history. Isolation stays: the route gate (`OWNER_DEVICE`) lets a user reach only own or co-managed frames.
+- The user page lists ONLY airlines the frame saw. Removed with everything that only served them: the dimmed "Not yet seen" cards, the "x of N spotted" headline and progress bar, the All/Spotted/Not yet seen chips and the `show` query parameter, the "goal complete" sentence; EN/FR strings `collection_progress`, `_one`, `collection_complete`, `collection_show*`, `collection_not_seen` (no orphans); CSS (`.collection-progress__headline`, `__bar` rules, `.collection-card--unseen`, `.collection-sheet__unseen`, chip rules of the control bar); JS defaults/comments in `list-filter.js`. Kept: next-badge goal, badge pill, sort, search, legend. A frame with no sighting shows only the empty state. A fleet-wide name or picture shows on an airline the frame saw.
+- Tests adapted to the new intended behaviour: `test_airline_collection_page.py` (progress/unseen/chips tests rewritten: only seen cards, empty state, goal sentence, no `show` filter), `test_browser_airline_collection.py` (docstring, selectors, progress line became the goal line, phone header is one bar line, no-script/sort tests without chips, sticky test uses a 400 px window because three cards no longer scroll a phone page; removed: dimmed-card contrast test, show-chip offline test, chip tab-swap test, progress-sentence test (replaced by a goal-sentence test)), `test_browser_page_opening.py` (removed the airlines-chips thumb test), `test_browser_segment_centring.py` (`/airlines` has no chips now), `test_personal_space_parity.py` (count read from the "Airlines: 1" status), plus my own `test_airline_fleet_roles.py` (per-frame test, seen-only test). Render baseline regenerated once more.
+- Verified: 134 companion test files (airline, device_scope, principal, collection, /airlines) plus render baseline, i18n, suite guards: 7187 passed, 3 skipped; ruff, mypy, function size, comment history clean; `companion/app.py` 1497, no JS over 1500.
+- Captures: `scratchpad/p46/after2/` (user page, 390/1440, EN/FR, light).
+
+## Decisions (user side; superseded where noted above)
 
 - Unidentified prefixes: a user could never name or see them, so they see none; tests assert no prefix, no resolve form or route in their page.
-- A user's page merges ALL their frames (owned plus co-managed), so with two frames the page of frame A also counts frame B.
+- (Superseded) the merge across a user's frames was reverted: the page is per frame.
 
 ## Tests
 
@@ -57,11 +65,9 @@ metrics:
 
 Scope, not the page, decides which frames are read: an admin's scope is the fleet, a user's is exactly their owned and co-managed frames (`load_devices_for`), and `own_history_dirs` for a user never adds the page frame, so another user's directory cannot be reached even by a forged URL (the `OWNER_DEVICE` gate already refuses foreign frames). The merged-prefix membership test is reachable only through `ADMIN_DEVICE` routes. Fleet-wide names and artwork reach a user only through their own sightings.
 
-## Owner decisions needed
+## Owner decisions
 
-1. The user page still lists the built-in catalogue as dimmed "Not yet seen" cards, with the fleet-wide picture/rename of those curated airlines (no sighting data, but a fleet artwork shows on an unseen card). Say if the page should list only airlines the user's frames saw (and drop the "x of N spotted" progress and "Not yet seen" filter).
-2. A user with several frames now sees them merged on every frame's page (the "frame has seen" caption is singular).
-3. The admin's personal page still covers one frame; the fleet-wide list is the Editor.
+Answered: (1) only airlines the frame saw; (2) per frame; (3) no unidentified prefixes for users. None open.
 
 ## Before/after captures
 
