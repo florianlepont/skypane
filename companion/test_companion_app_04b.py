@@ -629,7 +629,7 @@ def test_illustration_manual_key_post_unregistered_then_registered(make_app_serv
     assert add_result == manual_resolutions.ADD_OK, (
         "expected add_entry() to succeed for a fresh entry, got %r" % (add_result,))
     status, headers, _body = http_request(
-        base + "/illustration/%s.png" % manual_key, method="POST", data=body,
+        base + "/illustration/%s.png?default_type=A320" % manual_key, method="POST", data=body,
         cookie=session, content_type=content_type)
     assert status == 303, "expected a 303 redirect once the key is registered, got %d" % status
     assert os.path.isfile(override_path), "expected the override file to now exist at %r" % (override_path,)

@@ -353,7 +353,7 @@ def _default_type_flash(rig, key, code):
 
 def test_a_type_without_a_picture_is_refused_as_default_and_nothing_is_written(rig):
     before = rig.stored()
-    assert _default_type_flash(rig, "air-france", "A320") == ["airline_default_type_failed"]
+    assert _default_type_flash(rig, "air-france", "A333") == ["airline_default_type_failed"]
     assert _default_type_flash(rig, "air-france", "B738") == ["airline_default_type_failed"]
     assert airline_default_types.load_default_types(rig.owned_dir) == {}
     assert rig.stored() == before
@@ -375,14 +375,25 @@ def test_clearing_the_default_stays_allowed_without_a_picture(rig):
     assert airline_default_types.load_default_types(rig.owned_dir) == {}
 
 
-def test_deleting_the_picture_of_the_default_type_clears_the_default(rig):
-    _override(rig, "air-france-a320")
+def test_deleting_the_picture_of_the_default_type_repoints_the_default_to_a_remaining_type(rig):
     _override(rig, "air-france-b737")
-    _default_type_flash(rig, "air-france", "A320")
+    _default_type_flash(rig, "air-france", "B738")
     rig.post("admin", rig.frame + "/airlines/artwork/delete", {"key": "air-france-b737"})
+    # Air France keeps its legacy picture, the picture of an A320.
     assert airline_default_types.load_default_types(rig.owned_dir) == {"air-france": "A320"}
-    rig.post("admin", rig.frame + "/airlines/artwork/delete", {"key": "air-france-a320"})
+
+
+def test_deleting_the_last_picture_of_the_default_type_clears_the_default(rig):
+    manual_resolutions.add_entry(rig.owned_dir, "ZEP", "Zephyr Air")
+    _override(rig, "zephyr-air-a320")
+    assert _default_type_flash(rig, "zephyr-air", "A320") == ["airline_default_type_saved"]
+    rig.post("admin", rig.frame + "/airlines/artwork/delete", {"key": "zephyr-air-a320"})
     assert airline_default_types.load_default_types(rig.owned_dir) == {}
+
+
+def test_the_legacy_picture_of_a_built_in_airline_is_a_livery_for_its_airframe(rig):
+    assert _default_type_flash(rig, "air-france", "A320") == ["airline_default_type_saved"]
+    assert airline_default_types.load_default_types(rig.owned_dir) == {"air-france": "A320"}
 
 
 def test_deleting_an_upload_keeps_the_default_while_a_built_in_picture_remains(rig):

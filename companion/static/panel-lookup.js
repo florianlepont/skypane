@@ -542,11 +542,12 @@
         uploadForm.setAttribute("action", uploadAction);
         uploadForm.setAttribute("data-base-action", uploadAction);
       }
-      // The add-first-artwork step asks for the aircraft type first; the
-      // select is shown and required for that trigger only.
+      // The add-first-artwork step always asks for the aircraft type first
+      // (an airline's pictures are its types'); the select is shown and
+      // required for that step only.
       var askType = resolveUploadZone.querySelector("select");
       if (askType) {
-        var asks = trigger.hasAttribute("data-view-panel-ask-type");
+        var asks = trigger.hasAttribute("data-view-panel-ask-type") || mode === "needs-artwork";
         askType.hidden = !asks;
         askType.required = asks;
         askType.value = "";

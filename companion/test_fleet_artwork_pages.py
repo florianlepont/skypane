@@ -52,12 +52,15 @@ class Fleet:
         if csrf:
             body, content_type = with_csrf_part(self.cookie, body, content_type)
         return http_request(
-            self.server.url("/devices/%s/illustration/%s.png" % (device_id, key)),
+            self.server.url("/devices/%s/illustration/%s.png?default_type=A320" % (device_id, key)),
             method="POST", data=body, cookie=self.cookie, content_type=content_type,
             extra_headers={"Origin": self.server.base_url()})[:2]
 
     def manage(self, device_id):
-        return fx.get(self.server, self.cookie, "/devices/%s/airlines/manage" % device_id)[2]
+        """The editor with every airline's type rows in the table: an airline's
+        pictures are those of its type rows."""
+        return fx.get(
+            self.server, self.cookie, "/devices/%s/airlines/manage?types=all" % device_id)[2]
 
     def picture(self, device_id, key, query=""):
         return http_request(

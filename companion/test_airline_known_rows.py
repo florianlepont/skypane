@@ -140,8 +140,8 @@ def test_an_upload_for_a_known_by_name_airline_is_accepted_and_an_unknown_key_is
         body, content_type = with_csrf_part(
             get.cookie, *cah.encode_multipart(good, field_name="illustration"))
         status, _headers, _raw = http_request(
-            get.server.url("/illustration/%s.png" % key), method="POST", data=body,
-            cookie=get.cookie, content_type=content_type,
+            get.server.url("/illustration/%s.png?default_type=A320" % key), method="POST",
+            data=body, cookie=get.cookie, content_type=content_type,
             extra_headers={"Origin": get.server.base_url()})
         statuses[key] = status
     assert statuses == {"finnair": 303, "no-such-airline": 404}

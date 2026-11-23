@@ -80,19 +80,30 @@ def handle_artwork_delete(handler, match):
             os.unlink(path)
     except OSError:
         return _back(handler, FLASH_KEY_ARTWORK_DELETE_FAILED)
-    _clear_defaults_without_livery(device.state_dir, key)
-    record(handler, ACTION_ARTWORK_DELETE, key)
+    changed = _fix_defaults_without_livery(device.state_dir)
+    record(handler, ACTION_ARTWORK_DELETE, key,
+           {"default_type": [list(entry) for entry in changed]} if changed else None)
     return _back(handler, FLASH_KEY_ARTWORK_DELETED)
 
 
-def _clear_defaults_without_livery(state_dir, deleted_key):
-    """After the artwork `deleted_key` is gone, clear the default type of any
-    airline whose chosen type has no picture left: a default never points at
-    a type with no livery. Best effort; a failed write leaves the entry."""
-    for airline_key, code in airline_default_types.load_default_types(state_dir).items():
-        if deleted_key in illustrations.type_artwork_keys(airline_key, code) \
-                and not illustrations.has_type_livery(airline_key, code, state_dir):
-            airline_default_types.set_default_type(state_dir, airline_key, "")
+def _fix_defaults_without_livery(state_dir):
+    """After artwork is gone, every airline whose default type has no picture
+    left is re-pointed to the first type it still has a picture for (the
+    alphabetical order of the type codes), or cleared when it has none: a
+    default never names a type with no picture. Returns `[(airline key, old
+    type, new type or "")]`. Best effort; a failed write leaves the entry."""
+    changed = []
+    for airline_key, code in sorted(airline_default_types.load_default_types(state_dir).items()):
+        if illustrations.has_type_livery(airline_key, code, state_dir):
+            continue
+        remaining = sorted(
+            c for c in illustrations.type_pictures(airline_key, state_dir)
+            if airline_default_types.normalise_code(c))
+        target = remaining[0] if remaining else ""
+        if airline_default_types.set_default_type(state_dir, airline_key, target) == (
+                airline_default_types.SET_OK):
+            changed.append((airline_key, code, target))
+    return changed
 
 
 def handle_default_type(handler, match):
