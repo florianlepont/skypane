@@ -122,7 +122,7 @@ holds for PLA only.
 | Part | Test | Frame (number or "not stated") | Result (fits, tight, loose, does not fit) | Tool | Date | Source |
 |------|------|--------------------------------|-------------------------------------------|------|------|--------|
 | Tray | Tray in the frame rebate | not stated | fits ("parfait", the owner's word) | by feel | 2026-11-23 | reported by the owner on 2026-11-23 |
-| Shim | Shim in the frame rebate | | | | | |
+| Shim | Shim in the frame rebate | not stated | fits ("rentre bien", the owner's words) | by feel | 2026-11-23 | reported by the owner on 2026-11-23 |
 | Lid | Lid on the tray | | | | | |
 | Lid | Lid with screws and magnets | | | | | |
 | Stand | Stand plate in its stop walls | | | | | |
