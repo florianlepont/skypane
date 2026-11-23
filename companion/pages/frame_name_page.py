@@ -20,11 +20,7 @@ FLASH_FRAME_RENAMED_TEXT = i18n.msg(
     "frame_name.flash_renamed", "Frame renamed — the new name shows everywhere.")
 
 TITLE = i18n.msg("frame_name.title", "Rename frame")
-PURPOSE = i18n.msg(
-    "frame_name.purpose",
-    "The name you see in your frames list and in the console. It is not shown on the frame.")
 _LABEL = i18n.msg("frame_name.label", "Frame name")
-_HELP = i18n.msg("frame_name.help", "Up to 40 characters.")
 NAME_ERROR = i18n.msg("frame_name.error", "Enter a name of 1 to 40 characters.")
 SAVE_FAILED = i18n.msg(
     "frame_name.failed", "The name could not be saved. Try again in a moment.")
@@ -66,7 +62,7 @@ def render(name, form_action, back_href, error="", return_to=None):
         error_html = '<p class="field-error" id="frame-name-error" role="alert">%s</p>' % (
             escape_html(error))
     field = ui_components.text_field_html(
-        "frame-name", NAME_FIELD, i18n.t(_LABEL), name, i18n.t(_HELP), error_html,
+        "frame-name", NAME_FIELD, i18n.t(_LABEL), name, "", error_html,
         ' maxlength="%d" required autocomplete="off" spellcheck="false"%s%s' % (
             MAX_NAME_CHARS, attrs, validation_attrs("text")))
     # Always present: the unsaved-changes question fills it with the page the person
@@ -77,7 +73,7 @@ def render(name, form_action, back_href, error="", return_to=None):
         '<form id="%s" method="post" action="%s" novalidate>%s%s%s</form>' % (
             FORM_ID, escape_html(form_action), layout.csrf_field() + carried, field, ""))
     return (
-        layout.page_header(i18n.t(TITLE), purpose=i18n.t(PURPOSE))
+        layout.page_header(i18n.t(TITLE))
         + '<div class="form-view"><a class="form-back" href="%s">%s<span>%s</span></a>' % (
             escape_html(back_href), layout.icon_html("icon-chevron-right", 18),
             escape_html(i18n.t(_BACK)))

@@ -117,6 +117,21 @@ def test_the_rename_page_shows_the_name_the_save_bar_and_french_labels(rig):
     assert "Renommer le cadre" in french and "Nom du cadre" in french
 
 
+@pytest.mark.parametrize("lang,help_text,purpose", [
+    ("en", "Up to 40 characters.", "It is not shown on the frame."),
+    ("fr", "40 caractères au maximum.", "Il n’est pas affiché sur le cadre.")])
+def test_the_rename_page_carries_no_standing_help_or_purpose_sentence(rig, lang, help_text, purpose):
+    server, seed, cookies = rig
+    page = fx.get(
+        server, cookies["owner"], "/devices/%s/frame/name" % seed.owned_id,
+        headers={"Accept-Language": lang})[2]
+    text = page.decode("utf-8") if isinstance(page, bytes) else page
+    assert help_text not in text and purpose not in text
+    tree = parse_html(text)
+    assert tree.select(".modal__field .text-label") == []
+    assert tree.select_one("#frame-name").attrs["maxlength"] == "40"
+
+
 @pytest.mark.parametrize("lang,shown", [("en", "Orly frame"), ("fr", "Cadre d’Orly")])
 def test_the_first_frames_default_name_reads_one_way_on_every_page(rig, lang, shown):
     """the first frame keeps its default name until someone renames it, and that name reads
