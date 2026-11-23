@@ -66,6 +66,28 @@ slot under 1 mm, centre of gravity on the landscape hook axis) used estimated
 masses: tray about 57 g, lid about 48 g, stand about 11 g, shim about 6 g
 (design values, not measured). The owner reruns them after the measurements.
 
+## Frame survey (calliper)
+
+This survey is optional (owner decision, 2026-11-23: fit is judged first by
+trying the printed parts). It is filled only if the shim does not fit a frame
+or the owner wants it. The "Rules for this sheet" above apply: only the
+owner's readings go in, with the tool and method used, each with a date and
+"reported by the owner". An empty cell stays "design value, not measured".
+
+| Row | Item | Design value (design value, not measured) | Tool | Frame 1 | Frame 2 | Frame 3 | Frame 4 | Frame 5 | Date | Source |
+|-----|------|-------------------------------------------|------|---------|---------|---------|---------|---------|------|--------|
+| S1 | Rebate length: both ends and middle (3 readings) | about 133.4 mm (design value, not measured) | | | | | | | | |
+| S2 | Rebate width: both ends and middle (3 readings) | about 183.4 mm (design value, not measured) | | | | | | | | |
+| S3 | Rebate corner radius or mitre gap | not recorded (design value, not measured) | | | | | | | | |
+| S4 | Free depth at the four corners | 22.7 mm (design value, not measured) | | | | | | | | |
+| S5 | Tabs: count, folded height behind the back of the screen, width, position along each side, per frame | one per side, 15 mm high, 4 mm wide (design value, not measured) | | | | | | | | |
+| S6 | Front sheet thickness | not recorded (design value, not measured) | | | | | | | | |
+| S7 | Mat thickness and window length x height | 1 mm; window 140 x 90 mm (design value, not measured) | | | | | | | | |
+| S8 | Outer size | not recorded (design value, not measured) | | | | | | | | |
+| S9 | Empty frame mass | 149 g, one frame (design value, not measured) | | | | | | | | |
+| S10 | Article number read from the label | 105.488.67 (design value, not measured) | | | | | | | | |
+| S11 | Frame colour and series | black RÖDALM (design value, not measured) | | | | | | | | |
+
 ## Notes
 
 Reported by the owner on 2026-11-18. The owner has a tape measure and no
