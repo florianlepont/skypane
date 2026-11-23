@@ -724,7 +724,8 @@ def test_a_settings_card_title_renders_identically_on_both_settings_pages(new_co
         for theme in UI_THEMES_EXPLICIT:
             # Personalisation's cards are on its Special looks and Calendar views.
             for route in ("/display/special-looks", "/display/calendar", "/device"):
-                page.goto(base_url + route)
+                page.goto(base_url + (
+                    "/fleet?frame=live&tab=settings" if route == "/device" else route))
                 _set_ui_theme(page, theme)
                 key = "/device" if route == "/device" else "/display"
                 for title in _settings_card_title_probe(page):
@@ -831,7 +832,9 @@ def test_exactly_one_submit_shaped_control_resolves_to_the_settings_form(new_con
                 _login(page, base_url)
                 context.add_cookies([{
                     "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
-                page.goto(base_url + scope_route)
+                page.goto(base_url + (
+                    "/fleet?frame=live&tab=settings" if scope_route == "/device"
+                    else scope_route))
 
                 controls = _submit_shaped_controls(page)
                 settings_controls = [

@@ -144,7 +144,7 @@ def test_the_quiet_hours_dialog_is_opaque_and_its_save_button_needs_no_scrolling
 def test_the_flights_search_never_overlaps_the_frame_button_or_the_title(
         new_context, make_app_server, width):
     server = make_app_server(seed=vp.seed_flight_card_variety, fake_providers=True)
-    context, page = _page(new_context, server, "/history", {"width": width, "height": 800})
+    context, page = _page(new_context, server, "/flights", {"width": width, "height": 800})
     try:
         _settle_on(page, ".frame-menu__button")
         boxes = page.evaluate(
@@ -277,7 +277,7 @@ def test_the_fleet_anchors_fill_their_row_and_every_tab_bar_label_fits_its_pill(
 def test_the_picture_dialog_dims_the_whole_viewport_with_no_blurred_band(
         new_context, make_app_server, viewport, name):
     server = make_app_server(seed=vp.seed_flight_card_variety, fake_providers=True)
-    context, page = _page(new_context, server, "/history", viewport)
+    context, page = _page(new_context, server, "/flights", viewport)
     try:
         thumb = ".history-card__thumb:visible, td [data-view-panel-src]:visible"
         page.locator(thumb).first.wait_for(state="visible")

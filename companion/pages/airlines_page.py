@@ -750,14 +750,14 @@ def _gap_overflow_html(overflow_count):
     """Overflow line for the gap block, rendered only when
     `_gap_rows_for_grid()`'s cap hid at least one eligible prefix.
 
-    Links to `/health`, not `/airlines`, even though this line renders
-    inside Airlines' own gap strip: only Health's unresolved-prefix
-    registry table lists every hidden prefix.
+    Links to the System view, not `/airlines`, even though this line
+    renders inside Airlines' own gap strip: only the unresolved-prefix
+    registry table there lists every hidden prefix.
     """
     if not overflow_count:
         return ""
     return '<p class="text-label section-caption">%s<a href="%s">%s</a>.</p>' % (
-        i18n.t(MANUAL_OVERFLOW_TEMPLATE) % overflow_count, device_scope.scoped("/health"),
+        i18n.t(MANUAL_OVERFLOW_TEMPLATE) % overflow_count, "/fleet?view=system",
         i18n.t(MANUAL_OVERFLOW_LINK_TEXT))
 
 

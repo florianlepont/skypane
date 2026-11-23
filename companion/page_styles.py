@@ -17,7 +17,6 @@ _DEVICE_PREFIX = re.compile(r"^/devices/[^/]+")
 _EXACT = {
     "/": ("home",),
     "/flights": ("flights",),
-    "/history": ("flights",),
     "/airlines": ("airlines",),
     "/airlines/manage": ("airlines",),
     "/detection": ("place",),

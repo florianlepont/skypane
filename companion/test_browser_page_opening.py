@@ -15,7 +15,7 @@ import pytest
 
 import fleet_console_support as fx
 import companion.test_view_pages_helpers as vp
-from companion import auth
+from companion import auth, device_scope
 from companion.pages import history_page
 from companion.test_browser_ux_helpers import (
     VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED, _login, seed_state_dir)
@@ -40,7 +40,7 @@ PAGES = (
     ("/display/calendar", False),
     ("/fleet", False),
     ("/fleet?view=system", False),
-    ("/health", False),
+    ("/fleet?frame={live}&view=battery", False),
     ("/update", False),
     ("/users", True),
     ("/audit", True),
@@ -52,7 +52,7 @@ PAGES = (
     ("/not-a-page", False),
 )
 # A frame's own page (it redirects to the live frame): a phone opens /fleet on the list of frames.
-FRAME_PAGE = "/device"
+FRAME_PAGE = "/fleet?frame={live}&tab=settings"
 TALL_LIMIT = 6
 PAGE_LIMIT = 8
 
@@ -132,7 +132,8 @@ def _admin_context(new_context, server, viewport, **options):
 
 
 def _open(page, server, path):
-    page.goto(server.base_url() + path)
+    live = device_scope.live_device(server.state_dir).id
+    page.goto(server.base_url() + path.replace("{live}", live))
     page.locator("main").wait_for(state="visible")
     page.wait_for_function(_SETTLED_PAGE, timeout=15000)
 

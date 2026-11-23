@@ -11,7 +11,9 @@ from companion.test_browser_ux_helpers import (
 
 pytestmark = pytest.mark.browser
 
-ROUTES = ("/", "/display", "/flights", "/airlines", "/health", "/device", "/update")
+ROUTES = (
+    "/", "/display", "/flights", "/airlines", "/fleet?frame=live&view=battery",
+    "/fleet?frame=live&tab=settings", "/update")
 # Distance from the bottom of the app bar (or of the space strip under it) to the top of the title: 16px bar margin + 16px
 # content padding.
 PHONE_TITLE_GAP_MAX = 32

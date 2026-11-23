@@ -515,7 +515,7 @@ def test_console_nav_copies_carry_the_airline_editor_and_the_status_dot_on_fleet
     assert str(layout.FRAME_TOOLS_LABEL) not in sidebar
     bar_start = rendered.index('<nav class="tab-bar"')
     bar = rendered[bar_start:rendered.index("</nav>", bar_start)]
-    for route in (layout.HEALTH_ROUTE, layout.DEVICE_ROUTE):
+    for route in ("/health", layout.DEVICE_ROUTE):
         assert ('href="%s"' % route) not in sidebar
         assert ('href="%s"' % route) not in bar
     assert 'href="%s"' % layout.AIRLINE_EDITOR_ROUTE in sidebar

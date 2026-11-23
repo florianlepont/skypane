@@ -146,11 +146,11 @@ def test_console_pages_have_no_frame_button(fleet, active):
     assert frame_menu.header_menu_html(active) == ""
 
 
-def test_a_plain_user_keeps_the_frame_button_on_health(fleet):
+def test_a_plain_user_keeps_the_frame_button_on_flights(fleet):
     state_dir, seeded = fleet
     _add_device(state_dir, seeded.owner_id, 0x11, "Desk")
     _enter(state_dir, "user", seeded.owner_id, OWNER_EMAIL, seeded.owner_device)
-    assert "frame-menu" in frame_menu.personal_menu_html("health")
+    assert "frame-menu" in frame_menu.personal_menu_html("flights")
 
 
 def test_the_personal_page_of_an_administrator_has_no_console_list(fleet):

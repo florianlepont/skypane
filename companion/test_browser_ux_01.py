@@ -253,7 +253,7 @@ def test_the_no_js_floor_holds_for_the_fleet_state_and_system_views(new_context,
     System view renders its cards and carries no unresolved-prefix table (those prefixes are
     named in the Airlines table).
     """
-    with _no_js_page(new_context, server.base_url(), "/health") as page:
+    with _no_js_page(new_context, server.base_url(), "/fleet?frame=live&view=battery") as page:
         rows = page.eval_on_selector_all("div.health-row", "els => els.length")
         if rows != 1:
             raise AssertionError(

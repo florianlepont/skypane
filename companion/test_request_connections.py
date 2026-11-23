@@ -63,7 +63,7 @@ def test_static_login_and_unauthenticated_requests_open_no_connection(app_server
         "expected zero connections for the pre-auth login page, got %d" % counts.connections)
 
     with efficiency_probe.count_db() as counts:
-        status, _headers, _body = http_request(server.url(layout.HEALTH_ROUTE))
+        status, _headers, _body = http_request(server.url(layout.DISPLAY_ROUTE))
     assert status == 303, (
         "expected a 303 redirect to login for an unauthenticated tab, got %d" % status)
     assert counts.connections == 0, (

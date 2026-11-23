@@ -16,7 +16,8 @@ _BUTTON = "details.frame-menu"
 def _paths(seed):
     prefix = "/devices/%s" % seed.live_id
     return (
-        ["/health", "/device", "/update", prefix + "/health", prefix + "/device"],
+        ["/fleet?frame=%s&view=battery" % seed.live_id, "/fleet?frame=%s&tab=settings" % seed.live_id,
+         "/update"],
         [prefix + "/", prefix + "/flights"])
 
 

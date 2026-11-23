@@ -72,13 +72,13 @@ def test_health_nav_notification_dot_appears_in_sidebar_and_tab_bar(served_css):
     nowhere when None/omitted, never on another link, and never in the personal navigation"""
     dot_device_cfg = {"display_enabled": True, "quiet_hours_enabled": False}
     on = layout.page_shell(
-        title="T", active="health", body="<p>b</p>", health_alert="error",
+        title="T", active="fleet", body="<p>b</p>", health_alert="error",
         device_config=dot_device_cfg)
     off = layout.page_shell(
-        title="T", active="health", body="<p>b</p>", health_alert=None,
+        title="T", active="fleet", body="<p>b</p>", health_alert=None,
         device_config=dot_device_cfg)
     default = layout.page_shell(
-        title="T", active="health", body="<p>b</p>", device_config=dot_device_cfg)
+        title="T", active="fleet", body="<p>b</p>", device_config=dot_device_cfg)
     assert on.count(layout.NAV_NOTIFICATION_CLASS) == 2, (
         "expected the notification class exactly twice (one per nav renderer) when "
         "health_alert='error'")
@@ -157,7 +157,7 @@ def test_health_nav_notification_dot_warn_severity():
     """layout.page_shell(..., health_alert='warn') also renders the notification dot,
     using dot--warn rather than dot--error"""
     warn = layout.page_shell(
-        title="T", active="health", body="<p>b</p>", health_alert="warn",
+        title="T", active="fleet", body="<p>b</p>", health_alert="warn",
         device_config={"display_enabled": True, "quiet_hours_enabled": False})
     assert warn.count(layout.NAV_NOTIFICATION_CLASS) == 2, (
         "expected the notification class exactly twice (one per nav renderer) when "
@@ -1436,8 +1436,8 @@ def _expected_next_login_location(next_route):
 
 
 @pytest.mark.parametrize(
-    "path", ["/", "/display", "/flights", "/airlines", "/health", "/device"],
-    ids=["home", "display", "flights", "airlines", "health", "device"])
+    "path", ["/", "/display", "/flights", "/airlines"],
+    ids=["home", "display", "flights", "airlines"])
 def test_unauth_get_nav_tab_redirects_to_login_with_next(app02_server, path):
     """unauthenticated GET {path} redirects to /login carrying that route as ?next="""
     status, headers, body = http_request(app02_server.base_url() + path)
@@ -1447,9 +1447,9 @@ def test_unauth_get_nav_tab_redirects_to_login_with_next(app02_server, path):
     assert not body, "expected an empty redirect body, got %d bytes of content" % len(body)
 
 
-@pytest.mark.parametrize("path", ["/settings", "/history"], ids=["settings", "history"])
+@pytest.mark.parametrize("path", ["/settings"], ids=["settings"])
 def test_unauth_get_retired_page_route_redirects_to_login_without_next(app02_server, path):
-    """unauthenticated GET {path} (a retired page route) redirects to /login without ?next="""
+    """unauthenticated GET {path} (the settings form's twin address) redirects to /login without ?next="""
     status, headers, body = http_request(app02_server.base_url() + path)
     assert status == 303, "expected 303, got %d" % status
     assert headers.get("Location") == "/login", (
@@ -1457,14 +1457,11 @@ def test_unauth_get_retired_page_route_redirects_to_login_without_next(app02_ser
     assert not body, "expected an empty redirect body, got %d bytes of content" % len(body)
 
 
-def test_unauth_get_preview_redirects_to_login_without_next(app02_server):
-    """unauthenticated GET /preview (the retired Preview page's redirect source) redirects to
-    /login without page content"""
-    status, headers, body = http_request(app02_server.base_url() + "/preview")
-    assert status == 303, "expected 303, got %d" % status
-    assert headers.get("Location") == "/login", (
-        "expected a redirect to '/login', got %r" % (headers.get("Location"),))
-    assert not body
+@pytest.mark.parametrize("path", ["/history", "/preview", "/health", "/device"])
+def test_unauth_get_a_removed_address_is_the_not_found_page(app02_server, path):
+    """the removed History, Preview, Health and Device addresses are the ordinary 404"""
+    status, _headers, _body = http_request(app02_server.base_url() + path)
+    assert status == 404, "expected 404, got %d" % status
 
 
 def test_preview_png_unauth_404_not_login_redirect(app02_server):

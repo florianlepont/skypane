@@ -216,7 +216,7 @@ def test_the_versions_page_and_system_view_keep_their_text_inside_their_cards(
         page.wait_for_function("() => document.readyState === 'complete'")
         read = page.evaluate(_TEXT_INSET, ".fleet-group")
         assert read["blocks"] >= 1 and not read["bad"], read
-        for view in ("versions", "health"):
+        for view in ("versions", "battery"):
             page.goto(page.url.split("?")[0] + "?frame=%s&view=%s" % (seed.owned_id, view))
             page.locator(".fleet-back").wait_for(state="visible")
             read = page.evaluate(

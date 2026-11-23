@@ -986,8 +986,8 @@ def _seed_view_pages_e2e_fixture(state_dir):
 
 
 def test_history_preview_and_gallery_round_trip_over_http(make_app_server):
-    """GET /flights returns 200 with its own heading, GET /preview redirects (303) to
-    /flights, GET /preview.png now returns 404 (the route is retired), and GET
+    """GET /flights returns 200 with its own heading, GET /preview is the not-found page,
+    GET /preview.png now returns 404 (the route is retired), and GET
     /gallery/{name}.png returns 200 image/png with a real PNG signature — proving the route
     the per-row View-panel lightbox now links to genuinely serves full-resolution bytes,
     against a real running service"""
@@ -998,9 +998,8 @@ def test_history_preview_and_gallery_round_trip_over_http(make_app_server):
     assert status == 200, "expected 200 for /flights, got %d" % status
     assert b"Flights" in body, "expected the 'Flights' heading in /flights's response body"
 
-    status, headers, _body = get(server, "/preview", cookie=session_cookie)
-    assert status == 303, "expected a 303 redirect for /preview, got %d" % status
-    assert headers.get("Location") == "/flights", "expected /preview to redirect to /flights, got %r" % headers.get("Location")
+    status, _headers, _body = get(server, "/preview", cookie=session_cookie)
+    assert status == 404, "expected 404 for the removed /preview address, got %d" % status
 
     status, _headers, _body = get(server, "/preview.png", cookie=session_cookie)
     assert status == 404, "expected 404 for the retired /preview.png route, got %d" % status

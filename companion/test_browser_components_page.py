@@ -329,7 +329,13 @@ def test_the_rename_field_fills_its_dialog_and_the_dialog_has_a_visible_save(
 
 
 def test_the_wake_interval_field_is_wide_enough_for_its_placeholder(new_context, fleet_server):
-    context, page = _admin_page(new_context, fleet_server, "/device")
+    conn = fleet_db.connect(fleet_server.state_dir)
+    try:
+        owned = conn.execute("SELECT id FROM devices WHERE name = 'Kitchen'").fetchone()[0]
+    finally:
+        conn.close()
+    context, page = _admin_page(
+        new_context, fleet_server, "/fleet?frame=%s&tab=settings" % owned)
     try:
         field = page.evaluate(
             "() => { const i = document.querySelector('#wake-interval-s');"

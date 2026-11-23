@@ -22,7 +22,7 @@ import sqlite3
 import sys
 import time
 from http.server import BaseHTTPRequestHandler
-from urllib.parse import parse_qs, parse_qsl, quote, urlencode, urlsplit
+from urllib.parse import parse_qs, parse_qsl, urlencode, urlsplit
 
 # Same repo-root sys.path bootstrap as server/poll_loop.py, so
 # server.* resolves whether this file runs as a package or standalone.
@@ -135,12 +135,8 @@ HOME_ROUTE = layout.HOME_ROUTE
 DISPLAY_ROUTE = layout.DISPLAY_ROUTE
 FLIGHTS_ROUTE = layout.FLIGHTS_ROUTE
 AIRLINES_ROUTE = layout.AIRLINES_ROUTE
-HEALTH_ROUTE = layout.HEALTH_ROUTE
 DEVICE_ROUTE = layout.DEVICE_ROUTE
 UPDATE_ROUTE = layout.UPDATE_ROUTE
-# The pre-refactor History route, kept as a fixed 303 to FLIGHTS_ROUTE
-# for stale bookmarks — the same treatment PREVIEW_PAGE_ROUTE gets.
-HISTORY_LEGACY_ROUTE = "/history"
 # Quick-action routes the Screen on/off and Quiet-hours instant switches
 # post to. Literal here, byte-identical to the values home_page.py used
 # to define, since this module can never import a page module either.
@@ -165,9 +161,6 @@ FRESHNESS_FETCH_HEADER_VALUE = "freshness"
 THEME_ROUTE = "/ui-theme"
 LANG_ROUTE = "/ui-lang"
 LOGOUT_ROUTE = "/logout"
-# The Preview page is retired into History; kept as a fixed-redirect
-# source only.
-PREVIEW_PAGE_ROUTE = "/preview"
 GALLERY_ROUTE_PREFIX = "/gallery/"
 # Rebound from config_page.py (the single definition site) rather than
 # retyped, to avoid a reverse-import cycle. Same for RULES_*/CALENDAR_*
@@ -263,6 +256,7 @@ _PAGE_TITLES = dict(layout.NAV_TABS)
 _CHILD_PAGE_TITLES = {
     detection_page.DETECTION_ROUTE: place_page.PAGE_TITLE,
     airlines_page.MANAGE_ROUTE: console_routes.AIRLINE_EDITOR_LABEL,
+    layout.DEVICE_ROUTE: config_page.DEVICE_PAGE_TITLE,
 }
 # The frame pages that belong to the Console: they show no foreign-frame strip.
 _CONSOLE_FRAME_ROUTES = frozenset((layout.DEVICE_ROUTE, airlines_page.MANAGE_ROUTE))
@@ -961,9 +955,9 @@ class Handler(
         `send_not_modified()` here, with `render()` never called for
         it. A normal navigation (no `X-Requested-With: freshness`) is
         never answered 304, even carrying a stale matching
-        If-None-Match from an earlier tick. `/device` and `/airlines`
-        are not refresh pages, so they skip this whole branch and
-        carry neither an ETag nor a `data-refresh-token` attribute.
+        If-None-Match from an earlier tick. `/airlines`
+        is not a refresh page, so it skips this whole branch and
+        carries neither an ETag nor a `data-refresh-token` attribute.
         """
         ctx = self.page_context(device)
         if layout.nav_slug(route) in _FRESHNESS_PAGE_SLUGS:
@@ -1237,7 +1231,8 @@ class Handler(
         return self.redirect(fleet_moves.with_flash(back, flash_key))
 
     def _handle_quick_toggle(
-            self, device, field, allowed_return_to=None, fallback_return_to=None):
+            self, device, field, allowed_return_to=None, fallback_return_to=None,
+            return_url=None):
         """The Home page's one-tap switches. `state` ("on"/"off") is the
         only field read; every other device-config value is carried
         forward untouched. `return_to` is membership-tested against
@@ -1256,15 +1251,14 @@ class Handler(
         return_to = device_scope.strip_current_prefix(form.get("return_to"))
         if return_to not in allowed_return_to:
             return_to = fallback_return_to
-        return_to = device_scope.scoped(return_to)
+        return_to = return_url or device_scope.scoped(return_to)
         state = form.get(layout.QUICK_STATE_FIELD)
         if state not in (layout.QUICK_STATE_ON, layout.QUICK_STATE_OFF):
             # NOT a 204, even for a fetch: the client reads 204 as
             # confirmation and would leave its optimistic flip standing,
             # showing a state the frame is not in. A rejected submission
             # must reach the client as a failure in BOTH shapes.
-            return self.redirect(
-                "%s?flash=%s" % (return_to, quote(FLASH_KEY_QUICK_FAILED)))
+            return self.redirect(fleet_moves.with_flash(return_to, FLASH_KEY_QUICK_FAILED))
         enabled = state == layout.QUICK_STATE_ON
         if field == "display_enabled":
             kwargs = {"display_enabled": enabled}
@@ -1290,7 +1284,7 @@ class Handler(
         # confirmation.
         if flash_key != FLASH_KEY_QUICK_FAILED and self._wants_no_content():
             return self.send_no_content()
-        return self.redirect("%s?flash=%s" % (return_to, quote(flash_key)))
+        return self.redirect(fleet_moves.with_flash(return_to, flash_key))
 
     def _choice_cookie_header(self, name, value, choices, max_age_s):
         """The `Set-Cookie` header for a UI-preference cookie (theme,

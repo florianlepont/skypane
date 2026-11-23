@@ -6,7 +6,6 @@ the admin rendering keeps every platform section.
 import pytest
 
 import companion.i18n as i18n
-import companion.layout as layout
 import companion.page_context as page_context
 import companion.prefs as prefs
 import companion.test_config_page_helpers as cp
@@ -192,7 +191,7 @@ def test_user_home_attention_ignores_pipeline_state():
 
 def _token(state_dir):
     return freshness._page_freshness_token(
-        layout.HEALTH_ROUTE, _live_ctx(state_dir), "")
+        "/health", _live_ctx(state_dir), "")
 
 
 def test_health_freshness_token_user_ignores_platform_inputs(tmp_path, monkeypatch):

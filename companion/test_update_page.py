@@ -736,11 +736,11 @@ def test_get_fleet_end_to_end_renders_the_scheduled_state(module_app_server_fact
 # ==========================================================================
 
 
-def test_frame_tools_group_lists_health_device_update_in_order():
-    """layout.NAV_GROUPS' labelled group holds Health, Device, Update, in that order"""
+def test_frame_tools_group_lists_update_alone():
+    """layout.NAV_GROUPS' labelled group holds Update alone: the Health and Device pages are gone"""
     assert layout.NAV_GROUPS[1][0] == layout.FRAME_TOOLS_LABEL
     group_routes = [route for route, _label in layout.NAV_GROUPS[1][1]]
-    assert group_routes == [layout.HEALTH_ROUTE, layout.DEVICE_ROUTE, layout.UPDATE_ROUTE]
+    assert group_routes == [layout.UPDATE_ROUTE]
 
 
 def test_console_sidebar_holds_fleet_users_editor_and_audit_and_no_per_frame_entries():
@@ -754,7 +754,7 @@ def test_console_sidebar_holds_fleet_users_editor_and_audit_and_no_per_frame_ent
         layout.ACCOUNT_ROUTE]
     assert "nav-group--frame-tools" not in markup
     personal = layout.sidebar_nav("flights")
-    for route in (layout.HEALTH_ROUTE, layout.DEVICE_ROUTE, layout.UPDATE_ROUTE):
+    for route in ("/health", layout.DEVICE_ROUTE, layout.UPDATE_ROUTE):
         assert ('href="%s"' % route) not in personal
 
 

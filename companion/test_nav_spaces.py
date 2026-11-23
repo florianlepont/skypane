@@ -96,7 +96,7 @@ def test_admin_bars_follow_the_spec():
 
 def test_the_space_follows_the_page_and_never_a_non_admin():
     _as_admin()
-    for slug in ("fleet", "users", "audit", "update", "health", "device", "airlines/manage"):
+    for slug in ("fleet", "users", "audit", "update", "device", "airlines/manage"):
         assert ui_nav.current_space(slug) == ui_nav.CONSOLE_SPACE
     for slug in ("home", "flights", "detection", "display", "airlines", "account"):
         assert ui_nav.current_space(slug) == ui_nav.PERSONAL_SPACE
