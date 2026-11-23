@@ -2250,6 +2250,18 @@ dialog.access-sheet .modal__actions {
   flex: 1 1 100%;
 }
 
+.components-state__sample > form {
+  flex: 1 1 100%;
+}
+
+/* The scrolling chip row bleeds to the page edge in a page; in the catalogue it
+ * stays inside its card. */
+.components-state__sample .filter-bar.filter-bar--scroll-chips .filter-bar__chips--scroll {
+  margin-inline: 0;
+  padding-inline: 0;
+  scroll-padding-inline: 0;
+}
+
 .components-menu-host--open {
   min-height: 12rem;
 }

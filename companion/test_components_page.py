@@ -70,6 +70,18 @@ def test_the_foreign_frame_marker_is_on_the_page_in_english_and_french(rig):
     assert "Retour à la flotte" in html
 
 
+def test_the_scrolling_chip_row_and_the_short_dialog_are_on_the_page_in_english_and_french(rig):
+    cookie = fx.admin_cookie(rig.state_dir)
+    _status, _headers, html = fx.get(rig, cookie, "/components")
+    assert "Filter chips on one scrolling row" in html
+    assert "filter-bar__chips--scroll" in html
+    assert "Short dialog (open it)" in html
+    assert 'id="components-compact"' in html and "modal--compact" in html
+    _status, _headers, html = fx.get(rig, cookie + "; sp_ui_lang=fr", "/components")
+    assert "Filtres sur une ligne qui défile" in html
+    assert "Boîte de dialogue courte (à ouvrir)" in html
+
+
 def _resolve(dotted):
     module_name, function_name = dotted.split(".")
     module = importlib.import_module("companion." + module_name)
