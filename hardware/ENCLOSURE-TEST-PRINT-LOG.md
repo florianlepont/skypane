@@ -63,7 +63,7 @@ round.
 |-------|-------|-------------------------------------|------|--------------------|--------|----------------|-------------------|-------|--------|--------------|------------------|------------------|----------------------------------|----------------------------|-------------------|--------|
 | A | Shim, coupon plate | Bambu Lab X1 Carbon | 2026-11-23 (print date not stated) | PLA |  |  |  | PEI plate (smooth or textured not stated) |  |  |  |  |  |  |  | reported by the owner on 2026-11-23: all parts printed (coupon plate not mentioned); filament brand, colour, spool, settings and print date not stated |
 | B | Tray | Bambu Lab X1 Carbon | 2026-11-23 (print date not stated) | PLA |  |  |  | PEI plate (smooth or textured not stated) |  |  |  |  |  |  |  | reported by the owner on 2026-11-23: all parts printed (coupon plate not mentioned); filament brand, colour, spool, settings and print date not stated |
-| C | Lid, stand | Bambu Lab X1 Carbon | 2026-11-23 (print date not stated) | PLA |  |  |  | PEI plate (smooth or textured not stated) |  |  |  |  |  |  |  | reported by the owner on 2026-11-23: all parts printed (coupon plate not mentioned); filament brand, colour, spool, settings and print date not stated |
+| C | Lid, stand | Bambu Lab X1 Carbon | 2026-11-23 (print date not stated) | PLA |  |  |  | PEI plate (smooth or textured not stated) |  |  |  |  |  |  |  | reported by the owner on 2026-11-23: all parts printed; later the same day the owner said the lid print is still to be done (planned for 2026-11-24), so which of the lid and the stand exist is to be clarified; filament brand, colour, spool, settings and print date not stated |
 | D | | | | | | | | | | | | | | | | |
 
 ## Export stamps
