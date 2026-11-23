@@ -706,3 +706,31 @@ def test_an_artwork_write_failure_exits_1(seeded, monkeypatch, capsys):
                         lambda *a, **k: (_ for _ in ()).throw(OSError("disk full")))
     assert _run(seeded) == 1
     assert "OSError" in capsys.readouterr().err
+
+
+def test_default_types_without_a_picture_are_cleared_once(seeded, capsys):
+    _run(seeded)
+    root = seeded.state_dir
+    with open(os.path.join(root, "airline_default_types.json"), "w") as fh:
+        json.dump({"air-france": "A320", "transavia-france": "A320"}, fh)
+    capsys.readouterr()
+    before = _without_wal_sides(live.snapshot_dir(root))
+
+    assert _run(seeded, "--dry-run") == 0
+    out = capsys.readouterr().out
+    assert "airline default types: would clear 1" in out
+    assert "airline default types: would clear air-france: A320" in out
+    assert _without_wal_sides(live.snapshot_dir(root)) == before
+
+    assert _run(seeded) == 0
+    out = capsys.readouterr().out
+    assert "airline default types: cleared 1" in out
+    assert json.load(open(os.path.join(root, "airline_default_types.json"))) == {
+        "transavia-france": "A320"}
+    cleared = json.load(open(os.path.join(root, "airline_default_types_cleared.json")))
+    assert [(r["airline_key"], r["type"]) for r in cleared] == [("air-france", "A320")]
+    after = _without_wal_sides(live.snapshot_dir(root))
+
+    assert _run(seeded) == 0
+    assert "airline default types: nothing to do" in capsys.readouterr().out
+    assert _without_wal_sides(live.snapshot_dir(root)) == after

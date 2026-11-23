@@ -403,16 +403,28 @@ def test_the_artwork_routes_refuse_everyone_but_the_administrator(rig, who):
     assert rig.stored() == before
 
 
-def test_naming_a_prefix_inline_stays_on_the_editor_and_stores_the_default_type(rig):
+def _name_xqz_inline(rig):
     shp.seed_unresolved_prefixes(rig.owned_dir, {
         "XQZ": {"count": 5, "first_seen": STAMP, "last_seen": STAMP, "example_callsign": "XQZ1"}})
     status, headers, _b = rig.post(
         "admin", rig.frame + "/airlines/resolve",
         {"prefix": "XQZ", "airline_name": "Xqz Wings", "inline": "1", "default_type": "B738"})
-    path, query = _query(headers)
+    return status, _query(headers)
+
+
+def test_naming_a_prefix_inline_stores_the_default_type_when_the_type_has_a_picture(rig):
+    _override(rig, "xqz-wings-b737")
+    status, (path, query) = _name_xqz_inline(rig)
     assert (status, path, query) == (303, rig.frame + EDITOR, {"flash": ["manual_resolved"]})
     assert airline_default_types.load_default_types(rig.owned_dir) == {"xqz-wings": "B738"}
     assert "airline.resolve" in _audit_actions(rig)
+
+
+def test_naming_a_prefix_inline_refuses_a_default_type_without_a_picture(rig):
+    status, (path, query) = _name_xqz_inline(rig)
+    assert (status, path, query) == (303, rig.frame + EDITOR, {"flash": ["airline_default_type_failed"]})
+    assert airline_default_types.load_default_types(rig.owned_dir) == {}
+    assert "Xqz Wings" in open(manual_resolutions.manual_resolutions_path(rig.owned_dir)).read()
 
 
 @pytest.mark.parametrize("who", ("owner", "co"))

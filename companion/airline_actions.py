@@ -105,10 +105,6 @@ def handle_default_type(handler, match):
     if not known:
         return _back(handler, FLASH_KEY_ARTWORK_STALE)
     code = form.get("type") or ""
-    # A type with no picture for this airline is never the default.
-    if code.strip() and not illustrations.has_type_livery(
-            key, airline_default_types.normalise_code(code), device.state_dir):
-        return _back(handler, FLASH_KEY_DEFAULT_TYPE_FAILED)
     result = airline_default_types.set_default_type(device.state_dir, key, code)
     if result != airline_default_types.SET_OK:
         return _back(handler, FLASH_KEY_DEFAULT_TYPE_FAILED)

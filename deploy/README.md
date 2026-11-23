@@ -723,6 +723,27 @@ pre-migration backup, never at service start) merges every
   deleted; they become frozen copies that disappear with their frame, and a
   later release removes them after the rollback window.
 
+### Default aircraft types without a picture
+
+An airline's default aircraft type is only accepted for a type the airline has
+a picture for (built in or an upload). Defaults stored before that rule are
+cleared once by `server.fleet_migrate`, after the airline-names and artwork
+merges, in the same backup, dry-run and real-run steps as the rest.
+
+- **Reading the log.** Lines start with `airline default types:`. `would clear
+  N` (dry run) or `cleared N` (real run), then one `<airline key>: <type>` line
+  per entry; `airline default types: nothing to do` when none lacks a picture or
+  the run already happened. The dry run judges the fleet root as it is before
+  the merges of the same run.
+- **Nothing is lost.** Each cleared entry is first appended to
+  `airline_default_types_cleared.json` (airline key, type, source, time) in the
+  state root; `airline_default_types_migration.json` marks the run and is
+  written last. Both are in the backup. Only a run that clears something writes
+  anything. Per-frame files are never touched.
+- **After a deploy.** Check the log for the two lines, open the Editor and see
+  that the cleared airlines show no default type, and read the archive file to
+  restore any entry on purpose (upload the type's picture first, then set it).
+
 ## Backups
 
 A nightly systemd timer (`skypane-backup.timer`, 03:15 UTC,

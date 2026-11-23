@@ -4,7 +4,9 @@ type code}`, stored in `{fleet root}/airline_default_types.json`, one file
 for every frame.
 
 The companion's airline editor writes it (a star on one type row) and reads
-it back to mark that row; nothing on the live frame's path reads it. Same file
+it back to mark that row. The live frame's picture choice reads it too
+(`illustrations.select_illustration`): an airline with no picture of its own
+shows the picture of its default type. Same file
 contract as the other owner registries: a never-raising load that rebuilds
 every entry from scratch, validate-before-write, an atomic write, a hard cap
 and one process-wide lock around the load-modify-write cycle.
@@ -15,6 +17,7 @@ import re
 import threading
 
 from server import atomic_io, device_dirs
+from server.plane import illustrations
 
 DEFAULT_TYPES_FILENAME = "airline_default_types.json"
 MAX_ENTRIES = 300
@@ -73,14 +76,23 @@ def load_default_types_file(path):
     return registry
 
 
-def set_default_type(state_dir, key, code):
+def set_default_type(state_dir, key, code, livery_key=None):
     """Make `code` the default type of the airline `key`, or clear the entry
-    when `code` is empty. Returns a `SET_*` value; never raises."""
+    when `code` is empty. Returns a `SET_*` value; never raises.
+
+    A type is refused (`SET_REJECTED`, nothing written) unless the airline has
+    a picture for it: its type artwork, built in or uploaded, or the artwork
+    `livery_key` that was just stored as this type's picture. Clearing is
+    always allowed."""
     if not isinstance(key, str) or not _KEY_RE.match(key):
         return SET_REJECTED
     clear = not (isinstance(code, str) and code.strip())
     normalised = None if clear else normalise_code(code)
     if not clear and normalised is None:
+        return SET_REJECTED
+    if not clear and not (
+            illustrations.has_type_livery(key, normalised, state_dir)
+            or (livery_key and illustrations.resolved_illustration_path(livery_key, state_dir))):
         return SET_REJECTED
     with _WRITE_LOCK:
         registry = load_default_types(state_dir)
