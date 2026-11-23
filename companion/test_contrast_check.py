@@ -324,6 +324,19 @@ def test_status_error_meets_ui_component_contrast_on_every_surface(theme, theme_
             "WCAG_AA_UI_COMPONENT (%.1f)" % (theme, bg_token, ratio, WCAG_AA_UI_COMPONENT))
 
 
+# The edge drawn round the light-yellow look tile is a non-text graphic that
+# must show against every surface the tile sits on; the panel yellow itself
+# measures about 1.12:1 against white paper, which is why the edge exists.
+@pytest.mark.parametrize("theme", ("light", "dark"))
+def test_yellow_tile_edge_meets_ui_component_contrast_on_every_surface(theme, theme_tokens):
+    edge = theme_tokens[theme]["--color-yellow-tile-edge"]
+    for bg_token in ("--color-canvas", "--color-dominant", "--color-secondary"):
+        ratio = contrast_ratio(edge, theme_tokens[theme][bg_token])
+        assert ratio >= WCAG_AA_UI_COMPONENT, (
+            "%s: contrast_ratio(yellow tile edge, %s) = %.2f, below %.1f" % (
+                theme, bg_token, ratio, WCAG_AA_UI_COMPONENT))
+
+
 # ==========================================================================
 # The warn-coloured "Update overdue" headline's own contrast gate. Unlike
 # the live pairs above (every one required to PASS), this pair's own

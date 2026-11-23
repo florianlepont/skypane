@@ -32,11 +32,10 @@ SECONDARY = DIALOG + " [data-leave-dialog-secondary]"
 QUIET = DIALOG + " [data-leave-dialog-quiet]"
 BAR = ".dirty-bar"
 WORDS = {
-    "en": ("Unsaved changes", "You have changes that are not saved. What do you want to do?",
-           "Save and continue", "Discard", "Stay here"),
-    "fr": ("Modifications non enregistrées",
-           "Vous avez des modifications non enregistrées. Que souhaitez-vous faire ?",
-           "Enregistrer et continuer", "Abandonner", "Rester ici"),
+    "en": ("Leave without saving?", "Your changes are not saved yet.",
+           "Save and leave", "Leave without saving", "Stay here"),
+    "fr": ("Quitter sans enregistrer\u00a0?", "Vos modifications ne sont pas encore enregistrées.",
+           "Enregistrer et quitter", "Quitter sans enregistrer", "Rester ici"),
 }
 # What the primary says, and the note under the question, where the save cannot land on the
 # tapped page: the person is told the page stays open instead of being sent somewhere else.
@@ -197,7 +196,7 @@ def test_every_save_bar_page_asks_before_an_in_app_link(
             assert page.locator(PRIMARY).inner_text() == SAVE_ONLY[lang][0]
             assert page.locator(NOTE).inner_text() == SAVE_ONLY[lang][1]
         assert page.locator(SECONDARY).inner_text() == secondary
-        assert page.locator(QUIET).inner_text() == quiet
+        assert page.locator(QUIET).get_attribute("aria-label") == quiet
         page.wait_for_function(
             "() => document.activeElement"
             " && document.activeElement.hasAttribute('data-leave-dialog-quiet')",

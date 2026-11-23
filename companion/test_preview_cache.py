@@ -9,7 +9,10 @@ HTTP round trip.
 import os
 import threading
 
+from PIL import Image, ImageChops
+
 from companion import illustration_normalize, theme_preview
+from server.plane import illustrations
 
 
 def _listing(directory):
@@ -29,7 +32,7 @@ def test_concurrent_cold_preview_writes_one_file_no_tmp_leftover(tmp_path, monke
     barrier = threading.Barrier(2, timeout=5)
     fixed_bytes = b"fixed-preview-bytes"
 
-    def fake_preview_png_bytes(theme_id, live_event=None, layout=None):
+    def fake_preview_png_bytes(theme_id, live_event=None, layout=None, state_dir=None):
         barrier.wait()
         return fixed_bytes
 
@@ -75,7 +78,7 @@ def test_stale_signature_pruned_unrelated_files_kept(tmp_path, monkeypatch):
         with open(os.path.join(directory, name), "wb") as fh:
             fh.write(b"stale-or-unrelated")
 
-    monkeypatch.setattr(theme_preview, "preview_png_bytes", lambda theme_id, live_event=None, layout=None: b"new-render")
+    monkeypatch.setattr(theme_preview, "preview_png_bytes", lambda theme_id, live_event=None, layout=None, state_dir=None: b"new-render")
     result = theme_preview.cached_preview_bytes(state_dir, "white")
 
     assert result == b"new-render"
@@ -104,7 +107,7 @@ def test_cache_bound_evicts_oldest_first(tmp_path, monkeypatch):
         os.utime(path, (1_700_000_000 + i, 1_700_000_000 + i))
         prefill_names.append(name)
 
-    monkeypatch.setattr(theme_preview, "preview_png_bytes", lambda theme_id, live_event=None, layout=None: b"new-render")
+    monkeypatch.setattr(theme_preview, "preview_png_bytes", lambda theme_id, live_event=None, layout=None, state_dir=None: b"new-render")
     theme_preview.cached_preview_bytes(state_dir, "white")
 
     remaining_pngs = _pngs(directory)
@@ -170,3 +173,55 @@ def test_frame_preview_version_follows_every_input_that_changes_the_pixels():
     assert theme_preview.frame_preview_version("white", "empty", "large") is None
     assert "&v=" not in theme_preview.frame_preview_src("__THEME__")
     assert theme_preview.frame_preview_src("white").endswith("&v=%s" % base)
+
+
+def _replace_artwork(state_dir):
+    """Uploads a recoloured copy of the picture the fixed scene's main flight draws, the way
+    the illustration upload stores one (an override under the fleet root), and returns the
+    override file's path."""
+    vendored = illustrations.select_illustration(
+        theme_preview.THEME_PREVIEW_ROUTE, None, state_dir=state_dir)
+    override_dir = illustrations.override_dir_for_state_dir(state_dir)
+    os.makedirs(override_dir, exist_ok=True)
+    target = os.path.join(override_dir, os.path.basename(vendored))
+    picture = Image.open(vendored).convert("RGBA")
+    red, green, blue, alpha = picture.split()
+    Image.merge("RGBA", (ImageChops.invert(red), green, blue, alpha)).save(target)
+    return target
+
+
+def test_replacing_the_artwork_regenerates_a_cached_frame_preview(tmp_path):
+    """a preview cached with the old picture is not served once the picture is replaced: the
+    next read renders again, shows the new artwork and leaves one file for the variant; an
+    unchanged picture is still served from the cache, and the address the page puts in the
+    image URL changes with the artwork"""
+    state_dir = str(tmp_path)
+    args = (state_dir, "grey", "departing", "small", "b")
+    old = theme_preview.cached_frame_preview_bytes(*args)
+    old_path = theme_preview.frame_cache_path(*args)
+    old_version = theme_preview.frame_preview_version(
+        "grey", "departing", "small", "b", state_dir=state_dir)
+    assert theme_preview.cached_frame_preview_bytes(*args) == old
+    directory = os.path.dirname(old_path)
+    assert len(_pngs(directory)) == 1
+
+    _replace_artwork(state_dir)
+
+    new = theme_preview.cached_frame_preview_bytes(*args)
+    assert new != old
+    assert theme_preview.frame_cache_path(*args) != old_path
+    assert theme_preview.frame_preview_version(
+        "grey", "departing", "small", "b", state_dir=state_dir) != old_version
+    assert _pngs(directory) == [os.path.basename(theme_preview.frame_cache_path(*args))]
+    assert theme_preview.cached_frame_preview_bytes(*args) == new
+
+
+def test_replacing_the_artwork_regenerates_a_cached_chip_preview(tmp_path):
+    """the theme chip's cache follows the artwork the same way"""
+    state_dir = str(tmp_path)
+    old = theme_preview.cached_preview_bytes(state_dir, "grey", layout="b")
+    old_path = theme_preview.cache_path(state_dir, "grey", layout="b")
+    _replace_artwork(state_dir)
+    new = theme_preview.cached_preview_bytes(state_dir, "grey", layout="b")
+    assert new != old
+    assert theme_preview.cache_path(state_dir, "grey", layout="b") != old_path

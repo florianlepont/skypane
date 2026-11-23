@@ -797,7 +797,7 @@ def test_theme_preview_cached_bytes_live_event_keyed_by_id(tmp_path):
     }
     event_6 = dict(event_5, id=6, callsign="AFR9999")
     theme_preview.cached_preview_bytes(state_dir, "white", live_event=event_5)
-    path_5 = theme_preview.cache_path(state_dir, "white", live_event_id=5)
+    path_5 = theme_preview.cache_path(state_dir, "white", live_event_id=5, live_event=event_5)
     assert os.path.isfile(path_5), "expected cached_preview_bytes() to create %r" % (path_5,)
     marker = b"mutated-cache-fixture-not-a-real-render"
     with open(path_5, "wb") as fh:
@@ -808,7 +808,7 @@ def test_theme_preview_cached_bytes_live_event_keyed_by_id(tmp_path):
     third_newer_event = theme_preview.cached_preview_bytes(state_dir, "white", live_event=event_6)
     assert third_newer_event != marker, (
         "expected a newer event id to be a cache miss, not the stale marker bytes")
-    path_6 = theme_preview.cache_path(state_dir, "white", live_event_id=6)
+    path_6 = theme_preview.cache_path(state_dir, "white", live_event_id=6, live_event=event_6)
     assert path_5 != path_6, "expected two different event ids to produce two different cache files"
 
 
