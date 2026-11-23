@@ -712,14 +712,14 @@ def test_default_types_without_a_picture_are_cleared_once(seeded, capsys):
     _run(seeded)
     root = seeded.state_dir
     with open(os.path.join(root, "airline_default_types.json"), "w") as fh:
-        json.dump({"air-france": "A320", "transavia-france": "A320"}, fh)
+        json.dump({"air-france": "B738", "transavia-france": "A320"}, fh)
     capsys.readouterr()
     before = _without_wal_sides(live.snapshot_dir(root))
 
     assert _run(seeded, "--dry-run") == 0
     out = capsys.readouterr().out
     assert "airline default types: would clear 1" in out
-    assert "airline default types: would clear air-france: A320" in out
+    assert "airline default types: would clear air-france: B738" in out
     assert _without_wal_sides(live.snapshot_dir(root)) == before
 
     assert _run(seeded) == 0
@@ -728,7 +728,7 @@ def test_default_types_without_a_picture_are_cleared_once(seeded, capsys):
     assert json.load(open(os.path.join(root, "airline_default_types.json"))) == {
         "transavia-france": "A320"}
     cleared = json.load(open(os.path.join(root, "airline_default_types_cleared.json")))
-    assert [(r["airline_key"], r["type"]) for r in cleared] == [("air-france", "A320")]
+    assert [(r["airline_key"], r["type"]) for r in cleared] == [("air-france", "B738")]
     after = _without_wal_sides(live.snapshot_dir(root))
 
     assert _run(seeded) == 0

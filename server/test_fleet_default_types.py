@@ -24,7 +24,7 @@ def _upload(root, key, code):
 
 def _seed(root):
     _stored(root, {
-        "air-france": "A320",          # no picture: cleared
+        "air-france": "B738",          # no picture: cleared
         "transavia-france": "A320",    # built-in picture: kept
         "zephyr-air": "B738",          # fleet override exists: kept
         "xqz-wings": "A330",           # no picture: cleared
@@ -35,10 +35,10 @@ def _seed(root):
 def test_the_plan_lists_only_defaults_without_a_picture(tmp_path):
     _seed(str(tmp_path))
     plan = fdt.plan_clear(str(tmp_path))
-    assert plan.to_clear == [("air-france", "A320"), ("xqz-wings", "A330")]
+    assert plan.to_clear == [("air-france", "B738"), ("xqz-wings", "A330")]
     assert fdt.report_lines(plan, dry_run=True) == [
         "airline default types: would clear 2",
-        "airline default types: would clear air-france: A320",
+        "airline default types: would clear air-france: B738",
         "airline default types: would clear xqz-wings: A330"]
 
 
@@ -60,7 +60,7 @@ def test_apply_archives_clears_marks_and_leaves_the_others(tmp_path):
     assert adt.load_default_types(root) == {"transavia-france": "A320", "zephyr-air": "B738"}
     archive = json.load(open(os.path.join(root, fdt.ARCHIVE_FILENAME)))
     assert archive == [
-        {"airline_key": "air-france", "type": "A320", "source": "fleet", "cleared_at": NOW},
+        {"airline_key": "air-france", "type": "B738", "source": "fleet", "cleared_at": NOW},
         {"airline_key": "xqz-wings", "type": "A330", "source": "fleet", "cleared_at": NOW}]
     assert json.load(open(os.path.join(root, fdt.MARKER_FILENAME)))["cleared"] == 2
 
@@ -87,7 +87,7 @@ def test_nothing_to_clear_writes_nothing(tmp_path):
 
 def test_an_earlier_archive_is_extended_not_replaced(tmp_path):
     root = str(tmp_path)
-    _stored(root, {"air-france": "A320"})
+    _stored(root, {"air-france": "B738"})
     with open(os.path.join(root, fdt.ARCHIVE_FILENAME), "w") as fh:
         json.dump([{"airline_key": "old", "type": "A320", "source": "fleet", "cleared_at": "x"}], fh)
     fdt.apply_clear(root, fdt.plan_clear(root), now=NOW)
@@ -101,7 +101,7 @@ def test_per_frame_files_are_never_touched(tmp_path):
     frame = device_dirs.provision_device_dir(root, "d_0123abcd", 800, 480)
     frozen = os.path.join(frame, adt.DEFAULT_TYPES_FILENAME)
     with open(frozen, "w") as fh:
-        json.dump({"air-france": "A320"}, fh)
-    _stored(root, {"air-france": "A320"})
+        json.dump({"air-france": "B738"}, fh)
+    _stored(root, {"air-france": "B738"})
     fdt.apply_clear(root, fdt.plan_clear(root), now=NOW)
-    assert json.load(open(frozen)) == {"air-france": "A320"}
+    assert json.load(open(frozen)) == {"air-france": "B738"}
