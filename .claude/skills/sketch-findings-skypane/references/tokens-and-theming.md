@@ -6,7 +6,8 @@ means editing all of those blocks, so keep them equal. Area sheets
 (`style-home.css`, `-flights.css`, `-place.css`, `-airlines.css`, `-display.css`,
 `-admin.css`, `-c-console.css`, `-c-lists.css`) are linked per page by `page_styles.py`
 and use tokens only; the one deliberate exception is `style-place.css` (forced light ink
-over the light OSM tiles, a copy of the light palette).
+over the light OSM tiles, a copy of the light palette). One selector is declared once per
+media context across the sheets (`test_stylesheet_structure.py`).
 
 No colour literal outside a `--` declaration in the shared stylesheets.
 
@@ -27,6 +28,18 @@ No colour literal outside a `--` declaration in the shared stylesheets.
 | `--color-status-error` | `#BE123C` | `#FB7185` |
 | `--color-switch-off` | `#7C8799` | `#6B7589` |
 | rarity inks occasional / rare | `#0F766E` / `#6D28D9` | `#5EEAD4` / `#C4B5FD` |
+| `--rarity-tint` (fill of a rarity pill: the ink mixed into the card) | 10% | 28% |
+| `--color-yellow-tile-edge` (3px edge of the light-yellow look tile on screen) | `#7A6D1D` | `#D9C24A` |
+| `--color-map-ground` (what the map shows under and between tiles) | `#F2EFE9` | `#16140F` |
+
+**Secondary ink** is not a token of its own: it is the text colour at 70%
+(`color-mix(in srgb, var(--color-text) 70%, transparent)`), the same value as `--seg-idle-fg`.
+Muted lines, the first-visit hint, the 404 caption and idle segments use it. A label on a tinted
+panel (the opened Audit event) uses 80% to keep 4.5:1.
+
+The yellow tile edge exists only on screen: the panel's yellow is too close to white to show the
+tile's shape in the picker; the panel palette is untouched. Whether the yellow reads on the real
+panel is an owner check.
 
 The accent is neutral on purpose: it can never be mistaken for a status colour. Primary
 buttons, the selected segmented pill, links, the focus ring and the on state of a switch
@@ -70,7 +83,7 @@ Rules:
   descendants and costs a layer). The tab bar and More sheet are opaque (`--glass-solid`); the scrim behind an open More sheet blurs 8px.
 - Dialogs are not glass: an opaque surface over a dimmed page.
 - The old "at most six blurred elements per page" budget is guidance only: the test that
-  held it is gone and round 35 added a scrim blur on every page. Keep blur to bars, sheets,
+  held it is gone and the More sheet added a scrim blur on every page. Keep blur to bars, sheets,
   dialogs, popovers and the sidebar.
 
 ## Radii, shadows
@@ -95,11 +108,12 @@ the page title.
 | Section label over a group | `--font-caption-size` 13px, secondary ink | 600 |
 | Body | `--font-body-size` 16px | 400 |
 | Secondary (`.btn`, labels) | `--font-label-size` 15px | 600 for buttons |
-| Caption | `--font-caption-size` 13px | 400 |
+| Caption | `--font-caption-size` 13px, secondary ink: first-visit hint, 404 caption, tile meta, hints under controls | 400 |
 | Tab label / chart axis | 11px / 10px (the only sub-scale sizes) | |
 
-Home's title (`.title-action__text`) is `--title-size` 28px phone, 24px under 380px, 48px from
-960px, with one rename icon link beside it. Wall-clock times use `.time-value` (UI face,
+Home's title (`.title-action__text`) is `--title-size` 32px phone, 44px from 700px, with one
+rename icon link beside it (the pencil and the info "i" are 28px opaque discs inside 44px hit
+areas). Wall-clock times use `.time-value` (UI face,
 tabular numerals); mono is for identifiers.
 
 ## Spacing, layout
@@ -111,9 +125,11 @@ from 960px; also `700px`, `70rem` (Airlines and list sheets), `79.5rem` (Users t
 
 Safe areas: `--safe-top/right/bottom/left` (every shell sets `viewport-fit=cover`); fixed
 bars, sheets, dialogs and toasts pad themselves with them. Floating tab bar tokens:
-`--tab-bar-h` 68px, `--tab-bar-gap` 6px, `--tab-bar-side` 8px, `--tab-bar-pad` 2px.
-`--save-bar-h` is one 44px row plus padding. `--color-map-ground` `#F2EFE9` is the OSM land
-colour (light tiles in both themes).
+`--tab-bar-h` 68px, `--tab-bar-gap` 6px, `--tab-bar-side` 8px, `--tab-bar-pad` 2px,
+`--tab-bar-max` 460px (the widest the bar and its More sheet grow on a tablet).
+`--save-bar-h` is one 44px row plus padding. `--keyboard-inset` is set by `modal.js` on an open
+dialog to the height the on-screen keyboard covers (0px otherwise); a phone sheet is anchored to
+it and its `max-height` subtracts it.
 
 Segmented contract: `--seg-edge`, `--seg-selected-bg` (accent), `--seg-selected-fg`,
 `--seg-idle-fg`. They are the only place the segmented look changes.
@@ -126,9 +142,13 @@ Segmented contract: `--seg-edge`, `--seg-selected-bg` (accent), `--seg-selected-
   and Dark `#12151D`; an explicit theme makes both tags carry that colour
   (`ui_base.theme_color_meta`). While the More sheet is open, `modal.js` rewrites the
   tags to the dimmed ground and restores them on close.
-- The Place page forces the light palette on the brand and frame button over the map
-  (`style-place.css`), in both themes.
-- The favicon is graphite with a night-mode variant (round 27).
+- **Dark map:** in Dark and in Auto-dark the Location page's one OpenStreetMap tile layer is
+  inverted and turned back to its hues (`filter: invert(1) hue-rotate(180deg) brightness(.9)
+  contrast(.95)` on `.leaflet-tile-pane`) so roads, runways and labels read on a dark ground;
+  `--color-map-ground` and the map control colours (`--map-control-bg`, `--map-control-edge`) take
+  their dark values. Light keeps the plain tiles. Over the dark map the app bar keeps the page's own
+  dark colours; over the light map it takes the light palette.
+- The favicon is graphite with a night-mode variant.
 - Tests: `companion/test_sky_contrast.py` (every sky stop, both cascades),
   `companion/test_contrast_check.py`, `companion/test_stylesheet_structure.py`.
 
@@ -138,5 +158,5 @@ There is no manifest and no `apple-mobile-web-app-*` meta. `splash-boot.js` adds
 `html.web-app` when `navigator.standalone === true` (before first paint). In that mode
 `--app-bar-drop` is 24px below 960px so the phone app bar (logo, wordmark, frame button)
 clears the frost iOS draws below the status bar (open WebKit bug); everything placed under the
-bar adds it too, including the Place page's floating parts. History:
+bar adds it too, including the Location page's floating parts. History:
 `.planning/debug/resolved/home-screen-app-wordmark-blur.md`.

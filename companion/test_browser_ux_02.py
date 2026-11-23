@@ -732,7 +732,7 @@ def test_health_tables_fit_their_wraps_with_every_disclosure_open(new_context, s
         context.add_cookies([{
             "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
         page.goto(base_url + "/health")
-        page.locator("details.readings-disclosure").first.wait_for(state="attached")
+        page.locator(".battery-readings table").first.wait_for(state="attached")
         seen = page.evaluate(probe)
         if page.viewport_size["width"] != width:
             raise AssertionError("expected the measurement to be taken at %dpx" % (width,))

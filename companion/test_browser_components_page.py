@@ -267,6 +267,22 @@ def test_a_dialog_opens_inside_the_viewport_with_forty_four_pixel_actions(compon
     assert box["bad"] == [], box
 
 
+def test_the_short_dialog_opens_inside_the_viewport_with_forty_four_pixel_actions(components):
+    components.locator('a[data-modal-open][href="#components-compact"]').click()
+    components.wait_for_function(
+        "() => { const d = document.getElementById('components-compact'); return d && d.open; }")
+    components.wait_for_function(SETTLED)
+    box = components.evaluate(
+        "() => { const d = document.getElementById('components-compact').getBoundingClientRect();"
+        " const w = document.documentElement.clientWidth; const h = window.innerHeight;"
+        " const bad = [...document.querySelectorAll('#components-compact button,"
+        " #components-compact a.modal__dismiss, #components-compact input:not([type=hidden])')]"
+        ".filter((e) => e.getBoundingClientRect().height < 43.5).map((e) => e.className);"
+        " return {inside: d.left >= 0 && d.right <= w && d.top >= 0 && d.bottom <= h, bad}; }")
+    assert box["inside"], box
+    assert box["bad"] == [], box
+
+
 # --- Pages that use the shared components (the audit's component-driven findings) -----------
 
 @pytest.fixture(scope="module")

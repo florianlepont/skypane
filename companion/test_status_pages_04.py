@@ -716,7 +716,7 @@ def test_bare_summary_rule_declares_the_accent_colour(css_text):
 
 def test_interaction_skip_guard_cross_file_contract(tmp_path, freshness_js):
     """The interaction-skip guard's cross-file contract: a fixture rich enough to actually render
-    a disclosure and a chart hit target, and freshness.js's shipped source still
+    the readings table and a chart hit target, and freshness.js's shipped source still
     checks for a focused INPUT/SUMMARY and health_page.SPARKLINE_HIT_CLASS's own literal value but
     no longer checks for an open <details> at all"""
     state_dir = str(tmp_path)
@@ -729,7 +729,8 @@ def test_interaction_skip_guard_cross_file_contract(tmp_path, freshness_js):
     shp.seed_runway_events(state_dir, [
         {"ts": shp.iso(now), "hex": "abc123", "route_source": "fresh_hit"}])
     rendered = health_page_composition.render(shp.ctx(state_dir, shp.iso(now)))
-    assert "<details" in rendered, "expected at least one <details> disclosure to actually render"
+    assert 'class="battery-readings"' in rendered, "expected the readings table to actually render"
+    assert "<details" not in rendered, "the Battery page folds nothing behind a toggle"
     assert health_page.SPARKLINE_HIT_CLASS in rendered, (
         "expected the battery chart's hit-target class to actually render")
 

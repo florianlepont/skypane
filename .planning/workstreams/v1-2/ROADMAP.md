@@ -741,7 +741,7 @@ Plans:
   2. Mockups are approved by the owner before the code, as for the active-mode card.
   3. Every change follows the design system (tokens, contrast, spacing, density), and any new pattern is added to it (`sketch-findings-skypane`).
   4. English and French both work, and so does phone width; browser tests cover what changes visually, in line with the behaviour-over-source rule, and the accessibility checks still pass.
-  5. No behaviour change beyond what the list asks: the full test suite and the golden hashes pass, and the route x role x owner matrix is unchanged except the owner-requested removal of the Locations routes (the list includes behaviour items the owner chose on 2026-11-18).
+  5. No behaviour change beyond what the list asks: the full test suite and the golden hashes pass, and the route x role x owner matrix is unchanged except the owner-requested removal of the Locations routes and the three administrator-only airline routes the owner asked for (rename of a hand-named airline and the two name-suggestion routes), each with the same access as its neighbours; the retired Health and Update addresses still answer a 303 and now land on the frame's Battery and Versions pages (the list includes behaviour items the owner chose on 2026-11-18).
   6. The owner validates the result on the deployed companion, in English and French.
 
 **Not in this phase**: the screens of photo mode, the getting-started wizard and the Wi-Fi setup (they are built later, in v1.3 and v1.4, to the same design system); new features; the security audit and the code cleanup, which follow.
@@ -884,7 +884,7 @@ Plans: TBD
 | 63. Fast CI | v1.2 | 6/6 | Complete: merged (#319, #320, #322); test check median 9.0 min against 27.4 over five green runs, nothing skipped; the large browser files were left unchanged by the owner's decision (63-05) | 2026-11-10 |
 | 64. Second Hardware in Production | v1.2 | 13/15 | Verified with open points (64-VERIFICATION.md, 2026-11-15): criteria 1-6, 8 and 9 validated (6 and 9 on 2026-11-16: hold marks on rendered images only; 9 partly by owner decision for rows 2, 9, 10, 11), 5 with the failing update on Phase 58 bench evidence; criterion 7 open (partly measured; busy waits, LED and buttons measured 2026-11-17 (LED and keys equal the repository values), battery profile provisional and moved to production use and SEED-019, v1.4; wake-stage blit 190 s and 700 s budget formula-derived); not complete | - |
 | 65. Detection Robustness (Runway 3 and Multi-Airport Validation) | v1.2 | 14/14 | Complete, closed 2026-11-18 (PR #470, deployed); verified with open points in `65-VERIFICATION.md`; Orly 06/24 left untested by the owner's decision; battery work moved to SEED-019 (v1.4) | 2026-11-18 |
-| 68. Console and Companion Visual Improvements | v1.2 | 30/36 | In Progress|  |
+| 68. Console and Companion Visual Improvements | v1.2 | 36/36 | All plans built; awaiting the owner's validation on the deployed site |  |
 | 68.1. Design System Consistency, Deviations and Improvements (INSERTED) | v1.2 | 0/0 | Added 2026-11-21, not planned yet; starts when Phase 68 is done | - |
 | 66. Security Audit | v1.2 | 0/0 | Added 2026-11-15, not planned yet | - |
 | 67. Project and Code Optimisation for a Clean, Industrial Result | v1.2 | 0/0 | Added 2026-11-15, not planned yet | - |

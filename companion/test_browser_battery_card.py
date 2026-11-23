@@ -88,7 +88,7 @@ def test_the_card_overflows_nowhere_and_keeps_its_targets_at_44px(
         where = "battery card %d/%s/%s" % (viewport["width"], lang, theme)
         assert not _assert_no_page_overflow(page, where, viewport["width"])
         card = page.locator(ROW).bounding_box()
-        for selector in (".battery-hero", ".battery-chart-wrap", ".battery-readings > summary",
+        for selector in (".battery-hero", ".battery-chart-wrap", ".battery-readings table",
                          ".battery-status", ".sparkline__canvas:visible"):
             box = page.locator(ROW + " " + selector).first.bounding_box()
             assert box["x"] >= card["x"] - 0.5 and box["x"] + box["width"] <= card["x"] + card["width"] + 0.5, (
@@ -96,10 +96,10 @@ def test_the_card_overflows_nowhere_and_keeps_its_targets_at_44px(
         for unit in ("percent", "mv"):
             box = page.locator('.battery-unit__option[data-unit="%s"]' % unit).bounding_box()
             assert box["height"] >= 44 - 0.5 and box["width"] >= 44, (where, unit, box)
-        summary = page.locator(ROW + " .battery-readings > summary").bounding_box()
-        assert summary["height"] >= 52 - 0.5, (where, summary)
-        assert abs(summary["width"] - card["width"]) <= 2, "the disclosure is a full-width row"
-        assert page.locator(ROW + " .battery-readings > summary svg").is_visible(), "chevron and count"
+        readings = page.locator(ROW + " .battery-readings").bounding_box()
+        assert abs(readings["width"] - card["width"]) <= 2, "the readings run the card's full width"
+        assert page.locator(ROW + " .battery-readings table").is_visible(), "no tap needed"
+        assert "(" in page.locator(ROW + " .battery-readings h3").inner_text(), "heading with its count"
         gauge = page.locator(ROW + " .battery-gauge").inner_text().replace("\n", "")
         assert gauge.replace("%", "").strip().isdigit(), "the gauge tick carries no label: %r" % gauge
     finally:
@@ -128,13 +128,11 @@ def test_percentage_is_the_default_unit_and_the_chart_follows_the_switch(new_con
 def test_the_readings_table_has_time_voltage_and_level_columns(new_context, normal, lang, headers):
     context, page = _open(new_context, normal, VIEWPORTS[2][1], lang)
     try:
-        assert page.locator(ROW + " .battery-readings table").is_hidden()
-        page.click(ROW + " .battery-readings > summary")
         assert page.locator(ROW + " .battery-readings table").is_visible()
         assert [t.strip() for t in page.locator(ROW + " .battery-readings th").all_inner_texts()] == headers
         first = page.locator(ROW + " .battery-readings tbody tr").first.locator("td").all_inner_texts()
         assert first[1].replace("\xa0", " ").endswith("mV") and first[2].replace("\xa0", " ").endswith("%"), first
-        assert not _assert_no_page_overflow(page, "readings open", VIEWPORTS[2][1]["width"])
+        assert not _assert_no_page_overflow(page, "readings shown", VIEWPORTS[2][1]["width"])
     finally:
         context.close()
 
@@ -197,11 +195,10 @@ def test_too_little_data_says_so_and_keeps_every_other_datum(
 
 
 @pytest.mark.parametrize("lang", ("en", "fr"))
-def test_the_open_readings_table_fits_the_narrowest_phone_with_its_level_column(
+def test_the_readings_table_fits_the_narrowest_phone_with_its_level_column(
         new_context, normal, lang):
     context, page = _open(new_context, normal, {"width": 360, "height": 740}, lang)
     try:
-        page.locator(ROW + " .battery-readings > summary").click()
         wrap = page.locator(ROW + " .battery-readings .data-table-wrap")
         wrap.wait_for(state="visible")
         sizes = wrap.evaluate("el => [el.clientWidth, el.scrollWidth]")
@@ -210,5 +207,35 @@ def test_the_open_readings_table_fits_the_narrowest_phone_with_its_level_column(
         box, card = level.bounding_box(), page.locator(ROW).bounding_box()
         assert box["x"] + box["width"] <= card["x"] + card["width"] + 0.5, (box, card)
         assert level.inner_text().strip() == {"en": "Level", "fr": "Niveau"}[lang]
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("lang", ("en", "fr"))
+def test_the_wide_page_uses_the_width_with_a_tall_chart_and_the_readings_below(
+        new_context, normal, lang):
+    context, page = _open(new_context, normal, {"width": 1440, "height": 900}, lang)
+    try:
+        hero = page.locator(ROW + " .battery-hero").bounding_box()
+        facts = page.locator(ROW + " .battery-facts").bounding_box()
+        gauge = page.locator(ROW + " .battery-gauge").bounding_box()
+        assert facts["x"] > gauge["x"] + gauge["width"] - 0.5 and facts["width"] > hero["width"] / 2, (
+            "the facts run across the header row", facts, gauge)
+        chart = page.locator(ROW + " .sparkline__canvas:visible").first.bounding_box()
+        card = page.locator(ROW).bounding_box()
+        assert 320 <= chart["height"] <= 420, chart
+        assert chart["width"] >= card["width"] - 80, (chart, card)
+        readings = page.locator(ROW + " .battery-readings").bounding_box()
+        assert readings["y"] > chart["y"] + chart["height"] - 0.5
+        assert page.locator(ROW + " .battery-readings tbody tr").count() >= 1
+    finally:
+        context.close()
+
+
+def test_a_phone_keeps_the_chart_compact(new_context, normal):
+    context, page = _open(new_context, normal, {"width": 390, "height": 844})
+    try:
+        chart = page.locator(ROW + " .sparkline__canvas:visible").first.bounding_box()
+        assert chart["height"] <= 200, chart
     finally:
         context.close()

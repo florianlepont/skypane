@@ -56,8 +56,8 @@ BATTERY_TREND_WINDOW_DAYS = 90  # The chart's primary window, 3 months.
 
 # --- geometry -----------------------------------------------------------
 # The canvas is a fixed height (declared once more in style.css's
-# `.battery-trend-section svg:not(.icon)` rule): every y coordinate below is
-# a percentage of it. The plot sits between the top and bottom margins; the
+# `.battery-trend-section svg:not(.icon)` rule; the wide Battery page stretches
+# it): every y coordinate below is a percentage of it. The plot sits between the top and bottom margins; the
 # bottom margin holds the date labels, the top one the highest axis label.
 CANVAS_HEIGHT_PX = 192
 _PLOT_TOP_PERCENT = 11.5
