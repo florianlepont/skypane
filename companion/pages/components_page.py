@@ -152,6 +152,8 @@ _M_STATE_BUTTONS = i18n.msg("components.state_buttons", "Buttons that post")
 _M_STATE_LINKS = i18n.msg("components.state_links", "Links to pages")
 _M_STATE_CHIPS = i18n.msg("components.state_chips", "Filter chips")
 _M_STATE_CHIP_LINKS = i18n.msg("components.state_chip_links", "Filter chips as links")
+_M_STATE_CHIPS_SCROLL = i18n.msg(
+    "components.state_chips_scroll", "Filter chips on one scrolling row")
 _M_STATE_NUMBER = i18n.msg("components.state_number", "Number")
 _M_SAMPLE_NUMBER_HINT = i18n.msg("components.sample_number_hint", "Default")
 _M_STATE_SEARCH = i18n.msg("components.state_search", "Search")
@@ -187,6 +189,8 @@ _SAMPLE_OWNER_EMAIL = "camille.durand@example.test"
 _M_STATE_EMPTY_COMPACT = i18n.msg("components.state_empty_compact", "Compact, inside a card")
 _M_STATE_EMPTY_SEARCH = i18n.msg("components.state_empty_search", "Search with no match")
 _M_STATE_DIALOGS = i18n.msg("components.state_dialogs", "Dialogs (open them)")
+_M_STATE_COMPACT_DIALOG = i18n.msg(
+    "components.state_compact_dialog", "Short dialog (open it)")
 _M_STATE_SAVE_BAR = i18n.msg("components.state_save_bar", "Save bar")
 _M_STATE_SAVE_BAR_INLINE = i18n.msg(
     "components.state_save_bar_inline", "Save bar, inline in a card (phones)")
@@ -369,6 +373,16 @@ def _segmented():
                   "components-chips-search", _t(_SAMPLE_SEARCH), _t(_SAMPLE_PLACEHOLDER),
                   "%d of %d", 42, 42, _t(_SAMPLE_FILTER_EMPTY), _t(_SAMPLE_FILTER_EMPTY_BODY),
                   chips=chips, chips_legend=_t(_INDEX_LABEL), search_in_bar=False)),
+        # Its own form: the chip radios share one group name, so a second chip
+        # row outside a form would uncheck the first one's selection.
+        State(_M_STATE_CHIPS_SCROLL,
+              '<form method="get" action="%s">%s</form>' % (
+                  COMPONENTS_ROUTE, ui_filter.filter_bar_html(
+                      "components-scroll-chips-search", _t(_SAMPLE_SEARCH),
+                      _t(_SAMPLE_PLACEHOLDER), "%d of %d", 42, 42,
+                      _t(_SAMPLE_FILTER_EMPTY), _t(_SAMPLE_FILTER_EMPTY_BODY),
+                      chips=chips, chips_legend=_t(_INDEX_LABEL), search_in_bar=False,
+                      chips_scroll=True))),
         State(_M_STATE_CHIP_LINKS,
               ui_filter.chip_links_html(
                   [("#components-segmented", _t(label), index == 0)
@@ -636,6 +650,11 @@ def _dialogs():
     choice = ui_modal.choice_dialog_html(
         "components-choice", _t(_SAMPLE_CHOICE_TITLE), _t(_SAMPLE_CHOICE_TEXT),
         _t(_CHOICE_PRIMARY), _t(_CHOICE_SECONDARY), _t(_CHOICE_QUIET), "components-choice")
+    compact = ui_modal.dialog_html(
+        "components-compact", _t(_SAMPLE_DIALOG), COMPONENTS_ROUTE, ui_components.csrf_field(),
+        ui_components.text_field_html(
+            "components-compact-name", "name", _t(_SAMPLE_NAME), _t(_SAMPLE_VALUE), ""),
+        _t(_SAVE), _t(_CANCEL), COMPONENTS_ROUTE, variant="compact")
     triggers = (
         ui_modal.trigger_html(
             "components-dialog", _esc(_t(_OPEN_DIALOG)), "btn btn--secondary")
@@ -666,6 +685,11 @@ def _dialogs():
         State(_M_STATE_DIALOGS,
               '<div class="components-triggers">%s</div>%s%s%s%s%s' % (
                   triggers, dialog, confirm, choice, sections, leave)),
+        State(_M_STATE_COMPACT_DIALOG,
+              '<div class="components-triggers">%s</div>%s' % (
+                  ui_modal.trigger_html(
+                      "components-compact", _esc(_t(_OPEN_DIALOG)), "btn btn--secondary"),
+                  compact)),
         State(_M_STATE_SAVE_BAR,
               '<div class="components-save-bar">%s</div>' % bar),
         State(_M_STATE_SAVE_BAR_INLINE,

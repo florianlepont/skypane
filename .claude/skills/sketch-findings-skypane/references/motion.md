@@ -34,7 +34,7 @@ New motion spends a token and, if it adds a keyframe or a reduce block, updates 
 | `--motion-picture`, `--motion-unlock`, `--motion-count` | 480ms, 560ms, 600ms | thumbnail to picture, airline unlock flip, number count-up (read by `motion.js`) |
 | `--motion-toast-dwell`, `-long` | 6s, 12s | how long a toast stays; only the timer hairline spends them |
 | `--motion-dot-pulse` | 3.2s | the halo around Home's status dot, only `.home-state__dot--pulse::after` |
-| `--motion-breathe`, `--motion-glint` | 6s, 12s | Home's two ambient loops |
+| `--motion-breathe` | 6s | Home's ambient loop (the status dot's breathing) |
 
 Rule of thumb: motion is opacity and translate (and scale on a spring), never margin, height,
 filter or a row. A bare duration literal on an animation or a transition fails the test.
@@ -63,8 +63,10 @@ filter or a row. A bare duration literal on an animation or a transition fails t
 - Splash "Cadre": frame outline, e-paper refresh, scan-line logo reveal; once per browser session,
   hard cap about 3.2s; none without scripts or session storage.
 - Toast: `skypane-toast-in`, the timer hairline `skypane-toast-dwell`, swipe to dismiss.
-- Home: number count-up once, flight rows FLIP to the top, the ambient loops rest on idle
-  (`html[data-ambient="rest"]`).
+- Home: number count-up once, a new flight slides into the recent-flights strip, the cycle ring
+  fills with the elapsed share of the frame cycle and flashes green once at 100% (static under
+  reduced motion). The ambient loops rest on idle (`html[data-ambient="rest"]`) and stop while a
+  dialog or the More sheet is open.
 - Flights: pull to refresh (spinner capped at 9 turns); `skypane-row-arrive` washes a new row.
 - Airlines: the unlock flip with a glint and sparks, once per airline and user.
 - Save bar: `skypane-bar-arrive`.
@@ -74,7 +76,7 @@ filter or a row. A bare duration literal on an animation or a transition fails t
 A global `@media (prefers-reduced-motion: reduce)` block in `style.css` sets animation and
 transition durations to 0.01ms with `!important`, and limits transitioned properties to ones that
 paint without moving layout. Two more reduce blocks switch off the loops that a 0.01ms override
-would leave running (the halo, shimmer, switch ring, slider stretch, press scale) and the Place
+would leave running (the halo, shimmer, switch ring, slider stretch, press scale) and the Location
 map tiles (`style-place.css`). `motion.js` adds no class and starts nothing when the preference is
 set. "Every animation is finite" holds except the resting status dot and the ambient loops of Home;
 no loop runs under reduced motion.
