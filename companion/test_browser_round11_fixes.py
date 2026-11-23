@@ -190,10 +190,16 @@ def test_the_airline_type_rows_align_with_the_airline_row_and_nothing_overlaps(
         else:
             head, subs = rows[0], rows[1:]
             menu = [c for c in head if "airlines-cell--menu" in c["cls"]][0]
+            with_menu = 0
             for sub in subs:
                 sub_menu = [c for c in sub if "airlines-cell--menu" in c["cls"]]
+                # A type without a picture has no menu; a type with one keeps its menu.
+                if not sub_menu:
+                    continue
+                with_menu += 1
                 # A narrow screen shows each type as a card inset in the opened row.
-                assert sub_menu and sub_menu[0]["r"] <= menu["r"] + 1, (sub, menu)
+                assert sub_menu[0]["r"] <= menu["r"] + 1, (sub, menu)
+            assert with_menu, subs
     finally:
         context.close()
 

@@ -76,6 +76,8 @@ def assert_bar(page, expected_cells, where):
 
 
 def own_frame_home(seed):
-    return "/devices/%s/" % seed.owned_id
+    """The administrator's own frame: its personal pages carry the space
+    switch and no foreign-frame notice."""
+    return "/devices/%s/" % seed.live_id
 
 

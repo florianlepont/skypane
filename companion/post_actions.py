@@ -117,16 +117,18 @@ def _illustration_filenames(state_dir=None):
 def _record_resolution(handler, state_dir, key, default_type, suggestion=""):
     """The side effects of naming an airline: the optional default aircraft
     type chosen in the same row, and the audit row, which says when the name
-    came from a suggestion (`accepted`) or started from one (`edited`)."""
+    came from a suggestion (`accepted`) or started from one (`edited`).
+    Returns whether the chosen default type was refused (no picture for it)."""
     if not key:
         return
     chosen = airline_default_types.normalise_code(default_type)
-    if chosen:
-        airline_default_types.set_default_type(state_dir, key, chosen)
+    refused = bool(chosen) and airline_default_types.set_default_type(
+        state_dir, key, chosen) != airline_default_types.SET_OK
     detail = {"type": chosen} if chosen else {}
     if suggestion:
         detail["suggestion"] = suggestion
     airline_actions.record(handler, airline_actions.ACTION_RESOLVE, key, detail or None)
+    return refused
 
 
 def type_slugs():
@@ -323,8 +325,9 @@ class SettingsActionsMixin:
             override_path = illustrations.override_path_for_key(key, state_dir)
             atomic_io.atomic_write(override_path, buffer.getvalue())
             flash_key = FLASH_KEY_ILLUSTRATION_REPLACED
+            # The file just stored is the picture of the chosen type.
             if default_type and airline_default_types.set_default_type(
-                    state_dir, key, default_type) != airline_default_types.SET_OK:
+                    state_dir, key, default_type, livery_key=key) != airline_default_types.SET_OK:
                 flash_key = FLASH_KEY_DEFAULT_TYPE_FAILED
             return self._scoped_redirect(
                 resolve_dialog.with_query(back, "flash=%s" % quote(flash_key)))
@@ -365,16 +368,17 @@ class SettingsActionsMixin:
             key = manual_resolutions.illustration_key_for_name(entry.get("airline_name"))
             outcome = airline_suggest.record_outcome(
                 self.args.state_dir, prefix, entry.get("airline_name") or "")
-            _record_resolution(self, state_dir, key, form.get("default_type"), outcome)
+            refused = _record_resolution(self, state_dir, key, form.get("default_type"), outcome)
+            flash_key = FLASH_KEY_DEFAULT_TYPE_FAILED if refused else FLASH_KEY_MANUAL_RESOLVED
             # The editor's inline row stays on the table: artwork is added
             # from the row itself, not from a second step.
             if form.get("inline") or (
                     key and illustrations.resolved_illustration_path(key, state_dir) is not None):
                 return self._scoped_redirect(
-                    resolve_dialog.with_query(back, "flash=%s" % quote(FLASH_KEY_MANUAL_RESOLVED)))
+                    resolve_dialog.with_query(back, "flash=%s" % quote(flash_key)))
             return self._scoped_redirect(
                 resolve_dialog.with_query(back, "resolve=%s&flash=%s" % (
-                    quote(prefix, safe=""), quote(FLASH_KEY_MANUAL_RESOLVED))))
+                    quote(prefix, safe=""), quote(flash_key))))
 
         if result == manual_resolutions.ADD_REJECTED_PREFIX:
             flash_key = FLASH_KEY_MANUAL_NAME_EMPTY

@@ -10,7 +10,7 @@ from companion import device_scope
 from companion.pages import airlines_page
 from companion_app_server import InProcessAppServer
 from server import fleet_db, state_store
-from server.plane import airline_default_types, manual_resolutions, name_overrides
+from server.plane import airline_default_types, illustrations, manual_resolutions, name_overrides
 
 UNIDENTIFIED = "OCN123"
 UNRESOLVED = {"OCN": {"count": 5, "first_seen": "t1", "last_seen": "t2", "example_callsign": "OCN123"}}
@@ -68,7 +68,10 @@ def test_an_override_and_a_default_type_set_on_one_frame_show_on_another(fleet):
     status, _h, _b = fleet.post(
         fleet.seed.owned_id, "/airlines/rename", {"airline": "Air France", "airline_name": "Skyline Air"})
     assert status == 303
-    airline_default_types.set_default_type(fleet.frame_a, "skyline-air", "A320")
+    picture = illustrations.override_path_for_key("skyline-air-a320", fleet.frame_a)
+    os.makedirs(os.path.dirname(picture), exist_ok=True)
+    open(picture, "wb").write(b"png")
+    assert airline_default_types.set_default_type(fleet.frame_a, "skyline-air", "A320") == "ok"
     _s, _h, body = fleet.manage(fleet.second_id)
     assert "Skyline Air" in body
     assert name_overrides.load_name_overrides(fleet.frame_b)["AFR"]["airline_name"] == "Skyline Air"

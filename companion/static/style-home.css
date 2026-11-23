@@ -363,6 +363,36 @@
   }
 }
 
+/* On a wide screen the card hugs its content instead of spanning the whole
+ * column: a larger picture with its flight beside it, the card's width
+ * capped, and the pills and statistics below keep the column's width. */
+@media (min-width: 960px) {
+  .home-flight {
+    align-self: flex-start;
+    box-sizing: border-box;
+    width: min(100%, 36rem);
+    gap: var(--space-lg);
+    padding: var(--space-lg);
+  }
+
+  .home-flight__picture {
+    width: 208px;
+  }
+
+  .home-flight--landscape .home-flight__picture {
+    width: 280px;
+  }
+
+  .home-flight__meta {
+    flex: 1 1 auto;
+    gap: var(--space-xs);
+  }
+
+  .home-flight__call {
+    font-size: 28px;
+  }
+}
+
 /* The pills: 44px glass capsules. */
 .home-pills__row {
   display: flex;

@@ -26,7 +26,6 @@ PERSONAL_SIDEBAR_EN = PERSONAL_BAR_EN + ["Account"]
 PERSONAL_SIDEBAR_FR = PERSONAL_BAR_FR + ["Compte"]
 CONSOLE_BAR_EN = ["Fleet", "Users", "Editor", "System"]
 CONSOLE_BAR_FR = ["Flotte", "Équipe", "Éditeur", "Système"]
-SWITCH_TO_CONSOLE = {"en": "Console", "fr": "Console"}
 SWITCH_TO_PERSONAL = {"en": "My frames", "fr": "Mes cadres"}
 CONSOLE_SIDEBAR_EN = ["Fleet", "Users", "Editor", "Audit log", "System", "Account"]
 CONSOLE_SIDEBAR_FR = [
@@ -105,7 +104,7 @@ def test_the_personal_navigation_is_identical_for_an_administrator_and_a_user(
     admin_cells, admin_sheet, _bar = _bar_parts(admin_page)
     # Both bars start with the same five destinations. A user's sixth cell is the
     # Account page, with no More sheet; an administrator's More panel holds
-    # Account and the space switch row.
+    # Account alone: on someone else's frame the space switch row is not offered.
     account_row = ("/account", sidebar_labels[5])
     assert [text for _href, text in user_cells] == bar_labels + [sidebar_labels[5]]
     assert "tab-bar__more" not in user_bar
@@ -113,7 +112,7 @@ def test_the_personal_navigation_is_identical_for_an_administrator_and_a_user(
     assert user_cells[5] == account_row
     assert [href for href, _text in admin_cells] == [
         prefix + route for route in ("/", "/flights", "/airlines", "/display", "/detection")]
-    assert admin_sheet == [account_row, ("/fleet", SWITCH_TO_CONSOLE[lang])]
+    assert admin_sheet == [account_row]
 
     user_sidebar = _sidebar_anchors(user_page)
     admin_sidebar = _sidebar_anchors(admin_page)

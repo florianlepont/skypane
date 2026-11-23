@@ -36,6 +36,10 @@ Invariants:
   the same rules: read, never written, renamed or deleted; latest file time
   wins; losers are archived under `illustration_conflicts/`; a marker keeps a
   second run from changing anything.
+- Default aircraft types with no picture are cleared once by
+  `server.plane.fleet_default_types` after the merges: each is archived in
+  `airline_default_types_cleared.json` first and a marker keeps a second run
+  from doing anything.
 - Output names MACs, airline names, prefixes and counts only; never a
   token, secret hash or other file content.
 """
@@ -56,7 +60,7 @@ if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
 from server import fleet_db, hardware  # noqa: E402
-from server.plane import fleet_artwork, fleet_registries  # noqa: E402
+from server.plane import fleet_artwork, fleet_default_types, fleet_registries  # noqa: E402
 
 LEGACY_REGISTRY_FILE = "devices.json"
 LEGACY_STATE_FILE = "byos_state.json"
@@ -401,14 +405,21 @@ def migrate(state_dir: str, owner_email: str | None, dry_run: bool) -> Migration
     report = _migrate_database(state_dir, owner_email, dry_run)
     registry_plan = fleet_registries.plan_merge(state_dir)
     artwork_plan = fleet_artwork.plan_merge(state_dir)
+    defaults_plan = fleet_default_types.plan_clear(state_dir)
     if dry_run:
         extra = fleet_registries.report_lines(registry_plan, dry_run=True)
         extra += fleet_artwork.report_lines(artwork_plan, dry_run=True)
+        extra += fleet_default_types.report_lines(defaults_plan, dry_run=True)
         changed = report.changed
     else:
         extra = fleet_registries.apply_merge(state_dir, registry_plan)
         extra += fleet_artwork.apply_merge(state_dir, artwork_plan)
-        changed = report.changed or registry_plan.needs_write or artwork_plan.needs_write
+        # Planned before the merges but judged on the root they just filled:
+        # re-plan so a default or picture they brought in is counted.
+        extra += fleet_default_types.apply_clear(
+            state_dir, fleet_default_types.plan_clear(state_dir))
+        changed = (report.changed or registry_plan.needs_write or artwork_plan.needs_write
+                   or defaults_plan.needs_write)
     return MigrationReport(list(report.lines) + extra, changed=changed)
 
 

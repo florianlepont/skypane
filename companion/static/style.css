@@ -2228,24 +2228,35 @@ select.visually-hidden {
 
 /* The foreign-frame marker: a full-width accent slab (graphite in light,
  * ivory in dark) with an amber edge, shown to an administrator on a personal
- * page of a frame that is not theirs. It bleeds to the page padding's edges,
- * stays at the top while the page scrolls, and wraps (a long address is never
- * cut) rather than overflows. Accent on its inverse is the contrast pair of
- * every filled control. */
+ * page of a frame that is not theirs. It is the first element of the page,
+ * above the sidebar and the app bar, flush with the top and side edges of the
+ * screen (its padding clears the status bar and the notch), and stays there
+ * while the page scrolls. It wraps (a long address is never cut) rather than
+ * overflows. Accent on its inverse is the contrast pair of every filled
+ * control. --notice-h is its height when it holds one line: what the
+ * desktop sidebar leaves clear above itself. */
+body:has(> .frame-notice) {
+  --notice-h: calc(63px + var(--safe-top) + var(--app-bar-drop));
+}
+
+/* The shell's own top edge, under the marker, is where an app bar laid over
+ * the page (Location's map) starts. */
+body:has(> .frame-notice) .dashboard-shell {
+  position: relative;
+}
+
 .frame-notice {
-  --notice-pad-left: max(var(--space-lg), var(--safe-left));
-  --notice-pad-right: max(var(--space-lg), var(--safe-right));
   position: sticky;
-  top: calc(var(--safe-top) + var(--app-bar-drop));
-  z-index: 14;
+  top: 0;
+  z-index: 40;
   box-sizing: border-box;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-sm) var(--space-md);
   min-height: 56px;
-  margin: 0 calc(-1 * var(--notice-pad-right)) var(--space-md) calc(-1 * var(--notice-pad-left));
-  padding: var(--space-sm) var(--notice-pad-right) var(--space-sm) var(--notice-pad-left);
+  margin: 0;
+  padding: calc(var(--space-sm) + var(--safe-top) + var(--app-bar-drop)) max(var(--space-lg), var(--safe-right)) var(--space-sm) max(var(--space-lg), var(--safe-left));
   background: var(--color-accent);
   color: var(--color-on-accent);
   border-bottom: 3px solid var(--color-status-warn);
@@ -2305,29 +2316,12 @@ select.visually-hidden {
   position: static;
   flex: 1 1 100%;
   margin: 0;
-  padding-inline: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
 }
 
-/* On the desktop layout the frame button floats at the top right of the
- * column: the marker keeps its own button clear of it. */
 @media (min-width: 960px) {
   .frame-notice {
-    --notice-pad-left: var(--space-3xl);
-    --notice-pad-right: var(--space-3xl);
-  }
-
-  .site-header:has(.frame-menu) ~ .dashboard-main .frame-notice {
-    padding-right: calc(var(--notice-pad-right) + 12rem);
-  }
-
-  /* The frame button sits over the marker's right end: opaque, so it reads
-   * on the slab in both themes. */
-  .dashboard-shell:has(.frame-notice) .site-header .frame-menu__button {
-    background: var(--color-dominant);
-    color: var(--color-text);
-    border-color: var(--color-border);
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
+    padding-inline: var(--space-3xl);
   }
 }
 
@@ -4094,7 +4088,7 @@ a.airline-card {
     display: flex;
     flex-direction: column;
     gap: var(--space-lg);
-    min-height: calc(100dvh - var(--space-md) * 2);
+    min-height: calc(100dvh - var(--space-md) * 2 - var(--notice-h, 0px));
     margin: var(--space-md) 0 var(--space-md) var(--space-md);
     padding: var(--space-lg) var(--space-md);
     background: var(--color-secondary);
@@ -4102,7 +4096,7 @@ a.airline-card {
     border-radius: var(--radius-pill);
     box-shadow: var(--shadow-glass);
     position: sticky;
-    top: var(--space-md);
+    top: calc(var(--space-md) + var(--notice-h, 0px));
   }
 
   .sidebar-footer {

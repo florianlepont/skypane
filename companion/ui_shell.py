@@ -346,6 +346,7 @@ PAGE_SHELL_TEMPLATE = (
     "{icon_defs}\n"
     "{splash}\n"
     "{tab_bar}\n"
+    "{frame_notice}"
     '<div class="dashboard-shell">\n'
     '<aside class="dashboard-sidebar">\n'
     '<span class="brand">{brand_inner_sidebar}</span>\n'
@@ -357,7 +358,7 @@ PAGE_SHELL_TEMPLATE = (
     "{frame_menu}"
     "</header>\n"
     '<main class="page-content dashboard-main" id="{main_id}" tabindex="-1" data-page-open>\n'
-    "{frame_notice}{flash}\n{banner}\n{body}\n{page_end}"
+    "{flash}\n{banner}\n{body}\n{page_end}"
     "</main>\n"
     "</div>\n"
     '<div class="toast-region toast-region--live" {quick_toast_attr} role="alert"></div>\n'
@@ -542,13 +543,14 @@ def page_shell(
     the bottom bar selects no cell, not even More.
     """
     script_tags_html = _script_tags_html(scripts)
+    frame_notice = frame_notice_html(active, console_page)
     resolved_theme = ui_theme if ui_theme in UI_THEME_CHOICES else "auto"
     resolved_lang = lang if lang in prefs.LANG_CHOICES else prefs.current_lang()
     sidebar_html = sidebar_nav(
         active, health_alert=health_alert, device_config=device_config)
     tab_bar_html = _tab_bar_html(
         active, health_alert=health_alert, device_config=device_config,
-        ui_theme=resolved_theme, no_tab=no_tab)
+        ui_theme=resolved_theme, no_tab=no_tab, consulting=bool(frame_notice))
     body_attrs = _body_attrs_html(active, tab_bar_html, refresh_token)
     flash_html = flash or ""
     banner_html = banner or ""
@@ -603,10 +605,12 @@ def page_shell(
         "splash_src": SPLASH_SCRIPT_SRC,
         "sidebar": sidebar_html,
         "sidebar_footer": sidebar_footer_html,
-        "sidebar_switch": space_switch_html(active),
+        # Consulting someone else's frame, the only way out is the notice's
+        # Back to Fleet: the space switch would be a second, ambiguous one.
+        "sidebar_switch": "" if frame_notice else space_switch_html(active),
         "main_id": SKIP_LINK_TARGET_ID,
-        "frame_notice": frame_notice_html(active, console_page),
-        "frame_menu": frame_menu.header_menu_html(active),
+        "frame_notice": frame_notice,
+        "frame_menu": "" if frame_notice else frame_menu.header_menu_html(active),
         "flash": flash_html,
         "banner": banner_html,
         "body": body,

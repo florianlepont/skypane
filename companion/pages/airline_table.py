@@ -57,9 +57,10 @@ MENU_CHANGE_ART = i18n.msg("airlines.change_artwork", "Change artwork")
 STATE_OWN = i18n.msg("airlines.state_own_artwork", "Own artwork")
 ACTION_ADD_ART = i18n.msg("airlines.add_artwork", "Add artwork")
 MENU_DELETE_ART = i18n.msg("airlines.menu_delete_artwork", "Delete the artwork")
-MENU_SET_DEFAULT_TYPE = i18n.msg("airlines.menu_set_default_type", "Set as default type")
+MENU_SET_DEFAULT_TYPE = i18n.msg(
+    "airlines.menu_set_default_type", "Use as the airline's default picture")
 MENU_CLEAR_DEFAULT_TYPE = i18n.msg(
-    "airlines.menu_clear_default_type", "Remove as the default type")
+    "airlines.menu_clear_default_type", "Stop using as the airline's default picture")
 DEFAULT_TYPE_PILL = i18n.msg("airlines.default_type_pill", "Default type")
 VIEWS_ONE = i18n.msg("airlines.views_one", "1 view")
 VIEWS_MANY = i18n.msg("airlines.views_many", "%d views")
@@ -336,10 +337,11 @@ def _sub_action_html(page, sub):
 
 
 def _sub_menu_html(page, sub, row):
-    """The type's menu: set (or clear) it as the airline's default type, and
-    delete the uploaded picture, which only exists as an owner's upload."""
+    """The type's menu: set it as the airline's default type (only a type with
+    a picture of its own for this airline), clear it when it is the default,
+    and delete the uploaded picture, which only exists as an owner's upload."""
     items = ""
-    if sub["code_ok"]:
+    if sub["code_ok"] and (sub["is_default"] or sub["has_livery"]):
         items += _post_form(
             airline_sheet.DEFAULT_TYPE_ROUTE,
             (("airline_key", row["key"]), ("type", "" if sub["is_default"] else sub["code_ok"])),
@@ -408,6 +410,8 @@ def _sub_rows(page, entry, builtin_name, shapes, row):
         sub.update(
             has_builtin=has_builtin, has_override=has_override,
             has_own=has_builtin or has_override, code_ok=code_ok,
+            has_livery=has_builtin or has_override or (
+                bool(code_ok) and illustrations.has_type_livery(key, code_ok, row["state_dir"])),
             is_default=bool(code_ok) and code_ok == row["default_type"])
     return subs
 

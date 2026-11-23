@@ -658,7 +658,8 @@ def test_a_type_row_is_given_a_picture_then_its_artwork_is_deleted(
             server.state_dir, illustrations.ILLUSTRATION_OVERRIDE_DIRNAME,
             "transavia-france-b737.png")
         assert not os.path.exists(slot)
-        assert page.locator(B738_ROW + " .row-menu__toggle").count() == 1
+        # A type with no picture has no menu: it cannot be the default yet.
+        assert page.locator(B738_ROW + " .row-menu__toggle").count() == 0
         with page.expect_navigation():
             page.locator(B738_ROW + " .airlines-act input[type=file]").set_input_files(_PNG)
         page.wait_for_function(_SETTLED, timeout=15000)
@@ -690,17 +691,14 @@ def test_the_type_menu_sets_the_default_type_and_deletes_only_an_uploaded_pictur
     try:
         _expand_transavia(page)
         items = page.locator(B738_ROW + " .row-menu__panel .row-menu__item")
-        page.locator(B738_ROW + " .row-menu__toggle").click()
-        items.first.wait_for(state="visible")
-        assert items.all_inner_texts() == ["Set as default type"]
-        page.keyboard.press("Escape")
+        assert page.locator(B738_ROW + " .row-menu__toggle").count() == 0
         with page.expect_navigation():
             page.locator(B738_ROW + " .airlines-act input[type=file]").set_input_files(_PNG)
         page.wait_for_function(_SETTLED, timeout=15000)
         _expand_transavia(page)
         page.locator(B738_ROW + " .row-menu__toggle").click()
         items.first.wait_for(state="visible")
-        assert items.all_inner_texts() == ["Set as default type", "Delete the artwork"]
+        assert items.all_inner_texts() == ["Use as the airline's default picture", "Delete the artwork"]
         with page.expect_navigation():
             items.nth(0).click()
         page.wait_for_function(_SETTLED, timeout=15000)
@@ -715,7 +713,7 @@ def test_the_type_menu_sets_the_default_type_and_deletes_only_an_uploaded_pictur
             "src").startswith("/illustration/transavia-france-b737.png")
         page.locator(B738_ROW + " .row-menu__toggle").click()
         items.first.wait_for(state="visible")
-        assert items.all_inner_texts() == ["Remove as the default type", "Delete the artwork"]
+        assert items.all_inner_texts() == ["Stop using as the airline's default picture", "Delete the artwork"]
         with page.expect_navigation():
             items.nth(1).click()
         page.wait_for_function(_SETTLED, timeout=15000)
@@ -724,6 +722,33 @@ def test_the_type_menu_sets_the_default_type_and_deletes_only_an_uploaded_pictur
             "transavia-france-b737.png"))
         assert {"airline.default_type", "airline.artwork_delete"} <= set(
             _audit_actions(server.state_dir))
+        # The type left with no picture is no longer the airline's default.
+        assert airline_default_types.load_default_types(server.state_dir) == {}
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("lang,set_label", (("en", "Use as the airline's default picture"),
+                                              ("fr", "Utiliser comme image par défaut de la compagnie")))
+@pytest.mark.parametrize("name,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
+def test_only_a_type_with_a_picture_offers_to_be_the_default(
+        new_context, make_app_server, name, viewport, lang, set_label):
+    """the A320 of Transavia has a built-in picture and offers the default-type entry; the
+    B738 has none and has no menu at all"""
+    server = make_app_server(seed=_seed, fake_providers=True)
+    context, page = _open(new_context, server, viewport, lang)
+    try:
+        _expand_transavia(page)
+        a320 = TRANSAVIA + " .airlines-subrow:nth-child(3)"
+        assert page.locator(a320 + " .row-menu__toggle").count() == 1
+        page.locator(a320 + " .row-menu__toggle").click()
+        items = page.locator(a320 + " .row-menu__panel .row-menu__item")
+        items.first.wait_for(state="visible")
+        assert items.all_inner_texts() == [set_label]
+        box = items.first.bounding_box()
+        assert box["height"] >= 44 - 0.5 and 0 <= box["x"] and box["x"] + box["width"] <= viewport["width"]
+        assert page.locator(B738_ROW + " .row-menu__toggle").count() == 0
+        assert page.locator(B738_ROW + " .row-menu__item").count() == 0
     finally:
         context.close()
 

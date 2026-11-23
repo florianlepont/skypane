@@ -600,6 +600,31 @@ def classify_aircraft_type(icao_type):
 _TYPE_VARIANT_SLUGS = {"A35K": "a350-1000"}
 
 
+def type_artwork_keys(airline_key, code):
+    """The artwork keys an airline's picture of the aircraft type `code` can
+    be stored under: the type's variant or shape slot (`{airline}-{slug}`),
+    and the lower-cased designator itself, the slot of a curated picture named
+    after its designator (ATR72, A330). Empty for an unsafe key or code."""
+    designator = _designator(code)
+    if not airline_key or not designator or _UNSAFE_KEY_RE.search(airline_key):
+        return []
+    slugs = [_TYPE_VARIANT_SLUGS.get(designator) or classify_aircraft_type(designator),
+             re.sub(r"[^a-z0-9-]", "", designator.lower())]
+    keys = []
+    for slug in slugs:
+        if slug and "%s-%s" % (airline_key, slug) not in keys:
+            keys.append("%s-%s" % (airline_key, slug))
+    return keys
+
+
+def has_type_livery(airline_key, code, state_dir=None):
+    """Whether an artwork exists (built in or an owner's upload) for the
+    airline's picture of the aircraft type `code`. Never raises."""
+    return any(
+        resolved_illustration_path(key, state_dir) is not None
+        for key in type_artwork_keys(airline_key, code))
+
+
 def _designator(icao_type):
     return icao_type.strip().upper() if isinstance(icao_type, str) else ""
 
@@ -668,18 +693,47 @@ def resolved_illustration_path(key, state_dir=None):
     return None
 
 
+# `{default types file path: (mtime_ns, size, {airline key: type code})}`: the
+# poll path reads the file once per change, not once per render.
+_DEFAULT_TYPES_CACHE = {}
+
+
+def _default_type_of(airline_key, state_dir):
+    """The airline's stored default aircraft type code, or `None`: no airline,
+    no state directory, no entry, or a missing or unreadable file. Never
+    raises."""
+    if not airline_key or not state_dir:
+        return None
+    try:
+        from server.plane import airline_default_types  # imports this module
+        path = airline_default_types.default_types_path(state_dir)
+        info = os.stat(path)
+        stamp = (info.st_mtime_ns, info.st_size)
+        cached = _DEFAULT_TYPES_CACHE.get(path)
+        if cached is None or cached[0] != stamp:
+            cached = (stamp, airline_default_types.load_default_types_file(path))
+            _DEFAULT_TYPES_CACHE[path] = cached
+        return cached[1].get(airline_key)
+    except Exception:
+        return None
+
+
 def select_illustration(route, aircraft_type=None, state_dir=None):
     """Illustration path for `route`/`aircraft_type`, resolved through
-    four fallback tiers, or `None` if not even the generic fallback
+    five fallback tiers, or `None` if not even the generic fallback
     exists. Never raises.
 
     Tier 1: `{airline}-{shape}.png` - exact airline+type match (for a
         designator in `_TYPE_VARIANT_SLUGS`, its sub-type file first).
-    Tier 2: `{airline}.png` - airline's own illustration (brand identity
-        wins over exact type precision).
-    Tier 3: `generic-{shape}.png` - neutral, correct-shape illustration
+    Tier 2: `{airline}-{slug}.png` of the airline's default aircraft type
+        (`airline_default_types.json` at the fleet root), when the default
+        type has a picture: the stand-in for a type with none.
+    Tier 3: `{airline}.png` - airline's own illustration (brand identity
+        wins over exact type precision), for an airline with no usable
+        default type.
+    Tier 4: `generic-{shape}.png` - neutral, correct-shape illustration
         for an unrecognised airline.
-    Tier 4: `generic-fallback.png` - universal fallback.
+    Tier 5: `generic-fallback.png` - universal fallback.
 
     `state_dir`: each tier consults `{state_dir}/illustration_overrides/
     {key}.png` first, vendored file second, via
@@ -704,14 +758,24 @@ def select_illustration(route, aircraft_type=None, state_dir=None):
             if exact is not None:
                 return exact
 
-    # Tier 2: known airline, no exact-shape file - brand wins over
-    # type precision; still show that airline's own default illustration.
+    # Tier 2: the type the owner chose as the airline's default stands in for
+    # a type with no picture of its own, when that type has one.
+    default_type = _default_type_of(airline_key, state_dir)
+    if default_type:
+        for key in type_artwork_keys(airline_key, default_type):
+            chosen = resolved_illustration_path(key, state_dir)
+            if chosen is not None:
+                return chosen
+
+    # Tier 3: known airline, no exact-shape file and no usable default type -
+    # brand wins over type precision; still show that airline's own
+    # default illustration.
     if airline_key:
         primary = resolved_illustration_path(airline_key, state_dir)
         if primary is not None:
             return primary
 
-    # Tier 3: unrecognized airline, but a recognized+covered shape - show
+    # Tier 4: unrecognized airline, but a recognized+covered shape - show
     # the neutral correct-shape illustration instead of jumping straight
     # to the single universal generic.
     if shape_key:
@@ -719,7 +783,7 @@ def select_illustration(route, aircraft_type=None, state_dir=None):
         if neutral is not None:
             return neutral
 
-    # Tier 4: universal fallback. Key derived from GENERIC_FALLBACK_FILENAME
+    # Tier 5: universal fallback. Key derived from GENERIC_FALLBACK_FILENAME
     # rather than a second hardcoded literal.
     fallback_key = GENERIC_FALLBACK_FILENAME
     if fallback_key.endswith(".png"):

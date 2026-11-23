@@ -95,7 +95,7 @@ def _rows(page):
         if "frame-row--add" not in a.attrs.get("class", "")]
 
 
-def test_single_device_lists_one_frame_and_the_add_row(single_app):
+def test_single_device_consulted_by_an_administrator_has_no_frame_selector(single_app):
     server, cookie = single_app
     # The signed-in administrator owns no frame, so the un-prefixed page
     # moves to the account page; the frame is reached by its own id.
@@ -109,9 +109,10 @@ def test_single_device_lists_one_frame_and_the_add_row(single_app):
     for route in SCOPED_PAGES:
         status, _, page = _get(server, cookie, prefix + route)
         assert status == 200
-        _root, rows = _rows(page)
-        assert len(rows) == 1
-        assert page.count("frame-row--add") == 1
+        # The administrator consults the owner's frame: the notice replaces the
+        # frame selector, which would switch away from the frame being viewed.
+        assert "frame-notice" in page
+        assert "frame-menu" not in page and "frame-row--add" not in page
         assert 'name="device"' not in page
 
 

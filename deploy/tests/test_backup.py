@@ -782,6 +782,7 @@ class TestAirlineFiles:
         for name in (
             "airline_name_overrides.json", "airline_default_types.json",
             "airline_suggestions.json", "airline_registry_migration.json",
+            "airline_default_types_migration.json", "airline_default_types_cleared.json",
             "manual_resolutions.json", "adsbdb_shared_cache.json",
             "adsbdb_shared_cache.json.lock",
         ):
@@ -794,7 +795,8 @@ class TestAirlineFiles:
         members = _members(archive_dir / _archive_names(archive_dir)[0])
         base = "devices/" + _DEV + "/"
         for kept in ("manual_resolutions.json", "airline_name_overrides.json", "airline_default_types.json",
-                     "airline_suggestions.json", "airline_registry_migration.json"):
+                     "airline_suggestions.json", "airline_registry_migration.json",
+                     "airline_default_types_migration.json", "airline_default_types_cleared.json"):
             assert kept in members
         for kept in ("manual_resolutions.json", "airline_name_overrides.json", "airline_default_types.json"):
             assert base + kept in members

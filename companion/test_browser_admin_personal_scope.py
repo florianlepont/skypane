@@ -140,7 +140,7 @@ def test_fleet_to_a_foreign_frame_and_back(
         page.locator(".frame-notice").wait_for(state="visible")
 
         # Back to Fleet.
-        viewed_name = page.locator(".frame-menu__name").first.inner_text().strip()
+        viewed_name = "Kitchen"
         page.wait_for_function(_OWNS_ITS_CENTRE, arg=".frame-notice a", timeout=10000)
         with page.expect_navigation():
             page.locator(".frame-notice a", has_text=words["back"]).click()
@@ -192,6 +192,59 @@ def test_the_marker_shows_on_every_personal_page_and_stays_while_scrolling(
             top = page.evaluate(
                 "document.querySelector('.frame-notice').getBoundingClientRect().top")
             assert -0.5 <= top <= 60, (where, top)
+    finally:
+        context.close()
+
+
+_NOTICE_AT_TOP = (
+    "() => { const e = document.querySelector('.frame-notice');"
+    " const r = e.getBoundingClientRect();"
+    " const first = [...document.body.children].find("
+    "(n) => n.getClientRects().length > 0 && getComputedStyle(n).position !== 'fixed'"
+    " && !n.matches('script, svg, template, link, style, a.skip-link'));"
+    " const side = document.querySelector('.dashboard-sidebar').getBoundingClientRect();"
+    " const sidebarShown = getComputedStyle(document.querySelector('.dashboard-sidebar')).display !== 'none';"
+    " const centre = document.elementFromPoint(r.left + 8, r.top + r.height / 2);"
+    " return {top: r.top, left: r.left, right: r.right, bottom: r.bottom, w: innerWidth,"
+    " first: first === e, sidebarTop: sidebarShown ? side.top : null,"
+    " covers: !!centre && e.contains(centre)}; }")
+
+_VISIBLE_SWITCHES = (
+    "() => [...document.querySelectorAll('.space-switch, .tab-bar__space-link')]"
+    ".filter((n) => n.getClientRects().length > 0).length")
+
+
+@pytest.mark.parametrize("lang", ["en", "fr"])
+@pytest.mark.parametrize(
+    "viewport", [VIEWPORT_MIN_SUPPORTED, VIEWPORT_DESKTOP], ids=["360", "1280"])
+def test_the_notice_is_flush_to_the_top_and_no_space_switch_is_offered(
+        new_context, app_server_in_process, viewport, lang):
+    server = app_server_in_process
+    where = "top/%d/%s" % (viewport["width"], lang)
+    context, page, seed = _open_fleet(new_context, server, viewport, lang, "light")
+    try:
+        page.goto(server.base_url() + "/devices/%s/" % seed.owned_id)
+        page.locator(".frame-notice").wait_for(state="visible")
+        page.wait_for_function(_OWNS_ITS_CENTRE, arg=".frame-notice a", timeout=10000)
+        box = page.evaluate(_NOTICE_AT_TOP)
+        assert box["top"] == 0 and box["left"] == 0 and abs(box["right"] - box["w"]) < 0.5, (where, box)
+        assert box["first"] and box["covers"], (where, box)
+        if box["sidebarTop"] is not None:
+            assert box["sidebarTop"] >= box["bottom"], (where, box)
+        assert page.evaluate(_VISIBLE_SWITCHES) == 0, where
+        # The frame selector is not offered either: Back to Fleet is the way out.
+        assert page.locator(".frame-menu").count() == 0, where
+        if viewport["width"] < 960:
+            page.locator(".tab-bar__more > summary").click()
+            page.locator(".tab-bar__more-panel").wait_for(state="visible")
+            assert page.locator(".tab-bar__more-panel .tab-bar__space-link").count() == 0, where
+            page.locator(".tab-bar__more > summary").click()
+        page.evaluate("document.querySelector('main').style.minHeight = '4000px'")
+        page.evaluate("window.scrollTo(0, 1200)")
+        page.wait_for_function("window.scrollY > 600")
+        assert page.evaluate(
+            "document.querySelector('.frame-notice').getBoundingClientRect().top") == 0, where
+        assert not _assert_no_page_overflow(page, where, viewport["width"])
     finally:
         context.close()
 
