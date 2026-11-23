@@ -72,12 +72,10 @@ design values, not measured. The tray is reprinted once with all of them.
 |---|---|---|---|---|---|
 | Tray | Screen ribbon slot | 4 x 28 mm | 34 mm on the long side and 8 mm on the other | The ribbon is pinched in both directions of the slot; the owner moved from the first suggestion of 32 mm to 34 mm and accepted 8 mm | pending, owner's Blender session |
 | Tray | Battery pocket length | 60 mm cell in the pocket, 0.5 mm clearance (design value) | 2 mm more in length, by moving the lower wall of the pocket | The cell fits only just in length, a very slight gap is missing | pending, owner's Blender session |
-| Shim and tray | One part or two | two parts: a 1.0 mm shim and the tray | one single part | For the assembly, the shim and the tray must be one part (owner, "il faut vraiment") | pending, owner's Blender session |
+| Shim and tray | One part or two | two parts: a 1.0 mm shim and the tray | stays two parts; the owner will glue the shim to the tray (changed by the owner later on 2026-11-23: first decided as one single part "for the assembly", then dropped after the assistant pointed at the printing risk) | The one-part idea would put a rim around the screen on the screen-side face, which may need supports; the owner chose to keep two parts and glue them | no CAD change needed |
 
 Checks still to do after the Blender change, none done yet: no wall under 0.8 mm
-around the larger slot and next to the moved wall; no support needed or, if the
-merged part needs supports, where they land (see the seed on merging the shim and
-the tray); the antenna block, the standoffs and the stand stop-wall columns are
+around the larger slot and next to the moved wall; the antenna block, the standoffs and the stand stop-wall columns are
 not touched by the new slot; the exported STL replaced and re-sliced.
 
 Values kept, because the model and the owner's tape readings differ by about
