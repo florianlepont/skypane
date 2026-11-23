@@ -140,7 +140,7 @@ def test_fleet_to_a_foreign_frame_and_back(
         page.locator(".frame-notice").wait_for(state="visible")
 
         # Back to Fleet.
-        viewed_name = page.locator(".frame-menu__name").first.inner_text().strip()
+        viewed_name = "Kitchen"
         page.wait_for_function(_OWNS_ITS_CENTRE, arg=".frame-notice a", timeout=10000)
         with page.expect_navigation():
             page.locator(".frame-notice a", has_text=words["back"]).click()
@@ -232,6 +232,8 @@ def test_the_notice_is_flush_to_the_top_and_no_space_switch_is_offered(
         if box["sidebarTop"] is not None:
             assert box["sidebarTop"] >= box["bottom"], (where, box)
         assert page.evaluate(_VISIBLE_SWITCHES) == 0, where
+        # The frame selector is not offered either: Back to Fleet is the way out.
+        assert page.locator(".frame-menu").count() == 0, where
         if viewport["width"] < 960:
             page.locator(".tab-bar__more > summary").click()
             page.locator(".tab-bar__more-panel").wait_for(state="visible")

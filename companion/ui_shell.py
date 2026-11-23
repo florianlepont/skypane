@@ -610,7 +610,7 @@ def page_shell(
         "sidebar_switch": "" if frame_notice else space_switch_html(active),
         "main_id": SKIP_LINK_TARGET_ID,
         "frame_notice": frame_notice,
-        "frame_menu": frame_menu.header_menu_html(active),
+        "frame_menu": "" if frame_notice else frame_menu.header_menu_html(active),
         "flash": flash_html,
         "banner": banner_html,
         "body": body,
