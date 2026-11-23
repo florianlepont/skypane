@@ -168,8 +168,8 @@ Filled in the tray and lid work. Every row starts "not done".
 | BAT1 | Pack label read (capacity, protection mention) and compared with the order | Read the label | not done | | | |
 | BAT2 | Polarity correct, checked before any connection | Multimeter on the extension cable, before any connection | done (the owner said the check was done; the result and the tool are not stated; the owner then connected the battery) | 2026-11-23 | The battery is connected to the board in the tray; the other rows (pinch, lid-open voltage, expansion room) are not reported yet | reported by the owner on 2026-11-23 |
 | BAT3 | Dry fit with the plug disconnected | Dummy block of 8 x 50 x 60 mm | not done | | | |
-| BAT4 | No part of the cell touches a screw tip, standoff, sharp print edge or the lid underside | By eye | not done | | | |
-| BAT5 | Cables not pinched by lid or rebate, JST socket not loaded sideways, routing photographed (photo kept by the owner) | By eye, photo | not done | | | |
+| BAT4 | No part of the cell touches a screw tip, standoff, sharp print edge or the lid underside | By eye | done (the owner said nothing touches the battery; by eye, the lid is not closed yet so the lid underside is not covered) | 2026-11-23 | | reported by the owner on 2026-11-23 |
+| BAT5 | Cables not pinched by lid or rebate, JST socket not loaded sideways, routing photographed (photo kept by the owner) | By eye, photo | partly done (the owner said the battery cable is not pinched; the screen ribbon, the JST socket and the photo are not reported) | 2026-11-23 | | reported by the owner on 2026-11-23 |
 | BAT6 | Lid-open power-on check, voltage plausible | Multimeter | not done | | | |
 | BAT7 | Cell free to expand 1 to 2 mm after closing | By eye, feeler | not done | | | |
 | BAT8 | First full charge attended, board and cell not warm to the touch | By hand | not done | | | |
