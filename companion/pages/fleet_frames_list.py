@@ -249,7 +249,7 @@ def head_html(row, view):
             row.frame_id, "" if row.name == row.frame_id else name, frame_href(row.frame_id))
     return (
         '<div class="fleet-head"><div class="fleet-head__text">'
-        '<h1 class="fleet-head__title">%s</h1>%s</div>%s</div>%s') % (
+        '<h1 class="fleet-head__title">%s</h1>%s</div>%s%s</div>') % (
             _esc(name), _state_line(row, view), buttons, dialog)
 
 
