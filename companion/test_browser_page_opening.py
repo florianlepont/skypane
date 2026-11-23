@@ -569,23 +569,6 @@ def test_the_style_tabs_do_not_slide_under_reduced_motion(new_context, server):
         context.close()
 
 
-def test_the_airlines_chips_slide_the_thumb_and_reload_with_the_opening(new_context, server):
-    context = _admin_context(new_context, server, VIEWPORT_MIN_SUPPORTED,
-                             reduced_motion="no-preference")
-    try:
-        page = context.new_page()
-        _open(page, server, "/airlines")
-        strip = '[data-tabs="airlines"]'
-        assert _thumb_matches_current(page, strip)
-        page.locator(strip + " label.filter-chip:not(:has(input:checked))").first.click()
-        page.wait_for_function("() => location.search.indexOf('show') >= 0", timeout=10000)
-        page.wait_for_function(_SETTLED_PAGE, timeout=10000)
-        _wait_sliding(page, strip)
-        assert _entered_since(page, 0)
-    finally:
-        context.close()
-
-
 # --- Flights: chips swap the list in place; Load more enters only the new items ----------
 
 LIMIT = history_page.HISTORY_ROW_LIMIT

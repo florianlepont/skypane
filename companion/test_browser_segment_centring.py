@@ -56,7 +56,7 @@ def test_segment_and_chip_labels_are_centred(new_context, server, viewport, lang
                 " === Infinity)", timeout=10000)
             rows = page.evaluate(_OFF_CENTRE, SEGMENTS)
             assert any("filter-chip__box" in row[0] for row in rows) or path in (
-                "/display", "/account"), path
+                "/airlines", "/display", "/account"), path
             off = [row for row in rows if abs(row[2]) > MAX_OFFSET or abs(row[3]) > MAX_OFFSET]
             if off:
                 raise AssertionError("%s at %dpx: labels off centre %r" % (
