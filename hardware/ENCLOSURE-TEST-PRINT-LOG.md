@@ -136,7 +136,8 @@ attributable. Recorded only when the owner changed the CAD.
 
 | # | Round | Part | Dimension | Old value | New value | Reason | Reprint needed | Date | Source |
 |---|-------|------|-----------|-----------|-----------|--------|----------------|------|--------|
-| | | | | | | | | | |
+| 1 | B | Tray | Screen ribbon slot | 4 x 28 mm (design value, not measured) | 8 x 34 mm (design value, not measured) | Ribbon pinched in both directions of the slot (owner report of 2026-11-23) | yes | 2026-11-23 | decided by the owner on 2026-11-23; changed in the script by the assistant, not yet reviewed by the owner |
+| 2 | B | Tray | Battery pocket length | 60 mm cell with 0.5 mm clearance (design value) | 2 mm longer, lower partition moved (design value, not measured) | Cell fits only just in length (owner report of 2026-11-23) | yes | 2026-11-23 | decided by the owner on 2026-11-23; changed in the script by the assistant, not yet reviewed by the owner |
 
 ## Coupon plate specification
 

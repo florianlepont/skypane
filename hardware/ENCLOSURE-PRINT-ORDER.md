@@ -62,6 +62,54 @@ unless a measurement row is given. Nothing has been printed.
 | Reference model (not printed) | Mat of the IKEA frame | opening 141.8 x 91.8 mm, 1.84 mm thick, behind the screen | opening 140 x 99 mm (the owner reported on 2026-11-19 that the real height is 90 mm; the model is unchanged), 1.0 mm thick, in front of the screen against the glass (position a design value) | 6 | 2026-11-18 |
 | Reference model (not printed) | Frame tabs | middle of each side, 12.6 mm behind the screen | owner's positions and 15 mm height | 7b, 7c, 7d | 2026-11-18 |
 
+### Owner decisions of 2026-11-23 after the first fit of the printed tray (PLA)
+
+Decided by the owner after trying the first print; the Blender file is not
+changed yet (the owner changes it in his own session). The values below are
+design values, not measured. The tray is reprinted once with all of them. On the same day the owner asked the assistant to make the change in the Blender file; the assistant did it by editing the generating script stored in the blend and regenerating the parts (see "What was changed in the Blender file" below).
+
+| Part | Dimension | Old design value (design value, not measured) | New value (decided by the owner) | Reason (reported by the owner) | CAD status |
+|---|---|---|---|---|---|
+| Tray | Screen ribbon slot | 4 x 28 mm | 34 mm on the long side and 8 mm on the other | The ribbon is pinched in both directions of the slot; the owner moved from the first suggestion of 32 mm to 34 mm and accepted 8 mm | done in the script by the assistant on 2026-11-23, to be opened and reviewed by the owner |
+| Tray | Battery pocket length | 60 mm cell in the pocket, 0.5 mm clearance (design value) | 2 mm more in length, by moving the lower wall of the pocket | The cell fits only just in length, a very slight gap is missing | done in the script by the assistant on 2026-11-23, to be opened and reviewed by the owner |
+| Shim and tray | One part or two | two parts: a 1.0 mm shim and the tray | stays two parts; the owner will glue the shim to the tray (changed by the owner later on 2026-11-23: first decided as one single part "for the assembly", then dropped after the assistant pointed at the printing risk) | The one-part idea would put a rim around the screen on the screen-side face, which may need supports; the owner chose to keep two parts and glue them | no CAD change needed |
+
+#### What was changed in the Blender file
+
+Made by the assistant on 2026-11-23 at the owner's request, in the generating
+script stored in `hardware/cad/skypane_cassette.blend` (text block
+`skypane_cassette.py`), then the parts were regenerated and the tray exported
+again (`hardware/cad/export/skypane_tray.stl`). The assistant used Blender as a
+Python module (version 5.3), not the owner's Blender session. The lid, the shim
+and the stand plate were regenerated too and came out identical (same triangle
+counts and volumes as the previous export), and the reproduction of the
+previous tray before the change matched the previous STL exactly (7298
+triangles, same volume), which is how the method was checked.
+
+- Ribbon slot: the box that cuts the slot in the tray floor now spans x 51.2 to
+  59.2 mm and y -17 to +17 mm (8 x 34 mm), around the same centre as before
+  (x 55.2, y 0). The two engraved lines of the board outline east side now stop
+  at y +-18 mm (they stopped at +-15 mm) so they do not run into the larger slot.
+- Battery pocket: a new parameter `bat_extra` of 2.0 mm moves the lower
+  partition and the lower end of the right wall of the pocket 2 mm away from the
+  cell. The engraved cell outline and the label stay where they were.
+- Not changed: the shim and its ribbon passage (29 x 1.7 mm), the lid, the stand
+  plate, the standoffs, the antenna block.
+
+Checks done on the regenerated tray, by computation on the model (not a slicer
+and not a print): the mesh is closed (every edge shared by two triangles, 7292
+triangles); the volume dropped by about 172 mm3, which is the removed slot
+material (about 192 mm3) less the added wall and engraving material, as
+expected; probes inside the mesh show the floor open over x 51.2 to 59.2 and
+y +-17 and solid just outside, and the partition solid at y about -44.7 and
+open at the old position y about -42.8. The nearest standoff is about 3.6 mm
+from a corner of the new slot, so no wall under 0.8 mm appears around the slot.
+
+Still to do, none done yet: the owner opens the blend in his Blender and
+looks at the tray; the tray is sliced in Bambu Studio to see whether any
+support appears and the print time and mass; the tray is reprinted in PLA on the
+same machine and plate; the fit of the ribbon and of the battery is tried again.
+
 Values kept, because the model and the owner's tape readings differ by about
 1 mm or less, which is the tape's resolution (owner instruction, 2026-11-18):
 screen outline 170.2 x 111.2 x 0.91 mm (reading 170 x 111 x 0.9), rebate
@@ -126,7 +174,7 @@ in millimetres, each part lying in its printing pose (lowest point at z = 0):
 
 | File | Size of the part | Triangles | Exported (as reported) | Blend saved (as reported) |
 |---|---|---|---|---|
-| `skypane_tray.stl` | 132.0 x 182.0 x 11.0 mm | 7298 | 2026-11-18 per the previous record; export date to confirm (asked 2026-11-19) | to confirm |
+| `skypane_tray.stl` | 132.0 x 182.0 x 11.0 mm | 7292 (re-exported on 2026-11-23 with the 8 x 34 mm ribbon slot and the 2 mm longer battery pocket; 7298 before) | 2026-11-18 per the previous record; export date to confirm (asked 2026-11-19) | to confirm |
 | `skypane_lid.stl` | 132.0 x 182.0 x 11.2 mm | 8406 | as above | to confirm |
 | `skypane_stand.stl` | 71.0 x 30.0 x 4.0 mm | 396 | as above | to confirm |
 | `skypane_shim.stl` | 132.0 x 182.0 x 1.0 mm | 208 | as above | to confirm |

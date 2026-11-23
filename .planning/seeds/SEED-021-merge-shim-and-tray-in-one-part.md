@@ -18,6 +18,25 @@ split, and the owner does not remember one. A single part would mean one part
 fewer, one fit step fewer and no loose shim to lose. Owner idea of 2026-11-23;
 not decided.
 
+## Update of 2026-11-23
+
+The owner decided that the shim and the tray must be one single part, for the
+assembly ("il faut vraiment"), after the first fit of the printed tray. The
+change goes into the next tray reprint of the 7.3 inch enclosure, together with
+the longer ribbon slot and the longer battery pocket, recorded in the print
+order. Risk to check first in the slicer: the screen-side face of the merged
+part has a rim around the screen (the former shim) while the tray floor sits
+behind the screen, so the part may need supports or an awkward print
+orientation, and a support-marked floor would face the screen. The owner checks
+this in Bambu Studio after the Blender change; nothing has been checked yet.
+
+## Update of 2026-11-23, later the same day
+
+The owner dropped the one-part decision for now: the shim and the tray stay two
+parts and the owner glues them, because of the supports risk below. The seed is
+dormant again and can be picked up after the glued assembly has been tried. If
+it is retried, check first in the slicer whether the merged part needs supports.
+
 ## When to Surface
 
 **Trigger:** after the first fit round of Phase 69 has shown how the shim and
