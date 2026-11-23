@@ -185,10 +185,7 @@ def rename_app(module_app_server_factory):
     return holder
 
 
-def _on_rename_page(page):
-    page.wait_for_url("**/frame/name**")
-    page.wait_for_function(_SETTLED)
-    assert page.locator("main h1").inner_text() == "Rename frame"
+_RENAME_DIALOG = "dialog[id^='dlg-rename-']"
 
 
 def _is_home(page, app):
@@ -197,74 +194,84 @@ def _is_home(page, app):
     assert "/frame/name" not in page.url and "/fleet" not in page.url
 
 
-def test_the_pencil_opens_the_frame_name_page_for_a_return_to_home(new_context, fleet_app):
-    page = _fleet_page(new_context, fleet_app, _live(fleet_app))
-    href = page.locator(".title-action .btn--icon").get_attribute("href")
-    assert "return_to=" in href
+def _open_rename(page):
     page.locator(".title-action .btn--icon").click()
-    _on_rename_page(page)
-    assert page.locator("a.form-back").get_attribute("href") == _live(fleet_app)
+    page.locator(_RENAME_DIALOG).wait_for(state="visible")
+    page.wait_for_function(_SETTLED)
 
 
+def test_the_pencil_opens_the_rename_dialog_on_home_with_the_field_focused(new_context, fleet_app):
+    page = _fleet_page(new_context, fleet_app, _live(fleet_app))
+    assert page.locator(_RENAME_DIALOG).is_visible() is False
+    _open_rename(page)
+    assert page.url.startswith(fleet_app.server.base_url() + _live(fleet_app))
+    assert page.locator(_RENAME_DIALOG + " h2").inner_text() == "Rename frame"
+    assert page.evaluate("() => document.activeElement.name") == "name"
+
+
+@pytest.mark.parametrize("leave", ["cancel", "escape", "scrim"])
 @pytest.mark.parametrize("viewport", [VIEWPORT_PHONE, VIEWPORT_DESKTOP], ids=["390", "1280"])
-def test_cancel_and_the_back_link_end_on_home_and_leave_the_name(
-        new_context, rename_app, viewport):
-    for leave in ("a.dirty-bar__cancel", "a.form-back"):
+def test_cancel_escape_and_the_scrim_close_the_dialog_and_leave_the_name(
+        new_context, rename_app, viewport, leave):
+    if True:
         page = _fleet_page(new_context, rename_app, _live(rename_app), viewport=viewport)
-        page.locator(".title-action .btn--icon").click()
-        _on_rename_page(page)
-        page.locator("#frame-name").fill("Changed")
-        page.locator(leave).click()
-        if leave == "a.form-back":
-            # The back link is an in-app link: with an unsaved name the page
-            # asks first, and Discard leaves without saving it.
-            page.locator("dialog[data-leave-dialog] [data-leave-dialog-secondary]").click()
+        _open_rename(page)
+        page.locator("#" + _dialog_slug(rename_app) + "-name").fill("Changed")
+        if leave == "cancel":
+            page.locator(_RENAME_DIALOG + " a.modal__dismiss--button").click()
+        elif leave == "escape":
+            page.keyboard.press("Escape")
+        else:
+            page.mouse.click(5, 5)
+        page.locator(_RENAME_DIALOG).wait_for(state="hidden")
         _is_home(page, rename_app)
         assert page.locator("main h1").inner_text() == "Kitchen"
         assert page.locator(".title-action .btn--icon").count() == 1
+
+
+def _dialog_slug(app):
+    return "dlg-rename-" + app.fleet.live.id.replace("_", "-")
 
 
 @pytest.mark.parametrize("viewport", [VIEWPORT_PHONE, VIEWPORT_DESKTOP], ids=["390", "1280"])
 def test_save_ends_on_home_with_the_new_name(
         new_context, rename_app, viewport):
     page = _fleet_page(new_context, rename_app, _live(rename_app), viewport=viewport)
-    page.locator(".title-action .btn--icon").click()
-    _on_rename_page(page)
-    page.locator("#frame-name").fill("Den")
-    page.locator(".dirty-bar button.dirty-bar__save").click()
+    _open_rename(page)
+    page.locator("#" + _dialog_slug(rename_app) + "-name").fill("Den")
+    page.locator(_RENAME_DIALOG + " button[type=submit]").click()
     _is_home(page, rename_app)
     page.wait_for_function("() => document.querySelector('main h1').innerText === 'Den'")
     assert page.locator(".frame-menu").inner_text().count("Den") >= 1
     assert page.locator("main h1").inner_text() == "Den"
 
 
-def test_browser_back_from_the_rename_page_lands_on_home(new_context, rename_app):
+def test_a_refused_name_reopens_the_dialog_with_the_error_and_the_way_back_to_home(
+        new_context, rename_app):
     page = _fleet_page(new_context, rename_app, _live(rename_app))
-    page.locator(".title-action .btn--icon").click()
-    _on_rename_page(page)
-    page.go_back()
+    _open_rename(page)
+    page.locator("#" + _dialog_slug(rename_app) + "-name").fill("   ")
+    page.locator(_RENAME_DIALOG + " button[type=submit]").click()
+    page.locator(_RENAME_DIALOG + " .field-error").wait_for(state="visible")
+    assert page.locator(_RENAME_DIALOG + " .field-error").inner_text() == (
+        "Enter a name of 1 to 40 characters.")
+    page.locator(_RENAME_DIALOG + " a.modal__dismiss--button").click()
+    page.locator(_RENAME_DIALOG).wait_for(state="hidden")
     _is_home(page, rename_app)
+    assert page.locator("main h1").inner_text() == "Kitchen"
 
 
-def test_an_empty_name_keeps_the_error_and_the_way_back_to_home(new_context, rename_app):
-    page = _fleet_page(new_context, rename_app, _live(rename_app))
-    page.locator(".title-action .btn--icon").click()
-    _on_rename_page(page)
-    page.locator("#frame-name").fill("")
-    page.locator(".dirty-bar button.dirty-bar__save").click()
-    page.wait_for_selector("#frame-name-error")
-    page.locator("a.dirty-bar__cancel").click()
-    _is_home(page, rename_app)
+def evil_free(url):
+    return "evil" not in url
 
 
-def test_a_hostile_return_to_is_ignored_by_the_page(new_context, rename_app):
+def test_a_hostile_return_to_on_the_rename_route_lands_on_the_default_page(
+        new_context, rename_app):
     page = _fleet_page(
         new_context, rename_app,
         "/devices/%s/frame/name?return_to=https%%3A%%2F%%2Fevil.example%%2F" % rename_app.fleet.live.id)
-    back = page.locator("a.form-back").get_attribute("href")
-    assert back.startswith("/") and not back.startswith("//") and "evil" not in back
-    assert page.locator('input[name="return_to"]').evaluate_all(
-        "els => els.map(el => el.value)") == [""]
+    assert evil_free(page.url) and page.url.startswith(rename_app.server.base_url() + "/fleet")
+    assert page.locator(_RENAME_DIALOG).is_visible()
 
 
 def test_without_script_the_pencil_save_and_cancel_return_to_home(new_context, rename_app):
@@ -272,20 +279,22 @@ def test_without_script_the_pencil_save_and_cancel_return_to_home(new_context, r
     name, value = rename_app.cookie.split("=", 1)
     cookies = [{"name": name, "value": value, "url": base, "httpOnly": True,
                 "sameSite": "Strict"}]
+    field = "#" + _dialog_slug(rename_app) + "-name"
     for action in ("save", "cancel"):
         with _no_js_page(new_context, base, _live(rename_app), sign_in=False,
                          cookies=cookies, reduced_motion="reduce") as page:
-            with page.expect_navigation():
-                page.locator(".title-action .btn--icon").click()
-            assert "return_to=" in page.url
-            before = page.locator("#frame-name").input_value()
-            page.locator("#frame-name").fill("No script")
+            page.locator(".title-action .btn--icon").click()
+            assert page.locator(_RENAME_DIALOG).is_visible()
+            before = page.locator(field).input_value()
+            page.locator(field).fill("No script")
             with page.expect_navigation():
                 page.locator(
-                    ".dirty-bar__save" if action == "save" else ".dirty-bar__cancel").click()
-            assert page.url.split("?")[0] == base + _live(rename_app)
+                    _RENAME_DIALOG + (" button[type=submit]" if action == "save"
+                                      else " a.modal__dismiss--button")).click()
+            assert page.url.split("?")[0].split("#")[0] == base + _live(rename_app)
             expected = "No script" if action == "save" else before
             assert page.locator("main h1").inner_text() == expected
+            assert page.locator(_RENAME_DIALOG).is_visible() is False
 
 
 def test_an_administrator_from_fleet_ends_on_fleet(new_context, rename_app):
@@ -294,18 +303,21 @@ def test_an_administrator_from_fleet_ends_on_fleet(new_context, rename_app):
     _login(page, rename_app.server.base_url())
     page.goto(rename_app.server.base_url() + "/fleet")
     page.wait_for_function(_SETTLED)
+    field = _RENAME_DIALOG + " input[name=name]"
     page.locator(".fleet-head a.fleet-icon-button[title=\"Rename\"]").click()
-    page.wait_for_url("**/frame/name**")
-    page.wait_for_function(_SETTLED)
-    page.locator("#frame-name").fill("Changed")
-    page.locator("a.dirty-bar__cancel").click()
-    page.wait_for_url("**/fleet**")
+    page.locator(_RENAME_DIALOG).wait_for(state="visible")
+    page.locator(field).fill("Changed")
+    page.locator(_RENAME_DIALOG + " a.modal__dismiss--button").click()
+    page.locator(_RENAME_DIALOG).wait_for(state="hidden")
+    assert page.url.split("#")[0].endswith("/fleet") or "/fleet?" in page.url
     assert "tab=settings" not in page.url
     page.locator(".fleet-head a.fleet-icon-button[title=\"Rename\"]").click()
-    page.wait_for_url("**/frame/name**")
-    page.locator("#frame-name").fill("Fleet name")
-    page.locator(".dirty-bar button.dirty-bar__save").click()
+    page.locator(_RENAME_DIALOG).wait_for(state="visible")
+    page.locator(field).fill("Fleet name")
+    page.locator(_RENAME_DIALOG + " button[type=submit]").click()
     page.wait_for_url("**/fleet**")
+    page.wait_for_function(
+        "() => document.querySelector('.fleet-head__title').innerText === 'Fleet name'")
     assert "/frame/name" not in page.url
 
 

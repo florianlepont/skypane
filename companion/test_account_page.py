@@ -124,14 +124,14 @@ def _admin_post_paths():
 
 FRAME_PAGES_FOR_FRAMELESS = (
     "/", "/display", "/flights", "/airlines", "/detection",
-    "/settings", "/history", "/preview", "/display/screen", "/display/layout", "/health", "/device", "/update")
+    "/settings", "/update")
 
 
 def test_every_admin_get_is_the_same_404_as_an_unknown_path(server, user_cookie):
     reference = _get(server, "/no-such-page-at-all", user_cookie)
     assert reference[0] == 404
     paths = _admin_get_paths()
-    assert "/health" in paths and "/" in paths
+    assert "/airlines/manage" in paths and "/" in paths
     for path in paths:
         status, headers, body = _get(server, path, user_cookie)
         if path in FRAME_PAGES_FOR_FRAMELESS:
@@ -184,7 +184,7 @@ def test_french_back_to_account(server, user_cookie):
 
 
 @pytest.mark.parametrize("path", _THEME_RESPONSES)
-@pytest.mark.parametrize("referer", ["/account", "/health", "/", None])
+@pytest.mark.parametrize("referer", ["/account", "/fleet", "/", None])
 def test_user_preference_posts_return_to_account(server, user_cookie, path, referer):
     form = {"ui_theme": "dark"} if path == "/ui-theme" else {"ui_lang": "fr"}
     status, headers, _body = _post(server, path, user_cookie, form, referer=referer)
@@ -193,7 +193,7 @@ def test_user_preference_posts_return_to_account(server, user_cookie, path, refe
 
 def test_admin_preference_return_is_unchanged(server, admin_cookie):
     form = {"ui_theme": "dark"}
-    assert _post(server, "/ui-theme", admin_cookie, form, referer="/health")[1]["Location"] == "/health"
+    assert _post(server, "/ui-theme", admin_cookie, form, referer="/airlines/manage")[1]["Location"] == "/airlines/manage"
     assert _post(server, "/ui-theme", admin_cookie, form, referer="/nowhere")[1]["Location"] == "/"
     assert _post(server, "/ui-theme", admin_cookie, form, referer="/account")[1]["Location"] == "/account"
 
@@ -319,7 +319,9 @@ def test_a_user_sees_their_own_frames_ordered_by_name_with_a_dot_and_manage_acce
     # The hardware model is shown to nobody on this page.
     assert not attic.select(".account-frame__line")
     assert hardware.REGISTRY[hardware.LEGACY_KEY].label not in attic.text()
-    (action,) = attic.select("a[data-modal-open]")
+    rename, action = attic.select("a[data-modal-open]")
+    assert rename.attrs["aria-label"] == "Rename: Attic"
+    assert rename.select_one("svg use").attrs["href"] == "#icon-pencil"
     assert action.text() == ""
     assert action.attrs["aria-label"] == "Manage access: Attic"
     assert action.select_one("svg use").attrs["href"] == "#icon-key"

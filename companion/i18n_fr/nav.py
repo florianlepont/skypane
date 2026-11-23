@@ -28,7 +28,6 @@ MESSAGES = {
     "nav.airline_collection": "Compagnies",
     "nav.airline_editor": "Éditeur de compagnies",
     "nav.frame_tools": "Outils du cadre",
-    "nav.health": "Santé",
     "nav.device": "Appareil",
     "nav.update": "Versions",
 

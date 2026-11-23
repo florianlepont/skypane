@@ -91,4 +91,5 @@ MESSAGES = {
     "account.co_manager_of_one": "Cogestionnaire de 1 cadre",
     "account.co_manager_of_many": "Cogestionnaire de %d cadres",
     "account.manage_access_aria": "Gérer l’accès\u00a0: %s",
+    "account.rename_frame_aria": "Renommer\u00a0: %s",
 }

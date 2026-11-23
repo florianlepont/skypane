@@ -39,10 +39,9 @@ def _connection_tile(make_app_server, seed, lang):
     server = make_app_server(seed=seed)
     cookie = "%s; %s=%s" % (
         companion_app_server.login(server), auth.UI_LANG_COOKIE_NAME, lang)
-    # The retired /health address leads to the frame's page; its Battery view
-    # holds no connection detail, the tile does.
-    code, headers, _ = companion_app_server.get(server, "/health", cookie=cookie)
-    assert code == 303 and headers["Location"].endswith("&view=battery")
+    # The Update address leads to the frame's page; the tile there holds the connection detail.
+    code, headers, _ = companion_app_server.get(server, "/update", cookie=cookie)
+    assert code == 303 and headers["Location"].endswith("&view=versions")
     frame_page = headers["Location"].split("&view=")[0]
     code, _, body = companion_app_server.get(server, frame_page, cookie=cookie)
     assert code == 200

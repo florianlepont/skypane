@@ -162,20 +162,20 @@ class TestPathHelpers:
             "/devices/d_1a2b3c4d/health", synthetic) == "/health"
 
     def test_scoped_without_scope_is_identity(self):
-        assert device_scope.scoped("/health") == "/health"
+        assert device_scope.scoped("/flights") == "/flights"
         assert device_scope.current_prefix() == ""
 
     def test_scoped_for_the_live_frame_uses_its_fleet_id(self, fleet):
         state_dir, _ = fleet
         live = device_scope.live_device(state_dir)
         device_scope.set_request_scope(live, [live])
-        assert device_scope.scoped("/health") == "/devices/%s/health" % live.id
+        assert device_scope.scoped("/flights") == "/devices/%s/flights" % live.id
 
     def test_scoped_for_a_live_frame_without_a_fleet_row_is_identity(self, tmp_path):
         synthetic = device_scope.live_device(str(tmp_path))
         assert synthetic.id == device_scope.LIVE_ID
         device_scope.set_request_scope(synthetic, [synthetic])
-        assert device_scope.scoped("/health") == "/health"
+        assert device_scope.scoped("/flights") == "/flights"
 
     def test_scoped_with_a_device(self, fleet):
         state_dir, seeded = fleet
@@ -185,13 +185,13 @@ class TestPathHelpers:
         assert device_scope.current_prefix() == prefix
         assert device_scope.current_device() == dev
         assert len(device_scope.current_devices()) == 4
-        assert device_scope.scoped("/health") == prefix + "/health"
-        assert device_scope.scoped("/health?x=1#top") == prefix + "/health?x=1#top"
+        assert device_scope.scoped("/flights") == prefix + "/flights"
+        assert device_scope.scoped("/flights?x=1#top") == prefix + "/flights?x=1#top"
         assert device_scope.scoped("/quick/led", method="POST") == prefix + "/quick/led"
         assert device_scope.scoped("/quick/led") == "/quick/led"
         for global_path in ("/update", "/login", "/static/style.css", "/ui-lang"):
             assert device_scope.scoped(global_path) == global_path
-        assert routes.match("GET", device_scope.scoped("/health"), "") is not None
+        assert routes.match("GET", device_scope.scoped("/flights"), "") is not None
 
 
 class TestDeviceStatus:

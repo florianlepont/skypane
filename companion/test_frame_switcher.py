@@ -100,7 +100,7 @@ def test_the_link_keeps_the_page(fleet):
     state_dir, seeded = fleet
     second = _add_device(state_dir, seeded.owner_id, 0x11, "Desk")
     _enter(state_dir, _principal(seeded, "owner"), seeded.owner_device)
-    for page, slug in (("flights", "/flights"), ("health", "/health")):
+    for page, slug in (("flights", "/flights"), ("airlines", "/airlines")):
         hrefs = {r.attrs["href"] for r in _rows(frame_menu.personal_menu_html(page))}
         assert "/devices/%s%s" % (second, slug) in hrefs
 

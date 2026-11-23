@@ -137,10 +137,9 @@ def test_the_header_links_work_without_script(new_context, app_server_in_process
     seed = fx.seed_fleet(server.state_dir)
     with _no_js_page(new_context, server.base_url(), "/fleet?frame=" + seed.owned_id,
                      viewport=VIEWPORT_MIN_SUPPORTED) as page:
-        with page.expect_navigation():
-            page.locator(".fleet-head a.fleet-icon-button[title=Rename]").click()
-        assert "/devices/%s/frame/name?return_to=" % seed.owned_id in page.url
-        assert page.locator('input[name="name"]').input_value() == "Kitchen"
+        page.locator(".fleet-head a.fleet-icon-button[title=Rename]").click()
+        assert page.url.endswith("#dlg-rename-" + seed.owned_id.replace("_", "-"))
+        assert page.locator('dialog:target input[name="name"]').input_value() == "Kitchen"
 
 
 _TEXT_INSET = """(selector) => {
@@ -217,7 +216,7 @@ def test_the_versions_page_and_system_view_keep_their_text_inside_their_cards(
         page.wait_for_function("() => document.readyState === 'complete'")
         read = page.evaluate(_TEXT_INSET, ".fleet-group")
         assert read["blocks"] >= 1 and not read["bad"], read
-        for view in ("versions", "health"):
+        for view in ("versions", "battery"):
             page.goto(page.url.split("?")[0] + "?frame=%s&view=%s" % (seed.owned_id, view))
             page.locator(".fleet-back").wait_for(state="visible")
             read = page.evaluate(

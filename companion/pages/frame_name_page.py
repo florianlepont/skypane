@@ -1,18 +1,18 @@
-"""The Rename frame page: one text field and the common floating Save bar.
+"""The Rename frame dialog: one name field, Save and Cancel.
 
-Pure markup: it takes the frame's current name and an optional error and
-reads nothing else. The name is typed text, escaped into the input's value;
-it never reaches a path or an attribute other than that value.
+Pure markup: it takes the frame's id and current name and reads the request's
+query only to reopen itself after a refused name. The name is typed text,
+escaped into the input's value; it never reaches a path or an attribute other
+than that value.
 """
-from urllib.parse import quote
+from urllib.parse import parse_qsl, quote
 
-from companion import i18n, layout, ui_components, ui_save_bar
+from companion import i18n, layout, prefs, ui_components, ui_modal, ui_save_bar
 from companion.ui_base import escape_html, validation_attrs
 
 RENAME_ROUTE = "/frame/name"
 NAME_FIELD = "name"
 RETURN_FIELD = "return_to"
-FORM_ID = "frame-name-form"
 MAX_NAME_CHARS = 40
 
 FLASH_FRAME_RENAMED = "frame_renamed"
@@ -24,15 +24,23 @@ _LABEL = i18n.msg("frame_name.label", "Frame name")
 NAME_ERROR = i18n.msg("frame_name.error", "Enter a name of 1 to 40 characters.")
 SAVE_FAILED = i18n.msg(
     "frame_name.failed", "The name could not be saved. Try again in a moment.")
-_BACK = i18n.msg("frame_name.back", "Back")
 ACTION_TEXT = i18n.msg("frame_name.action", "Rename")
 ACTION_ARIA = i18n.msg("frame_name.action_aria", "Rename %s")
 
 
+# The query a refused name comes back with: the frame whose dialog reopens,
+# why it was refused and the value that was typed.
+REOPEN_FRAME = "rename"
+REOPEN_ERROR = "rename_error"
+REOPEN_VALUE = "rename_value"
+ERROR_INVALID = "invalid"
+ERROR_FAILED = "failed"
+
+
 def device_route(device_id, return_to=None):
-    """The frame's own rename page path. `return_to` is the page the person
-    comes from (a caller-built, allow-listed path); the page sends them back
-    there when they leave it."""
+    """The frame's own rename route. A GET there sends the person to the page
+    they come from (`return_to`, a caller-built, allow-listed path) with the
+    dialog open; the form of that dialog posts to it."""
     route = "/devices/%s%s" % (device_id, RENAME_ROUTE)
     if return_to:
         route += "?%s=%s" % (RETURN_FIELD, quote(return_to, safe=""))
@@ -52,32 +60,60 @@ def normalise_name(raw):
     return name
 
 
-def render(name, form_action, back_href, error="", return_to=None):
-    """The page body for a frame currently called `name`; `form_action` is
-    the frame's own rename route and `back_href` where Back and Cancel go;
-    `return_to` (already validated) is carried by the form to the POST."""
+def dialog_id(device_id):
+    """The dialog's slug: device ids carry underscores a slug does not allow."""
+    return "dlg-rename-%s" % str(device_id).lower().replace("_", "-")
+
+
+def opener_href(device_id):
+    return "#" + dialog_id(device_id)
+
+
+def opener_html(device_id, label_html, extra_class="", aria_label=""):
+    """The link that opens the frame's Rename dialog (a hash link, so it works
+    without script too). `label_html` is already escaped."""
+    return ui_modal.trigger_html(dialog_id(device_id), label_html, extra_class, aria_label)
+
+
+def reopen_query(error, value):
+    """The query parameters a refused rename comes back with."""
+    return "%s=%s&%s=%s" % (
+        REOPEN_ERROR, error, REOPEN_VALUE, quote(value, safe=""))
+
+
+def _reopened(device_id):
+    """(error message, typed value) when this request comes back from a refused
+    rename of `device_id`, else None."""
+    query = dict(parse_qsl(prefs.current_request_query() or "", keep_blank_values=True))
+    if query.get(REOPEN_FRAME) != str(device_id):
+        return None
+    message = SAVE_FAILED if query.get(REOPEN_ERROR) == ERROR_FAILED else NAME_ERROR
+    return i18n.t(message), query.get(REOPEN_VALUE, "")[:MAX_NAME_CHARS]
+
+
+def dialog_html(device_id, name, return_to):
+    """The Rename dialog of one frame currently called `name` ("" when it has
+    none): a title, the name field, Save and Cancel; a bottom sheet on a phone.
+    `return_to` is the page the dialog sits on (a caller-built path): Cancel and
+    the close cross go there and the POST sends the person back there. The
+    dialog renders open, with the error and the typed value, when the request
+    comes back from a refused name."""
+    slug = dialog_id(device_id)
+    error = _reopened(device_id)
+    value = name if error is None else error[1]
     attrs, error_html = "", ""
-    if error:
-        attrs = ' aria-invalid="true" aria-describedby="frame-name-error"'
-        error_html = '<p class="field-error" id="frame-name-error" role="alert">%s</p>' % (
-            escape_html(error))
+    if error is not None:
+        attrs = ' aria-invalid="true" aria-describedby="%s"' % escape_html(
+            ui_modal.error_id(slug, NAME_FIELD))
+        error_html = ui_modal.field_error_html(slug, NAME_FIELD, error[0])
     field = ui_components.text_field_html(
-        "frame-name", NAME_FIELD, i18n.t(_LABEL), name, "", error_html,
+        slug + "-name", NAME_FIELD, i18n.t(_LABEL), value, "", error_html,
         ' maxlength="%d" required autocomplete="off" spellcheck="false"%s%s' % (
             MAX_NAME_CHARS, attrs, validation_attrs("text")))
-    # Always present: the unsaved-changes question fills it with the page the person
-    # tapped, which the server checks like any other return address.
-    carried = '<input type="hidden" name="%s" value="%s" data-leave-any>' % (
-        RETURN_FIELD, escape_html(return_to or ""))
-    form = (
-        '<form id="%s" method="post" action="%s" novalidate>%s%s%s</form>' % (
-            FORM_ID, escape_html(form_action), layout.csrf_field() + carried, field, ""))
-    return (
-        layout.page_header(i18n.t(TITLE))
-        + '<div class="form-view"><a class="form-back" href="%s">%s<span>%s</span></a>' % (
-            escape_html(back_href), layout.icon_html("icon-chevron-right", 18),
-            escape_html(i18n.t(_BACK)))
-        + '<section class="page-section">%s</section></div>' % form
-        + ui_save_bar.save_bar_html(
-            FORM_ID, cancel_href=back_href, title=i18n.t(TITLE), reveal_on_change=True,
-            shown=bool(error)))
+    carried = '<input type="hidden" name="%s" value="%s">' % (
+        RETURN_FIELD, escape_html(return_to))
+    return ui_modal.dialog_html(
+        slug, i18n.t(TITLE), device_route(device_id), layout.csrf_field() + carried, field,
+        i18n.t(ui_save_bar.SAVE_TEXT), i18n.t(ui_save_bar.CANCEL_TEXT), return_to,
+        open_=error is not None, return_on_close=True, variant="compact-top",
+        scrim_close=True)

@@ -30,7 +30,7 @@ import companion_render_snapshot  # noqa: E402
 import companion.app as companion_app  # noqa: E402
 from companion import auth  # noqa: E402
 
-# The six NAV_TABS destinations. /login is captured separately below, in its own
+# The four personal NAV_TABS destinations. /login is captured separately below, in its own
 # unauthenticated context -- an authenticated visit to /login redirects straight to
 # Home (companion/app.py's own _handle_login_get()), so it can never share a context with
 # the six routes above.
@@ -39,8 +39,6 @@ ROUTES_AUTHENTICATED = (
     companion_app.DISPLAY_ROUTE,
     companion_app.FLIGHTS_ROUTE,
     companion_app.AIRLINES_ROUTE,
-    companion_app.HEALTH_ROUTE,
-    companion_app.DEVICE_ROUTE,
 )
 LOGIN_ROUTE = companion_app.LOGIN_ROUTE
 

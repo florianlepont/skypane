@@ -37,7 +37,7 @@ def server(module_app_server_factory):
 
 @pytest.mark.parametrize(
     "route,trigger_sel", [
-        ("/history", "[data-view-panel-src]"),
+        ("/flights", "[data-view-panel-src]"),
         ("/airlines/manage", "[data-view-panel-src]"),
     ], ids=["history", "airlines"])
 def test_both_dialogs_fade_in_and_leave_nothing_behind(new_context, server, route, trigger_sel):
@@ -731,7 +731,7 @@ def test_health_tables_fit_their_wraps_with_every_disclosure_open(new_context, s
         _login(page, base_url)
         context.add_cookies([{
             "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
-        page.goto(base_url + "/health")
+        page.goto(base_url + "/fleet?frame=live&view=battery")
         page.locator(".battery-readings table").first.wait_for(state="attached")
         seen = page.evaluate(probe)
         if page.viewport_size["width"] != width:
@@ -858,7 +858,7 @@ def test_every_disclosure_on_every_page_opens_without_overflow(new_context, serv
     pages = (("/", 1), ("/display", 2), ("/display/special-looks", 2),
              ("/display/calendar", 2),
              ("/flights", 1),
-             ("/airlines", 1), ("/fleet", 0), ("/health", 1), ("/fleet?view=system", 1))
+             ("/airlines", 1), ("/fleet", 0), ("/fleet?frame=live&view=battery", 1), ("/fleet?view=system", 1))
     base_url = server.base_url()
     context = new_context(
         viewport={"width": width, "height": 844}, reduced_motion="reduce")

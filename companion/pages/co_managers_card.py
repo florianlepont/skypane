@@ -77,9 +77,7 @@ _DIALOG_TITLE = i18n.msg("co_managers.dialog_title", "Manage access")
 MENU_LABEL = i18n.msg("co_managers.menu_label", "Manage access")
 _DONE = i18n.msg("co_managers.done", "Done")
 _CANCEL = i18n.msg("co_managers.cancel", "Cancel")
-_RENAME_LINK = i18n.msg("co_managers.rename_frame", "Rename this frame")
 # Same id and English as the Rename frame page's action.
-_RENAME_ARIA = i18n.msg("frame_name.action_aria", "Rename %s")
 _LEAVE_TITLE = i18n.msg("co_managers.leave_title", "Leave this frame?")
 _PILL_OWNER = i18n.msg("co_managers.pill_owner", "Owner")
 _PILL_YOU = i18n.msg("co_managers.pill_you", "You")
@@ -352,7 +350,7 @@ def manage_access_dialog_html(view, device_id, frame_name, return_to, open_=Fals
     people = ui_groups.group(
         access_rows_html(view, device_id, return_to),
         label=i18n.t(_HEADING), label_id=label_id)
-    remove_frame = _rename_link_html(device_id, frame_name, return_to)
+    remove_frame = ""
     if view.can_remove_frame:
         remove_frame += _remove_frame_group_html(device_id)
     dialog = ui_modal.sections_dialog_html(
@@ -362,17 +360,6 @@ def manage_access_dialog_html(view, device_id, frame_name, return_to, open_=Fals
     if view.can_remove_frame:
         dialog += remove_frame_dialog_html(device_id, frame_name)
     return dialog
-
-
-def _rename_link_html(device_id, frame_name, return_to):
-    """The quiet link under the people group to the frame's Rename page,
-    which sends the person back to `return_to`."""
-    from companion.pages import frame_name_page
-    return (
-        '<p class="access-rename"><a class="access-rename__link" href="%s" '
-        'aria-label="%s">%s</a></p>' % (
-            _esc(frame_name_page.device_route(device_id, return_to)),
-            _esc(i18n.t(_RENAME_ARIA) % frame_name), _t(_RENAME_LINK)))
 
 
 def _remove_frame_group_html(device_id):

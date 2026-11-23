@@ -405,17 +405,17 @@ def test_login_post_is_not_a_route(app04_server):
 
 
 def test_deep_link_return_is_carried_into_the_sign_in_link(make_app_server):
-    """an unauthenticated GET /health redirects with ?next=%2Fhealth, and the login page
+    """an unauthenticated GET /flights redirects with ?next=%2Fflights, and the login page
     carries that destination on the Auth0 start link"""
     server = make_app_server(fake_providers=True)
     base = server.base_url()
-    status, headers, _ = http_request(base + "/health")
-    assert status == 303, "expected 303 for GET /health, got %d" % status
-    assert headers.get("Location") == "/login?next=%2Fhealth", (
-        "expected Location /login?next=%%2Fhealth, got %r" % headers.get("Location"))
-    status, _headers, body = http_request(base + "/login?next=%2Fhealth")
+    status, headers, _ = http_request(base + "/flights")
+    assert status == 303, "expected 303 for GET /flights, got %d" % status
+    assert headers.get("Location") == "/login?next=%2Fflights", (
+        "expected Location /login?next=%%2Fflights, got %r" % headers.get("Location"))
+    status, _headers, body = http_request(base + "/login?next=%2Fflights")
     assert status == 200
-    assert b'href="/login/auth0?next=/health"' in body
+    assert b'href="/login/auth0?next=/flights"' in body
 
 
 @pytest.mark.parametrize("crafted_next", ["https://evil.example", "//evil.example"])
@@ -497,17 +497,15 @@ def test_authenticated_tab_returns_200_with_its_own_heading(app04_server, sessio
     assert heading.encode() in body, "expected the %r heading in the response body" % heading
 
 
-def test_preview_redirects_to_flights(app04_server, session_cookie):
-    """authenticated GET /preview (the retired Preview page route) redirects to /flights"""
-    status, headers, body = http_request(
-        app04_server.base_url() + "/preview", cookie=session_cookie)
-    assert status == 303, "expected a 303 redirect, got %d" % status
-    assert headers.get("Location") == "/flights", (
-        "expected a redirect to /flights exactly, got %r" % headers.get("Location"))
-    assert not body, "expected an empty redirect body, got %d bytes of content" % len(body)
+@pytest.mark.parametrize("path", ["/preview", "/history", "/preview?next=/settings&evil=https://evil.example"])
+def test_removed_page_routes_are_the_not_found_page(app04_server, session_cookie, path):
+    """authenticated GET of the removed Preview and History addresses is the ordinary 404"""
+    status, headers, _body = http_request(app04_server.base_url() + path, cookie=session_cookie)
+    assert status == 404, "expected 404, got %d" % status
+    assert not headers.get("Location")
 
 
-@pytest.mark.parametrize("legacy,target", [("/settings", "/display"), ("/history", "/flights")])
+@pytest.mark.parametrize("legacy,target", [("/settings", "/display")])
 def test_legacy_page_route_redirects_with_a_fixed_literal_target(app04_server, session_cookie, legacy, target):
     """authenticated GET %s (a pre-phase-18 page route) redirects to %s with a fixed literal
     target"""
@@ -517,19 +515,6 @@ def test_legacy_page_route_redirects_with_a_fixed_literal_target(app04_server, s
     assert headers.get("Location") == target, (
         "expected %s to redirect to %s exactly, got %r" % (legacy, target, headers.get("Location")))
     assert not body, "expected an empty redirect body"
-
-
-def test_preview_redirect_ignores_query_string(app04_server, session_cookie):
-    """authenticated GET /preview carrying an arbitrary query string (including a next=-shaped
-    and an https://evil.example-shaped value) still redirects to the identical /flights location
-    — no request value influences the target"""
-    status, headers, _body = http_request(
-        app04_server.base_url() + "/preview?next=/settings&evil=https://evil.example",
-        cookie=session_cookie)
-    assert status == 303, "expected a 303 redirect, got %d" % status
-    assert headers.get("Location") == "/flights", (
-        "expected the redirect location to stay /flights regardless of an arbitrary query "
-        "string, got %r" % headers.get("Location"))
 
 
 def test_old_settings_path_404s_authenticated(app04_server, session_cookie):
@@ -780,9 +765,9 @@ def test_quick_routes_answer_204_for_a_fetch_and_303_for_a_form(make_app_server)
 
 def test_quick_led_route_saves_redirects_and_negotiates(make_app_server):
     """POST /quick/led stores one explicit led_enabled keyword and carries every other flag
-    forward, redirects to /device with its own flash for a form post, answers 204 with an empty
+    forward, redirects to the frame's Fleet settings tab with its own flash for a form post, answers 204 with an empty
     body for a fetch, redirects with the generic failure flash and writes nothing for a crafted
-    state, falls back to /device for every non-member return_to, and is not reachable by GET at
+    state, always returns to that tab whatever return_to says, and is not reachable by GET at
     all"""
     server = make_app_server(fake_providers=True)
     session_cookie = login(server)
@@ -793,8 +778,8 @@ def test_quick_led_route_saves_redirects_and_negotiates(make_app_server):
     status, headers, _ = http_request(
         base + app_module.QUICK_LED_ROUTE, method="POST", cookie=session_cookie,
         data=with_csrf(session_cookie, {"state": "off", "return_to": "/device"}))
-    assert status == 303 and headers.get("Location") == "/device?flash=%s" % app_module.FLASH_KEY_LED_OFF, (
-        "expected a 303 to /device?flash=led_off, got %d/%r" % (status, headers.get("Location")))
+    assert status == 303 and headers.get("Location") == "/fleet?frame=live&tab=settings&flash=%s" % app_module.FLASH_KEY_LED_OFF, (
+        "expected a 303 to the settings tab with flash=led_off, got %d/%r" % (status, headers.get("Location")))
     on_disk = device_config.load_device_config(server.state_dir)
     assert on_disk["led_enabled"] is False, "expected led_enabled False on disk, got %r" % (on_disk["led_enabled"],)
     assert on_disk["display_enabled"] is True and on_disk["quiet_hours_enabled"] is True, (
@@ -813,7 +798,7 @@ def test_quick_led_route_saves_redirects_and_negotiates(make_app_server):
     status, headers, _ = http_request(
         base + app_module.QUICK_LED_ROUTE, method="POST", cookie=session_cookie,
         data=with_csrf(session_cookie, {"state": "toggle", "return_to": "/device"}))
-    assert status == 303 and headers.get("Location") == "/device?flash=%s" % app_module.FLASH_KEY_QUICK_FAILED, (
+    assert status == 303 and headers.get("Location") == "/fleet?frame=live&tab=settings&flash=%s" % app_module.FLASH_KEY_QUICK_FAILED, (
         "expected a crafted state value to redirect with the generic quick_failed flash, got "
         "%d/%r" % (status, headers.get("Location")))
     assert device_config.load_device_config(server.state_dir)["led_enabled"] is True, (
@@ -824,8 +809,8 @@ def test_quick_led_route_saves_redirects_and_negotiates(make_app_server):
         status, headers, _ = http_request(
             base + app_module.QUICK_LED_ROUTE, method="POST", cookie=session_cookie,
             data=with_csrf(session_cookie, {"state": "on", "return_to": hostile}))
-        assert status == 303 and headers.get("Location") == "/device?flash=%s" % app_module.FLASH_KEY_LED_ON, (
-            "return_to=%r: expected a fall back to /device, got %d/%r"
+        assert status == 303 and headers.get("Location") == "/fleet?frame=live&tab=settings&flash=%s" % app_module.FLASH_KEY_LED_ON, (
+            "return_to=%r: expected the settings tab, got %d/%r"
             % (hostile, status, headers.get("Location")))
 
     device_config.save_device_config(server.state_dir, led_enabled=False)

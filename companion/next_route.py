@@ -17,9 +17,10 @@ from urllib.parse import quote, urlsplit
 LOGIN_ROUTE = "/login"
 LOGOUT_ROUTE = "/logout"
 MAX_NEXT_LENGTH = 200
-# Page routes that only redirect elsewhere (and the retired Update page): a
-# sign-in has nothing to gain from carrying them.
-_RETIRED_PATHS = frozenset(("/settings", "/history", "/preview", "/update"))
+# Page routes that only redirect elsewhere (and the Update page, which sends a
+# frame's owner to its Versions page): a sign-in has nothing to gain from
+# carrying them.
+_RETIRED_PATHS = frozenset(("/settings", "/update"))
 _DEVICE_PREFIX = re.compile(r"\A/devices/d_[0-9a-f]{8}(?=/|\Z)")
 _page_paths_cache = []
 _QUERY_PATTERN = re.compile(r"(?:[A-Za-z0-9_.~=&,:+-]|%[0-9A-Fa-f]{2})*")

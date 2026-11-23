@@ -8,6 +8,7 @@ import pytest
 import fleet_console_support as fx
 from companion import auth
 from companion_app_server import session_cookie_for_state_dir
+from server import fleet_db
 
 pytestmark = pytest.mark.browser
 
@@ -303,17 +304,24 @@ def _admin_page(new_context, server, path, lang="fr", width=390):
     return context, page
 
 
-def test_the_rename_field_fills_its_card_and_the_page_has_a_visible_save(
+def test_the_rename_field_fills_its_dialog_and_the_dialog_has_a_visible_save(
         new_context, fleet_server):
-    context, page = _admin_page(new_context, fleet_server, "/frame/name")
+    conn = fleet_db.connect(fleet_server.state_dir)
     try:
-        page.locator("#frame-name").fill("Another name")
-        page.locator(".dirty-bar").wait_for(state="visible")
+        owned = conn.execute("SELECT id FROM devices WHERE name = 'Kitchen'").fetchone()[0]
+    finally:
+        conn.close()
+    context, page = _admin_page(
+        new_context, fleet_server, "/fleet?frame=" + owned, width=1280)
+    try:
+        page.locator(".fleet-head a.fleet-icon-button[data-modal-open]").click()
+        page.locator("dialog[id^='dlg-rename-'][open]").wait_for(state="visible")
         geometry = page.evaluate(
-            "() => { const i = document.querySelector('#frame-name').getBoundingClientRect();"
-            " const c = document.querySelector('.page-section').getBoundingClientRect();"
-            " const b = document.querySelector('.dirty-bar .btn--primary');"
-            " return {gap: c.right - i.right, left: i.left - c.left, button: b ? b.getBoundingClientRect().height : 0}; }")
+            "() => { const d = document.querySelector('dialog[id^=\\'dlg-rename-\\']');"
+            " const i = d.querySelector('input[name=name]').getBoundingClientRect();"
+            " const c = d.querySelector('.modal__body').getBoundingClientRect();"
+            " const b = d.querySelector('button[type=submit]').getBoundingClientRect();"
+            " return {gap: c.right - i.right, left: i.left - c.left, button: b.height}; }")
         assert abs(geometry["gap"] - geometry["left"]) <= 2, geometry
         assert geometry["button"] >= 43.5, geometry
     finally:
@@ -321,7 +329,13 @@ def test_the_rename_field_fills_its_card_and_the_page_has_a_visible_save(
 
 
 def test_the_wake_interval_field_is_wide_enough_for_its_placeholder(new_context, fleet_server):
-    context, page = _admin_page(new_context, fleet_server, "/device")
+    conn = fleet_db.connect(fleet_server.state_dir)
+    try:
+        owned = conn.execute("SELECT id FROM devices WHERE name = 'Kitchen'").fetchone()[0]
+    finally:
+        conn.close()
+    context, page = _admin_page(
+        new_context, fleet_server, "/fleet?frame=%s&tab=settings" % owned)
     try:
         field = page.evaluate(
             "() => { const i = document.querySelector('#wake-interval-s');"

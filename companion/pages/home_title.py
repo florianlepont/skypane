@@ -1,5 +1,5 @@
 """The Home page title: the frame's name as the page's one `<h1>`, with a
-round pencil beside it that opens the Rename page.
+round pencil beside it that opens the Rename dialog.
 
 The pencil is shown only to the people who may rename the frame (its owner and
 administrators); the Rename route keeps its own server-side check. The
@@ -28,6 +28,16 @@ def title_html(device):
     if device_scope.viewer_may_rename_current():
         action = ui_components.icon_link_html(
             "icon-pencil", i18n.t(RENAME_ACTION_LABEL),
-            frame_name_page.device_route(
-                device.id, device_scope.scoped(layout.HOME_ROUTE)), variant="secondary")
+            frame_name_page.opener_href(device.id), variant="secondary",
+            attrs=" data-modal-open")
     return ui_components.title_action_html(device_display_name(device), action)
+
+
+def rename_dialog_html(device):
+    """The Rename dialog the pencil opens, or "" when there is none to open."""
+    if device is None or not device_scope.viewer_may_rename_current():
+        return ""
+    unnamed = device.name == device.id
+    return frame_name_page.dialog_html(
+        device.id, "" if unnamed else device_display_name(device),
+        device_scope.scoped(layout.HOME_ROUTE))

@@ -153,15 +153,13 @@ def test_owner_device_routes_are_exactly_the_user_reachable_frame_routes():
         (r.method, r.matcher) for r in routes.ROUTES
         if r.device_scoped and r.access == routes.ADMIN_ONLY}
     assert admin_device_only == {
-        ("GET", routes.Exact(routes.DEVICE_ROUTE)),
         ("POST", routes.Exact(routes.QUICK_LED_ROUTE)),
     }
-    assert len(owner) == 31
+    assert len(owner) == 27
     admin_device = {
         (r.method, r.matcher) for r in routes.ROUTES
         if r.access == routes.ADMIN_DEVICE}
     assert admin_device == {
-        ("GET", routes.Exact(routes.HEALTH_ROUTE)),
         ("GET", routes.Exact(routes.MANAGE_ROUTE)),
         ("POST", routes.Exact(routes.airlines_page.RESOLVE_ROUTE)),
         ("POST", routes.Exact(routes.airlines_page.RENAME_ROUTE)),

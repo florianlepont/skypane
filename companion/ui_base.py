@@ -83,12 +83,8 @@ DISPLAY_SPECIAL_LOOK_EDIT_ROUTE = DISPLAY_SPECIAL_LOOKS_ROUTE + "/edit"
 DISPLAY_CALENDAR_CONNECT_ROUTE = DISPLAY_CALENDAR_ROUTE + "/connect"
 DISPLAY_CALENDAR_LOOK_ROUTE = DISPLAY_ROUTE + "/calendar-look"
 DISPLAY_ARRIVALS_ROUTE = DISPLAY_ROUTE + "/arrivals"
-DISPLAY_LAYOUT_ROUTE = DISPLAY_ROUTE + "/layout"
-# No longer a view: the address still answers, with a redirect to DISPLAY_ROUTE.
-DISPLAY_SCREEN_ROUTE = DISPLAY_ROUTE + "/screen"
 FLIGHTS_ROUTE = "/flights"
 AIRLINES_ROUTE = "/airlines"
-HEALTH_ROUTE = "/health"
 DEVICE_ROUTE = "/device"
 # The Update page (Releases in the Console): reviewing and installing
 # firmware releases.
@@ -109,8 +105,6 @@ _NAV_LABEL_AIRLINES = i18n.msg("nav.airline_collection", "Airlines")
 # The Console-only destination for editing airlines.
 AIRLINE_EDITOR_ROUTE = "/airlines/manage"
 AIRLINE_EDITOR_LABEL = i18n.msg("nav.airline_editor", "Airline editor")
-_NAV_LABEL_HEALTH = i18n.msg("nav.health", "Health")
-_NAV_LABEL_DEVICE = i18n.msg("nav.device", "Device")
 _NAV_LABEL_UPDATE = i18n.msg("nav.update", "Releases")
 
 NAV_GROUPS = (
@@ -122,16 +116,12 @@ NAV_GROUPS = (
         (AIRLINES_ROUTE, _NAV_LABEL_AIRLINES),
     )),
     (FRAME_TOOLS_LABEL, (
-        (HEALTH_ROUTE, _NAV_LABEL_HEALTH),
-        (DEVICE_ROUTE, _NAV_LABEL_DEVICE),
         (UPDATE_ROUTE, _NAV_LABEL_UPDATE),
     )),
 )
 
 # Ordered (route, label) pairs, flattened from NAV_GROUPS in display order.
-# Login is deliberately absent, as above. The old "/settings" and
-# "/history" routes are not tabs any more — companion/app.py keeps both as
-# fixed 303 redirects so a stale bookmark still lands somewhere useful.
+# Login is deliberately absent, as above.
 NAV_TABS = tuple(
     (route, label) for _group_label, entries in NAV_GROUPS for route, label in entries)
 
@@ -1118,8 +1108,6 @@ NAV_ICON_IDS = {
     "detection": "icon-locate",
     "flights": "icon-nav-history",
     "airlines": "icon-nav-airlines",
-    "health": "icon-nav-health",
-    "device": "icon-nav-device",
     "update": "icon-nav-update",
 }
 

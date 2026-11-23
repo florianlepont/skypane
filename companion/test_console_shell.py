@@ -36,7 +36,7 @@ def test_the_aggregator_holds_the_pairing_routes_and_nav_follows_them():
         ("POST", console_routes.USERS_INVITE_ROUTE),
         ("GET", console_routes.AUDIT_ROUTE)} <= served_routes
     assert [entry[1] for entry in console_routes.available_nav_entries()] == [
-        "/fleet", "/users", "/health", "/device", "/airlines/manage", "/audit", "/update",
+        "/fleet", "/users", "/airlines/manage", "/audit", "/update",
         "/fleet?view=system"]
 
 
@@ -48,7 +48,7 @@ def test_nav_entries_follow_the_route_table(monkeypatch):
     monkeypatch.setattr(routes, "ROUTES", routes.ROUTES + extra)
     keys = [entry[0] for entry in console_routes.available_nav_entries()]
     assert keys == [
-        "fleet", "users", "health", "device", "editor", "audit", "releases", "system"]
+        "fleet", "users", "editor", "audit", "releases", "system"]
 
 
 def test_console_french_labels_are_translated():

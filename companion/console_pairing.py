@@ -16,7 +16,7 @@ import re
 import sqlite3
 
 from companion import (
-    audit, co_managers, console_fleet_view, console_flash, device_scope, fleet_moves, frame_state,
+    audit, co_managers, console_fleet_view, console_flash, device_scope, frame_state,
     i18n, route_types, throttle, wake)
 from companion.pages import co_managers_card, fleet_page
 from server import (
@@ -238,9 +238,6 @@ def _render(h, status=200, query=None, **state):
 def handle_fleet_get(h, m):
     from urllib.parse import parse_qs, urlsplit
     raw_query = urlsplit(h.path).query
-    moved = fleet_moves.retired_health_view(h, raw_query)
-    if moved is not None:
-        return moved
     query = parse_qs(raw_query)
     return _render(
         h, query=query, open_add_dialog=query.get(fleet_page.PAIR_QUERY_FLAG) == ["1"],

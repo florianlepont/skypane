@@ -549,13 +549,13 @@ def test_gap_row_filter_group_never_collides_with_curated_integer_groups(tmp_pat
 def test_gap_overflow_html_renders_only_when_the_cap_bites():
     """_gap_overflow_html() returns the empty string when the cap does not
     bite, and otherwise the exact templated line naming the overflow
-    count, with <a href="/health"> wrapping only MANUAL_OVERFLOW_LINK_TEXT
+    count, with <a href="/fleet?view=system"> wrapping only MANUAL_OVERFLOW_LINK_TEXT
     and the trailing period sitting outside the anchor"""
     assert airlines_page._gap_overflow_html(0) == ""
     overflow_html = airlines_page._gap_overflow_html(3)
     assert overflow_html.startswith('<p class="text-label section-caption">')
     assert "3 other unresolved prefixes" in overflow_html
-    link_match = re.search(r'<a href="/health">([^<]+)</a>', overflow_html)
+    link_match = re.search(r'<a href="/fleet\?view=system">([^<]+)</a>', overflow_html)
     assert link_match
     assert link_match.group(1) == airlines_page.MANUAL_OVERFLOW_LINK_TEXT
     assert overflow_html.endswith("</a>.</p>")

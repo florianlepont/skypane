@@ -661,7 +661,8 @@ def test_an_owned_frame_offers_manage_access_with_the_owner_dialog(rig):
     tree = parse_html(_account(rig, "owner"))
     row = _row_of(tree, "Kitchen")
     assert "Shared by" not in row.text()
-    (action,) = row.select("a[data-modal-open]")
+    rename, action = row.select("a[data-modal-open]")
+    assert rename.attrs["aria-label"].split(":")[0] == "Rename"
     assert (action.attrs["aria-label"].split(":")[0], action.attrs["href"]) == (
         "Manage access", "#" + _access_id(rig))
     dialog = tree.select_one("dialog#" + _access_id(rig))
@@ -699,7 +700,7 @@ def test_an_admin_sees_manage_access_only_on_frames_they_own(rig):
         "Leave frame"]
     own = _row_of(tree, "Orly frame")
     assert [a.attrs["aria-label"].split(":")[0] for a in own.select("a[data-modal-open]")] == [
-        "Manage access"]
+        "Rename", "Manage access"]
 
 
 def test_adding_from_account_returns_to_account_with_the_dialog_open_and_a_toast(rig):

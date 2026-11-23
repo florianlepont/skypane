@@ -1,5 +1,6 @@
-"""Old bookmarks keep working: the retired personal pages (settings, history,
-preview) land on their new page for every signed-in role, and a refusal shown to
+"""The Settings address (the twin of the settings form's POST) lands on the Style page
+for every signed-in role, the old History and Preview addresses are not found,
+and a refusal shown to
 a signed-in non-admin names the administrator-only case without telling it
 apart from an unknown path."""
 import html
@@ -34,23 +35,30 @@ def test_old_bookmarks_reach_the_equivalent_page_for_every_signed_in_role(fleet)
     owner = fx.user_cookie(server.state_dir, fx.OWNER_EMAIL)
     admin = fx.admin_cookie(server.state_dir)
     for cookie, frame in ((owner, seed.owned_id), (admin, seed.live_id)):
-        for path, page in (
-                ("/settings", "/display"), ("/history", "/flights"), ("/preview", "/flights")):
-            status, location, _body = _get(server, cookie, path)
-            assert (status, location) == (303, "/devices/%s%s" % (frame, page)), path
+        status, location, _body = _get(server, cookie, "/settings")
+        assert (status, location) == (303, "/devices/%s/display" % frame)
+
+
+def test_the_removed_history_and_preview_addresses_are_not_found(fleet):
+    server, seed = fleet
+    owner = fx.user_cookie(server.state_dir, fx.OWNER_EMAIL)
+    admin = fx.admin_cookie(server.state_dir)
+    for cookie in (owner, admin):
+        for path in ("/history", "/preview", "/devices/%s/history" % seed.owned_id,
+                     "/display/screen", "/display/layout"):
+            assert _get(server, cookie, path)[0] == 404, path
 
 
 def test_a_person_without_a_frame_is_sent_to_the_account_page(fleet):
     server, _seed = fleet
     plain = fx.user_cookie(server.state_dir, fx.USER_EMAIL)
-    for path in ("/settings", "/history", "/preview"):
-        status, location, _body = _get(server, plain, path)
-        assert (status, location) == (303, "/account"), path
+    status, location, _body = _get(server, plain, "/settings")
+    assert (status, location) == (303, "/account")
 
 
 def test_a_signed_out_visitor_is_sent_to_sign_in(fleet):
     server, _seed = fleet
-    for path in ("/health", "/device", "/update", "/settings"):
+    for path in ("/update", "/settings"):
         status, location, _body = _get(server, None, path)
         assert status == 303 and location.startswith("/login"), path
 

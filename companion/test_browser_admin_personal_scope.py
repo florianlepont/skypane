@@ -158,7 +158,7 @@ def test_the_strip_is_absent_on_a_console_page_of_the_same_frame(
     context, page, seed = _open_fleet(
         new_context, server, VIEWPORT_DESKTOP, "en", "light")
     try:
-        page.goto(server.base_url() + "/devices/%s/health" % seed.owned_id)
+        page.goto(server.base_url() + "/fleet?frame=%s&view=battery" % seed.owned_id)
         page.locator("main").wait_for(state="visible")
         assert page.locator(".frame-notice").count() == 0
         page.goto(server.base_url() + "/devices/%s/flights" % seed.owned_id)

@@ -32,7 +32,7 @@ import byos_server  # noqa: E402
 MIN_TAP_PX = 44
 CONSOLE_PATHS = ("/fleet", "/users", "/audit")
 ADMIN_ONLY_PATHS = (
-    "/fleet", "/users", "/audit", "/update", "/device", "/health", "/airlines/manage")
+    "/fleet", "/users", "/audit", "/update", "/airlines/manage")
 ADMIN_ONLY_CONTROLS = (
     "wake_interval_s", "led_enabled", "tracked_runway", "Poll now")
 
@@ -64,7 +64,7 @@ _ADD_EXISTING_BUTTONS = (
     "  const pill = document.createElement('span');"
     "  pill.className = 'banner__pill users-pill users-pill--' + tone; pill.textContent = 'x';"
     "  document.querySelector('main').appendChild(pill); } }")
-REFERENCE_PATHS = ("/", "/display", "/health", "/flights", "/airlines", "/airlines/manage", "/update", "/account")
+REFERENCE_PATHS = ("/", "/display", "/fleet?frame=live&view=battery", "/flights", "/airlines", "/airlines/manage", "/update", "/account")
 def _no_sideways_scroll(page):
     return page.evaluate(
         "document.documentElement.scrollWidth <= document.documentElement.clientWidth")

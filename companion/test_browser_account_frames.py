@@ -17,9 +17,9 @@ pytestmark = pytest.mark.browser
 LANGS = ("en", "fr")
 VIEWPORTS = (VIEWPORT_MIN_SUPPORTED, {"width": 1280, "height": 900})
 LABELS = {
-    "en": {"manage": "Manage access", "leave": "Leave frame", "add": "Add a co-manager",
+    "en": {"rename": "Rename", "manage": "Manage access", "leave": "Leave frame", "add": "Add a co-manager",
            "confirm": "Leave this frame", "stay": "Stay on this frame"},
-    "fr": {"manage": "Gérer l’accès", "leave": "Quitter le cadre",
+    "fr": {"rename": "Renommer", "manage": "Gérer l’accès", "leave": "Quitter le cadre",
            "add": "Ajouter un cogestionnaire", "confirm": "Quitter ce cadre",
            "stay": "Rester sur ce cadre"},
 }
@@ -155,7 +155,19 @@ def test_the_card_and_its_dialog_fit_and_meet_the_tap_targets(
     try:
         assert _no_sideways_scroll(page)
         row = arig.row(page)
-        action = row.locator("a[data-modal-open]")
+        action = row.locator("a[data-modal-open]").last
+        assert row.locator("a[data-modal-open]").count() == (2 if who == "owner" else 1)
+        if who == "owner":
+            rename = row.locator("a[data-modal-open]").first
+            assert rename.get_attribute("aria-label").startswith(
+                labels["rename"] + "\u00a0:" if lang == "fr" else labels["rename"] + ":")
+            assert rename.get_attribute("href") == "#dlg-rename-" + arig.slug
+            rename_box = rename.bounding_box()
+            assert rename_box["width"] >= MIN_TAP_PX - SUBPIXEL
+            assert rename_box["height"] >= MIN_TAP_PX - SUBPIXEL
+            key_box = action.bounding_box()
+            assert rename_box["x"] + rename_box["width"] <= key_box["x"] + SUBPIXEL, "no overlap"
+            assert rename_box["x"] >= row.locator("a.row__main").bounding_box()["x"], "inside the row"
         assert action.inner_text() == ""
         assert action.get_attribute("aria-label").startswith(
             labels["manage" if who == "owner" else "leave"])
@@ -164,8 +176,10 @@ def test_the_card_and_its_dialog_fit_and_meet_the_tap_targets(
         assert row.locator(".account-frame__status").bounding_box()["y"] >= row_box["y"] - SUBPIXEL
         assert action_box["x"] + action_box["width"] <= row_box["x"] + row_box["width"] + SUBPIXEL
         assert row_box["x"] + row_box["width"] - (action_box["x"] + action_box["width"]) <= 24
+        assert row.locator("a.row__main").bounding_box()["width"] >= 120, "the name keeps room"
         if who == "owner":
-            assert row_box["height"] <= 96, "the action adds no line to the row"
+            # Two 44px buttons leave the name and pill room for at most one more line.
+            assert row_box["height"] <= 120, "the actions add no more than one line to the row"
         assert row.locator(".row__chevron").count() == 0
         assert not row.locator(".account-frame__line", has_text="XIAO").count()
         assert action.bounding_box()["height"] >= MIN_TAP_PX - SUBPIXEL

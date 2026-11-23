@@ -346,10 +346,10 @@ def test_unrecognised_principal_clears_to_default():
     assert prefs.current_principal() is None
 
 
-# Only the pages in the Console space (health, device, update) moved from the earlier digest,
-# by the System cell and the Audit log sheet row of the console tab bar; every personal page is byte-identical.
+# The digest of the personal pages and the Update page. The Health and Device pages were removed, so
+# their two shells left the list; every remaining shell is byte-identical to before the removal.
 _SHELL_BASELINE_DIGEST = (
-    "151c595b91e13534ac4b5143eed5d3fcc6e8ab9edf51de88cadb928e6816c678")
+    "d1a42f48d29cb061d9678c64811bcf04242927ff7c1b3115e1c0cb02d2008ee9")
 
 
 def test_shell_without_a_principal_is_byte_identical_to_before():
@@ -357,8 +357,7 @@ def test_shell_without_a_principal_is_byte_identical_to_before():
     for lang in ("en", "fr"):
         prefs.set_request_prefs(lang)
         for active in (
-                "home", "display", "flights", "airlines", "health", "device",
-                "update", ""):
+                "home", "display", "flights", "airlines", "update", ""):
             for device_config in (None, {"a": 1}):
                 for alert in (None, "warn"):
                     html = layout.page_shell(

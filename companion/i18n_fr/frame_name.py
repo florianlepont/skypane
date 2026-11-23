@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""French strings for the Rename frame page. The source-side Message for
+"""French strings for the Rename frame dialog. The source-side Message for
 each id is declared in companion/pages/frame_name_page.py."""
 
 MESSAGES = {
@@ -10,7 +10,6 @@ MESSAGES = {
     "frame_name.error": "Saisissez un nom de 1 à 40 caractères.",
     "frame_name.failed":
         "Le nom n’a pas pu être enregistré. Réessayez dans un instant.",
-    "frame_name.back": "Retour",
     "frame_name.action": "Renommer",
     "frame_name.action_aria": "Renommer %s",
 }
