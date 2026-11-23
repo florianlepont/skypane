@@ -600,6 +600,31 @@ def classify_aircraft_type(icao_type):
 _TYPE_VARIANT_SLUGS = {"A35K": "a350-1000"}
 
 
+def type_artwork_keys(airline_key, code):
+    """The artwork keys an airline's picture of the aircraft type `code` can
+    be stored under: the type's variant or shape slot (`{airline}-{slug}`),
+    and the lower-cased designator itself, the slot of a curated picture named
+    after its designator (ATR72, A330). Empty for an unsafe key or code."""
+    designator = _designator(code)
+    if not airline_key or not designator or _UNSAFE_KEY_RE.search(airline_key):
+        return []
+    slugs = [_TYPE_VARIANT_SLUGS.get(designator) or classify_aircraft_type(designator),
+             re.sub(r"[^a-z0-9-]", "", designator.lower())]
+    keys = []
+    for slug in slugs:
+        if slug and "%s-%s" % (airline_key, slug) not in keys:
+            keys.append("%s-%s" % (airline_key, slug))
+    return keys
+
+
+def has_type_livery(airline_key, code, state_dir=None):
+    """Whether an artwork exists (built in or an owner's upload) for the
+    airline's picture of the aircraft type `code`. Never raises."""
+    return any(
+        resolved_illustration_path(key, state_dir) is not None
+        for key in type_artwork_keys(airline_key, code))
+
+
 def _designator(icao_type):
     return icao_type.strip().upper() if isinstance(icao_type, str) else ""
 

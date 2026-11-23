@@ -332,6 +332,7 @@ def test_deleting_artwork_of_an_unknown_key_changes_nothing(rig, key):
 
 def test_the_default_type_is_stored_cleared_validated_and_audited(rig):
     route = rig.frame + "/airlines/default-type"
+    _override(rig, "air-france-a320")
     status, headers, _b = rig.post("admin", route, {"airline_key": "air-france", "type": "a320"})
     assert (status, _query(headers)[1]["flash"]) == (303, ["airline_default_type_saved"])
     assert airline_default_types.load_default_types(rig.owned_dir) == {"air-france": "A320"}
@@ -341,6 +342,54 @@ def test_the_default_type_is_stored_cleared_validated_and_audited(rig):
         rig.post("admin", route, form)
         assert airline_default_types.load_default_types(rig.owned_dir) == {}
     assert _audit_actions(rig).count("airline.default_type") == 2
+
+
+def _default_type_flash(rig, key, code):
+    status, headers, _b = rig.post(
+        "admin", rig.frame + "/airlines/default-type", {"airline_key": key, "type": code})
+    assert status == 303
+    return _query(headers)[1]["flash"]
+
+
+def test_a_type_without_a_picture_is_refused_as_default_and_nothing_is_written(rig):
+    before = rig.stored()
+    assert _default_type_flash(rig, "air-france", "A320") == ["airline_default_type_failed"]
+    assert _default_type_flash(rig, "air-france", "B738") == ["airline_default_type_failed"]
+    assert airline_default_types.load_default_types(rig.owned_dir) == {}
+    assert rig.stored() == before
+    assert "airline.default_type" not in _audit_actions(rig)
+
+
+def test_a_type_with_a_built_in_or_uploaded_picture_can_be_the_default(rig):
+    # The built-in Transavia France A320 picture needs no upload.
+    assert _default_type_flash(rig, "transavia-france", "A320") == ["airline_default_type_saved"]
+    _override(rig, "air-france-b737")
+    assert _default_type_flash(rig, "air-france", "B738") == ["airline_default_type_saved"]
+    assert airline_default_types.load_default_types(rig.owned_dir) == {
+        "transavia-france": "A320", "air-france": "B738"}
+
+
+def test_clearing_the_default_stays_allowed_without_a_picture(rig):
+    airline_default_types.set_default_type(rig.owned_dir, "air-france", "A320")
+    assert _default_type_flash(rig, "air-france", "") == ["airline_default_type_saved"]
+    assert airline_default_types.load_default_types(rig.owned_dir) == {}
+
+
+def test_deleting_the_picture_of_the_default_type_clears_the_default(rig):
+    _override(rig, "air-france-a320")
+    _override(rig, "air-france-b737")
+    _default_type_flash(rig, "air-france", "A320")
+    rig.post("admin", rig.frame + "/airlines/artwork/delete", {"key": "air-france-b737"})
+    assert airline_default_types.load_default_types(rig.owned_dir) == {"air-france": "A320"}
+    rig.post("admin", rig.frame + "/airlines/artwork/delete", {"key": "air-france-a320"})
+    assert airline_default_types.load_default_types(rig.owned_dir) == {}
+
+
+def test_deleting_an_upload_keeps_the_default_while_a_built_in_picture_remains(rig):
+    assert _default_type_flash(rig, "transavia-france", "A320") == ["airline_default_type_saved"]
+    _override(rig, "transavia-france-a320")
+    rig.post("admin", rig.frame + "/airlines/artwork/delete", {"key": "transavia-france-a320"})
+    assert airline_default_types.load_default_types(rig.owned_dir) == {"transavia-france": "A320"}
 
 
 @pytest.mark.parametrize("who", ("owner", "co", "anonymous"))

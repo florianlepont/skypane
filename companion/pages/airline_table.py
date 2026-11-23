@@ -336,10 +336,11 @@ def _sub_action_html(page, sub):
 
 
 def _sub_menu_html(page, sub, row):
-    """The type's menu: set (or clear) it as the airline's default type, and
-    delete the uploaded picture, which only exists as an owner's upload."""
+    """The type's menu: set it as the airline's default type (only a type with
+    a picture of its own for this airline), clear it when it is the default,
+    and delete the uploaded picture, which only exists as an owner's upload."""
     items = ""
-    if sub["code_ok"]:
+    if sub["code_ok"] and (sub["is_default"] or sub["has_livery"]):
         items += _post_form(
             airline_sheet.DEFAULT_TYPE_ROUTE,
             (("airline_key", row["key"]), ("type", "" if sub["is_default"] else sub["code_ok"])),
@@ -408,6 +409,8 @@ def _sub_rows(page, entry, builtin_name, shapes, row):
         sub.update(
             has_builtin=has_builtin, has_override=has_override,
             has_own=has_builtin or has_override, code_ok=code_ok,
+            has_livery=has_builtin or has_override or (
+                bool(code_ok) and illustrations.has_type_livery(key, code_ok, row["state_dir"])),
             is_default=bool(code_ok) and code_ok == row["default_type"])
     return subs
 
