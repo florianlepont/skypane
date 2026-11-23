@@ -726,8 +726,8 @@ def test_battery_row_is_followed_by_content_not_a_range_caption(tmp_path):
     body = _row_html(rendered, "battery")
     assert "section-caption" not in body, "expected no caption paragraph inside the battery row"
     assert body.index(health_page.BATTERY_READOUT_ID) < body.index(
-        '<details class="readings-disclosure battery-readings"'), (
-        "expected the readout to precede the readings disclosure")
+        '<section class="battery-readings"'), (
+        "expected the readout to precede the readings table")
 
 
 def test_battery_row_name_is_the_bare_subject_in_both_languages(tmp_path):
@@ -774,7 +774,7 @@ def test_battery_row_names_its_series_honestly_in_any_of_three_branches(tmp_path
             assert (wording in body) == (wording == expected), (
                 "%s branch: expected the caption %r only" % (branch, expected))
     sameday_body = _row_html(health_page_composition.render(shp.ctx(sameday_dir, now_value=shp.iso(base))), "battery")
-    assert "View %d readings" % len(sameday_readings) in sameday_body, (
+    assert "Readings (%d)" % len(sameday_readings) in sameday_body, (
         "sameday branch: expected the disclosure to name the real reading count")
 
 

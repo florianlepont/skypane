@@ -118,9 +118,7 @@ def health_row_state(rendered, row_id):
     """The `data-state` of one Health row. A row is always open: it has no
     `<details>` or `<summary>` to carry an open state."""
     row = health_row(rendered, row_id)
-    assert not [d for d in row.select("details")
-                if "readings-disclosure" not in d.attrs.get("class", "")], (
-        "a Health row is not collapsible")
+    assert not row.select("details"), "a Health row is not collapsible"
     assert not row.select(".health-row__summary summary"), "a Health row head has no toggle"
     return row.attrs["data-state"]
 

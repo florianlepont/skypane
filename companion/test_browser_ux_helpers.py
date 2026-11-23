@@ -224,11 +224,10 @@ def _no_js_page(make_context, base_url, route, viewport=None, sign_in=True,
 
 
 def _assert_health_rows_flat(page):
-    """Every Health row is flat and always open: no `<details>` or `<summary>` carries a row (the
-    readings disclosure under the battery curve is the only one on the page), no chevron is drawn
-    on a row head, and every row body is visible without a tap or a script."""
-    assert page.locator("main .health-row details:not(.readings-disclosure), "
-                        "main .health-row > summary").count() == 0
+    """Every Health row is flat and always open: no `<details>` or `<summary>` carries a row, no
+    chevron is drawn on a row head, and every row body (the readings table included) is visible
+    without a tap or a script."""
+    assert page.locator("main .health-row details, main .health-row > summary").count() == 0
     assert page.locator(".health-row__summary").count() > 0
     assert page.evaluate(
         "() => [...document.querySelectorAll('.health-row__summary')].every(s => {"

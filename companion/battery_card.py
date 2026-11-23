@@ -2,8 +2,8 @@
 
 A gauge with the level as its hero and the voltage beside it, one
 status pill for the verdict, one "last reading" line, the trend chart
-under a Percentage/Voltage switch, and the readings table behind a
-full-width disclosure row. The chart itself is companion/battery_chart.py.
+under a Percentage/Voltage switch, and the readings table shown open
+below the chart. The chart itself is companion/battery_chart.py.
 
 Page-independent: the Health page module passes in the verdict (state
 and words) and the series, and nothing here imports a page module. The
@@ -32,7 +32,7 @@ _EMPTY_TITLE_TEXT = i18n.msg(
     "health.battery_chart_empty", "Not enough readings for a curve yet")
 _EMPTY_BODY_TEMPLATE = i18n.msg(
     "health.battery_chart_empty_body", "A curve appears from %d readings. %d so far.")
-_VIEW_READING_TEMPLATE = i18n.msg("health.view_reading", "View %d reading%s")
+_READINGS_HEADING_TEMPLATE = i18n.msg("health.battery_readings_heading", "Readings (%d)")
 
 _STATE_ICON = {"ok": "icon-check", "warn": "icon-warning", "error": "icon-toast-error"}
 
@@ -110,7 +110,7 @@ def _chart_block_html(plot_rows, daily, caption, reading_count, now, curve, late
 
 def _readings_html(trend_rows, now, curve):
     """The readings table (Time, Voltage, Level; the level is the shared
-    estimate of the voltage) behind a disclosure row. The newest row is
+    estimate of the voltage), shown open under the chart. The newest row is
     emphasised and tagged."""
     body_rows = []
     for index, row in enumerate(trend_rows):
@@ -128,12 +128,10 @@ def _readings_html(trend_rows, now, curve):
         [i18n.t(_TIME_COLUMN_TEXT), i18n.t(battery_chart.BATTERY_UNIT_MV_LABEL),
          i18n.t(_LEVEL_COLUMN_TEXT)],
         body_rows, mono_columns=(1, 2), raw_columns=(0,), modifier="readings")
-    count = len(trend_rows)
     return (
-        '<details class="readings-disclosure battery-readings"><summary><span>%s</span>%s'
-        "</summary>%s</details>"
-    ) % (escape_html(i18n.t(_VIEW_READING_TEMPLATE) % (count, "" if count == 1 else "s")),
-         layout.icon_html("icon-chevron-right", size=20), table)
+        '<section class="battery-readings" aria-labelledby="battery-readings-title">'
+        '<h3 class="battery-readings__title" id="battery-readings-title">%s</h3>%s</section>'
+    ) % (escape_html(i18n.t(_READINGS_HEADING_TEMPLATE) % len(trend_rows)), table)
 
 
 def body_html(trend_rows, plot_rows, daily, caption, reading_count, latest, now,

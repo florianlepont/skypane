@@ -212,7 +212,7 @@ def test_the_level_is_stated_once_and_the_voltage_beside_it(tmp_path):
 def test_the_readings_table_has_time_voltage_and_level_columns(tmp_path):
     values = [3990, 3985, 3980, 3975]
     _rendered, doc, row = _render(tmp_path, _readings(values))
-    table = row.select_one("details.battery-readings table")
+    table = row.select_one("section.battery-readings table")
     assert [th.text() for th in table.find_all("th")] == ["Time", "Voltage", "Level"]
     body = table.find_all("tr")[1:]
     assert len(body) == len(values)
@@ -220,8 +220,8 @@ def test_the_readings_table_has_time_voltage_and_level_columns(tmp_path):
         cells = [td.text() for td in tr.find_all("td")]
         assert cells[1] == "%d mV" % mv and cells[2] == "%d%%" % battery.percent(mv), cells
     assert "Latest" in body[0].text() and "Latest" not in body[1].text()
-    assert row.select_one("details.battery-readings summary").text().strip() == "View 4 readings"
-    assert "open" not in row.select_one("details.battery-readings").attrs
+    assert row.select_one("section.battery-readings h3").text().strip() == "Readings (4)"
+    assert not row.select("details.battery-readings"), "the readings are shown, not folded"
 
 
 def test_a_normal_level_says_so_with_an_icon_and_words(tmp_path):
@@ -255,7 +255,7 @@ def test_one_reading_says_a_curve_needs_more_and_keeps_every_other_datum(tmp_pat
     assert "Not enough readings for a curve yet" in note.text()
     assert "A curve appears from 2 readings. 1 so far." in note.text()
     assert row.select_one(".battery-gauge") is not None and row.select_one(".battery-volt") is not None
-    assert row.select_one("details.battery-readings") is not None
+    assert row.select_one("section.battery-readings") is not None
     assert not doc.find_all("svg", cls="sparkline__canvas")
     assert "battery-trend.js" not in rendered, "no chart, no script"
 

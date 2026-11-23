@@ -176,12 +176,15 @@ frame). Console label "Airline editor", bar label "Editor".
   - **Firmware** tile: the running version in mono and the update headline; links to Versions.
   The tiles' state is spelled out, never colour alone.
 - **Battery page** (`?frame=<id>&view=battery`, administrators only): a Back link to the frame and
-  the one `h1` "Battery". The row has a 270 degree gauge with the percentage as the hero and a tick
+  the one `h1` "Battery". The card has a 270 degree gauge with the percentage as the hero and a tick
   at 20%, a status pill with the verdict ("Level looks normal", "Level is low"), the voltage once,
   one "Last reading" line, a Percentage / Voltage segmented switch (two 44px radios, arrow keys),
   a chart (90-day daily averages, y-range fitted to the data, end marker, the low-battery line only
-  when the data comes near it, otherwise a caption) and a disclosure row "View N readings" with a
-  table. Too few readings shows a dashed note and keeps the gauge. This page replaced the Health
+  when the data comes near it, otherwise a caption) and the readings table shown open under it
+  with a "Readings (N)" heading (Time, Voltage, Level; the latest row tagged), never behind a
+  toggle. The page takes the whole page column: from 720px of card width the gauge and the facts
+  (pill, voltage, last reading) share one header row, from 960px the chart is 360px tall (about
+  190px on a phone). Too few readings shows a dashed note and keeps the gauge. This page replaced the Health
   view: `/health`, `/devices/<id>/health` and `/fleet?view=health` answer a 303 to the frame's
   Battery page (the System page when no frame). The user's own Home battery pill is separate.
 - **Versions page** (`?frame=<id>&view=versions`): the Update panel. One card per state (up to

@@ -145,7 +145,7 @@ def test_the_battery_page_holds_only_the_battery(fleet):
     assert "Server &amp; data" not in page and "Visible to administrators" not in page
     assert "health-anomaly" not in page
     # The battery row keeps its readout, chart and readings table.
-    assert 'class="battery-readout' in page and "battery-unit" in page and "readings-disclosure" in page
+    assert 'class="battery-readout' in page and "battery-unit" in page and "battery-readings" in page and "readings-disclosure" not in page
     # The list column is not part of this page, and the overview tiles are not either.
     assert "fleet-list" not in page and "fleet-tile" not in page
 

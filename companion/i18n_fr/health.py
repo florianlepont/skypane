@@ -155,7 +155,7 @@ MESSAGES = {
         "Batterie faible\u00a0: %d mV (\u2248 %d\u00a0%%), sous la plage affichée",
     "health.low_battery_off_range_pct":
         "Batterie faible\u00a0: %d\u00a0%%, sous la plage affichée",
-    "health.view_reading": "Voir %d relevé%s",
+    "health.battery_readings_heading": "Relevés (%d)",
 
     # --- Health rows (companion/health_rows.py, health_page.py) ----------
     # The four state words are spoken, never shown: each row's icon shape

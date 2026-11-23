@@ -974,29 +974,6 @@ def test_the_flights_table_columns_do_not_depend_on_the_rows_that_arrive(
         context.close()
 
 
-def test_a_disclosure_row_fades_its_content_in_when_it_opens(new_context, server):
-    """what a row disclosure reveals (the readings list) arrives with the
-    short fade instead of appearing in one frame"""
-    context = _admin_context(new_context, server, {"width": 390, "height": 844},
-                             reduced_motion="no-preference")
-    try:
-        page = context.new_page()
-        # The Health page's rows are always open; its readings list is closed until opened.
-        for path, sel in (("/health", "details.readings-disclosure:not([open])"),):
-            _open(page, server, path)
-            page.wait_for_function(_SETTLED_PAGE, timeout=10000)
-            first = page.evaluate("""(sel) => {
-              const d = document.querySelector(sel);
-              if (!d) return [sel, 'missing', 1];
-              d.open = true;
-              const body = d.querySelector(':scope > :not(summary)');
-              return [sel, getComputedStyle(body).animationName,
-                      parseFloat(getComputedStyle(body).opacity)]; }""", sel)
-            assert first[1] == "skypane-fade-in" and first[2] < 0.5, first
-    finally:
-        context.close()
-
-
 def test_the_administrators_not_found_page_keeps_the_console_navigation_on_a_desktop(
         new_context, server):
     """with no frame in scope the Console is the administrator's only space: the sidebar lists

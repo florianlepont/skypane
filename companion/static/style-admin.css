@@ -958,26 +958,12 @@ div.update-item__summary {
   border-top: 1px solid var(--color-border);
 }
 
-.battery-readings > summary {
-  justify-content: space-between;
-  min-height: 52px;
-  padding: 0 var(--space-md);
+.battery-readings__title {
+  margin: 0;
+  padding: var(--space-md) var(--space-md) var(--space-sm);
   color: var(--color-text);
-  font-size: var(--font-label-size);
+  font-size: var(--font-card-title-size);
   font-weight: var(--weight-semibold);
-}
-
-.battery-readings > summary::before {
-  content: none;
-}
-
-.battery-readings > summary .icon {
-  flex: none;
-  transition: transform var(--motion-fast) ease;
-}
-
-.battery-readings[open] > summary .icon {
-  transform: rotate(90deg);
 }
 
 .battery-readings .data-table th,
@@ -1003,6 +989,58 @@ div.update-item__summary {
   font-size: 12px;
   font-weight: var(--weight-semibold);
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* A wide card (the Battery page on a desktop): the gauge and the facts share
+ * one header row across the card, the chart is taller, and the readings
+ * table runs the full width under it. */
+@container health-rows (min-width: 720px) {
+  .battery-hero {
+    gap: var(--space-xl);
+    padding: var(--space-md) var(--space-lg);
+  }
+
+  .battery-facts {
+    flex: 1 1 auto;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-sm) var(--space-xl);
+  }
+
+  .battery-last {
+    margin-left: auto;
+  }
+}
+
+@media (min-width: 960px) {
+  .battery-trend-section .battery-chart svg:not(.icon) {
+    height: 360px;
+  }
+}
+
+/* The narrowest phones: the readings table gives up its edge padding so Time
+ * (with the Latest tag), Voltage and Level still fit the card. */
+@container health-rows (max-width: 300px) {
+  .battery-readings .data-table th,
+  .battery-readings .data-table td {
+    padding-inline: var(--space-xs);
+  }
+
+  .battery-readings .data-table th:first-child,
+  .battery-readings .data-table td:first-child {
+    padding-left: var(--space-sm);
+  }
+
+  .battery-readings .data-table th:last-child,
+  .battery-readings .data-table td:last-child {
+    padding-right: var(--space-sm);
+  }
+
+  .battery-latest {
+    margin-left: var(--space-xs);
+    padding: 0 var(--space-xs);
+  }
 }
 
 /* A narrow card: a smaller gauge, and the switch fills the row. The
@@ -2590,6 +2628,11 @@ a.fleet-action-button {
     padding:
       var(--space-2xl) var(--space-2xl)
       calc(var(--space-2xl) + var(--save-bar-h) + var(--space-lg)) var(--space-xl);
+  }
+
+  /* The Battery page is a dedicated page: it takes the whole page column. */
+  .fleet-split__main:has(.fleet-blocks--detail) {
+    max-width: none;
   }
 
   /* The unsaved-changes bar docks under the frame column, clear of the list. */

@@ -325,9 +325,9 @@ def test_health_keeps_status_primary_and_explains_details_on_request(tmp_path, l
     for explanation in explanations:
         assert explanation in sources.text()
         assert explanation not in sources.select_one(".sys-card__head").text()
-    assert "readings-disclosure" in _battery_row_html(rendered), (
-        "the raw-readings action stays available inside the Battery row, closed by default")
-    assert "readings-disclosure\" open" not in rendered
+    assert 'class="battery-readings"' in _battery_row_html(rendered), (
+        "the raw readings are shown inside the Battery row, open")
+    assert "readings-disclosure" not in rendered
     assert "page-section--warn" not in rendered
 
 

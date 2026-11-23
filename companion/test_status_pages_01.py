@@ -325,8 +325,8 @@ def test_battery_trend_timestamps_show_concise_format(tmp_path):
     assert " ago)" in rendered
 
 
-def test_battery_readings_collapsed_behind_closed_disclosure_after_chart(tmp_path):
-    """the readings table is collapsed behind a closed-by-default disclosure row, and
+def test_battery_readings_are_shown_open_after_chart(tmp_path):
+    """the readings table is shown open under its heading, and
     the chart precedes it"""
     base = shp.now()
     readings = [
@@ -336,14 +336,12 @@ def test_battery_readings_collapsed_behind_closed_disclosure_after_chart(tmp_pat
     ]
     shp.seed_device_health(str(tmp_path), readings)
     rendered = health_page_composition.render(shp.ctx(str(tmp_path), now_value=shp.iso(base)))
-    assert '<details class="readings-disclosure battery-readings"' in rendered
-    details_tag = rendered[rendered.index('<details class="readings-disclosure battery-readings"'):]
-    details_open_tag = details_tag[:details_tag.index(">") + 1]
-    assert " open" not in details_open_tag, "expected the readings disclosure to be closed by default"
-    assert "View 3 readings" in rendered, "expected the disclosure summary to name the real plotted-row count"
+    assert '<section class="battery-readings"' in rendered
+    assert "readings-disclosure" not in rendered, "expected the readings to be shown, not folded"
+    assert "Readings (3)" in rendered, "expected the heading to name the real plotted-row count"
     svg_index = rendered.index("<svg")
-    details_index = rendered.index('<details class="readings-disclosure battery-readings"')
-    assert svg_index < details_index, "expected the chart to precede the collapsed readings table"
+    section_index = rendered.index('<section class="battery-readings"')
+    assert svg_index < section_index, "expected the chart to precede the readings table"
 
 
 def test_battery_trend_heading_names_only_the_subject(tmp_path):
@@ -401,7 +399,7 @@ def test_battery_chart_falls_back_to_raw_series_on_day_one(tmp_path):
     assert len(lines) == 2, "a same-day device must still get its raw-readings chart, got %d segments" % len(lines)
     assert health_page.BATTERY_READOUT_ID in rendered, (
         "the readout must not disappear on a device younger than two calendar days")
-    assert ("View %d readings" % len(readings)) in rendered, (
+    assert ("Readings (%d)" % len(readings)) in rendered, (
         "the readings disclosure must name the real reading count")
     assert doc.find("span", cls="battery-chart__caption").text() == "Latest %d readings" % len(readings), (
         "the caption must name the series the chart is actually showing")
@@ -484,7 +482,7 @@ def test_battery_caption_is_mode_honest_across_renders(tmp_path):
     shp.seed_device_health(str(sameday_dir), sameday_readings)
     sameday_rendered = health_page_composition.render(shp.ctx(str(sameday_dir), now_value=shp.iso(base)))
     assert ("Latest %d readings" % len(sameday_readings)) in sameday_rendered
-    assert ("View %d readings" % len(sameday_readings)) in sameday_rendered, (
+    assert ("Readings (%d)" % len(sameday_readings)) in sameday_rendered, (
         "expected the readings disclosure to name the real count on the same-day fallback")
     assert "Last 3 months" not in sameday_rendered, (
         "the same-day fallback must not claim the 3-month framing")
