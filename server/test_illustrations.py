@@ -859,3 +859,71 @@ def test_override_dir_is_shared_by_the_live_frame_and_every_device_frame(tmp_pat
     assert ill.override_dir_for_state_dir(None) is None
     assert ill.override_path_for_key("../x", str(frame)) is None
     assert not os.path.exists(shared)
+
+
+# --- the airline's default aircraft type (tier 2b) --------------------------
+
+def _default(state_dir, entries):
+    path = os.path.join(str(state_dir), "airline_default_types.json")
+    with open(path, "w") as fh:
+        fh.write(entries if isinstance(entries, str) else __import__("json").dumps(entries))
+    return path
+
+
+def _pick(tmp_path, aircraft_type, airline="Acme Air"):
+    path = ill.select_illustration({"airline_name": airline}, aircraft_type, str(tmp_path / "state"))
+    return os.path.basename(path) if path else None
+
+
+def _tier_rig(tmp_path, monkeypatch, files):
+    monkeypatch.setattr(ill, "ILLUSTRATION_DIR", str(tmp_path / "art"))
+    (tmp_path / "art").mkdir()
+    (tmp_path / "state").mkdir()
+    for name in files:
+        _make_fixture_png(tmp_path / "art" / name)
+
+
+def test_default_type_picture_is_used_when_the_exact_type_and_the_airline_have_none(tmp_path, monkeypatch):
+    _tier_rig(tmp_path, monkeypatch, ["acme-air-a320.png", "generic-b737.png", ill.GENERIC_FALLBACK_FILENAME])
+    assert _pick(tmp_path, "B738") == "generic-b737.png"
+    _default(tmp_path / "state", {"acme-air": "A320"})
+    assert _pick(tmp_path, "B738") == "acme-air-a320.png"
+
+
+def test_tier_order_exact_type_then_airline_then_default_then_generic(tmp_path, monkeypatch):
+    _tier_rig(tmp_path, monkeypatch, [
+        "acme-air-a320.png", "acme-air-b737.png", "generic-b737.png", ill.GENERIC_FALLBACK_FILENAME])
+    _default(tmp_path / "state", {"acme-air": "A320"})
+    assert _pick(tmp_path, "B738") == "acme-air-b737.png"          # exact type
+    (tmp_path / "art" / "acme-air-b737.png").unlink()
+    assert _pick(tmp_path, "B738") == "acme-air-a320.png"          # default type
+    _make_fixture_png(tmp_path / "art" / "acme-air.png")
+    assert _pick(tmp_path, "B738") == "acme-air.png"               # the airline's own picture
+    (tmp_path / "art" / "acme-air.png").unlink()
+    (tmp_path / "art" / "acme-air-a320.png").unlink()
+    assert _pick(tmp_path, "B738") == "generic-b737.png"           # generic by shape
+    assert _pick(tmp_path, "ZZZZ") == ill.GENERIC_FALLBACK_FILENAME  # universal
+
+
+def test_a_default_whose_picture_is_gone_falls_through(tmp_path, monkeypatch):
+    _tier_rig(tmp_path, monkeypatch, ["generic-b737.png", ill.GENERIC_FALLBACK_FILENAME])
+    _default(tmp_path / "state", {"acme-air": "A320"})
+    assert _pick(tmp_path, "B738") == "generic-b737.png"
+
+
+def test_an_unreadable_or_invalid_default_file_changes_nothing(tmp_path, monkeypatch):
+    _tier_rig(tmp_path, monkeypatch, ["acme-air-a320.png", "generic-b737.png"])
+    for content in ("not json", "[1, 2]", '{"acme-air": 7}', '{"../x": "A320"}'):
+        _default(tmp_path / "state", content)
+        assert _pick(tmp_path, "B738") == "generic-b737.png", content
+    os.unlink(os.path.join(str(tmp_path / "state"), "airline_default_types.json"))
+    assert _pick(tmp_path, "B738") == "generic-b737.png"
+
+
+def test_a_changed_default_file_is_read_again(tmp_path, monkeypatch):
+    _tier_rig(tmp_path, monkeypatch, ["acme-air-a320.png", "acme-air-b737.png"])
+    path = _default(tmp_path / "state", {"acme-air": "A320"})
+    assert _pick(tmp_path, "E190") == "acme-air-a320.png"
+    _default(tmp_path / "state", {"acme-air": "B738"})
+    os.utime(path, (1, 2_000_000_000))
+    assert _pick(tmp_path, "E190") == "acme-air-b737.png"

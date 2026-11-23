@@ -57,9 +57,10 @@ MENU_CHANGE_ART = i18n.msg("airlines.change_artwork", "Change artwork")
 STATE_OWN = i18n.msg("airlines.state_own_artwork", "Own artwork")
 ACTION_ADD_ART = i18n.msg("airlines.add_artwork", "Add artwork")
 MENU_DELETE_ART = i18n.msg("airlines.menu_delete_artwork", "Delete the artwork")
-MENU_SET_DEFAULT_TYPE = i18n.msg("airlines.menu_set_default_type", "Set as default type")
+MENU_SET_DEFAULT_TYPE = i18n.msg(
+    "airlines.menu_set_default_type", "Use as the airline's default picture")
 MENU_CLEAR_DEFAULT_TYPE = i18n.msg(
-    "airlines.menu_clear_default_type", "Remove as the default type")
+    "airlines.menu_clear_default_type", "Stop using as the airline's default picture")
 DEFAULT_TYPE_PILL = i18n.msg("airlines.default_type_pill", "Default type")
 VIEWS_ONE = i18n.msg("airlines.views_one", "1 view")
 VIEWS_MANY = i18n.msg("airlines.views_many", "%d views")

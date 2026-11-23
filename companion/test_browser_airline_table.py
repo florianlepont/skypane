@@ -698,7 +698,7 @@ def test_the_type_menu_sets_the_default_type_and_deletes_only_an_uploaded_pictur
         _expand_transavia(page)
         page.locator(B738_ROW + " .row-menu__toggle").click()
         items.first.wait_for(state="visible")
-        assert items.all_inner_texts() == ["Set as default type", "Delete the artwork"]
+        assert items.all_inner_texts() == ["Use as the airline's default picture", "Delete the artwork"]
         with page.expect_navigation():
             items.nth(0).click()
         page.wait_for_function(_SETTLED, timeout=15000)
@@ -713,7 +713,7 @@ def test_the_type_menu_sets_the_default_type_and_deletes_only_an_uploaded_pictur
             "src").startswith("/illustration/transavia-france-b737.png")
         page.locator(B738_ROW + " .row-menu__toggle").click()
         items.first.wait_for(state="visible")
-        assert items.all_inner_texts() == ["Remove as the default type", "Delete the artwork"]
+        assert items.all_inner_texts() == ["Stop using as the airline's default picture", "Delete the artwork"]
         with page.expect_navigation():
             items.nth(1).click()
         page.wait_for_function(_SETTLED, timeout=15000)
@@ -728,8 +728,8 @@ def test_the_type_menu_sets_the_default_type_and_deletes_only_an_uploaded_pictur
         context.close()
 
 
-@pytest.mark.parametrize("lang,set_label", (("en", "Set as default type"),
-                                              ("fr", "Définir comme type par défaut")))
+@pytest.mark.parametrize("lang,set_label", (("en", "Use as the airline's default picture"),
+                                              ("fr", "Utiliser comme image par défaut de la compagnie")))
 @pytest.mark.parametrize("name,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
 def test_only_a_type_with_a_picture_offers_to_be_the_default(
         new_context, make_app_server, name, viewport, lang, set_label):
