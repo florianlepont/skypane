@@ -159,8 +159,10 @@ def test_the_system_view_shows_the_platform_wide_blocks(fleet):
     # One glass group per topic: flight data, sources, identification and the two route topics.
     assert _blocks(page) == [
         "Flight data", "Data sources", "Identification", "Route directories", "Answered by"]
-    assert not [h for h, mark in _tiles(page) if mark]
-    assert '<h1 class="fleet-head__title">System</h1>' in page
+    assert '<h1 class="page-title">System</h1>' in page
+    # System is a page of its own: no frames list, no frame switch, no Add button.
+    for absent in ("fleet-split", "fleet-list", "fleet-switch", "fleet-add-button"):
+        assert absent not in page, absent
 
 
 def test_the_console_navigation_no_longer_lists_status_version_or_device(fleet):

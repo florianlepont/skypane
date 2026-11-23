@@ -7462,22 +7462,6 @@ button.row-menu__item {
   .dashboard-main[data-page-open] .fleet-split__main > .fleet-other > .group-block {
     --reveal-index: 2;
   }
-
-  .dashboard-main[data-page-open] .fleet-split .fleet-tiles--system {
-    --reveal-index: 2;
-  }
-
-  .dashboard-main[data-page-open] .fleet-split .fleet-blocks--system .group-block:nth-child(1) {
-    --reveal-index: 3;
-  }
-
-  .dashboard-main[data-page-open] .fleet-split .fleet-blocks--system .group-block:nth-child(2) {
-    --reveal-index: 4;
-  }
-
-  .dashboard-main[data-page-open] .fleet-split .fleet-blocks--system .group-block:nth-child(n + 3) {
-    --reveal-index: 5;
-  }
 }
 
 /* From 960px the tabs are gone and every block shows, one after another

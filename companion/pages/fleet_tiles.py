@@ -6,6 +6,9 @@ the whole story (Battery, or Versions for the firmware).
 Pure markup built from `health_page.FrameTiles` and `update_page.FirmwareSummary`.
 Every dynamic part is escaped; the sparkline carries numbers only.
 """
+import html
+import re
+
 from companion import i18n
 from companion.ui_base import escape_html, icon_html
 
@@ -48,15 +51,24 @@ def _spark_html(percents):
         % (_SPARK_WIDTH, _SPARK_HEIGHT, points))
 
 
-def _tile(href, state, icon_id, label, value_html, meta_html, extra_html=""):
+def _tile(href, state, icon_id, label, value_html, meta_html, extra_html="", compact=False):
     """One tile: a link with a Details mark when `href` is given, else a plain
-    block (the connection tile, which holds its whole story)."""
+    block (the connection tile, which holds its whole story). A `compact` tile
+    carries the mark as a chevron at the end of its label row and gives its
+    muted line a plain-text `title`."""
     from companion import health_rows
     state = health_rows.resolved_state(state)
-    more = (
-        '<span class="fleet-tile__more">%s%s</span>' % (
-            escape_html(i18n.t(_DETAILS)), icon_html("icon-chevron-right", 16))
-        if href else "")
+    details = escape_html(i18n.t(_DETAILS))
+    more = chevron = title = ""
+    if href and compact:
+        chevron = (
+            '<span class="fleet-tile__chevron">%s<span class="visually-hidden">%s</span></span>'
+            % (icon_html("icon-chevron-right", 16), details))
+        text = " ".join(html.unescape(re.sub(r"<[^>]*>", " ", meta_html)).split())
+        title = ' title="%s"' % escape_html(text) if text else ""
+    elif href:
+        more = '<span class="fleet-tile__more">%s%s</span>' % (
+            details, icon_html("icon-chevron-right", 16))
     opening = (
         '<a class="fleet-tile" data-state="%s" href="%s">' % (state, href) if href
         else '<div class="fleet-tile" data-state="%s">' % state)
@@ -64,12 +76,13 @@ def _tile(href, state, icon_id, label, value_html, meta_html, extra_html=""):
         '<li>%s'
         '<span class="fleet-tile__head"><span class="fleet-tile__icon">%s'
         '<span class="visually-hidden">%s</span></span>'
-        '<span class="fleet-tile__label">%s</span></span>'
+        '<span class="fleet-tile__label">%s</span>%s</span>'
         '<span class="fleet-tile__value">%s</span>'
-        '<span class="fleet-tile__meta">%s</span>%s%s%s</li>' % (
+        '<span class="fleet-tile__meta"%s>%s</span>%s%s%s</li>' % (
             opening, icon_html(icon_id, 20),
             escape_html(i18n.t(health_rows.STATE_WORDS[state])), escape_html(label),
-            value_html, meta_html, extra_html, more, "</a>" if href else "</div>"))
+            chevron, value_html, title, meta_html, extra_html, more,
+            "</a>" if href else "</div>"))
 
 
 def tiles_section_html(frame_id, tiles, firmware):
@@ -118,6 +131,6 @@ def system_tiles_html(tiles):
     never colour alone."""
     cells = "".join(
         _tile("#" + SYSTEM_BLOCK_ID_PREFIX + tile.key, tile.state, tile.icon, tile.label,
-              escape_html(tile.value), tile.meta_html)
+              escape_html(tile.value), tile.meta_html, compact=True)
         for tile in tiles)
     return '<ul class="fleet-tiles fleet-tiles--system">%s</ul>' % cells

@@ -2755,6 +2755,7 @@ a.fleet-action-button {
  * topic needs attention (the word and the headline say it too). A tile jumps
  * to its block, which stops below the app bar. */
 .fleet-tiles--system {
+  gap: var(--space-sm);
   margin: var(--space-md) 0;
 }
 
@@ -2764,6 +2765,67 @@ a.fleet-action-button {
 
 .fleet-tiles--system .fleet-tile[data-state="error"] {
   border-color: var(--color-status-error);
+}
+
+/* Compact: one label row (icon, label, chevron), the headline and one muted
+ * line. Two columns on a phone, three from 960px. The headline keeps its whole
+ * state word (it wraps rather than being cut); the muted line is one line and
+ * its full text is the tile's title. */
+.fleet-tiles--system .fleet-tile {
+  gap: 2px;
+  min-height: 44px;
+  padding: var(--space-sm);
+}
+
+.fleet-tiles--system .fleet-tile__icon {
+  width: 24px;
+  height: 24px;
+}
+
+.fleet-tiles--system .fleet-tile__head {
+  gap: var(--space-xs);
+}
+
+.fleet-tiles--system .fleet-tile__label {
+  flex: 1;
+  overflow-wrap: break-word;
+  hyphens: auto;
+}
+
+.fleet-tiles--system .fleet-tile__chevron {
+  display: flex;
+  flex: none;
+  align-items: center;
+  margin-inline-start: auto;
+}
+
+.fleet-tiles--system .fleet-tile__value {
+  font-size: var(--font-body-size);
+  line-height: 1.25;
+}
+
+.fleet-tiles--system .fleet-tile__meta {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.fleet-tiles--system .fleet-tile__line {
+  display: inline;
+}
+
+.fleet-tiles--system .fleet-tile__line + .fleet-tile__line::before {
+  content: " · ";
+}
+
+@media (min-width: 960px) {
+  .fleet-tiles--system {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .fleet-tiles--system .fleet-tile {
+    padding: var(--space-sm) var(--space-md);
+  }
 }
 
 .system-topic {
