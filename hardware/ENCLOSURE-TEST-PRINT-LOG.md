@@ -63,7 +63,7 @@ round.
 |-------|-------|-------------------------------------|------|--------------------|--------|----------------|-------------------|-------|--------|--------------|------------------|------------------|----------------------------------|----------------------------|-------------------|--------|
 | A | Shim, coupon plate | Bambu Lab X1 Carbon | 2026-11-23 (print date not stated) | PLA |  |  |  | PEI plate (smooth or textured not stated) |  |  |  |  |  |  |  | reported by the owner on 2026-11-23: all parts printed (coupon plate not mentioned); filament brand, colour, spool, settings and print date not stated |
 | B | Tray | Bambu Lab X1 Carbon | 2026-11-23 (print date not stated) | PLA |  |  |  | PEI plate (smooth or textured not stated) |  |  |  |  |  |  |  | reported by the owner on 2026-11-23: all parts printed (coupon plate not mentioned); filament brand, colour, spool, settings and print date not stated |
-| C | Lid, stand | Bambu Lab X1 Carbon | 2026-11-23 (print date not stated) | PLA |  |  |  | PEI plate (smooth or textured not stated) |  |  |  |  |  |  |  | reported by the owner on 2026-11-23: all parts printed (coupon plate not mentioned); filament brand, colour, spool, settings and print date not stated |
+| C | Lid, stand | Bambu Lab X1 Carbon | 2026-11-23 (print date not stated) | PLA |  |  |  | PEI plate (smooth or textured not stated) |  |  |  |  |  |  |  | reported by the owner on 2026-11-23: all parts printed; later the same day the owner said the lid print is still to be done (planned for 2026-11-24), so which of the lid and the stand exist is to be clarified; filament brand, colour, spool, settings and print date not stated |
 | D | | | | | | | | | | | | | | | | |
 
 ## Export stamps
@@ -111,6 +111,21 @@ tool actually used.
 | 21 | Screw lugs | 2.2 mm hole, 4.2 mm head recess (design value, not measured) | The bought screws, by feel | Screws start on the fibreboard edge; failure is recorded as "fibreboard strips" | | | | | |
 | 22 | USB-C notch, buttons and switch notch, service bay | USB-C notch 13 mm, buttons and switch notch 47.5 mm, service bay 20 and 30 mm (design value, not measured) | Tool or finger | Tool or finger reaches each | | | | | |
 | 23 | Engraved text | 0.4 mm deep, 0.7 mm lines (design value, not measured) | By eye or loupe | Legible by eye or loupe | | | | | |
+
+## Fit trials by feel
+
+First trials of the printed parts, judged by trying them, without a calliper
+(prototype-first). Each row carries the date, the tool ("by feel" when nothing
+was measured) and "reported by the owner". The material is PLA, so a result
+holds for PLA only.
+
+| Part | Test | Frame (number or "not stated") | Result (fits, tight, loose, does not fit) | Tool | Date | Source |
+|------|------|--------------------------------|-------------------------------------------|------|------|--------|
+| Tray | Tray in the frame rebate | not stated | fits ("parfait", the owner's word) | by feel | 2026-11-23 | reported by the owner on 2026-11-23 |
+| Shim | Shim in the frame rebate | not stated | fits ("rentre bien", the owner's words) | by feel | 2026-11-23 | reported by the owner on 2026-11-23 |
+| Lid | Lid on the tray | | | | | |
+| Lid | Lid with screws and magnets | | | | | |
+| Stand | Stand plate in its stop walls | | | | | |
 
 ## Adjustment ledger
 
