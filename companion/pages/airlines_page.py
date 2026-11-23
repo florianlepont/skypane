@@ -6,8 +6,9 @@ Renders the static curated list from
 `illustrations.target_variants_by_airline()` as a table
 (`airline_table.py`), with the sightings of every frame for the
 views, last seen and aircraft types.
-`unresolved_row_for_prefix()` makes one read-only membership check via
-`state_store.load_poll_state()`, gated on `ctx.resolve_prefix`. Each
+`unresolved_row_for_prefix()` makes one read-only membership check over the
+merged unidentified prefixes of every frame in scope
+(`companion.fleet_unresolved`), gated on `ctx.resolve_prefix`. Each
 `<img>` carries `illustration_normalize`'s width/height constants so the
 browser reserves space before the image loads.
 """
@@ -26,15 +27,14 @@ from companion.layout import csrf_field, escape_html
 import companion.layout as layout
 import companion.page_context as page_context
 import companion.ui_components as ui_components
-from companion import airline_collection
+from companion import airline_collection, fleet_unresolved
 from companion.pages import airline_known_rows, airline_rows, airline_sheet, airline_table
 from companion.ui_base import AIRLINE_EDITOR_LABEL, validation_attrs
 from server.plane import airline_default_types, illustrations
-# manual_resolutions, enrich and state_store import this page module in
+# manual_resolutions and enrich import this page module in
 # neither direction, so importing them here creates no cycle.
 from server.plane import manual_resolutions
 from server.plane import enrich
-import server.state_store as state_store
 
 # Mirrors companion/app.py's own ILLUSTRATION_IMAGE_ROUTE_PREFIX,
 # duplicated rather than imported since app.py imports this module (the
@@ -674,8 +674,9 @@ def _type_trigger_html(card, type_id, type_label, type_key, css_class, inner_htm
 
 
 def _gap_rows_for_grid(state_dir, manual_registry=None):
-    """Eligible gap rows: every prefix in the live unresolved-callsign-prefix
-    registry with `count >= GAP_BLOCK_THRESHOLD`, sorted `(-count, prefix)`,
+    """Eligible gap rows: every prefix in the unresolved-callsign-prefix
+    registries of every frame in scope, merged (counts added), with
+    `count >= GAP_BLOCK_THRESHOLD` on the merged count, sorted `(-count, prefix)`,
     capped at `GAP_BLOCK_CAP` shown rows. Never raises.
 
     Skips a prefix with a manual resolution entry already: the poll state
@@ -687,10 +688,7 @@ def _gap_rows_for_grid(state_dir, manual_registry=None):
     """
     if not state_dir:
         return [], 0
-    state = state_store.load_poll_state(state_dir)
-    registry = state.get("unresolved_prefixes")
-    if not isinstance(registry, dict):
-        return [], 0
+    registry = fleet_unresolved.merged_registry(fleet_unresolved.scope_dirs(state_dir))
     if manual_registry is None:
         manual_registry = manual_resolutions.load_manual_resolutions(state_dir)
     eligible = []
@@ -878,10 +876,7 @@ def unresolved_row_for_prefix(state_dir, prefix):
     prefix = manual_resolutions.normalise_prefix(prefix)
     if prefix is None:
         return None
-    state = state_store.load_poll_state(state_dir)
-    registry = state.get("unresolved_prefixes")
-    if not isinstance(registry, dict):
-        return None
+    registry = fleet_unresolved.merged_registry(fleet_unresolved.scope_dirs(state_dir))
     entry = registry.get(prefix)
     if not isinstance(entry, dict):
         return None
@@ -1216,6 +1211,19 @@ def _entries_by_slug(ctx, now):
     return {entry.slug: entry for entry in entries}
 
 
+def _seen_only_names(entries_by_slug, taken):
+    """Names of the airlines some frame saw that the table has no row for yet
+    (not curated, not hand-named, not known by name), in sighting-slug order."""
+    names = []
+    for slug in sorted(entries_by_slug):
+        entry = entries_by_slug[slug]
+        if entry.curated or not entry.seen or entry.name in taken or entry.name in names:
+            continue
+        if manual_resolutions.illustration_key_for_name(entry.name):
+            names.append(entry.name)
+    return names
+
+
 def _table_data(ctx):
     """`(TableData, number of unidentified prefixes beyond the grid)` for
     the Airlines editor: every input the table and its fragments read."""
@@ -1258,7 +1266,12 @@ def _table_data(ctx):
             injected_names.add(airline_name)
     promoted_prefixes = airline_known_rows.promoted(
         state_dir, registry, curated_names | injected_names)
-    pairs = pairs + injected_pairs + [(name, []) for name in promoted_prefixes]
+    entries_by_slug = _entries_by_slug(ctx, now)
+    known_rows = airline_known_rows.rows(state_dir, registry)
+    taken = curated_names | injected_names | set(promoted_prefixes) | {
+        name for _prefix, name in known_rows}
+    pairs = pairs + injected_pairs + [(name, []) for name in promoted_prefixes] + [
+        (name, []) for name in _seen_only_names(entries_by_slug, taken)]
 
     overrides = ctx.name_overrides or {}
     sheets_by_name = {}
@@ -1271,9 +1284,9 @@ def _table_data(ctx):
 
     data = airline_table.TableData(
         pairs=pairs, state_dir=state_dir, now=now, sheets_by_name=sheets_by_name,
-        manual_info_by_name=manual_info_by_name, entries_by_slug=_entries_by_slug(ctx, now),
+        manual_info_by_name=manual_info_by_name, entries_by_slug=entries_by_slug,
         gap_rows=gap_shown, root_state_dir=ctx.root_state_dir or "",
-        known_rows=airline_known_rows.rows(state_dir, registry),
+        known_rows=known_rows,
         promoted_prefixes=promoted_prefixes,
         focus_key=focus_key,
         default_types=airline_default_types.load_default_types(state_dir),

@@ -581,13 +581,15 @@ def test_every_row_carries_distinct_filter_text_and_group(tmp_path):
 
 
 def test_airlines_page_reads_the_poll_state_and_only_reads_history():
-    """companion/pages/airlines_page.py reads the poll state through its single owner,
-    state_store, and reaches the history database only through the read-only airline
-    collection read model (no history_db write helper is bound in the module)"""
+    """companion/pages/airlines_page.py reads the poll states of the frames in scope through
+    the fleet merge, which reads them through their single owner, state_store, and reaches
+    the history database only through the read-only airline collection read model (no
+    history_db write helper is bound in the module)"""
     import server.state_store as state_store_module
-    from companion import airline_collection
-    assert vars(airlines_page).get("state_store") is state_store_module, (
-        "expected airlines_page to read the poll state through its single owner, state_store")
+    from companion import airline_collection, fleet_unresolved
+    assert vars(fleet_unresolved).get("state_store") is state_store_module, (
+        "expected the fleet merge to read the poll state through its single owner, state_store")
+    assert vars(airlines_page).get("fleet_unresolved") is fleet_unresolved
     assert vars(airlines_page).get("airline_collection") is airline_collection
 
 

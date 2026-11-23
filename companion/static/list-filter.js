@@ -18,7 +18,7 @@
   "use strict";
 
   // A control marked [data-autosubmit] sends its form as soon as it
-  // changes (the collection's sort and show chips, the Users role select); without a script the
+  // changes (the collection's sort, the Users role select); without a script the
   // form's own button does the same.
   // Heard on the document, so a control a script adds later (the airline
   // editor opens its aircraft-type rows on demand) submits too.
@@ -780,7 +780,7 @@
 })();
 
 /*
- * The Airlines collection's show chips and sort menu. The server answers the
+ * The Airlines collection's sort menu. The server answers the
  * form (the list is built from the whole history); this block only fetches that
  * answer and puts the list in the place of the live one, so the page is not
  * reloaded, its opening is not played again and the scroll position stays.
@@ -795,7 +795,7 @@
   }
 
   var VIEW = ".collection-grid, .collection-sheet, [data-filter-empty], [data-collection-empty]";
-  var DEFAULTS = { show: "all", sort: "most" };
+  var DEFAULTS = { sort: "most" };
   var SORT_NAME = "sort";
   var OFFLINE = window.skypaneListOffline.REASON;
   var latest = 0;
