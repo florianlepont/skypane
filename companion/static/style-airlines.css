@@ -98,46 +98,11 @@
   margin-top: var(--space-md);
 }
 
-.collection-progress__headline {
-  margin: 0;
-  font-size: var(--font-label-size);
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-  white-space: nowrap;
-}
-
 .collection-progress__goal {
   min-width: 0;
   margin: 0;
   font-size: var(--font-label-size);
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
-.collection-progress__bar {
-  display: block;
-  flex: 1 1 48px;
-  max-width: 140px;
-  min-width: 48px;
-  height: 6px;
-  appearance: none;
-  -webkit-appearance: none;
-  border: 0;
-  border-radius: var(--radius-pill);
-  background: color-mix(in srgb, var(--color-text) 12%, transparent);
-  overflow: hidden;
-}
-
-.collection-progress__bar::-webkit-progress-bar {
-  background: color-mix(in srgb, var(--color-text) 12%, transparent);
-}
-
-.collection-progress__bar::-webkit-progress-value {
-  background: var(--color-accent);
-  border-radius: var(--radius-pill);
-}
-
-.collection-progress__bar::-moz-progress-bar {
-  background: var(--color-accent);
-  border-radius: var(--radius-pill);
 }
 
 .collection-badges {
@@ -156,8 +121,8 @@
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-/* One control bar. Phone: line one is the filter field, the sort menu button and the
- * legend button; line two is the segmented show filter (its labels shrink to fit). From 700px everything shares one line. Every control is 44px. */
+/* One control bar: the filter field, the sort menu button and the legend button.
+ * Every control is 44px. */
 .collection-controls {
   position: sticky;
   top: calc(var(--space-sm) + var(--safe-top));
@@ -187,25 +152,6 @@
   order: 3;
 }
 
-.collection-controls .filter-bar__chips {
-  display: flex;
-  flex: 1 1 100%;
-  order: 4;
-  max-width: 100%;
-}
-
-/* The three segments share the line and give way (label ellipsis, no
- * sideways scroll) rather than being cut at the edge. */
-.collection-controls .filter-chip {
-  flex: 1 1 auto;
-  min-width: 44px;
-}
-
-.collection-controls .filter-chip__box {
-  gap: 2px;
-  padding: 0 var(--space-xs);
-}
-
 .collection-controls__apply {
   order: 5;
   min-height: 44px;
@@ -213,7 +159,7 @@
   font-size: var(--font-body-size);
 }
 
-/* With a script the sort and the chips submit on change. */
+/* With a script the sort submits on change. */
 .js .collection-controls__apply {
   display: none;
 }
@@ -222,11 +168,6 @@
   .collection-controls .filter-bar__search {
     flex: 1 1 150px;
     max-width: 340px;
-  }
-
-  .collection-controls .filter-bar__chips {
-    flex: 0 1 auto;
-    order: 2;
   }
 
   .collection-controls .collection-sort {
@@ -305,16 +246,6 @@
   place-items: center;
   margin-bottom: 0;
   color: color-mix(in srgb, var(--color-text) 55%, transparent);
-}
-
-.collection-card--unseen .collection-card__art {
-  opacity: 0.45;
-  filter: grayscale(1);
-}
-
-.collection-card--unseen .collection-card__name {
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-  font-weight: var(--weight-regular);
 }
 
 .collection-card__name {
@@ -438,11 +369,6 @@ dialog.collection-sheet .modal__actions {
   align-self: start;
   display: flex;
   margin-top: var(--space-xs);
-}
-
-.collection-sheet__unseen {
-  grid-area: facts;
-  margin: var(--space-md) 0 0;
 }
 
 /* The facts read as rows in one card: the label at the left, the value at

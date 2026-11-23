@@ -2,8 +2,8 @@
 the live frame; every frame has its own sightings and unidentified prefixes
 (`airline_fleet_world`). The administrator's editor lists the whole fleet: every
 airline any frame saw, every unidentified prefix with the counts of all frames
-added up, the pictures of the fleet. A user's Airlines page covers their own
-frames only, shows no unidentified prefix, and nothing of another user's frames
+added up, the pictures of the fleet. A user's Airlines page covers the frame it is opened on
+only (one of their own), shows no unidentified prefix, and nothing of another user's frames
 reaches it, in the page, its dialogs or any cache it reads."""
 import os
 import re
@@ -54,12 +54,10 @@ def _gap_facts(body):
 
 def _seen_cards(body):
     """`{lower-case name: sightings}` of the cards the collection page marks
-    as seen; the dimmed catalogue cards are not counted."""
+    as seen."""
     seen = {}
     for match in ITEM_RE.finditer(body):
         card = match.group(0)
-        if "collection-card--unseen" in card:
-            continue
         found = SEEN_RE.search(card)
         seen[match.group(1)] = 1 if found.group(1) == "once" else int(found.group(1).split()[0])
     return seen
@@ -199,16 +197,26 @@ def test_user_gains_no_write_ability(world):
     assert not os.path.exists(os.path.join(world.root, "illustration_overrides"))
 
 
-def test_user_with_two_frames_sees_both_and_a_co_managed_frame(world):
+def test_a_user_with_two_frames_sees_each_frame_on_its_own_page(world):
     from server import fleet_db
     conn = fleet_db.connect(world.root)
     try:
         fleet_db.add_co_manager(conn, world.b_id, world.seed.owner_id, world.seed.user_id)
     finally:
         conn.close()
+    _s, on_a = _get(world, world.user_a, "/devices/%s/airlines" % world.a_id)
+    _s, on_b = _get(world, world.user_a, "/devices/%s/airlines" % world.b_id)
+    assert _seen_cards(on_a) == {"air france": 2, "zorro air": 1}
+    assert _seen_cards(on_b) == {"vueling airlines": 1, "quux air": 2, "air france": 1}
+    assert "Quux" not in on_a and "Zorro" not in on_b
+
+
+def test_the_user_page_lists_only_seen_airlines_without_progress_or_filter_chips(world):
     _s, body = _get(world, world.user_a, "/devices/%s/airlines" % world.a_id)
-    assert set(_seen_cards(body)) == {"air france", "zorro air", "vueling airlines", "quux air"}
-    assert _seen_cards(body)["air france"] == 3
+    assert len(ITEM_RE.findall(body)) == 2
+    for gone in ("collection-card--unseen", "collection-progress__bar", "<progress",
+                 "filter-chip", 'name="show"', "Not yet seen", "spotted"):
+        assert gone not in body, gone
 
 
 def _dir(tmp_path, name, registry):

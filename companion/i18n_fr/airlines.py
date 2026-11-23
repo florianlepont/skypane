@@ -140,12 +140,9 @@ MESSAGES = {
     "airlines.edit_airline": "Modifier %s",
 
     # --- The Airline collection page ----------------------------------
-    "airlines.collection_progress": "%d compagnies repérées sur %d",
-    "airlines.collection_progress_one": "%d compagnie repérée sur %d",
     "airlines.collection_next_goal": "encore %d pour le badge %d",
     "airlines.collection_next_goal_first":
         "Repérez une compagnie pour obtenir le badge Première observation",
-    "airlines.collection_complete": "Vous avez repéré toutes les compagnies de la liste.",
     "airlines.collection_all_badges": "Vous avez obtenu tous les badges.",
     "airlines.collection_badges": "Badges de la collection",
     "airlines.collection_badge_first": "Première observation",
@@ -153,10 +150,6 @@ MESSAGES = {
     "airlines.collection_badge_earned": "Obtenu",
     "airlines.collection_badge_locked": "Verrouillé : repérez %d compagnies",
     "airlines.collection_badge_locked_first": "Verrouillé : repérez une compagnie",
-    "airlines.collection_show": "Afficher",
-    "airlines.collection_show_all": "Toutes",
-    "airlines.collection_show_spotted": "Repérées",
-    "airlines.collection_show_unseen": "Pas encore vues",
     "airlines.collection_sort_by": "Trier par",
     "airlines.collection_sort_most": "Les plus vues",
     "airlines.collection_sort_rarest": "Les plus rares",
@@ -173,7 +166,6 @@ MESSAGES = {
     "airlines.collection_legend": "Rareté des compagnies et des appareils",
     "airlines.collection_seen_many": "Vue %d fois",
     "airlines.collection_seen_once": "Vue une fois",
-    "airlines.collection_not_seen": "Pas encore vue",
     "airlines.collection_new": "Nouveau",
     "airlines.collection_rarity_regular": "Habituelle",
     "airlines.collection_rarity_occasional": "Occasionnelle",

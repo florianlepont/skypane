@@ -1,12 +1,11 @@
 """The Airline collection (`/airlines`): a read-only, quiet page of the
-airlines the viewer's frames have spotted.
+airlines the frame the page is opened on has spotted, the same for every
+role: only airlines that frame saw are listed. Frame access is decided by the
+route (a user reaches their own and co-managed frames only), so counts, dates,
+types, names and pictures of an airline only another frame saw never reach it.
+The fleet-wide list is the administrator's editor.
 
-A plain user's page covers their own frames (owned or co-managed) and no
-other: counts, rarity, dates, types, callsigns, names and pictures of an
-airline only another user's frame saw never reach it. For an administrator it
-covers the frame the page is opened on (the fleet-wide list is the editor).
-
-Counts, rarity, dates, types and callsigns come from those frames'
+Counts, rarity, dates, types and callsigns come from the frame's own
 `runway_events` and the curated airline list through
 `companion.airline_collection`; nothing is stored and nothing on the page
 edits an airline (the editing page is `/airlines/manage`, administrator
@@ -39,20 +38,9 @@ from server.plane import render as panel_render
 
 PAGE_TITLE = i18n.msg("nav.airline_collection", "Airlines")
 
-PROGRESS_TEXT = i18n.msg("airlines.collection_progress", "%d of %d airlines spotted")
-PROGRESS_ONE_TEXT = i18n.msg("airlines.collection_progress_one", "%d of %d airline spotted")
-
-
-def _count_text(count, many, one):
-    """`many` or `one` for `count`: one for 1 in every language, and for 0
-    in French, where zero takes the singular."""
-    singular = count == 1 or (count == 0 and prefs.current_lang() == "fr")
-    return i18n.t(one if singular else many)
 GOAL_TEXT = i18n.msg("airlines.collection_next_goal", "%d more for the %d badge")
 GOAL_FIRST_TEXT = i18n.msg(
     "airlines.collection_next_goal_first", "Spot one airline to earn the First sighting badge")
-GOAL_COMPLETE_TEXT = i18n.msg(
-    "airlines.collection_complete", "You have spotted every airline on the list.")
 GOAL_ALL_BADGES_TEXT = i18n.msg(
     "airlines.collection_all_badges", "You have earned every badge.")
 BADGES_LABEL = i18n.msg("airlines.collection_badges", "Collection badges")
@@ -62,10 +50,6 @@ BADGE_EARNED = i18n.msg("airlines.collection_badge_earned", "Earned")
 BADGE_LOCKED = i18n.msg("airlines.collection_badge_locked", "Locked: spot %d airlines")
 BADGE_LOCKED_FIRST = i18n.msg("airlines.collection_badge_locked_first", "Locked: spot an airline")
 
-SHOW_LEGEND = i18n.msg("airlines.collection_show", "Show")
-SHOW_ALL = i18n.msg("airlines.collection_show_all", "All")
-SHOW_SPOTTED = i18n.msg("airlines.collection_show_spotted", "Spotted")
-SHOW_UNSEEN = i18n.msg("airlines.collection_show_unseen", "Not yet seen")
 SORT_LABEL = i18n.msg("airlines.collection_sort_by", "Sort by")
 SORT_MOST = i18n.msg("airlines.collection_sort_most", "Most seen")
 SORT_RAREST = i18n.msg("airlines.collection_sort_rarest", "Rarest")
@@ -80,7 +64,6 @@ COUNT_TEMPLATE = i18n.msg("airlines.collection_count_template", "Airlines: #")
 
 SEEN_MANY = i18n.msg("airlines.collection_seen_many", "Seen %d times")
 SEEN_ONCE = i18n.msg("airlines.collection_seen_once", "Seen once")
-NOT_SEEN = i18n.msg("airlines.collection_not_seen", "Not seen yet")
 NEW_PILL = i18n.msg("airlines.collection_new", "New")
 RARITY_LABELS = {
     collection.RARITY_REGULAR: i18n.msg("airlines.collection_rarity_regular", "Regular"),
@@ -112,14 +95,10 @@ NO_MATCH_HEADING = i18n.msg("airlines.no_matching_airlines", "No matching airlin
 NO_MATCH_BODY = i18n.msg(
     "airlines.collection_no_match_body", "Try another filter or a shorter name.")
 
-SHOW_VALUES = (
-    ("all", SHOW_ALL), ("spotted", SHOW_SPOTTED), ("unseen", SHOW_UNSEEN))
 SORT_VALUES = (
     ("most", SORT_MOST), ("rarest", SORT_RAREST), ("latest", SORT_LATEST), ("az", SORT_AZ))
-DEFAULT_SHOW = "all"
 DEFAULT_SORT = "most"
 QUERY_MAX_CHARS = 60
-SHOW_PARAM = "show"
 SORT_PARAM = "sort"
 TEXT_PARAM = "q"
 
@@ -132,8 +111,8 @@ class View:
     """The validated query: unknown values fall back to the defaults and
     the text is length-capped (it is only ever escaped, never trusted)."""
 
-    def __init__(self, show, sort, text):
-        self.show, self.sort, self.text = show, sort, text
+    def __init__(self, sort, text):
+        self.sort, self.text = sort, text
 
 
 def parse_view(query_string):
@@ -143,10 +122,8 @@ def parse_view(query_string):
         values = params.get(name) or [""]
         return values[0]
 
-    show = first(SHOW_PARAM)
     sort = first(SORT_PARAM)
     return View(
-        show if show in dict(SHOW_VALUES) else DEFAULT_SHOW,
         sort if sort in dict(SORT_VALUES) else DEFAULT_SORT,
         first(TEXT_PARAM).strip()[:QUERY_MAX_CHARS])
 
@@ -180,9 +157,7 @@ def get(handler, device):
 
 def _apply_view(entries, view):
     shown = [
-        entry for entry in entries
-        if (view.show == "all" or (view.show == "spotted") == entry.seen)
-        and view.text.lower() in entry.name.lower()]
+        entry for entry in entries if view.text.lower() in entry.name.lower()]
     return _sorted(shown, view.sort)
 
 
@@ -194,8 +169,7 @@ def _sorted(entries, sort):
     if sort == "az":
         return sorted(entries, key=lambda e: e.name.casefold())
     if sort == "rarest":
-        # Seen airlines first, the fewest sightings leading; the unseen close the list.
-        return sorted(entries, key=lambda e: (not e.seen, e.times_seen, e.name.casefold()))
+        return sorted(entries, key=lambda e: (e.times_seen, e.name.casefold()))
     return sorted(entries, key=lambda e: -e.times_seen)
 
 
@@ -263,29 +237,25 @@ def _seen_text(times):
 
 
 def _card_html(entry, state_dir, ranks=""):
-    """A calm card: the picture, the name and, for a seen airline, the
-    sighting count and the rarity pill. An airline not seen yet is
-    only dimmed (no text); the New pill sits in the card's corner, outside the picture, and
+    """A calm card: the picture, the name, the sighting count and the rarity
+    pill; the New pill sits in the card's corner, outside the picture, and
     only while it applies."""
-    classes = "collection-card" + (
-        " collection-card--" + entry.rarity if entry.seen else " collection-card--unseen")
+    classes = "collection-card collection-card--" + entry.rarity
     new = ""
-    line_html = ""
-    if entry.seen:
-        if entry.is_new:
-            new = '<span class="rarity-pill rarity-pill--new">%s</span>' % (
-                escape_html(i18n.t(NEW_PILL)))
-        line_html = (
-            '<span class="collection-card__seen text-label">%s</span>'
-            '<span class="collection-card__pill">%s</span>'
-        ) % (escape_html(_seen_text(entry.times_seen)), _rarity_pill_html(entry.rarity))
+    if entry.is_new:
+        new = '<span class="rarity-pill rarity-pill--new">%s</span>' % (
+            escape_html(i18n.t(NEW_PILL)))
+    line_html = (
+        '<span class="collection-card__seen text-label">%s</span>'
+        '<span class="collection-card__pill">%s</span>'
+    ) % (escape_html(_seen_text(entry.times_seen)), _rarity_pill_html(entry.rarity))
     link = ui_modal.trigger_html(
         DIALOG_PREFIX + entry.slug,
         '<span class="collection-card__art">%s</span>%s'
         '<span class="collection-card__name">%s</span>%s' % (
             _picture_html(entry, state_dir), new, escape_html(entry.name), line_html),
         extra_class=classes)
-    unlock = ' data-unlock="%s"' % escape_html(entry.slug) if entry.seen and entry.is_new else ""
+    unlock = ' data-unlock="%s"' % escape_html(entry.slug) if entry.is_new else ""
     return '<li class="collection-item" data-filter-text="%s" %s="%s"%s>%s</li>' % (
         escape_html(entry.name.lower()), RANK_ATTR, ranks, unlock, link)
 
@@ -319,11 +289,8 @@ def _facts_html(entry):
 def _sheet_html(entry, state_dir):
     """The detail sheet: the picture, the name (the dialog's title) and the rarity pill
     on top, then the facts in one card. Nothing scrolls inside it."""
-    if entry.seen:
-        body = '<div class="collection-sheet__rarity">%s</div>%s' % (
-            _rarity_pill_html(entry.rarity), _facts_html(entry))
-    else:
-        body = '<p class="text-body collection-sheet__unseen">%s</p>' % escape_html(i18n.t(NOT_SEEN))
+    body = '<div class="collection-sheet__rarity">%s</div>%s' % (
+        _rarity_pill_html(entry.rarity), _facts_html(entry))
     has_picture = illustrations.resolved_illustration_path(
         entry.picture_key, state_dir) is not None
     art = '<div class="collection-sheet__art">%s</div>' % _picture_html(
@@ -333,9 +300,7 @@ def _sheet_html(entry, state_dir):
         i18n.t(CLOSE_TEXT), "#" + GRID_ID, extra_class="collection-sheet")
 
 
-def _goal_text(summary, all_curated_seen):
-    if all_curated_seen:
-        return i18n.t(GOAL_COMPLETE_TEXT)
+def _goal_text(summary):
     if summary.next_goal is None:
         return i18n.t(GOAL_ALL_BADGES_TEXT)
     if summary.next_goal == 1:
@@ -364,33 +329,13 @@ def _badges_html(summary):
          escape_html(i18n.t(BADGES_LABEL)), earned, total, escape_html(". ".join(words)))
 
 
-def _status_html(summary, all_curated_seen, total):
-    """The header's progress, under the title: the spotted count out of every
-    airline the page lists (the figure the "All" chip shows), a thin bar, the
-    next goal and the compact badge pill."""
-    headline = _count_text(summary.spotted, PROGRESS_TEXT, PROGRESS_ONE_TEXT) % (
-        summary.spotted, total)
+def _status_html(summary):
+    """The header's progress, under the title: the next badge goal and the
+    compact badge pill."""
     return (
         '<div class="collection-head__status">'
-        '<p class="collection-progress__headline">%s</p>'
-        '<progress class="collection-progress__bar" value="%d" max="%d" aria-label="%s">%s</progress>'
         '<p class="collection-progress__goal">%s</p>%s</div>'
-    ) % (escape_html(headline), min(summary.spotted, total), max(total, 1),
-         escape_html(headline), escape_html(headline),
-         escape_html(_goal_text(summary, all_curated_seen)), _badges_html(summary))
-
-
-def _chips_html(view):
-    chips = []
-    for value, label in SHOW_VALUES:
-        chips.append(
-            '<label class="filter-chip"><input type="radio" class="visually-hidden" '
-            'name="%s" value="%s"%s data-autosubmit><span class="filter-chip__box">'
-            '<span class="filter-chip__text">%s</span></span></label>' % (
-                SHOW_PARAM, value, " checked" if value == view.show else "",
-                escape_html(i18n.t(label))))
-    return '<fieldset class="filter-bar__chips" data-tabs="airlines"><legend class="visually-hidden">%s</legend>%s</fieldset>' % (
-        escape_html(i18n.t(SHOW_LEGEND)), "".join(chips))
+    ) % (escape_html(_goal_text(summary)), _badges_html(summary))
 
 
 def _sort_html(view):
@@ -428,17 +373,16 @@ def _legend_menu_html():
     ) % (label, label, layout.icon_html("icon-info", 20), _legend_html())
 
 
-def _controls_html(view, entries, shown):
-    """One bar: the filter field, the sort menu and the legend button on the first line, the
-    show segments on the second (one line on a wide screen). With a script the sort and the
-    segments submit on change; without one the Apply button stays visible."""
+def _controls_html(view, shown):
+    """One bar: the filter field, the sort menu and the legend button. With a
+    script the sort submits on change; without one the Apply button stays visible."""
     return (
         '<form class="filter-bar collection-controls" method="get" action="%s" data-collection-form>'
-        '%s%s%s%s%s'
+        '%s%s%s%s'
         '<button type="submit" class="collection-controls__apply">%s</button>%s</form>'
     ) % (escape_html(device_scope.scoped(layout.AIRLINES_ROUTE)),
          _search_html(view), _sort_html(view), _legend_menu_html(),
-         _chips_html(view), _count_html(shown), escape_html(i18n.t(APPLY_TEXT)),
+         _count_html(shown), escape_html(i18n.t(APPLY_TEXT)),
          ui_filter.list_offline_template_html())
 
 
@@ -450,12 +394,12 @@ def _no_match_html(action_html, attrs):
 
 
 def _entries_for(ctx, now):
-    """The collection over the frames this viewer's page covers: a user's
-    own frames (owned or co-managed), the page's frame for anyone else."""
+    """The collection over this frame's own sightings; an unreadable history
+    gives an empty one."""
     overrides = ctx.name_overrides or {}
-    dirs = device_scope.own_history_dirs(ctx.state_dir)
     try:
-        return collection.collection_across(dirs, now, overrides)
+        with history_db.open_db(ctx.state_dir) as conn:
+            return collection.airline_collection(conn, now, overrides)
     except _HISTORY_ERRORS:
         return collection.collection_from_events([], now, overrides)
 
@@ -465,15 +409,16 @@ def render(ctx, query_string=""):
     now = ctx.now or history_db.utc_now_iso()
     view = parse_view(query_string)
     entries, summary = _entries_for(ctx, now)
-    curated = [entry for entry in entries if entry.curated]
-    all_seen = bool(curated) and all(entry.seen for entry in curated)
+    # Only airlines this frame saw are listed.
+    entries = [entry for entry in entries if entry.seen]
     shown = _apply_view(entries, view)
     parts = [layout.page_header(
-        i18n.t(PAGE_TITLE), i18n.t(PURPOSE_TEXT), action_html=_status_html(summary, all_seen, len(entries)))]
-    if summary.spotted == 0:
+        i18n.t(PAGE_TITLE), i18n.t(PURPOSE_TEXT), action_html=_status_html(summary))]
+    if not entries:
         parts.append(layout.empty_state(
             i18n.t(EMPTY_HEADING), i18n.t(EMPTY_BODY), compact=True))
-    parts.append(_controls_html(view, entries, len(shown)))
+        return "".join(parts)
+    parts.append(_controls_html(view, len(shown)))
     if shown:
         ranks = _sort_ranks(entries)
         # Revealed by list-filter.js when the typed text hides every card.

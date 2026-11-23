@@ -1,6 +1,6 @@
 """GET /airlines is the read-only Airline collection for an administrator, an
-owner and a co-manager alike: progress, badges, filters, cards and a sheet per
-card, with no way to edit anything. Real in-process requests, no browser."""
+owner and a co-manager alike: the airlines the frame has seen (and only those),
+badges, sort and search, cards and a sheet per card, with no way to edit anything. Real in-process requests, no browser."""
 import os
 import re
 from datetime import datetime, timedelta, timezone
@@ -107,9 +107,7 @@ def test_every_role_gets_the_same_read_only_collection(rig, who):
     assert re.search(r"<h1[^>]*>Airlines</h1>", body)
     assert "Every airline your frame has spotted." not in body
     assert "1 more for the 5 badge" in body
-    # The seeded charter is outside the curated list: it is listed, so it counts in the total.
-    assert 'aria-label="4 of %d airlines spotted"' % (len(CURATED) + 1) in body
-    assert '<progress class="collection-progress__bar" value="4"' in body
+    assert "airlines spotted" not in body and "<progress" not in body
     assert body.count('class="collection-badges"') == 1
     assert ">1/5<" in body
     assert 'title="Earned: First sighting; Locked: spot 5 airlines;' in body
@@ -151,25 +149,22 @@ def test_a_flight_stored_twice_is_seen_once(rig):
     assert "Seen once" in _text(_card_for(rig.page(), RARE_NAME))
 
 
-def test_unseen_cards_are_dimmed_and_say_not_seen_yet(rig):
+def test_only_the_airlines_the_frame_saw_are_listed(rig):
     rig.seed_history()
     body = rig.page()
-    unseen = [card for card in _cards(body) if "collection-card--unseen" in card]
-    assert len(unseen) == len(CURATED) - 3
-    for card in unseen:
-        text = _text(card)
-        assert text in {airline_display.shown_name(name) for name in CURATED}, text
-        assert "Not seen yet" not in text and "Seen once" not in text
-        assert "Rare" not in text and "times" not in text
+    assert len(_cards(body)) == 4
+    assert "collection-card--unseen" not in body
+    for name in CURATED[3:]:
+        assert ">%s<" % airline_display.shown_name(name) not in body
+    for card in _cards(body):
+        assert "Seen" in _text(card)
 
 
-def test_the_empty_history_shows_the_start_state_and_only_unseen_cards(rig):
+def test_the_empty_history_shows_the_start_state_and_no_card_or_control(rig):
     body = rig.page()
     assert "Your collection starts with the first plane" in body
     assert "Airlines show up here as your frame sees them." in body
-    assert "0 of %d airlines spotted" % len(CURATED) in body
-    assert len(_cards(body)) == len(CURATED)
-    assert all("collection-card--unseen" in card for card in _cards(body))
+    assert not _cards(body) and "collection-controls" not in body
     assert ">0/5<" in body
 
 
@@ -177,7 +172,7 @@ def test_a_sheet_per_card_is_read_only_and_reached_by_a_hash_link(rig):
     rig.seed_history()
     body = rig.page()
     sheets = re.findall(r'<dialog class="modal collection-sheet".*?</dialog>', body, flags=re.S)
-    assert len(sheets) == len(CURATED) + 1
+    assert len(sheets) == 4
     for card in _cards(body):
         target = re.search(r'href="#(dlg-airline-[a-z0-9-]+)" class="[^"]*" data-modal-open', card)
         assert target and 'id="%s"' % target.group(1) in body
@@ -219,7 +214,7 @@ def test_the_legend_sits_behind_one_info_button_in_the_bar(rig):
     assert menu and 'aria-label="Rarity of airlines and aircraft"' in menu.group(0)
     assert menu.group(0).count('<ul class="rarity-legend"') == 1
     assert body.count('class="rarity-legend"') == 1
-    assert "Airlines: %d" % (len(CURATED) + 1) in form
+    assert "Airlines: 4" in form
     assert 'class="visually-hidden" role="status" data-filter-count' in form
 
 
@@ -236,8 +231,9 @@ def test_the_bar_is_one_form_with_sort_and_count_and_a_no_script_apply(rig):
     body = _main(rig.page())
     form = re.search(r'<form class="filter-bar collection-controls".*?</form>', body, flags=re.S).group(0)
     assert form.count("<form") == 1
-    for part in ('name="q"', 'name="show"', 'collection-controls__apply', 'data-filter-count'):
+    for part in ('name="q"', 'collection-controls__apply', 'data-filter-count'):
         assert part in form
+    assert 'name="show"' not in form and "filter-chip" not in form
     # The sort is a menu of radio rows (a no-script Apply sends the choice), not a select.
     assert "<select" not in form
     sort = re.search(r'<details class="row-menu collection-sort">.*?</details>', form, flags=re.S).group(0)
@@ -245,29 +241,24 @@ def test_the_bar_is_one_form_with_sort_and_count_and_a_no_script_apply(rig):
         "most", "rarest", "latest", "az"]
     assert sort.count(" checked") == 1 and 'value="most" checked' in sort
     assert 'aria-label="Sort by: Most seen"' in sort
-    # Line one holds the field, the sort and the legend; the segments come after them.
-    assert form.index('name="q"') < form.index("collection-sort") < form.index(
-        "collection-legend") < form.index("filter-bar__chips")
-    assert "Airlines: %d" % (len(CURATED) + 1) in form
+    assert form.index('name="q"') < form.index("collection-sort") < form.index("collection-legend")
+    assert "Airlines: 4" in form
     assert "Airlines: 1<" in _main(rig.page(query="?q=zed"))
     fr = _main(rig.page(lang="fr", query="?q=zed"))
     assert "Compagnies\u00a0: 1<" in fr and "Airlines" not in fr and "Moins de 3 passages" in fr
 
 
-def test_filter_chips_sort_and_text_are_applied_by_the_server(rig):
+def test_sort_and_text_are_applied_by_the_server(rig):
     rig.seed_history()
-    spotted = _cards(rig.page(query="?show=spotted"))
-    assert len(spotted) == 4
-    assert len(_cards(rig.page(query="?show=unseen"))) == len(CURATED) - 3
-    most = [_text(card) for card in _cards(rig.page(query="?show=spotted&sort=most"))]
+    assert len(_cards(rig.page())) == 4
+    most = [_text(card) for card in _cards(rig.page(query="?sort=most"))]
     assert "Seen 12 times" in most[0] and "Seen 3 times" in most[1]
-    az = _cards(rig.page(query="?show=spotted&sort=az"))
+    az = _cards(rig.page(query="?sort=az"))
     names = [re.search(r'collection-card__name">([^<]*)<', c).group(1) for c in az]
     assert names == sorted(names, key=str.casefold)
     rarest = [_text(card) for card in _cards(rig.page(query="?sort=rarest"))]
     assert "Seen once" in rarest[0] and "Seen 12 times" in rarest[3]
-    assert "Seen" not in rarest[-1]
-    latest = _cards(rig.page(query="?show=spotted&sort=latest"))
+    latest = _cards(rig.page(query="?sort=latest"))
     assert "Zed Charter Wings" in latest[0]
     only = _cards(rig.page(query="?q=zed"))
     assert len(only) == 1 and "Zed Charter Wings" in only[0]
@@ -275,8 +266,8 @@ def test_filter_chips_sort_and_text_are_applied_by_the_server(rig):
 
 def test_unknown_values_fall_back_and_text_is_capped_and_escaped(rig):
     rig.seed_history()
-    body = rig.page(query="?show=bogus&sort=bogus")
-    assert len(_cards(body)) == len(CURATED) + 1
+    body = rig.page(query="?show=unseen&sort=bogus")
+    assert len(_cards(body)) == 4
     hostile = rig.page(query="?q=%22%3E%3Cscript%3Ealert(1)%3C/script%3E")
     assert "<script>alert(1)</script>" not in hostile
     assert "No matching airlines" in hostile
@@ -297,11 +288,11 @@ def test_the_page_is_french_with_french_strings(rig):
     rig.seed_history()
     body = rig.page(lang="fr")
     for text in (">Compagnies</h1>", "encore 1 pour le badge 5",
-                 "4 compagnies repérées sur %d" % (len(CURATED) + 1), "Vue 12 fois", "Vue une fois",
+                 "Les compagnies vues par votre cadre", "Vue 12 fois", "Vue une fois",
                  "Habituelle", "Occasionnelle", "Nouveau",
-                 "Première observation", "Appliquer", "Les plus vues", "Pas encore vues"):
+                 "Première observation", "Appliquer", "Les plus vues"):
         assert text in body
-    assert "Seen once" not in body and "Not seen yet" not in body
+    assert "Seen once" not in body and "Pas encore vues" not in body
 
 
 @pytest.mark.parametrize("who", ("owner", "co"))
@@ -326,33 +317,17 @@ def test_an_owner_cannot_post_to_the_editing_routes(rig):
     assert status == 404
 
 
-def test_the_spotted_count_is_plural_aware_in_both_languages(rig):
+def test_the_badge_goal_follows_the_number_of_airlines_the_frame_saw(rig):
     rig.event(RARE_NAME, 30, aircraft_type="A320")
-    one_en = _text(_main(rig.page("owner", lang="en")))
-    one_fr = _text(_main(rig.page("owner", lang="fr")))
-    assert "1 airlines" not in one_en
-    assert "1 of %d airline spotted" % len(CURATED) in one_en
-    assert "1 compagnies" not in one_fr
-    assert "1 compagnie repérée sur %d" % len(CURATED) in one_fr
+    body = _text(_main(rig.page("owner")))
+    assert "4 more for the 5 badge" in body and "Airlines: 1" in body
+    fr = _text(_main(rig.page("owner", lang="fr")))
+    assert "encore 4 pour le badge 5" in fr
+    for page in (body, fr):
+        assert "of %d" % len(CURATED) not in page and "sur %d" % len(CURATED) not in page
 
 
-def test_zero_spotted_is_plural_in_english_and_singular_in_french(rig):
-    empty_en = _text(_main(rig.page("owner", lang="en")))
-    empty_fr = _text(_main(rig.page("owner", lang="fr")))
-    assert "0 of %d airlines spotted" % len(CURATED) in empty_en
-    assert "0 compagnie repérée sur %d" % len(CURATED) in empty_fr
-
-
-def test_the_progress_sentence_counts_against_every_listed_airline(rig):
-    """an airline outside the curated list still counts as spotted, so the progress total is
-    the number of airlines the page lists (its cards), never fewer than the spotted count"""
+def test_an_airline_outside_the_list_the_frame_saw_is_listed(rig):
     rig.event(RARE_NAME, 30, aircraft_type="A320")
     rig.event("Zzyzx Air Charter", 20, aircraft_type="A320")
-    for lang in ("en", "fr"):
-        page = _main(rig.page("owner", lang=lang))
-        main = _text(page)
-        sentence = re.search(
-            r"(\d+) (?:of|compagnies? repérées? sur) (\d+)", main)
-        assert sentence, main
-        spotted, total = int(sentence.group(1)), int(sentence.group(2))
-        assert spotted <= total == len(_cards(page)) == len(CURATED) + 1
+    assert len(_cards(_main(rig.page("owner")))) == 2

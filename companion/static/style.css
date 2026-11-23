@@ -7036,9 +7036,8 @@ a.entity-row__button:hover {
 
 
 /* Airline collection: a header with the page title at the standard size, then
- * the progress on one line (count, a thin bar, the next goal, a compact
- * "earned/total" badge pill), one sticky control bar and a calm grid of
- * larger picture cards. A card that has not been seen is only dimmed. */
+ * the next goal with a compact "earned/total" badge pill, one sticky
+ * control bar and a calm grid of larger picture cards. */
 .page-header:has(> .collection-head__status) {
   margin-bottom: var(--space-md);
 }
@@ -7089,12 +7088,6 @@ a.entity-row__button:hover {
   border-color: transparent;
   box-shadow: var(--shadow-card-hover);
   color: var(--color-text);
-}
-
-/* Not seen yet: the whole card is calmer, with no text of its own. */
-.collection-card--unseen {
-  box-shadow: none;
-  background: color-mix(in srgb, var(--color-dominant) 55%, transparent);
 }
 
 /* The detail sheet fits the viewport: the head with its close button and
