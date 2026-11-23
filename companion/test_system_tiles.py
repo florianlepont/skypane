@@ -1,4 +1,4 @@
-"""The System page's tiles (Server, Data sources, Identification, Off-box backup), served by the
+"""The System page's tiles (Server, Data sources, Identification, the two route topics, Off-box backup), served by the
 real app and read as markup."""
 import datetime
 import html
@@ -63,15 +63,20 @@ def _tiles(page):
     return found
 
 
-def test_four_tiles_state_their_topic_and_link_to_its_block(app_server_in_process, tmp_path, monkeypatch):
+def test_six_tiles_state_their_topic_and_link_to_its_block(app_server_in_process, tmp_path, monkeypatch):
     server = app_server_in_process
     page = _page(server, _seed(server, tmp_path, monkeypatch))
     tiles = _tiles(page)
-    assert [t[0] for t in tiles] == ["Server", "Data sources", "Identification", "Off-box backup"]
+    assert [t[0] for t in tiles] == [
+        "Server", "Data sources", "Identification", "Route directories", "Answered by",
+        "Off-box backup"]
     assert [t[3] for t in tiles] == [
         "#system-topic-flight-data", "#system-topic-sources", "#system-topic-identification",
+        "#system-topic-route-directories", "#system-topic-route-answers",
         "#system-topic-backup"]
-    server_tile, sources, _ident, backup = tiles
+    server_tile, sources, _ident, directories, answers, backup = tiles
+    assert directories[1] == "No request yet" and directories[4] == "off"
+    assert answers[1] == "No route from a directory in the last 7 days" and answers[4] == "off"
     assert server_tile[1] == "Running on schedule" and server_tile[2].startswith("Last run")
     assert sources[1] == "Sources disagreed recently" and sources[4] == "warn"
     assert sources[2] == "4 disagreements"
@@ -87,7 +92,8 @@ def test_the_backup_tile_is_left_out_with_its_block_when_no_marker_is_configured
         app_server_in_process, tmp_path, monkeypatch):
     server = app_server_in_process
     page = _page(server, _seed(server, tmp_path, monkeypatch, disagree=False, backup=False))
-    assert [t[0] for t in _tiles(page)] == ["Server", "Data sources", "Identification"]
+    assert [t[0] for t in _tiles(page)] == [
+        "Server", "Data sources", "Identification", "Route directories", "Answered by"]
     assert 'id="system-topic-backup"' not in page
     assert _tiles(page)[1][1] == "Sources agree"
 
@@ -104,7 +110,8 @@ def test_french_labels(app_server_in_process, tmp_path, monkeypatch):
     server = app_server_in_process
     page = _page(server, _seed(server, tmp_path, monkeypatch), "fr")
     assert [t[0] for t in _tiles(page)] == [
-        "Serveur", "Sources de données", "Identification", "Sauvegarde hors serveur"]
+        "Serveur", "Sources de données", "Identification", "Annuaires de routes",
+        "Répondu par", "Sauvegarde hors serveur"]
     assert "Détails" in page and "Le serveur derrière chaque cadre." in page
 
 

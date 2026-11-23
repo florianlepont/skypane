@@ -65,3 +65,7 @@ Run (all with `SKYPANE_REQUIRE_BROWSER=1`):
 None.
 
 ## Self-Check: PASSED
+
+## Addendum: System tiles for the route topics
+
+Owner decision: the two route topics ("Route directories", "Answered by") also have tiles in the System tile row (six tiles, each linking to its card; `route_sources_card.tiles`). Tile tests updated, baseline regenerated, captures in `scratchpad/p45/after2/`.

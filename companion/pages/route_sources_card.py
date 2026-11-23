@@ -150,3 +150,41 @@ def topics(data, now):
     return (
         ("route-directories", directories_label, directories),
         ("route-answers", answered_label, _answers_card(data["answers"])))
+
+
+def tiles(data):
+    """The two System tiles (`hp.SystemTile`) for the route topics, in the
+    order of their blocks; `data` as for `topics()`. Empty when there is
+    nothing to read."""
+    if data is None:
+        return ()
+    directories_label = i18n.t(_DIRECTORIES_LABEL)
+    answered_label = i18n.t(_ANSWERED_BY)
+    if data is hp._DB_UNAVAILABLE:
+        return (
+            hp._unavailable_tile("route-directories", _DIRECTORY_ICON, directories_label),
+            hp._unavailable_tile("route-answers", _ANSWERS_ICON, answered_label))
+    asked = [(d, data["stats"][d]) for d in history_db.ROUTE_DIRECTORIES
+             if data["stats"][d]["reachable"] is not None]
+    down = [d for d, stats in asked if not stats["reachable"]]
+    if down:
+        state, value = "warn", i18n.t(_NOT_REACHABLE)
+        meta = escape_html(" · ".join(
+            i18n.t(_NAMES[d]) if d in _NAMES else _ADSBDB for d in down))
+    elif asked:
+        state, value, meta = "ok", i18n.t(_REACHABLE), ""
+    else:
+        state, value, meta = "off", i18n.t(_NO_REQUEST), ""
+    vrs, adsbdb = data["answers"]["vrs"], data["answers"]["adsbdb"]
+    total = vrs + adsbdb
+    if total == 0:
+        answers_value = i18n.t(_NO_ANSWERS) % ANSWER_WINDOW_DAYS
+        answers_meta = ""
+    else:
+        answers_value = _ANSWER_TOTALS % (vrs, adsbdb)
+        answers_meta = escape_html(
+            i18n.t(_WINDOW_ONE) % ANSWER_WINDOW_DAYS if total == 1
+            else i18n.t(_WINDOW) % (ANSWER_WINDOW_DAYS, total))
+    return (
+        hp.SystemTile("route-directories", state, _DIRECTORY_ICON, directories_label, value, meta),
+        hp.SystemTile("route-answers", "off", _ANSWERS_ICON, answered_label, answers_value, answers_meta))

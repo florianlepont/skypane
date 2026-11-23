@@ -1,4 +1,4 @@
-"""Real-browser checks of the System page's tiles: four equal tiles at least 44 px tall, nothing
+"""Real-browser checks of the System page's tiles: six equal tiles at least 44 px tall, nothing
 overflowing at 320, 390 and 1440 px in English and French and both themes, the warning tile's
 state spelled out, and a tile bringing its block into view."""
 import datetime
@@ -53,12 +53,12 @@ def test_tiles_are_equal_reachable_and_fit(
     try:
         assert not _assert_no_page_overflow(page, where, viewport["width"])
         tiles = page.locator("main .fleet-tiles--system a.fleet-tile")
-        assert tiles.count() == 4, where
-        boxes = [tiles.nth(i).bounding_box() for i in range(4)]
+        assert tiles.count() == 6, where
+        boxes = [tiles.nth(i).bounding_box() for i in range(6)]
         assert all(b["height"] >= 44 for b in boxes), where
         assert len({round(b["width"]) for b in boxes}) == 1, where
         assert len({round(b["height"]) for b in boxes}) == 1, where
-        for i in range(4):
+        for i in range(6):
             assert boxes[i]["x"] >= 0 and boxes[i]["x"] + boxes[i]["width"] <= viewport["width"], where
         warn = page.locator("main .fleet-tile[data-state='warn']")
         assert warn.count() == 1 and warn.locator(".visually-hidden").inner_text().strip(), where
@@ -114,7 +114,7 @@ def test_glyph_chips_carry_only_the_topic_glyph_and_the_hidden_state_word(
         # One chip per tile; one per card (the two route directories and the answered-by card
         # add three to the four of the other topics).
         for chip_selector, expected in (
-                (".fleet-tiles--system .fleet-tile__icon", 4), (".sys-card__icon", 7)):
+                (".fleet-tiles--system .fleet-tile__icon", 6), (".sys-card__icon", 7)):
             chips = page.locator(chip_selector)
             assert chips.count() == expected, where
             for i in range(expected):

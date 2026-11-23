@@ -780,11 +780,11 @@ def _backup_tile(offbox, now):
         _age_html(offbox["snapshot_ts"], now))
 
 
-def _system_tiles(state, stats, registry_rows, now):
+def _system_tiles(state, stats, registry_rows, now, route_tiles=()):
     """The System page's tiles, one per topic block, in the blocks' order."""
     tiles = (
         _server_tile(state, now), _sources_tile(state),
-        _identification_tile(stats, len(registry_rows)),
+        _identification_tile(stats, len(registry_rows)), *route_tiles,
         _backup_tile(state.get("offbox"), now))
     return tuple(tile for tile in tiles if tile is not None)
 
@@ -825,7 +825,8 @@ def _platform_parts(ctx, state, now):
     route_data = _safe_query(
         state_dir, lambda conn: route_sources_card.read(conn, now))
     return {
-        "system_tiles": _system_tiles(state, stats, registry_rows, now),
+        "system_tiles": _system_tiles(
+            state, stats, registry_rows, now, route_sources_card.tiles(route_data)),
         "system_cards": system_cards.topics(
             state, stats, registry_rows, now, route_sources_card.topics(route_data, now)),
         "source_fault_html": _source_fault_block(state["source_fault_raw"])}
