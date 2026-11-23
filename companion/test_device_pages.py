@@ -81,15 +81,15 @@ def _page(app, device, page):
 
 
 def _fleet_view(app, device):
-    """The Health page of `device` on the Fleet page."""
-    status, _, body = get(app, "/fleet?frame=%s&view=health" % device.id)
+    """The Battery page of `device` on the Fleet page."""
+    status, _, body = get(app, "/fleet?frame=%s&view=battery" % device.id)
     assert status == 200
     return body
 
 
 def _french_page(app, device, page):
     cookie = "%s; %s=fr" % (app.cookie, auth.UI_LANG_COOKIE_NAME)
-    path = "/fleet?frame=%s&view=health" % device.id if page == "fleet" else "/devices/%s/%s" % (device.id, page)
+    path = "/fleet?frame=%s&view=battery" % device.id if page == "fleet" else "/devices/%s/%s" % (device.id, page)
     status, _, body = http_request(app.server.base_url() + path, cookie=cookie)
     assert status == 200
     return body.decode("utf-8", "replace")
@@ -104,9 +104,9 @@ def _hrefs(page):
     return re.findall(r'(?:href|src|action)="([^"]*)"', page)
 
 
-# --- Health ---------------------------------------------------------------
+# --- Battery --------------------------------------------------------------
 
-def test_health_pages_show_only_their_own_device(two_devices):
+def test_battery_pages_show_only_their_own_device(two_devices):
     app = two_devices
     health_a = _fleet_view(app, app.fleet.dev_a)
     health_b = _fleet_view(app, app.fleet.dev_b)
@@ -129,42 +129,42 @@ def test_flights_pages_show_only_their_own_device(two_devices):
     assert CALLSIGN_A not in live and CALLSIGN_B not in live
 
 
-def test_never_seen_device_gets_the_health_empty_state(bare_device):
+def test_never_seen_device_gets_the_battery_empty_state(bare_device):
     app = bare_device
     page = _fleet_view(app, app.fleet.dev_a)
     assert "This frame has not checked in yet" in page
-    assert "Health appears after its first wake." in page
+    assert "Battery readings appear after its first wake." in page
     # The page is the empty state alone: no rows, no toast, no dot.
     assert "health-row" not in _main(page) and "toast" not in _main(page)
 
 
-def test_health_empty_state_in_french(bare_device):
+def test_battery_empty_state_in_french(bare_device):
     app = bare_device
     body = _french_page(app, app.fleet.dev_a, "fleet")
     assert "Ce cadre ne s’est pas encore connecté" in body
-    assert "L’état apparaîtra après son premier réveil." in body
+    assert "Les relevés de batterie apparaîtront après son premier réveil." in body
 
 
-def test_online_device_has_no_unreachable_toast(two_devices):
-    app = two_devices
-    page = _fleet_view(app, app.fleet.dev_a)
-    assert "No signal since" not in page
-
-
-def test_silent_device_shows_the_unreachable_toast_and_its_last_data(two_devices):
+def test_silent_device_battery_page_has_no_toast_and_keeps_its_last_data(two_devices):
     app = two_devices
     page = _fleet_view(app, app.fleet.dev_b)
-    assert "No signal since" in page
-    assert "Showing the last known data." in page
-    assert "toast--docked" in page and "toast--warning" in page
-    assert "data-toast-dismiss" not in _main(page)
+    assert "No signal since" not in page
+    assert "toast" not in _main(page)
     # The last known data is still shown.
     assert "3555" in page
 
 
-def test_live_frame_health_has_no_device_states(two_devices):
+def test_silent_device_says_so_in_its_connection_tile(two_devices):
     app = two_devices
-    page = get(app, "/fleet?frame=%s&view=health" % app.fleet.live.id)[2]
+    page = get(app, "/fleet?frame=%s" % app.fleet.dev_b.id)[2]
+    tile = page[page.index('<div class="fleet-tile"'):]
+    tile = tile[:tile.index("</div>")]
+    assert "Has not checked in for a long time" in tile and "Last check-in" in tile
+
+
+def test_live_frame_battery_page_has_no_device_states(two_devices):
+    app = two_devices
+    page = get(app, "/fleet?frame=%s&view=battery" % app.fleet.live.id)[2]
     assert "No signal since" not in page
     assert "has not checked in yet" not in page
 

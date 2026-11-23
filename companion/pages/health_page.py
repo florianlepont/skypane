@@ -1,5 +1,5 @@
-"""Health status and trend page, and the landing context for the
-on-device fault icon's redirect target.
+"""The state behind the Fleet page's tiles, the frame's Battery page and the
+System view.
 
 Every dynamic value reaches HTML through `escape_html()` or an escaping
 component builder. The Device and Pipeline freshness signals are
@@ -12,12 +12,12 @@ nav renderer needs to import a page module.
 The markup-free severity computation (`health_signals()` and everything
 it is built from) lives in companion/health_signals.py, imported below
 and re-exported under its historical names — this module owns only the
-markup half (one `_x_row()` builder per Health row, `health_state_from_signals()`
+markup half (the battery row, the tile facts, `health_state_from_signals()`
 and its `compute_health_state()`/`safe_health_state()` wrappers, which
 still need the shared fragments and so stay here). The generic row
-components live in companion/health_rows.py.
+components live in companion/health_rows.py and the System cards in
+companion/pages/system_cards.py.
 """
-from datetime import datetime, timezone
 from typing import NamedTuple
 
 from companion.layout import escape_html
@@ -32,12 +32,11 @@ import companion.user_view as user_view
 import companion.i18n as i18n
 import companion.layout as layout
 import companion.page_context as page_context
-import companion.ui_components as ui_components
 import companion.prefs as prefs  # for the resolved language directly:
 # French requires a real U+00A0 before the colon (_label_colon() below),
 # not merely a translated label.
 import companion.frame_state as frame_state  # the one frame-state
-# resolution — the Frame connection row and the nav notification dot both consume
+# resolution — the Connection tile and the nav notification dot both consume
 # resolve_state(), never re-deriving due/held/late from
 # device_staleness_thresholds() alone.
 from server import history_db
@@ -54,8 +53,6 @@ UNRESOLVED_SECTION_HEADING = health_sections_module.UNRESOLVED_SECTION_HEADING
 STATS_SECTION_HEADING = health_sections_module.STATS_SECTION_HEADING
 RESOLUTION_WINDOW_DAYS = health_sections_module.RESOLUTION_WINDOW_DAYS
 _NO_STATS_HEADING = health_sections_module._NO_STATS_HEADING
-_RESOLUTION_DETAIL_TEMPLATE = health_sections_module._RESOLUTION_DETAIL_TEMPLATE
-_RESOLUTION_DETAIL_SINGULAR_TEMPLATE = health_sections_module._RESOLUTION_DETAIL_SINGULAR_TEMPLATE
 _NO_STATS_BODY = health_sections_module._NO_STATS_BODY
 _SOURCE_ROWS = health_sections_module._SOURCE_ROWS
 _OTHER_SOURCE_LABEL = health_sections_module._OTHER_SOURCE_LABEL
@@ -114,10 +111,8 @@ SOURCE_FAULT_BODY_TEMPLATE = i18n.msg(
     "The frame's alert badge is showing because every configured ADS-B "
     "source (%s) failed to respond on the most recent pipeline run — "
     "this is a data-source outage, not a device problem.")
-SOURCE_FAULT_BODY = SOURCE_FAULT_BODY_TEMPLATE % ", ".join(_ADSB_PROVIDER_NAMES)
 
-# The leading "⚠ " glyph lives in _anomaly_banner_html(), not here, so
-# this stays a literal substring of whatever renders.
+# The sentence the System view's warnings banner ends with.
 ANOMALY_BANNER_TEXT = i18n.msg(
     "health.something_needs_attention_check_the_tiles_below",
     "Something needs attention — check the rows below.")
@@ -128,14 +123,9 @@ _SEVERITY_BANNER_NOUNS = {
 }  # falls back to "issue" for any severity not in this dict.
 _SEVERITY_BANNER_ISSUE_TEXT = i18n.msg("health.issue", "issue")
 
-DEVICE_CONNECTION_HELP_TEXT = i18n.msg(
-    "health.device_connection_help",
-    "This is when the frame last contacted the server.")
-
-# One short name per row. The identification row is named by
-# STATS_SECTION_HEADING and the backup row by _OFFBOX_BACKUP_TEXT, which
+# One short name per topic. The identification topic is named by
+# STATS_SECTION_HEADING and the backup topic by _OFFBOX_BACKUP_TEXT, which
 # already say exactly that.
-ROW_CONNECTION_NAME = i18n.msg("health.row_connection", "Frame connection")
 ROW_BATTERY_NAME = i18n.msg("health.row_battery", "Battery")
 ROW_FLIGHT_DATA_NAME = i18n.msg("health.row_flight_data", "Flight data")
 ROW_SOURCES_NAME = i18n.msg("health.row_sources", "Data sources")
@@ -190,16 +180,12 @@ BACKUP_STATE_TEXT = {
 }
 _NO_READINGS_VERDICT_TEXT = i18n.msg("health.row_no_readings", "No readings yet")
 _NO_CHECK_IN_TEXT = i18n.msg("health.row_no_check_in", "No check-in yet")
-# {time} is the device's last check-in, filled in by the page.
-DEVICE_UNREACHABLE_TEXT = i18n.msg(
-    "health.device_unreachable",
-    "No signal since {time} \u2014 Showing the last known data.")
 DEVICE_EMPTY_HEADING = i18n.msg(
     "health.device_empty_heading", "This frame has not checked in yet")
 DEVICE_EMPTY_BODY = i18n.msg(
     "health.device_empty_body",
-    "Health appears after its first wake. Make sure it is powered on and in "
-    "range of Wi-Fi.")
+    "Battery readings appear after its first wake. Make sure it is powered on "
+    "and in range of Wi-Fi.")
 DEVICE_BATTERY_EMPTY_HEADING = i18n.msg(
     "health.device_battery_empty_heading", "No battery reading")
 DEVICE_BATTERY_EMPTY_BODY = i18n.msg(
@@ -213,8 +199,6 @@ _NO_DISAGREEMENT_TEXT = i18n.msg("health.row_no_disagreement", "No disagreement"
 _ONE_DISAGREEMENT_TEXT = i18n.msg("health.row_one_disagreement", "1 disagreement")
 _MANY_DISAGREEMENTS_TEMPLATE = i18n.msg(
     "health.row_n_disagreements", "%d disagreements")
-_IDENTIFIED_TEMPLATE = i18n.msg(
-    "health.row_identified", "%s%% of flights identified")
 _IDENTIFIED_SHORT_TEMPLATE = i18n.msg(
     "health.sys_identified_short", "%s\u00a0%% identified")
 _TO_RESOLVE_TEMPLATE = i18n.msg("health.row_to_resolve", "%d to resolve")
@@ -274,15 +258,6 @@ BATTERY_SECTION_HEADING = battery_chart.BATTERY_SECTION_HEADING
 # Contract value shared with style.css's .battery-trend-section rule,
 # guarded against silent drift by a cross-file check.
 BATTERY_SECTION_CLASS = "battery-trend-section"
-
-# The two id-anchored groups the rows card is split into.
-# SERVER_DATA_SECTION_ID is a cross-page coupling: other pages may link to
-# this exact anchor (#server-data) — renaming it silently breaks that link.
-SCREEN_SECTION_ID = "screen"
-SCREEN_SECTION_HEADING = i18n.msg("health.screen", "Screen")
-SERVER_DATA_SECTION_ID = "server-data"
-SERVER_DATA_SECTION_HEADING = i18n.msg("health.server_data", "Server & data")
-
 
 # Inline literals hoisted from the markup builders below, one constant
 # per distinct English string. "More details" is shared by four
@@ -384,7 +359,7 @@ def _next_wake_clock(signals):
 
 
 def health_state_from_signals(signals, curve=None):
-    """Builds the markup fragments Home and the Health rows share
+    """Builds the markup fragments Home and the Battery row share
     (`*_detail_html`, `battery_html`, `battery_caption`) from
     `signals["inputs"]` (a `health_signals()` snapshot), and returns
     exactly `compute_health_state()`'s key set. Every state, `severity`
@@ -429,7 +404,7 @@ def health_state_from_signals(signals, curve=None):
 
 
 def compute_health_state(state_dir, now=None, fleet_root=None, curve=None):
-    """The single computation both the nav-tab dot and the full Health
+    """The single computation both the nav-tab dot and the full Battery
     page need. Running these independently against fresh DB connections
     at two different instants let a write land between them and make
     the two disagree; `build_page_context()` now calls this once per
@@ -450,7 +425,7 @@ def safe_health_state(state_dir, now=None):
     unlike the narrow `(sqlite3.Error, OSError)` catches elsewhere in
     this file: this function runs on every authenticated page render, so
     a raise here would 500 every page over a decorative nav dot.
-    Callers treat `None` as "ok" (fail closed — the Health page itself
+    Callers treat `None` as "ok" (fail closed — the Battery page itself
     still reports the real problem in full); `render()` falls back to a
     fresh compute rather than a dict with missing keys.
     """
@@ -458,35 +433,6 @@ def safe_health_state(state_dir, now=None):
         return compute_health_state(state_dir, now)
     except Exception:
         return None
-
-
-def _starts_with_acronym(phrase):
-    """True when `phrase`'s first word carries a capital letter after its
-    first character — an acronym ("ADS-B", "RER") rather than an
-    ordinary sentence-initial word ("Device"). Used by
-    `_anomaly_category_text()` to decide whether a phrase's leading
-    letter may be safely lower-cased for mid-sentence joining.
-    """
-    first_word = phrase.split(" ", 1)[0]
-    return any(character.isupper() for character in first_word[1:])
-
-
-def _anomaly_category_text(anomalies):
-    """A comma-joined, human-readable naming of `anomalies`
-    (`collect_anomalies()`'s own literal strings, in order), so the
-    banner names its real failing category rather than a generic
-    message. Each item's trailing period is dropped, and every item
-    after the first is lower-cased for mid-sentence joining — except a
-    phrase whose first word is an acronym like "ADS-B", which would
-    otherwise mangle into "aDS-B".
-    """
-    phrases = []
-    for index, anomaly in enumerate(anomalies):
-        phrase = anomaly.rstrip(".")
-        if index > 0 and phrase and not _starts_with_acronym(phrase):
-            phrase = phrase[0].lower() + phrase[1:]
-        phrases.append(phrase)
-    return ", ".join(phrases)
 
 
 def _anomaly_category_labels(anomalies):
@@ -500,34 +446,6 @@ def _anomaly_category_labels(anomalies):
 
 HEALTH_ANOMALY_CLASS = layout.HEALTH_ANOMALY_CLASS
 HEALTH_SOURCE_FAULT_CLASS = layout.HEALTH_SOURCE_FAULT_CLASS
-
-
-def _anomaly_banner_html(severity, anomalies):
-    """The anomaly state as a docked toast (persistent, never dismissed):
-    a count-and-noun title, one pill per failing category, and a
-    `<span class="visually-hidden">` tail carrying the original
-    comma-joined sentence, so a screen reader gets one coherent sentence
-    rather than disconnected pills. The error state announces
-    assertively, a warning-only state politely.
-    """
-    tone = layout.TOAST_TONE_ERROR if severity == "error" else layout.TOAST_TONE_WARNING
-    role = "alert" if severity == "error" else "status"
-    noun = i18n.t(_SEVERITY_BANNER_NOUNS.get(severity, _SEVERITY_BANNER_ISSUE_TEXT))
-    count = len(anomalies)
-    plural = "" if count == 1 else "s"
-    title = _label_colon("%d %s%s" % (count, noun, plural))
-    pills_html = "".join(
-        '<span class="toast__pill">%s</span>' % escape_html(label)
-        for label in _anomaly_category_labels(anomalies)
-    )
-    tail_text = "%s — %s" % (_anomaly_category_text(anomalies), i18n.t(ANOMALY_BANNER_TEXT))
-    extra_html = '<span class="toast__pills">%s</span><span class="visually-hidden">%s</span>' % (
-        pills_html, escape_html(tail_text))
-    return layout.toast_html(
-        title, tone=tone, role=role, extra_html=extra_html, docked=True,
-        extra_class=HEALTH_ANOMALY_CLASS)
-
-
 
 
 def _device_timestamp_only(device_health, now):
@@ -668,12 +586,9 @@ def _source_fault_block(source_fault_raw):
 unresolved_rows = health_signals_module.unresolved_rows
 coverage_status = health_signals_module.coverage_status
 
-# resolution_stats() and the registry/stats markup
-# builders (_registry_section(), _stats_section_html()) all live in
-# companion/health_sections.py now — re-exported here since render()
-# below calls each of these as a bare name.
+# resolution_stats() lives in companion/health_sections.py — re-exported here
+# since the System view reads it as a bare name.
 resolution_stats = health_sections_module.resolution_stats
-_stats_table_html = health_sections_module._stats_table_html
 
 
 
@@ -683,10 +598,9 @@ _stats_table_html = health_sections_module._stats_table_html
 _read_health_inputs = health_signals_module._read_health_inputs
 
 
-# One row per subsystem. Each builder returns a complete row, whose state,
-# verdict and value are read from the same snapshot the nav dot and the
-# anomaly toast were judged on (`state` is health_state_from_signals()'s
-# dict), so no row can show a reading its own state was not computed from.
+# The battery row reads its state, verdict and value from the same snapshot
+# the nav dot was judged on (`state` is health_state_from_signals()'s dict),
+# so it can never show a reading its own state was not computed from.
 
 def _available(value):
     """`value`, or None when the read behind it failed (an unreadable
@@ -701,46 +615,10 @@ def _unavailable_row(row_id, name):
         row_id, "off", name, i18n.t(_ROW_UNAVAILABLE_TEXT), "", _unavailable_block())
 
 
-def _fact(label, value_html):
-    return (escape_html(i18n.t(label)), value_html)
-
-
-def _concise(ts, now):
-    return layout.concise_timestamp_html(ts, now, fallback=i18n.t(_NEVER_TEXT))
-
-
 def _age_html(ts, now, fallback=_NEVER_TEXT):
     """The row's right-hand value for a point in time: a live relative
     age that is already complete text with scripts blocked."""
     return layout.relative_time_html(ts, now, fallback=i18n.t(fallback))
-
-
-def _connection_row(state, now):
-    name = i18n.t(ROW_CONNECTION_NAME)
-    device_health = state["inputs"]["device_health"]
-    if device_health is _DB_UNAVAILABLE:
-        return _unavailable_row("connection", name)
-    ts = (device_health or {}).get("ts")
-    device_state = state["device_state"]
-    # With no check-in on record the verdict already says so; the value cell and a
-    # Last check-in fact would only repeat it.
-    facts = []
-    value_html = ""
-    if ts is not None:
-        facts.append(_fact(_LAST_CHECK_IN_TEXT, layout.concise_timestamp_html(
-            ts, now, fallback=i18n.t(_NO_CHECK_IN_TEXT))))
-        value_html = _age_html(ts, now, _NO_CHECK_IN_TEXT)
-    if state["next_wake_clock"]:
-        facts.append(_fact(
-            _NEXT_WAKE_TEXT,
-            '<span class="time-value">%s</span>' % escape_html(state["next_wake_clock"])))
-    body = (
-        health_rows.facts_html(facts)
-        + health_rows.note_html(i18n.t(DEVICE_CONNECTION_HELP_TEXT)))
-    return health_rows.row_html(
-        "connection", device_state, name,
-        i18n.t(DEVICE_STATE_TEXT.get(device_state, DEVICE_STATE_TEXT["warn"])),
-        value_html, body)
 
 
 def _charging_pill_html(state, trend_rows, battery_critical):
@@ -781,29 +659,6 @@ def _battery_row(state, battery_critical=False, device=None):
         _battery_body_html(state["battery_html"]))
 
 
-def _flight_data_row(state, now):
-    name = i18n.t(ROW_FLIGHT_DATA_NAME)
-    inputs = state["inputs"]
-    if inputs["pipeline_ts"] is _DB_UNAVAILABLE:
-        return _unavailable_row("flight-data", name)
-    pipeline_ts = inputs["pipeline_ts"]
-    last_detection = _available(inputs["last_detection"])
-    pipeline_state = state["pipeline_state"]
-    if _pipeline_never_ran(pipeline_ts, last_detection):
-        # Nothing to date: the sentence says so, where two "never" facts
-        # would only repeat it.
-        body = health_rows.note_html(i18n.t(PIPELINE_NEVER_RAN_DETAIL_TEXT))
-    else:
-        body = health_rows.facts_html([
-            _fact(_LAST_RUN_TEXT, _concise(pipeline_ts, now)),
-            _fact(LAST_DETECTION_LABEL, _concise(last_detection, now)),
-        ])
-    return health_rows.row_html(
-        "flight-data", pipeline_state, name,
-        i18n.t(PIPELINE_STATE_TEXT.get(pipeline_state, PIPELINE_STATE_TEXT["warn"])),
-        _age_html(pipeline_ts, now), body)
-
-
 def _disagreements_text(count):
     if not count:
         return i18n.t(_NO_DISAGREEMENT_TEXT)
@@ -812,93 +667,13 @@ def _disagreements_text(count):
     return i18n.t(_MANY_DISAGREEMENTS_TEMPLATE) % count
 
 
-def _corroboration_outcomes_html(counts):
-    """The three outcomes a cycle can have, each with its dot, its count
-    and the sentence saying what it means."""
-    statuses = corroboration_status(counts)
-    items = []
-    for key, label, _default_state, explanation in _CORROBORATION_ROWS:
-        items.append(
-            '<li><p class="health-row__outcome">%s'
-            '<span class="tnum">%d</span></p>%s</li>' % (
-                layout.status_dot(statuses[key], i18n.t(label)),
-                counts.get(key, 0) or 0,
-                health_rows.note_html(i18n.t(explanation))))
-    return '<ul class="health-row__outcomes">%s</ul>' % "".join(items)
-
-
-def _sources_row(state):
-    name = i18n.t(ROW_SOURCES_NAME)
-    counts = state["inputs"]["corroboration_counts"]
-    if counts is _DB_UNAVAILABLE:
-        return _unavailable_row("sources", name)
-    counts = counts or {}
-    if not any(counts.values()):
-        return health_rows.row_html(
-            "sources", "off", name, i18n.t(_NOTHING_TO_COMPARE_YET_TEXT), "",
-            health_rows.note_html(i18n.t(_APPEARS_ONCE_RECORDED_TEXT)))
-    verdict_state = "warn" if state["disagreement_warn"] else "ok"
-    return health_rows.row_html(
-        "sources", verdict_state, name,
-        i18n.t(CORROBORATION_STATE_TEXT[verdict_state]),
-        escape_html(_disagreements_text(counts.get("False", 0) or 0)),
-        _corroboration_outcomes_html(counts))
-
-
 def _percent_text(percent):
     """`percent` to one decimal, with the decimal comma in French."""
     text = "%.1f" % percent
     return text.replace(".", ",") if prefs.current_lang() == "fr" else text
 
 
-def _identification_row(stats, unresolved_count):
-    name = i18n.t(STATS_SECTION_HEADING)
-    if stats is _DB_UNAVAILABLE:
-        return _unavailable_row("identification", name)
-    # The pending count is the one small badge, like every other count; with
-    # nothing pending it is plain text.
-    to_resolve = (
-        ui_components.pill_html(i18n.t(_TO_RESOLVE_TEMPLATE) % unresolved_count)
-        if unresolved_count else escape_html(i18n.t(_NOTHING_TO_RESOLVE_TEXT)))
-    if stats["total"] == 0:
-        return health_rows.row_html(
-            "identification", "off", name,
-            i18n.t(_NO_STATS_HEADING) % RESOLUTION_WINDOW_DAYS, to_resolve,
-            health_rows.note_html(i18n.t(_NO_STATS_BODY)))
-    template = (
-        _RESOLUTION_DETAIL_SINGULAR_TEMPLATE if stats["total"] == 1
-        else _RESOLUTION_DETAIL_TEMPLATE)
-    percent = stats["resolved_pct"]
-    # Never "100.0%" beside a count still to resolve: rounding must not
-    # contradict the row's own figure.
-    shown_percent = min(percent, 99.9) if unresolved_count else percent
-    # The rate is a figure with no pass mark, so its row stays neutral.
-    return health_rows.row_html(
-        "identification", "off", name,
-        i18n.t(_IDENTIFIED_TEMPLATE) % _percent_text(shown_percent),
-        to_resolve,
-        health_rows.note_html(
-            i18n.t(template) % (RESOLUTION_WINDOW_DAYS, stats["total"]))
-        + _stats_table_html(stats))
-
-
-def _backup_row(offbox, now):
-    """The off-box backup row, or "" when no marker is configured."""
-    if offbox is None:
-        return ""
-    backup_state = offbox["state"]
-    body = health_rows.facts_html([
-        _fact(_LAST_OFFBOX_BACKUP_TEXT, _concise(offbox["snapshot_ts"], now))])
-    anomaly_text = _offbox_anomaly_text(offbox)
-    if anomaly_text:
-        body += health_rows.note_html(anomaly_text)
-    return health_rows.row_html(
-        "backup", backup_state, i18n.t(_OFFBOX_BACKUP_TEXT),
-        i18n.t(BACKUP_STATE_TEXT.get(backup_state, BACKUP_STATE_TEXT["warn"])),
-        _age_html(offbox["snapshot_ts"], now), body)
-
-
-# Health refreshes itself on a named-interval, visibility-gated timer (see
+# The Fleet page refreshes itself on a named-interval, visibility-gated timer (see
 # companion/static/freshness.js) rather than showing a stale-view banner:
 # a page that reloads itself cannot go stale. Severity stays computed
 # server-side only — the timer reveals a pill and reloads, nothing else.
@@ -912,46 +687,11 @@ def _epoch_of(iso):
 
 def _device_status(ctx, now):
     """`device_scope`'s status for the selected device, or None for the live
-    frame (whose Health page is unchanged) and for a context with no device."""
+    frame and for a context with no device."""
     device = ctx.device
     if device is None or device.is_live:
         return None
     return device_scope.device_status(device, _epoch_of(now) or device_scope.now_epoch())
-
-
-def _device_unreachable_html(ctx, now):
-    """The docked warning toast for a device that has been silent for more
-    than two of its own wake intervals."""
-    last = device_scope.last_check_in_epoch(ctx.state_dir)
-    parsed = None if last is None else datetime.fromtimestamp(last, timezone.utc)
-    now_parsed = history_db.instant_or_none(now)
-    when = layout.local_clock_text(parsed, now_parsed) if parsed else i18n.t(_NO_CHECK_IN_TEXT)
-    return layout.anomaly_banner(
-        i18n.t(DEVICE_UNREACHABLE_TEXT).replace("{time}", when), severity="warn")
-
-
-def _server_group_html(state, stats, registry_rows, now):
-    """The platform data group: flight data, sources, identification and
-    backup rows."""
-    server_rows = (
-        _flight_data_row(state, now) + _sources_row(state)
-        + _identification_row(stats, len(registry_rows))
-        + _backup_row(state.get("offbox"), now))
-    return health_rows.group_html(
-        SERVER_DATA_SECTION_ID, i18n.t(SERVER_DATA_SECTION_HEADING), server_rows)
-
-
-def _server_topics(state, stats, registry_rows, now):
-    """The platform rows as separate topics: (id, label, row html), one per
-    flight data, sources, identification and backups. A topic with no row (no
-    backup marker) is left out."""
-    topics = (
-        ("flight-data", ROW_FLIGHT_DATA_NAME, _flight_data_row(state, now)),
-        ("sources", ROW_SOURCES_NAME, _sources_row(state)),
-        ("identification", STATS_SECTION_HEADING,
-         _identification_row(stats, len(registry_rows))),
-        ("backup", _OFFBOX_BACKUP_TEXT, _backup_row(state.get("offbox"), now)))
-    return [(key, i18n.t(label), row) for key, label, row in topics if row]
 
 
 class SystemTile(NamedTuple):
@@ -1040,40 +780,37 @@ def _backup_tile(offbox, now):
         _age_html(offbox["snapshot_ts"], now))
 
 
-def _system_tiles(state, stats, registry_rows, now):
+def _system_tiles(state, stats, registry_rows, now, route_tiles=()):
     """The System page's tiles, one per topic block, in the blocks' order."""
     tiles = (
         _server_tile(state, now), _sources_tile(state),
-        _identification_tile(stats, len(registry_rows)),
+        _identification_tile(stats, len(registry_rows)), *route_tiles,
         _backup_tile(state.get("offbox"), now))
     return tuple(tile for tile in tiles if tile is not None)
 
 
-def _page_parts(ctx):
-    """Everything the Health page and the Console Fleet blocks are built
-    from, computed once per request: the frame's connection status, the
-    health state, the banner markup and the rows of both groups. None for a
-    frame that never checked in."""
-    state_dir = ctx.state_dir
+def _state_parts(ctx):
+    """`(health state, now)` for the frame in `ctx`, computed once per request:
+    the snapshot every tile, the battery view and the System cards read. None
+    for a frame that never checked in."""
     now = ctx.now or history_db.utc_now_iso()
-    status = _device_status(ctx, now)
-    if status == device_scope.STATUS_NEVER_SEEN:
+    if _device_status(ctx, now) == device_scope.STATUS_NEVER_SEEN:
         return None
-
     # Reuse the state build_page_context() already computed, rather than
     # re-deriving it. Falls back to a fresh compute for a direct caller.
     state = ctx.health_state or compute_health_state(
-        state_dir, now, ctx.root_state_dir, page_context.device_curve(ctx.device))
+        ctx.state_dir, now, ctx.root_state_dir, page_context.device_curve(ctx.device))
+    return state, now
 
-    severity = state["severity"]
-    anomalies = health_signals_module.battery_both_sentences(
-        state["anomalies"], state["inputs"]["trend_rows"])
-    banner_html = (
-        _anomaly_banner_html(severity, anomalies) if severity != "ok" else "")
-    unreachable_html = (
-        _device_unreachable_html(ctx, now) if status == device_scope.STATUS_OFFLINE
-        else "")
 
+def _platform_parts(ctx, state, now):
+    """The platform-wide parts of the System view: its tiles, its cards and
+    the source-fault notice. Empty for a principal who may not see the
+    platform."""
+    if not user_view.platform_visible():
+        return {"system_tiles": (), "system_cards": [], "source_fault_html": ""}
+    from companion.pages import route_sources_card, system_cards
+    state_dir = ctx.state_dir
     # Registry (filesystem/JSON) and stats (SQLite) stay independent
     # reads. Reuses state["registry_rows"] when already computed.
     registry_rows = state.get("registry_rows")
@@ -1085,23 +822,14 @@ def _page_parts(ctx):
     # than lingering until the next poll prunes the registry.
     named_prefixes = manual_resolutions.load_manual_resolutions(state_dir) if state_dir else {}
     registry_rows = [row for row in registry_rows if row[0] not in named_prefixes]
-
-    screen_rows = (
-        _connection_row(state, now)
-        + _battery_row(state, ctx.battery_critical, ctx.device))
-    parts = {
-        "now": now, "state": state, "banner_html": banner_html,
-        "unreachable_html": unreachable_html, "screen_rows": screen_rows,
-        "server_group_html": "", "source_fault_html": "",
-        "server_topics": [], "system_tiles": (), "system_cards": []}
-    if user_view.platform_visible():
-        from companion.pages import system_cards
-        parts["server_group_html"] = _server_group_html(state, stats, registry_rows, now)
-        parts["server_topics"] = _server_topics(state, stats, registry_rows, now)
-        parts["system_tiles"] = _system_tiles(state, stats, registry_rows, now)
-        parts["system_cards"] = system_cards.topics(state, stats, registry_rows, now)
-        parts["source_fault_html"] = _source_fault_block(state["source_fault_raw"])
-    return parts
+    route_data = _safe_query(
+        state_dir, lambda conn: route_sources_card.read(conn, now))
+    return {
+        "system_tiles": _system_tiles(
+            state, stats, registry_rows, now, route_sources_card.tiles(route_data)),
+        "system_cards": system_cards.topics(
+            state, stats, registry_rows, now, route_sources_card.topics(route_data, now)),
+        "source_fault_html": _source_fault_block(state["source_fault_raw"])}
 
 
 def _never_seen_html():
@@ -1111,8 +839,9 @@ def _never_seen_html():
 
 class TileFacts(NamedTuple):
     """What one overview tile shows: the state word (ok, warn, error, off),
-    the verdict text (plain), the value text (plain) and the age (already-safe
-    markup, "" when there is none)."""
+    the verdict text (plain), the value text (plain) and the muted lines under
+    it (already-safe markup, "" when there are none): the age of the last run,
+    or for the connection tile the last and the next connection."""
     state: str
     verdict: str
     value: str
@@ -1120,29 +849,37 @@ class TileFacts(NamedTuple):
 
 
 class FrameTiles(NamedTuple):
-    """The three Health-backed tiles of a frame (connection, battery and flight
-    data) and the battery's recent percentages, oldest first."""
+    """The two state-backed tiles of a frame (connection and battery) and the
+    battery's recent percentages, oldest first."""
     connection: TileFacts
     battery: TileFacts
-    flight: TileFacts
     battery_curve: tuple
 
 
 def _connection_tile(state, now):
+    """The connection verdict with the last connection and the next expected
+    one as two lines, so the frame's page says it without a detail page."""
     device_health = state["inputs"]["device_health"]
     if device_health is _DB_UNAVAILABLE:
         return TileFacts("off", i18n.t(_ROW_UNAVAILABLE_TEXT), "", "")
     ts = (device_health or {}).get("ts")
     device_state = state["device_state"]
+    lines = []
+    if ts is not None:
+        lines.append("%s %s" % (
+            escape_html(i18n.t(_LAST_CHECK_IN_TEXT)), _age_html(ts, now, _NO_CHECK_IN_TEXT)))
+    if state["next_wake_clock"]:
+        lines.append('%s <span class="time-value">%s</span>' % (
+            escape_html(i18n.t(_NEXT_WAKE_TEXT)), escape_html(state["next_wake_clock"])))
     return TileFacts(
         device_state,
         i18n.t(DEVICE_STATE_TEXT.get(device_state, DEVICE_STATE_TEXT["warn"])), "",
-        _age_html(ts, now, _NO_CHECK_IN_TEXT) if ts is not None else "")
+        "".join('<span class="fleet-tile__line">%s</span>' % line for line in lines))
 
 
 def _battery_curve_percents(inputs, curve):
     """The battery's percentages, oldest first: one per day when the chart
-    plots days, else the latest readings (the series the Health chart draws)."""
+    plots days, else the latest readings (the series the Battery chart draws)."""
     daily = inputs["daily_rows"]
     rows = daily if _battery_daily_series_usable(daily) else inputs["trend_rows"]
     if not isinstance(rows, list):
@@ -1174,75 +911,53 @@ def _battery_tile(state, device):
         _battery_curve_percents(inputs, curve))
 
 
-def _flight_tile(state, now):
-    inputs = state["inputs"]
-    if inputs["pipeline_ts"] is _DB_UNAVAILABLE:
-        return TileFacts("off", i18n.t(_ROW_UNAVAILABLE_TEXT), "", "")
-    pipeline_state = state["pipeline_state"]
-    return TileFacts(
-        pipeline_state,
-        i18n.t(PIPELINE_STATE_TEXT.get(pipeline_state, PIPELINE_STATE_TEXT["warn"])), "",
-        _age_html(inputs["pipeline_ts"], now))
-
-
 def frame_tiles(ctx):
-    """The facts of the overview's connection, battery and flight data tiles,
-    built from the same snapshot as the Health page; None for a frame that
+    """The facts of the overview's connection and battery tiles,
+    built from the same snapshot as the Battery view; None for a frame that
     never checked in."""
     ctx = page_context.coerce(ctx)
-    parts = _page_parts(ctx)
+    parts = _state_parts(ctx)
     if parts is None:
         return None
-    state = parts["state"]
+    state, now = parts
     battery_tile, curve = _battery_tile(state, ctx.device)
     return FrameTiles(
-        _connection_tile(state, parts["now"]), battery_tile,
-        _flight_tile(state, parts["now"]), curve)
+        _connection_tile(state, now), battery_tile, curve)
 
 
-class HealthSections(NamedTuple):
-    """The Health page of one frame: the notices above the rows (no-signal
-    notice, source fault, warnings banner), the rows of the frame section
-    (connection and battery) and the rows of the platform section (flight data,
-    data sources, identification, backup; administrators only), each row
-    already-safe markup. `empty_html` is the empty state of a frame that never
-    checked in (the other parts are then empty)."""
-    notices_html: str
-    frame_rows: tuple
-    platform_rows: tuple
+class BatteryView(NamedTuple):
+    """The Battery page of one frame: the battery row (already-safe markup)
+    and `empty_html`, the empty state of a frame that never checked in (the
+    row is then empty)."""
+    row_html: str
     empty_html: str
 
 
-def health_sections(ctx):
-    """The Health page's content for `ctx`'s frame. Every block of the page is
-    here: a frame that is not an administrator's view has its flight data row in
-    the frame section, since the platform section is not shown to it."""
+def battery_view(ctx):
+    """The Battery page's content for `ctx`'s frame: the battery row (level,
+    trend and charging estimate), or the empty state of a frame that never
+    checked in."""
     ctx = page_context.coerce(ctx)
-    parts = _page_parts(ctx)
+    parts = _state_parts(ctx)
     if parts is None:
-        return HealthSections("", (), (), _never_seen_html())
-    state, now = parts["state"], parts["now"]
-    frame_rows = [
-        _connection_row(state, now),
-        _battery_row(state, ctx.battery_critical, ctx.device)]
-    platform_rows = tuple(row for _key, _label, row in parts["server_topics"])
-    if not platform_rows:
-        frame_rows.append(_flight_data_row(state, now))
-    notices = (
-        parts["unreachable_html"] + parts["source_fault_html"] + parts["banner_html"])
-    return HealthSections(notices, tuple(frame_rows), platform_rows, "")
+        return BatteryView("", _never_seen_html())
+    return BatteryView(_battery_row(parts[0], ctx.battery_critical, ctx.device), "")
 
 
 def system_html(ctx):
     """The System view of the Console Fleet page: the platform-wide
-    information of the Health page. The source fault and anomaly banner sit
-    above one tile per topic, each linking to its block; then one glass group
-    per topic (flight data, ADS-B sources, identification and backups)."""
+    information. The source fault and anomaly banner sit above one tile per
+    topic, each linking to its block; then one glass group per topic (flight
+    data, ADS-B sources, identification, the route directories and backups)."""
     from companion import ui_groups
     from companion.pages import fleet_tiles, system_cards
     ctx = page_context.coerce(ctx)
-    parts = _page_parts(ctx)
-    if parts is None or not parts["server_group_html"]:
+    parts = _state_parts(ctx)
+    if parts is None:
+        return ""
+    state, now = parts
+    platform = _platform_parts(ctx, state, now)
+    if not platform["system_cards"]:
         return ""
     groups = "".join(
         ui_groups.group(
@@ -1252,12 +967,11 @@ def system_html(ctx):
             extra_class="fleet-block system-topic",
             attrs='id="%s%s"' % (fleet_tiles.SYSTEM_BLOCK_ID_PREFIX, key)).replace(
                 '<ul class="group">', '<ul class="group fleet-group">', 1)
-        for key, label, row in parts["system_cards"])
-    state = parts["state"]
+        for key, label, row in platform["system_cards"])
     banner = (
         system_cards.banner(state["severity"], state["anomalies"])
         if state["severity"] != "ok" else "")
     return (
-        parts["source_fault_html"] + banner
-        + fleet_tiles.system_tiles_html(parts["system_tiles"])
+        platform["source_fault_html"] + banner
+        + fleet_tiles.system_tiles_html(platform["system_tiles"])
         + '<div class="system-topics">%s</div>' % groups)

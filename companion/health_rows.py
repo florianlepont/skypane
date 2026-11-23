@@ -1,13 +1,14 @@
-"""Health page rows: the one card that lists every subsystem as a row.
+"""The row card of a frame's Battery page, and the state vocabulary shared by
+the Fleet tiles and the System cards.
 
-A row is always open: its head carries a state icon, the subsystem name, a
-one-line verdict and a right-aligned value, and its body carries the
-evidence (facts, a chart, a table). Nothing is collapsible, so the page
-shows every reading without a tap and works with scripts blocked.
+A row is always open: its head carries a state icon, the name, a one-line
+verdict and a right-aligned value, and its body carries the evidence (a gauge,
+a chart, a table). Nothing is collapsible, so the page shows every reading
+without a tap and works with scripts blocked.
 
-This module holds only the generic components. What each row says is
-decided in companion/pages/health_page.py, which owns the state wording
-and the data reads; nothing here imports a page module.
+This module holds only the generic components. What a row says is decided in
+companion/pages/health_page.py, which owns the state wording and the data
+reads; nothing here imports a page module.
 
 The state is never carried by colour alone: each of the four states has
 its own icon shape, and a visually hidden word names it for a screen
@@ -39,7 +40,6 @@ STATE_WORDS = {
 }
 
 ROWS_CLASS = "health-rows"
-GROUP_CLASS = "health-rows__group"
 ROW_CLASS = "health-row"
 SUMMARY_CLASS = "health-row__summary"
 ROW_ID_PREFIX = "health-row-"
@@ -77,27 +77,7 @@ def row_html(row_id, state, name, verdict, value_html, body_html):
         escape_html(name), escape_html(verdict), value_html, body_html)
 
 
-def group_html(group_id, heading, rows_html):
-    """A group band (an `<h2>`, so the page outline keeps its two
-    sections and the id stays a link target) followed by its rows."""
-    return '<h2 id="%s" class="%s">%s</h2>%s' % (
-        escape_html(group_id), GROUP_CLASS, escape_html(heading), rows_html)
-
-
 def card_html(groups_html):
     """The single card holding every group and row."""
     return '<div class="%s">%s</div>' % (ROWS_CLASS, groups_html)
 
-
-def facts_html(facts):
-    """A label/value list. `facts` is an iterable of `(label_html,
-    value_html)` pairs, both already safe."""
-    items = "".join(
-        "<div><dt>%s</dt><dd>%s</dd></div>" % (label_html, value_html)
-        for label_html, value_html in facts)
-    return '<dl class="health-row__facts">%s</dl>' % items if items else ""
-
-
-def note_html(text):
-    """A muted explanatory sentence under the facts. `text` is plain."""
-    return '<p class="health-row__note">%s</p>' % escape_html(text)

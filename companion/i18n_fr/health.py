@@ -91,8 +91,6 @@ MESSAGES = {
         "il s’agit d’une panne de source de données, pas d’un problème matériel.",
 
     # --- Frame connection / flight data / sources rows ------------------
-    "health.device_connection_help":
-        "Moment où le cadre a contacté le serveur pour la dernière fois.",
     "health.last_aircraft_detected": "Dernier avion détecté",
     "health.checking_in_normally": "Se connecte normalement",
     "health.has_not_checked_in_for_a_while": "N’a pas répondu depuis un moment",
@@ -117,12 +115,10 @@ MESSAGES = {
     "health.they_disagree": "Elles se contredisent",
 
     # --- Flight identification row ---------------------------------------
-    "health.over_the_last_days_events": "au cours des %d derniers jours, %d événements",
     # The singular sibling of the line above. A window holding
     # exactly one detection reads "1 events" in English and
     # "1 événements" here; only the noun loses its "s" (the day count
     # is a fixed 30, so it never needs a singular form of its own).
-    "health.over_the_last_days_event": "au cours des %d derniers jours, %d événement",
 
     # --- Battery trend section -------------------------------------------
     "health.battery": "Batterie",
@@ -168,7 +164,6 @@ MESSAGES = {
     "health.row_state_warn": "À surveiller",
     "health.row_state_error": "Problème",
     "health.row_state_off": "Neutre",
-    "health.row_connection": "Connexion du cadre",
     "health.row_battery": "Batterie",
     "health.row_flight_data": "Données de vol",
     "health.row_sources": "Sources de données",
@@ -188,7 +183,6 @@ MESSAGES = {
     "health.row_no_disagreement": "Aucun désaccord",
     "health.row_one_disagreement": "1\u00a0désaccord",
     "health.row_n_disagreements": "%d\u00a0désaccords",
-    "health.row_identified": "%s\u00a0%% des vols identifiés",
     "health.row_to_resolve": "%d à résoudre",
     # System page cards. Real U+00A0 before "%" and before the colon.
     "health.sys_last_detection": "Dernière détection",
@@ -211,7 +205,6 @@ MESSAGES = {
 
     # --- Screen / Server & data group headings ---------------------------
     "health.screen": "Écran",
-    "health.server_data": "Serveur et données",
 
     # --- Unresolved-prefix registry / filter bar --------------------------
     "health.airlines_we_could_not_name": "Compagnies non identifiées",
@@ -285,12 +278,33 @@ MESSAGES = {
         "consultez les journaux du service companion.",
 
     # --- A selected device other than the live frame ---------------------
-    "health.device_unreachable":
-        "Aucun signal depuis {time} \u2014 Dernières données connues affichées.",
     "health.device_empty_heading": "Ce cadre ne s’est pas encore connecté",
     "health.device_empty_body":
-        "L’état apparaîtra après son premier réveil. Vérifiez qu’il est allumé "
-        "et à portée du Wi-Fi.",
+        "Les relevés de batterie apparaîtront après son premier réveil. Vérifiez "
+        "qu’il est allumé et à portée du Wi-Fi.",
     "health.device_battery_empty_heading": "Aucune mesure de batterie",
     "health.device_battery_empty_body": "Affichée après la première connexion.",
+
+    # Route directories (Health page). Real U+00A0 before "%" and before
+    # the colon.
+    "health.rd_directories": "Annuaires de routes",
+    "health.rd_answered_by": "Répondu par",
+    "health.rd_vrs_name": "Données VRS",
+    "health.rd_vrs_role": "Interrogées en premier",
+    "health.rd_adsbdb_role": "Utilisé quand le premier n’a pas de route",
+    "health.rd_reachable": "Joignable",
+    "health.rd_not_reachable": "Injoignable",
+    "health.rd_no_request": "Aucune requête pour l’instant",
+    "health.rd_no_request_note":
+        "Affichée après la première recherche envoyée à cet annuaire.",
+    "health.rd_last_answer": "Dernière réponse",
+    "health.rd_last_24h": "Dernières 24\u00a0h",
+    "health.rd_lookups": "Recherches %d",
+    "health.rd_found": "Route trouvée",
+    "health.rd_failed": "En échec",
+    "health.rd_percent": "%d\u00a0%%",
+    "health.rd_never": "jamais",
+    "health.rd_no_answers": "Aucune route d’un annuaire sur les %d derniers jours",
+    "health.rd_no_answers_note":
+        "Affichée dès qu’un vol reçoit sa route de l’un des annuaires.",
 }

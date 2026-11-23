@@ -1,6 +1,6 @@
-"""Real-browser checks of the two pages the State tiles open, Health and Versions: no list column,
+"""Real-browser checks of the two pages the State tiles open, Battery and Versions: no list column,
 one visible h1, a 44 px way back to the frame, nothing overflowing at 360, 390 and 1440 px in
-English and French and both themes, the Health rows open, and a tile reaching its page in one tap."""
+English and French and both themes, the battery row open, and a tile reaching its page in one tap."""
 import datetime
 
 import animation_settle
@@ -18,8 +18,8 @@ pytestmark = pytest.mark.browser
 PHONE = {"width": 390, "height": 844}
 VIEWPORTS = [VIEWPORT_MIN_SUPPORTED, PHONE, VIEWPORT_DESKTOP]
 _SETTLED = animation_settle.SETTLED
-TITLES = {"en": {"health": "Health", "versions": "Versions"},
-          "fr": {"health": "Santé", "versions": "Versions"}}
+TITLES = {"en": {"battery": "Battery", "versions": "Versions"},
+          "fr": {"battery": "Batterie", "versions": "Versions"}}
 
 
 def _seed(server):
@@ -54,7 +54,7 @@ def _open(new_context, server, viewport, lang, theme, path):
 @pytest.mark.parametrize("scheme", UI_THEMES_EXPLICIT)
 @pytest.mark.parametrize("lang", ["en", "fr"])
 @pytest.mark.parametrize("viewport", VIEWPORTS, ids=["360", "390", "1440"])
-@pytest.mark.parametrize("view", ["health", "versions"])
+@pytest.mark.parametrize("view", ["battery", "versions"])
 def test_a_detail_page_has_its_title_a_way_back_and_overflows_nowhere(
         new_context, app_server_in_process, view, viewport, lang, scheme):
     context, page = _open(
@@ -79,24 +79,49 @@ def test_a_detail_page_has_its_title_a_way_back_and_overflows_nowhere(
 
 
 @pytest.mark.parametrize("viewport", VIEWPORTS, ids=["360", "390", "1440"])
-def test_every_health_row_shows_its_evidence_without_a_tap(
+def test_the_battery_row_shows_its_evidence_without_a_tap(
         new_context, app_server_in_process, viewport):
     context, page = _open(
         new_context, app_server_in_process, viewport, "en", "light",
-        "/fleet?frame={live}&view=health")
+        "/fleet?frame={live}&view=battery")
     try:
         rows = page.locator("div.health-row")
-        assert rows.count() >= 5
+        assert rows.count() == 1
         _assert_health_rows_flat(page)
-        # One card per topic, none of them a collapsible row.
-        assert page.locator("main ul.group:has(> li > .health-rows)").count() == rows.count()
-        for row in range(rows.count()):
-            assert rows.nth(row).locator(".health-row__body").is_visible()
+        assert rows.first.locator(".health-row__body").is_visible()
         # The battery row's chart and readings table are on the page.
         assert page.locator("#health-row-battery .battery-readout").is_visible()
         assert page.locator("#health-row-battery svg").first.is_visible()
-        # Unresolved airlines are handled in the Editor: no link to them on this page.
+        # Nothing of the platform: no flight data row, no link to the unresolved airlines.
+        assert page.locator("#health-row-flight-data").count() == 0
         assert page.locator("main a[href*='airlines/manage']").count() == 0
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("lang", ["en", "fr"])
+@pytest.mark.parametrize("viewport", VIEWPORTS, ids=["360", "390", "1440"])
+def test_the_connection_tile_states_the_last_and_next_connection_and_fits(
+        new_context, app_server_in_process, viewport, lang):
+    context, page = _open(
+        new_context, app_server_in_process, viewport, lang, "light", "/fleet?frame={live}")
+    where = "connection-tile/%d/%s" % (viewport["width"], lang)
+    try:
+        assert not _assert_no_page_overflow(page, where, viewport["width"])
+        tile = page.locator("div.fleet-tile")
+        assert tile.count() == 1 and page.locator("a.fleet-tile").count() == 2, where
+        lines = tile.locator(".fleet-tile__line")
+        assert lines.count() == 2, where
+        box = tile.bounding_box()
+        assert box["height"] >= 44, (where, box)
+        for index in range(2):
+            line = lines.nth(index).bounding_box()
+            assert line["x"] >= box["x"] - 0.5, (where, index, line, box)
+            assert line["x"] + line["width"] <= box["x"] + box["width"] + 0.5, (where, index, line, box)
+            assert line["y"] + line["height"] <= box["y"] + box["height"] + 0.5, (where, index, line, box)
+        words = ("Last check-in", "Next wake") if lang == "en" else ("Dernier contact", "Prochain réveil")
+        assert lines.nth(0).inner_text().startswith(words[0]), where
+        assert lines.nth(1).inner_text().startswith(words[1]), where
     finally:
         context.close()
 
@@ -108,11 +133,12 @@ def test_a_tile_opens_its_page_in_one_tap_and_the_way_back_returns(
         new_context, app_server_in_process, viewport, "en", "light", "/fleet?frame={live}")
     try:
         page.locator("a.fleet-tile", has_text="Battery").click()
-        page.wait_for_url("**view=health")
-        assert page.locator("main h1:visible").inner_text() == "Health"
+        page.wait_for_url("**view=battery")
+        assert page.locator("main h1:visible").inner_text() == "Battery"
         page.locator("a.fleet-back").click()
         page.wait_for_url("**/fleet?frame=*")
-        assert page.locator("a.fleet-tile").count() == 4
+        assert page.locator(".fleet-tile").count() == 3
+        assert page.locator("a.fleet-tile").count() == 2
         page.locator("a.fleet-tile", has_text="Firmware").click()
         page.wait_for_url("**view=versions")
         assert page.locator("main h1:visible").inner_text() == "Versions"

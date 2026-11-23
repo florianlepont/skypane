@@ -48,11 +48,11 @@ def test_empty_pages_use_the_compact_scale(make_app_server, path, lang):
 def test_a_frame_that_never_checked_in_gets_the_compact_state_empty_state(make_app_server):
     app = start_fleet_app(make_app_server)
     device = app.fleet.dev_a
-    _, _, html = get(app, "/fleet?frame=%s&view=health" % device.id)
+    _, _, html = get(app, "/fleet?frame=%s&view=battery" % device.id)
     assert "This frame has not checked in yet" in html
     blocks = _empty_states(html)
     assert blocks
-    _assert_compact_or_filter(blocks, "device health")
+    _assert_compact_or_filter(blocks, "device battery")
 
 
 def test_the_audit_filter_empty_state_keeps_its_form(make_app_server):

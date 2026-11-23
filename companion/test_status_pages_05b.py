@@ -241,8 +241,8 @@ def test_concise_timestamp_htmls_relative_half_is_now_an_element():
 
 
 def test_health_page_renders_in_french(tmp_path):
-    """health_page_composition.render() under lang='fr' carries the French page title and at least three
-    other French strings, and none of a short list of English source strings with distinct
+    """the Battery page and the System view under lang='fr' carry the French page title and at least
+    three other French strings, and none of a short list of English source strings with distinct
     French forms """
     tmp = str(tmp_path)
     now = shp.now()
@@ -251,35 +251,39 @@ def test_health_page_renders_in_french(tmp_path):
         "ts": shp.ago(300), "callsign": "AFR1234", "icao24": "abc123", "corroborated": "True"}])
     try:
         prefs.set_request_prefs(lang="fr")
-        rendered = health_page_composition.render(shp.ctx(tmp, shp.iso(now)))
+        battery = health_page_composition.render(shp.ctx(tmp, shp.iso(now)))
+        system = health_page.system_html(shp.ctx(tmp, shp.iso(now)))
+        connection = health_page.frame_tiles(shp.ctx(tmp, shp.iso(now))).connection
     finally:
         prefs.set_request_prefs(lang="en")
-    assert "Santé" in rendered, "expected the French page title (Santé, via the shared nav catalogue)"
-    for french_text in ("Écran", "Serveur et données", "Se connecte normalement"):
-        assert french_text in rendered, "expected the French string %r in the rendered page" % (french_text,)
-    for english_text in (
-            _battery_section_heading("en"), "Checking in normally", "Server & data"):
-        assert english_text not in rendered, (
+    assert "Batterie" in battery, "expected the French page title (Batterie, via the shared catalogue)"
+    for french_text in ("Données de vol", "Sources de données", "Identification"):
+        assert french_text in system, "expected the French string %r in the rendered page" % (french_text,)
+    assert connection.verdict == "Se connecte normalement"
+    for english_text in (_battery_section_heading("en"), "Checking in normally", "Server & data"):
+        assert english_text not in battery + system, (
             "expected no English source string %r to leak into the French render" % (english_text,))
 
 
 def test_health_page_renders_byte_identical_in_english(tmp_path):
-    """health_page_composition.render() under lang='en' (the default) is byte-for-byte unchanged for a
-    seeded state — pinned representative substrings """
+    """the Battery page and the System view under lang='en' (the default) are byte-for-byte
+    unchanged for a seeded state — pinned representative substrings """
     tmp = str(tmp_path)
     now = shp.now()
     shp.seed_device_health(tmp, [(shp.ago(120), 3800)])
     try:
         prefs.set_request_prefs(lang="en")
-        rendered = health_page_composition.render(shp.ctx(tmp, shp.iso(now)))
+        battery = health_page_composition.render(shp.ctx(tmp, shp.iso(now)))
+        system = health_page.system_html(shp.ctx(tmp, shp.iso(now)))
+        connection = health_page.frame_tiles(shp.ctx(tmp, shp.iso(now))).connection
     finally:
         prefs.set_request_prefs(lang="en")
-    for english_text in (
-            health_page.SCREEN_SECTION_HEADING,
-            layout.escape_html(health_page.SERVER_DATA_SECTION_HEADING),
-            _battery_section_heading(), health_page.DEVICE_STATE_TEXT["ok"], "Health"):
-        assert english_text in rendered, "expected the unchanged English string %r under lang='en'" % (
+    for english_text in (_battery_section_heading(), "Battery"):
+        assert english_text in battery, "expected the unchanged English string %r under lang='en'" % (
             english_text,)
+    for english_text in (health_page.ROW_FLIGHT_DATA_NAME, health_page.ROW_SOURCES_NAME):
+        assert layout.escape_html(english_text) in system
+    assert connection.verdict == health_page.DEVICE_STATE_TEXT["ok"]
 
 
 def test_health_page_device_and_pipeline_timestamps_fully_localise_under_french(tmp_path):
@@ -597,13 +601,13 @@ def test_airlines_page_no_longer_renders_registry_or_stats_headers(tmp_path):
 
 
 def test_health_page_renders_the_statistics_headers_and_no_registry_headers(tmp_path):
-    """the rendered Health page keeps the resolution-statistics column headers and no longer
-    renders the unresolved-prefix registry's (those prefixes are named in the Airlines table)"""
+    """the System view keeps the resolution-statistics column headers and does not
+    render the unresolved-prefix registry's (those prefixes are named in the Airlines table)"""
     tmp = str(tmp_path)
     registry = {"ABC": {"count": 1, "first_seen": "t1", "last_seen": "t2", "example_callsign": "ABC123"}}
     shp.seed_unresolved_prefixes(tmp, registry)
     shp.seed_runway_events(tmp, [{"ts": shp.iso(shp.now()), "hex": "abc123", "route_source": "fresh_hit"}])
-    rendered = health_page_composition.render(shp.ctx(tmp))
+    rendered = health_page.system_html(shp.ctx(tmp))
     for header in ("Source", "Description"):
         assert ("<th>%s</th>" % header) in rendered, header
     for header in ("Prefix", "First seen", "Last seen", "Example callsign"):

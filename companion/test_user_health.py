@@ -65,7 +65,6 @@ def _set_meta(state_dir, key, value):
 
 
 PLATFORM_TEXTS = (
-    health_page.SERVER_DATA_SECTION_HEADING,
     health_page._NOTHING_TO_RESOLVE_TEXT,
     health_page._NOTHING_TO_COMPARE_YET_TEXT,
 )
@@ -114,46 +113,45 @@ def test_home_for_user_has_no_poll_trigger_or_led_control(tmp_path):
         assert "/poll" not in html
 
 
-def test_user_health_shows_frame_card_and_no_platform_rows(tmp_path):
+def test_the_battery_page_is_the_same_for_a_user_and_the_platform_view_is_the_admins_alone(tmp_path):
     with history_db.open_db(str(tmp_path)) as conn:
         history_db.record_device_health(conn, NOW, battery_mv=4000)
-    ctx = _live_ctx(tmp_path)
     _as("admin")
-    admin_html = health_page_composition.render(ctx)
+    admin_battery = health_page_composition.render(_live_ctx(tmp_path))
+    admin_system = health_page.system_html(_live_ctx(tmp_path))
     _as("user")
-    user_html = health_page_composition.render(_live_ctx(tmp_path))
+    user_battery = health_page_composition.render(_live_ctx(tmp_path))
+    user_system = health_page.system_html(_live_ctx(tmp_path))
 
-    assert i18n.t(health_page.SCREEN_SECTION_HEADING) in user_html
-    assert i18n.t(health_page._LAST_CHECK_IN_TEXT) in user_html
+    assert 'id="health-row-battery"' in user_battery
+    assert user_battery == admin_battery
     for text in PLATFORM_TEXTS:
-        assert escape_html(i18n.t(text)) in admin_html, text
-        assert escape_html(i18n.t(text)) not in user_html, text
-    assert health_page.SERVER_DATA_SECTION_ID not in user_html
-    assert "resolve-dialog" not in user_html
+        assert escape_html(i18n.t(text)) in admin_system, text
+        assert escape_html(i18n.t(text)) not in user_battery, text
+    assert user_system == ""
+    assert "resolve-dialog" not in user_battery
 
 
-def test_a_users_health_sections_keep_flight_data_in_the_frame_section(tmp_path):
-    """the platform section is the administrator's alone; a user still reads their frame's
-    flight data, now among the frame rows the Health page opens with"""
+def test_the_system_view_cards_are_the_administrators_alone(tmp_path):
+    """the platform cards (flight data, sources, identification) are the administrator's alone"""
     with history_db.open_db(str(tmp_path)) as conn:
         history_db.record_device_health(conn, NOW, battery_mv=4000)
     _as("admin")
-    admin = health_page.health_sections(_live_ctx(tmp_path))
+    admin = health_page.system_html(_live_ctx(tmp_path))
     _as("user")
-    user = health_page.health_sections(_live_ctx(tmp_path))
-    assert len(admin.frame_rows) == 2 and len(admin.platform_rows) >= 3
-    assert len(user.frame_rows) == 3 and user.platform_rows == ()
-    assert 'id="health-row-flight-data"' in user.frame_rows[2]
-    assert 'id="health-row-flight-data"' in "".join(admin.platform_rows)
+    user = health_page.system_html(_live_ctx(tmp_path))
+    for key in ("flight-data", "sources", "identification"):
+        assert 'id="system-card-%s"' % key in admin
+    assert user == ""
 
 
 def test_user_health_hides_source_fault_block(tmp_path):
     _set_meta(tmp_path, history_db.META_SOURCE_FAULT, "True")
     _as("admin")
-    admin_html = health_page_composition.render(_live_ctx(tmp_path))
+    admin_html = health_page.system_html(_live_ctx(tmp_path))
     assert i18n.t(health_page.SOURCE_FAULT_HEADING) in admin_html
     _as("user")
-    user_html = health_page_composition.render(_live_ctx(tmp_path))
+    user_html = health_page.system_html(_live_ctx(tmp_path))
     assert i18n.t(health_page.SOURCE_FAULT_HEADING) not in user_html
 
 

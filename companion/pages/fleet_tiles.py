@@ -1,6 +1,7 @@
-"""The State section of a frame's page: four equal tiles (connection, battery,
-flight data, firmware), each a link with a Details mark to the page that holds
-the whole story (Health, or Versions for the firmware).
+"""The State section of a frame's page: three tiles (connection, battery,
+firmware). The connection tile states the last and the next connection
+itself; the other two are links with a Details mark to the page that holds
+the whole story (Battery, or Versions for the firmware).
 
 Pure markup built from `health_page.FrameTiles` and `update_page.FirmwareSummary`.
 Every dynamic part is escaped; the sparkline carries numbers only.
@@ -8,7 +9,7 @@ Every dynamic part is escaped; the sparkline carries numbers only.
 from companion import i18n
 from companion.ui_base import escape_html, icon_html
 
-VIEW_HEALTH = "health"
+VIEW_BATTERY = "battery"
 VIEW_VERSIONS = "versions"
 
 SECTION_ID_PREFIX = "fleet-section-"
@@ -22,7 +23,6 @@ _FIRMWARE = i18n.msg("admin_fleet.tile_firmware", "Firmware")
 _NO_CHECK_IN = i18n.msg("health.row_no_check_in", "No check-in yet")
 _LABEL_CONNECTION = i18n.msg("admin_fleet.tile_connection", "Connection")
 _LABEL_BATTERY = i18n.msg("health.row_battery", "Battery")
-_LABEL_FLIGHT = i18n.msg("health.row_flight_data", "Flight data")
 
 _TONE_STATES = {"ok": "ok", "warn": "warn", "error": "error"}
 
@@ -49,47 +49,51 @@ def _spark_html(percents):
 
 
 def _tile(href, state, icon_id, label, value_html, meta_html, extra_html=""):
+    """One tile: a link with a Details mark when `href` is given, else a plain
+    block (the connection tile, which holds its whole story)."""
     from companion import health_rows
     state = health_rows.resolved_state(state)
+    more = (
+        '<span class="fleet-tile__more">%s%s</span>' % (
+            escape_html(i18n.t(_DETAILS)), icon_html("icon-chevron-right", 16))
+        if href else "")
+    opening = (
+        '<a class="fleet-tile" data-state="%s" href="%s">' % (state, href) if href
+        else '<div class="fleet-tile" data-state="%s">' % state)
     return (
-        '<li><a class="fleet-tile" data-state="%s" href="%s">'
+        '<li>%s'
         '<span class="fleet-tile__head"><span class="fleet-tile__icon">%s'
         '<span class="visually-hidden">%s</span></span>'
         '<span class="fleet-tile__label">%s</span></span>'
         '<span class="fleet-tile__value">%s</span>'
-        '<span class="fleet-tile__meta">%s</span>%s'
-        '<span class="fleet-tile__more">%s%s</span></a></li>' % (
-            state, href, icon_html(icon_id, 20),
+        '<span class="fleet-tile__meta">%s</span>%s%s%s</li>' % (
+            opening, icon_html(icon_id, 20),
             escape_html(i18n.t(health_rows.STATE_WORDS[state])), escape_html(label),
-            value_html, meta_html, extra_html,
-            escape_html(i18n.t(_DETAILS)), icon_html("icon-chevron-right", 16)))
+            value_html, meta_html, extra_html, more, "</a>" if href else "</div>"))
 
 
 def tiles_section_html(frame_id, tiles, firmware):
-    """The State section: the label and the four tiles. `tiles` is a
+    """The State section: the label and the three tiles. `tiles` is a
     `health_page.FrameTiles` or None for a frame that never checked in;
     `firmware` a `update_page.FirmwareSummary`."""
     from companion import health_rows, ui_groups
-    health = view_href(frame_id, VIEW_HEALTH)
+    battery = view_href(frame_id, VIEW_BATTERY)
     versions = view_href(frame_id, VIEW_VERSIONS)
     if tiles is None:
         none = i18n.t(_NO_CHECK_IN)
         cells = (
-            _tile(health, "off", "icon-info", i18n.t(_LABEL_CONNECTION), escape_html(none), ""),
-            _tile(health, "off", "icon-battery", i18n.t(_LABEL_BATTERY), "", ""),
-            _tile(health, "off", "icon-plane", i18n.t(_LABEL_FLIGHT), "", ""))
+            _tile(None, "off", "icon-info", i18n.t(_LABEL_CONNECTION), escape_html(none), ""),
+            _tile(battery, "off", "icon-battery", i18n.t(_LABEL_BATTERY), "", ""))
     else:
-        conn, batt, flight = tiles.connection, tiles.battery, tiles.flight
+        conn, batt = tiles.connection, tiles.battery
         cells = (
-            _tile(health, conn.state, health_rows.STATE_ICON_IDS[
+            _tile(None, conn.state, health_rows.STATE_ICON_IDS[
                 health_rows.resolved_state(conn.state)], i18n.t(_LABEL_CONNECTION),
                 escape_html(conn.verdict), conn.age_html),
-            _tile(health, batt.state, "icon-battery", i18n.t(_LABEL_BATTERY),
+            _tile(battery, batt.state, "icon-battery", i18n.t(_LABEL_BATTERY),
                   escape_html(batt.value or batt.verdict),
                   escape_html(batt.verdict if batt.value else ""),
-                  _spark_html(tiles.battery_curve)),
-            _tile(health, flight.state, "icon-plane", i18n.t(_LABEL_FLIGHT),
-                  escape_html(flight.verdict), flight.age_html))
+                  _spark_html(tiles.battery_curve)))
     headline = escape_html(i18n.t(firmware.headline))
     version = '<span class="mono">%s</span>' % escape_html(firmware.version)
     firmware_cell = _tile(

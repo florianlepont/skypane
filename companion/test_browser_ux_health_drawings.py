@@ -37,7 +37,7 @@ VISIBLE_VIEW = ".battery-chart__view:not([hidden])"
 RING_FIGURE = "#health-row-battery svg.drawing__figure"
 RING_VALUE = "#health-row-battery svg.drawing__figure .drawing-arc-value"
 RING_TRACK = "#health-row-battery svg.drawing__figure .drawing-arc-track"
-FRAME_ROUTE = "/fleet?frame=live&view=health"
+FRAME_ROUTE = "/fleet?frame=live&view=battery"
 RING_PAGES = (("Fleet", FRAME_ROUTE),)
 
 
@@ -439,16 +439,15 @@ def test_the_chart_costs_no_width_at_360_in_either_language_and_needs_no_script(
                     "default" % (UI_THEMES_EXPLICIT[1], label, paint["svg_default"]))
 
 
-# Health draws no check-in regularity grid: the connection row is plain facts.
+# The Battery page draws no check-in regularity grid.
 
 @pytest.mark.parametrize("lang", ("en", "fr"))
 @pytest.mark.parametrize("viewport", (VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED),
                          ids=("1280", "360"))
-def test_health_has_no_regularity_grid_and_the_connection_row_still_renders(
+def test_the_battery_page_has_no_regularity_grid_and_never_scrolls_sideways(
         new_context, server, lang, viewport):
-    """With every row opened, Health holds no regularity grid, cells, key or scale; the
-    connection row still shows its verdict, its last-check-in fact and its one-line
-    explanation inside the card, and the page never scrolls sideways."""
+    """The Battery page holds no regularity grid, cells, key or scale; its one row still shows
+    inside its card, and the page never scrolls sideways."""
     context = new_context(viewport=viewport)
     try:
         page = context.new_page()
@@ -459,20 +458,9 @@ def test_health_has_no_regularity_grid_and_the_connection_row_still_renders(
         for selector in (".check-in-grid", ".check-in-key", ".check-in-grid__scale",
                          "rect.drawing-cell"):
             assert page.locator(selector).count() == 0, (
-                "Health still draws %s in %s" % (selector, lang))
-        row = page.locator("#health-row-connection")
-        assert row.count() == 1
-        assert row.locator(".health-row__summary .health-row__verdict").is_visible()
-        assert row.locator(".health-row__body .health-row__facts").is_visible()
-        assert row.locator(".health-row__body .health-row__note").is_visible()
-        body = page.evaluate(
-            "() => { const b = document.querySelector("
-            "'#health-row-connection .health-row__body');"
-            " const r = b.getBoundingClientRect();"
-            " const c = document.querySelector('.health-rows').getBoundingClientRect();"
-            " return {l: r.left, r: r.right, cl: c.left, cr: c.right}; }")
-        assert body["l"] >= body["cl"] - 0.5 and body["r"] <= body["cr"] + 0.5, (
-            "the connection row body spills out of its card: %r" % (body,))
+                "The Battery page still draws %s in %s" % (selector, lang))
+        assert page.locator("div.health-row").count() == 1
+        assert page.locator("#health-row-connection").count() == 0
         message = _assert_no_page_overflow(
             page, "/fleet in %s" % lang, viewport["width"])
         if message:
@@ -613,55 +601,3 @@ def test_the_battery_chart_stays_on_percentage_without_script(new_context, serve
         assert page.is_hidden(".battery-unit") and page.is_hidden(".battery-readout")
         assert page.is_visible('.battery-chart__view[data-unit="percent"] .sparkline__canvas')
         assert page.is_hidden('.battery-chart__view[data-unit="mv"]')
-
-
-@pytest.mark.parametrize("width", (1280, 1024, 960, 700, 390, 360))
-def test_every_health_row_aligns_in_the_fleet_state_block(new_context, server, width):
-    """Every health row's icon, name, verdict and value columns line up from one row to the next
-    on the Fleet page's State block, at every viewport, with nothing overflowing sideways."""
-    context = new_context(viewport={"width": width, "height": 900})
-    try:
-        page = _open_status(context, server.base_url(), "fr")
-        columns = page.evaluate(
-            "() => [...document.querySelectorAll('.health-row__summary')].map(s => {"
-            " const r = c => { const el = s.querySelector(c);"
-            "   const b = el.getBoundingClientRect();"
-            "   return [Math.round(b.left * 10) / 10, Math.round(b.right * 10) / 10,"
-            "           Math.round(b.top * 10) / 10]; };"
-            " return {battery: !!s.closest('#health-row-battery'),"
-            "   icon: r('.health-row__icon'), name: r('.health-row__name'),"
-            "   verdict: r('.health-row__verdict'), value: r('.health-row__value'),"
-            "   nameHeight: s.querySelector('.health-row__name').getBoundingClientRect().height,"
-            "   box: s.getBoundingClientRect().height}; })")
-        assert len(columns) >= 3
-        # The Battery row's head is a different anatomy (its verdict and level live in its
-        # body), so it is held to the shared icon and name columns only.
-        battery = [row for row in columns if row["battery"]]
-        columns = [row for row in columns if not row["battery"]]
-        assert len(battery) == 1 and len(columns) >= 2
-        for key in ("icon", "name"):
-            assert battery[0][key][0] in {row[key][0] for row in columns}, (
-                "the battery row's %s column does not line up with the other rows: %r"
-                % (key, battery[0][key]))
-        assert battery[0]["nameHeight"] <= 20
-        # The value column is right-aligned on the wide layout, so only its right edge is shared.
-        left_aligned = ("icon", "name", "verdict") if width >= 700 else ("icon", "name", "verdict", "value")
-        for key in left_aligned:
-            lefts = {row[key][0] for row in columns}
-            assert len(lefts) == 1, "the %s column's left edge differs from row to row: %r" % (key, lefts)
-        if width >= 700:
-            rights = {row["value"][1] for row in columns}
-            assert len(rights) == 1, "the value column's right edge differs from row to row: %r" % (rights,)
-        else:
-            for row in columns:
-                assert row["name"][2] < row["verdict"][2] < row["value"][2], (
-                    "on a phone the name, verdict and value stack in that order, got %r" % (row,))
-        for row in columns:
-            assert row["nameHeight"] <= 20, (
-                "a row name wraps onto a second line (%.1fpx tall) at %dpx" % (row["nameHeight"], width))
-            assert row["box"] >= 64 - 0.5, "a row is at least 64px tall (8px grid), got %.1f" % row["box"]
-        message = _assert_no_page_overflow(page, "/fleet rows at %dpx" % width, width)
-        if message:
-            raise AssertionError(message)
-    finally:
-        context.close()

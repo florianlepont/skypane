@@ -1,6 +1,6 @@
 """The retired Health, Device and Update pages (and a frame's own Health
 address) move every signed-in role to the page that replaced them, keeping the
-chosen frame: an administrator lands on the Health page, the Settings section or the Versions
+chosen frame: an administrator lands on the Battery page, the Settings section or the Versions
 page of the frame, an owner or user on the matching page of their own frame."""
 import html
 
@@ -11,9 +11,9 @@ from companion import prefs
 from companion_app_server import http_request
 
 LEGACY = ("/health", "/device", "/update")
-# Where each retired page lands on the frame's Fleet page: Health and Versions are pages of
+# Where each retired page lands on the frame's Fleet page: Battery and Versions are pages of
 # their own, the device settings are the Settings section.
-FLEET_TAB = {"/health": "&view=health", "/device": "&tab=settings", "/update": "&view=versions"}
+FLEET_TAB = {"/health": "&view=battery", "/device": "&tab=settings", "/update": "&view=versions"}
 PERSON_PAGE = {"/health": "/", "/device": "/display", "/update": "/"}
 
 
@@ -110,3 +110,47 @@ def test_a_signed_out_visitor_is_still_sent_to_sign_in(fleet, path):
     server, _seed = fleet
     status, location = _get(server, None, path)
     assert status == 303 and location.startswith("/login")
+
+
+def test_the_retired_health_view_of_a_frame_moves_to_its_battery_view(fleet):
+    server, seed = fleet
+    admin = fx.admin_cookie(server.state_dir)
+    assert _get(server, admin, "/fleet?frame=%s&view=health" % seed.live_id) == (
+        303, "/fleet?frame=%s&view=battery" % seed.live_id)
+
+
+def test_the_retired_health_view_carries_the_flash_result(fleet):
+    server, seed = fleet
+    admin = fx.admin_cookie(server.state_dir)
+    status, location = _get(
+        server, admin, "/fleet?frame=%s&view=health&flash=settings_saved" % seed.live_id)
+    assert status == 303
+    assert location == "/fleet?frame=%s&view=battery&flash=settings_saved" % seed.live_id
+
+
+@pytest.mark.parametrize("query", ("view=health", "frame=d_00000000&view=health"))
+def test_the_retired_health_view_without_a_known_frame_moves_to_the_system_view(fleet, query):
+    server, _seed = fleet
+    admin = fx.admin_cookie(server.state_dir)
+    assert _get(server, admin, "/fleet?" + query) == (303, "/fleet?view=system")
+
+
+def test_the_battery_view_is_served_directly_and_is_never_redirected(fleet):
+    server, seed = fleet
+    admin = fx.admin_cookie(server.state_dir)
+    status, _headers, _body = http_request(
+        server.url("/fleet?frame=%s&view=battery" % seed.live_id), cookie=admin)
+    assert status == 200
+
+
+@pytest.mark.parametrize("email", (fx.OWNER_EMAIL, fx.USER_EMAIL))
+def test_a_plain_user_gets_the_fleet_refusal_for_the_battery_and_legacy_views(fleet, email):
+    server, seed = fleet
+    cookie = fx.user_cookie(server.state_dir, email)
+    refusal = http_request(server.url("/fleet"), cookie=cookie)[0]
+    assert refusal != 200
+    for view in ("battery", "health"):
+        status, headers, _body = http_request(
+            server.url("/fleet?frame=%s&view=%s" % (seed.owned_id, view)), cookie=cookie)
+        assert status == refusal
+        assert "view=battery" not in html.unescape(headers.get("Location") or "")
