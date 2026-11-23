@@ -1,5 +1,6 @@
 """Where the retired Health, Device and Update pages and their form
-redirects land: the matching view of the Console Fleet page.
+redirects land: the matching view of the Console Fleet page (the Battery view
+of a frame, its Settings, its Versions, or the System view).
 
 Every target is built from literals, a device id that already passed the
 route's ownership gate, or an id read back from the request scope's own frame
@@ -17,7 +18,8 @@ SYSTEM_QUERY = "?view=system"
 
 
 TAB_SETTINGS = "settings"
-VIEW_HEALTH = "health"
+VIEW_BATTERY = "battery"
+LEGACY_HEALTH_VIEW = "health"
 VIEW_VERSIONS = "versions"
 
 
@@ -39,9 +41,9 @@ def with_flash(url, flash_key):
     return "%s%sflash=%s" % (url, "&" if "?" in url else "?", quote(flash_key))
 
 
-def health_target(device_id, tab=None, view=VIEW_HEALTH):
+def health_target(device_id, tab=None, view=VIEW_BATTERY):
     """/health (platform wide) shows the System view; a frame's own health
-    page shows that frame's Health page (`view`), or its Settings (`tab`) for
+    page shows that frame's Battery view (`view`), or its Settings (`tab`) for
     the retired Device page."""
     if not device_id:
         return FLEET + SYSTEM_QUERY
@@ -81,7 +83,7 @@ def _carried_flash(url, query):
 
 
 def retired_frame_page(h, m):
-    """303 target of the retired Health and Device pages: the Health page (the
+    """303 target of the retired Health and Device pages: the Battery view (the
     Settings section for Device) of the frame the request resolved to
     (`/devices/<id>/health`, or the frame named by `?frame=` among the
     caller's own), the System view when there is none."""
@@ -111,3 +113,18 @@ def retired_update_page(h, m, serve):
     if frame is None:
         return serve()
     return h.redirect(_carried_flash(frame_url(frame, view=VIEW_VERSIONS), m.query))
+
+
+def retired_health_view(h, raw_query):
+    """303 target of a Fleet address that still names the retired
+    `view=health`: the Battery view of the frame it names when that is one of
+    the caller's own, else the System view. None when the query asks for
+    another view."""
+    query = parse_qs(raw_query or "")
+    if (query.get("view") or [""])[0] != LEGACY_HEALTH_VIEW:
+        return None
+    wanted = (query.get(FRAME_PARAM) or [""])[0]
+    own = {device.id for device in device_scope.load_devices_for(
+        h.args.state_dir, h._safe_principal())}
+    return h.redirect(_carried_flash(
+        health_target(wanted if wanted in own else None), raw_query))

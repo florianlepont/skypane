@@ -160,8 +160,9 @@ def test_a_list_row_is_a_plain_link_that_selects_the_frame_on_desktop(
         page.locator("nav.sidebar-nav a[href='/fleet?view=system']").click()
         page.wait_for_url("**/fleet?view=system")
         page.wait_for_function(_SETTLED, timeout=15000)
-        # The System view is one group per topic (flight data, sources, identification).
-        assert page.locator("section.fleet-block").count() == 3
+        # The System view is one group per topic (flight data, sources, identification and the
+        # two route topics).
+        assert page.locator("section.fleet-block").count() == 5
         assert page.locator("main h1").inner_text() == "System"
         assert page.locator(".fleet-list [aria-current='page']").count() == 0
         current = page.locator("nav.sidebar-nav a[aria-current='page']")

@@ -1,6 +1,6 @@
-"""The State section of a frame's page (four equal tiles, each with a Details link) and the two
-pages the tiles open: Health (every block of the page) and Versions (the installed version, the
-update and every release), served by the real app and read as markup."""
+"""The State section of a frame's page (three tiles; all but Connection carry a Details
+link) and the two pages the tiles open: Battery (the level, trend and readings) and Versions (the
+installed version, the update and every release), served by the real app and read as markup."""
 import datetime
 import html
 import re
@@ -48,25 +48,25 @@ def _tiles(page):
     """(label, value, meta, href, state) of every tile of the State section."""
     section = re.search(r'<ul class="fleet-tiles">.*?</ul>', page, re.S).group(0)
     found = []
-    for tile in re.findall(r'<a class="fleet-tile".*?</a>', section, re.S):
+    for tile in re.findall(r'<(?:a|div) class="fleet-tile".*?</(?:a|div)>', section, re.S):
         def part(name):
             m = re.search(r'<span class="fleet-tile__%s">(.*?)</span>(?=<)' % name, tile, re.S)
             return html.unescape(re.sub(r"<[^>]+>", "", m.group(1))).strip() if m else ""
         found.append((
             part("label"), part("value"), part("meta"),
-            html.unescape(re.search(r'href="([^"]+)"', tile).group(1)),
+            html.unescape(re.match(r'<a [^>]*href="([^"]+)"', tile).group(1)) if tile.startswith("<a ") else "",
             re.search(r'data-state="(\w+)"', tile).group(1)))
     return found
 
 
 LABELS = {
-    "en": ["Connection", "Battery", "Flight data", "Firmware"],
-    "fr": ["Connexion", "Batterie", "Données de vol", "Micrologiciel"]}
+    "en": ["Connection", "Battery", "Firmware"],
+    "fr": ["Connexion", "Batterie", "Micrologiciel"]}
 DETAILS = {"en": "Details", "fr": "Détails"}
 
 
 @pytest.mark.parametrize("lang", ["en", "fr"])
-def test_the_state_section_is_four_tiles_each_with_a_details_link(fleet, lang):
+def test_the_state_section_is_three_tiles_two_with_a_details_link(fleet, lang):
     server, seed, cookie = fleet
     _seed_readings(server.state_dir)
     seed_two_releases(server.state_dir)
@@ -74,25 +74,27 @@ def test_the_state_section_is_four_tiles_each_with_a_details_link(fleet, lang):
     tiles = _tiles(page)
     assert [t[0] for t in tiles] == LABELS[lang]
     base = "/fleet?frame=%s&view=" % seed.live_id
-    assert [t[3] for t in tiles] == [base + "health"] * 3 + [base + "versions"]
-    assert page.count('<span class="fleet-tile__more">%s' % DETAILS[lang]) == 4
+    # Connection holds its own story; flight data is platform data, on the System view only.
+    assert [t[3] for t in tiles] == ["", base + "battery", base + "versions"]
+    assert "system-topic-flight-data" not in page
+    assert page.count('<span class="fleet-tile__more">%s' % DETAILS[lang]) == 2
     battery = tiles[1]
     assert re.match(r"\d+\s?% · \d+\s?mV", battery[1]), battery
-    assert tiles[3][1] == "fw-v1.0.0" and tiles[3][2]
+    assert tiles[2][1] == "fw-v1.0.0" and tiles[2][2]
     # The battery tile draws the curve; the others carry no drawing.
     assert page.count("fleet-tile__spark") == 1
     # The three statuses of the old State block are not rows any more.
     assert "health-row" not in page
 
 
-def test_a_frame_that_never_checked_in_still_has_its_four_tiles(fleet):
+def test_a_frame_that_never_checked_in_still_has_its_three_tiles(fleet):
     server, seed, cookie = fleet
     page = _page(server, cookie, "/fleet?frame=" + seed.owned_id)
     tiles = _tiles(page)
     assert [t[0] for t in tiles] == LABELS["en"]
     assert tiles[0][1] == "No check-in yet"
     assert "fleet-tile__spark" not in page
-    assert all("/fleet?frame=%s&view=" % seed.owned_id in t[3] for t in tiles)
+    assert [t[3] for t in tiles][1] == "/fleet?frame=%s&view=battery" % seed.owned_id
 
 
 def test_a_battery_tile_without_readings_says_so_and_draws_nothing(fleet):
@@ -109,7 +111,7 @@ def test_the_tile_state_is_spelled_out_not_only_coloured(fleet):
     server, seed, cookie = fleet
     _seed_readings(server.state_dir)
     page = _page(server, cookie, "/fleet?frame=" + seed.live_id)
-    for tile in re.findall(r'<a class="fleet-tile" data-state="(\w+)".*?</a>', page, re.S):
+    for tile in re.findall(r'<(?:a|div) class="fleet-tile" data-state="(\w+)"', page):
         assert tile in ("ok", "warn", "error", "off")
     assert re.search(r'fleet-tile__icon">.*?<span class="visually-hidden">Healthy</span>', page, re.S)
 
@@ -120,7 +122,7 @@ def test_the_overview_has_one_h1_and_no_list_column_change(fleet):
     assert len(re.findall(r"<h1[ >]", page)) == 1
 
 
-# ---- Health ---------------------------------------------------------------
+# ---- Battery --------------------------------------------------------------
 
 def _rename(state_dir, device_id, name):
     conn = fleet_db.connect(state_dir)
@@ -130,45 +132,36 @@ def _rename(state_dir, device_id, name):
         conn.close()
 
 
-def test_the_health_page_keeps_every_block_as_always_open_cards(fleet):
+def test_the_battery_page_holds_only_the_battery(fleet):
     server, seed, cookie = fleet
     _seed_readings(server.state_dir)
-    page = _page(server, cookie, "/fleet?frame=%s&view=health" % seed.live_id)
+    page = _page(server, cookie, "/fleet?frame=%s&view=battery" % seed.live_id)
     assert 'data-fleet-mode="detail"' in page
-    assert len(re.findall(r"<h1[ >]", page)) == 1 and '<h1 class="fleet-head__title">Health</h1>' in page
-    # The frame's blocks, then the platform blocks of an administrator.
-    for row in ("connection", "battery", "flight-data", "sources", "identification"):
-        assert re.search(r'<div class="health-row" [^>]*id="health-row-%s"' % row, page), row
-    assert "Server &amp; data · Visible to administrators" in page and ">Frame<" in page
-    # Flat rows: no collapse control, one card per topic.
-    assert "<summary" not in page.split('id="fleet-block-health-frame"')[1].split("readings-disclosure")[0]
-    assert len(re.findall(r'<ul class="group fleet-group"><li[^>]*><div class="health-rows">', page)) == 5
+    assert len(re.findall(r"<h1[ >]", page)) == 1 and '<h1 class="fleet-head__title">Battery</h1>' in page
+    assert re.search(r'<div class="health-row" [^>]*id="health-row-battery"', page)
+    # Nothing of the retired Health page: no connection row, no platform rows, no banner.
+    for row in ("connection", "flight-data", "sources", "identification", "backup"):
+        assert 'id="health-row-%s"' % row not in page, row
+    assert "Server &amp; data" not in page and "Visible to administrators" not in page
+    assert "health-anomaly" not in page
     # The battery row keeps its readout, chart and readings table.
     assert 'class="battery-readout' in page and "battery-unit" in page and "readings-disclosure" in page
-    # The list column is not part of this page, and the old tiles are not either.
+    # The list column is not part of this page, and the overview tiles are not either.
     assert "fleet-list" not in page and "fleet-tile" not in page
 
 
-def test_the_health_page_does_not_link_to_the_unresolved_airlines(fleet):
+def test_the_battery_page_of_a_frame_that_never_checked_in_says_so(fleet):
     server, seed, cookie = fleet
-    _seed_readings(server.state_dir)
-    page = _page(server, cookie, "/fleet?frame=%s&view=health" % seed.live_id)
-    row = page.split('id="health-row-identification"')[1].split("</section>")[0]
-    assert "<a " not in row and "/airlines/manage" not in row
-
-
-def test_the_health_page_of_a_frame_that_never_checked_in_says_so(fleet):
-    server, seed, cookie = fleet
-    page = _page(server, cookie, "/fleet?frame=%s&view=health" % seed.owned_id)
+    page = _page(server, cookie, "/fleet?frame=%s&view=battery" % seed.owned_id)
     assert "This frame has not checked in yet" in page
     assert 'id="health-row-' not in page
 
 
-def test_the_health_page_has_a_way_back_to_the_frame_and_escapes_its_name(fleet):
+def test_the_battery_page_has_a_way_back_to_the_frame_and_escapes_its_name(fleet):
     server, seed, cookie = fleet
     hostile = '<img src=x onerror=alert(1)>"&'
     _rename(server.state_dir, seed.owned_id, hostile)
-    for view in ("health", "versions"):
+    for view in ("battery", "versions"):
         page = _page(server, cookie, "/fleet?frame=%s&view=%s" % (seed.owned_id, view))
         assert "<img src=x" not in page
         back = re.search(r'<a class="fleet-back" href="([^"]+)">.*?<span>(.*?)</span></a>', page, re.S)
@@ -176,10 +169,10 @@ def test_the_health_page_has_a_way_back_to_the_frame_and_escapes_its_name(fleet)
         assert html.unescape(back.group(2)) == "Back to " + hostile
 
 
-@pytest.mark.parametrize("lang,back,title", [("en", "Back to Kitchen", "Health"), ("fr", "Retour à Kitchen", "Santé")])
+@pytest.mark.parametrize("lang,back,title", [("en", "Back to Kitchen", "Battery"), ("fr", "Retour à Kitchen", "Batterie")])
 def test_the_back_link_and_title_are_translated(fleet, lang, back, title):
     server, seed, cookie = fleet
-    page = _page(server, cookie, "/fleet?frame=%s&view=health" % seed.owned_id, lang)
+    page = _page(server, cookie, "/fleet?frame=%s&view=battery" % seed.owned_id, lang)
     assert back in html.unescape(page)
     assert '<h1 class="fleet-head__title">%s</h1>' % title in page
 
@@ -309,25 +302,17 @@ def _seed_low_and_dropping_readings(state_dir):
     device_config.save_device_config(state_dir, wake_interval_s=600)
 
 
-@pytest.mark.parametrize("lang,low,dropped", [
-    ("en", "Battery level is low", "Battery dropped abnormally"),
-    ("fr", "Niveau de batterie bas", "Baisse anormale de batterie")])
-def test_frame_health_banner_names_both_battery_sentences(fleet, lang, low, dropped):
+@pytest.mark.parametrize("lang,low,dropped,words", [
+    ("en", "Battery level is low", "Battery dropped abnormally", "Level is low"),
+    ("fr", "Niveau de batterie bas", "Baisse anormale de batterie", "Le niveau est bas")])
+def test_the_battery_page_says_a_low_level_in_words_and_the_system_banner_names_it(
+        fleet, lang, low, dropped, words):
     server, seed, cookie = fleet
     _seed_low_and_dropping_readings(server.state_dir)
-    health = html.unescape(_page(server, cookie, "/fleet?frame=%s&view=health" % seed.live_id, lang))
-    banner = re.search(r'class="[^"]*health-anomaly.*?</div></div>', health, re.S).group(0)
-    assert low in banner and dropped in banner
-    assert re.search(r"2 (warnings|avertissements)", banner), banner
+    battery = html.unescape(_page(server, cookie, "/fleet?frame=%s&view=battery" % seed.live_id, lang))
+    assert words in battery and "health-anomaly" not in battery
     overview = html.unescape(_page(server, cookie, "/fleet?view=system", lang))
     assert low in overview and dropped not in overview
-
-
-def test_frame_health_banner_names_only_the_low_sentence_without_a_drop(fleet):
-    server, seed, cookie = fleet
-    _seed_low_readings(server.state_dir)
-    health = html.unescape(_page(server, cookie, "/fleet?frame=%s&view=health" % seed.live_id))
-    assert "Battery level is low" in health and "Battery dropped abnormally" not in health
 
 
 def _not_found(server, cookie):

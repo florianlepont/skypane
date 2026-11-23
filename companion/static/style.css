@@ -1798,26 +1798,6 @@ select.visually-hidden {
   animation-play-state: paused;
 }
 
-.toast__pills {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-left: var(--space-sm);
-  vertical-align: middle;
-}
-
-.toast__pill {
-  display: inline-flex;
-  align-items: center;
-  height: 22px;
-  padding: 0 9px;
-  border-radius: var(--radius-pill);
-  font-size: var(--font-caption-size);
-  font-weight: var(--weight-semibold);
-  background: color-mix(in srgb, var(--color-toast-fg) 12%, transparent);
-  color: color-mix(in srgb, var(--color-toast-fg) 88%, transparent);
-}
-
 /* The flash region: in flow under the page title by default. */
 .toast-region--flash {
   margin: 0 0 var(--space-lg);
@@ -1857,11 +1837,6 @@ select.visually-hidden {
   .toast__title,
   .toast__detail {
     display: block;
-  }
-
-  .toast__pills {
-    display: flex;
-    margin: var(--space-xs) 0 0;
   }
 
   .toast__title + .visually-hidden + .toast__detail::before {
@@ -4079,52 +4054,6 @@ a.airline-card {
   margin: 0;
 }
 
-.health-row__facts {
-  display: grid;
-  gap: var(--space-xs);
-}
-
-.health-row__facts > div {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-}
-
-.health-row__facts dt {
-  font-size: var(--font-label-size);
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
-.health-row__facts dd {
-  margin: 0;
-}
-
-.health-row__note {
-  margin: 0;
-  font-size: var(--font-label-size);
-  line-height: 1.4;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
-.health-row__outcomes {
-  display: grid;
-  gap: var(--space-sm);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.health-row__outcome {
-  display: flex;
-  align-items: center;
-  margin: 0;
-}
-
-.health-row__outcome .tnum {
-  margin-left: auto;
-  padding-left: var(--space-md);
-  font-weight: var(--weight-semibold);
-}
-
 /* The battery chart's wrapper keeps its class (the chart rules and
  * battery-trend.js key off it) but is not a card here: the row is the
  * container. Declared after the card's own hover rule at equal
@@ -4149,15 +4078,6 @@ a.airline-card {
   border-color: var(--color-border);
   box-shadow: none;
 }
-@container health-rows (min-width: 600px) {
-
-  .health-row__facts > div {
-    grid-template-columns: 160px minmax(0, 1fr);
-    column-gap: var(--space-md);
-    align-items: baseline;
-  }
-}
-
 @media (min-width: 960px) {
   .dashboard-shell {
     display: grid;
@@ -7276,7 +7196,8 @@ button.row-menu__item {
 .dashboard-main[data-page-open] .personalisation > .personalisation-nav,
 .dashboard-main[data-page-open] .fleet-frame > .fleet-head,
 .dashboard-main[data-page-open] .fleet-split__main > .fleet-head,
-.dashboard-main[data-page-open] .fleet-frame > .fleet-anchors {
+.dashboard-main[data-page-open] .fleet-frame > .fleet-anchors,
+.dashboard-main[data-page-open] .fleet-tiles--system {
   animation:
     skypane-reveal var(--motion-enter) steps(12, end) backwards,
     skypane-reveal-fade var(--motion-enter) var(--ease-out) backwards;
@@ -7438,6 +7359,28 @@ button.row-menu__item {
   --reveal-index: 5;
 }
 
+/* The System tiles are the first block under the header; the topic blocks
+ * after them count on from there. */
+.dashboard-main[data-page-open] ul.fleet-tiles--system {
+  --reveal-index: 1;
+}
+
+.dashboard-main[data-page-open] .system-topics > .group-block:nth-child(1) {
+  --reveal-index: 2;
+}
+
+.dashboard-main[data-page-open] .system-topics > .group-block:nth-child(2) {
+  --reveal-index: 3;
+}
+
+.dashboard-main[data-page-open] .system-topics > .group-block:nth-child(3) {
+  --reveal-index: 4;
+}
+
+.dashboard-main[data-page-open] .system-topics > .group-block:nth-child(n + 4) {
+  --reveal-index: 5;
+}
+
 /* Where controls or other blocks always come first, the blocks count on from
  * them: the Flights days follow the filter bar, the Style and Fleet blocks
  * follow the two rows above them. */
@@ -7513,19 +7456,19 @@ button.row-menu__item {
     --reveal-index: 2;
   }
 
-  .dashboard-main[data-page-open] .fleet-split .fleet-blocks--system .group-block:nth-child(1) {
+  .dashboard-main[data-page-open] .fleet-split .fleet-tiles--system {
     --reveal-index: 2;
   }
 
-  .dashboard-main[data-page-open] .fleet-split .fleet-blocks--system .group-block:nth-child(2) {
+  .dashboard-main[data-page-open] .fleet-split .fleet-blocks--system .group-block:nth-child(1) {
     --reveal-index: 3;
   }
 
-  .dashboard-main[data-page-open] .fleet-split .fleet-blocks--system .group-block:nth-child(3) {
+  .dashboard-main[data-page-open] .fleet-split .fleet-blocks--system .group-block:nth-child(2) {
     --reveal-index: 4;
   }
 
-  .dashboard-main[data-page-open] .fleet-split .fleet-blocks--system .group-block:nth-child(n + 4) {
+  .dashboard-main[data-page-open] .fleet-split .fleet-blocks--system .group-block:nth-child(n + 3) {
     --reveal-index: 5;
   }
 }

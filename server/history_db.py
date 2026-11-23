@@ -76,15 +76,27 @@ POLL_CYCLE_COLUMNS = (
 _RUNWAY_EVENT_COLUMNS = (
     "ts", "hex", "callsign", "aircraft_type", "confirmed_state",
     "corroborated", "route_source", "airline", "origin", "destination",
-    "tracked_runway", "gallery_name",
+    "tracked_runway", "gallery_name", "route_directory",
 )
 
 _RUNWAY_EVENT_INSERT_SQL = (
     "INSERT INTO runway_events "
-    "(ts, hex, callsign, aircraft_type, confirmed_state, corroborated, "
-    "route_source, airline, origin, destination, tracked_runway, gallery_name) "
-    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    "(" + ", ".join(_RUNWAY_EVENT_COLUMNS) + ") "
+    "VALUES (" + ", ".join("?" * len(_RUNWAY_EVENT_COLUMNS)) + ")"
 )
+
+# `PRAGMA user_version` of history.db. 0 is a database created before the
+# route-directory counters; 1 has the `route_lookups` table and the
+# `runway_events.route_directory` column. `init_schema()` raises the stamp
+# once the steps for it are done and never lowers it.
+HISTORY_SCHEMA_VERSION = 1
+
+# The route directories `route_lookups` counts, and what a lookup can end in.
+ROUTE_DIRECTORIES = ("vrs", "adsbdb")
+ROUTE_LOOKUP_OUTCOMES = ("found", "none", "failed")
+
+# `route_lookups` keeps this many days of requests.
+ROUTE_LOOKUP_RETENTION_DAYS = 14
 
 _DEVICE_HEALTH_OLD_COLUMNS = ("ts", "battery_mv", "fw_version", "boot_reason", "rssi")
 
@@ -132,10 +144,14 @@ def history_db_path(state_dir):
 
 
 def init_schema(conn):
-    """Create all five tables with IF NOT EXISTS, safe to call on every
-    connection. There is no schema version stamp: a new table is free via
-    IF NOT EXISTS, and an additive nullable column is added by a guarded
-    ALTER TABLE (`_add_missing_wake_columns`).
+    """Create all six tables with IF NOT EXISTS, safe to call on every
+    connection. A new table is free via IF NOT EXISTS, and an additive
+    nullable column is added by a guarded ALTER TABLE
+    (`_add_missing_wake_columns`, `_add_missing_runway_event_columns`).
+    Every step is idempotent and safe while another process uses the file;
+    the last step raises `PRAGMA user_version` to `HISTORY_SCHEMA_VERSION`
+    (see `_stamp_schema_version`), so a run interrupted before it simply
+    repeats the steps next time.
     """
     conn.execute(
         "CREATE TABLE IF NOT EXISTS runway_events ("
@@ -156,7 +172,10 @@ def init_schema(conn):
         # The archived render the frame showed for this flight: NULL for a row
         # written before the column existed (unknown), "" when the cycle that
         # recorded the flight archived no render, else the gallery file name.
-        "gallery_name TEXT"
+        "gallery_name TEXT, "
+        # Which route directory supplied the route shown: "vrs" or "adsbdb",
+        # NULL when neither did and for a row from before the column.
+        "route_directory TEXT"
         ")"
     )
     conn.execute("CREATE INDEX IF NOT EXISTS idx_runway_events_ts ON runway_events(ts)")
@@ -218,9 +237,35 @@ def init_schema(conn):
         ")"
     )
     conn.execute("CREATE INDEX IF NOT EXISTS idx_poll_cycles_ts ON poll_cycles(ts)")
+    _create_route_lookups(conn)
     _add_missing_wake_columns(conn)
     _add_missing_runway_event_columns(conn)
     conn.commit()
+    _stamp_schema_version(conn)
+
+
+def _create_route_lookups(conn):
+    # One row per request that really went to a route directory (a cache hit
+    # makes none): when, which directory, and how it ended. Counts and times
+    # only, no callsign.
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS route_lookups ("
+        "id INTEGER PRIMARY KEY, "
+        "ts TEXT NOT NULL, "
+        "directory TEXT NOT NULL, "
+        "outcome TEXT NOT NULL"
+        ")"
+    )
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_route_lookups_ts ON route_lookups(ts)")
+
+
+def _stamp_schema_version(conn):
+    """Raise `PRAGMA user_version` to `HISTORY_SCHEMA_VERSION`. Never lowers
+    it: a file stamped by a newer release keeps its stamp. Two processes
+    stamping at once write the same value."""
+    current = conn.execute("PRAGMA user_version").fetchone()[0]
+    if current < HISTORY_SCHEMA_VERSION:
+        conn.execute("PRAGMA user_version = %d" % HISTORY_SCHEMA_VERSION)
 
 
 def _add_missing_wake_columns(conn):
@@ -243,17 +288,23 @@ def _add_missing_wake_columns(conn):
                 raise
 
 
+_RUNWAY_EVENT_ADDED_COLUMNS = ("gallery_name", "route_directory")
+
+
 def _add_missing_runway_event_columns(conn):
-    """Add `runway_events.gallery_name` to a database created before it
-    existed. Same race handling as `_add_missing_wake_columns`."""
+    """Add the `runway_events` columns a database created before them lacks
+    (an existing row reads NULL, "unknown"). Same race handling as
+    `_add_missing_wake_columns`."""
     present = {row[1] for row in conn.execute("PRAGMA table_info(runway_events)")}
-    if "gallery_name" in present:
-        return
-    try:
-        conn.execute("ALTER TABLE runway_events ADD COLUMN gallery_name TEXT")
-    except sqlite3.OperationalError as exc:
-        if "duplicate column name" not in str(exc):
-            raise
+    for column in _RUNWAY_EVENT_ADDED_COLUMNS:
+        if column in present:
+            continue
+        try:
+            # The name comes from the fixed tuple above, never from input.
+            conn.execute("ALTER TABLE runway_events ADD COLUMN " + column + " TEXT")
+        except sqlite3.OperationalError as exc:
+            if "duplicate column name" not in str(exc):
+                raise
 
 
 class _HistoryConnection(sqlite3.Connection):
@@ -564,6 +615,34 @@ def prune_poll_cycles(conn, now_iso):
     return deleted
 
 
+def record_route_lookups(conn, ts, lookups):
+    """Insert one `route_lookups` row per `(directory, outcome)` in
+    `lookups`, all stamped `ts`. A pair naming a directory or outcome this
+    module does not know is skipped. Returns the number of rows added."""
+    rows = [
+        (ts, directory, outcome) for directory, outcome in lookups
+        if directory in ROUTE_DIRECTORIES and outcome in ROUTE_LOOKUP_OUTCOMES]
+    if rows:
+        conn.executemany(
+            "INSERT INTO route_lookups (ts, directory, outcome) VALUES (?, ?, ?)", rows)
+        _commit(conn)
+    return len(rows)
+
+
+def prune_route_lookups(conn, now_iso):
+    """Delete `route_lookups` rows older than `ROUTE_LOOKUP_RETENTION_DAYS`
+    before `now_iso`. An unparseable `now_iso` prunes nothing. Returns the
+    number of rows deleted."""
+    try:
+        now = datetime.fromisoformat(now_iso)
+    except (TypeError, ValueError):
+        return 0
+    cutoff = (now - timedelta(days=ROUTE_LOOKUP_RETENTION_DAYS)).isoformat(timespec="seconds")
+    deleted = conn.execute("DELETE FROM route_lookups WHERE ts < ?", (cutoff,)).rowcount
+    _commit(conn)
+    return deleted
+
+
 # --- Readers ---------------------------------------------------------------
 
 
@@ -617,6 +696,46 @@ def route_source_counts(conn, since=None):
             "SELECT route_source, COUNT(*) AS n FROM runway_events GROUP BY route_source"
         ).fetchall()
     return {row["route_source"]: row["n"] for row in rows}
+
+
+def route_directory_stats(conn, since):
+    """`{directory: stats}` for every directory in `ROUTE_DIRECTORIES`, from
+    `route_lookups`. `stats` holds `lookups`, `found` and `failed` (requests
+    with `ts >= since`), `last_answer_ts` (the newest request that was
+    answered, found or none, over all retained rows, else None) and
+    `reachable` (True when the newest request was answered, False when it
+    failed, None when there is none)."""
+    stats = {}
+    for directory in ROUTE_DIRECTORIES:
+        counts = {
+            row["outcome"]: row["n"] for row in conn.execute(
+                "SELECT outcome, COUNT(*) AS n FROM route_lookups "
+                "WHERE directory = ? AND ts >= ? GROUP BY outcome", (directory, since))}
+        last = conn.execute(
+            "SELECT outcome FROM route_lookups WHERE directory = ? "
+            "ORDER BY ts DESC, id DESC LIMIT 1", (directory,)).fetchone()
+        answered = conn.execute(
+            "SELECT MAX(ts) AS ts FROM route_lookups "
+            "WHERE directory = ? AND outcome != 'failed'", (directory,)).fetchone()
+        stats[directory] = {
+            "lookups": sum(counts.values()),
+            "found": counts.get("found", 0),
+            "failed": counts.get("failed", 0),
+            "last_answer_ts": answered["ts"],
+            "reachable": None if last is None else last["outcome"] != "failed",
+        }
+    return stats
+
+
+def route_directory_counts(conn, since):
+    """`{directory: flights}` over `runway_events` with `ts >= since`, for the
+    directories in `ROUTE_DIRECTORIES`: how many flights each one's route was
+    shown for. Rows from before the column count for neither."""
+    rows = conn.execute(
+        "SELECT route_directory, COUNT(*) AS n FROM runway_events "
+        "WHERE ts >= ? AND route_directory IS NOT NULL GROUP BY route_directory", (since,)).fetchall()
+    by_directory = {row["route_directory"]: row["n"] for row in rows}
+    return {directory: by_directory.get(directory, 0) for directory in ROUTE_DIRECTORIES}
 
 
 def corroboration_counts(conn, since=None):

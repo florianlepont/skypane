@@ -55,7 +55,7 @@ _FLEET = """() => {
   const bad = [];
   const blocks = [...document.querySelectorAll('section.fleet-block')];
   blocks.forEach((s) => {
-    // The State section is four tiles (cards of their own), not a group.
+    // The State section is three tiles (cards of their own), not a group.
     const ownCards = s.querySelector(':scope > ul.fleet-tiles') !== null;
     const label = s.querySelector(':scope > h2.section-label');
     const groups = s.querySelectorAll(':scope > ul.group');
@@ -71,7 +71,7 @@ _FLEET = """() => {
     if (inner.length) bad.push('card surface inside a group: ' + inner.slice(0, 3));
   });
   const tiles = [...document.querySelectorAll('.fleet-tile')].filter((t) => t.checkVisibility());
-  if (tiles.length !== 4) bad.push('tiles: ' + tiles.length);
+  if (tiles.length !== 3) bad.push('tiles: ' + tiles.length);
   return {bad: bad, count: blocks.length};
 }"""
 

@@ -415,12 +415,17 @@ def _write_unshown(conn, rows):
         history_db.record_unshown_event(conn, **row)
 
 
+def _write_route_lookups(conn, now_iso, lookups):
+    history_db.record_route_lookups(conn, now_iso, lookups)
+    history_db.prune_route_lookups(conn, now_iso)
+
+
 def _write_trace(conn, now_iso, trace):
     history_db.record_poll_cycle(conn, now_iso, trace)
     history_db.prune_poll_cycles(conn, now_iso)
 
 
-def _record_history(state_dir, flight, confirmed_state, route_source, route, tracked_runway_id, source_fault, record_event, now_iso, caddy_log=None, wake_interval_s=_NO_WAKE_EPOCH, detected=False, gallery_name=None, trace=None, unshown_rows=()):
+def _record_history(state_dir, flight, confirmed_state, route_source, route, tracked_runway_id, source_fault, record_event, now_iso, caddy_log=None, wake_interval_s=_NO_WAKE_EPOCH, detected=False, gallery_name=None, trace=None, unshown_rows=(), route_lookups=(), route_directory=None):
     """Write this cycle's durable signals into `history.db` in one
     connection and one transaction: every write below runs inside one
     `history_db.write_batch(conn)`, committed once as this function
@@ -466,7 +471,9 @@ def _record_history(state_dir, flight, confirmed_state, route_source, route, tra
     `_cycle_trace()`), and `unshown_rows` the aircraft dropped from the
     display queue this cycle (see `_unshown_event_rows()`); like the Caddy
     ingest each is written in its own SAVEPOINT, so a fault in it never rolls
-    back the heartbeat or the event.
+    back the heartbeat or the event. `route_lookups`, the requests the cycle
+    made to the route directories, are written the same way as counters, and
+    `route_directory` is stored with the runway event.
     """
     route = route if isinstance(route, dict) else {}
     try:
@@ -493,6 +500,7 @@ def _record_history(state_dir, flight, confirmed_state, route_source, route, tra
                         destination=route.get("destination_iata"),
                         tracked_runway=tracked_runway_id,
                         gallery_name=gallery_name or "",
+                        route_directory=route_directory,
                     )
                 history_db.set_meta(conn, history_db.META_LAST_PIPELINE_RUN, now_iso)
                 history_db.set_meta(conn, history_db.META_SOURCE_FAULT, str(source_fault))
@@ -509,6 +517,9 @@ def _record_history(state_dir, flight, confirmed_state, route_source, route, tra
                     _run_isolated_write(conn, "poll_cycle_trace", lambda: _write_trace(conn, now_iso, trace))
                 if unshown_rows:
                     _run_isolated_write(conn, "unshown_events", lambda: _write_unshown(conn, unshown_rows))
+                if route_lookups:
+                    _run_isolated_write(
+                        conn, "route_lookups", lambda: _write_route_lookups(conn, now_iso, route_lookups))
     except (sqlite3.Error, OSError) as exc:
         print("poll_loop: history write failed: %s: %s" % (type(exc).__name__, exc))
 
@@ -675,6 +686,10 @@ class CycleContext:
     state_source: str | None = None
     route_source: str | None = None
     route: dict | None = None
+    # The route directory whose route is shown, and every request this cycle
+    # made to the directories as `(directory, outcome)`.
+    route_directory: str | None = None
+    route_lookups: list = field(default_factory=list)
     calendar_theme_id: str | None = None
     effective_theme_id: str | None = None
     unknown_prefix: str | None = None
@@ -1289,10 +1304,11 @@ def _enrich_current_flight(ctx):
     # when the static table has no entry - it wins on a collision);
     # "miss" resolved nothing.
     watched = route_sanity.watched_iata_codes(ctx.spec, ctx.tracked_runway_id)
+    report = enrich.LookupReport()
     route, route_source = enrich.resolve_route(
         current_flight.get("callsign"), cache, now=now_s(), manual_registry=ctx.manual_registry,
         name_overrides=ctx.name_overrides, transport=ctx.route_transport,
-        leg=(ctx.confirmed_state, watched))
+        leg=(ctx.confirmed_state, watched), report=report)
     enrich.trim_cache(cache)
     poll_state["enrichment_cache"] = cache
     # A "miss" is an unrecognized ICAO prefix - recorded so the finding
@@ -1326,6 +1342,9 @@ def _enrich_current_flight(ctx):
     poll_state["last_recorded_corroborated"] = current_flight.get("corroborated")
     ctx.route = route
     ctx.route_source = route_source
+    ctx.route_lookups.extend(report.network)
+    # A route set aside as contradicting the direction was not the one shown.
+    ctx.route_directory = report.directory if route_source in ("fresh_hit", "cache_hit") else None
 
 
 def _layout_id(ctx):
@@ -1569,30 +1588,34 @@ def _cycle_trace(ctx):
 
 
 def _unshown_route(ctx, flight):
-    """`(route, source, state)` for an aircraft dropped unseen: the adsbdb
-    route when it fits the watched airport, the airline-only fallback
-    otherwise. The state is the aircraft's own direction when it has one,
-    else the one the route gives."""
+    """`(route, source, state, directory)` for an aircraft dropped unseen: the
+    directory's route when it fits the watched airport, the airline-only
+    fallback otherwise. The state is the aircraft's own direction when it has
+    one, else the one the route gives; `directory` names the route directory
+    that supplied the route, None for the fallback."""
     state = runway_config.infer_from_flight(flight, None)
     callsign = flight.get("callsign")
     airline_only = enrich.resolve_airline_only(callsign, ctx.manual_registry, ctx.name_overrides)
     if not callsign:
-        return airline_only + (state,)
+        return airline_only + (state, None)
     cache = ctx.poll_state.get("enrichment_cache")
     if not isinstance(cache, dict):
         cache = {}
     watched = route_sanity.watched_iata_codes(ctx.spec, ctx.tracked_runway_id)
+    report = enrich.LookupReport()
     route, source = enrich.resolve_route(
         callsign, cache, now=now_s(), manual_registry=ctx.manual_registry,
-        name_overrides=ctx.name_overrides, transport=ctx.route_transport, leg=(state, watched))
+        name_overrides=ctx.name_overrides, transport=ctx.route_transport, leg=(state, watched),
+        report=report)
+    ctx.route_lookups.extend(report.network)
     enrich.trim_cache(cache)
     ctx.poll_state["enrichment_cache"] = cache
     if source not in ("fresh_hit", "cache_hit"):
-        return route, source, state
+        return route, source, state, None
     state = state or route_sanity.direction_from_route(route, watched)
     if watched and (state is None or route_sanity.route_contradicts(route, state, watched)):
-        return airline_only + (state,)
-    return route, source, state
+        return airline_only + (state, None)
+    return route, source, state, report.directory
 
 
 def _unshown_event_rows(ctx):
@@ -1606,7 +1629,7 @@ def _unshown_event_rows(ctx):
     rows = []
     for entry in ctx.dropped_entries:
         flight = entry["flight"]
-        route, source, state = _unshown_route(ctx, flight)
+        route, source, state, directory = _unshown_route(ctx, flight)
         route = route if isinstance(route, dict) else {}
         rows.append({
             "ts": datetime.fromtimestamp(entry["first_seen"], timezone.utc).isoformat(timespec="seconds"),
@@ -1620,6 +1643,7 @@ def _unshown_event_rows(ctx):
             "origin": route.get("origin_iata"),
             "destination": route.get("destination_iata"),
             "tracked_runway": ctx.tracked_runway_id,
+            "route_directory": directory,
         })
     return rows
 
@@ -1629,13 +1653,16 @@ def record(ctx):
     from `ctx.branch` exactly as each former branch passed them - see
     `_record_history()`'s own docstring for what each write means.
     """
-    extras = {"trace": _cycle_trace(ctx), "unshown_rows": _unshown_event_rows(ctx)}
+    unshown_rows = _unshown_event_rows(ctx)
+    extras = {
+        "trace": _cycle_trace(ctx), "unshown_rows": unshown_rows,
+        "route_lookups": list(ctx.route_lookups)}
     if ctx.branch == "promoted":
         _record_history(
             ctx.state_dir, ctx.current_flight, ctx.confirmed_state, ctx.route_source, ctx.route,
             ctx.tracked_runway_id, ctx.source_fault, ctx.event_recorded, ctx.now_iso,
             caddy_log=ctx.caddy_log, wake_interval_s=ctx.effective_wake_interval_s,
-            gallery_name=ctx.gallery_name, **extras,
+            gallery_name=ctx.gallery_name, route_directory=ctx.route_directory, **extras,
         )
     elif ctx.branch == "held":
         _record_history(

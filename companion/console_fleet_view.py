@@ -2,14 +2,15 @@
 
 `/fleet` shows the list of frames (live, pending and retired, each a link to
 `/fleet?frame=<id>`). A live frame opens one column of sections: State (four
-equal tiles, each with a Details link), Settings and Access (owner, co-managers,
-reassign, retire). Each section reuses the content of the page that used to hold
-it (Device, Manage access) with the same forms and POST routes. The tiles lead
-to two detail pages of the frame, `view=health` (every Health block) and
-`view=versions` (the installed version, the update and every earlier version).
-A pending or retired frame opens its own page with only its useful action and
-appears nowhere else. The System view holds the platform-wide part of the Health
-page.
+equal tiles), Settings and Access (owner, co-managers, reassign, retire).
+Each section reuses the content of the page that used to hold it (Device,
+Manage access) with the same forms and POST routes. The connection tile states
+the last and the next connection itself; the battery and firmware tiles lead to
+two detail pages of the frame, `view=battery` (the level, the trend and the
+readings) and `view=versions` (the installed version, the update and every
+earlier version). A pending or retired frame opens its own page with only its
+useful action and appears nowhere else. The System view holds the platform-wide
+information.
 
 On a phone the list and a frame page are separate screens joined by the frame
 switch (a chip row); from 1200 px the list is a full-height column beside the
@@ -33,9 +34,9 @@ FOCUS_QUERY = "tab"
 SECTION_STATE = "state"
 SECTION_SETTINGS = "settings"
 SECTION_ACCESS = "access"
-VIEW_HEALTH = fleet_tiles.VIEW_HEALTH
+VIEW_BATTERY = fleet_tiles.VIEW_BATTERY
 VIEW_VERSIONS = fleet_tiles.VIEW_VERSIONS
-DETAIL_VIEWS = (VIEW_HEALTH, VIEW_VERSIONS)
+DETAIL_VIEWS = (VIEW_BATTERY, VIEW_VERSIONS)
 SYSTEM_HREF = "/fleet?%s=%s" % (VIEW_QUERY, VIEW_SYSTEM)
 FRAME_HREF_PREFIX = "/fleet?%s=" % FRAME_QUERY
 
@@ -44,7 +45,7 @@ FRAME_HREF_PREFIX = "/fleet?%s=" % FRAME_QUERY
 def page_scripts(system=False):
     """The scripts the embedded blocks need: the settings form's dirty bar, value
     controls and the Diagnostic LED quick switch, plus the Install and Revert
-    question dialog on a frame's page, or the Health registry table's copy, filter and
+    question dialog on a frame's page, or the System view's registry table copy, filter and
     lookup helpers on the System view."""
     from companion import ui_base
     base = (
@@ -65,13 +66,11 @@ _SETTINGS_HEADING = i18n.msg("admin_fleet.block_settings", "Settings")
 _ACCESS_HEADING = i18n.msg("admin_fleet.block_access", "Access")
 _SECTIONS_LABEL = i18n.msg("admin_fleet.tabs_label", "Frame sections")
 _BACK_TO_FRAME = i18n.msg("admin_fleet.back_to_frame", "Back to %s")
-_HEALTH_HEADING = i18n.msg("nav.health", "Health")
+_BATTERY_HEADING = i18n.msg("health.row_battery", "Battery")
 _VERSIONS_HEADING = i18n.msg("update.version_history", "Versions")
 _SYSTEM_SUB = i18n.msg(
     "admin_fleet.system_sub",
     "The server behind every frame. Visible to administrators.")
-_ADMIN_ONLY = i18n.msg("admin_fleet.health_admin_only", "Visible to administrators")
-_FRAME_GROUP_HEADING = i18n.msg("admin_fleet.health_frame_section", "Frame")
 _SYSTEM_EMPTY = i18n.msg(
     "admin_fleet.system_unavailable",
     "No system information is available yet.")
@@ -107,7 +106,7 @@ def selection(query, devices):
 
 
 def detail_view(query):
-    """The detail page a query names for a chosen frame (`view=health` or
+    """The detail page a query names for a chosen frame (`view=battery` or
     `view=versions`), or ""."""
     wanted = (query.get(VIEW_QUERY) or [""])[0]
     return wanted if wanted in DETAIL_VIEWS else ""
@@ -167,7 +166,7 @@ def _cards_block(heading, items_html, extra_class, slug):
 
 
 def _item(content_html, flush=False):
-    """Free content (forms, health rows, version cards) as one item of a
+    """Free content (forms, the battery row, version cards) as one item of a
     block's group; the hairline above it is drawn by the group."""
     if not content_html:
         return ""
@@ -240,32 +239,25 @@ def detail_head_html(device, name):
             _esc(i18n.t(_BACK_TO_FRAME) % name)))
 
 
-def health_html(ctx, device):
-    """The Health page of a frame: every block the page holds (the no-signal
-    notice, the source fault and the warnings banner above the rows; the
-    frame's connection and battery; for an administrator the platform data
-    rows: flight data, data sources, identification and the off-box backup)."""
+def battery_html(ctx, device):
+    """The Battery page of a frame: its level, the trend chart and the readings
+    in one card whose header names it (the empty state when the frame never
+    checked in). The page's `<h1>` already names it, so no section label
+    repeats the word above the card."""
     from companion import health_rows
     from companion.pages import health_page
     with history_db.connection_scope(device.state_dir):
-        parts = health_page.health_sections(ctx)
-
-    def rows(items):
-        return [_item(health_rows.card_html(row), True) for row in items]
-
+        parts = health_page.battery_view(ctx)
     if parts.empty_html:
         blocks = _block(
-            _FRAME_GROUP_HEADING, _item(parts.empty_html, True),
-            " fleet-block--health", "health-frame")
+            _BATTERY_HEADING, _item(parts.empty_html, True), "", "battery")
     else:
-        blocks = _cards_block(
-            i18n.t(_FRAME_GROUP_HEADING), rows(parts.frame_rows), " fleet-block--health",
-            "health-frame") + _cards_block(
-                "%s · %s" % (
-                    i18n.t(health_page.SERVER_DATA_SECTION_HEADING), i18n.t(_ADMIN_ONLY)),
-                rows(parts.platform_rows),
-                " fleet-block--health", "health-server")
-    return parts.notices_html + '<div class="fleet-blocks fleet-blocks--detail">%s</div>' % blocks
+        card = _item(health_rows.card_html(parts.row_html), True)
+        blocks = (
+            '<section class="group-block fleet-block" id="%sbattery" aria-label="%s">'
+            '<div class="fleet-cards"><ul class="group fleet-group">%s</ul></div></section>' % (
+                fleet_tiles.SECTION_ID_PREFIX, _t(_BATTERY_HEADING), card))
+    return '<div class="fleet-blocks fleet-blocks--detail">%s</div>' % blocks
 
 
 def versions_html(ctx, device):
@@ -360,13 +352,13 @@ def page_html(h, query, view):
 
 
 def _detail_html(h, device, row, detail, frames_list):
-    """The Health or Versions page of a frame: the way back to the frame, the
+    """The Battery or Versions page of a frame: the way back to the frame, the
     page's `<h1>` and its content. The list column is not part of it."""
     from companion.pages import fleet_page
     name = fleet_page.display_name(row) if row else device.name
     ctx = h.page_context(device)
-    if detail == VIEW_HEALTH:
-        title, body = _t(_HEALTH_HEADING), health_html(ctx, device)
+    if detail == VIEW_BATTERY:
+        title, body = _t(_BATTERY_HEADING), battery_html(ctx, device)
     else:
         title, body = _t(_VERSIONS_HEADING), versions_html(ctx, device)
     return detail_head_html(device, name) + frames_list.title_head_html(title) + body

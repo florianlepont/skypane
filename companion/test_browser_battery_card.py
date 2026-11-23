@@ -15,7 +15,7 @@ from server import history_db
 
 pytestmark = pytest.mark.browser
 
-ROUTE = "/fleet?frame=live&view=health"
+ROUTE = "/fleet?frame=live&view=battery"
 VIEWPORTS = (
     ("320", {"width": 320, "height": 740}),
     ("390", {"width": 390, "height": 844}),

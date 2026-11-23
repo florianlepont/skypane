@@ -1,7 +1,7 @@
 """Real-browser checks of the phone sections of a frame's page: State, Settings and Access stacked
 under three anchors that stay at the top while the page scrolls, each 44 px and fitting 360 and
 390 px in English and French, the section in view marked current, plain links that work without
-scripts, a saved-section landing, the four equal State tiles, the full single column on a desktop,
+scripts, a saved-section landing, the three State tiles, the full single column on a desktop,
 the unsaved-changes bar, and the designed empty picture on Home."""
 import animation_settle
 import pytest
@@ -77,22 +77,22 @@ def test_the_three_anchors_fit_and_all_three_sections_are_stacked_in_order(
 @pytest.mark.parametrize("lang", ["en", "fr"])
 @pytest.mark.parametrize("viewport", [VIEWPORT_MIN_SUPPORTED, PHONE, VIEWPORT_DESKTOP],
                          ids=["360", "390", "1440"])
-def test_the_state_section_is_four_equal_tiles_in_two_columns(
+def test_the_state_section_is_three_equal_tiles_in_two_columns(
         new_context, app_server_in_process, viewport, lang):
     context, page = _open(new_context, app_server_in_process, viewport, lang)
     try:
         tiles = page.evaluate(_TILES)
-        assert len(tiles) == 4, tiles
+        assert len(tiles) == 3, tiles
         assert max(t["w"] for t in tiles) - min(t["w"] for t in tiles) < 1, tiles
         assert max(t["h"] for t in tiles) - min(t["h"] for t in tiles) < 1, tiles
         assert min(t["h"] for t in tiles) >= 44
-        assert abs(tiles[0]["x"] - tiles[2]["x"]) < 1 and abs(tiles[1]["x"] - tiles[3]["x"]) < 1
+        assert abs(tiles[0]["x"] - tiles[2]["x"]) < 1
         assert abs(tiles[0]["y"] - tiles[1]["y"]) < 1 and tiles[2]["y"] > tiles[0]["y"]
         assert page.evaluate(
             "() => document.documentElement.scrollWidth - document.documentElement.clientWidth") <= 0
         assert [a.inner_text().split("\n")[-1].strip() for a in
                 page.locator("a.fleet-tile .fleet-tile__more").all()] == [
-            "Details" if lang == "en" else "Détails"] * 4
+            "Details" if lang == "en" else "Détails"] * 2
     finally:
         context.close()
 

@@ -906,7 +906,7 @@ def test_freshness_js_breathes_only_from_the_loops_own_state(freshness_js, css_t
 
 def test_both_tabs_ok_end_to_end(make_app_server):
     """GET /fleet, GET /airlines and GET /history all return 200 with their own page heading against a
-    real running service, /fleet's real HTTP response body carries each row name once, no auto-refresh pill, zero stale-banner
+    real running service, /fleet's Battery page carries the row name once, no auto-refresh pill, zero stale-banner
     markers, both readout spans and no raw ISO in the readout's own slice, the System view the
     Resolution-statistics heading,
     /airlines' real HTTP response body carries zero occurrences of
@@ -957,16 +957,15 @@ def test_both_tabs_ok_end_to_end(make_app_server):
         assert status == 200, "expected 200 for %s, got %d" % (path, status)
         assert heading.encode() in body, "expected the %r heading in %s's response body" % (heading, path)
         if path == "/fleet":
-            # The rows are on the frame's Health page, which the retired /health address leads to.
+            # The battery row is on the frame's Battery page, which the retired /health address leads to.
             _status, redirect, _body = get(server, "/health", cookie=session_cookie)
             status, _headers, body = get(server, redirect["Location"], cookie=session_cookie)
             assert status == 200
             body_text = body.decode("utf-8", errors="replace")
-            for name in (health_page.ROW_CONNECTION_NAME, health_page.ROW_FLIGHT_DATA_NAME):
-                name_count = body_text.count(">%s<" % name)
-                assert name_count == 1, (
-                    "expected the row name %r exactly once in the real /fleet HTTP response body, got %d"
-                    % (name, name_count))
+            name_count = body_text.count('<span class="health-row__name">%s</span>' % health_page.ROW_BATTERY_NAME)
+            assert name_count == 1, (
+                "expected the row name exactly once in the real /fleet HTTP response body, got %d"
+                % name_count)
 
             assert "data-refresh-pill" not in body_text
             assert "data-stale-banner" not in body_text, "expected zero stale-banner markers in the real /fleet HTTP response body"
