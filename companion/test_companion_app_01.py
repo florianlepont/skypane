@@ -164,7 +164,7 @@ def test_escape_html_non_string_inputs():
 # Health, Device and Releases are Console destinations and never appear here.
 PERSONAL_ROUTES = tuple(
     route for route, _label in layout.NAV_TABS
-    if route not in (layout.HEALTH_ROUTE, layout.DEVICE_ROUTE, layout.UPDATE_ROUTE)
+    if route not in (layout.DEVICE_ROUTE, layout.UPDATE_ROUTE)
 ) + (layout.ACCOUNT_ROUTE,)
 
 
@@ -319,17 +319,16 @@ def test_sidebar_nav_escapes_hostile_active():
 
 
 def test_nav_tabs_shrunk_to_four_settled_order():
-    """layout.NAV_TABS holds exactly 8 entries, in order home/flights/detection/display/airlines/health/device/update"""
+    """layout.NAV_TABS holds exactly 6 entries, in order home/flights/detection/display/airlines/update"""
     # 06.6.4.1-08 : NAV_TABS shrinks from five entries to four -
     # Preview is retired, its whole content absorbed into History
     # (06.6.4.1-05). Order matters: every nav renderer walks NAV_TABS in
     # this exact order. : seven tabs in two groups - the everyday
     # four, then the three under the "Advanced" label (Update joined
     # Health/Device) - flattened in that order.
-    assert len(layout.NAV_TABS) == 8
+    assert len(layout.NAV_TABS) == 6
     expected_routes = (
-        "/", "/flights", "/detection", "/display", "/airlines", "/health", "/device",
-        "/update")
+        "/", "/flights", "/detection", "/display", "/airlines", "/update")
     actual_routes = tuple(route for route, _ in layout.NAV_TABS)
     assert actual_routes == expected_routes
 

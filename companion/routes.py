@@ -66,8 +66,6 @@ LOGIN_ROUTE = "/login"
 CREDITS_ROUTE = "/credits"
 AUTH0_LOGIN_ROUTE = "/login/auth0"
 CALLBACK_ROUTE = "/callback"
-HISTORY_LEGACY_ROUTE = "/history"
-PREVIEW_PAGE_ROUTE = "/preview"
 QUICK_DISPLAY_ROUTE = "/quick/display"
 QUICK_QUIET_HOURS_ROUTE = "/quick/quiet-hours"
 QUICK_QUIET_HOURS_WINDOW_ROUTE = "/quick/quiet-hours/window"
@@ -95,7 +93,6 @@ DISPLAY_ROUTE = layout.DISPLAY_ROUTE
 FLIGHTS_ROUTE = layout.FLIGHTS_ROUTE
 AIRLINES_ROUTE = layout.AIRLINES_ROUTE
 MANAGE_ROUTE = airlines_page.MANAGE_ROUTE
-HEALTH_ROUTE = layout.HEALTH_ROUTE
 DEVICE_ROUTE = layout.DEVICE_ROUTE
 UPDATE_ROUTE = layout.UPDATE_ROUTE
 
@@ -139,12 +136,7 @@ def _personalisation_get_routes():
                     ctx, scope=config_page.SCOPE_DISPLAY, view=view),
                 m.device),
             OWNER_DEVICE)
-    redirects = tuple(
-        Route(
-            "GET", Exact(retired),
-            lambda h, m: h.redirect(device_scope.scoped(DISPLAY_ROUTE)), OWNER_DEVICE)
-        for retired in personalisation_cards.RETIRED_VIEW_ROUTES)
-    return tuple(route_for(r) for r in config_page.PERSONALISATION_ROUTES) + redirects
+    return tuple(route_for(r) for r in config_page.PERSONALISATION_ROUTES)
 
 
 # GET routes, in companion/app.py's pre-table _dispatch_get() branch
@@ -191,14 +183,8 @@ _GET_ROUTES = (
                 m.device, policy=page_policy.MAP_PAGE_POLICY),
             OWNER_DEVICE),
         Route(
-            "GET", Exact(DEVICE_ROUTE),
-            fleet_moves.retired_frame_page, ADMIN_ONLY),
-        Route(
             "GET", Exact(FLIGHTS_ROUTE),
             lambda h, m: history_fragment.get(h, m.device), OWNER_DEVICE),
-        Route(
-            "GET", Exact(HEALTH_ROUTE),
-            fleet_moves.retired_frame_page, ADMIN_DEVICE),
         Route(
             "GET", Exact(AIRLINES_ROUTE),
             lambda h, m: airline_collection_page.get(h, m.device), OWNER_DEVICE),
@@ -213,19 +199,11 @@ _GET_ROUTES = (
                     lambda ctx: update_page.render(ctx, h._requested_update_type()),
                     m.device)),
             ADMIN_ONLY),
-        # The pre-refactor page routes survive as fixed 303s so a stale
-        # bookmark or link still lands somewhere useful. The targets are
-        # literals, never derived from any request value; under a device
-        # prefix they keep that prefix.
+        # POST /settings has this address as its GET twin, so a refused
+        # settings form can be opened again at it (see reopen_address).
         Route(
             "GET", Exact(SETTINGS_ROUTE),
             lambda h, m: h.redirect(device_scope.scoped(DISPLAY_ROUTE)), OWNER_DEVICE),
-        Route(
-            "GET", Exact(HISTORY_LEGACY_ROUTE),
-            lambda h, m: h.redirect(device_scope.scoped(FLIGHTS_ROUTE)), OWNER_DEVICE),
-        Route(
-            "GET", Exact(PREVIEW_PAGE_ROUTE),
-            lambda h, m: h.redirect(device_scope.scoped(FLIGHTS_ROUTE)), OWNER_DEVICE),
         Route(
             "GET", PrefixSuffix(GALLERY_ROUTE_PREFIX, ""),
             lambda h, m: h._serve_gallery_image(m.device, m.captured), OWNER_DEVICE),
@@ -272,7 +250,8 @@ _POST_ROUTES = (
         "POST", Exact(QUICK_LED_ROUTE),
         lambda h, m: h._handle_quick_toggle(
             m.device, "led_enabled", allowed_return_to=(DEVICE_ROUTE,),
-            fallback_return_to=DEVICE_ROUTE),
+            fallback_return_to=DEVICE_ROUTE,
+            return_url=fleet_moves.frame_url(m.device.id, fleet_moves.TAB_SETTINGS)),
         ADMIN_ONLY),
     Route("POST", Exact(THEME_ROUTE), lambda h, m: h._handle_theme_post(), SIGNED_IN),
     Route("POST", Exact(LANG_ROUTE), lambda h, m: h._handle_lang_post(), SIGNED_IN),
@@ -351,17 +330,11 @@ _PAGE_AND_IMAGE_KEYS = (
     ("GET", Exact(personalisation_cards.VIEW_ROUTES["calendar-connect"])),
     ("GET", Exact(personalisation_cards.VIEW_ROUTES["calendar-look"])),
     ("GET", Exact(personalisation_cards.VIEW_ROUTES["arrivals"])),
-    ("GET", Exact(personalisation_cards.RETIRED_VIEW_ROUTES[0])),
-    ("GET", Exact(personalisation_cards.RETIRED_VIEW_ROUTES[1])),
     ("GET", Exact(DETECTION_ROUTE)),
-    ("GET", Exact(DEVICE_ROUTE)),
     ("GET", Exact(FLIGHTS_ROUTE)),
-    ("GET", Exact(HEALTH_ROUTE)),
     ("GET", Exact(AIRLINES_ROUTE)),
     ("GET", Exact(MANAGE_ROUTE)),
     ("GET", Exact(SETTINGS_ROUTE)),
-    ("GET", Exact(HISTORY_LEGACY_ROUTE)),
-    ("GET", Exact(PREVIEW_PAGE_ROUTE)),
     ("GET", PrefixSuffix(GALLERY_ROUTE_PREFIX, "")),
     ("GET", PrefixSuffix(ILLUSTRATION_IMAGE_ROUTE_PREFIX, ".png")),
     ("GET", PrefixSuffix(THEME_PREVIEW_ROUTE_PREFIX, ".png")),
@@ -470,11 +443,6 @@ def match(method, path, query):
     prefix goes through the plain loop and finds nothing.
     """
     prefixed = DEVICE_PREFIX_RE.match(path)
-    if prefixed is not None and method == "GET" and prefixed.group(2) == UPDATE_ROUTE:
-        # The retired Update page keeps answering under a frame's prefix: the
-        # one global route, with the id carried, so an administrator is moved
-        # to that frame's Fleet view (anyone else sees the unknown-path page).
-        return _match_in(ROUTES, method, UPDATE_ROUTE, query, prefixed.group(1))
     if prefixed is not None:
         scoped_routes = tuple(route for route in ROUTES if route.device_scoped)
         return _match_in(

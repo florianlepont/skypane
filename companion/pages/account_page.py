@@ -10,7 +10,7 @@ import time
 from typing import NamedTuple
 
 from companion import frame_status, i18n, layout, prefs, ui_components, ui_groups, ui_modal, ui_shell
-from companion.pages import co_managers_card, pair_frame_page
+from companion.pages import co_managers_card, frame_name_page, pair_frame_page
 
 ACCOUNT_TITLE = i18n.msg("account.account", "Account")
 ACCOUNT_PURPOSE = i18n.msg(
@@ -33,6 +33,7 @@ UNNAMED_FRAME_TEXT = i18n.msg("account.unnamed_frame", "Unnamed frame")
 _SHARED_BY_TEXT = i18n.msg("account.shared_by", "Shared by %s")
 _LEAVE_FRAME_ARIA = i18n.msg("account.leave_frame_aria", "Leave frame: %s")
 _MANAGE_ACCESS_ARIA = i18n.msg("account.manage_access_aria", "Manage access: %s")
+_RENAME_FRAME_ARIA = i18n.msg("account.rename_frame_aria", "Rename: %s")
 _PILL_OWNER_TEXT = i18n.msg("account.frame_owner", "Owner")
 _PILL_CO_MANAGER_TEXT = i18n.msg("account.frame_co_manager", "Co-manager")
 _CO_MANAGER_OF_ONE_TEXT = i18n.msg("account.co_manager_of_one", "Co-manager of 1 frame")
@@ -114,21 +115,23 @@ def _role_row(identity, frames):
 
 
 def _frame_action_html(frame):
-    """The one action of a frame row, a 44px icon button named for assistive
-    technology: Manage access (a key) on an owned frame, Leave frame (a door
-    and arrow) on a shared one; nothing when an owned frame has no view."""
+    """The actions of a frame row, 44px icon buttons named for assistive
+    technology: Rename (a pencil) on a frame the person owns, then Manage
+    access (a key) on an owned frame or Leave frame (a door and arrow) on a
+    shared one; no access button when an owned frame has no view."""
+    cls = "account-frame__action"
     if frame.shared:
-        dialog_id, icon, aria = (
-            co_managers_card.leave_dialog_id(frame.device_id), "icon-sign-out",
-            i18n.t(_LEAVE_FRAME_ARIA) % frame.name)
-    elif frame.access is None:
-        return ""
-    else:
-        dialog_id, icon, aria = (
-            co_managers_card.access_dialog_id(frame.device_id), "icon-key",
-            i18n.t(_MANAGE_ACCESS_ARIA) % frame.name)
-    return ui_modal.trigger_html(
-        dialog_id, layout.icon_html(icon, 20), "account-frame__action", aria)
+        return ui_modal.trigger_html(
+            co_managers_card.leave_dialog_id(frame.device_id),
+            layout.icon_html("icon-sign-out", 20), cls, i18n.t(_LEAVE_FRAME_ARIA) % frame.name)
+    rename = frame_name_page.opener_html(
+        frame.device_id, layout.icon_html("icon-pencil", 20), cls,
+        i18n.t(_RENAME_FRAME_ARIA) % frame.name)
+    if frame.access is None:
+        return rename
+    return rename + ui_modal.trigger_html(
+        co_managers_card.access_dialog_id(frame.device_id),
+        layout.icon_html("icon-key", 20), cls, i18n.t(_MANAGE_ACCESS_ARIA) % frame.name)
 
 
 def _frame_line(frame):
@@ -172,11 +175,13 @@ def _frame_dialog_html(frame, open_access):
     if frame.shared:
         return co_managers_card.leave_dialog_html(
             frame.device_id, frame.name, co_managers_card.RETURN_ACCOUNT)
+    rename = frame_name_page.dialog_html(
+        frame.device_id, frame.name, co_managers_card.RETURN_ACCOUNT)
     if frame.access is None:
-        return ""
+        return rename
     return co_managers_card.manage_access_dialog_html(
         frame.access, frame.device_id, frame.name, co_managers_card.RETURN_ACCOUNT,
-        open_=frame.device_id == open_access)
+        open_=frame.device_id == open_access) + rename
 
 
 def _frames_card(frames, now):

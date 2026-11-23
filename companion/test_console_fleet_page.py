@@ -122,8 +122,7 @@ def test_each_frame_state_offers_only_its_useful_action(fleet):
     owned = _header(page)
     prefix = "/devices/%s" % seed.owned_id
     assert 'href="%s/"' % prefix in owned
-    assert 'href="%s/frame/name?return_to=%%2Ffleet%%3Fframe%%3D%s"' % (
-        prefix, seed.owned_id) in owned
+    assert 'href="#dlg-rename-%s"' % seed.owned_id.replace("_", "-") in owned
     # Health and Device are sections of the page; access, reassign and retire are inline in the
     # Access section (the retire link opens the one confirmation dialog).
     assert "/health" not in owned and '/device"' not in owned

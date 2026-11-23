@@ -88,9 +88,6 @@ LOOK_VIEW_USAGES = {
     VIEW_DEPARTURES: COLOUR_USAGE_DEPARTURES,
     VIEW_ARRIVALS: COLOUR_USAGE_ARRIVALS,
 }
-# The address that used to hold the Screen switch (now on Home) and the one
-# that held the Layout view (now a card on every view) redirect to Departures.
-RETIRED_VIEW_ROUTES = (layout.DISPLAY_SCREEN_ROUTE, layout.DISPLAY_LAYOUT_ROUTE)
 
 
 def _card_html(slug, title, body_html):

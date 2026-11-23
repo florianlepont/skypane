@@ -176,12 +176,17 @@ def test_the_console_navigation_no_longer_lists_status_version_or_device(fleet):
     assert "/fleet" in hrefs and "/users" in hrefs
 
 
-@pytest.mark.parametrize("path", ["/health", "/device", "/update"])
-def test_the_old_pages_move_to_the_fleet_page(fleet, path):
+def test_the_update_address_moves_to_the_fleet_page(fleet):
     server, _seed, cookie = fleet
-    status, headers, _page = fx.get(server, cookie, path)
+    status, headers, _page = fx.get(server, cookie, "/update")
     assert status == 303
     assert headers["Location"].startswith("/fleet?frame=")
+
+
+@pytest.mark.parametrize("path", ["/health", "/device"])
+def test_the_removed_health_and_device_pages_are_not_found(fleet, path):
+    server, _seed, cookie = fleet
+    assert fx.get(server, cookie, path)[0] == 404
 
 
 def test_french_block_headings(fleet):

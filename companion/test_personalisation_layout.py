@@ -151,11 +151,10 @@ def test_the_navigation_has_four_links_and_none_is_layout(rig, path):
     assert "Layout" not in [a.text().strip() for a in nav_links]
 
 
-def test_the_retired_layout_address_redirects_to_the_display_page(rig):
-    status, response, _body = http_request(
+def test_the_removed_layout_address_is_not_found(rig):
+    status, _response, _body = http_request(
         rig.server.url(rig.scope() + "/display/layout"), cookie=rig.cookies["owner"])
-    assert status in (301, 302, 303, 307, 308)
-    assert response["Location"] == rig.scope() + "/display"
+    assert status == 404
 
 
 def test_an_absent_layout_shows_the_default_selected_without_a_redraw_sentence(rig):

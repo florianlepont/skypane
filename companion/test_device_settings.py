@@ -66,7 +66,10 @@ def test_each_quick_switch_changes_only_that_devices_config(app, route, field, s
     live, _a, dev_b = snapshot_all(app.server, fleet)
     status, headers, _ = post(app, _prefix(fleet.dev_a) + route, {"state": state})
     assert status == 303
-    assert headers["Location"].startswith(_prefix(fleet.dev_a) + "/")
+    expected_start = (
+        "/fleet?frame=%s&tab=settings" % fleet.dev_a.id if route == "/quick/led"
+        else _prefix(fleet.dev_a) + "/")
+    assert headers["Location"].startswith(expected_start)
     assert _config(fleet.dev_a)[field] is expected
     assert snapshot(fleet.dev_b.state_dir) == dev_b
     assert snapshot(app.server.state_dir) == live

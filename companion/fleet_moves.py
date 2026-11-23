@@ -1,6 +1,6 @@
-"""Where the retired Health, Device and Update pages and their form
-redirects land: the matching view of the Console Fleet page (the Battery view
-of a frame, its Settings, its Versions, or the System view).
+"""Where the form redirects land: the matching view of the Console Fleet page
+(a frame's Settings or Versions page), and where the Update page sends a
+person who has a frame of the requested type.
 
 Every target is built from literals, a device id that already passed the
 route's ownership gate, or an id read back from the request scope's own frame
@@ -14,12 +14,9 @@ from companion.ui_base import DEVICE_ROUTE
 
 FLEET = "/fleet"
 FRAME_PARAM = "frame"
-SYSTEM_QUERY = "?view=system"
 
 
 TAB_SETTINGS = "settings"
-VIEW_BATTERY = "battery"
-LEGACY_HEALTH_VIEW = "health"
 VIEW_VERSIONS = "versions"
 
 
@@ -39,15 +36,6 @@ def with_flash(url, flash_key):
     """`url` carrying the one-shot flash key `flash_key` (a registered
     constant, never request text)."""
     return "%s%sflash=%s" % (url, "&" if "?" in url else "?", quote(flash_key))
-
-
-def health_target(device_id, tab=None, view=VIEW_BATTERY):
-    """/health (platform wide) shows the System view; a frame's own health
-    page shows that frame's Battery view (`view`), or its Settings (`tab`) for
-    the retired Device page."""
-    if not device_id:
-        return FLEET + SYSTEM_QUERY
-    return frame_url(device_id, tab) if tab else frame_url(device_id, view=view)
 
 
 def settings_target(back, route, device):
@@ -82,30 +70,11 @@ def _carried_flash(url, query):
     return with_flash(url, values[0]) if _FLASH_KEY_RE.match(values[0]) else url
 
 
-def retired_frame_page(h, m):
-    """303 target of the retired Health and Device pages: the Battery view (the
-    Settings section for Device) of the frame the request resolved to
-    (`/devices/<id>/health`, or the frame named by `?frame=` among the
-    caller's own), the System view when there is none."""
-    wanted = parse_qs(m.query or "").get(FRAME_PARAM, [""])[0]
-    own = {device.id for device in device_scope.current_devices()}
-    frame_id = wanted if wanted in own else (m.device.id if m.device else None)
-    tab = TAB_SETTINGS if m.path.rstrip("/").endswith(DEVICE_ROUTE) else None
-    return h.redirect(_carried_flash(health_target(frame_id, tab), m.query))
-
-
 def retired_update_page(h, m, serve):
-    """The retired Update page: the Versions page of the frame in a
-    `/devices/<id>/update` path, else of the one named by `?frame=`
-    (one of the caller's own), else of the requested
-    firmware type; a type with no frame is still served by `serve()`."""
+    """The Update page: the Versions page of the frame named by `?frame=`
+    (one of the caller's own), else of the requested firmware type; a type
+    with no frame is still served by `serve()`."""
     from companion.pages import update_page
-    if m.device_id is not None:
-        own = device_scope.load_devices_for(h.args.state_dir, h._safe_principal())
-        if m.device_id in {d.id for d in own}:
-            return h.redirect(_carried_flash(
-                frame_url(m.device_id, view=VIEW_VERSIONS), m.query))
-        return h.send_html(404, h._not_found_page())
     wanted = parse_qs(m.query or "").get(FRAME_PARAM, [""])[0]
     hardware_type = update_page.posted_type(h._requested_update_type())
     frame = wanted if wanted in {d.id for d in device_scope.current_devices()} else (
@@ -113,18 +82,3 @@ def retired_update_page(h, m, serve):
     if frame is None:
         return serve()
     return h.redirect(_carried_flash(frame_url(frame, view=VIEW_VERSIONS), m.query))
-
-
-def retired_health_view(h, raw_query):
-    """303 target of a Fleet address that still names the retired
-    `view=health`: the Battery view of the frame it names when that is one of
-    the caller's own, else the System view. None when the query asks for
-    another view."""
-    query = parse_qs(raw_query or "")
-    if (query.get("view") or [""])[0] != LEGACY_HEALTH_VIEW:
-        return None
-    wanted = (query.get(FRAME_PARAM) or [""])[0]
-    own = {device.id for device in device_scope.load_devices_for(
-        h.args.state_dir, h._safe_principal())}
-    return h.redirect(_carried_flash(
-        health_target(wanted if wanted in own else None), raw_query))

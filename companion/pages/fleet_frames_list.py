@@ -234,19 +234,23 @@ def head_html(row, view):
         buttons = (
             '<div class="fleet-head__buttons">'
             '<a class="fleet-icon-button" href="/devices/%s/" title="%s" aria-label="%s">%s</a>'
-            '<a class="fleet-icon-button" href="%s" title="%s" aria-label="%s">%s</a></div>' % (
+            '<a class="fleet-icon-button" href="%s" title="%s" aria-label="%s" '
+            'data-modal-open>%s</a></div>' % (
                 _esc(row.frame_id), _t(fleet_page.ACTION_PERSONAL_VIEW),
                 _esc(i18n.t(fleet_page.OPEN_PERSONAL_ARIA) % name),
                 icon_html("icon-device", 20),
-                _esc(frame_name_page.device_route(
-                    row.frame_id, frame_href(row.frame_id))),
+                _esc(frame_name_page.opener_href(row.frame_id)),
                 _t(frame_name_page.ACTION_TEXT),
                 _esc(i18n.t(frame_name_page.ACTION_ARIA) % name),
                 icon_html("icon-pencil", 20)))
+    dialog = ""
+    if row.kind == fleet_page.KIND_LIVE:
+        dialog = frame_name_page.dialog_html(
+            row.frame_id, "" if row.name == row.frame_id else name, frame_href(row.frame_id))
     return (
         '<div class="fleet-head"><div class="fleet-head__text">'
-        '<h1 class="fleet-head__title">%s</h1>%s</div>%s</div>') % (
-            _esc(name), _state_line(row, view), buttons)
+        '<h1 class="fleet-head__title">%s</h1>%s</div>%s%s</div>') % (
+            _esc(name), _state_line(row, view), buttons, dialog)
 
 
 def title_head_html(title, sub=""):

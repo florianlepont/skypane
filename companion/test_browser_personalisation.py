@@ -464,19 +464,6 @@ def test_under_reduced_motion_the_highlight_does_not_slide(new_context, make_app
         context.close()
 
 
-def test_the_retired_screen_address_lands_on_departures(new_context, make_app_server):
-    """the old Screen address still answers: it ends on Departures with its link marked"""
-    server = make_app_server(seed=_seed)
-    context, page = _open(
-        new_context, server.base_url(), VIEWPORT_DESKTOP, route=layout.DISPLAY_SCREEN_ROUTE)
-    try:
-        assert page.url.split("?")[0].endswith(layout.DISPLAY_ROUTE)
-        current = page.locator('.personalisation-nav__link[aria-current="page"]')
-        assert current.get_attribute("href").endswith(layout.DISPLAY_ROUTE)
-    finally:
-        context.close()
-
-
 def test_without_scripts_the_links_work_and_the_look_view_offers_the_native_cards(
         new_context, make_app_server):
     """scripts blocked: the navigation links still open each view, the current link carries the

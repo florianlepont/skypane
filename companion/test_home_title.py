@@ -2,6 +2,8 @@
 beside it for the people who may rename the frame (its owner and
 administrators) and none for a co-manager. Every assertion reads the served
 page."""
+import re
+
 import pytest
 
 import fleet_console_support as fx
@@ -48,8 +50,14 @@ def test_the_h1_is_the_frame_name_with_a_rename_pencil(rig, who, lang, label, ho
     assert len(tree.select("h1")) == 1
     assert tree.select_one("main h1").text().strip() == "Kitchen"
     link = tree.select_one(".title-action a.btn--icon")
-    assert link.attrs["href"] == (
-        "/devices/%s/frame/name?return_to=%%2Fdevices%%2F%s%%2F" % (seed.owned_id, seed.owned_id))
+    slug = "dlg-rename-" + seed.owned_id.replace("_", "-")
+    assert link.attrs["href"] == "#" + slug and "data-modal-open" in link.attrs
+    dialog = tree.select_one("dialog#" + slug)
+    assert dialog.select_one("h2").text().strip() == label
+    assert dialog.select_one("form").attrs["action"] == "/devices/%s/frame/name" % seed.owned_id
+    assert dialog.select_one('input[name="return_to"]').attrs["value"] == (
+        "/devices/%s/" % seed.owned_id)
+    assert "open" not in dialog.attrs
     assert link.attrs["aria-label"] == label
     assert tree.select_one("title").text().strip().startswith(home)
 
@@ -65,9 +73,11 @@ def test_a_co_manager_sees_the_title_without_the_pencil(rig):
 def test_the_greeting_and_the_frame_name_row_are_gone(rig):
     server, seed, cookies = rig
     body = _home(server, seed, cookies["owner"])
+    # The only "Frame name" on the page is the label of the Rename dialog's field.
+    page = re.sub(r"<dialog.*?</dialog>", "", body, flags=re.S)
     for gone in ("data-greeting", "page-greeting", "home-greeting", "frame-rename",
                  "Frame name"):
-        assert gone not in body, gone
+        assert gone not in page, gone
 
 
 def test_the_state_and_the_next_update_follow_the_title(rig):

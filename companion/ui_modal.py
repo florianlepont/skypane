@@ -138,7 +138,7 @@ def dialog_html(
         dismiss_label, dismiss_href, destructive=False, confirm_only=False,
         open_=False, subtitle=None, focus_id=None, focus_title=False,
         return_on_close=False, return_focus_id=None, secondary_dismiss=False,
-        extra_action_html="", variant=""):
+        extra_action_html="", variant="", scrim_close=False):
     """One modal dialog wrapping a POST form.
 
     `dismiss_href` is the host page path: the close and dismiss links go
@@ -170,6 +170,9 @@ def dialog_html(
     "compact-top" sits in the upper part of a wide screen instead of its
     middle. The variant is a modifier class on that dialog only; every other
     dialog keeps its own spacing.
+    `scrim_close` lets a tap outside close a dialog that holds a field (which
+    otherwise ignores it so typed text is not lost): for a one-field dialog
+    where cancelling discards.
     """
     slug = validated_slug(dialog_id)
     classes = _dialog_classes(variant)
@@ -199,6 +202,8 @@ def dialog_html(
             submit_focus = " autofocus"
     if return_on_close:
         dialog_attrs += ' data-modal-return="%s"' % escape_html(dismiss_href)
+    if scrim_close:
+        dialog_attrs += " data-scrim-close"
     if return_focus_id:
         dialog_attrs += ' data-modal-return-focus="%s"' % escape_html(return_focus_id)
     submit_class = ' class="btn btn--danger"' if destructive else ""

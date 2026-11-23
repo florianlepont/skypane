@@ -100,16 +100,16 @@ def test_login_under_a_device_prefix_is_a_404(fleet_app):
 
 def test_unauthenticated_device_requests_do_not_reveal_whether_the_id_exists(fleet_app):
     server, fleet, _cookie = fleet_app
-    known = _get(server, "/devices/%s/health" % fleet.dev_a.id)
-    unknown = _get(server, "/devices/%s/health" % UNKNOWN_ID)
-    plain = _get(server, "/health")
+    known = _get(server, "/devices/%s/flights" % fleet.dev_a.id)
+    unknown = _get(server, "/devices/%s/flights" % UNKNOWN_ID)
+    plain = _get(server, "/flights")
     assert known[0] == unknown[0] == plain[0] == 303
     # The sign-in address only echoes the requested page: with the id masked it is the same
     # for a frame that exists and one that does not.
     masked = [
         reply[1].get("Location", "").replace(frame, "ID")
         for reply, frame in ((known, fleet.dev_a.id), (unknown, UNKNOWN_ID))]
-    assert masked[0] == masked[1] == "/login?next=%2Fdevices%2FID%2Fhealth"
+    assert masked[0] == masked[1] == "/login?next=%2Fdevices%2FID%2Fflights"
 
 
 def test_gallery_file_is_served_only_under_its_own_device(fleet_app):
@@ -139,8 +139,7 @@ def test_device_theme_and_frame_previews_are_served(fleet_app):
         assert headers.get("Content-Type") == "image/png"
 
 
-@pytest.mark.parametrize("legacy,target", [
-    ("/settings", "/display"), ("/history", "/flights"), ("/preview", "/flights")])
+@pytest.mark.parametrize("legacy,target", [("/settings", "/display")])
 def test_legacy_redirects_keep_the_device_prefix(fleet_app, legacy, target):
     server, fleet, cookie = fleet_app
     prefix = "/devices/%s" % fleet.dev_a.id

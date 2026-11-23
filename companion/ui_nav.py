@@ -103,20 +103,15 @@ _CONSOLE_ICON_IDS = {
     "users": "icon-corroboration",
     "audit": "icon-nav-history",
     "releases": "icon-nav-update",
-    "health": "icon-nav-health",
-    "device": "icon-nav-device",
     "editor": "icon-nav-airlines",
     "system": "icon-nav-health",
 }
-# The Console destinations that act on one frame: their hrefs carry the
-# frame in view. The airline editor lists every frame's airlines, so its link
-# carries none.
-_CONSOLE_FRAME_KEYS = frozenset(("health", "device"))
-# Health, Device and Releases no longer have navigation entries: their
-# content lives in the Fleet view, so their pages mark Fleet as current.
-_FLEET_FOLDED_SLUGS = frozenset(("health", "device", "update"))
+# Releases has no navigation entry: its content lives in the Fleet view, so
+# its page marks Fleet as current. So does the device settings form, redrawn
+# in place when a save is refused.
+_FLEET_FOLDED_SLUGS = frozenset(("device", "update"))
 _FLEET_SLUG = nav_slug(console_routes.FLEET_ROUTE)
-_CONSOLE_SLUGS = frozenset(
+_CONSOLE_SLUGS = _FLEET_FOLDED_SLUGS | frozenset(
     nav_slug(path) for _key, path, _label in console_routes.CONSOLE_NAV_ENTRIES)
 
 
@@ -174,7 +169,7 @@ def _console_entries(active):
     entries = {}
     for key, path, label in console_routes.available_nav_entries():
         slug = nav_slug(path)
-        href = device_scope.scoped(path) if key in _CONSOLE_FRAME_KEYS else path
+        href = path
         if key == "system":
             is_active = active == _FLEET_SLUG and _on_system_view()
         elif key == "fleet":
@@ -508,11 +503,6 @@ REFRESH_PENDING_ATTR = "data-pending"
 # opened, and a replaced body would leave battery-trend.js's chart
 # permanently dead (it captures its DOM once). The registry card and its
 # filter bar are excluded for list-filter.js's sake.
-
-# `a[href$="/health"]`, not a ".dot" selector, is the nav-severity target
-# (an ends-with match, so the prefixed link on a device page is found too):
-# the severity dot only exists in the DOM for "warn"/"error", so a
-# dot-only selector would have nothing to replace when severity clears.
 
 # HOME: the regions that change between polls, plus the silent refresh
 # marker. The recent-flights SECTION, not its <ul>, is the target so the

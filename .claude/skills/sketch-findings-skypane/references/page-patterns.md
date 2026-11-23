@@ -185,8 +185,7 @@ frame). Console label "Airline editor", bar label "Editor".
   toggle. The page takes the whole page column: from 720px of card width the gauge and the facts
   (pill, voltage, last reading) share one header row, from 960px the chart is 360px tall (about
   190px on a phone). Too few readings shows a dashed note and keeps the gauge. This page replaced the Health
-  view: `/health`, `/devices/<id>/health` and `/fleet?view=health` answer a 303 to the frame's
-  Battery page (the System page when no frame). The user's own Home battery pill is separate.
+  view; the old Health addresses are gone and answer the ordinary not-found page. The user's own Home battery pill is separate.
 - **Versions page** (`?frame=<id>&view=versions`): the Update panel. One card per state (up to
   date, update available, scheduled, installing, failed) with an icon headline, the version in
   mono, the release age, the release note cut at two lines and one action on the right (full width

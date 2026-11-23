@@ -14,7 +14,7 @@ only while its GET page does.
 from companion import (
     console_components, console_lifecycle, console_pairing, console_users, i18n)
 from companion.ui_base import (
-    AIRLINE_EDITOR_LABEL, AIRLINE_EDITOR_ROUTE, DEVICE_ROUTE, HEALTH_ROUTE)
+    AIRLINE_EDITOR_LABEL, AIRLINE_EDITOR_ROUTE)
 
 FLEET_ROUTE = "/fleet"
 FLEET_REGISTER_ROUTE = "/fleet/register"
@@ -48,8 +48,6 @@ ROUTES = (
 ADMINISTRATION_LABEL = i18n.msg("nav.administration", "Administration")
 FLEET_LABEL = i18n.msg("nav.fleet", "Fleet")
 USERS_LABEL = i18n.msg("nav.users", "Users")
-HEALTH_LABEL = i18n.msg("nav.health", "Health")
-DEVICE_LABEL = i18n.msg("nav.device", "Device")
 AUDIT_LABEL = i18n.msg("nav.audit_log", "Audit log")
 SYSTEM_LABEL = i18n.msg("nav.system", "System")
 RELEASES_LABEL = i18n.msg("nav.releases", "Releases")
@@ -62,13 +60,10 @@ SYSTEM_VIEW_VALUE = "system"
 SYSTEM_ROUTE = "%s?%s=%s" % (FLEET_ROUTE, SYSTEM_VIEW_QUERY, SYSTEM_VIEW_VALUE)
 
 # (key, path, label) in display order. A link is rendered only when a GET
-# route for its path exists. Health, Device and the Airline editor are
-# per-frame pages: the renderer scopes their paths to the frame in view.
+# route for its path exists.
 CONSOLE_NAV_ENTRIES = (
     ("fleet", FLEET_ROUTE, FLEET_LABEL),
     ("users", USERS_ROUTE, USERS_LABEL),
-    ("health", HEALTH_ROUTE, HEALTH_LABEL),
-    ("device", DEVICE_ROUTE, DEVICE_LABEL),
     ("editor", AIRLINE_EDITOR_ROUTE, AIRLINE_EDITOR_LABEL),
     ("audit", AUDIT_ROUTE, AUDIT_LABEL),
     ("releases", UPDATE_ROUTE, RELEASES_LABEL),

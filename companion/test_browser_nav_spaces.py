@@ -26,7 +26,7 @@ _FIELD_OVERFLOW = (
 @pytest.mark.parametrize("scheme", ["light", "dark"])
 @pytest.mark.parametrize("lang", ["en", "fr"])
 @pytest.mark.parametrize(
-    "path", ["/fleet", "/users", "/audit", "/update", "/health", "/device"])
+    "path", ["/fleet", "/users", "/audit", "/update"])
 def test_console_bar_fills_the_bar_with_five_cells_at_360(
         new_context, app_server_in_process, path, lang, scheme):
     context, page = _admin_page(

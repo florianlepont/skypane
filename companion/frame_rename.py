@@ -1,4 +1,5 @@
-"""Rename a frame: the page with one name field and the POST that stores it.
+"""Rename a frame: the POST that stores the name from the Rename dialog, and the
+GET that sends the person to the page that holds the dialog.
 
 Security invariants:
 - Both routes are device-scoped for the frame's owner or an administrator
@@ -6,7 +7,9 @@ Security invariants:
 - `return_to` is only ever followed when it passes the sign-in `next`
   check (an allow-listed page of this site); anything else is ignored.
 - The name is typed text: trimmed, blanks collapsed, 1 to 40 printable
-  characters, otherwise refused with the field's error and nothing stored.
+  characters, otherwise refused (nothing stored) and the person is sent back
+  to the page with the dialog reopened on the field's error. The typed value
+  travels in the query, escaped by the dialog; it is cut to 40 characters.
 - The change and its audit row share one transaction. Only the display name
   in fleet.db changes (an existing column); the frame's image, interval and
   protocol never read it.
@@ -16,8 +19,7 @@ import sqlite3
 from urllib.parse import parse_qsl, quote
 
 from companion import (
-    access, audit, console_components, console_flash, console_routes, i18n, layout, prefs, route_types,
-    ui_base, ui_shell)
+    access, audit, console_components, console_flash, console_routes, prefs, route_types)
 from companion.pages import frame_name_page as page
 from server import fleet_db
 
@@ -63,16 +65,6 @@ def _frame_reachable(h, path):
         h._co_manager_lookup) is not None
 
 
-def _active_slug(h, return_to):
-    """The navigation slug the page is drawn under: the console page the
-    person came from when they are an administrator, else the personal
-    Account tab, so a normal user never sees console chrome."""
-    path = return_to.partition("?")[0] if return_to else ""
-    if _is_admin(h) and console_routes.is_console_path(path):
-        return layout.nav_slug(path)
-    return layout.nav_slug(ACCOUNT_PATH)
-
-
 def _back_href(h, device, return_to):
     if return_to:
         return return_to
@@ -81,28 +73,28 @@ def _back_href(h, device, return_to):
     return ACCOUNT_PATH
 
 
-def _respond(h, device, status, name, error="", return_to=None):
-    body = page.render(
-        name, page.device_route(device.id), _back_href(h, device, return_to), error,
-        return_to)
-    html = layout.page_shell(
-        title="%s - %s" % (i18n.t(page.TITLE), ui_shell.device_display_name(device)),
-        active=_active_slug(h, return_to), body=body,
-        ui_theme=h._resolved_ui_theme(), health_alert=None,
-        scripts=(ui_base.DIRTY_STATE_SCRIPT_SRC, ui_base.SUBMIT_GUARD_SCRIPT_SRC))
-    return h.send_html(status, html)
+def _dialog_location(back, device):
+    """`back` with the fragment that targets the Rename dialog of `device`."""
+    return "%s#%s" % (back, page.dialog_id(device.id))
 
 
 def handle_get(h, m):
     prefs.set_request_prefs(lang=h._lang_from_request())
-    unnamed = m.device.name == m.device.id
     query = dict(parse_qsl(m.query or "", keep_blank_values=True))
     return_to = _return_to(h, query.get(page.RETURN_FIELD, ""))
-    # The name as every other page shows it: the first frame's default name
-    # reads in the viewer's language until someone gives it another.
-    return _respond(
-        h, m.device, 200, "" if unnamed else ui_shell.device_display_name(m.device),
-        return_to=return_to)
+    return h.redirect(_dialog_location(_back_href(h, m.device, return_to), m.device))
+
+
+def _refuse(h, device, raw, return_to, error):
+    """Send the person back with the dialog reopened on `error` and what they
+    typed (collapsed and cut to the limit)."""
+    typed = " ".join(raw.split())[:page.MAX_NAME_CHARS]
+    extra = "%s=%s&%s" % (
+        page.REOPEN_FRAME, quote(device.id, safe=""), page.reopen_query(error, typed))
+    # No fragment: the dialog is rendered open by the query, and a fragment would keep
+    # it shown (as the targeted dialog) after it is closed.
+    back = _back_href(h, device, return_to)
+    return h.redirect("%s%s%s" % (back, "&" if "?" in back else "?", extra))
 
 
 def _store(h, device, name):
@@ -141,15 +133,13 @@ def handle_post(h, m):
     return_to = _return_to(h, form.get(page.RETURN_FIELD, ""))
     name = page.normalise_name(raw)
     if name is None:
-        return _respond(
-            h, device, 400, " ".join(raw.split())[:page.MAX_NAME_CHARS],
-            i18n.t(page.NAME_ERROR), return_to)
+        return _refuse(h, device, raw, return_to, page.ERROR_INVALID)
     try:
         stored = _store(h, device, name)
     except _STORE_ERRORS:
         stored = False
     if not stored:
-        return _respond(h, device, 500, name, i18n.t(page.SAVE_FAILED), return_to)
+        return _refuse(h, device, name, return_to, page.ERROR_FAILED)
     if return_to:
         return _redirect_back(h, return_to)
     if _is_admin(h):

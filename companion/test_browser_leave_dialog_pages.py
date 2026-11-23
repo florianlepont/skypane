@@ -345,35 +345,3 @@ def test_a_destination_the_save_cannot_reach_says_so_before_saving(new_context, 
         assert page.locator(NOTE).is_hidden()
     finally:
         context.close()
-
-
-def _rename_route(server):
-    conn = fleet_db.connect(server.state_dir)
-    try:
-        frame = conn.execute("SELECT id FROM devices LIMIT 1").fetchone()[0]
-    finally:
-        conn.close()
-    return "/devices/%s/frame/name" % frame
-
-
-def test_the_rename_page_saves_and_continues_to_the_tapped_page(new_context, server):
-    """opened without a page to return to, the rename page still saves the name and then lands
-    on the page the person tapped, not on the Account page"""
-    case = ("rename", _rename_route, "#frame-name",
-            lambda page: page.locator("#frame-name").fill("Kitchen wall"), "/flights", True)
-    context, page, prompts = _open(new_context, server, case, VIEWPORT_DESKTOP)
-    try:
-        _press(page, _leave_link(case))
-        _wait_dialog_open(page)
-        assert page.locator(PRIMARY).inner_text() == WORDS["en"][2]
-        with page.expect_navigation(timeout=20000):
-            page.click(PRIMARY)
-        page.wait_for_url("**/flights*", timeout=15000)
-        conn = fleet_db.connect(server.state_dir)
-        try:
-            assert conn.execute("SELECT name FROM devices LIMIT 1").fetchone()[0] == "Kitchen wall"
-        finally:
-            conn.close()
-        assert prompts == []
-    finally:
-        context.close()

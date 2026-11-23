@@ -476,8 +476,9 @@ def test_the_charging_pill_going_stale_changes_the_home_token_and_leaves_the_fle
     before = _token(server, layout.HOME_ROUTE, session)
 
     def health_page():
-        # The retired /health address leads to the frame's Health page, which holds the pill.
-        location = _get(server, "/health", session)[1]["Location"]
+        # The Update address leads to the frame's page; its Battery view holds the pill.
+        location = _get(server, "/update", session)[1]["Location"].replace(
+            "view=versions", "view=battery")
         return _get(server, location, session)[2].decode("utf-8")
 
     assert "charging-pill" in health_page()

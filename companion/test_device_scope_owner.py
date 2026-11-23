@@ -388,13 +388,9 @@ def test_the_unprefixed_personal_pages_follow_the_frame_rule_for_every_role(http
         status, _headers, body = _get(server, path, cookies["owner"])
         assert (status, body) == (unknown[0], unknown[2]) == (404, unknown[2]), path
         assert _get(server, path, cookies["lonely"])[0] == 404, path
-    # The retired Health page moves everyone to the page that replaced it.
-    status, headers, _body = _get(server, "/health", cookies["admin"])
-    assert (status, headers["Location"].split("?")[0]) == (303, "/fleet")
-    status, headers, _body = _get(server, "/health", cookies["owner"])
-    assert (status, headers["Location"]) == (303, "/devices/%s/" % seeded.owner_device)
-    status, headers, _body = _get(server, "/health", cookies["lonely"])
-    assert (status, headers["Location"]) == (303, "/account")
+    # The removed Health page is the ordinary not-found page for everyone.
+    for who in ("admin", "owner", "lonely"):
+        assert _get(server, "/health", cookies[who])[0] == 404, who
 
 
 def test_a_user_page_links_only_to_their_own_frame(http_fleet):

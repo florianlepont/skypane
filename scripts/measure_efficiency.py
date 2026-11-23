@@ -39,9 +39,9 @@ import server.device_config as device_config  # noqa: E402
 import server.plane.detect as detect  # noqa: E402
 import server.plane.enrich as enrich  # noqa: E402
 
-TAB_ROUTES = ("/", "/display", "/device", "/flights", "/health", "/airlines")
+TAB_ROUTES = ("/", "/display", "/flights", "/airlines")
 STATIC_REVALIDATION_ROUTES = ("/static/style.css", "/static/freshness.js")
-FRESHNESS_ROUTES = ("/", "/display", "/flights", "/health")
+FRESHNESS_ROUTES = ("/", "/display", "/flights")
 
 # The interfaces block's own record: raw provider-shaped fields (not the
 # normalised selection shape detect._normalise_selection() produces), the

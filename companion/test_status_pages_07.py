@@ -957,9 +957,11 @@ def test_both_tabs_ok_end_to_end(make_app_server):
         assert status == 200, "expected 200 for %s, got %d" % (path, status)
         assert heading.encode() in body, "expected the %r heading in %s's response body" % (heading, path)
         if path == "/fleet":
-            # The battery row is on the frame's Battery page, which the retired /health address leads to.
-            _status, redirect, _body = get(server, "/health", cookie=session_cookie)
-            status, _headers, body = get(server, redirect["Location"], cookie=session_cookie)
+            # The battery row is on the frame's Battery page, which the Update address leads to.
+            _status, redirect, _body = get(server, "/update", cookie=session_cookie)
+            status, _headers, body = get(
+                server, redirect["Location"].replace("view=versions", "view=battery"),
+                cookie=session_cookie)
             assert status == 200
             body_text = body.decode("utf-8", errors="replace")
             name_count = body_text.count('<span class="health-row__name">%s</span>' % health_page.ROW_BATTERY_NAME)

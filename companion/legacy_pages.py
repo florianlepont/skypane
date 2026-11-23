@@ -6,7 +6,6 @@ the route itself."""
 from urllib.parse import parse_qs
 
 from companion import layout
-from companion.pages import personalisation_cards
 
 # Un-prefixed live pages of a frame: a user or an administrator is moved to the
 # same page under their default frame.
@@ -14,13 +13,7 @@ LIVE_FRAME_PAGES = frozenset((
     layout.HOME_ROUTE, "/display", "/flights", "/airlines", "/detection"))
 
 # Old address -> the page that replaced it; moved for a non-administrator.
-LEGACY_TARGETS = {
-    "/settings": layout.DISPLAY_ROUTE,
-    "/history": layout.FLIGHTS_ROUTE,
-    "/preview": layout.FLIGHTS_ROUTE,
-}
-LEGACY_TARGETS.update(
-    {retired: layout.DISPLAY_ROUTE for retired in personalisation_cards.RETIRED_VIEW_ROUTES})
+LEGACY_TARGETS = {"/settings": layout.DISPLAY_ROUTE}
 
 
 def frame_page_target(path, is_admin):
@@ -33,11 +26,7 @@ def frame_page_target(path, is_admin):
 
 # The administrator pages that now live on the Fleet page, and the page a
 # person who is not an administrator is moved to instead.
-RETIRED_ADMIN_PAGES = {
-    layout.HEALTH_ROUTE: layout.HOME_ROUTE,
-    layout.DEVICE_ROUTE: layout.DISPLAY_ROUTE,
-    layout.UPDATE_ROUTE: layout.HOME_ROUTE,
-}
+RETIRED_ADMIN_PAGES = {layout.UPDATE_ROUTE: layout.HOME_ROUTE}
 
 
 def retired_page_target(path, query, prefix_id, own_ids, default_id):

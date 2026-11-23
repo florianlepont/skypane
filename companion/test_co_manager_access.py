@@ -18,7 +18,7 @@ CO_EMAIL = "co-manager@example.test"
 STRANGER_EMAIL = "stranger@example.test"
 
 PAGES = ("/", "/display", "/detection", "/flights", "/airlines")
-LEGACY_REDIRECTS = ("/settings", "/history", "/preview")
+LEGACY_REDIRECTS = ("/settings",)
 ADMIN_FRAME_GETS = ("/airlines/manage",)
 ADMIN_GETS = ("/fleet", "/users", "/audit")
 
@@ -182,9 +182,9 @@ def test_a_co_manager_saves_a_detection_runway(rig):
 # --- excluded ------------------------------------------------------------
 
 
-def test_a_co_manager_is_moved_from_the_retired_update_page_under_a_frame_prefix(rig):
-    status, headers, _body = rig.get("co", rig.prefix() + "/update")
-    assert status == 303 and headers["Location"] == rig.prefix() + "/"
+def test_a_co_manager_gets_404_for_the_update_address_under_a_frame_prefix(rig):
+    status, body = rig.unknown("GET")
+    assert rig.get("co", rig.prefix() + "/update")[::2] == (status, body)
 
 
 @pytest.mark.parametrize("page", ADMIN_FRAME_GETS)
@@ -193,11 +193,10 @@ def test_a_co_manager_gets_404_for_the_administrator_frame_pages(rig, page):
     assert rig.get("co", rig.prefix() + page)[::2] == (status, body)
 
 
-@pytest.mark.parametrize("page,target", [("/device", "/display"), ("/health", "/")])
-def test_a_co_manager_is_moved_from_the_retired_frame_pages_to_the_frames_own_pages(
-        rig, page, target):
-    status, headers, _body = rig.get("co", rig.prefix() + page)
-    assert (status, headers["Location"]) == (303, rig.prefix() + target)
+@pytest.mark.parametrize("page", ["/device", "/health", "/history", "/preview"])
+def test_a_co_manager_gets_404_for_the_removed_frame_addresses(rig, page):
+    status, body = rig.unknown("GET")
+    assert rig.get("co", rig.prefix() + page)[::2] == (status, body)
 
 
 @pytest.mark.parametrize("path", ADMIN_GETS)

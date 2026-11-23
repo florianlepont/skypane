@@ -168,8 +168,9 @@ def test_the_topics_follow_identification_and_precede_the_backup(make_app_server
 def test_the_route_topics_are_not_on_the_battery_view(make_app_server):
     server = make_app_server(seed=_seed_degraded)
     cookie = companion_app_server.login(server)
-    _code, headers, _ = companion_app_server.get(server, "/health", cookie=cookie)
-    code, _, body = companion_app_server.get(server, headers["Location"], cookie=cookie)
+    _code, headers, _ = companion_app_server.get(server, "/update", cookie=cookie)
+    code, _, body = companion_app_server.get(
+        server, headers["Location"].replace("view=versions", "view=battery"), cookie=cookie)
     assert code == 200
     page = body.decode("utf-8")
     assert "route-directory" not in page and "route-answers" not in page
