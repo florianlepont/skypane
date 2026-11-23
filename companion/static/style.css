@@ -6463,6 +6463,18 @@ dialog.modal--compact[open] > *,
   min-width: 0;
 }
 
+/* The dismiss link carries the same 1px border as the submit button on every
+ * page (not only where the admin sheet adds it), so the two buttons share the
+ * row at exactly equal widths. */
+.modal--compact .modal__actions > a.modal__dismiss {
+  box-sizing: border-box;
+  background: var(--glass-solid);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  font-weight: var(--weight-semibold);
+  text-decoration: none;
+}
+
 .modal--compact .modal__actions > form {
   display: contents;
 }

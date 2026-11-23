@@ -176,6 +176,24 @@ def test_the_invite_dialog_is_short_and_evenly_spaced(
 
 
 @pytest.mark.parametrize("lang", ["en", "fr"])
+def test_the_invite_dialog_buttons_are_exactly_as_wide_as_each_other(
+        new_context, app_server_in_process, lang):
+    server = app_server_in_process
+    fx.seed_users(server.state_dir)
+    context = _context(new_context, server, VIEWPORT_DESKTOP, lang)
+    try:
+        page = _open_users(context, server)
+        page.locator("a.page-header__action").click()
+        page.locator(INVITE + ".is-modal[open]").wait_for(state="visible")
+        _settled(page, INVITE)
+        cancel, submit = (
+            page.evaluate(_BOXES, INVITE + " " + s) for s in ("a.modal__dismiss", "button[type=submit]"))
+        assert abs((cancel["r"] - cancel["l"]) - (submit["r"] - submit["l"])) <= 0.5
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("lang", ["en", "fr"])
 @pytest.mark.parametrize("viewport", [VIEWPORT_MIN_SUPPORTED, VIEWPORT_DESKTOP], ids=["360", "1280"])
 def test_the_role_confirmation_has_even_margins_and_no_subtitle(
         new_context, app_server_in_process, viewport, lang):
