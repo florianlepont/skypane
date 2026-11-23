@@ -7,8 +7,9 @@ import re
 import pytest
 
 import fleet_console_support as fx
-from companion.test_airline_editor import EDITOR, VENDORED, Rig, _audit_actions, _override, _query
+from companion.test_airline_editor_helpers import EDITOR, VENDORED, Rig, override as _override, query_of as _query
 from companion_app_server import InProcessAppServer
+from server import fleet_db
 from server.plane import airline_default_types, manual_resolutions
 
 
@@ -19,6 +20,14 @@ def rig(tmp_path):
     seed = fx.seed_fleet(state_dir)
     yield Rig(server, seed, {"admin": fx.admin_cookie(state_dir)})
     server.stop()
+
+
+def _audit_actions(rig):
+    conn = fleet_db.connect(rig.server.state_dir)
+    try:
+        return [row["action"] for row in fleet_db.list_audit(conn, "all", 50, 0)]
+    finally:
+        conn.close()
 
 
 def _png():
