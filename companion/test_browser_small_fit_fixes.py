@@ -182,8 +182,8 @@ def test_the_system_cards_fill_the_page_column(new_context, rig):
         edges = page.evaluate(
             "() => { const right = (s) => Math.round(document.querySelector(s)"
             ".getBoundingClientRect().right);"
-            " const main = document.querySelector('.fleet-split__main');"
-            " const inner = right('.fleet-split__main')"
+            " const main = document.querySelector('main');"
+            " const inner = right('main')"
             " - parseFloat(getComputedStyle(main).paddingRight);"
             " return {column: Math.round(inner), topics: right('.system-topics'),"
             " card: right('.system-topics .group-block')}; }")

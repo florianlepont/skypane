@@ -213,20 +213,26 @@ def build_view(state_dir, principal=None, **state):
 
 def _page_body(h, query, state):
     view = build_view(h.args.state_dir, principal=h._safe_principal(), **state)
-    return (
-        console_fleet_view.page_html(h, query, view)
-        + fleet_page.render(view))
+    page = console_fleet_view.page_html(h, query, view)
+    return page if _is_system(query) else page + fleet_page.render(view)
+
+
+def _is_system(query):
+    """The System view is a page of its own: no frames list and none of the
+    Fleet page's dialogs."""
+    return query.get(console_fleet_view.VIEW_QUERY) == [console_fleet_view.VIEW_SYSTEM]
 
 
 def _render(h, status=200, query=None, **state):
     from companion import console_routes
+    system = _is_system(query or {})
     return h._console_page(
-        console_routes.FLEET_ROUTE, None,
+        console_routes.FLEET_ROUTE,
+        console_fleet_view.SYSTEM_HEADING if system else None,
         lambda: _page_body(h, query or {}, state),
-        None, status=status,
-        page_flash=console_fleet_view.query_flash_html(h, query or {}), omit_title=True,
-        scripts=console_fleet_view.page_scripts(
-            (query or {}).get(console_fleet_view.VIEW_QUERY) == [console_fleet_view.VIEW_SYSTEM]))
+        console_fleet_view.SYSTEM_SUB if system else None, status=status,
+        page_flash=console_fleet_view.query_flash_html(h, query or {}),
+        omit_title=not system, scripts=console_fleet_view.page_scripts(system))
 
 
 def handle_fleet_get(h, m):

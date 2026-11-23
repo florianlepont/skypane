@@ -61,7 +61,7 @@ def test_tiles_are_equal_reachable_and_fit(
         for i in range(6):
             assert boxes[i]["x"] >= 0 and boxes[i]["x"] + boxes[i]["width"] <= viewport["width"], where
         warn = page.locator("main .fleet-tile[data-state='warn']")
-        assert warn.count() == 1 and warn.locator(".visually-hidden").inner_text().strip(), where
+        assert warn.count() == 1 and warn.locator(".fleet-tile__icon .visually-hidden").inner_text().strip(), where
     finally:
         context.close()
 

@@ -55,7 +55,7 @@ def _tiles(page):
     found = []
     for tile in re.findall(r'<a class="fleet-tile".*?</a>', section, re.S):
         def part(name):
-            m = re.search(r'<span class="fleet-tile__%s">(.*?)</span>(?=<)' % name, tile, re.S)
+            m = re.search(r'<span class="fleet-tile__%s"[^>]*>(.*?)</span>(?=<)' % name, tile, re.S)
             return html.unescape(re.sub(r"<[^>]+>", "", m.group(1))).strip() if m else ""
         found.append((part("label"), part("value"), part("meta"),
                       re.search(r'href="([^"]+)"', tile).group(1),
