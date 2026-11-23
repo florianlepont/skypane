@@ -42,8 +42,7 @@ def _bar_hidden(page):
 
 
 @pytest.mark.parametrize("path,field,who", [
-    ("/devices/{owned}/frame/name", "#frame-name", "owner"),
-    ("/display/special-looks/new", "[name=rule_key]", "admin")], ids=["rename", "special-look"])
+    ("/display/special-looks/new", "[name=rule_key]", "admin")], ids=["special-look"])
 def test_a_form_page_bar_appears_only_once_a_field_changed(
         new_context, app_server_in_process, path, field, who):
     server = app_server_in_process
@@ -65,7 +64,7 @@ def test_a_form_page_bar_appears_only_once_a_field_changed(
 def test_a_form_page_bar_is_in_the_page_without_script(new_context, app_server_in_process):
     server = app_server_in_process
     context, page, _seed = _open(
-        new_context, server, "/devices/{owned}/frame/name", VIEWPORT_PHONE, who="owner",
+        new_context, server, "/display/special-looks/new", VIEWPORT_PHONE, who="admin",
         js_enabled=False)
     try:
         assert page.locator(".dirty-bar button.dirty-bar__save").is_visible()
@@ -258,24 +257,6 @@ def test_the_first_and_last_choice_of_a_tab_strip_keep_the_same_inset(
         assert abs(first[0] - first[1]) <= 1.5, first
     finally:
         context.close()
-
-
-def test_the_back_link_sits_the_same_way_on_the_rename_and_special_look_pages(
-        new_context, app_server_in_process):
-    server = app_server_in_process
-    device_config.save_device_config(server.state_dir, layout="classic")
-    gaps = []
-    seed = None
-    for path, who in (("/devices/{owned}/frame/name", "owner"), ("/display/special-looks/new", "admin")):
-        context, page, seed = _open(new_context, server, path, VIEWPORT_PHONE, who=who, seed=seed)
-        try:
-            gaps.append(page.evaluate("""() => { const back = document.querySelector('.form-back');
-                const after = back.nextElementSibling.getBoundingClientRect();
-                const me = back.getBoundingClientRect();
-                return [0, Math.round(after.top - me.bottom), Math.round(me.left)]; }"""))
-        finally:
-            context.close()
-    assert gaps[0][2] == gaps[1][2] and abs(gaps[0][1] - gaps[1][1]) <= 4, gaps
 
 
 @pytest.mark.parametrize("viewport", [VIEWPORT_PHONE, VIEWPORT_DESKTOP], ids=["390", "1280"])

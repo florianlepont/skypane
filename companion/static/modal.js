@@ -154,6 +154,7 @@
     resetSheet(dialog);
     resetForms(dialog);
     clearHash();
+    hideStaleTarget(dialog);
     forgetQuestion(dialog);
     returnFocus(dialog);
     // A dialog that carries a one-time value leaves the page with it.
@@ -171,8 +172,18 @@
     }
   }
 
-  function openModal(dialog) {
-    if (dialog.hasAttribute("open")) {
+  // Clearing the fragment does not update :target, so a dialog the address
+  // opened would show again as the scripts-blocked in-page card once closed.
+  function hideStaleTarget(dialog) {
+    if (dialog.matches && dialog.matches(":target")) {
+      dialog.style.setProperty("display", "none");
+    }
+  }
+
+  function openModal(dialog, onLoad) {
+    dialog.style.removeProperty("display");
+    var wasOpen = dialog.hasAttribute("open");
+    if (wasOpen) {
       dialog.setAttribute("data-reopening", "");
       dialog.close();
     }
@@ -182,6 +193,35 @@
     dialog.addEventListener("close", onClosed);
     dialog.showModal();
     focusTitleIfAsked(dialog);
+    // A dialog the page opened on load (server-rendered open, or targeted by
+    // the address) has used up its autofocus, and the browser parks the focus
+    // on the dialog itself a moment after showing it: for the first second the
+    // focus is sent on to the dialog's autofocus control (the invalid field of
+    // a refused form), so a field the person has already reached stays.
+    if (onLoad || wasOpen) {
+      sendFocusOn(dialog);
+    }
+  }
+
+  function sendFocusOn(dialog) {
+    var wanted = dialog.querySelector("[autofocus]");
+    if (!wanted) {
+      return;
+    }
+    function redirect(evt) {
+      if (evt.target === dialog) {
+        wanted.focus();
+      }
+    }
+    dialog.addEventListener("focusin", redirect);
+    window.setTimeout(function () {
+      dialog.removeEventListener("focusin", redirect);
+    }, 1000);
+    window.setTimeout(function () {
+      if (dialog.open && document.activeElement === dialog) {
+        wanted.focus();
+      }
+    }, 0);
   }
 
   // For a script that opens a dialog itself (no opener link): `returnTo` is
@@ -292,13 +332,14 @@
   }
 
   // A click on the backdrop lands on the dialog element itself, outside
-  // its box. A dialog holding fields ignores it so typed text is not lost.
+  // its box. A dialog holding fields ignores it so typed text is not lost,
+  // unless it says a tap outside discards (data-scrim-close).
   function onBackdropClick(evt) {
     var dialog = evt.target;
     if (!isModalDialog(dialog) || !dialog.classList.contains("is-modal")) {
       return;
     }
-    if (dialog.querySelector(HOLD_SELECTOR)) {
+    if (dialog.querySelector(HOLD_SELECTOR) && !hasAttr(dialog, "data-scrim-close")) {
       return;
     }
     var box = dialog.getBoundingClientRect();
@@ -623,7 +664,7 @@
     var upgraded = false;
     for (var i = 0; i < rendered.length; i += 1) {
       if (isModalDialog(rendered[i]) && !rendered[i].classList.contains("is-modal")) {
-        openModal(rendered[i]);
+        openModal(rendered[i], true);
         upgraded = true;
       }
     }
@@ -632,7 +673,7 @@
     }
     var targeted = document.getElementById(window.location.hash.slice(1));
     if (isModalDialog(targeted) && !hasAttr(targeted, "open")) {
-      openModal(targeted);
+      openModal(targeted, true);
     }
   }
 

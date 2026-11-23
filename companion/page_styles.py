@@ -28,7 +28,6 @@ _EXACT = {
     "/audit": ("admin",),
     "/update": ("admin",),
     "/pair-frame": ("admin",),
-    "/frame/name": ("admin",),
     "/credits": ("admin",),
 }
 

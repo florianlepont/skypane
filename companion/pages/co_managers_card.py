@@ -348,11 +348,12 @@ def manage_access_dialog_html(view, device_id, frame_name, return_to, open_=Fals
     page path (see `safe_return_to`); the forms send it back so the dialog
     reopens there after a change. `open_` renders it open."""
     from companion import ui_groups, ui_modal
+    from companion.pages import frame_name_page
     label_id = access_dialog_id(device_id) + "-people"
     people = ui_groups.group(
         access_rows_html(view, device_id, return_to),
         label=i18n.t(_HEADING), label_id=label_id)
-    remove_frame = _rename_link_html(device_id, frame_name, return_to)
+    remove_frame = _rename_link_html(device_id, frame_name)
     if view.can_remove_frame:
         remove_frame += _remove_frame_group_html(device_id)
     dialog = ui_modal.sections_dialog_html(
@@ -361,18 +362,16 @@ def manage_access_dialog_html(view, device_id, frame_name, return_to, open_=Fals
         extra_class="access-sheet")
     if view.can_remove_frame:
         dialog += remove_frame_dialog_html(device_id, frame_name)
-    return dialog
+    return dialog + frame_name_page.dialog_html(device_id, frame_name, return_to)
 
 
-def _rename_link_html(device_id, frame_name, return_to):
-    """The quiet link under the people group to the frame's Rename page,
-    which sends the person back to `return_to`."""
+def _rename_link_html(device_id, frame_name):
+    """The quiet link under the people group that opens the frame's Rename
+    dialog, which stacks over the Manage access dialog."""
     from companion.pages import frame_name_page
-    return (
-        '<p class="access-rename"><a class="access-rename__link" href="%s" '
-        'aria-label="%s">%s</a></p>' % (
-            _esc(frame_name_page.device_route(device_id, return_to)),
-            _esc(i18n.t(_RENAME_ARIA) % frame_name), _t(_RENAME_LINK)))
+    return '<p class="access-rename">%s</p>' % frame_name_page.opener_html(
+        device_id, _t(_RENAME_LINK), "access-rename__link",
+        i18n.t(_RENAME_ARIA) % frame_name)
 
 
 def _remove_frame_group_html(device_id):

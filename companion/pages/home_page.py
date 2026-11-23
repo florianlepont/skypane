@@ -25,7 +25,7 @@ import companion.ui_modal as ui_modal
 import companion.user_view as user_view
 from companion.pages import (
     home_battery_row, home_flight_card, home_notice, home_pills, home_recent_strip,
-    home_state, home_stats)
+    home_state, home_stats, home_title)
 from companion.settings import quiet_hours
 from server import history_db
 from server.plane import name_overrides
@@ -234,6 +234,7 @@ def render(ctx, quiet_errors=None, quiet_submitted=None, place=None):
             rows, ctx.now, ctx.state_dir, ctx.gallery_entries or [], landscape=profile.width > profile.height)
         + "</div>"
         + quiet_hours_dialog_html(ctx, quiet_errors, quiet_submitted)
+        + home_title.rename_dialog_html(device_scope.current_device())
     )
 
 

@@ -311,7 +311,8 @@ class TestPrefixCrawl:
         for method, url, in_selector in addresses:
             where = "%s -> %s %s" % (_page_path(prefix, page), method, url)
             if method == "RETURN_TO":
-                assert "/devices/" not in url, where
+                # The Rename dialog on Home returns to its own frame's Home, never another's.
+                assert "/devices/" not in url or url == prefix + "/", where
                 continue
             if in_selector:
                 continue

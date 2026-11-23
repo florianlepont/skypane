@@ -137,10 +137,9 @@ def test_the_header_links_work_without_script(new_context, app_server_in_process
     seed = fx.seed_fleet(server.state_dir)
     with _no_js_page(new_context, server.base_url(), "/fleet?frame=" + seed.owned_id,
                      viewport=VIEWPORT_MIN_SUPPORTED) as page:
-        with page.expect_navigation():
-            page.locator(".fleet-head a.fleet-icon-button[title=Rename]").click()
-        assert "/devices/%s/frame/name?return_to=" % seed.owned_id in page.url
-        assert page.locator('input[name="name"]').input_value() == "Kitchen"
+        page.locator(".fleet-head a.fleet-icon-button[title=Rename]").click()
+        assert page.url.endswith("#dlg-rename-" + seed.owned_id.replace("_", "-"))
+        assert page.locator('dialog:target input[name="name"]').input_value() == "Kitchen"
 
 
 _TEXT_INSET = """(selector) => {
