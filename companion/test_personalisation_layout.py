@@ -158,12 +158,12 @@ def test_the_retired_layout_address_redirects_to_the_display_page(rig):
     assert response["Location"] == rig.scope() + "/display"
 
 
-def test_an_absent_layout_shows_the_default_selected_and_says_when_it_repaints(rig):
+def test_an_absent_layout_shows_the_default_selected_without_a_redraw_sentence(rig):
     assert "layout" not in rig.stored() or rig.stored()["layout"] == screen_layouts.DEFAULT_LAYOUT_ID
     root = rig.page("/display")
     assert _checked(root, "layout") == [screen_layouts.DEFAULT_LAYOUT_ID]
-    help_text = root.select_one("#personalisation-layout .layout-card__picker > .section-caption").text()
-    assert "next flight or transition" in help_text
+    assert root.select("#personalisation-layout .layout-card__picker > .section-caption") == []
+    assert "next flight or transition" not in root.text()
 
 
 def test_the_summary_row_names_the_saved_layout(rig):
@@ -185,8 +185,7 @@ def test_the_layout_card_speaks_french(rig, path):
         "Sections de style")
     names = [c.select_one(".look-pick__name").text() for c in root.select("#personalisation-layout label")]
     assert names == [name.replace("\u00a0", " ") for name in LAYOUT_CARD_NAMES["fr"]]
-    assert "prochain vol ou à la transition" in (
-        root.select_one("#personalisation-layout .layout-card__picker > .section-caption").text())
+    assert "prochain vol ou à la transition" not in root.text()
     assert root.select_one("#personalisation-layout h2").text() == "Disposition"
     assert root.select_one("#personalisation-layout .layout-card__caption").text() == (
         "S’applique à tout le cadre.")

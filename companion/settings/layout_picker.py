@@ -35,9 +35,6 @@ LAYOUT_FIELD = "layout"
 
 LAYOUT_TITLE = i18n.msg("look.layout", "Layout")
 LAYOUT_GROUP_LABEL = i18n.msg("look.layout_group", "Screen layout")
-LAYOUT_HELP = i18n.msg(
-    "look.layout_help",
-    "The picture repaints at the next flight or transition.")
 LAYOUT_CAPTION = i18n.msg("look.layout_caption", "Applies to the whole frame.")
 LAYOUT_WHOLE_FRAME = i18n.msg("look.layout_whole_frame", "Whole frame")
 LAYOUT_CHANGE_ARIA = i18n.msg("look.layout_change", "Change the layout")
@@ -51,9 +48,6 @@ LAYOUT_NAMES = {
 LAYOUT_PREVIEW_ALT_TEMPLATE = i18n.msg("look.layout_preview_alt", "Layout preview: %s")
 
 PAIRING_GROUP_LABEL = i18n.msg("look.pairing_group", "Colour")
-PAIRING_HELP = i18n.msg(
-    "look.pairing_help",
-    "Pick the field colour. It repaints at the next flight or transition.")
 ARRIVING_NUDGE = i18n.msg(
     "look.pairing_arriving_nudge",
     "Pick an arrivals colour, or landings look like take-offs.")
@@ -149,7 +143,7 @@ def layout_card_html(current_layout, current_theme_id, errors=None, submitted=No
         "</div>"
         '<div class="layout-card__picker" id="personalisation-layout-picker" data-layout-picker>'
         '<div class="look-pick__grid layout-pick__grid" role="radiogroup" aria-label="%s">%s</div>'
-        "%s%s</div></section>"
+        "%s</div></section>"
     ) % (
         DIRTY_SECTION_ATTR, title, escape_html(preview_src(chosen)), width, height,
         device_scope.current_frame_shape_attr(),
@@ -157,7 +151,7 @@ def layout_card_html(current_layout, current_theme_id, errors=None, submitted=No
         escape_html(i18n.t(LAYOUT_NAMES[chosen])), escape_html(i18n.t(LAYOUT_WHOLE_FRAME)),
         escape_html(i18n.t(LAYOUT_CHANGE_ARIA)), escape_html(i18n.t(LOOK_CHANGE_LABEL)),
         escape_html(i18n.t(LAYOUT_GROUP_LABEL)), cards,
-        _field_error_html(errors, LAYOUT_FIELD, LAYOUT_FIELD), _help_html(LAYOUT_HELP))
+        _field_error_html(errors, LAYOUT_FIELD, LAYOUT_FIELD))
 
 
 def pairing_id_for(theme_id):
@@ -220,7 +214,7 @@ def _departures_panel_html(layout_id, current_theme_id, errors, submitted, overh
         '<div class="look-pairings" data-look-panel="%s">%s'
         '<div class="look-pick__grid" role="radiogroup" aria-label="%s">%s</div>%s</div>'
     ) % (
-        COLOUR_USAGE_DEPARTURES, _help_html(POSITION_LOOK_HELP if overhead else PAIRING_HELP),
+        COLOUR_USAGE_DEPARTURES, _help_html(POSITION_LOOK_HELP) if overhead else "",
         escape_html(i18n.t(FRAME_COLOURS_ROW_LABELS[
             COLOUR_USAGE_POSITION if overhead else COLOUR_USAGE_DEPARTURES])), cards,
         _field_error_html(errors, field, field.replace("_", "-")))
@@ -310,6 +304,6 @@ def calendar_look_html(layout_id, calendar_theme_id, errors=None, submitted=None
     field = LOOK_FIELDS[COLOUR_USAGE_CALENDAR]
     chosen = _submitted_or_current(submitted, field, calendar_theme_id)
     same = look.same_option_html(field, not chosen, i18n.t(SAME_AS_DEPARTURES_LABEL))
-    return '%s%s' % (_help_html(PAIRING_HELP), pairing_group_html(
+    return pairing_group_html(
         field, chosen, calendar_theme_id, COLOUR_USAGE_CALENDAR, layout_id,
-        theme_preview.FRAME_PREVIEW_STATE_DEPARTING, SETTINGS_FORM_ID, errors, same))
+        theme_preview.FRAME_PREVIEW_STATE_DEPARTING, SETTINGS_FORM_ID, errors, same)

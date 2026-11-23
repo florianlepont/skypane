@@ -90,8 +90,6 @@ MESSAGES = {
     "look.layout_caption": "S’applique à tout le cadre.",
     "look.layout_whole_frame": "Tout le cadre",
     "look.layout_change": "Modifier la disposition",
-    "look.layout_help":
-        "L’image se redessine au prochain vol ou à la transition.",
     "look.layout_classic": "Classique",
     "look.layout_a": "A : nez et queue",
     "look.layout_b": "B : avion entier",
@@ -99,8 +97,6 @@ MESSAGES = {
     "look.layout_a_diagonal": "A avec bande diagonale",
     "look.layout_preview_alt": "Aperçu de la disposition : %s",
     "look.pairing_group": "Couleur",
-    "look.pairing_help":
-        "Couleur du fond, redessinée au prochain vol ou à la transition.",
     "look.pairing_arriving_nudge":
         "Choisissez une couleur d’arrivée, sinon un atterrissage ressemble à un décollage.",
     "look.pairing_grey": "Gris",
