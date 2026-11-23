@@ -10,7 +10,7 @@ measured, until the owner reports otherwise. Nothing here says a part was
 exported, sliced or printed until the owner reports it.
 
 Centring reference (owner decision, 2026-11-18): everything is centred on the
-opening of the mat (140 mm wide; 90 mm high per the owner's report of 2026-11-19, first read as 99 mm, not remeasured), not on the active area of the screen.
+opening of the mat (140.93 mm wide and 90.27 mm high per the owner's reading of 2026-11-23, confirmed by the owner on 2026-11-23 as the mat window, tool not stated; first read as 140 x 99 mm), not on the active area of the screen.
 
 ## Decisions
 
@@ -31,7 +31,7 @@ opening of the mat (140 mm wide; 90 mm high per the owner's report of 2026-11-19
 
 ### Superseded and out-of-scope notes
 
-(a) The mat opening of about 158 x 94 mm to cut, written in the first measurement plan and the first decision record, is superseded by the owner's decision to keep the mat's existing opening (140 x 99 mm as first read, tape measure). The height is 90 mm according to the owner (reported on 2026-11-19: the 99 was a typing error), not remeasured. (b) The pack enclosed in this design is the single Kubii 3000 mAh unit (8 x 50 x 60 mm). The frame in production uses the 10000 mAh Soldered pack (11 x 60 x 100 mm per the battery records), which does not fit this pocket, and a replacement of the Kubii pack may differ in size (the vendor listing showed out of stock on 2026-11-01).
+(a) The mat opening of about 158 x 94 mm to cut, written in the first measurement plan and the first decision record, is superseded by the owner's decision to keep the mat's existing opening (140 x 99 mm as first read, tape measure). The height is 90.27 mm according to the owner's reading of 2026-11-23 (the 99 was a typing error, reported on 2026-11-19); confirmed by the owner on 2026-11-23 as the mat window, tool not stated. (b) The pack enclosed in this design is the single Kubii 3000 mAh unit (8 x 50 x 60 mm). The frame in production uses the 10000 mAh Soldered pack (11 x 60 x 100 mm per the battery records), which does not fit this pocket, and a replacement of the Kubii pack may differ in size (the vendor listing showed out of stock on 2026-11-01).
 
 ## Design changes from the measurements
 
