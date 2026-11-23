@@ -206,13 +206,15 @@ def test_a_hostile_name_is_escaped_where_it_is_shown(rig):
     assert "<b>x</b>" not in body and "&lt;b&gt;x&lt;/b&gt;" in body
 
 
-def test_the_manage_access_dialog_and_the_fleet_header_open_the_rename_dialog(rig):
+def test_the_account_row_pencil_and_the_fleet_header_open_the_rename_dialog(rig):
     server, seed, cookies = rig
     slug = _slug(seed.owned_id)
     account = parse_html(fx.get(server, cookies["owner"], "/account")[2])
-    link = account.select_one("a.access-rename__link")
-    assert link.attrs["href"] == "#" + slug and "data-modal-open" in link.attrs
+    link = account.select_one("li.account-frame a.account-frame__action[href='#%s']" % slug)
+    assert link.attrs["aria-label"].startswith("Rename: ") and "data-modal-open" in link.attrs
     assert account.select_one("dialog#" + slug) is not None
+    assert not account.select("a.access-rename__link")
+    assert "Rename this frame" not in account.text()
     fleet = parse_html(fx.get(server, cookies["admin"], "/fleet?frame=" + seed.owned_id)[2])
     button = fleet.select_one(".fleet-head a.fleet-icon-button[data-modal-open]")
     assert button.attrs["href"] == "#" + slug

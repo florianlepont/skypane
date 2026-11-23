@@ -77,9 +77,7 @@ _DIALOG_TITLE = i18n.msg("co_managers.dialog_title", "Manage access")
 MENU_LABEL = i18n.msg("co_managers.menu_label", "Manage access")
 _DONE = i18n.msg("co_managers.done", "Done")
 _CANCEL = i18n.msg("co_managers.cancel", "Cancel")
-_RENAME_LINK = i18n.msg("co_managers.rename_frame", "Rename this frame")
 # Same id and English as the Rename frame page's action.
-_RENAME_ARIA = i18n.msg("frame_name.action_aria", "Rename %s")
 _LEAVE_TITLE = i18n.msg("co_managers.leave_title", "Leave this frame?")
 _PILL_OWNER = i18n.msg("co_managers.pill_owner", "Owner")
 _PILL_YOU = i18n.msg("co_managers.pill_you", "You")
@@ -348,12 +346,11 @@ def manage_access_dialog_html(view, device_id, frame_name, return_to, open_=Fals
     page path (see `safe_return_to`); the forms send it back so the dialog
     reopens there after a change. `open_` renders it open."""
     from companion import ui_groups, ui_modal
-    from companion.pages import frame_name_page
     label_id = access_dialog_id(device_id) + "-people"
     people = ui_groups.group(
         access_rows_html(view, device_id, return_to),
         label=i18n.t(_HEADING), label_id=label_id)
-    remove_frame = _rename_link_html(device_id, frame_name)
+    remove_frame = ""
     if view.can_remove_frame:
         remove_frame += _remove_frame_group_html(device_id)
     dialog = ui_modal.sections_dialog_html(
@@ -362,16 +359,7 @@ def manage_access_dialog_html(view, device_id, frame_name, return_to, open_=Fals
         extra_class="access-sheet")
     if view.can_remove_frame:
         dialog += remove_frame_dialog_html(device_id, frame_name)
-    return dialog + frame_name_page.dialog_html(device_id, frame_name, return_to)
-
-
-def _rename_link_html(device_id, frame_name):
-    """The quiet link under the people group that opens the frame's Rename
-    dialog, which stacks over the Manage access dialog."""
-    from companion.pages import frame_name_page
-    return '<p class="access-rename">%s</p>' % frame_name_page.opener_html(
-        device_id, _t(_RENAME_LINK), "access-rename__link",
-        i18n.t(_RENAME_ARIA) % frame_name)
+    return dialog
 
 
 def _remove_frame_group_html(device_id):

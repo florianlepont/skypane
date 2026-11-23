@@ -1,5 +1,5 @@
 """Real-browser checks of the Rename frame dialog from its three entry points (the Home pencil,
-the Fleet header pencil and the Rename link of Manage access on Account): a centred dialog on a
+the Fleet header pencil and the pencil of a frame row on Account): a centred dialog on a
 desktop and a bottom sheet on a phone with the name field focused, Save and Cancel as equal
 buttons, no sideways scroll at 360 and 1280px in both languages and both themes, Escape, Cancel
 and a tap on the scrim closing it and discarding the typed name, Save returning to the page the
@@ -18,12 +18,12 @@ DESKTOP = {"width": 1280, "height": 900}
 VIEWPORTS = (VIEWPORT_MIN_SUPPORTED, DESKTOP)
 VIEWPORT_IDS = ("360", "1280")
 LANGS = ("en", "fr")
-ENTRIES = ("home", "fleet", "access")
+ENTRIES = ("home", "fleet", "account")
 TITLE = {"en": "Rename frame", "fr": "Renommer le cadre"}
 CANCEL = {"en": "Cancel", "fr": "Annuler"}
 ERROR = {"en": "Enter a name of 1 to 40 characters.",
          "fr": "Saisissez un nom de 1 à 40 caractères."}
-MANAGE = {"en": "Manage access", "fr": "Gérer l’accès"}
+RENAME_ARIA = {"en": "Rename", "fr": "Renommer"}
 
 
 class RenameRig(Rig):
@@ -38,7 +38,7 @@ class RenameRig(Rig):
         return {
             "home": ("owner", "/devices/%s/" % self.seed.owned_id, "main h1"),
             "fleet": ("admin", "/fleet?frame=%s" % self.seed.owned_id, ".fleet-head__title"),
-            "access": ("owner", "/account", "li.account-frame"),
+            "account": ("owner", "/account", "li.account-frame"),
         }[entry]
 
     def name(self):
@@ -63,15 +63,14 @@ def _visit(new_context, rig, entry, lang="en", viewport=DESKTOP, theme=None, **k
 
 
 def _press_opener(page, rig, entry, lang):
-    """Tap the entry point's own control, through the Manage access sheet for the third."""
+    """Tap the entry point's own pencil."""
     if entry == "home":
         page.locator(".title-action .btn--icon").click()
     elif entry == "fleet":
         page.locator(".fleet-head a.fleet-icon-button[data-modal-open]").click()
     else:
-        page.locator("li.account-frame").get_by_role("link", name=MANAGE[lang]).click()
-        page.locator("#dlg-access-" + rig.slug[len("dlg-rename-"):]).wait_for(state="visible")
-        page.locator("a.access-rename__link").click()
+        page.locator(
+            "li.account-frame a.account-frame__action[aria-label^='%s']" % RENAME_ARIA[lang]).click()
 
 
 def _open_dialog(new_context, rig, entry, lang="en", viewport=DESKTOP, theme=None, **kwargs):
@@ -124,9 +123,8 @@ def test_the_dialog_is_a_sheet_on_a_phone_and_a_card_on_a_desktop_with_the_field
         page.wait_for_timeout(400)
         geo = page.evaluate(_GEOMETRY, rig.dialog)
         assert geo["inside"] and geo["left"] >= -0.5 and geo["right"] <= geo["vw"] + 0.5, geo
-        # Save and Cancel share the row equally (the compact variant leaves the 2px border
-        # difference of its buttons), both tall enough to tap.
-        assert abs(geo["save"][0] - geo["cancel"][0]) <= 2.5, geo
+        # Save and Cancel share the row at exactly equal widths, both tall enough to tap.
+        assert abs(geo["save"][0] - geo["cancel"][0]) <= 0.5, geo
         assert geo["save"][1] >= 43.5 and geo["cancel"][1] >= 43.5 and geo["field"][2] >= 43.5, geo
         assert geo["field"][0] >= geo["left"] and geo["field"][1] <= geo["right"], geo
         if viewport["width"] < 700:
@@ -302,7 +300,7 @@ def test_without_script_a_refused_name_shows_the_dialog_with_its_error(new_conte
         context.close()
 
 
-@pytest.mark.parametrize("entry", ("home", "access"))
+@pytest.mark.parametrize("entry", ("home", "account"))
 def test_the_old_rename_address_opens_the_dialog_on_the_page_it_came_from(
         new_context, rig, entry):
     _who, path, _shown_selector = rig.where(entry)

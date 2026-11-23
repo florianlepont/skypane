@@ -1854,6 +1854,10 @@ a.row-action {
   border-radius: var(--radius-control);
 }
 
+.account-frame__action:not(:last-child) {
+  margin-right: var(--space-sm);
+}
+
 /* A value row never widens the page: a long email ellipsises. */
 .account-identity .row__value {
   max-width: 65%;
@@ -1918,21 +1922,9 @@ dialog.access-sheet .modal__body {
 
 /* Remove this frame: a quiet danger link set apart under the people group,
  * in regular weight and no surface so it does not compete with Done. */
-.access-sheet .access-rename,
 .access-sheet .access-remove-frame {
   margin: var(--space-sm) 0 0;
   text-align: center;
-}
-
-a.access-rename__link {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 44px;
-  min-width: 44px;
-  padding: 0 var(--space-md);
-  color: var(--color-accent);
-  text-decoration: underline;
 }
 
 a.access-remove-frame__link {
