@@ -61,9 +61,9 @@ round.
 
 | Round | Parts | Printer machine (model as reported) | Date | Filament reference | Colour | Spool or batch | Dried (yes or no) | Plate | Nozzle | Layer height | Walls and infill | Slicer shrinkage | XY hole and contour compensation | Elephant foot compensation | Actual print time | Source |
 |-------|-------|-------------------------------------|------|--------------------|--------|----------------|-------------------|-------|--------|--------------|------------------|------------------|----------------------------------|----------------------------|-------------------|--------|
-| A | Shim, coupon plate | | | | | | | | | | | | | | | |
-| B | Tray | | | | | | | | | | | | | | | |
-| C | Lid, stand | | | | | | | | | | | | | | | |
+| A | Shim, coupon plate | Bambu Lab X1 Carbon | 2026-11-23 (print date not stated) | PLA |  |  |  | PEI plate (smooth or textured not stated) |  |  |  |  |  |  |  | reported by the owner on 2026-11-23: all parts printed (coupon plate not mentioned); filament brand, colour, spool, settings and print date not stated |
+| B | Tray | Bambu Lab X1 Carbon | 2026-11-23 (print date not stated) | PLA |  |  |  | PEI plate (smooth or textured not stated) |  |  |  |  |  |  |  | reported by the owner on 2026-11-23: all parts printed (coupon plate not mentioned); filament brand, colour, spool, settings and print date not stated |
+| C | Lid, stand | Bambu Lab X1 Carbon | 2026-11-23 (print date not stated) | PLA |  |  |  | PEI plate (smooth or textured not stated) |  |  |  |  |  |  |  | reported by the owner on 2026-11-23: all parts printed (coupon plate not mentioned); filament brand, colour, spool, settings and print date not stated |
 | D | | | | | | | | | | | | | | | | |
 
 ## Export stamps
@@ -74,7 +74,7 @@ One row per file expected per round.
 |-------|------|-------------|-----------------|--------|
 | A | Shim | | | |
 | A | Coupon plate | | | |
-| B | Tray | | | |
+| B | Tray | Bambu Lab X1 Carbon | 2026-11-23 (print date not stated) | PLA |  |  |  | PEI plate (smooth or textured not stated) |  |  |  |  |  |  |  | reported by the owner on 2026-11-23: all parts printed (coupon plate not mentioned); filament brand, colour, spool, settings and print date not stated |
 | C | Lid | | | |
 | C | Stand | | | |
 | D | | | | |

@@ -16,12 +16,12 @@ opening of the mat (140.93 mm wide and 90.27 mm high per the owner's reading of 
 
 | Subject | Proposed value | Status | Date |
 |---|---|---|---|
-| Printer or means | The parts were sliced for a Bambu Lab P2S profile (owner's slice of 2026-11-19). The first prints are planned on the Bambu Lab X1 series printers at the owner's workplace (decided by the owner on 2026-11-18). The machine that actually prints is to be recorded per round in [ENCLOSURE-TEST-PRINT-LOG.md](ENCLOSURE-TEST-PRINT-LOG.md); it is not guessed here. | decided by the owner (printer in use: open, per round) | 2026-11-18 |
+| Printer or means | The parts were sliced for a Bambu Lab P2S profile (owner's slice of 2026-11-19). The owner reported on 2026-11-23 that the print is made on a Bambu Lab X1 Carbon (workplace printer). The purchase of another printer (the X2D Combo, 749 EUR noted, offer until 2026-12-01 to recheck) is not decided and is the owner's. | reported by the owner | 2026-11-23 |
 | Provider | The owner's workplace (own access, no print service) | decided by the owner | 2026-11-18 |
-| Material | PETG Basic (as read on the owner's slice of 2026-11-19); any colour (changed by the owner on 2026-11-18; the previous proposal was black); colour recorded per round | decided by the owner | 2026-11-18 |
+| Material | PLA (changed by the owner on 2026-11-23: the owner does not want PETG; previous decision PETG Basic from the slice of 2026-11-19). Brand, colour and spool not stated yet and recorded per round in the test-print log. All clearances found on this print hold for PLA only: PLA shrinks, creeps under constant load and softens with heat differently from PETG, so the fit and hook results are to be read as results for PLA | changed by the owner | 2026-11-23 |
 | Nozzle | 0.4 mm, or another if needed | decided by the owner | 2026-11-18 |
-| Filament | Bambu PETG Basic profile; colour and spool recorded per round in the test-print log; do not change brand between rounds; dry the spool if it has been open long | decided by the owner (brand); spool open | 2026-11-18 |
-| Build plate | Textured PEI, as read on the owner's slice of 2026-11-19; keep the same plate every round | reported by the owner | 2026-11-19 |
+| Filament | PLA, brand and colour not stated yet (owner's report of 2026-11-23); recorded per round in the test-print log; do not change brand between rounds | reported by the owner (brand open) | 2026-11-23 |
+| Build plate | PEI plate, as reported by the owner on 2026-11-23 (smooth or textured not stated); keep the same plate every round | reported by the owner | 2026-11-23 |
 | Lid fixing | M2 self-tapping screws, pilot holes 1.7 mm, through holes 2.4 mm (design values, not measured). Heat-set inserts would need a redesign of the bosses (standoffs are 4.0 mm across, lid corner wall about 3.2 mm), so they are not a drop-in swap; decided only after the screw reuse test (5 removal and insertion cycles per lid screw, a design value the owner may adjust). Lengths from the model, assuming a pan head: lid corners M2 x 6 to x 8 (pilot 7 mm deep under a 1.5 mm lid); board standoffs M2 x 4 at most (a 6 mm screw would pierce the 0.8 mm pilot floor). Screw head type: open, asked on 2026-11-19 | decided by the owner; lengths computed by the assistant | 2026-11-19 |
 | Magnets | 6 x 2 mm, pocket 6.2 x 2.2 mm (design value, not measured). Arrival: the magnets arrived (reported by the owner on 2026-11-20); the M2 screws also arrived (reported by the owner on 2026-11-20; head type and lengths not reported yet); the JST extensions are still awaited. Real size by calliper, pocket ladder and polarity marking: open, to be filled by the owner | open | 2026-11-19 |
 | Printer purchase | Not decided; the owner's call. Offer noted until 2026-12-01 to recheck; the first fit result arrives after that date. The X2D Combo (749 EUR noted) is not bought | not decided | 2026-11-19 |
@@ -95,7 +95,7 @@ address or secret.
 |---|---|
 | Parts | Tray, lid, stand, shim; quantity 1 each. File names: `skypane_tray`, `skypane_lid`, `skypane_stand`, `skypane_shim` (`.stl` or `.3mf`) |
 | Orientation | Tray: floor down. Lid: inner face (against the tray) down. Stand plate: large face down. Shim: flat. No support. The machine, spool, plate and settings are recorded per round in the test-print log |
-| Material | PETG Basic; any colour (decided by the owner on 2026-11-18; the previous proposal was black) |
+| Material | PLA (changed by the owner on 2026-11-23; previously PETG Basic); colour recorded per round |
 | Nozzle | 0.4 mm, or another if needed (decided by the owner on 2026-11-18) |
 | Layer height and infill | To record from the slice |
 | Fit-critical dimensions | Fit in the frame rebate, tab pads and screw lugs, stop walls and stand plate, screw holes, battery bay, ribbon slot |
