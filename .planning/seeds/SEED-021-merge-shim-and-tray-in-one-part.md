@@ -1,6 +1,6 @@
 ---
 id: SEED-021
-status: dormant
+status: promoted
 planted: 2026-11-23
 planted_during: "v1.2, Phase 69 (rear enclosure), owner's question during the first fit trials"
 trigger_when: "After the first fit results of the 7.3 inch enclosure (the shim and the tray both fit by feel in PLA on 2026-11-23), or when the enclosure is redesigned for a series or for another screen"
@@ -17,6 +17,18 @@ the tray are not one part. The design record gives no written reason for the
 split, and the owner does not remember one. A single part would mean one part
 fewer, one fit step fewer and no loose shim to lose. Owner idea of 2026-11-23;
 not decided.
+
+## Update of 2026-11-23
+
+The owner decided that the shim and the tray must be one single part, for the
+assembly ("il faut vraiment"), after the first fit of the printed tray. The
+change goes into the next tray reprint of the 7.3 inch enclosure, together with
+the longer ribbon slot and the longer battery pocket, recorded in the print
+order. Risk to check first in the slicer: the screen-side face of the merged
+part has a rim around the screen (the former shim) while the tray floor sits
+behind the screen, so the part may need supports or an awkward print
+orientation, and a support-marked floor would face the screen. The owner checks
+this in Bambu Studio after the Blender change; nothing has been checked yet.
 
 ## When to Surface
 

@@ -62,6 +62,24 @@ unless a measurement row is given. Nothing has been printed.
 | Reference model (not printed) | Mat of the IKEA frame | opening 141.8 x 91.8 mm, 1.84 mm thick, behind the screen | opening 140 x 99 mm (the owner reported on 2026-11-19 that the real height is 90 mm; the model is unchanged), 1.0 mm thick, in front of the screen against the glass (position a design value) | 6 | 2026-11-18 |
 | Reference model (not printed) | Frame tabs | middle of each side, 12.6 mm behind the screen | owner's positions and 15 mm height | 7b, 7c, 7d | 2026-11-18 |
 
+### Owner decisions of 2026-11-23 after the first fit of the printed tray (PLA)
+
+Decided by the owner after trying the first print; the Blender file is not
+changed yet (the owner changes it in his own session). The values below are
+design values, not measured. The tray is reprinted once with all of them.
+
+| Part | Dimension | Old design value (design value, not measured) | New value (decided by the owner) | Reason (reported by the owner) | CAD status |
+|---|---|---|---|---|---|
+| Tray | Screen ribbon slot | 4 x 28 mm | 34 mm on the long side and 8 mm on the other | The ribbon is pinched in both directions of the slot; the owner moved from the first suggestion of 32 mm to 34 mm and accepted 8 mm | pending, owner's Blender session |
+| Tray | Battery pocket length | 60 mm cell in the pocket, 0.5 mm clearance (design value) | 2 mm more in length, by moving the lower wall of the pocket | The cell fits only just in length, a very slight gap is missing | pending, owner's Blender session |
+| Shim and tray | One part or two | two parts: a 1.0 mm shim and the tray | one single part | For the assembly, the shim and the tray must be one part (owner, "il faut vraiment") | pending, owner's Blender session |
+
+Checks still to do after the Blender change, none done yet: no wall under 0.8 mm
+around the larger slot and next to the moved wall; no support needed or, if the
+merged part needs supports, where they land (see the seed on merging the shim and
+the tray); the antenna block, the standoffs and the stand stop-wall columns are
+not touched by the new slot; the exported STL replaced and re-sliced.
+
 Values kept, because the model and the owner's tape readings differ by about
 1 mm or less, which is the tape's resolution (owner instruction, 2026-11-18):
 screen outline 170.2 x 111.2 x 0.91 mm (reading 170 x 111 x 0.9), rebate
