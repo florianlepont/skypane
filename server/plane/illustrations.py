@@ -711,6 +711,9 @@ def type_pictures(airline_key, state_dir=None, codes=()):
     stored = _default_type_of(airline_key, state_dir)
     if stored:
         wanted.append(stored)
+    legacy = legacy_picture_type(airline_key, state_dir)
+    legacy_picture = (
+        TypePicture(airline_key, resolved_illustration_path(airline_key, state_dir)) if legacy else None)
     for code in wanted:
         for key in type_artwork_keys(airline_key, code):
             path = resolved_illustration_path(key, state_dir)
@@ -718,6 +721,10 @@ def type_pictures(airline_key, state_dir=None, codes=()):
                 found.setdefault(code, TypePicture(key, path))
                 claimed.add(key)
                 break
+        else:
+            # A type drawn with the legacy picture's slot is the same type row.
+            if legacy_picture is not None and same_type(code, legacy):
+                found.setdefault(code, legacy_picture)
     name = builtin_name_for_key(airline_key, state_dir)
     for slug in _all_type_slugs():
         key = "%s-%s" % (airline_key, slug)
@@ -726,10 +733,25 @@ def type_pictures(airline_key, state_dir=None, codes=()):
             continue
         code = (aircraft_label(name, slug) if name else "") or _SLUG_CODES.get(slug) or slug.upper()
         found.setdefault(code, TypePicture(key, path))
-    legacy = legacy_picture_type(airline_key, state_dir)
-    if legacy and legacy not in found:
-        found[legacy] = TypePicture(airline_key, resolved_illustration_path(airline_key, state_dir))
+    if legacy_picture is not None and not any(
+            picture.key == airline_key for picture in found.values()):
+        found[legacy] = legacy_picture
     return found
+
+
+def type_slug(code):
+    """The picture slot a type designator resolves to (`b737` for B738, the
+    sub-type slug `a350-1000` for A35K), or `None` for a designator with no
+    slot. Two designators with the same slug are drawn with the same picture."""
+    designator = _designator(code)
+    return (_TYPE_VARIANT_SLUGS.get(designator) or classify_aircraft_type(designator)) if designator else None
+
+
+def same_type(first, second):
+    """Whether two designators are the same type for pictures: equal, or
+    resolving to the same picture slot."""
+    a, b = _designator(first), _designator(second)
+    return bool(a) and (a == b or (type_slug(a) is not None and type_slug(a) == type_slug(b)))
 
 
 def has_type_livery(airline_key, code, state_dir=None):

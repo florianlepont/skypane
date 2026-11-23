@@ -266,7 +266,6 @@ class SettingsActionsMixin:
         # Sent by the add-first-artwork dialog only: the aircraft type the
         # artwork is for. Validated before anything is stored.
         asked_type = query_values.get(DEFAULT_TYPE_QUERY_PARAM, [None])[0]
-        default_type = None if asked_type is None else airline_default_types.normalise_code(asked_type)
         filename = key + ".png"
         if not illustration_filename_known(filename, device.state_dir):
             return self.send_html(404, self._not_found_page())
@@ -278,6 +277,11 @@ class SettingsActionsMixin:
             return self._scoped_redirect("%s#airline-%s" % (
                 resolve_dialog.with_query(back, query), artwork_airline.base_key(key)))
 
+        raw = self._read_upload_body()
+        if asked_type is None and raw is not None:
+            # The script-free form sends the chosen type next to the file.
+            asked_type = upload_form.parse_upload_type(self.headers.get("Content-Type"), raw)
+        default_type = None if asked_type is None else airline_default_types.normalise_code(asked_type)
         if asked_type is not None and default_type is None:
             return refused(FLASH_KEY_ARTWORK_TYPE_INVALID)
         # A first picture of an airline always says which aircraft type it
@@ -286,7 +290,6 @@ class SettingsActionsMixin:
                 and not illustrations.has_pictures(key, device.state_dir):
             return refused(FLASH_KEY_ARTWORK_TYPE_INVALID)
 
-        raw = self._read_upload_body()
         if raw is None:
             # Over the size cap, or a body that could not be read at all.
             too_large = request_body.parse_content_length(self.headers) > MAX_ILLUSTRATION_UPLOAD_BYTES

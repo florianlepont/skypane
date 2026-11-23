@@ -211,9 +211,10 @@ def test_there_is_no_ignore_action_on_an_unidentified_prefix(new_context, make_a
 @pytest.mark.parametrize("name,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
 def test_the_chevron_expands_the_aircraft_type_sub_rows(new_context, server, name, viewport):
     """one sub-row per type seen or pictured, every one editable: an A320 (a picture of its own: a
-    tappable thumbnail, Change artwork), a B738 (seen, no picture of its own: the default type's
-    picture, Add artwork) and the B737 of the airline's legacy picture; a type with nothing to
-    set or delete has no menu; a mouse click and the keyboard both toggle it"""
+    tappable thumbnail, Change artwork), a B738 (the same picture slot as the airline's legacy
+    B737 picture: one row with that picture) and an A333 (seen, no picture of its own: the default
+    type's picture, Add artwork); a type with nothing to set or delete has no menu; a mouse click
+    and the keyboard both toggle it"""
     context, page = _open(new_context, server, viewport)
     try:
         chevron = TRANSAVIA + " .airlines-expand > summary"
@@ -230,13 +231,14 @@ def test_the_chevron_expands_the_aircraft_type_sub_rows(new_context, server, nam
         assert first.locator("th").inner_text().startswith("A320")
         assert first.locator("a.airlines-thumb").is_visible()
         assert first.locator(".row-menu__toggle").is_visible()
-        assert "Uses the default" not in second.inner_text()
-        assert second.locator(".airlines-act").inner_text() == "Add artwork"
+        assert "Uses the default" not in third.inner_text()
+        assert third.locator(".airlines-act").inner_text() == "Add artwork"
         assert first.locator(".airlines-act").inner_text() == "Change artwork"
-        assert "Own artwork" in first.inner_text()
+        assert second.locator(".airlines-act").inner_text() == "Change artwork"
+        assert "Own artwork" in first.inner_text() and "Own artwork" in second.inner_text()
         assert second.locator("th").inner_text().startswith("B738")
-        assert third.locator("th").inner_text().startswith("B737")
-        assert third.locator("a.airlines-thumb").is_visible()
+        assert third.locator("th").inner_text().startswith("A333")
+        assert second.locator("a.airlines-thumb").is_visible()
         if name == "1280":
             # A phone's type card leaves the views out, like the approved mockup.
             assert "2 views" in first.inner_text() and "1 view" in second.inner_text()
@@ -621,7 +623,7 @@ def test_on_a_desktop_no_airline_name_is_clipped_and_counts_stay_on_one_line(
         context.close()
 
 
-B738_ROW = TRANSAVIA + " .airlines-subrow:nth-child(4)"  # the airline row, the heading, A320, then B738
+A333_ROW = TRANSAVIA + " .airlines-subrow:nth-child(5)"  # the airline row, the heading, A320, B738, then A333
 _PNG = os.path.join(illustrations.ILLUSTRATION_DIR, "vueling-airlines.png")
 
 
@@ -638,7 +640,7 @@ def _expand_transavia(page):
     chevron = TRANSAVIA + " .airlines-expand > summary"
     _settle(page, chevron)
     page.locator(chevron).click()
-    page.locator(B738_ROW).wait_for(state="visible")
+    page.locator(A333_ROW).wait_for(state="visible")
 
 
 @pytest.mark.parametrize("name,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
@@ -653,29 +655,29 @@ def test_a_type_row_is_given_a_picture_then_its_artwork_is_deleted(
         _expand_transavia(page)
         slot = os.path.join(
             server.state_dir, illustrations.ILLUSTRATION_OVERRIDE_DIRNAME,
-            "transavia-france-b737.png")
+            "transavia-france-a330.png")
         assert not os.path.exists(slot)
         # A type with no picture has no menu: it cannot be the default yet.
-        assert page.locator(B738_ROW + " .row-menu__toggle").count() == 0
+        assert page.locator(A333_ROW + " .row-menu__toggle").count() == 0
         with page.expect_navigation():
-            page.locator(B738_ROW + " .airlines-act input[type=file]").set_input_files(_PNG)
+            page.locator(A333_ROW + " .airlines-act input[type=file]").set_input_files(_PNG)
         page.wait_for_function(_SETTLED, timeout=15000)
         assert os.path.isfile(slot)
         _expand_transavia(page)
-        assert "Own artwork" in page.locator(B738_ROW).inner_text()
-        assert page.locator(B738_ROW + " .airlines-act").inner_text() == "Change artwork"
-        toggle = B738_ROW + " .row-menu__toggle"
+        assert "Own artwork" in page.locator(A333_ROW).inner_text()
+        assert page.locator(A333_ROW + " .airlines-act").inner_text() == "Change artwork"
+        toggle = A333_ROW + " .row-menu__toggle"
         _settle(page, toggle)
         page.locator(toggle).click()
-        delete = page.locator(B738_ROW + " .row-menu__panel button.row-menu__item", has_text="Delete the artwork")
+        delete = page.locator(A333_ROW + " .row-menu__panel button.row-menu__item", has_text="Delete the artwork")
         delete.wait_for(state="visible")
         with page.expect_navigation():
             delete.click()
         page.wait_for_function(_SETTLED, timeout=15000)
         assert not os.path.exists(slot)
         _expand_transavia(page)
-        assert "Uses the default" not in page.locator(B738_ROW).inner_text()
-        assert page.locator(B738_ROW + " .airlines-act").inner_text() == "Add artwork"
+        assert "Uses the default" not in page.locator(A333_ROW).inner_text()
+        assert page.locator(A333_ROW + " .airlines-act").inner_text() == "Add artwork"
         assert "airline.artwork_delete" in _audit_actions(server.state_dir)
     finally:
         context.close()
@@ -687,27 +689,27 @@ def test_the_type_menu_sets_the_default_type_and_deletes_only_an_uploaded_pictur
     context, page = _open(new_context, server, VIEWPORT_DESKTOP)
     try:
         _expand_transavia(page)
-        items = page.locator(B738_ROW + " .row-menu__panel .row-menu__item")
-        assert page.locator(B738_ROW + " .row-menu__toggle").count() == 0
+        items = page.locator(A333_ROW + " .row-menu__panel .row-menu__item")
+        assert page.locator(A333_ROW + " .row-menu__toggle").count() == 0
         with page.expect_navigation():
-            page.locator(B738_ROW + " .airlines-act input[type=file]").set_input_files(_PNG)
+            page.locator(A333_ROW + " .airlines-act input[type=file]").set_input_files(_PNG)
         page.wait_for_function(_SETTLED, timeout=15000)
         _expand_transavia(page)
-        page.locator(B738_ROW + " .row-menu__toggle").click()
+        page.locator(A333_ROW + " .row-menu__toggle").click()
         items.first.wait_for(state="visible")
         assert items.all_inner_texts() == ["Use as the airline's default picture", "Delete the artwork"]
         with page.expect_navigation():
             items.nth(0).click()
         page.wait_for_function(_SETTLED, timeout=15000)
         _expand_transavia(page)
-        star = B738_ROW + " .airlines-pill--star"
+        star = A333_ROW + " .airlines-pill--star"
         assert page.locator(star).inner_text() == "Default type"
         assert airline_default_types.load_default_types(server.state_dir) == {
-            "transavia-france": "B738"}
+            "transavia-france": "A333"}
         # The airline row shows the default type's code, no picture of its own.
-        assert page.locator(TRANSAVIA + " .airlines-row .airlines-deftype").inner_text() == "B738"
+        assert page.locator(TRANSAVIA + " .airlines-row .airlines-deftype").inner_text() == "A333"
         assert page.locator(TRANSAVIA + " .airlines-row .airlines-thumb__image").count() == 0
-        page.locator(B738_ROW + " .row-menu__toggle").click()
+        page.locator(A333_ROW + " .row-menu__toggle").click()
         items.first.wait_for(state="visible")
         assert items.all_inner_texts() == ["Stop using as the airline's default picture", "Delete the artwork"]
         with page.expect_navigation():
@@ -715,7 +717,7 @@ def test_the_type_menu_sets_the_default_type_and_deletes_only_an_uploaded_pictur
         page.wait_for_function(_SETTLED, timeout=15000)
         assert not os.path.exists(os.path.join(
             server.state_dir, illustrations.ILLUSTRATION_OVERRIDE_DIRNAME,
-            "transavia-france-b737.png"))
+            "transavia-france-a330.png"))
         assert {"airline.default_type", "airline.artwork_delete"} <= set(
             _audit_actions(server.state_dir))
         # The type left with no picture is no longer the default: the first type the airline
@@ -732,7 +734,7 @@ def test_the_type_menu_sets_the_default_type_and_deletes_only_an_uploaded_pictur
 def test_only_a_type_with_a_picture_offers_to_be_the_default(
         new_context, make_app_server, name, viewport, lang, set_label):
     """the A320 of Transavia has a built-in picture and offers the default-type entry; the
-    B738 has none and has no menu at all"""
+    A333 has none and has no menu at all"""
     server = make_app_server(seed=_seed, fake_providers=True)
     context, page = _open(new_context, server, viewport, lang)
     try:
@@ -745,8 +747,8 @@ def test_only_a_type_with_a_picture_offers_to_be_the_default(
         assert items.all_inner_texts() == [set_label]
         box = items.first.bounding_box()
         assert box["height"] >= 44 - 0.5 and 0 <= box["x"] and box["x"] + box["width"] <= viewport["width"]
-        assert page.locator(B738_ROW + " .row-menu__toggle").count() == 0
-        assert page.locator(B738_ROW + " .row-menu__item").count() == 0
+        assert page.locator(A333_ROW + " .row-menu__toggle").count() == 0
+        assert page.locator(A333_ROW + " .row-menu__item").count() == 0
     finally:
         context.close()
 

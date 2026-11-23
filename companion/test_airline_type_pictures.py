@@ -10,7 +10,7 @@ import fleet_console_support as fx
 from companion.test_airline_editor_helpers import EDITOR, VENDORED, Rig, override as _override, query_of as _query
 from companion_app_server import InProcessAppServer
 from server import fleet_db
-from server.plane import airline_default_types, manual_resolutions
+from server.plane import airline_default_types, illustrations, manual_resolutions
 
 
 @pytest.fixture
@@ -135,3 +135,64 @@ def test_the_airlines_list_shows_the_picture_of_the_default_type(tmp_path):
     assert "/illustration/transavia-france.png" not in html
     nobody = SimpleNamespace(picture_key="no-such-airline", name="No Such Airline")
     assert "collection-card__blank" in page._picture_html(nobody, state)
+
+
+def _upload_with_type_part(rig, path, code):
+    """The upload a script-free browser sends: token part, the type select as a text part, the file."""
+    import companion.test_companion_app_helpers as cah
+    from companion_app_server import http_request, with_csrf_part
+    body, content_type = cah.encode_multipart(_png(), field_name="illustration")
+    boundary = content_type.split("boundary=", 1)[1].encode("ascii")
+    part = (b"--" + boundary + b'\r\nContent-Disposition: form-data; name="default_type"\r\n\r\n'
+            + code.encode("ascii") + b"\r\n")
+    body, content_type = with_csrf_part(rig.cookies["admin"], part + body, content_type)
+    status, headers, _b = http_request(
+        rig.server.url(path), method="POST", data=body, cookie=rig.cookies["admin"],
+        content_type=content_type, extra_headers={"Origin": rig.server.base_url()})
+    return status, headers
+
+
+def test_a_script_free_form_sends_the_type_as_a_part_before_the_file(rig):
+    manual_resolutions.add_entry(rig.owned_dir, "ZEP", "Zephyr Air")
+    status, headers = _upload_with_type_part(rig, rig.frame + "/illustration/zephyr-air.png", "A321")
+    assert status == 303 and _query(headers)[1]["flash"] == ["illustration_replaced"]
+    assert airline_default_types.load_default_types(rig.owned_dir) == {"zephyr-air": "A321"}
+    assert os.path.isfile(os.path.join(rig.server.state_dir, "illustration_overrides", "zephyr-air.png"))
+
+
+def test_a_script_free_form_with_no_or_a_bad_type_is_refused_and_writes_nothing(rig):
+    manual_resolutions.add_entry(rig.owned_dir, "ZEP", "Zephyr Air")
+    before = rig.stored()
+    for code in ("", "not a type!"):
+        _status, headers = _upload_with_type_part(rig, rig.frame + "/illustration/zephyr-air.png", code)
+        assert _query(headers)[1]["flash"] == ["artwork_type_invalid"]
+    assert rig.stored() == before
+
+
+def test_the_script_free_fallback_form_asks_for_a_required_named_type(rig):
+    manual_resolutions.add_entry(rig.owned_dir, "ZEP", "Zephyr Air")
+    status, _headers, body = rig.get("admin", rig.frame + EDITOR + "?resolve=ZEP")
+    form = body[body.index('id="manual-illustration-form"'):]
+    form = form[:form.index("</form>")]
+    select = re.search(r"<select[^>]*>", form).group(0)
+    assert 'name="default_type"' in select and " required" in select and " hidden" not in select
+    assert form.index("csrf_token") < form.index("<select") < form.index('type="file"')
+    assert "A320" in form and "B738" in form
+
+
+def test_a_seen_type_and_the_legacy_airframe_of_one_slot_are_one_row(tmp_path):
+    from types import SimpleNamespace
+
+    from companion.pages import airline_table
+    state = str(tmp_path)
+    entry = SimpleNamespace(type_counts=(("B738", 3), ("A321", 2), ("A320", 1), ("A333", 1)))
+    facts = {"key": "air-france", "state_dir": state, "default_type": "A320",
+             "stored_default": "",
+             "pictures": illustrations.type_pictures(
+                 "air-france", state, ("B738", "A321", "A320", "A333"))}
+    rows = airline_table._sub_rows(entry, facts, "Air France", [])
+    # A321 and A320 are drawn with one picture (the legacy A320): one row naming both.
+    assert [row["code"] for row in rows] == ["B738", "A321, A320", "A333"]
+    assert rows[1]["views"] == 3 and rows[1]["picture"].key == "air-france"
+    assert rows[1]["is_default"] and not rows[0]["is_default"]
+    assert rows[0]["picture"] is None and rows[2]["picture"] is None

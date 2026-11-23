@@ -113,3 +113,29 @@ def test_a_stored_default_naming_the_legacy_airframe_serves_the_legacy_picture(t
     _store_default(state, {"acme-air": "A320"})
     assert os.path.basename(ill.select_illustration(
         {"airline_name": "Acme Air"}, "B738", state)) == "acme-air.png"
+
+
+def test_two_designators_with_the_same_picture_slot_are_one_type():
+    assert ill.same_type("B738", "B737") and ill.same_type("a320", "A321")
+    assert not ill.same_type("B738", "A320") and not ill.same_type("A35K", "A359")
+    assert not ill.same_type("ZZZZ", "YYYY") and ill.same_type("ZZZZ", "zzzz")
+    assert not ill.same_type("", "")
+    assert ill.type_slug("A35K") == "a350-1000" and ill.type_slug("B738") == "b737"
+
+
+def test_a_seen_type_and_the_legacy_airframe_of_one_slot_are_one_picture(tmp_path):
+    state = str(tmp_path)
+    pictures = ill.type_pictures("transavia-france", state, codes=("B738", "A320"))
+    # The legacy picture is the B737: the seen B738 is the same row, not a second one.
+    assert set(pictures) == {"A320", "B738"}
+    assert pictures["B738"].key == "transavia-france"
+    assert ill.has_type_livery("transavia-france", "B738", state)
+    assert ill.has_type_livery("transavia-france", "B737", state)
+    assert not ill.has_type_livery("transavia-france", "A333", state)
+
+
+def test_a_default_naming_a_seen_type_of_the_legacy_slot_serves_the_legacy_picture(tmp_path):
+    state = str(tmp_path)
+    assert adt.set_default_type(state, "transavia-france", "B738") == adt.SET_OK
+    assert ill.default_picture("transavia-france", state).key == "transavia-france"
+    assert ill.effective_default_type("transavia-france", state) == "B738"

@@ -9,9 +9,9 @@ import pytest
 from companion import auth
 from companion.test_browser_airline_helpers import seed_airline_editor
 from companion.test_browser_ux_helpers import (
-    VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED, _assert_no_page_overflow, _login,
+    VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED, _assert_no_page_overflow, _login, _no_js_page,
 )
-from server.plane import airline_default_types
+from server.plane import airline_default_types, illustrations, manual_resolutions
 
 pytestmark = pytest.mark.browser
 
@@ -23,6 +23,7 @@ STAR = {"en": "Default type", "fr": "Type par défaut"}
 
 def _seed(state_dir):
     seed_airline_editor(state_dir)
+    manual_resolutions.add_entry(state_dir, "ZEP", "Zephyr Air")
     assert airline_default_types.set_default_type(
         state_dir, "transavia-france", "A320") == airline_default_types.SET_OK
 
@@ -61,7 +62,7 @@ def test_the_editor_lists_type_rows_only_with_the_star_on_the_default_type(
         subrows.first.wait_for(state="visible")
         page.wait_for_function(_SETTLED, timeout=15000)
         codes = [subrows.nth(i).locator(".airlines-type").inner_text() for i in range(subrows.count())]
-        assert [code.split(" · ")[0] for code in codes] == ["A320", "B738", "B737"]
+        assert [code.split(" · ")[0] for code in codes] == ["A320", "B738", "A333"]
         starred = page.locator(TRANSAVIA + " .airlines-pill--star")
         assert starred.count() == 1 and starred.inner_text().strip() == STAR[lang]
         assert starred.locator("xpath=ancestor::tr").locator(".airlines-type").inner_text() == "A320"
@@ -87,3 +88,24 @@ def test_the_airlines_page_shows_the_picture_of_the_default_type(
         assert not _assert_no_page_overflow(page, "airlines", viewport["width"])
     finally:
         context.close()
+
+
+def test_without_scripts_the_first_artwork_asks_for_a_type_and_makes_it_the_default(
+        new_context, make_app_server):
+    server = make_app_server(seed=_seed, fake_providers=True)
+    png = illustrations.ILLUSTRATION_DIR + "/vueling-airlines.png"
+    with _no_js_page(
+            new_context, server.base_url(), "/airlines/manage?resolve=ZEP",
+            viewport=VIEWPORT_DESKTOP, reduced_motion="reduce") as page:
+        form = page.locator("#manual-illustration-form")
+        select = form.locator("select[name=default_type]")
+        select.wait_for(state="visible")
+        form.locator("input[type=file]").set_input_files(png)
+        # No type chosen: the browser refuses to send the form.
+        form.locator("button[type=submit]").click()
+        assert "resolve=ZEP" in page.url
+        select.select_option("A321")
+        with page.expect_navigation():
+            form.locator("button[type=submit]").click()
+        page.wait_for_url("**/airlines/manage?flash=illustration_replaced")
+    assert airline_default_types.load_default_types(server.state_dir)["zephyr-air"] == "A321"

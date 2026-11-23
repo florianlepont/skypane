@@ -350,7 +350,7 @@ def _sub_menu_html(page, sub, row):
     a picture of its own for this airline), clear it when it is the default,
     and delete the uploaded picture, which only exists as an owner's upload."""
     items = ""
-    stored = sub["code_ok"] and sub["code_ok"] == row["stored_default"]
+    stored = sub["code_ok"] and sub["is_stored_default"]
     if sub["code_ok"] and (stored or (sub["has_own"] and not sub["is_default"])):
         items += _post_form(
             airline_sheet.DEFAULT_TYPE_ROUTE,
@@ -393,50 +393,73 @@ def _slot_for(code, key):
     return "%s-%s" % (key, slug) if slug else None
 
 
-def _sub_row(code, views, model, picture, slot, row):
-    """One type row. `picture` is the type's `illustrations.TypePicture` (or
-    `None`), `slot` the artwork key an upload for the type goes to."""
-    code_ok = airline_default_types.normalise_code(code) or ""
-    override = picture is not None and bool(
-        illustrations.override_path_for_key(picture.key, row["state_dir"])
-        and os.path.isfile(illustrations.override_path_for_key(picture.key, row["state_dir"])))
+def _sub_row(group, picture, slot, row):
+    """One type row of a group of designators drawn with one picture. `picture`
+    is the group's `illustrations.TypePicture` (or `None`), `slot` the artwork
+    key an upload for the type goes to; the code the row names (and uploads,
+    and sets as the default) is its first designator."""
+    codes = group["codes"]
+    code_ok = airline_default_types.normalise_code(codes[0]) or ""
+    path = picture and illustrations.override_path_for_key(picture.key, row["state_dir"])
+    shown = ", ".join(codes)
     return {
-        "code": code, "views": views, "model": model, "picture": picture,
-        "slot": picture.key if picture is not None else slot,
-        "has_own": picture is not None, "has_override": override, "code_ok": code_ok,
-        "is_default": bool(code_ok) and code_ok == row["default_type"]}
+        "code": shown, "views": group["views"],
+        "model": panel_render._TYPE_DISPLAY_LABELS.get(codes[0], codes[0])
+        if len(codes) == 1 and group["views"] else shown,
+        "picture": picture, "slot": picture.key if picture is not None else slot,
+        "has_own": picture is not None, "has_override": bool(path) and os.path.isfile(path),
+        "code_ok": code_ok,
+        "is_default": any(illustrations.same_type(c, row["default_type"]) for c in codes),
+        "is_stored_default": any(illustrations.same_type(c, row["stored_default"]) for c in codes),
+        "slug": group["slug"]}
 
 
 def _sub_rows(entry, row, builtin_name, shapes):
-    """One dict per aircraft type: the types seen for the airline first (most
-    seen first), then the other types it has a picture for, then the curated
-    variants of its built-in original it has no picture of yet. `slot` is the
-    artwork key of the type's picture (`None` for a type that has no slot)."""
+    """One dict per aircraft type, designators drawn with one picture (the
+    same slot: B738 and B737) being one row: the types seen for the airline
+    first (most seen first), then the other types it has a picture for, then
+    the curated variants of its built-in original it has no picture of yet.
+    `slot` is the artwork key of the type's picture (`None` for a type that has
+    no slot)."""
     key = row["key"]
-    counts = entry.type_counts if entry is not None else ()
     pictures = row["pictures"]
-    subs = [
-        _sub_row(code, views, panel_render._TYPE_DISPLAY_LABELS.get(code, code),
-                 pictures.get(code.strip().upper()), _slot_for(code, key), row)
-        for code, views in counts]
-    seen = {code.strip().upper() for code, _views in counts}
-    unseen = [
-        _sub_row(code, 0, code, picture, _slot_for(code, key), row)
-        for code, picture in pictures.items() if code not in seen]
-    listed = {sub["code"] for sub in subs} | {sub["code"] for sub in unseen} | seen
+    groups = {}
+
+    def group_of(code):
+        designator = code.strip().upper()
+        slug = illustrations.type_slug(designator)
+        return groups.get(slug or designator), designator, slug
+
+    def add(code, views, picture, merge_code=True):
+        group, designator, slug = group_of(code)
+        if group is None:
+            groups[slug or designator] = {
+                "codes": [designator], "views": views, "picture": picture, "slug": slug}
+            return
+        if merge_code and designator not in group["codes"]:
+            group["codes"].append(designator)
+        group["views"] += views
+        group["picture"] = group["picture"] or picture
+
+    for code, views in (entry.type_counts if entry is not None else ()):
+        add(code, views, pictures.get(code.strip().upper()))
+    seen = set(groups)
+    for code, picture in sorted(pictures.items()):
+        add(code, 0, picture, merge_code=False)
     for shape in shapes or []:
-        code = illustrations.aircraft_label(builtin_name, shape) or shape.upper()
-        if code not in listed:
-            unseen.append(_sub_row(code, 0, code, None, "%s-%s" % (key, shape), row))
-    subs.extend(sorted(unseen, key=lambda sub: sub["code"]))
+        if shape not in groups:
+            label = illustrations.aircraft_label(builtin_name, shape) or shape.upper()
+            groups[shape] = {"codes": [label], "views": 0, "picture": None, "slug": shape}
     legacy = illustrations.resolved_illustration_path(key, row["state_dir"])
-    own = illustrations.TypePicture(key, legacy) if legacy else None
-    if own is not None and all(
-            sub["picture"] is None or sub["picture"].key != key for sub in subs):
+    if legacy and all(g["picture"] is None or g["picture"].key != key for g in groups.values()):
         # The airline's legacy picture of an airframe nobody named: listed so
         # it is not hidden, under no type.
-        subs.append(_sub_row(NO_VALUE, 0, NO_VALUE, own, key, row))
-    return subs
+        groups[NO_VALUE] = {
+            "codes": [NO_VALUE], "views": 0, "slug": None,
+            "picture": illustrations.TypePicture(key, legacy)}
+    ordered = [g for gid, g in groups.items() if gid in seen] + sorted(
+        (g for gid, g in groups.items() if gid not in seen), key=lambda g: g["codes"][0])
+    return [_sub_row(g, g["picture"], _slot_for(g["codes"][0], key), row) for g in ordered]
 
 
 def _row_facts(page, data, index, builtin_name, shapes):
