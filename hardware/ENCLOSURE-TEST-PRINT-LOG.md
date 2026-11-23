@@ -123,6 +123,7 @@ holds for PLA only.
 |------|------|--------------------------------|-------------------------------------------|------|------|--------|
 | Tray | Tray in the frame rebate | not stated | fits ("parfait", the owner's word) | by feel | 2026-11-23 | reported by the owner on 2026-11-23 |
 | Shim | Shim in the frame rebate | not stated | fits ("rentre bien", the owner's words) | by feel | 2026-11-23 | reported by the owner on 2026-11-23 |
+| Tray | Board on the four standoffs with M2 screws | not applicable | fits ("j'ai pu visser proprement la carte", the owner's words); screw length not stated | by feel | 2026-11-23 | reported by the owner on 2026-11-23 |
 | Lid | Lid on the tray | | | | | |
 | Lid | Lid with screws and magnets | | | | | |
 | Stand | Stand plate in its stop walls | | | | | |
