@@ -218,6 +218,8 @@
 .home-flight__picture {
   position: relative;
   flex: none;
+  /* Not stretched to a taller text column: the ring wraps the picture alone. */
+  align-self: flex-start;
   width: 132px;
 }
 
