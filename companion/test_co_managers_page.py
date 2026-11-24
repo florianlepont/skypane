@@ -74,9 +74,12 @@ def test_the_dialog_carries_the_frame_name_the_title_and_the_done_dismissal():
     assert dismiss.text() == "Done"
     assert dismiss.attrs["href"] == "/fleet"
     assert dialog.attrs["class"] == "modal access-sheet"
-    assert tree.select_one("h2.section-label").text() == "Co-managers"
-    # One group, no second surface inside it, and no long purpose paragraph.
-    assert len(tree.select("ul.group")) == 1
+    labels = [h.text() for h in tree.select("h2.section-label")]
+    assert labels == ["Owner", "Co-managers", "Add a co-manager"]
+    # Three labelled sections, no second surface inside one, no long purpose
+    # paragraph; the Add button is the short "Add".
+    assert len(tree.select("section.group-block")) == 3
+    assert tree.select_one(".row__form button").text() == "Add"
     for stale in (".data-card", ".data-cards", ".row--purpose"):
         assert not tree.select(stale)
 
@@ -121,7 +124,7 @@ def test_an_owner_types_an_email_in_a_required_bounded_field():
     (form,) = _forms_to(tree, card.ADD_ROUTE)
     assert form.attrs["action"] == PREFIX + card.ADD_ROUTE
     assert _hidden(form)["return_to"] == "/account"
-    assert form.select_one('button[type="submit"]').text() == "Add a co-manager"
+    assert form.select_one('button[type="submit"]').text() == "Add"
     assert not tree.select("select")
 
 
@@ -148,7 +151,7 @@ def test_an_admin_picks_from_the_eligible_people_with_the_email_as_the_value():
     assert not tree.select('input[type="email"]')
     assert tree.select_one('label[for="%s"]' % select.attrs["id"]).text() == "Invited person"
     (form,) = _forms_to(tree, card.ADD_ROUTE)
-    assert form.select_one('button[type="submit"]').text() == "Add a co-manager"
+    assert form.select_one('button[type="submit"]').text() == "Add"
 
 
 def test_an_admin_with_nobody_left_to_add_sees_a_line_and_no_control():

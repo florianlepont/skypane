@@ -28,6 +28,8 @@ MESSAGES = {
     "co_managers.no_candidates":
         "Toutes les personnes invitées sont déjà sur ce cadre.",
     "co_managers.add_button": "Ajouter un cogestionnaire",
+    "co_managers.add_short": "Ajouter",
+    "co_managers.section_owner": "Propriétaire",
     "co_managers.remove_button": "Retirer",
     "co_managers.remove_aria": "Retirer %s de ce cadre",
     "co_managers.leave": "Quitter ce cadre",

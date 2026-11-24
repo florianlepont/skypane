@@ -332,7 +332,7 @@ def choice_dialog_html(
 
 def sections_dialog_html(
         dialog_id, title, subtitle, sections_html, dismiss_label, dismiss_href,
-        open_=False, extra_class=""):
+        open_=False, extra_class="", leading_action_html=""):
     """A modal dialog whose body is several independent forms.
 
     Unlike `dialog_html` it wraps no form of its own: `sections_html` holds
@@ -341,9 +341,13 @@ def sections_dialog_html(
     initial focus, or the dismiss link when the sections have none. `open_`
     renders the `open` attribute for a dialog reopened after a change.
     `extra_class` adds one slug class to the dialog for page-specific styling.
+    `leading_action_html` (already escaped) is a control set at the left of
+    the action row, the dismiss link then being the primary action at the right.
     """
     slug = validated_slug(dialog_id)
     classes = "modal " + validated_slug(extra_class) if extra_class else "modal"
+    actions_class = "modal__actions modal__actions--split" if leading_action_html else "modal__actions"
+    dismiss_class = "modal__dismiss btn btn--primary modal__done" if leading_action_html else "modal__dismiss"
     title_id = slug + "-title"
     sections_html, found = _autofocus_first_control(sections_html)
     dismiss_focus = "" if found else " autofocus"
@@ -359,10 +363,13 @@ def sections_dialog_html(
         '<a class="modal__close" href="%(href)s" data-modal-close aria-label="%(close)s">'
         '%(close_icon)s</a></header>'
         '<div class="modal__body">%(body)s</div>'
-        '<div class="modal__actions">'
-        '<a class="modal__dismiss" href="%(href)s" data-modal-close%(focus)s>%(dismiss)s</a>'
+        '<div class="%(actions_class)s">%(leading)s'
+        '<a class="%(dismiss_class)s" href="%(href)s" data-modal-close%(focus)s>%(dismiss)s</a>'
         '</div></dialog>\n'
     ) % {
+        "actions_class": actions_class,
+        "dismiss_class": dismiss_class,
+        "leading": leading_action_html,
         "classes": classes,
         "id": slug,
         "title_id": title_id,

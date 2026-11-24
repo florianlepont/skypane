@@ -1897,10 +1897,11 @@ a.row-action {
   overflow-wrap: anywhere;
 }
 
-/* The Manage access sheet: the head keeps its place, the one group scrolls
- * inside, the add form is stacked (field, then a full-width primary button)
- * and Done is a full-width secondary button. A phone sheet clears its rounded
- * corners above the title and the home indicator below the button. */
+/* The Manage access sheet: the head keeps its place, the three labelled
+ * sections (owner, co-managers, add form) scroll inside, and the action row
+ * sits below them: the "Remove this frame" danger link at the left, Done (the
+ * primary) at the right. A phone sheet clears its rounded corners above the
+ * title and the home indicator below the buttons. */
 dialog.access-sheet .modal__body {
   gap: 0;
   margin-top: var(--space-sm);
@@ -1908,51 +1909,105 @@ dialog.access-sheet .modal__body {
 }
 
 .access-sheet .group-block {
+  margin: 0 0 var(--space-md);
+}
+
+.access-sheet .group-block:last-child {
+  margin-bottom: 0;
+}
+
+/* The initials chip of a person row: the owner's is filled with the accent. */
+.access-avatar {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  margin-left: var(--space-md);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  color: var(--color-accent);
+  font-size: var(--font-caption-size);
+  font-weight: var(--weight-semibold);
+}
+
+.access-avatar--owner {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+
+/* No co-managers yet: a dashed card with no shadow. */
+.access-section--empty .group {
+  border-style: dashed;
+  box-shadow: none;
+}
+
+.access-section--empty .empty-state {
   margin: 0;
+  padding: var(--space-md);
 }
 
-/* The empty state under the owner row sits in the same group with the same
- * inner padding as the rows around it. */
-.access-sheet .fleet-group__item {
-  box-sizing: border-box;
-  min-width: 0;
-  padding: var(--space-sm) var(--space-md);
-  border-top: 1px solid var(--glass-hairline);
-}
-
-/* Remove this frame: a quiet danger link set apart under the people group,
- * in regular weight and no surface so it does not compete with Done. */
-.access-sheet .access-remove-frame {
-  margin: var(--space-sm) 0 0;
-  text-align: center;
-}
-
-a.access-remove-frame__link {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 44px;
-  min-width: 44px;
-  padding: 0 var(--space-md);
-  color: var(--color-status-error);
-  font-weight: var(--weight-regular);
-  text-decoration: underline;
-}
-
+/* The Add form: the picker and the primary Add button share one 44px line;
+ * the typed address of an owner keeps its label and helper line, so its
+ * button stacks full width under the field. */
 .access-sheet .row__form {
   flex-direction: column;
   align-items: stretch;
+}
+
+.access-sheet .row__form--inline {
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: nowrap;
+}
+
+.access-sheet .row__form--inline .row__form-field {
+  flex: 1 1 0;
+}
+
+.access-sheet .row__form--inline label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .access-sheet .row__form-field {
   flex: none;
 }
 
-.access-sheet .row__form > button[type="submit"] {
+.access-sheet .row__form:not(.row__form--inline) > button[type="submit"] {
   width: 100%;
 }
 
-.access-sheet a.modal__dismiss,
+/* The action row: the danger link left, Done right. */
+dialog.access-sheet .modal__actions--split {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--glass-hairline);
+}
+
+a.access-remove-frame__link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  min-width: 44px;
+  color: var(--color-status-error);
+  font-weight: var(--weight-regular);
+  text-decoration: underline;
+}
+
+dialog.access-sheet .modal__actions--split a.modal__done {
+  width: auto;
+  margin-left: auto;
+}
+
 a.modal__dismiss--button {
   background: var(--glass-solid);
   border: 1px solid var(--color-border);

@@ -81,8 +81,8 @@ def test_the_access_sheet_clears_its_corners_fits_and_keeps_every_control_reacha
         assert page.locator(srig.dialog + " .modal__title").inner_text() == ACCESS_TITLE[lang]
         assert page.evaluate(_SHEET_JS, srig.dialog) == []
         assert _no_sideways_scroll(page)
-        # One surface: the sheet holds a single group and no card inside it.
-        assert page.locator(srig.dialog + " ul.group").count() == 1
+        # Three labelled glass groups (owner, co-managers, add form), no card inside.
+        assert page.locator(srig.dialog + " ul.group").count() == 3
         assert page.locator(srig.dialog + " .data-card").count() == 0
         # Remove is a quiet text button in the danger colour.
         remove = page.locator(srig.dialog + " .co-manager__remove-btn")
@@ -118,6 +118,30 @@ def test_adding_and_removing_a_co_manager_work_in_the_sheet_and_focus_returns(
         assert page.locator(srig.dialog + " .co-manager__email", has_text=LONG_CO).count() == 0
         page.locator(srig.dialog + " a.modal__dismiss").click()
         page.wait_for_function("(s) => !document.querySelector(s).open", arg=srig.dialog)
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("viewport", (
+    {"width": 1280, "height": 800}, PHONES[1]), ids=("desktop", "360x640"))
+@pytest.mark.parametrize("lang", LANGS)
+def test_the_danger_link_sits_left_of_the_primary_done_and_the_sections_are_labelled(
+        new_context, srig, viewport, lang):
+    context, page = _open_sheet(new_context, srig, lang, "light", viewport)
+    try:
+        link = page.locator(srig.dialog + " a.access-remove-frame__link")
+        done = page.locator(srig.dialog + " a.modal__dismiss")
+        link_box, done_box = link.bounding_box(), done.bounding_box()
+        assert link_box["x"] < done_box["x"]
+        assert abs(link_box["y"] + link_box["height"] / 2
+                   - done_box["y"] - done_box["height"] / 2) < 6, "one row"
+        assert done.evaluate(
+            "a => getComputedStyle(a).backgroundColor !== 'rgba(0, 0, 0, 0)'")
+        assert link.evaluate("a => getComputedStyle(a).color") != done.evaluate(
+            "a => getComputedStyle(a).color")
+        labels = page.locator(srig.dialog + " .section-label").all_inner_texts()
+        assert len(labels) == 3
+        assert page.evaluate(_SHEET_JS, srig.dialog) == []
     finally:
         context.close()
 
