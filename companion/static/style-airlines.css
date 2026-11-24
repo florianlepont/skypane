@@ -488,8 +488,19 @@ table.airlines-table {
   background: var(--glass-solid);
 }
 
-.airlines-table .airline-group:first-of-type:has(details.airlines-expand[open]) {
-  border-radius: var(--radius-card) var(--radius-card) 0 0;
+/* The fills of the first and last airline follow the card's rounded corners:
+ * the card's 1px border sits between its outer arc and these fills, so they
+ * take the radius one pixel smaller, and no square fill (an opened row, the
+ * opened group's tint) shows outside the arc. */
+.airlines-table .airline-group:first-of-type,
+.airlines-table .airline-group:first-of-type > .airlines-row {
+  border-top-left-radius: calc(var(--radius-card) - 1px);
+  border-top-right-radius: calc(var(--radius-card) - 1px);
+}
+
+.airlines-table .airline-group:last-of-type {
+  border-bottom-left-radius: calc(var(--radius-card) - 1px);
+  border-bottom-right-radius: calc(var(--radius-card) - 1px);
 }
 
 /* A type row has no prefixes: the empty cell would open a column of its own. */

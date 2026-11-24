@@ -711,13 +711,20 @@ html[data-ui-theme="dark"] {
  * the colour, the Safari bars and the overscroll area show the same sky. The
  * flat colour under the gradient is its first stop, the colour of the
  * theme-color tags: a browser that tints its top bar from the flat colour
- * rather than the gradient image shows no lighter band above the page. */
+ * rather than the gradient image shows no lighter band above the page.
+ * The second layer is a strip of the last stop's colour that starts at the
+ * bottom of <html> and hangs below it: on a phone the visible window can be
+ * taller than the box (the browser's toolbars retract, the page is short), and
+ * the canvas there would otherwise show the flat top colour as a band. */
 html {
   min-height: 100%;
   background-color: var(--sky-top);
-  background-image: linear-gradient(180deg, var(--sky-top) 0%, var(--sky-mid) 45%, var(--sky-bottom) 100%);
+  background-image:
+    linear-gradient(180deg, var(--sky-top) 0%, var(--sky-mid) 45%, var(--sky-bottom) 100%),
+    linear-gradient(var(--sky-bottom), var(--sky-bottom));
   background-repeat: no-repeat;
-  background-size: 100% 100%;
+  background-size: 100% 100%, 100% 200px;
+  background-position: 0 0, 0 calc(100% + 200px);
 }
 
 body {
@@ -5802,13 +5809,20 @@ a.btn[aria-disabled="true"] {
    * zones an iPhone draws under the status bar and the bottom toolbar), so
    * while the sheet is open it carries the same dim. The body then paints the
    * ground itself, so the scrim dims it once and the zones outside the window
-   * match what is inside it. */
+   * match what is inside it. The four layers mirror the page's own two (the
+   * sky and the strip hanging below the box), each under its own dim. */
   html:has(.tab-bar__more[open]) {
     background-image:
       linear-gradient(
         color-mix(in srgb, var(--color-text) 55%, transparent),
         color-mix(in srgb, var(--color-text) 55%, transparent)),
-      linear-gradient(180deg, var(--sky-top) 0%, var(--sky-mid) 45%, var(--sky-bottom) 100%);
+      linear-gradient(
+        color-mix(in srgb, var(--color-text) 55%, transparent),
+        color-mix(in srgb, var(--color-text) 55%, transparent)),
+      linear-gradient(180deg, var(--sky-top) 0%, var(--sky-mid) 45%, var(--sky-bottom) 100%),
+      linear-gradient(var(--sky-bottom), var(--sky-bottom));
+    background-size: 100% 100%, 100% 200px, 100% 100%, 100% 200px;
+    background-position: 0 0, 0 calc(100% + 200px), 0 0, 0 calc(100% + 200px);
   }
 
   body:has(.tab-bar__more[open]) {
@@ -6271,6 +6285,25 @@ a.modal__dismiss {
     margin-left: -20px;
     border-radius: var(--radius-control);
     background: var(--color-border);
+  }
+
+  /* With the keyboard up the sheet floats above it, and iOS leaves its
+   * autofill bar transparent: this fixed strip carries the sheet's own surface
+   * from the sheet's bottom edge down to the bottom of the viewport. Fixed, so
+   * it is not clipped by the sheet's scroll and adds no page height; it is
+   * zero tall while no keyboard lifts the sheet. */
+  dialog.modal::after {
+    content: "";
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    height: var(--keyboard-inset, 0px);
+    background: inherit;
+  }
+
+  dialog.modal[open] {
+    border-bottom-width: 0;
   }
 }
 

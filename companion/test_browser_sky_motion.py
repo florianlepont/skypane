@@ -116,7 +116,8 @@ def test_the_background_sits_on_the_root_and_causes_no_overflow(
             return {image: style.backgroundImage, attachment: style.backgroundAttachment,
                     colour: style.backgroundColor, beforeContent: before.content};
         }""")
-    assert root["image"].startswith("linear-gradient") and root["attachment"] == "scroll"
+    assert root["image"].startswith("linear-gradient")
+    assert set(root["attachment"].split(", ")) == {"scroll"}, "every layer scrolls with the page"
     assert root["colour"] != "rgba(0, 0, 0, 0)", "the canvas colour itself carries the sky"
     assert root["beforeContent"] in ("none", "normal"), "no fixed sky layer remains"
     assert not _assert_no_page_overflow(page, "sky/%s" % viewport["width"], viewport["width"])

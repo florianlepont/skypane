@@ -141,9 +141,9 @@ def test_the_open_sheet_dims_the_root_and_the_status_bar_tint_and_closing_restor
     context, page = _open(new_context, server, path, viewport, lang, scheme, iphone=True)
     try:
         before = page.evaluate(ROOT)
-        # The sky gradient is the root's ground everywhere but on Location, where it is the map's
-        # placeholder colour.
-        ground_layers = 0 if path == "/detection" else 1
+        # The root's ground is the sky gradient and the strip of its last colour that hangs below
+        # the box, everywhere but on Location, where it is the map's placeholder colour.
+        ground_layers = 0 if path == "/detection" else 2
         assert len(before["tints"]) == 2 and before["image"].count("gradient") == ground_layers, before
         page.locator(".tab-bar__more > summary").click()
         page.locator(".tab-bar__more-panel").wait_for(state="visible")
@@ -151,7 +151,8 @@ def test_the_open_sheet_dims_the_root_and_the_status_bar_tint_and_closing_restor
             "() => document.querySelector('meta[name=theme-color]').getAttribute('content')"
             " !== %r" % before["tints"][0], timeout=5000)
         opened = page.evaluate(ROOT)
-        assert opened["image"].count("gradient") == ground_layers + 1, opened
+        # Each ground layer sits under its own dim (one on Location, which has a single layer).
+        assert opened["image"].count("gradient") == (1 if ground_layers == 0 else 2 * ground_layers), opened
         assert opened["bodyImage"].count("gradient") == 1, opened
         ground = _rgb(opened["bg"])
         ink = _rgb(opened["text"])
