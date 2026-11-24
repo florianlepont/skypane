@@ -198,7 +198,7 @@ Slicer warnings per part: no slicer warnings, reported by the owner on 2026-11-1
 Nothing has been printed in this round. Two checks, both on the model:
 
 **Blender (owner looking, 2026-11-24).** The assistant opened
-`hardware/cad/skypane_cassette.blend` (saved with Blender 5.3.0) in the
+`hardware/cad/source/skypane_cassette.blend` (saved with Blender 5.3.0) in the
 owner's Blender, showed the tray `SkyPane_Bac` seen from the back and read the
 model. The owner looked at the screen and reported ("oui, tout est bon") that
 the ribbon slot looks wider and longer, the battery pocket looks longer, and
