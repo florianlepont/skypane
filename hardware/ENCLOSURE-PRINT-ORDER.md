@@ -144,6 +144,14 @@ generating script, like the tray change above.
   photographed. The earlier line that the design was abandoned is withdrawn: the
   variant is only set aside, not decided either way. The files stay in
   `hardware/cad/alternatives/`; no fit trial of this variant.
+- Owner report of 2026-11-24, reprint: before the reprint the owner purged the
+  nozzle and changed nothing else he mentioned (no change to the file or the
+  settings reported); the print started without a problem and, in his words, the
+  piece is "top". No photo of the supported face was sent, and how easily the
+  supports came off and the finish of that face are not reported. The cause of
+  the earlier failed prints is not determined: the purge is the only change
+  reported, and one good print does not prove it was the nozzle. No fit trial of
+  this variant yet; the variant is still not decided.
 
 Values kept, because the model and the owner's tape readings differ by about
 1 mm or less, which is the tape's resolution (owner instruction, 2026-11-18):
