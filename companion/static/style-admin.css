@@ -1210,13 +1210,16 @@ a.pair-link--primary:hover {
 
 .pair-form {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-md);
   max-width: 35rem;
 }
 
-.pair-form input {
+.pair-form input,
+.pair-form select {
   box-sizing: border-box;
   width: 100%;
+  min-width: 0;
 }
 
 /* The one card of the page: the form on top, then a tinted footer that holds
@@ -1230,8 +1233,11 @@ a.pair-link--primary:hover {
   box-shadow: var(--shadow-glass);
 }
 
+/* One shrinkable column: a long Owner option must not widen the track past the
+ * card (a grid item's automatic minimum is its content width). */
 .pair-card__main {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-sm);
   padding: var(--space-md);
 }
