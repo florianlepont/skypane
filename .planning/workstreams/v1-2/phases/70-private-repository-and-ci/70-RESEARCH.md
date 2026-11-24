@@ -373,15 +373,15 @@ type=pem-private-key  file=path/to/file  commit=abc1234  lines=12
 | A9 | gitleaks `--redact` available with the installed version | Inventory | Use only the repo script |
 | A10 | Runner must be kept updated (GitHub blocks very old runners); JIT runners update on start | Runner | Pin refresh in the launcher |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Mac model and uptime?** (architecture, VM vs always-on). Recommendation: ask; default to Apple Silicon Linux VM, Mac kept awake while sessions run.
-2. **Where do the `DEPLOY_*` and `PRODUCTION_HOST` secrets live (repo vs environment)?** Only the owner can check. Blocks the proof run design.
-3. **Does the owner want Tier 2 (signed deploy ticket) now or in Phase 66?** Affects scope of plan(s).
-4. **CI-green rule for a docs-only tip of main** (no check run for that SHA): allow `ci_sha` input or require the owner to wait? Recommendation: input `ci_sha` defaulting to the tip, failing clearly if absent.
-5. **Which tag number is the test release?** Recommend `fw-v1.2.2`; owner confirms because it is permanent.
-6. **Does the session GitHub integration keep working on private repos, and with what scopes?** Unverifiable here.
-7. **Should `firmware.yml` (about 900 hosted min/month) move to the VM runner?** Recommend yes.
+1. **Mac model and uptime?** (architecture, VM vs always-on). Recommendation: ask; default to Apple Silicon Linux VM, Mac kept awake while sessions run. RESOLVED: 70-07 Task 1 (owner records chip, memory, uptime and the architecture choice in 70-MEASUREMENTS.md).
+2. **Where do the `DEPLOY_*` and `PRODUCTION_HOST` secrets live (repo vs environment)?** Only the owner can check. Blocks the proof run design. RESOLVED: 70-02 Task 1 (owner lists names per level and re-creates missing ones at repository level).
+3. **Does the owner want Tier 2 (signed deploy ticket) now or in Phase 66?** Affects scope of plan(s). RESOLVED: 70-02 Task 2 (owner decision recorded; follow-up plan 70-02b only if a gate or ticket is chosen, otherwise Phase 66 hand-off).
+4. **CI-green rule for a docs-only tip of main** (no check run for that SHA): allow `ci_sha` input or require the owner to wait? Recommendation: input `ci_sha` defaulting to the tip, failing clearly if absent. RESOLVED: 70-01 (deploy.yml `ci_sha` input, used in 70-02 Task 3 step 3).
+5. **Which tag number is the test release?** Recommend `fw-v1.2.2`; owner confirms because it is permanent. RESOLVED: 70-05 (owner confirms the tag at the checkpoint before it is pushed).
+6. **Does the session GitHub integration keep working on private repos, and with what scopes?** Unverifiable here. RESOLVED: 70-10 Task 1 row 7 (owner confirms scopes before the flip) and Task 3 items 1-2 (session verifies push, draft PR, CI status and logs after the flip).
+7. **Should `firmware.yml` (about 900 hosted min/month) move to the VM runner?** Recommend yes. RESOLVED: 70-06 Task 1 (firmware.yml runs-on uses CI_RUNS_ON).
 
 ## Environment Availability
 
