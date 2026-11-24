@@ -260,8 +260,9 @@ its own. Leaving a frame opens a dialog with "Stay on this frame".
   state, sign-in cancelled returns 303. A page restored after the session ended shows the translated
   "session expired" toast (`session-guard.js`) and redirects to `/login?next=...&expired=1`. A refused
   pairing code is kept 2 minutes in the `sp_pair_code` cookie for one showing (`pair_code_cookie.py`).
-- Credits (`credits_page.py`): reachable from Account's About group and from sign-in; signed in, a
-  chevron "Back to Account" link above the title; anonymous, "Back to sign in" at the bottom.
+- Credits (`credits_page.py`): reachable from Account's About group and from sign-in; signed in, the page
+  is drawn with no navigation at all (`page_shell(bare=True)`: no sidebar, tab bar, space switch or frame
+  button) and a chevron "Back to Account" link above the title; anonymous, "Back to sign in" at the bottom.
 - **404:** an "empty frame" drawn inline (an SVG in the page ink, decorative, 260px at most) over one
   muted caption ("Nothing hangs on this wall.") on a panel, the same for every caller; status stays
   404 and the back link goes to the frame home, Account or sign-in as the caller needs. 403 and 500

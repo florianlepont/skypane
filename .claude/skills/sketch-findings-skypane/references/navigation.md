@@ -40,8 +40,8 @@ motion) without loading the page again; on a sub-page of that tab the link still
 | Personal (administrator and user alike) | Home, Flights, Airlines, Style, Location, More |
 | Console (administrator only) | Fleet (carries the severity dot), Users, Editor, System, More (Account, Audit, back to My frames) |
 
-A page that belongs to no cell (Credits, Components, error pages) marks More as current, so the
-pill is on every page. A bar with no cells (a frame's not-found page) renders More alone.
+A page that belongs to no cell (Components, error pages) marks More as current, so the
+pill is on every page. A bar with no cells (a frame's not-found page) renders More alone. Credits, signed in, has no bar at all.
 `<body class="has-tab-bar">` reserves the page clearance; `#tab-bar-end` makes the first paint wait
 for the whole bar.
 
