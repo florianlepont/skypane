@@ -105,10 +105,10 @@ y +-17 and solid just outside, and the partition solid at y about -44.7 and
 open at the old position y about -42.8. The nearest standoff is about 3.6 mm
 from a corner of the new slot, so no wall under 0.8 mm appears around the slot.
 
-Still to do, none done yet: the owner opens the blend in his Blender and
-looks at the tray; the tray is sliced in Bambu Studio to see whether any
-support appears and the print time and mass; the tray is reprinted in PLA on the
-same machine and plate; the fit of the ribbon and of the battery is tried again.
+Done on 2026-11-24: the owner looked at the tray in Blender and the tray was
+sliced (see "Slice check, 2026-11-24" below). Still to do: the tray is reprinted
+in PLA on the same machine and plate; the fit of the ribbon, of the battery and
+of the board is tried again; then the lid is printed.
 
 #### Alternative: tray and shim in one part (not decided)
 
@@ -133,7 +133,9 @@ generating script, like the tray change above.
   front of the pocket; the finish of that face and the effort to remove them are
   not known. The opposite pose (floor up) would need supports under the whole floor,
   which is worse.
-- Not done: no slicer run, no print, no fit trial of this variant.
+- Sliced once on 2026-11-24 (see "Slice check, 2026-11-24" below): the slicer
+  does add support under the pocket ceiling. Not done: no print, no fit trial
+  of this variant.
 
 Values kept, because the model and the owner's tape readings differ by about
 1 mm or less, which is the tape's resolution (owner instruction, 2026-11-18):
@@ -190,6 +192,72 @@ Slicer warnings per part: no slicer warnings, reported by the owner on 2026-11-1
 | Lid | `skypane_lid.stl` | Bambu Studio 2.9.1.70 | 0.20 mm | 3 | 20 % grid | no (switched off) | 0.4 (ridges between the hook notches; letters excluded) | 1.0 (0.71 for the engraved indications) | 51.56 | 1 h 22 min (cost 0.72) |
 | Stand | `skypane_stand.stl` | Bambu Studio 2.9.1.70 | 0.20 mm | 3 | 20 % grid | no (switched off) | 4.0 (plate thickness) | none | 11.70 for stand and shim together | 29 min 8 s for stand and shim together (cost 0.16) |
 | Shim | `skypane_shim.stl` | Bambu Studio 2.9.1.70 | 0.20 mm | 3 | 20 % grid | no (switched off) | 5.4 (narrowest bar of the frame, 1.0 thick) | none | (with the stand) | (with the stand, see above) |
+
+### Slice check, 2026-11-24 (reprinted tray and merged variant)
+
+Nothing has been printed in this round. Two checks, both on the model:
+
+**Blender (owner looking, 2026-11-24).** The assistant opened
+`hardware/cad/skypane_cassette.blend` (saved with Blender 5.3.0) in the
+owner's Blender, showed the tray `SkyPane_Bac` seen from the back and read the
+model. The owner looked at the screen and reported ("oui, tout est bon") that
+the ribbon slot looks wider and longer, the battery pocket looks longer, and
+nothing looks wrong around the slot. What the assistant read on the model (model
+values, design values, not measured): the floor is open over x 51.2 to 59.2 mm
+and y -17 to +17 mm (8 x 34 mm); the lower partition sits at y -45.35 to -44.15
+mm; the nearest standoff edge is about 3.6 mm from the slot corner; the antenna
+block (y from 63.4 mm) and the stand magnet bosses on the lid (x 26 to 36 mm) are
+far from the slot; the floor is 1.2 mm thick and the partition 1.2 mm, so no wall
+under 0.8 mm is added by the change. The four parts are closed meshes (0 open
+edges) and their volumes equal those of the exported STL files (tray 52246 mm3,
+lid 42494, stand 8010.5, shim 4767); the lid, stand and shim STL files have not
+changed since the first export (git history). The lid has 8408 triangles in
+Blender and 8406 in the STL; the difference is not explained (the volumes agree to 0.1 mm3, so it is
+not a design change; probably the near-zero-area triangles the export drops).
+
+**Slicer (assistant, command line).** Sliced by the assistant on 2026-11-24 with
+Bambu Studio 2.9.1.70 run from the command line on the owner's Mac, not in the
+window: the owner did not see these slices on screen, and the values below are
+read from the G-code header and the result file the slicer wrote. Profile:
+Bambu Lab X1 Carbon, 0.4 mm nozzle, "0.20mm Standard @BBL X1C", filament
+"Bambu PLA Basic @BBL X1C" (PLA, density 1.26 g/cm3 in the profile), no
+plate-specific setting chosen (the profile says Cool Plate; the owner's plate is
+not stated). Layer height 0.20 mm. The system profile has 2 walls and 15 % grid
+infill; the main rows use 3 walls and 20 % grid infill, as in the first slice of
+2026-11-19, so the rows can be compared. The slicer reported no error or warning
+in its result file (the command line does not show the on-screen alerts of the
+window).
+
+| Part | File | Walls | Infill | Supports | Estimated mass (g) | Estimated print time |
+|---|---|---|---|---|---|---|
+| Tray, reprint | `skypane_tray.stl` | 3 | 20 % grid | off | 58.42 | 1 h 19 min 56 s |
+| Tray, reprint | `skypane_tray.stl` | 3 | 20 % grid | auto (normal) | 58.42 | 1 h 19 min 56 s (no support generated) |
+| Tray, reprint | `skypane_tray.stl` | 2 (system profile) | 15 % grid | off | 56.58 | 1 h 15 min 2 s |
+| Tray and shim in one part | `skypane_tray_shim_merged.stl` | 3 | 20 % grid | off | 62.89 | 1 h 38 min 43 s |
+| Tray and shim in one part | `skypane_tray_shim_merged.stl` | 3 | 20 % grid | auto (normal) | 73.21 | 2 h 8 min 5 s |
+
+Reading of the rows:
+
+- Tray: no overhang needing support. With automatic supports switched on, the
+  slicer wrote no support at all and the mass and time are the same as without.
+  The slicer still prints bridge lines (61 s in total, as in the first slice of
+  the tray), which is normal for the layers over the infill. Against the first
+  slice (56.29 g, 1 h 32 min, P2S, PETG, 0.20 mm): the mass is 2.1 g higher with
+  the same walls and infill (the longer slot removes material, the PLA density
+  and the profile differ, so no comparison of cause is made) and the estimated
+  time is shorter on the X1 Carbon.
+- Merged variant: with supports the mass grows by 10.32 g (62.89 to 73.21 g) and
+  the time by 29 min 22 s. The slicer put the supports in layers 0.2 to 0.8 mm
+  (four layers) in the pose of the file, which is the rim on the plate; the
+  supported face is the ceiling of the screen pocket, the face that lies against
+  the back of the screen, as expected from the computation above. The finish of
+  that face after removal is not known. The merged part costs 14.8 g and about
+  48 min more than the tray alone, plus the shim to print apart (stand and shim
+  were 11.70 g and 29 min together in the first slice).
+- The thinnest wall and slot are not read from the slicer; they stay the model
+  values of 2026-11-18 above (no wall under 0.8 mm outside the engraved letters).
+- Masses and times are estimates of the slicer (design values), not weighed and
+  not measured on a print.
 
 ## Files
 
