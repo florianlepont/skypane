@@ -138,7 +138,7 @@ def dialog_html(
         dismiss_label, dismiss_href, destructive=False, confirm_only=False,
         open_=False, subtitle=None, focus_id=None, focus_title=False,
         return_on_close=False, return_focus_id=None, secondary_dismiss=False,
-        extra_action_html="", variant="", scrim_close=False):
+        extra_action_html="", variant="", scrim_close=False, submit_attrs=""):
     """One modal dialog wrapping a POST form.
 
     `dismiss_href` is the host page path: the close and dismiss links go
@@ -170,6 +170,8 @@ def dialog_html(
     "compact-top" sits in the upper part of a wide screen instead of its
     middle. The variant is a modifier class on that dialog only; every other
     dialog keeps its own spacing.
+    `submit_attrs` (already escaped, empty by default) adds attributes to the
+    submit button.
     `scrim_close` lets a tap outside close a dialog that holds a field (which
     otherwise ignores it so typed text is not lost): for a one-field dialog
     where cancelling discards.
@@ -216,7 +218,7 @@ def dialog_html(
         '%(head)s'
         '<div class="modal__body">%(body)s</div>'
         '<div class="modal__actions">'
-        '<button type="submit"%(submit_class)s%(submit_focus)s>%(submit)s</button>'
+        '<button type="submit"%(submit_class)s%(submit_focus)s%(submit_attrs)s>%(submit)s</button>'
         '<a class="%(dismiss_class)s" href="%(href)s" data-modal-close%(dismiss_focus)s>%(dismiss)s</a>'
         '%(extra_action)s</div></form></dialog>\n'
     ) % {
@@ -232,6 +234,7 @@ def dialog_html(
         "body": body_html,
         "submit_class": submit_class,
         "submit_focus": submit_focus,
+        "submit_attrs": submit_attrs,
         "submit": escape_html(submit_label),
         "dismiss_focus": dismiss_focus,
         "dismiss_class": dismiss_class,

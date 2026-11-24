@@ -12,7 +12,7 @@ import datetime
 from typing import NamedTuple
 
 from companion import device_scope, frame_status, i18n, ui_modal
-from companion.ui_base import escape_html, validation_attrs
+from companion.ui_base import escape_html, icon_html, validation_attrs
 
 KIND_LIVE = frame_status.KIND_LIVE
 KIND_PENDING = frame_status.KIND_PENDING
@@ -59,6 +59,11 @@ _TITLE_REACTIVATE = i18n.msg(
 _NEW_OWNER = i18n.msg("admin_fleet.new_owner", "New owner")
 _TITLE_REASSIGN = i18n.msg("admin_fleet.reassign_frame_title", "Reassign “%s”?")
 _CANCEL = i18n.msg("admin_fleet.cancel", "Cancel")
+_REASSIGN_CHOOSE_HINT = i18n.msg(
+    "admin_fleet.reassign_choose_owner_hint", "Choose an owner to continue.")
+_REASSIGN_CO_MANAGERS = i18n.msg(
+    "admin_fleet.reassign_co_managers_lose_access",
+    "Co-managers lose their access to this frame.")
 _REASSIGN_ARIA = i18n.msg("admin_fleet.reassign_aria", "Reassign %s to another owner")
 _RETIRE_SENTENCE = i18n.msg(
     "admin_fleet.this_frame_will_show_a_retired_screen_and_stop_updating",
@@ -317,13 +322,32 @@ def reassign_dialog_html(row, view):
     field_id = _slug("fleet-reassign", row.frame_id) + "-owner"
     field = (
         '<div class="modal__field"><label for="%s">%s</label>'
-        '<select id="%s" name="%s" required%s>%s</select></div>' % (
+        '<select id="%s" name="%s" required data-gate-select%s>%s</select>'
+        '<p class="text-label" data-gate-hint hidden>%s</p></div>' % (
             field_id, _t(_NEW_OWNER), field_id, OWNER_FIELD,
-            validation_attrs("select"), _owner_options(view._replace(owner_selected=""))))
-    return _frame_dialog(
-        row, _slug("dlg-reassign", row.frame_id), _routes().FRAME_REASSIGN_SUFFIX,
-        i18n.t(_TITLE_REASSIGN), sentence, field, _ACTION_REASSIGN, _CANCEL,
-        with_hardware=False, secondary_dismiss=True, destructive=not row.is_live_frame)
+            validation_attrs("select"), _owner_options(view._replace(owner_selected="")),
+            _t(_REASSIGN_CHOOSE_HINT)))
+    # What the change does, in two lines: a tick when nothing is lost, a
+    # warning mark when something is.
+    checks = (
+        '<ul class="modal__effects">%s%s</ul>' % (
+            _check_item(sentence, ok=row.is_live_frame),
+            _check_item(i18n.t(_REASSIGN_CO_MANAGERS), ok=False)))
+    return ui_modal.dialog_html(
+        _slug("dlg-reassign", row.frame_id),
+        i18n.t(_TITLE_REASSIGN) % _display_name(row),
+        _routes().FRAME_ACTION_PREFIX + row.frame_id + _routes().FRAME_REASSIGN_SUFFIX,
+        _ui().csrf_field(), field + checks, i18n.t(_ACTION_REASSIGN), i18n.t(_CANCEL),
+        _routes().FLEET_ROUTE if row.kind != KIND_LIVE else "%s?frame=%s&tab=access" % (
+            _routes().FLEET_ROUTE, row.frame_id),
+        secondary_dismiss=True, destructive=not row.is_live_frame,
+        submit_attrs=" data-needs-choice")
+
+
+def _check_item(text, ok):
+    icon = icon_html("icon-check" if ok else "icon-warning", size=20)
+    return '<li class="modal__effect modal__effect--%s">%s<span>%s</span></li>' % (
+        "ok" if ok else "warn", icon, _esc(text))
 
 
 def retire_row_html(row):

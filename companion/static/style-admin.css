@@ -2007,7 +2007,7 @@ dialog.access-sheet .modal__body {
   place-items: center;
   width: 32px;
   height: 32px;
-  margin-left: var(--space-md);
+  margin-left: var(--space-xs);
   border-radius: 50%;
   background: color-mix(in srgb, var(--color-accent) 12%, transparent);
   color: var(--color-accent);
@@ -3107,4 +3107,51 @@ a.fleet-action-button {
   .fleet-blocks > .fleet-block {
     scroll-margin-top: calc(var(--safe-top) + var(--app-bar-drop) + 44px + 2 * var(--space-sm));
   }
+}
+
+/* The two-line list of what a confirmation does: a green tick where nothing
+ * is lost, an amber warning mark where something is. */
+.modal__effects {
+  display: grid;
+  gap: var(--space-xs);
+  margin: var(--space-sm) 0 0;
+  padding: var(--space-xs) var(--space-md);
+  list-style: none;
+  background: var(--glass-solid);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  font-size: var(--font-label-size);
+}
+
+.modal__effect {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-height: 44px;
+  padding: var(--space-xs) 0;
+}
+
+.modal__effect + .modal__effect {
+  border-top: 1px solid var(--glass-hairline);
+}
+
+.modal__effect .icon {
+  flex: none;
+  margin-top: 2px;
+}
+
+.modal__effect--ok .icon {
+  color: var(--color-status-ok);
+}
+
+.modal__effect--warn .icon {
+  color: var(--color-status-warn);
+}
+
+/* A button with a leading glyph in the retry form of the failure dialog. */
+.modal--compact .modal__actions > form > button.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
 }
