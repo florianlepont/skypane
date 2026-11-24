@@ -21,7 +21,7 @@ Print the back of the SkyPane 7.3 inch e-ink frame, to sit inside an IKEA RÖDAL
 
 1. **Tray** (bac): holds the board, the battery and the antenna.
 2. **Lid** (couvercle): carries the two wall hooks, the supports for the frame tabs (no screw lugs since 2026-11-24), two pairs of hinge sockets for the stand and the engraved name.
-3. **Stand** (chevalet): one hinged leg, 76 mm wide, whose two pins snap into sockets on the lid (one pair for landscape, one for portrait) and stand the frame on a piece of furniture at a tilt of 20 degrees; it folds flat on the lid back.
+3. **Stand** (chevalet): one hinged leg, 76 mm wide at the hinge and 56 mm at the foot, whose two pins snap into sockets on the lid (one pair for landscape, one for portrait) and stand the frame on a piece of furniture at a tilt of 20 degrees; it folds flat on the lid back.
 4. **Centring shim** (cale) for the screen.
 
 Intended use: landscape as the base format (board at the bottom), portrait as
