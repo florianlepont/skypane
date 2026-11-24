@@ -2,9 +2,9 @@
 id: SEED-016
 status: dormant
 planted: 2026-11-15
-planted_during: "v1.2, owner's roadmap discussion (idea forgotten from the v1.3 and v1.4 planning of 2026-11-14)"
-trigger_when: "Milestone v1.3, set by the owner on 2026-11-15 when v1.3 and v1.4 were split; it follows the wake interval per mode of photo mode; surface it at /gsd-new-milestone."
-target_milestone: v1.3
+planted_during: "v1.2, owner's roadmap discussion (idea forgotten from the v1.4 and v1.3 planning of 2026-11-14)"
+trigger_when: "Milestone v1.4, set by the owner on 2026-11-15 when v1.4 and v1.3 were split; it follows the wake interval per mode of photo mode; surface it at /gsd-new-milestone."
+target_milestone: v1.4
 scope: small
 ---
 
@@ -20,7 +20,7 @@ set by the owner, not by the user.
 
 ## When to Surface
 
-**Trigger:** milestone v1.3 (confirmed by the owner on 2026-11-15), because
+**Trigger:** milestone v1.4 (confirmed by the owner on 2026-11-15), because
 photo mode (SEED-013) already needs a wake interval per mode. Do not start
 before Phase 47.1 has produced its wake-energy measurements: the saving of
 each setting has to be shown with real numbers, not guessed.

@@ -1,10 +1,11 @@
 ---
 id: SEED-011
-status: dormant
+status: fulfilled
+resolved_date: 2026-11-24
 planted: 2026-10-31
 planted_during: "v1.2 Phase 54 (Auth0 sign-in), owner's production test"
-trigger_when: "Milestone v1.4, moved from v1.2 by the owner on 2026-11-18; surface it with SEED-012 (the administrator invite that creates the Auth0 account), since both concern the first sign-in; surface it at /gsd-new-milestone."
-target_milestone: v1.4
+trigger_when: "Milestone v1.3, moved from v1.2 by the owner on 2026-11-18; surface it with SEED-012 (the administrator invite that creates the Auth0 account), since both concern the first sign-in; surface it at /gsd-new-milestone."
+target_milestone: v1.3
 scope: small
 ---
 
@@ -26,7 +27,7 @@ written to the companion journal as `sign-in refused: <reason>`; confirm
 
 ## When to Surface
 
-**Trigger:** v1.4 (moved from v1.2 by the owner on 2026-11-18), whenever Auth0 sign-in, the Account page or the sign-in
+**Trigger:** v1.3 (moved from v1.2 by the owner on 2026-11-18), whenever Auth0 sign-in, the Account page or the sign-in
 error pages are next touched (Phase 55 is the natural carrier), or when the
 admin invite flow (SEED-012) is built, since both concern the same first
 sign-in.
@@ -58,3 +59,7 @@ sign-in.
 ## Notes
 
 Observed by the owner during the Phase 54 production test. Related: SEED-012.
+
+## Resolution (2026-11-24)
+
+Found already delivered while the owner swapped milestones v1.3 and v1.4: Phase 61 (`unverified_email_page` in `companion/login_page.py`, used by `companion/sign_in.py`, first in commit b404122e, PR #287, 2026-11-03). Marked fulfilled; no milestone needed.

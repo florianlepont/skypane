@@ -3,8 +3,8 @@ id: SEED-013
 status: dormant
 planted: 2026-11-10
 planted_during: "Exploration session on branch explore/photo-mode-v1-3 (no production code changed)"
-trigger_when: "Milestone v1.3 — the owner chose to open it after the concept discussion of 2026-11-10; surface it at /gsd-new-milestone."
-target_milestone: v1.3
+trigger_when: "Milestone v1.4 — the owner chose to open it after the concept discussion of 2026-11-10; surface it at /gsd-new-milestone."
+target_milestone: v1.4
 scope: large
 ---
 
@@ -20,14 +20,14 @@ mode should also help battery life.
 
 ## When to Surface
 
-**Trigger:** `/gsd-new-milestone` for v1.3. The decisions are already taken, so
+**Trigger:** `/gsd-new-milestone` for v1.4. The decisions are already taken, so
 the milestone can go straight to requirements and phases.
 
 ## Scope Estimate
 
-**Large.** The concept brief of 2026-11-10 split it into v1.3 (own photos:
-upload, per-frame mode, rotation) and v1.3.x (provided collections). **The owner
-widened v1.3 on 2026-11-14**; see "Owner update, 2026-11-14" below, which
+**Large.** The concept brief of 2026-11-10 split it into v1.4 (own photos:
+upload, per-frame mode, rotation) and v1.4.x (provided collections). **The owner
+widened v1.4 on 2026-11-14**; see "Owner update, 2026-11-14" below, which
 supersedes that split.
 
 Full decisions, risks, visual trials and a five-phase outline are in
@@ -44,7 +44,7 @@ Full decisions, risks, visual trials and a five-phase outline are in
 
 ## Owner update, 2026-11-14
 
-The owner's plan for milestone v1.3 now contains all of the following:
+The owner's plan for milestone v1.4 now contains all of the following:
 
 1. **Photo frames with messages.** A frame in photo mode can show a short
    message with its pictures. This is the existing future requirement MSG-01
@@ -80,7 +80,7 @@ The owner's plan for milestone v1.3 now contains all of the following:
    first pictures. It builds on the pairing by code (Phase 55) and the
    refreshed companion (Phase 61). SEED-012 (an admin invite that also creates
    the Auth0 account) belongs next to it.
-5. **A photo collection system, in v1.3, not v1.3.x.** Collections come from
+5. **A photo collection system, in v1.4, not v1.4.x.** Collections come from
    two kinds of source: **public** (public domain or CC0 only, as decided on
    2026-11-10) and **partnerships** (for example the artist collection that has
    a written agreement). Each image keeps source, author and licence; a
@@ -109,11 +109,11 @@ The owner's plan for milestone v1.3 now contains all of the following:
    shown by an unclaimed frame (Phase 55). It is a firmware change, so it
    reaches existing frames only by an over-the-air update (see Prerequisites).
 
-## Split of v1.3 and v1.4 (owner, 2026-11-15)
+## Split of v1.4 and v1.3 (owner, 2026-11-15)
 
-SEED-013 is split between two milestones. **v1.3 "Photo"** keeps items 1, 2, 3
+SEED-013 is split between two milestones. **v1.4 "Photo"** keeps items 1, 2, 3
 and 5: messages, portrait and landscape for both frames, plane or photo, and the
-photo collection system. **v1.4 "Ready to give"** takes item 4 (the
+photo collection system. **v1.3 "Ready to give"** takes item 4 (the
 getting-started wizard) and item 6 (the simplified Wi-Fi setup), with the
 invitation that creates the Auth0 account (SEED-012). See
 `.planning/notes/milestone-plan-v1-3-v1-4.md`.
