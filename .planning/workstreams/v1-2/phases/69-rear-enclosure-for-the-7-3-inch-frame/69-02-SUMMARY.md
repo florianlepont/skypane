@@ -28,7 +28,7 @@ Status: complete for the closeout work (stale-text sweep, go condition, owner qu
 
 ## What is true
 
-- The design was reworked with the owner on 2026-11-18 and 2026-11-19 in `hardware/cad/skypane_cassette.blend`; four STL are in `hardware/cad/export/` (exported 2026-11-18 per the previous record).
+- The design was reworked with the owner on 2026-11-18 and 2026-11-19 in `hardware/cad/source/skypane_cassette.blend`; four STL are in `hardware/cad/print/` (exported 2026-11-18 per the previous record).
 - The owner sliced all four parts on 2026-11-19 (Bambu Studio 2.9.1.70, P2S profile, PETG Basic, 0.20 mm, 3 walls, 20 % grid, textured PEI, no supports). Times and masses are in the print order: tray 1 h 32 min, 56.29 g; lid 1 h 22 min, 51.56 g; stand and shim 29 min 8 s, 11.70 g together. Nothing has been printed.
 - The thinnest wall and slot are model values computed in Blender, not read from Bambu Studio. The fibreboard edge depth (74 mm, called wood in the model), the mass centre depth (6 mm) and the tab grip are model values too.
 

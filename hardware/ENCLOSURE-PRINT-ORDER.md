@@ -77,9 +77,9 @@ design values, not measured. The tray is reprinted once with all of them. On the
 #### What was changed in the Blender file
 
 Made by the assistant on 2026-11-23 at the owner's request, in the generating
-script stored in `hardware/cad/skypane_cassette.blend` (text block
+script stored in `hardware/cad/source/skypane_cassette.blend` (text block
 `skypane_cassette.py`), then the parts were regenerated and the tray exported
-again (`hardware/cad/export/skypane_tray.stl`). The assistant used Blender as a
+again (`hardware/cad/print/skypane_tray.stl`). The assistant used Blender as a
 Python module (version 5.3), not the owner's Blender session. The lid, the shim
 and the stand plate were regenerated too and came out identical (same triangle
 counts and volumes as the previous export), and the reproduction of the
@@ -114,9 +114,9 @@ of the board is tried again; then the lid is printed.
 
 Asked for by the owner on 2026-11-24 as an alternative version. The main design
 stays two parts that the owner glues; this variant is only a file to look at and
-slice. Files: `hardware/cad/skypane_cassette_merged.blend` (the main blend with a
+slice. Files: `hardware/cad/alternatives/skypane_cassette_merged.blend` (the main blend with a
 union of the tray and the shim, the separate objects kept and hidden) and
-`hardware/cad/export/skypane_tray_shim_merged.stl` (one part, 132.0 x 182.0 x
+`hardware/cad/alternatives/skypane_tray_shim_merged.stl` (one part, 132.0 x 182.0 x
 12.0 mm: 1.0 mm rim in front of the 11.0 mm tray). Made by the assistant in the
 generating script, like the tray change above.
 
@@ -198,7 +198,7 @@ Slicer warnings per part: no slicer warnings, reported by the owner on 2026-11-1
 Nothing has been printed in this round. Two checks, both on the model:
 
 **Blender (owner looking, 2026-11-24).** The assistant opened
-`hardware/cad/skypane_cassette.blend` (saved with Blender 5.3.0) in the
+`hardware/cad/source/skypane_cassette.blend` (saved with Blender 5.3.0) in the
 owner's Blender, showed the tray `SkyPane_Bac` seen from the back and read the
 model. The owner looked at the screen and reported ("oui, tout est bon") that
 the ribbon slot looks wider and longer, the battery pocket looks longer, and
@@ -261,8 +261,8 @@ Reading of the rows:
 
 ## Files
 
-Printable files are in `hardware/cad/export/`, one per part, exported by the
-assistant from `hardware/cad/skypane_cassette.blend` on 2026-11-18 as binary STL
+Printable files are in `hardware/cad/print/`, one per part, exported by the
+assistant from `hardware/cad/source/skypane_cassette.blend` on 2026-11-18 as binary STL
 in millimetres, each part lying in its printing pose (lowest point at z = 0):
 
 | File | Size of the part | Triangles | Exported (as reported) | Blend saved (as reported) |
@@ -272,7 +272,7 @@ in millimetres, each part lying in its printing pose (lowest point at z = 0):
 | `skypane_stand.stl` | 71.0 x 30.0 x 4.0 mm | 396 | as above | to confirm |
 | `skypane_shim.stl` | 132.0 x 182.0 x 1.0 mm | 208 | as above | to confirm |
 | `skypane_lid.3mf` | not read | not read | present in the export folder; its role is open (asked 2026-11-19) | to confirm |
-| `skypane_cassette.blend1` (in `hardware/cad/`) | a Blender automatic backup copy, not a design source | not applicable | not applicable | not applicable |
+| `skypane_cassette.blend1` | removed on 2026-11-24: a Blender automatic backup copy, not a design source (still in the git history) | not applicable | not applicable | not applicable |
 
 The owner reported on 2026-11-19 that the exported STL match the final blend ("oui"). He gave no export date and did not say what `skypane_lid.3mf` is: the export date and the 3mf role stay open.
 
