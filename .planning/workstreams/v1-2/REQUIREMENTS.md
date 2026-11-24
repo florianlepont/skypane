@@ -103,7 +103,7 @@ Runs in parallel with v1.1 Phase 47 (open, untouched). Phase numbering continues
 
 ### Console and Companion Visual Improvements
 
-- [ ] **CON-01**: The visual improvements the owner lists for the console and the companion are made within the design system, in English and French and at phone width, with mockups approved first and no behaviour change beyond the list.
+- [x] **CON-01**: The visual improvements the owner lists for the console and the companion are made within the design system, in English and French and at phone width, with mockups approved first and no behaviour change beyond the list.
 
 ### Design System Consistency
 
@@ -191,7 +191,7 @@ Coverage: 47/47 v1.2 requirements mapped, each to exactly one phase.
 | TRK-01 | Phase 65 | Complete |
 | TRK-02 | Phase 65 | Complete (Orly 06/24 not in use, left untested by the owner's decision of 2026-11-18) |
 | BAT-01 | SEED-019 (v1.3) | Moved out of Phase 65 on 2026-11-15 |
-| CON-01 | Phase 68 | Pending |
+| CON-01 | Phase 68 | Complete (validated by the owner on the deployed companion, English and French, on 2026-11-24) |
 | DSY-01 | Phase 68.1 | Pending |
 | DSY-02 | Phase 68.1 | Pending |
 | DSY-03 | Phase 68.1 | Pending |
