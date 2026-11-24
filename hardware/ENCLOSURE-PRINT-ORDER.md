@@ -340,6 +340,18 @@ with lugs. Design value, not measured, not printed.
 The 4 M2 screws of the lid on the tray corners (the corner posts) are not part
 of this change.
 
+Owner report of 2026-11-24 (evening): the owner saved the Blender file after
+deleting the two duplicate copies of the one-part tray that the assistant's
+regeneration had left in it (`SkyPane_Bac_Cale.001` and `.002`; the old separate
+tray and shim objects are visible again in the file). The meshes are unchanged
+(checked by the assistant on 2026-11-24: same vertex hashes, the stand still at
+its 20 degree design, same script). The owner also recreated the Bambu Studio
+project as `print/skypane_lid.3mf`, holding the lid with no lugs (7552
+triangles), the one-part tray and shim (7408) and the stand (396), and removed
+the two earlier projects `skypane_printing.3mf` and
+`skypane_tray_shim_merged.3mf`. Read by the assistant from the files (triangle
+counts), not sliced or printed.
+
 ### Lid tab pads moved, 2026-11-24
 
 First trial of the lid on the frame (photos from the owner, lid not yet screwed):
