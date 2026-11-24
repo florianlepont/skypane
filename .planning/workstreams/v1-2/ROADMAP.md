@@ -788,9 +788,10 @@ Plans: TBD
   5. The assembled frame is validated by the owner: the screen sits centred behind the mat, the board, battery and antenna fit and the battery is not pinched, USB-C, switch and buttons are reachable, it hangs level on the wall hooks, the stand holds it on furniture, and the Wi-Fi signal measured by the frame is not worse than without the enclosure (same place, same access point).
   6. The design files (source and printable) and a short assembly note are stored under `hardware/`, the bill of materials (`hardware/BOM.md`) lists the added parts and their cost, and SEED-014 is updated to show what this phase settled.
 
-**Not in this phase**: the administrator tool for initial setup and flashing (SEED-014, v1.4), an enclosure for the 13.3 inch frame, a series production method and costs (SEED-015), battery discharge measurements (SEED-019), and any firmware change.
+**Not in this phase**: the administrator tool for initial setup and flashing (SEED-014, v1.4), an enclosure for the 13.3 inch frame (SEED-022, owner decision of 2026-11-24), a series production method and costs (SEED-015), battery discharge measurements (SEED-019), and any firmware change.
 **Decisions** (discuss-phase, 2026-11-18): milestone v1.2 MAY CLOSE before this phase is finished; an unfinished phase carries into the next milestone (owner decision). First print on the owner's workplace Bambu printers (owner update 2026-11-18, replaces the print service), no printer purchase for now. Measurements by the owner, screen first, then frame, then ribbon, cable and masses. PETG any colour (owner update 2026-11-18), 0.4 mm nozzle, M2 self-tapping screws. Wi-Fi compared by the frame's reported RSSI, same place and access point (see `69-CONTEXT.md`).
-**Must not break**: the live frame and its configuration; nothing in this phase changes code or the deployed system.
+**Scope addition** (owner, 2026-11-24): this phase also reframes the displayed image to the visible window of the mat (the mat covers the edges of the screen's active area), see D-14 in `69-CONTEXT.md`. It is server-side rendering for the EE04 image, not firmware, and it still needs its own plan; it is not in the plans below yet and not in the success criteria.
+**Must not break**: the live frame and its configuration; nothing in this phase changes firmware or the deployed system. The enclosure work changes no code; the image reframing (plan to be written) will change rendering code and must not alter the live 13.3 inch frame's images or the files of other running phases.
 
 **Plans**: 7 plans
 Plans:
