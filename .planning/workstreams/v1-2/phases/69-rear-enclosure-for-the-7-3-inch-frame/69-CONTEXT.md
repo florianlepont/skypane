@@ -6,7 +6,7 @@
 <domain>
 ## Phase Boundary
 
-A printed rear enclosure (tray, lid with wall hooks, loose stand plate, centring shim) for the Seeed EE04 frame (7.3 inch Spectra 6) that fits an IKEA RÖDALM 13 x 18 cm black frame; requirement ENC-01. It is owner-driven physical work: the planner writes plans, checklists and record templates; the owner measures, designs, prints and tests. No code, no firmware, no server change, nothing deployed.
+A printed rear enclosure (tray, lid with wall hooks, loose stand plate, centring shim) for the Seeed EE04 frame (7.3 inch Spectra 6) that fits an IKEA RÖDALM 13 x 18 cm black frame; requirement ENC-01. It is owner-driven physical work: the planner writes plans, checklists and record templates; the owner measures, designs, prints and tests. No firmware and nothing deployed. Since D-14 the phase will also change the rendering of the displayed image (server side), through a plan of its own that is not written yet; the enclosure work itself touches no code.
 
 Not in this phase: the administrator flashing tool (SEED-014, v1.4), a 13.3 inch enclosure, series production (SEED-015), battery discharge (SEED-019).
 
@@ -38,10 +38,14 @@ Not in this phase: the administrator flashing tool (SEED-014, v1.4), a 13.3 inch
 - **D-07:** Same place, same orientation, same access point. At least 20 wakes without the enclosure, then at least 20 with it, using the `rssi` column of the frame's own health history (export `GET /api/export/battery-history`, as in `hardware/SECOND-HARDWARE-MEASUREMENTS.md`). Pass criterion proposed: median RSSI not worse by more than 3 dB (design value; the owner may adjust it when validating).
 
 ### Mat, tabs and battery (owner, 2026-11-18)
-- **D-09:** The mat keeps its 140 x 99 mm opening; the displayed image will be adapted to the visible window, not the mat recut. That image change is rendering work outside this phase.
+- **D-09:** The mat keeps its existing opening (first read 140 x 99 mm, now 140.93 x 90.27 mm, see the measurement sheet); the displayed image will be adapted to the visible window, not the mat recut. Superseded in part by D-14: that image change is now inside this phase.
 - **D-10:** Metal tab depth is 8 mm (corrects the first report of 0.8 mm).
 - **D-12:** Everything (shim, tray, lid, stand) is centred on the mat opening, not on the screen active area (owner, 2026-11-18).
 - **D-11:** The pack in the enclosure is the Kubii 3000 mAh (8 x 50 x 60 mm, vendor size; measured 8 x 60 x 50 mm, 49 g).
+
+### Scope decisions (owner, 2026-11-24)
+- **D-14:** This phase also takes the reframing of the displayed image to the visible window of the mat, because the mat covers the edges of the screen's active area. This replaces the sentence of D-09 that placed it outside the phase and the matching deferred idea. It is rendering work for the EE04 image (server side), not firmware and not the enclosure; it needs its own plan, written before anything is changed. Arithmetic from design values, not measured: the active area is 160 x 96 mm for 800 x 480 pixels (0.2 mm per pixel) and the window is 140.93 x 90.27 mm, so about 705 x 451 pixels are visible; if the window were centred on the active area, about 48 pixels (9.5 mm) would be hidden on each side and about 14 pixels (2.9 mm) at the top and the bottom. The window is centred on the enclosure (D-12), not on the screen, so the real offset is known only after the first assembled fit.
+- **D-15:** The enclosure for the 13.3 inch frame stays out of this phase. It gets its own seed, SEED-022, to design the hardware case of the 13.3 inch frame later.
 
 ### Blender work
 - **D-08 (owner, 2026-11-18):** The Blender design is not final and is to be reworked together. Claude cannot open Blender in the cloud session, so the redesign needs a local session on the owner's computer (or the owner applies changes described in writing).
@@ -93,9 +97,9 @@ Landscape is the base format (board at the bottom), portrait secondary; wall on 
 ## Deferred Ideas
 
 - Printer purchase (X2D Combo): revisit after the first fit.
-- Adapting the displayed image to the 140 x 99 mm mat window (server/rendering, not this phase; needs its own phase or seed).
+- (Done as a scope change: the reframing of the displayed image to the visible window of the mat is now inside this phase, D-14.)
 - Identity label with device identifier / pairing code (SEED-014, v1.4).
-- 13.3 inch enclosure, series production method and cost (SEED-015).
+- 13.3 inch enclosure: SEED-022 (D-15). Series production method and cost: SEED-015.
 
 </deferred>
 

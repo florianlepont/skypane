@@ -53,7 +53,7 @@ Filled from the owner's reports only.
 | 10 Battery dimensions and mass | Thickness 8, width 60, length 50 mm; mass 49 g; pack: Kubii 3000 mAh (confirmed by the owner, 2026-11-18) | 2026-11-18 | Tape measure (no calliper) | measured |
 | 11 Masses: board, screen, antenna | Board with antenna and cable 20 g; screen 36 g | 2026-11-18 | Kitchen scale | measured |
 | 12 Masses: frame | Complete frame 173 g; empty frame 149 g | 2026-11-18 | Kitchen scale | measured |
-| 6b Mat opening, recheck | 140.93 x 90.27 mm (width x height), as typed by the owner. The owner did not say what was measured; Claude reads it as the mat window, because it matches the IKEA page (14 x 9 cm) and the owner's earlier statement of 90 mm for the height | 2026-11-23 | Tool not stated (two decimals suggest a calliper); the owner's earlier statement on 2026-11-19 gave 90 mm without a measurement | reported by the owner on 2026-11-23; the owner confirmed on 2026-11-23 that it is the mat window (the tool is still not stated). It replaces the 99 mm height of row 6 (a typing error, per the owner). Row 6 keeps its original reading unchanged. The centring on the mat opening and the visible margin figures of the later plans use 90.27 mm in height; the mat opening in the Blender reference model is still 140 x 99 mm and the owner decides whether the CAD needs a change. The image adaptation work is outside this phase |
+| 6b Mat opening, recheck | 140.93 x 90.27 mm (width x height), as typed by the owner. The owner did not say what was measured; Claude reads it as the mat window, because it matches the IKEA page (14 x 9 cm) and the owner's earlier statement of 90 mm for the height | 2026-11-23 | Tool not stated (two decimals suggest a calliper); the owner's earlier statement on 2026-11-19 gave 90 mm without a measurement | reported by the owner on 2026-11-23; the owner confirmed on 2026-11-23 that it is the mat window (the tool is still not stated). It replaces the 99 mm height of row 6 (a typing error, per the owner). Row 6 keeps its original reading unchanged. The centring on the mat opening and the visible margin figures of the later plans use 90.27 mm in height; the mat opening in the Blender reference model is still 140 x 99 mm and the owner decides whether the CAD needs a change. The owner decided on 2026-11-24 that the enclosure work also covers reframing the displayed image to the visible window (about 705 x 451 pixels of 800 x 480 for a 140.93 x 90.27 mm window over a 160 x 96 mm active area, arithmetic from design values, not measured) |
 | 7b Metal tab, height behind the back of the screen, folded | 15 mm (confirmed by the owner) | 2026-11-18 | Reported in the design session; tool not stated | owner-reported |
 | 7c Metal tab, width | 4 mm | 2026-11-18 | Confirmed by the owner in the design session; tool not stated | owner-reported |
 | 7d Metal tabs, position along each side (seen from the back, frame in portrait) | Top tab: its right edge is 48 mm from the right corner of the rebate. Bottom tab: its right edge is 77 mm from the right corner. Left tab: its lower edge is 86 mm from the bottom edge of the rebate. Right tab: 82 mm, same method | 2026-11-18 | Reported in the design session; tool not stated | owner-reported |
@@ -102,9 +102,10 @@ Points to settle with the owner (nothing here is concluded by the assistant):
   of 2026-11-19, not remeasured). The displayed image is to be adapted to what shows through the
   mat, instead of recutting the mat. The active area reported in row 3 is
   160 x 96 mm, so a 140 mm wide opening hides part of its width, and 99 mm is
-  taller than 96 mm. Changing the displayed image is a rendering change, outside
-  this phase (no code); the enclosure is centred on the mat opening, to be
-  confirmed with the owner.
+  taller than 96 mm. Changing the displayed image is a rendering change; the owner
+  decided on 2026-11-24 that it belongs to this enclosure work (it needs a plan of
+  its own); the enclosure is centred on the mat opening, to be confirmed with the
+  owner.
 - Row 7: tab depth corrected by the owner to 8 mm (design value about 12.6 mm,
   design value, not measured).
 - Row 7, clarification by the owner on 2026-11-18: the 8 mm is the length of the
