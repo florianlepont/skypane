@@ -22,7 +22,7 @@ Print the back of the SkyPane 7.3 inch e-ink frame, to sit inside an IKEA RÖDAL
 1. **Tray** (bac): holds the board, the battery and the antenna.
 2. **Lid** (couvercle): carries the two wall hooks, the supports for the frame tabs, four screw lugs, two stop walls for the stand and the engraved name.
 3. **Stand** (chevalet): one loose plate that leans against a stop wall on the lid and stands the frame on a piece of furniture, in landscape or in portrait, at a tilt of 20 degrees.
-4. **Centring shim** (cale) for the screen.
+4. **Centring shim** (cale) for the screen. Since 2026-11-24 the shim and the tray are printed as one part (owner decision after the reprint); the shim stays a distinct feature of the model, a 1.0 mm rim in front of the tray.
 
 Intended use: landscape as the base format (board at the bottom), portrait as
 the secondary one. On the wall on battery; on a piece of furniture, possibly
@@ -139,10 +139,10 @@ In this repository, `hardware/cad/` (added by the owner on 2026-11-17, reorganis
   figurine and the abandoned versions are no longer in it.
 - `reference/ee04_board.stl`: the board, converted from the GrabCAD STEP file (about 12.5 MB).
 - `reference/ikea_rodalm_13x18_noir.glb`: the IKEA 3D model of the frame (about 0.14 MB).
-- `print/skypane_tray.stl`, `print/skypane_lid.stl`, `print/skypane_stand.stl`, `print/skypane_shim.stl`: the four parts to print;
-  the tray was exported again on 2026-11-23, the others on 2026-11-18; the owner's confirmation that they match the final blend is recorded in the print order.
+- `print/skypane_tray_shim.stl` (the one-part tray with the shim rim), `print/skypane_lid.stl`, `print/skypane_stand.stl`: the three parts to print;
+  the lid was exported again on 2026-11-24, the stand on 2026-11-18; the owner's confirmation that they match the final blend is recorded in the print order.
 - `print/skypane_lid.3mf`: present in the print folder; its role is open (asked of the owner on 2026-11-19).
-- `alternatives/`: the one-part design, tray and shim together (chosen by the owner on 2026-11-24; reprinted well, not yet fitted).
+- `alternatives/two-parts/`: the separate tray and shim (STL), the previous design; the same blend builds both.
 - The Blender automatic backup copy (`skypane_cassette.blend1`) was removed on 2026-11-24;
   it stays in the git history, and `*.blend1` is now ignored.
 

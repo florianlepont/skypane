@@ -1,6 +1,6 @@
 ---
 id: SEED-021
-status: dormant
+status: promoted
 planted: 2026-11-23
 planted_during: "v1.2, Phase 69 (rear enclosure), owner's question during the first fit trials"
 trigger_when: "After the first fit results of the 7.3 inch enclosure (the shim and the tray both fit by feel in PLA on 2026-11-23), or when the enclosure is redesigned for a series or for another screen"
@@ -37,6 +37,15 @@ parts and the owner glues them, because of the supports risk below. The seed is
 dormant again and can be picked up after the glued assembly has been tried. If
 it is retried, check first in the slicer whether the merged part needs supports.
 
+## Update of 2026-11-24, after the reprint
+
+The owner printed the one-part variant, reported that the ribbon passes well and
+the battery fits, and asked to keep the one-part design. It is now the design of
+the 7.3 inch enclosure: the files were promoted into `hardware/cad/print/` and
+`hardware/cad/source/`, and the two-part files are kept in
+`hardware/cad/alternatives/two-parts/`. Fit with the lid and in the frame is not
+yet tried.
+
 ## When to Surface
 
 **Trigger:** after the first fit round of Phase 69 has shown how the shim and
@@ -63,7 +72,7 @@ tray, and a new fit trial. Claude cannot edit the Blender file.
 
 ## Breadcrumbs
 
-- `hardware/cad/alternatives/skypane_cassette_merged.blend` and `hardware/cad/alternatives/skypane_tray_shim_merged.stl`: the merged variant made on 2026-11-24 (not sliced, not printed); the print-order note lists the support need.
+- `hardware/cad/source/skypane_cassette.blend` and `hardware/cad/print/skypane_tray_shim.stl`: the merged variant made on 2026-11-24 (not sliced, not printed); the print-order note lists the support need.
 - `hardware/ENCLOSURE-3D-DESIGN.md`: the four parts, the shim at 1.0 mm.
 - `hardware/ENCLOSURE-TEST-PRINT-LOG.md`: fit trials by feel, PLA.
 - `hardware/ENCLOSURE-PRINT-ORDER.md`: slice of the shim and the tray.

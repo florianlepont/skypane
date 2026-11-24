@@ -79,7 +79,7 @@ design values, not measured. The tray is reprinted once with all of them. On the
 Made by the assistant on 2026-11-23 at the owner's request, in the generating
 script stored in `hardware/cad/source/skypane_cassette.blend` (text block
 `skypane_cassette.py`), then the parts were regenerated and the tray exported
-again (`hardware/cad/print/skypane_tray.stl`). The assistant used Blender as a
+again (`hardware/cad/alternatives/two-parts/skypane_tray.stl`). The assistant used Blender as a
 Python module (version 5.3), not the owner's Blender session. The lid, the shim
 and the stand plate were regenerated too and came out identical (same triangle
 counts and volumes as the previous export), and the reproduction of the
@@ -114,9 +114,9 @@ of the board is tried again; then the lid is printed.
 
 Asked for by the owner on 2026-11-24 as an alternative version. The main design
 stays two parts that the owner glues; this variant is only a file to look at and
-slice. Files: `hardware/cad/alternatives/skypane_cassette_merged.blend` (the main blend with a
+slice. Files: `hardware/cad/source/skypane_cassette.blend` (the main blend with a
 union of the tray and the shim, the separate objects kept and hidden) and
-`hardware/cad/alternatives/skypane_tray_shim_merged.stl` (one part, 132.0 x 182.0 x
+`hardware/cad/print/skypane_tray_shim.stl` (one part, 132.0 x 182.0 x
 12.0 mm: 1.0 mm rim in front of the 11.0 mm tray). Made by the assistant in the
 generating script, like the tray change above.
 
@@ -156,9 +156,17 @@ generating script, like the tray change above.
   facilement" (the owner's words); no photo or measurement. Owner decision of
   2026-11-24: the design goes to one part, tray and shim together. This replaces
   the earlier lines of this section that said the variant was set aside or not
-  decided. The files stay in `hardware/cad/alternatives/` for now; the separate
-  tray and shim files stay as they are. The one-part design has not been fitted
-  in the frame, the lid has not been tried on it, and no go/no-go is recorded.
+  decided. The one-part design had not been fitted in the frame at that point.
+- Owner report of 2026-11-24, later: in the reprinted one-part tray the ribbon
+  passes well and the battery fits (his words, by feel, no measurement), and he
+  asked to keep the one-part design. The files were promoted on the same day: the
+  one-part STL and its Bambu Studio project are in `hardware/cad/print/`
+  (`skypane_tray_shim.stl`, `skypane_tray_shim.3mf`), the blend that builds it is
+  `hardware/cad/source/skypane_cassette.blend`, and the separate tray and shim
+  (STL) are kept in `hardware/cad/alternatives/two-parts/`. In the script, the
+  step that builds the one-part tray now removes an earlier copy, so running the
+  script twice leaves one part (checked by running it twice). The one-part tray
+  has not been tried with the lid, and no go/no-go is recorded.
 
 Values kept, because the model and the owner's tape readings differ by about
 1 mm or less, which is the tape's resolution (owner instruction, 2026-11-18):
@@ -191,7 +199,7 @@ address or secret.
 
 | Item | Value |
 |---|---|
-| Parts | Tray, lid, stand, shim; quantity 1 each. File names: `skypane_tray`, `skypane_lid`, `skypane_stand`, `skypane_shim` (`.stl` or `.3mf`) |
+| Parts | One-part tray (with the shim rim), lid, stand; quantity 1 each. File names: `skypane_tray_shim`, `skypane_lid`, `skypane_stand` (`.stl` or `.3mf`). Until 2026-11-24 the tray and the shim were two parts (`skypane_tray`, `skypane_shim`, now in `alternatives/two-parts/`) |
 | Orientation | Tray: floor down. Lid: inner face (against the tray) down. Stand plate: large face down. Shim: flat. No support. The machine, spool, plate and settings are recorded per round in the test-print log |
 | Material | PLA (changed by the owner on 2026-11-23; previously PETG Basic); colour recorded per round |
 | Nozzle | 0.4 mm, or another if needed (decided by the owner on 2026-11-18) |
@@ -285,12 +293,12 @@ Reading of the rows:
 **Slicer projects saved by the owner (2026-11-24).** The owner saved two Bambu
 Studio projects and the assistant read them (unzipped, not opened in the
 slicer; nothing was sliced from them): `hardware/cad/print/skypane_printing.3mf`
-and `hardware/cad/alternatives/skypane_tray_shim_merged.3mf`. Contents:
+and `hardware/cad/print/skypane_tray_shim.3mf`. Contents:
 
 | Project | Plates | Parts and check against the repo STL |
 |---|---|---|
 | `skypane_printing.3mf` | 3: shim and stand; lid; tray | The four meshes have the same triangle counts and volumes as the STL in `print/` (tray 7292 triangles, 52246 mm3: the version with the 8 x 34 mm slot; lid 8406; stand 396; shim 208) |
-| `skypane_tray_shim_merged.3mf` | 1: the merged part | Same mesh as `alternatives/skypane_tray_shim_merged.stl` (7408 triangles, 56954 mm3) |
+| `skypane_tray_shim.3mf` (was `skypane_tray_shim_merged.3mf`) | 1: the one-part tray | Same mesh as `print/skypane_tray_shim.stl` (7408 triangles, 56954 mm3) |
 
 Settings stored in both: Bambu Lab X1 Carbon, 0.4 mm nozzle, "0.20mm Standard @BBL
 X1C", 3 walls, 20 % grid infill, Textured PEI Plate, filament "Bambu PLA Matte
@@ -336,6 +344,9 @@ in millimetres, each part lying in its printing pose (lowest point at z = 0):
 | `skypane_lid.stl` | 132.0 x 182.0 x 11.2 mm | 8408 (re-exported on 2026-11-24 with the left and right tab pads moved; 8406 before) | as above | to confirm |
 | `skypane_stand.stl` | 71.0 x 30.0 x 4.0 mm | 396 | as above | to confirm |
 | `skypane_shim.stl` | 132.0 x 182.0 x 1.0 mm | 208 | as above | to confirm |
+| `skypane_tray_shim.stl` | 132.0 x 182.0 x 12.0 mm (the one-part tray, 1.0 mm rim in front of the 11.0 mm tray) | 7408 | 2026-11-23 or 2026-11-24 (export date not stated) | 2026-11-24 |
+
+From 2026-11-24 the part to print is `skypane_tray_shim.stl` in `print/`; the separate tray and shim rows above describe the files now kept in `alternatives/two-parts/`.
 | `skypane_lid.3mf` | not read | not read | present in the export folder; its role is open (asked 2026-11-19) | to confirm |
 | `skypane_cassette.blend1` | removed on 2026-11-24: a Blender automatic backup copy, not a design source (still in the git history) | not applicable | not applicable | not applicable |
 
