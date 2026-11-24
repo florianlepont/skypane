@@ -868,7 +868,7 @@ def _connection_tile(state, now):
     if ts is not None:
         stats.append((i18n.t(_LAST_CHECK_IN_TEXT), _age_html(ts, now, _NO_CHECK_IN_TEXT)))
     if state["next_wake_clock"]:
-        stats.append((i18n.t(_NEXT_WAKE_TEXT), '<span class="time-value">%s</span>' % escape_html(
+        stats.append((i18n.t(_NEXT_WAKE_TEXT), '<span class="time-value time-value--primary">%s</span>' % escape_html(
             state["next_wake_clock"])))
     stats_html = "".join(
         '<span class="fleet-stat"><span class="fleet-stat__k">%s</span>'

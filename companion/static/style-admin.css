@@ -3291,6 +3291,7 @@ a.fleet-action-button {
   display: grid;
   gap: var(--space-xs);
   margin: var(--space-sm) 0 0;
+  min-width: 0;
   padding: var(--space-xs) var(--space-md);
   list-style: none;
   background: var(--glass-solid);
@@ -3314,6 +3315,12 @@ a.fleet-action-button {
 .modal__effect .icon {
   flex: none;
   margin-top: 2px;
+}
+
+/* A long unbreakable address wraps instead of widening the sheet. */
+.modal__effect > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .modal__effect--ok .icon {
