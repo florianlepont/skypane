@@ -5,7 +5,7 @@ description: The companion web app's current design system — colour and contra
 
 # SkyPane companion design system
 
-**As of:** 2026-11-23, checked against the code at origin/main commit `f701ef16`.
+**As of:** 2026-11-24, checked against the code of the Plan 55 branch (F1 filter controls), on top of origin/main `f701ef16`.
 `.planning/workstreams/v1-2/ROADMAP.md` is the live record of plan status.
 
 **Keeping it current.** This skill is not updated automatically. Any PR that changes companion CSS
