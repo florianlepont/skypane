@@ -115,6 +115,12 @@ Runs in parallel with v1.1 Phase 47 (open, untouched). Phase numbering continues
 
 - [ ] **ENC-01**: The second-hardware frame has a printed rear enclosure (tray, lid with wall hooks, loose stand plate, centring shim) that fits an IKEA RÖDALM 13 x 18 cm frame, hangs on a wall and stands on furniture, keeps USB-C, switch and buttons reachable, does not degrade the Wi-Fi signal, and is documented and validated by the owner.
 
+### Private Repository and CI
+
+- [ ] **PRV-01**: The repository is private (owner's decision of 2026-11-24) and the production deploy and the firmware signing stay under the owner's explicit control on the owner's GitHub plan, proven before the visibility changes.
+- [ ] **PRV-02**: The CI fits the private-repository limits, with measured minutes before and after, no test skipped to save minutes, and the browser tests still run on every code change.
+- [ ] **PRV-03**: What was public is inventoried and anything sensitive is rotated, removed or recorded with the owner's decision, and everything the owner and the sessions rely on keeps working after the switch.
+
 ### Security and Quality
 
 - [ ] **SEC-AUD-01**: The whole platform is audited for security (sign-in, roles, device protocol, firmware update, companion inputs, server and deploy, dependencies, secrets, backups, logs); every finding is fixed and tested, or accepted by the owner in writing.
@@ -189,6 +195,9 @@ Coverage: 47/47 v1.2 requirements mapped, each to exactly one phase.
 | DSY-01 | Phase 68.1 | Pending |
 | DSY-02 | Phase 68.1 | Pending |
 | DSY-03 | Phase 68.1 | Pending |
+| PRV-01 | Phase 70 | Pending |
+| PRV-02 | Phase 70 | Pending |
+| PRV-03 | Phase 70 | Pending |
 | SEC-AUD-01 | Phase 66 | Pending |
 | QUAL-01 | Phase 67 | Pending |
 | ENC-01 | Phase 69 | Pending |

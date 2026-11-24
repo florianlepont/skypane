@@ -50,6 +50,7 @@ Phase 47 measures the live frame on the live VPS. This milestone must not modify
 - [x] **Phase 65: Detection Robustness (Runway 3 and Multi-Airport Validation)** - The detection tracks the right aircraft on Paris-Orly runway 3, on the other Orly runways and on other French airports: what a device shows matches an independent source. (added 2026-11-15 at the owner's request; battery work moved out to SEED-019 for v1.4 on 2026-11-15; scope widened to several runways and airports on 2026-11-15; completed 2026-11-18, Orly 06/24 left untested by the owner's decision; Phase 59 stays last)
 - [ ] **Phase 68: Console and Companion Visual Improvements** - The visual improvements the owner lists for the console and the companion are made, within the design system, before the security audit and the code cleanup so that those two work on the final code. (added 2026-11-16 at the owner's request, moved up from v1.3 SEED-020; runs before Phase 66)
 - [ ] **Phase 68.1: Design System Consistency, Deviations and Improvements (INSERTED)** - After Phase 68, the design system is checked against the real site, every deviation is listed and fixed, and improvements and animations of the design system are proposed to the owner. (added 2026-11-21 at the owner's request; depends on Phase 68; runs before Phases 66, 67 and 59)
+- [ ] **Phase 70: Private Repository and CI (Free Plan, Self-Hosted or Reduced CI)** - The whole repository becomes private without losing the owner-controlled production deploy and firmware signing, and the CI fits the private-repository limits. (added 2026-11-24 at the owner's decision: everything private; runs before Phase 66)
 - [ ] **Phase 66: Security Audit** - The whole platform (server, companion, device protocol, firmware update path, deploy and secrets) is audited, and every finding is fixed or recorded with the owner's decision. (added 2026-11-15 at the owner's request)
 - [ ] **Phase 67: Project and Code Optimisation for a Clean, Industrial Result** - The repository, the code, the tests and the documents are cleaned and made consistent so the project can be maintained and handed over like an industrial product. (added 2026-11-15 at the owner's request; Phase 59 stays last)
 - [ ] **Phase 69: Rear Enclosure for the 7.3 Inch Frame (Design, Print, Fit)** - The four printed parts (tray, lid with wall hooks, loose stand plate, centring shim) are designed, printed, fitted into an IKEA RÖDALM 13 x 18 cm frame with the second-hardware frame, and validated on the wall and on furniture. (added 2026-11-18 at the owner's request as an owner-driven parallel track, physical part of SEED-014; the administrator flashing tool stays in v1.4)
@@ -820,10 +821,31 @@ Plans:
 
 - [ ] 69-07-PLAN.md — Final files stored, assembly note, BOM update, SEED-014 update (ENC-01)
 
+### Phase 70: Private Repository and CI (Free Plan, Self-Hosted or Reduced CI)
+
+**Goal**: The whole repository is private, as the owner decided on 2026-11-24, and the project still builds, tests, deploys to production and signs firmware with the owner in control of every release, within the limits of the owner's GitHub plan.
+**Depends on**: none for the code; it edits `.github/workflows/` (`ci.yml`, `firmware-release.yml`, `firmware.yml`, `firmware-chain-check.yml`), so it is sequenced after Phase 64 and not run at the same time as another phase that edits those files. Runs before Phase 66 (security audit), so that the audit sees the final deploy and secrets setup.
+**Requirements**: PRV-01, PRV-02, PRV-03
+**Why this phase exists**: the owner's decision of 2026-11-24 to make everything private, to stop others from reusing the work professionally. Nothing in the licences forces any part to stay public (the owner holds the rights to the AGPL code; the firmware is Apache-2.0, which does not require publishing changes), but on the free GitHub plan a private repository changes three things the pipeline relies on: environment approvals (required reviewers) are not available, the hosted CI is limited to 2,000 minutes a month against roughly 50 to 60 minutes per full run, and some protection features differ. Flipping the visibility first would let the production deploy run on every merge to `main` without approval.
+**Success Criteria** (what must be TRUE):
+
+  1. Before the visibility changes, the production deploy needs an explicit act of the owner that does not depend on environment reviewers (for example a workflow started by hand with `workflow_dispatch` by the owner alone, with the merge to `main` no longer deploying by itself), proven on a test run.
+  2. The firmware signing key never sits in a repository secret that a workflow can read freely: signing is done on the owner's computer, or behind a control that works on the plan in use. The release path of the live frame and its signed image stay unchanged, and a signed test release is imported by the server.
+  3. The CI fits the plan: the choice is made and recorded between a self-hosted runner (where it runs, how it is secured, whether GitHub charges for it), a reduced CI (docs-only changes skip the heavy jobs, jobs split by changed paths), a paid plan or a mix, with the measured minutes per run and the monthly total before and after. No test is skipped to save minutes, and the browser tests still run on every change to code.
+  4. A written inventory of what has been public so far is kept: secrets and personal data to rotate or remove, the planning notes with commercial content, and the fact that copies already taken stay public. Anything sensitive found is handled (rotated or recorded with the owner's decision).
+  5. After the switch, everything the owner and the sessions use still works: sessions can open and push branches and draft pull requests and read CI logs, the production deploy, the nightly backup and the release download in CI (`gh release download`) work, Dependabot still opens its pull requests, and the owner can still run a firmware release.
+  6. The repository is private, and the documents (`deploy/README.md`, `firmware/SIGNING.md`, `COMPLIANCE.md`, `README.md` licence section) describe the new setup.
+
+**Not in this phase**: moving to another git platform, splitting the repository, and any legal review of the licences (SEED-015).
+**Open decisions** (for discuss-phase): where a self-hosted runner would run (the owner's Mac, a second small server, not the production server) or whether a paid plan or an organisation is preferred, how the manual deploy and local signing are operated day to day, and when exactly to flip the visibility (after criteria 1 to 3 pass).
+**Must not break**: the live frame, production, the signed firmware release path, and the golden hashes and freeze test.
+
+Plans: TBD
+
 ### Phase 66: Security Audit
 
 **Goal**: Before v1.2 closes, the whole platform has had one structured security audit, and every finding is either fixed or accepted by the owner in writing.
-**Depends on**: Phases 54, 55, 60 (access and roles), 57 and 64 (firmware update and release path), Phase 68 (the visual changes of the companion, so the audit sees the final pages). Runs after the feature phases, before Phase 67 and Phase 59.
+**Depends on**: Phases 54, 55, 60 (access and roles), 57 and 64 (firmware update and release path), Phase 70 (the private repository, deploy and secrets setup), Phase 68 (the visual changes of the companion, so the audit sees the final pages). Runs after the feature phases, before Phase 67 and Phase 59.
 **Requirements**: SEC-AUD-01
 **Why this phase exists**: the owner's request of 2026-11-15. The platform now holds accounts (Auth0 sign-in), several roles, enrolment secrets, signed firmware updates, a public VPS and, later, customers' photos. Earlier phases carried their own threat checks; none looked at the whole.
 **Scope to cover** (starting list, to be confirmed at discuss-phase): sign-in and session handling; roles and default-deny access (route x role x owner matrix); the device protocol and enrolment secrets; firmware signing, update and rollback; the companion's input handling (uploads, forms, headers, cross-site and injection risks); the server and the deploy pipeline (systemd units, Caddy, secrets, CI permissions, the approval step); dependencies and their pinned hashes; backups and what they contain; logs and what they leak; the privacy rule that the administrator never sees users' photos (prepared for v1.3); data-source terms that touch security.
@@ -887,6 +909,7 @@ Plans: TBD
 | 65. Detection Robustness (Runway 3 and Multi-Airport Validation) | v1.2 | 14/14 | Complete, closed 2026-11-18 (PR #470, deployed); verified with open points in `65-VERIFICATION.md`; Orly 06/24 left untested by the owner's decision; battery work moved to SEED-019 (v1.4) | 2026-11-18 |
 | 68. Console and Companion Visual Improvements | v1.2 | 36/36 | All plans built; awaiting the owner's validation on the deployed site |  |
 | 68.1. Design System Consistency, Deviations and Improvements (INSERTED) | v1.2 | 0/0 | Added 2026-11-21, not planned yet; starts when Phase 68 is done | - |
+| 70. Private Repository and CI (Free Plan, Self-Hosted or Reduced CI) | v1.2 | 0/0 | Added 2026-11-24, not planned yet | - |
 | 66. Security Audit | v1.2 | 0/0 | Added 2026-11-15, not planned yet | - |
 | 67. Project and Code Optimisation for a Clean, Industrial Result | v1.2 | 0/0 | Added 2026-11-15, not planned yet | - |
 | 69. Rear Enclosure for the 7.3 Inch Frame (Design, Print, Fit) | v1.2 | 1/5 | In progress: plan 02 waits for the owner's slice check; owner-driven parallel track | - |
