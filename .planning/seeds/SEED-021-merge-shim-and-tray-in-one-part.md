@@ -63,6 +63,7 @@ tray, and a new fit trial. Claude cannot edit the Blender file.
 
 ## Breadcrumbs
 
+- `hardware/cad/skypane_cassette_merged.blend` and `hardware/cad/export/skypane_tray_shim_merged.stl`: the merged variant made on 2026-11-24 (not sliced, not printed); the print-order note lists the support need.
 - `hardware/ENCLOSURE-3D-DESIGN.md`: the four parts, the shim at 1.0 mm.
 - `hardware/ENCLOSURE-TEST-PRINT-LOG.md`: fit trials by feel, PLA.
 - `hardware/ENCLOSURE-PRINT-ORDER.md`: slice of the shim and the tray.

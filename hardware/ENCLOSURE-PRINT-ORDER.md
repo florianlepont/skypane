@@ -110,6 +110,31 @@ looks at the tray; the tray is sliced in Bambu Studio to see whether any
 support appears and the print time and mass; the tray is reprinted in PLA on the
 same machine and plate; the fit of the ribbon and of the battery is tried again.
 
+#### Alternative: tray and shim in one part (not decided)
+
+Asked for by the owner on 2026-11-24 as an alternative version. The main design
+stays two parts that the owner glues; this variant is only a file to look at and
+slice. Files: `hardware/cad/skypane_cassette_merged.blend` (the main blend with a
+union of the tray and the shim, the separate objects kept and hidden) and
+`hardware/cad/export/skypane_tray_shim_merged.stl` (one part, 132.0 x 182.0 x
+12.0 mm: 1.0 mm rim in front of the 11.0 mm tray). Made by the assistant in the
+generating script, like the tray change above.
+
+- The ribbon passage of the former shim has the same footprint as the new slot of
+  the tray (8 x 34 mm), so nothing covers the slot mouth.
+- The mesh is closed (7408 triangles); the volume is the tray plus the shim minus
+  the larger ribbon passage, as expected.
+- Printing, by computation on the model and not by a slicer: in the pose with the
+  rim on the plate, the ceiling of the screen pocket (112 x 171 mm, about 19 000
+  mm2, at 1.0 mm above the plate) faces downward over a span far too long to
+  bridge, so supports are needed across the whole pocket (five layers of 0.2 mm).
+  The separate tray has no downward-facing surface at all. The supports touch the
+  face that lies against the back of the screen and are removed through the open
+  front of the pocket; the finish of that face and the effort to remove them are
+  not known. The opposite pose (floor up) would need supports under the whole floor,
+  which is worse.
+- Not done: no slicer run, no print, no fit trial of this variant.
+
 Values kept, because the model and the owner's tape readings differ by about
 1 mm or less, which is the tape's resolution (owner instruction, 2026-11-18):
 screen outline 170.2 x 111.2 x 0.91 mm (reading 170 x 111 x 0.9), rebate
