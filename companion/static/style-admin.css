@@ -3239,11 +3239,18 @@ a.fleet-action-button {
     margin: 0 calc(-1 * var(--space-lg)) var(--space-md);
     padding: var(--space-sm) var(--space-lg);
     background-color: var(--color-canvas);
+    background-image: linear-gradient(180deg, var(--sky-top) 0%, var(--sky-mid) 45%, var(--sky-bottom) 100%);
+    background-repeat: no-repeat;
+    background-size: 100% var(--anchors-page-h, 100%);
+    background-position: 0 calc(-1 * var(--anchors-y, 0px));
   }
 
-  /* The bar sticks below the safe area and the app bar's drop; this strip
-   * paints the same solid colour in that gap so the page never scrolls
-   * through it. */
+  /* The bar sticks below the safe area and the app bar's drop; while it
+   * sticks (fleet-anchors.js sets data-stuck) this strip fills that gap so the
+   * page never scrolls through it. The bar and the strip paint the slice of the
+   * page's own sky gradient that lies behind them (the gradient is on <html>,
+   * laid over the whole page height), so neither shows as a band. At rest the
+   * strip is off: it would cover what sits above the bar. */
   .fleet-anchors::before {
     content: "";
     position: absolute;
@@ -3252,6 +3259,14 @@ a.fleet-action-button {
     left: 0;
     height: calc(var(--safe-top) + var(--app-bar-drop));
     background-color: var(--color-canvas);
+    background-image: linear-gradient(180deg, var(--sky-top) 0%, var(--sky-mid) 45%, var(--sky-bottom) 100%);
+    background-repeat: no-repeat;
+    background-size: 100% var(--anchors-page-h, 100%);
+    background-position: 0 calc(-1 * (var(--anchors-y, 0px) - var(--safe-top) - var(--app-bar-drop)));
+  }
+
+  .fleet-anchors:not([data-stuck])::before {
+    display: none;
   }
 
   .fleet-anchor {
