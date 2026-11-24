@@ -177,7 +177,7 @@ def _flight_line1_text(flight, state, route):
 _TYPE_DISPLAY_LABELS = {
     # A320 family - familiar designations, neo variants named.
     "A318": "A318", "A319": "A319", "A320": "A320", "A321": "A321",
-    "A20N": "A320neo", "A21N": "A321neo",
+    "A19N": "A319neo", "A20N": "A320neo", "A21N": "A321neo",
     # B737 family - commercial model numbers, MAX variants named.
     "B731": "737-100", "B732": "737-200", "B733": "737-300", "B734": "737-400",
     "B735": "737-500", "B736": "737-600", "B737": "737-700", "B738": "737-800",
@@ -186,16 +186,65 @@ _TYPE_DISPLAY_LABELS = {
     # ATR turboprops.
     "AT43": "ATR 42", "AT44": "ATR 42-500", "AT45": "ATR 42", "AT46": "ATR 42-600",
     "AT72": "ATR 72", "AT73": "ATR 72", "AT75": "ATR 72-500", "AT76": "ATR 72-600",
-    # Beechcraft 1900D.
-    "BE9L": "Beechcraft 1900D",
+    # Beechcraft 1900D and King Air.
+    "B190": "Beechcraft 1900D", "BE9L": "King Air 90", "BE9T": "King Air F90",
+    "BE10": "King Air 100", "BE20": "King Air 200", "BE30": "King Air 300",
+    "B350": "King Air 350",
     # Embraer E-Jet family - keep the E1xx designations.
-    "E135": "E135", "E145": "E145", "E170": "E170", "E75L": "E175",
+    "E170": "E170", "E75L": "E175",
     "E75S": "E175", "E190": "E190", "E195": "E195", "E290": "E190-E2",
     "E295": "E195-E2",
+    # Embraer ERJ 135/145 and the Legacy built on the same airframe.
+    "E135": "E135", "E145": "E145", "E45X": "E145XR", "E35L": "Legacy 600",
     # A330 family.
-    "A332": "A330-200", "A333": "A330-300", "A339": "A330-900neo",
+    "A332": "A330-200", "A333": "A330-300", "A338": "A330-800", "A339": "A330-900neo",
     # A350 family.
     "A359": "A350-900", "A35K": "A350-1000",
+    # A220, 787, 777, 747, 767, 757, A380, A300/A310.
+    "BCS1": "A220-100", "BCS3": "A220-300",
+    "B788": "787-8", "B789": "787-9", "B78X": "787-10",
+    "B772": "777-200", "B773": "777-300", "B77L": "777-200LR", "B77W": "777-300ER",
+    "B778": "777-8", "B779": "777-9",
+    "B741": "747-100", "B742": "747-200", "B743": "747-300", "B744": "747-400",
+    "B748": "747-8", "B74R": "747SR", "B74S": "747SP",
+    "B762": "767-200", "B763": "767-300", "B764": "767-400",
+    "B752": "757-200", "B753": "757-300", "A388": "A380-800",
+    "A306": "A300-600", "A30B": "A300B", "A310": "A310",
+    # Bombardier CRJ.
+    "CRJ1": "CRJ-100", "CRJ2": "CRJ-200", "CRJ7": "CRJ-700", "CRJ9": "CRJ-900",
+    "CRJX": "CRJ-1000",
+    # Dassault Falcon.
+    "FA50": "Falcon 50", "F900": "Falcon 900", "FA7X": "Falcon 7X", "FA8X": "Falcon 8X",
+    "FA6X": "Falcon 6X", "F2TH": "Falcon 2000", "FA10": "Falcon 10", "FA20": "Falcon 20",
+    # Large business jets.
+    "GLF2": "Gulfstream II", "GLF4": "Gulfstream IV", "GLF5": "Gulfstream V",
+    "GLF6": "G650", "GLEX": "Global Express", "GL5T": "Global 5000", "GL7T": "Global 7500",
+    "GA5C": "G500", "GA6C": "G600", "GA7C": "G700",
+    # Other business jets.
+    "C25A": "Citation CJ2", "C25B": "Citation CJ3", "C25C": "Citation CJ4",
+    "C25M": "Citation M2", "C500": "Citation I", "C501": "Citation I/SP",
+    "C510": "Mustang", "C525": "CitationJet", "C550": "Citation II",
+    "C560": "Citation V", "C56X": "Citation Excel", "C650": "Citation III",
+    "C680": "Sovereign", "C68A": "Latitude", "C700": "Longitude",
+    "C750": "Citation X", "CL30": "Challenger 300", "CL35": "Challenger 350",
+    "CL60": "Challenger 600", "E50P": "Phenom 100", "E55P": "Phenom 300",
+    "E545": "Praetor 500", "E550": "Praetor 600", "EA50": "Eclipse 500",
+    "HDJT": "HondaJet", "H25B": "Hawker 800", "LJ35": "Learjet 35", "LJ60": "Learjet 60",
+    "LJ31": "Learjet 31", "LJ40": "Learjet 40", "LJ45": "Learjet 45", "LJ75": "Learjet 75",
+    "G280": "G280", "GALX": "Gulfstream G200", "G150": "G150", "PRM1": "Premier 1",
+    "PC24": "PC-24",
+    # Single turboprops.
+    "PC12": "PC-12", "TBM7": "TBM 700", "TBM8": "TBM 850", "TBM9": "TBM 900",
+    "P46T": "PA-46 TP", "M600": "M600",
+    # Helicopters.
+    "EC45": "H145", "EC35": "H135", "EC55": "EC155", "A109": "AW109", "A139": "AW139",
+    "H160": "H160", "AS65": "Dauphin", "S76": "S-76", "B412": "Bell 412", "B429": "Bell 429",
+    "A169": "AW169", "A189": "AW189", "NH90": "NH90", "AS32": "Super Puma",
+    "EC25": "H225", "BK17": "BK 117",
+    # Light high-wing planes.
+    "C172": "Cessna 172", "C150": "Cessna 150", "C152": "Cessna 152", "C182": "Cessna 182",
+    "C206": "Cessna 206", "C210": "Cessna 210", "C170": "Cessna 170", "C177": "Cessna 177",
+    "C180": "Cessna 180",
 }
 
 # Presentation-only display alias. `enrich.correct_airline_name()` now

@@ -147,6 +147,24 @@ for all seven.
 | `generic-embraer.png` | *(none — D-07 neutral shape fallback)* | Embraer E-Jet shape | 2172×724 | `ba78794a0d37200291b53b8f2f7cdc7f8d1ca0949aab0a6e4da5f2b26b7f6723` |
 | `generic-a330.png` | *(none — D-07 neutral shape fallback)* | A330-family shape | 1672×941 | `9668b91ff52283ad44d514eb74e528991dadb0792749923ca6968d019386a0e7` |
 | `generic-a350.png` | *(none — D-07 neutral shape fallback)* | A350-family shape | 1774×887 | `459fa39fa8df935cd01480aebcec2e7e83c9f6a9f1904e8b23d427130263c9eb` |
+| `generic-erj145.png` | *(none — placeholder copy of `generic-embraer.png`, to be replaced by a drawn silhouette of the same file name)* | placeholder, shape of `generic-embraer.png` | 2172x724 | `ba78794a0d37200291b53b8f2f7cdc7f8d1ca0949aab0a6e4da5f2b26b7f6723` |
+| `generic-b787.png` | *(none — placeholder copy of `generic-a350.png`, to be replaced by a drawn silhouette of the same file name)* | placeholder, shape of `generic-a350.png` | 1774x887 | `459fa39fa8df935cd01480aebcec2e7e83c9f6a9f1904e8b23d427130263c9eb` |
+| `generic-a220.png` | *(none — placeholder copy of `generic-a320.png`, to be replaced by a drawn silhouette of the same file name)* | placeholder, shape of `generic-a320.png` | 1672x941 | `bb4e2aefe0fdb337b77eda1713a20308ba024992ee6f5c330249ccc09bd5d2bf` |
+| `generic-b777.png` | *(none — placeholder copy of `generic-a350.png`, to be replaced by a drawn silhouette of the same file name)* | placeholder, shape of `generic-a350.png` | 1774x887 | `459fa39fa8df935cd01480aebcec2e7e83c9f6a9f1904e8b23d427130263c9eb` |
+| `generic-b747.png` | *(none — placeholder copy of `generic-a330.png`, to be replaced by a drawn silhouette of the same file name)* | placeholder, shape of `generic-a330.png` | 1672x941 | `9668b91ff52283ad44d514eb74e528991dadb0792749923ca6968d019386a0e7` |
+| `generic-b767.png` | *(none — placeholder copy of `generic-a330.png`, to be replaced by a drawn silhouette of the same file name)* | placeholder, shape of `generic-a330.png` | 1672x941 | `9668b91ff52283ad44d514eb74e528991dadb0792749923ca6968d019386a0e7` |
+| `generic-b757.png` | *(none — placeholder copy of `generic-b737.png`, to be replaced by a drawn silhouette of the same file name)* | placeholder, shape of `generic-b737.png` | 1672x941 | `f4fb6c57b2834afd2cc15d92496f9c8a6d0f16cbc4bff8d4abeef88167b35bad` |
+| `generic-a380.png` | *(none — placeholder copy of `generic-a330.png`, to be replaced by a drawn silhouette of the same file name)* | placeholder, shape of `generic-a330.png` | 1672x941 | `9668b91ff52283ad44d514eb74e528991dadb0792749923ca6968d019386a0e7` |
+| `generic-a300.png` | *(none — placeholder copy of `generic-a330.png`, to be replaced by a drawn silhouette of the same file name)* | placeholder, shape of `generic-a330.png` | 1672x941 | `9668b91ff52283ad44d514eb74e528991dadb0792749923ca6968d019386a0e7` |
+| `generic-crj.png` | *(none — placeholder copy of `generic-embraer.png`, to be replaced by a drawn silhouette of the same file name)* | placeholder, shape of `generic-embraer.png` | 2172x724 | `ba78794a0d37200291b53b8f2f7cdc7f8d1ca0949aab0a6e4da5f2b26b7f6723` |
+| `generic-falcon.png` | *(none — placeholder copy of `generic-embraer.png`, to be replaced by a drawn silhouette of the same file name)* | placeholder, shape of `generic-embraer.png` | 2172x724 | `ba78794a0d37200291b53b8f2f7cdc7f8d1ca0949aab0a6e4da5f2b26b7f6723` |
+| `generic-bizjetlarge.png` | *(none — placeholder copy of `generic-embraer.png`, to be replaced by a drawn silhouette of the same file name)* | placeholder, shape of `generic-embraer.png` | 2172x724 | `ba78794a0d37200291b53b8f2f7cdc7f8d1ca0949aab0a6e4da5f2b26b7f6723` |
+| `generic-bizjet.png` | *(none — placeholder copy of `generic-embraer.png`, to be replaced by a drawn silhouette of the same file name)* | placeholder, shape of `generic-embraer.png` | 2172x724 | `ba78794a0d37200291b53b8f2f7cdc7f8d1ca0949aab0a6e4da5f2b26b7f6723` |
+| `generic-kingair.png` | *(none — placeholder copy of `generic-atr72.png`, to be replaced by a drawn silhouette of the same file name)* | placeholder, shape of `generic-atr72.png` | 1774x887 | `1dd0a7ea19381f440ff55f39776d08a65933ea1c10a1e4759f27bdd6d1c3943d` |
+| `generic-pc12.png` | *(none — placeholder copy of `generic-atr72.png`, to be replaced by a drawn silhouette of the same file name)* | placeholder, shape of `generic-atr72.png` | 1774x887 | `1dd0a7ea19381f440ff55f39776d08a65933ea1c10a1e4759f27bdd6d1c3943d` |
+| `generic-helicopter.png` | *(none — placeholder copy of `generic-fallback.png`, to be replaced by a drawn silhouette of the same file name)* | placeholder, shape of `generic-fallback.png` | 2054x766 | `1e09d2ce8c251c861d4ec0bff4d76044228ae69b9b718a6fc49ac9f8a63fb11f` |
+| `generic-gahigh.png` | *(none — placeholder copy of `generic-atr72.png`, to be replaced by a drawn silhouette of the same file name)* | placeholder, shape of `generic-atr72.png` | 1774x887 | `1dd0a7ea19381f440ff55f39776d08a65933ea1c10a1e4759f27bdd6d1c3943d` |
+| `generic-other.png` | *(none — placeholder copy of `generic-fallback.png`, to be replaced by a drawn silhouette of the same file name)* | placeholder, shape of `generic-fallback.png` | 2054x766 | `1e09d2ce8c251c861d4ec0bff4d76044228ae69b9b718a6fc49ac9f8a63fb11f` |
 
 ### `_unresolved/` — generated but NOT selection targets (not shipped assets)
 
@@ -293,7 +311,7 @@ by design, per `03.1-LIVE-RESOLUTION.md`):**
 
 - **Amelia International** — `[UNRESOLVED]` **through Phase 3.1 only.**
   **Status changed by quick task `260827-kih` (2026-08-27): this carrier IS
-  now a real target** (`amelia.png`/`amelia-embraer.png`, filed as
+  now a real target** (`amelia.png`/`amelia-erj145.png`, filed as
   "Amelia", not "Amelia International" — see the "Quick task 260827-kih"
   subsection immediately below for the full live evidence). At the time
   this exclusion was recorded (Phase 3.1), no adsbdb code could be trusted:
@@ -303,7 +321,7 @@ by design, per `03.1-LIVE-RESOLUTION.md`):**
   speculatively-generated `_unresolved/amelia-international.png` this
   exclusion produced has since been removed from disk (2026-08-27, by the
   same parallel session that delivered the real `amelia.png`/
-  `amelia-embraer.png` art) — it is no longer present, and `_unresolved/`
+  `amelia-erj145.png` art) — it is no longer present, and `_unresolved/`
   itself now holds no files (see the note above).
 - **La Compagnie** — `[UNRESOLVED]` **through quick task 260921-v9c only.**
   **Status changed by quick task `260921-v9c` (2026-09-21): this carrier IS
@@ -331,7 +349,7 @@ Outstanding count: **3 → 5** (both new Amelia files await an external
 generation batch per D-09; neither has a sha256/dimensions row yet — added
 only once a real file lands on disk and passes `--validate`). Full current
 outstanding list (5): `km-malta-airlines.png`, `tuifly-belgium.png`,
-`amelia.png`, `royal-air-maroc-embraer.png`, `amelia-embraer.png`. See
+`amelia.png`, `royal-air-maroc-embraer.png`, `amelia-erj145.png`. See
 "Quick task 260827-lgt" below for the current project-wide total of 8
 outstanding files.
 
@@ -380,7 +398,7 @@ corrected against a real reference photo; see the digest table and the
 | Filename | Airline | Aircraft type | Livery (moderate confidence at spec time) |
 |---|---|---|---|
 | `amelia.png` | Amelia | Airbus A320 | Originally specified as white fuselage, blue tail, lowercase "amelia" wordmark — corrected post-delivery, see below |
-| `amelia-embraer.png` | Amelia | Embraer E145 | Same livery, on the regional-jet airframe (Amelia's real Orly-relevant Pau service type, per `03.1-CONTEXT.md` D-03) |
+| `amelia-erj145.png` | Amelia | Embraer E145 | Same livery, on the regional-jet airframe (Amelia's real Orly-relevant Pau service type, per `03.1-CONTEXT.md` D-03) |
 
 **KM Malta Airlines and TUIfly Belgium (quick task `260827-jz6`) are
 untouched by this session (QT-kih-D-07) — see the Naming rules section of
@@ -401,7 +419,7 @@ new secondary, Air France Hop's ATR72 variant). Outstanding count:
 **5 → 8**. Full current project-wide outstanding list (8, in `--targets`
 order): `km-malta-airlines.png`, `tuifly-belgium.png`, `amelia.png`,
 `air-france-hop.png`, `klasjet.png`, `royal-air-maroc-embraer.png`,
-`amelia-embraer.png`, `air-france-hop-atr72.png`.
+`amelia-erj145.png`, `air-france-hop-atr72.png`.
 
 **Three new outstanding targets, none generated by this task:**
 
@@ -480,7 +498,7 @@ Caraïbes rather than Amelia; it was removed instead of promoted.
 | `km-malta-airlines.png` | KM Malta Airlines | Airbus A320neo, post-2023 | 2017×780 | `57317df5cbb460889afd1358be7579f45d5f3742abfb594b222f7715f55bd38f` |
 | `tuifly-belgium.png` | TUIfly Belgium | Boeing 737 MAX 8 | 2001×786 | `71605dfeee854ba4c296b242d31831a3fcee12d86d15d848dacb2b395d7390ea` |
 | `amelia.png` | Amelia | Airbus A320, white tail with low emerald fuselage ribbons | 2084×754 | `58598c69094b4a77c79a61f588343c5159d38cce474b59f3fb431e4723f5cdd4` |
-| `amelia-embraer.png` | Amelia | Embraer E145, verified white/dark-green livery | 2067×761 | `284e4947fe2f1b30c51ddd0bc9b6af6489ba3bd92f526800260435f65141aa53` |
+| `amelia-erj145.png` | Amelia | Embraer E145, verified white/dark-green livery | 2067×761 | `284e4947fe2f1b30c51ddd0bc9b6af6489ba3bd92f526800260435f65141aa53` |
 | `air-france-hop.png` | Air France HOP | Embraer E190, post-2019 | 2135×737 | `20eb212ce74e744e7972a248d107a9cacae7b4003652f1d53a783861d8c1c995` |
 | `air-france-hop-atr72.png` | Air France HOP | ATR 72-600, historical HOP! livery | 2056×765 | `6994215f6b85048f084cdf1900a86ad826f38cdecba569a92d9f6f8db69e3121` |
 | `klasjet.png` | KlasJet | Boeing 737-800, current minimalist ACMI appearance | 2073×758 | `628557ff3171001d9dfd6b847f9c5471da9c6b6657b1006edc0d40d54a5e5f20` |
