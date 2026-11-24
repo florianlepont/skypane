@@ -352,46 +352,101 @@ the two earlier projects `skypane_printing.3mf` and
 `skypane_tray_shim_merged.3mf`. Read by the assistant from the files (triangle
 counts), not sliced or printed.
 
-### Stand redesigned as a hinged leg, 2026-11-24
+### State of the files after the full check, 2026-11-24 (evening)
 
-Owner request of 2026-11-24, after the loose plate did not hold: a real stand like
-the original IKEA easel leg, hinged, working in landscape and in portrait; the
-magnet bosses and the two U-shaped stop walls of the lid can go, and the folded
-leg may cover the USB access (nothing measured; all numbers are design values).
-The owner sent a side photo of the IKEA frame on its leg; from it, by eye, the
-frame leans about 20 degrees and the leg stands about 48 degrees from the frame,
-hinged high on the back, a flat panel cut flat at the foot with a bevelled corner.
-In the IKEA 3D model the hinge points of that leg sit where the wall hooks of the
-lid are, so the owner chose to keep the hooks and a lower hinge (option A).
+Checked by the assistant on 2026-11-24, on the model and the STL files, not on a print:
 
-- Lid: the two stop walls with their guides, the four support columns under them
-  in the tray, and the two magnet bosses are removed. Two pairs of hinge sockets
-  are added on the lid back (5 x 7 mm, 6 mm high, hole 3.4 mm, snap-in throat
-  2.7 mm open upward): landscape on an axis along y at x = +25, portrait on an
-  axis along x at y = -50. Both axes are 49 mm from the lower edge of the frame.
-- Leg (`print/skypane_stand.stl`): one panel 4 mm thick, 76 mm wide at the hinge
-  end, narrowing to 56 mm at the foot over the last 45 percent of its 56.4 mm
-  length, rounded hinge end with a pin of 3 mm on each side (4.6 mm long), foot
-  end cut parallel to the desk, printed flat on its lid-side face (292
-  triangles, closed mesh, 58.4 x 85.2 x 4.0 mm including the pins). A 9 mm wide
-  notch, 12.6 mm deep, in the hinge end clears the landscape sockets when the leg
-  is folded in portrait. The same leg is clipped on the landscape or the portrait
-  sockets, as on the original easel.
-- It stands the frame at 20 degrees on its lower edge, the leg 48 degrees from the
-  lid back; the foot lands at height 0 of the desk on the model (x about 61 to 63
-  in landscape). Folded flat on the lid back it lies between the sockets with
-  0.5 mm clearance, toward -x in landscape and toward +y in portrait, and leaves
-  the hook blocks free.
-- Checked by the assistant on the model (Blender 5.3.0, background): leg and lid
-  meshes closed; the folded leg, in landscape and in portrait, has zero overlap
-  with the lid (boolean intersection); the tray and shim part is regenerated
-  without the four columns (6644 triangles, volume 55855.2 mm3, was 7408 and
-  56954.0). Files re-exported: `skypane_lid.stl` (7066 triangles),
-  `skypane_stand.stl`; `skypane_tray_shim_merged.stl` was already regenerated.
-- Not done: nothing printed or fitted. Whether the pins snap in and hold, whether
-  PLA is stiff enough at 4 mm, the friction of the foot on the laminate (adhesive
-  anti-slip pads are still the owner's to add), and the hanging of the frame with
-  the leg folded are not known. The lid, the tray and the leg must be reprinted.
+| File in `hardware/cad/print/` | Triangles | Volume | Size (mm) | Checks |
+|---|---|---|---|---|
+| `skypane_tray_shim_merged.stl` | 6644 | 55855.2 mm3 | 132.0 x 182.0 x 12.0 | closed, no degenerate triangle |
+| `skypane_lid.stl` | 8010 | 39981.2 mm3 | 132.0 x 182.0 x 11.2 | closed, no degenerate triangle |
+| `skypane_stand.stl` | 524 | 15789.0 mm3 | 119.0 x 152.4 x 4.0 | closed, one piece, no degenerate triangle |
+
+- The three STL are byte for byte what the script stored in `source/skypane_cassette.blend` produces when it is run again.
+- Interference of the leg, folded and open at 48 degrees, with the tray and shim, the wooden frame, its glass, mat and tabs, the board, the battery, the antenna, the screen and its ribbon: none. With the lid: 0.56 mm3 folded and 0.57 mm3 open, the intended crush ribs on the pins.
+- The lowest point of the open leg is at 12.50 mm, the lid back face at 12.50 mm; it rests on the desk along a flat edge in portrait (tilt 26 degrees) and in landscape (tilt 27 degrees).
+- Found and corrected during this check: the saved blend file in the working folder contained the owner's demonstration scene (copies of the parts standing on a desk); it was restored to the committed version. The Bambu Studio project `print/skypane_lid.3mf` still holds the earlier meshes of the three parts (lid with 7552 triangles, tray and shim 7408, stand 396): the three STL above must be imported again before slicing.
+- Not checked, because nothing is printed: the fit of the pins in the lugs, the grip of the crush ribs, the strength of the stop, the stiffness of the 4 mm ring in PLA, the friction of the foot, the fit of the lid on the frame and the letters on a real print. The stability margins use an estimated centre of gravity.
+
+### Stand redesigned as one leg on a diagonal hinge, 2026-11-24
+
+Owner request of 2026-11-24, after the loose plate and then the two-socket leg did
+not satisfy: one stand that works in landscape and in portrait without moving it or
+taking anything apart, like the original IKEA easel leg; the magnet bosses and the
+two U-shaped stop walls of the lid can go, the folded leg may cover the USB access,
+and the hinge may start where the logo is. Nothing measured; every number is a
+design value.
+
+Research (web search, 2026-11-24, not a proof of any mechanism): the patents
+[US 6163998](https://patents.google.com/patent/US6163998) and
+[US 10376078](https://patents.google.com/patent/US10376078) describe one leg whose
+foot has two edges, each resting on the table in one orientation, so the same leg
+serves both; the IKEA frame model in the Blender file has the same shape (a leg
+with a diagonal hinge edge and a foot corner near the lower corner of the back).
+The assistant checked on the model that such a leg stands the frame in both
+orientations.
+
+- Hinge: one axis along a diagonal of the lid back, from (-51, 31) at 45 degrees,
+  38 mm long, near the logo, with a lug at each end (5 x 7 mm, 6 mm high, hole 3.4 mm
+  with three small crush ribs, snap-in throat 2.7 mm open upward). The old two pairs
+  of sockets, the stop walls, the support columns under them in the tray and the
+  magnet bosses are removed.
+- Leg (`print/skypane_stand.stl`): owner request of 2026-11-24 for the prettiest shape
+  with very strong stability and the least material (the USB cut-out of the previous
+  version is dropped at the owner's request). A light frame ring, 10 mm wide and 4 mm
+  thick, around a leaf-shaped outline with rounded corners: the hinge edge on the
+  diagonal near the logo, a rounded shoulder clear of the hook block, a long edge down
+  to a bottom foot edge (50 mm) and a right foot edge (50 mm) that meet at a lower right
+  corner, and a chamfer back to the hinge. About 3700 mm2 of material, a volume of
+  15789.0 mm3 (about 20 g in PLA at 1.3 g/cm3), against 27044.8 mm3 for the previous
+  panel; 524 triangles, closed mesh in one piece, 119.0 x 152.4 x 4.0 mm. A 4 mm ear and a 3 mm pin at
+  each end of the axis. The stop is a triangular wedge behind the axis of each ear (owner request: the first
+  stop was a tab of 1.6 mm): its inclined face, 5.4 mm long and 6 mm wide, lies flat on the
+  lid back when the leg is open at 48 degrees (8 vertices of the open leg on the lid
+  face on the model), the wedge stays within the 4 mm thickness of the leg and does not
+  protrude when the leg is folded. The resultant of the contact is about 3.4 mm from
+  the axis instead of 1.6 mm, so a forced push loads the lid about 2.2 times less, over
+  about 32 mm2 per ear instead of an edge (computed, not tested; the lid plate is still
+  only 1.5 mm).
+- How the shape was found, by computation on the model: the frame tilt is chosen in
+  each orientation (26 degrees in portrait and 27 in landscape) and the line where the desk plane meets the
+  open leg is then a foot edge of the leg, in a different place for portrait (about
+  horizontal in the folded plan) and landscape (about vertical), each cut flat by its
+  desk plane. With the centre of gravity of the frame and case estimated at (-3.5, 3,
+  17) mm (design estimate from the earlier design notes, not weighed), the margin of the
+  centre of gravity inside the support polygon (lower edge of the frame plus the foot
+  edge) is about 39 mm in portrait and 30 mm in landscape at 48 degrees (45 and 33 mm at the first opening of 54 degrees, with a tilt of 29.5 degrees), and it hardly changes
+  with the length of the foot edge (40 to 100 mm gave the same margins), which is why
+  the leg needs no large panel: the stability comes from the position of the foot,
+  not from its size. The ring carries the load along its sides.
+- Fault found on 2026-11-24 from the owner's screen recording and corrected: the two
+  hinge ears had been built on the wrong side of the axis (8 mm away from the leg
+  instead of toward it), so that, once the leg was opened, they swung through the lid and
+  came out 4 mm on the screen side, and they were not joined to the leg. The ears are now
+  on the leg side, with only the 1.6 mm stop overhang behind the axis; checked on the
+  model: the lowest point of the open leg is at 12.49 mm, the lid back face being at
+  12.50 mm, and the leg mesh is one piece.
+- Owner remark of 2026-11-24 (a small step of 0.3 mm under the stop wedge, left by the 0.3 mm overlap used to join the wedge to the ear): the ear and the wedge are now one profile, so the underside of the ear runs straight into the inclined face (no step). The wedge cannot start at the axis, because its inclined face would then go below the underside of the leg and into the lid when the leg is folded; it starts at 1.56 mm.
+- Visual defect reported by the owner on 2026-11-24 and corrected: the hinge ears were 0.01 mm thicker than the leg (a step of 0.01 mm, shown as a jagged line on the faces) and a small triangular hole was left in the top face next to the ear. The ears now have exactly the thickness of the leg, the coplanar faces are merged and the hole is closed; checked on the model: no vertex at 12.99 or 17.01 mm any more and no open edge.
+- Owner decision of 2026-11-24: the opening is 48 degrees instead of 54, to lean the frame less (the owner asked for a stop at 15 to 20 degrees, which a leg folded on the lid cannot give: the foot would have to touch the desk 10 to 15 mm beyond the lower edge of the lid; the computed minimum is about 23 degrees at an opening of 30, with a closing torque that grows as the tilt falls). Open at 48 degrees, the frame tilts 26 degrees in portrait and 27 in landscape by choice; the
+  foot edges are cut flat by the two desk planes and the lowest points of the open leg
+  are at height 0 of each desk plane on the model.
+- Folded, the leg lies on the lid back 0.5 mm above it; the only overlap with the lid
+  is the 0.56 mm3 of the crush ribs on the pins (intended, to add friction).
+- Checked by the assistant (Blender 5.3.0, background): lid, tray/shim and leg meshes
+  closed; lid 8010 triangles, volume 39981.2 mm3 (with the logo moved and the letters); leg volume 15789.0 mm3; tray/shim
+  part unchanged since the columns were removed (6644 triangles, 55855.2 mm3).
+- Open risk, by computation: the load on the foot tends to close the leg with a torque
+  of about 22 N.mm per newton of load at a foot friction of 0.4 (about 45 N.mm for 2 N; it was about 15 at an opening of 54 degrees)
+  and tends to open it against the stop at a friction of 0.2; the narrow leg of the
+  first version closed with about 27 N.mm per newton. Only the friction of the pins on
+  the crush ribs holds it; this is the first thing to test. If it closes under the
+  frame, the owner has 6 x 2 mm magnets: a pair in the ear and in the lid would hold it,
+  but that was not designed.
+- Not done: nothing printed or fitted; whether the pins snap in and stay, the
+  stiffness of 4 mm PLA, the friction of the foot on the laminate (the owner has
+  anti-slip pads), the hanging with the leg folded. The lid, the tray and the leg
+  must be reprinted.
 
 ### Stand redesigned with a wide foot, 2026-11-24
 
@@ -426,6 +481,38 @@ size. Nothing was measured; the numbers below are computed on the model.
 - Not done: printed, fitted, or tried on the desk; the housing on the lid is
   unchanged, so whether the plate still comes out of it is not known. The
   assistant did not pick a pad size: the pads stick under the flat foot face.
+
+### Texts next to the buttons aligned on the left, 2026-11-24
+
+At the owner's request, RESET, OFF, ON and the letters A, B and C start on one line at
+x = 14 mm (the texts were centred on x = 24 mm), keeping their heights (y) and sizes. The
+small down arrow between OFF and ON moved 4.5 mm to the left to stay next to the words.
+The left edge is 2 mm from the access opening (its edge is at about x = 12 mm). Lid mesh
+closed; `print/skypane_lid.stl` re-exported (8010 triangles); the lid must be reprinted.
+Design values, not measured, not printed.
+
+### Letters on the three other buttons, 2026-11-24
+
+At the owner's request, so that they can be used later: the letters A, B and C are engraved
+next to the RESET, OFF and ON texts, in front of the three other buttons of the board, 7 mm
+high, 0.4 mm deep, at x = 24 mm and y = 4.7, 14.1 and 23.4 mm (the centres of the buttons
+read in the board model, spacing 9.3 mm; RESET is at y = -4.6). Which letter goes with
+which key (KEY0 on GPIO5, KEY1 on GPIO3, KEY2 on GPIO2 in the firmware notes) is not known:
+the letters only name the positions, from the one nearest RESET upward. The letters are
+engraved without the thickening of the other texts, because the B of the font breaks the
+mesh with it (181 open edges on the model). `print/skypane_lid.stl` re-exported (8006
+triangles); the lid must be reprinted. Design values, not measured, not printed.
+
+### Logo moved to the top right, 2026-11-24
+
+At the owner's request ("en haut à droite") the engraved emblem and the text SKYPANE on
+the back of the lid moved from the top left, next to the hinge of the stand leg, to the
+top right, seen from the back: emblem centre from (-43, 64) to (38, 62) mm, text from
+(-43, 45) to (38, 43) mm. Nothing else changed (same size, same depth). The new place is
+free of raised features, clear of the hook block, the wide part of the access opening
+and the top tab pad by at least 2 mm on the model, and the folded leg does not cover it.
+`print/skypane_lid.stl` re-exported (7142 triangles, closed mesh); the lid must be
+reprinted. Design values, not measured, not printed.
 
 ### Lid tab pads moved, 2026-11-24
 
