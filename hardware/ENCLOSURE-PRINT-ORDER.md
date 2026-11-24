@@ -314,6 +314,32 @@ was found. So the owner's plate is a textured PEI plate and the spool is PLA
 Matte, as stored in the projects (the slice figures above used PLA Basic, 1.26
 g/cm3, so masses differ a little). The projects hold no slice result.
 
+### First assembly and the screw lugs removed, 2026-11-24
+
+Reported by the owner on 2026-11-24, after mounting the lid on the rest of the
+case, which completes the first assembly (nothing measured):
+
+- The screws that fix the case to the frame are useless: the tabs on the tab
+  pads hold the case on the frame. Screwing to the frame is not practical for
+  the assembly. The owner asked to remove the four screw lugs of the lid.
+- The stand does not work: the frame slides directly. Which surface it stands
+  on, the angle, and whether it slides on the stand or the stand slides are not
+  reported yet. No change was made to the stand.
+
+Change made by the assistant in the generating script on 2026-11-24 (Blender
+5.3.0, background mode): the four lugs of the lid (4 x 8 mm, z 12.5 to 22 mm,
+with their 2.2 mm hole and head recess) and their parameters are removed. The
+tab pads, hooks, stand stops and every other part are unchanged. Check: the
+one-part tray and the stand regenerate with the same volume (56954.0 and 8010.5
+mm3, the stand STL byte-identical); the lid volume goes from 42583.8 to 41487.5
+mm3 (-1096.3 mm3), 8408 to 7552 triangles, and keeps its size (132.0 x 182.0 x
+11.2 mm). Only `print/skypane_lid.stl` was re-exported. The lid must be
+reprinted, and `skypane_printing.3mf` and any other project still hold the lid
+with lugs. Design value, not measured, not printed.
+
+The 4 M2 screws of the lid on the tray corners (the corner posts) are not part
+of this change.
+
 ### Lid tab pads moved, 2026-11-24
 
 First trial of the lid on the frame (photos from the owner, lid not yet screwed):
