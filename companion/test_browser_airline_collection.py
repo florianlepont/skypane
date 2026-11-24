@@ -292,7 +292,7 @@ def test_the_sort_applies_on_change_with_script(new_context, make_app_server):
     context, page = _open(new_context, server.base_url(), VIEWPORT_MIN_SUPPORTED)
     try:
         summary = page.locator(".collection-sort > summary")
-        assert "Most seen" in summary.get_attribute("aria-label")
+        assert "Rarest" in summary.get_attribute("aria-label")
         summary.click()
         panel = page.locator(".collection-sort__panel")
         panel.wait_for(state="visible")
@@ -301,7 +301,7 @@ def test_the_sort_applies_on_change_with_script(new_context, make_app_server):
         ticks = page.evaluate(
             "() => [...document.querySelectorAll('.collection-sort__row .icon')]"
             ".map(i => getComputedStyle(i).visibility)")
-        assert ticks == ["visible", "hidden", "hidden", "hidden"], ticks
+        assert ticks == ["hidden", "visible", "hidden", "hidden"], ticks
         page.locator(".collection-sort__option", has_text="A to Z").click()
         page.wait_for_url("**sort=az**", timeout=10000)
         page.wait_for_function(_SETTLED, timeout=15000)
@@ -333,13 +333,13 @@ def test_a_sort_reorders_the_cards_already_there_without_asking_the_server(
         page.on("request", lambda request: asked.append(request.url) if (
             "/airlines" in request.url or request.resource_type == "image") else None)
         orders = {}
-        for value in ("az", "rarest", "latest", "most"):
+        for value in ("az", "most", "latest", "rarest"):
             page.locator(".collection-sort > summary").click()
             option = page.locator('.collection-sort__option:has(input[value="%s"])' % value)
             words = option.inner_text().strip()
             option.click()
             page.wait_for_function(
-                "(v) => (new URLSearchParams(location.search).get('sort') || 'most') === v",
+                "(v) => (new URLSearchParams(location.search).get('sort') || 'rarest') === v",
                 arg=value, timeout=10000)
             page.wait_for_function(
                 "() => !document.querySelector('.collection-sort').open", timeout=5000)
@@ -352,7 +352,7 @@ def test_a_sort_reorders_the_cards_already_there_without_asking_the_server(
         assert orders["az"] == sorted(orders["az"], key=str.casefold)
         assert len({tuple(names) for names in orders.values()}) > 1, "no order changed anything"
         for value, names in orders.items():
-            page.goto(server.base_url() + "/airlines" + ("?sort=" + value if value != "most" else ""))
+            page.goto(server.base_url() + "/airlines" + ("?sort=" + value if value != "rarest" else ""))
             page.wait_for_function(_SETTLED, timeout=15000)
             assert page.evaluate(_CARD_NAMES) == names, value
     finally:

@@ -182,6 +182,10 @@ def credits_body(sources=None, back=login_page.BACK_SIGN_IN, home_route=None):
 
 def credits_page(ui_theme, health_alert, sources=None, back=login_page.BACK_SIGN_IN,
                  home_route=None):
+    """The full document. A signed-in person gets the page with no navigation
+    at all (the back link to Account is the only way out); a visitor with no
+    session sees it as before."""
     return layout.page_shell(
         title=i18n.t(TITLE_TEXT), active="", body=credits_body(sources, back, home_route),
-        ui_theme=ui_theme, health_alert=health_alert)
+        ui_theme=ui_theme, health_alert=health_alert,
+        bare=back != login_page.BACK_SIGN_IN)

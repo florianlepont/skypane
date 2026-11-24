@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """French strings for the nav labels and the nav-footer switches.
 
-The nav labels are fixed: Accueil, Vols, Compagnies,
+The nav labels are fixed: Accueil, Vols, Airlines,
 Style, Lieu, État, Appareil, Versions. "FR"/"EN" are identifiers, not
 translated, and therefore have no entry here.
 
@@ -25,7 +25,7 @@ MESSAGES = {
     "nav.flight_history": "Vols",
     "nav.detection": "Lieu",
     "nav.personalisation": "Style",
-    "nav.airline_collection": "Compagnies",
+    "nav.airline_collection": "Airlines",
     "nav.airline_editor": "Éditeur de compagnies",
     "nav.frame_tools": "Outils du cadre",
     "nav.device": "Appareil",

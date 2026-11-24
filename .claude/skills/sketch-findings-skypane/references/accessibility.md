@@ -8,7 +8,7 @@
   box (the 22px `.copy-btn`) draws a 44px hit area with `::before`. The quiet dial handles use
   `inset: -12px` (about 45px measured, because they land on fractional pixels): a shared hit-area
   entry may be overridden upward, never downward.
-- **Icon-only buttons** (the Home rename pencil and "i", Account's manage-access key and
+- **Icon-only buttons** (the Home "i", Account's manage-access key and
   leave-frame door, the Fleet header's personal view and Rename, the Location "Show all of France"
   globe and locate button, the round check on an airline suggestion, copy): each is a 44px target,
   has an accessible name that says what it does and, where several rows repeat it, what it acts on

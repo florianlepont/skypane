@@ -40,8 +40,8 @@ motion) without loading the page again; on a sub-page of that tab the link still
 | Personal (administrator and user alike) | Home, Flights, Airlines, Style, Location, More |
 | Console (administrator only) | Fleet (carries the severity dot), Users, Editor, System, More (Account, Audit, back to My frames) |
 
-A page that belongs to no cell (Credits, Components, error pages) marks More as current, so the
-pill is on every page. A bar with no cells (a frame's not-found page) renders More alone.
+A page that belongs to no cell (Components, error pages) marks More as current, so the
+pill is on every page. A bar with no cells (a frame's not-found page) renders More alone. Credits, signed in, has no bar at all.
 `<body class="has-tab-bar">` reserves the page clearance; `#tab-bar-end` makes the first paint wait
 for the whole bar.
 
@@ -102,7 +102,7 @@ shorter bar word except the two Console ones noted).
 |------|------|---------|
 | Home | Home / Accueil | same |
 | Flights | Flights / Vols | same |
-| Airlines | Airlines / Compagnies | same |
+| Airlines | Airlines / Airlines | same |
 | Style | Style / Style | same |
 | Location | Location / Lieu | same |
 | More | More / Plus | |
@@ -115,7 +115,7 @@ shorter bar word except the two Console ones noted).
 | Space switch and the Console's way back | My frames / Mes cadres | |
 
 Concept words: frame / cadre, look / allure ("special look" is "allure spéciale"), airline /
-compagnie (the French page and tab are "Compagnies"). Style is never called "Personalisation".
+compagnie (the French page and tab stay "Airlines" so the label fits the six-tab bar). Style is never called "Personalisation".
 A new page picks its name and, only if it must fit the bar, a short word. French strings:
 `i18n_fr/nav.py`, `i18n_fr/admin_shell.py`, `i18n_fr/account.py`.
 

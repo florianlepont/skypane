@@ -30,6 +30,11 @@ LIVE_STATE_PATH = "."
 DEVICES_DIRNAME = "devices"
 PANEL_FILENAME = "panel.bin"
 CONFIG_FILENAME = "device_config.json"
+
+# The wake interval a new frame starts with (15 minutes). It is written into
+# the new frame's own config only; a frame that already exists keeps whatever
+# it has stored, or the deployed default when it stores nothing.
+NEW_FRAME_WAKE_INTERVAL_S = 900
 # Root file naming the MACs that share the live frame's state directory.
 # It is the only record of which frame is the live one that survives an
 # unreadable fleet.db, so BYOS can refuse every other MAC instead of
@@ -132,6 +137,9 @@ def provision_device_dir(
 ) -> str:
     """Create `<root>/devices/<id>/` with a seeded config and panel.
 
+    The seeded config holds the new-frame wake interval
+    (`NEW_FRAME_WAKE_INTERVAL_S`) and nothing else.
+
     The panel is two pixels per byte, `(width // 2) * height` bytes, each
     byte `fill` (default: the white nibble in both halves). Existing files
     are never overwritten and nothing else is created. Returns the
@@ -142,7 +150,9 @@ def provision_device_dir(
     os.makedirs(directory, exist_ok=True)
     if fill is None:
         fill = (panel_format.WHITE << 4) | panel_format.WHITE
-    _seed_if_absent(os.path.join(directory, CONFIG_FILENAME), b"{}\n")
+    _seed_if_absent(
+        os.path.join(directory, CONFIG_FILENAME),
+        (json.dumps({"wake_interval_s": NEW_FRAME_WAKE_INTERVAL_S}) + "\n").encode("ascii"))
     _seed_if_absent(
         os.path.join(directory, PANEL_FILENAME),
         bytes([fill]) * ((width // 2) * height),

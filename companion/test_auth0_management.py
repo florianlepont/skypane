@@ -128,7 +128,8 @@ def test_secret_is_sent_only_in_the_token_request(fake):
 @pytest.mark.parametrize("knob, value, reason", [
     ("mgmt_token_status", 401, mgmt.REASON_TOKEN),
     ("mgmt_users_status", 500, mgmt.REASON_CREATE),
-    ("mgmt_users_status", 403, mgmt.REASON_CREATE),
+    ("mgmt_users_status", 403, mgmt.REASON_FORBIDDEN),
+    ("mgmt_ticket_status", 403, mgmt.REASON_FORBIDDEN),
     ("mgmt_ticket_status", 400, mgmt.REASON_TICKET),
     ("mgmt_token_status", 429, mgmt.REASON_RATE_LIMITED),
     ("mgmt_users_status", 429, mgmt.REASON_RATE_LIMITED),

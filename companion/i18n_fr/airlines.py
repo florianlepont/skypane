@@ -15,7 +15,7 @@ non-breaking space (U+00A0) before ":" ";" "?" "!".
 
 MESSAGES = {
     # --- Editor table ------------------------------------------------
-    "airlines.table_caption": "Compagnies",
+    "airlines.table_caption": "Airlines",
     "airlines.types_seen_head": "Types d’avion vus",
     "airlines.col_default_type": "Type par défaut",
     "airlines.name_it": "Nommer",
@@ -67,8 +67,8 @@ MESSAGES = {
     "airlines.resolve_validate": "Valider",
     "airlines.state_own_artwork": "Illustration propre",
     "airlines.menu_delete_artwork": "Supprimer l’illustration",
-    "airlines.menu_set_default_type": "Utiliser comme image par défaut de la compagnie",
-    "airlines.menu_clear_default_type": "Ne plus utiliser comme image par défaut de la compagnie",
+    "airlines.menu_set_default_type": "Image par défaut",
+    "airlines.menu_clear_default_type": "Retirer par défaut",
     "airlines.default_type_pill": "Type par défaut",
     "airlines.views_one": "1 vue",
     "airlines.views_many": "%d vues",
@@ -96,7 +96,7 @@ MESSAGES = {
         "%d compagnies.",
 
     # --- The "resolve an unidentified flight" section ----------------
-    "airlines.back_to_airlines": "← Retour aux compagnies",
+    "airlines.back_to_airlines": "← Retour à Airlines",
     "airlines.that_coverage_gap_isn_t_there_anymore_it_may":
         "Cette lacune n’existe plus — elle est peut-être déjà résolue. "
         "Consultez État pour la liste complète des lacunes actuelles.",
@@ -105,6 +105,7 @@ MESSAGES = {
     "airlines.airline_name": "Nom de la compagnie",
     "airlines.save_airline_name": "Enregistrer le nom de la compagnie",
     "airlines.add_an_illustration_for": "Ajouter une illustration pour %s",
+    "airlines.add_an_illustration": "Ajouter une illustration",
     "airlines.skip_i_ll_add_artwork_later": "Ignorer — j’ajouterai une image plus tard",
     "airlines.is_already_named_for_this_prefix_and_has":
         "%s est déjà nommée pour ce préfixe et a une image — rien de "
@@ -156,8 +157,8 @@ MESSAGES = {
     "airlines.collection_filter_label": "Filtrer les compagnies",
     "airlines.collection_filter_placeholder": "Filtrer",
     "airlines.collection_apply": "Appliquer",
-    "airlines.collection_count": "Compagnies\u00a0: %d",
-    "airlines.collection_count_template": "Compagnies\u00a0: #",
+    "airlines.collection_count": "Airlines\u00a0: %d",
+    "airlines.collection_count_template": "Airlines\u00a0: #",
     "airlines.collection_range_rare": "Moins de %d passages",
     "airlines.collection_range_occasional": "De %d à %d passages",
     "airlines.collection_range_regular": "%d passages ou plus",

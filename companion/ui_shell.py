@@ -328,6 +328,14 @@ PAGE_END_HTML = '<span id="%s" hidden></span>' % PAGE_END_ID
 # nothing here can fail beyond what the server's own flash already
 # reports. No literal "{" or "}" appears below other than the named
 # slots themselves.
+SIDEBAR_ASIDE_TEMPLATE = (
+    '<aside class="dashboard-sidebar">\n'
+    '<span class="brand">{brand_inner_sidebar}</span>\n'
+    "{sidebar_switch}{sidebar}\n"
+    "{sidebar_footer}\n"
+    "</aside>\n"
+)
+
 PAGE_SHELL_TEMPLATE = (
     "<!DOCTYPE html>\n"
     '<html lang="{lang}" data-ui-theme="{ui_theme}">\n'
@@ -347,12 +355,8 @@ PAGE_SHELL_TEMPLATE = (
     "{splash}\n"
     "{tab_bar}\n"
     "{frame_notice}"
-    '<div class="dashboard-shell">\n'
-    '<aside class="dashboard-sidebar">\n'
-    '<span class="brand">{brand_inner_sidebar}</span>\n'
-    "{sidebar_switch}{sidebar}\n"
-    "{sidebar_footer}\n"
-    "</aside>\n"
+    '<div class="dashboard-shell{shell_modifier}">\n'
+    "{sidebar_aside}"
     '<header class="site-header">\n'
     '<span class="brand">{brand_inner_header}</span>\n'
     "{frame_menu}"
@@ -503,10 +507,21 @@ def _expect_link(marker_id, wanted):
     return '<link rel="expect" href="#%s" blocking="render">\n' % marker_id if wanted else ""
 
 
+def _sidebar_aside_html(active, frame_notice, brand_inner, sidebar_html, footer_html):
+    """The sidebar block. Consulting someone else's frame, the only way out is
+    the notice's Back to Fleet: the space switch would be a second, ambiguous
+    one."""
+    return SIDEBAR_ASIDE_TEMPLATE.format_map({
+        "brand_inner_sidebar": brand_inner,
+        "sidebar_switch": "" if frame_notice else space_switch_html(active),
+        "sidebar": sidebar_html,
+        "sidebar_footer": footer_html})
+
+
 def page_shell(
         title, active, body, ui_theme="auto", flash=None, banner=None,
         health_alert=None, lang=None, device_config=None, scripts=(),
-        refresh_token=None, console_page=False, styles=(), no_tab=False):
+        refresh_token=None, console_page=False, styles=(), no_tab=False, bare=False):
     """Return a complete HTML5 document wrapping `body` in the shared shell.
 
     `title` and nav labels are escaped here. `body`, `flash` and `banner` are
@@ -541,14 +556,18 @@ def page_shell(
 
     `no_tab` (default `False`) is set by the error pages: they are in no tab, so
     the bottom bar selects no cell, not even More.
+
+    `bare` (default `False`) drops every piece of navigation: no sidebar, no
+    tab bar, no space switch, no frame button and no wordmark link. The page
+    itself then holds its only way out.
     """
     script_tags_html = _script_tags_html(scripts)
     frame_notice = frame_notice_html(active, console_page)
     resolved_theme = ui_theme if ui_theme in UI_THEME_CHOICES else "auto"
     resolved_lang = lang if lang in prefs.LANG_CHOICES else prefs.current_lang()
-    sidebar_html = sidebar_nav(
+    sidebar_html = "" if bare else sidebar_nav(
         active, health_alert=health_alert, device_config=device_config)
-    tab_bar_html = _tab_bar_html(
+    tab_bar_html = "" if bare else _tab_bar_html(
         active, health_alert=health_alert, device_config=device_config,
         ui_theme=resolved_theme, no_tab=no_tab, consulting=bool(frame_notice))
     body_attrs = _body_attrs_html(active, tab_bar_html, refresh_token)
@@ -575,8 +594,8 @@ def page_shell(
     brand_inner_header = (
         '{brand_mark}<span class="site-title">{site_title}</span>'
     ).format(brand_mark=brand_mark_html, site_title=escaped_site_title)
-    if is_user_principal() or (
-            is_admin_principal() and current_space(active) == PERSONAL_SPACE):
+    if not bare and (is_user_principal() or (
+            is_admin_principal() and current_space(active) == PERSONAL_SPACE)):
         # The wordmark leads to the frame's Home when the viewer can open it,
         # else to Account; an administrator's personal pages match a user's.
         brand_link = (
@@ -595,7 +614,6 @@ def page_shell(
             for href in (page_styles.area_hrefs(prefs.current_request_path()) if active else ())
             + tuple(styles)),
         # Decorative: the adjacent site-title text stays the accessible name.
-        "brand_inner_sidebar": brand_inner_sidebar,
         "brand_inner_header": brand_inner_header,
         "body_attrs": body_attrs,
         "skip_link": skip_link_html,
@@ -603,14 +621,12 @@ def page_shell(
         "splash": ui_splash.splash_html(),
         "splash_boot_src": SPLASH_BOOT_SCRIPT_SRC,
         "splash_src": SPLASH_SCRIPT_SRC,
-        "sidebar": sidebar_html,
-        "sidebar_footer": sidebar_footer_html,
-        # Consulting someone else's frame, the only way out is the notice's
-        # Back to Fleet: the space switch would be a second, ambiguous one.
-        "sidebar_switch": "" if frame_notice else space_switch_html(active),
+        "shell_modifier": " dashboard-shell--bare" if bare else "",
+        "sidebar_aside": "" if bare else _sidebar_aside_html(
+            active, frame_notice, brand_inner_sidebar, sidebar_html, sidebar_footer_html),
         "main_id": SKIP_LINK_TARGET_ID,
         "frame_notice": frame_notice,
-        "frame_menu": "" if frame_notice else frame_menu.header_menu_html(active),
+        "frame_menu": "" if frame_notice or bare else frame_menu.header_menu_html(active),
         "flash": flash_html,
         "banner": banner_html,
         "body": body,

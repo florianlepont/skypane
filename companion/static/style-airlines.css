@@ -20,6 +20,12 @@
   background: var(--color-secondary);
 }
 
+/* The add-illustration dialog's subtitle (airline, type): body font, secondary text. */
+.lightbox--wide .lightbox__caption {
+  color: var(--color-text); /* fallback for browsers without color-mix() */
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
 /* Restated against tokens rather than reusing .lightbox__replace-hint,
  * so test_status_pages.py's replace-zone contract still matches exactly
  * one .lightbox__replace-hint element per zone. */

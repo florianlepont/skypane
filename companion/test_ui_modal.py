@@ -199,6 +199,7 @@ def test_result_dialog_with_a_retry_form_puts_it_before_a_secondary_done():
     actions = doc.select_one(".modal__actions")
     assert actions.select_one('form[action="/users/invite"] button').text() == "Again"
     assert "modal__dismiss--button" in actions.select_one("a").attrs["class"]
+    assert "autofocus" not in actions.select_one("a").attrs
 
 
 def test_result_dialog_text_is_escaped():

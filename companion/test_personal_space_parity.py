@@ -214,4 +214,4 @@ def test_the_airline_collection_is_read_only_and_counts_the_same_history(parity,
     assert not re.search(r"(?:action|href)=\"[^\"]*/airlines/", main)
     assert not re.search(r"(?:rename|resolve|delete|replace)", main.lower().replace("unresolved", ""))
     assert ("Seen once" if lang == "en" else "Vue une fois") in main
-    assert ("Airlines: 1" if lang == "en" else "Compagnies\u00a0: 1") in main
+    assert ("Airlines: 1" if lang == "en" else "Airlines\u00a0: 1") in main

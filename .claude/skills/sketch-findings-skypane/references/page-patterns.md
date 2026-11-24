@@ -10,10 +10,9 @@ content), complete and correct with scripts blocked, 360px without horizontal sc
 One column of blocks, built for three states: online, sleeping (quiet hours or screen off) and
 offline (no contact).
 - **Title block** (`home_state.py`): the `h1` is the frame name (32px phone, 44px from 700px) with
-  a 28px round rename pencil right after it (`pages/home_title.py`, a 44px target; it opens the
-  frame-name page and returns to Home); under it the status dot and its word, then the next update
+  no rename control (renaming lives in Account and the Fleet header; `pages/home_title.py`); under it the status dot and its word, then the next update
   sentence ("Next update in 12 min", or "Last contact 3h ago" for a frame that lost contact) ending
-  with the cadence "i" button inside the sentence. The dot halo pulses and stops under reduced
+  with the cadence "i" button inside the sentence (held with the last word, so it never wraps under the text). The dot halo pulses and stops under reduced
   motion, at rest after a minute idle and while a dialog is open.
 - **Flight card** (`home_flight_card.py`): the newest archived picture beside a direction badge,
   callsign, airline, route and type ("ORY → TLS · A320") and a live "Detected 4m ago". A thin ring
@@ -117,7 +116,7 @@ Read-only, and different by role.
   view is the Editor (below).
 - A grid of glass cards (artwork on a neutral plate, name) with a **filled rarity pill** on every
   card (tinted by `--rarity-tint`, a word as well as a colour), and a control bar: a filter field, a
-  sort icon menu (Most seen, Rarest, Latest, A to Z), a legend button behind one info button and the
+  sort icon menu (Most seen, Rarest, Latest, A to Z; Rarest is the default), a legend button behind one info button and the
   next-badge goal line. Two lines on a phone; the bar sticks while the cards scroll.
 - Detail sheet: three facts as hairline rows under the picture and the rarity pill, the round
   opaque cross at the top as the only Close (the foot strip is hidden), no inner scroll on a phone
@@ -166,7 +165,7 @@ frame). Console label "Airline editor", bar label "Editor".
 - **Frame page** (`/fleet?frame=<id>`): a header with the `h1` name, the state line and two 44px
   icon buttons (personal view, Rename); then a State section of **three equal tiles** and the
   Settings and Access sections stacked in one column of equal cards (on a phone, three sticky
-  anchors State / Settings / Access, 44px, mark the section in view; from 960px the anchors are
+  anchors State / Settings / Access, 44px, mark the section in view on a solid bar whose gap above (safe area and app-bar drop) is painted too; from 960px the anchors are
   hidden):
   - **Connection** tile: a verdict and two lines, "Last check-in <age>" and "Next wake <clock>"; a
     plain block, not a link, no Details mark. A frame that never checked in says so once and still
@@ -261,8 +260,9 @@ its own. Leaving a frame opens a dialog with "Stay on this frame".
   state, sign-in cancelled returns 303. A page restored after the session ended shows the translated
   "session expired" toast (`session-guard.js`) and redirects to `/login?next=...&expired=1`. A refused
   pairing code is kept 2 minutes in the `sp_pair_code` cookie for one showing (`pair_code_cookie.py`).
-- Credits (`credits_page.py`): reachable from Account's About group and from sign-in; signed in, a
-  chevron "Back to Account" link above the title; anonymous, "Back to sign in" at the bottom.
+- Credits (`credits_page.py`): reachable from Account's About group and from sign-in; signed in, the page
+  is drawn with no navigation at all (`page_shell(bare=True)`: no sidebar, tab bar, space switch or frame
+  button) and a chevron "Back to Account" link above the title; anonymous, "Back to sign in" at the bottom.
 - **404:** an "empty frame" drawn inline (an SVG in the page ink, decorative, 260px at most) over one
   muted caption ("Nothing hangs on this wall.") on a panel, the same for every caller; status stays
   404 and the back link goes to the frame home, Account or sign-in as the caller needs. 403 and 500

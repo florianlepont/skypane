@@ -111,9 +111,8 @@ the page title.
 | Caption | `--font-caption-size` 13px, secondary ink: first-visit hint, 404 caption, tile meta, hints under controls | 400 |
 | Tab label / chart axis | 11px / 10px (the only sub-scale sizes) | |
 
-Home's title (`.title-action__text`) is `--title-size` 32px phone, 44px from 700px, with one
-rename icon link beside it (the pencil and the info "i" are 28px opaque discs inside 44px hit
-areas). Wall-clock times use `.time-value` (UI face,
+Home's title (`.title-action__text`) is `--title-size` 32px phone, 44px from 700px, alone
+(the info "i" is a 28px opaque disc inside a 44px hit area). Wall-clock times use `.time-value` (UI face,
 tabular numerals); mono is for identifiers.
 
 ## Spacing, layout

@@ -4081,6 +4081,11 @@ a.airline-card {
     align-items: start;
   }
 
+  /* A page with no navigation has no sidebar column. */
+  .dashboard-shell--bare {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   /* position: sticky needs .dashboard-shell's align-items: start above
    * — a stretched grid item is already sized to the full row height and
    * cannot visibly stick. */

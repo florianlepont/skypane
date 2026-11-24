@@ -454,9 +454,11 @@
     }
 
     var mode = trigger.getAttribute("data-view-panel-mode") || "";
-    // An airline's dialog is titled by its heading alone; the caption
+    // An airline's own dialog is titled by its heading alone; the caption
     // would only repeat it.
-    caption.hidden = (mode === "art" || mode === "needs-artwork");
+    // The add-illustration dialog keeps the caption as its subtitle (the
+    // airline, and the type) under the short title.
+    caption.hidden = (mode === "art" || (mode === "needs-artwork" && !captionText));
     // Governed by mode alone, independent of manual below. Every hidden
     // assignment here runs before showModal() further down, since its
     // one-time autofocus placement is synchronous and only ever sees

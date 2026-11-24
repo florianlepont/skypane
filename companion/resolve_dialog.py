@@ -103,7 +103,8 @@ def step_b_trigger_html(state_dir, prefix_raw, return_target):
         "POST")
     heading = i18n.t(ap.STEP_B_HEADING_TEMPLATE) % escape_html(name)
     attrs = _trigger_attrs_html({
-        ap._VIEW_PANEL_HEADING_ATTR: heading,
+        ap._VIEW_PANEL_HEADING_ATTR: escape_html(i18n.t(ap.STEP_B_TITLE)),
+        ap._VIEW_PANEL_CAPTION_ATTR: escape_html(name),
         ap._VIEW_PANEL_MODE_ATTR: ap._VIEW_PANEL_MODE_NEEDS_ARTWORK,
         ap._VIEW_PANEL_MANUAL_ATTR: ap._VIEW_PANEL_MANUAL_ACTIVE,
         ap._VIEW_PANEL_RESOLVE_PREFIX_ATTR: escape_html(prefix),

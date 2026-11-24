@@ -97,7 +97,7 @@ NO_MATCH_BODY = i18n.msg(
 
 SORT_VALUES = (
     ("most", SORT_MOST), ("rarest", SORT_RAREST), ("latest", SORT_LATEST), ("az", SORT_AZ))
-DEFAULT_SORT = "most"
+DEFAULT_SORT = "rarest"
 QUERY_MAX_CHARS = 60
 SORT_PARAM = "sort"
 TEXT_PARAM = "q"
