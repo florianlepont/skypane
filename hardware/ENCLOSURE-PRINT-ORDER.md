@@ -110,7 +110,7 @@ sliced (see "Slice check, 2026-11-24" below). Still to do: the tray is reprinted
 in PLA on the same machine and plate; the fit of the ribbon, of the battery and
 of the board is tried again; then the lid is printed.
 
-#### Alternative: tray and shim in one part (not decided; set aside on 2026-11-24)
+#### Tray and shim in one part (chosen by the owner on 2026-11-24)
 
 Asked for by the owner on 2026-11-24 as an alternative version. The main design
 stays two parts that the owner glues; this variant is only a file to look at and
@@ -144,6 +144,21 @@ generating script, like the tray change above.
   photographed. The earlier line that the design was abandoned is withdrawn: the
   variant is only set aside, not decided either way. The files stay in
   `hardware/cad/alternatives/`; no fit trial of this variant.
+- Owner report of 2026-11-24, reprint: before the reprint the owner purged the
+  nozzle and changed nothing else he mentioned (no change to the file or the
+  settings reported); the print started without a problem and, in his words, the
+  piece is "top". No photo of the supported face was sent, and how easily the
+  supports came off and the finish of that face are not reported. The cause of
+  the earlier failed prints is not determined: the purge is the only change
+  reported, and one good print does not prove it was the nozzle. No fit trial of
+  this variant yet.
+- Owner report of 2026-11-24, after the reprint: the supports came off "super
+  facilement" (the owner's words); no photo or measurement. Owner decision of
+  2026-11-24: the design goes to one part, tray and shim together. This replaces
+  the earlier lines of this section that said the variant was set aside or not
+  decided. The files stay in `hardware/cad/alternatives/` for now; the separate
+  tray and shim files stay as they are. The one-part design has not been fitted
+  in the frame, the lid has not been tried on it, and no go/no-go is recorded.
 
 Values kept, because the model and the owner's tape readings differ by about
 1 mm or less, which is the tape's resolution (owner instruction, 2026-11-18):
