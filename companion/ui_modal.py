@@ -245,13 +245,14 @@ def result_dialog_html(
         once=False):
     """A compact-top dialog, open, that reports the outcome of a submission:
     no form of its own, a Done link and optionally `retry_form_html` (an
-    already-escaped form whose one submit button is the primary action).
+    already-escaped form whose one submit button is the primary action and
+    takes the initial focus).
 
     `once` is for a body that carries a one-time credential: the closing
     script removes the dialog from the page and puts `dismiss_href` in the
     address bar, so neither a reload nor the page itself holds the value
-    afterwards. Done takes the initial focus so Enter never repeats the
-    action."""
+    afterwards. Without a retry form Done takes the initial focus so Enter never
+    repeats the action."""
     slug = validated_slug(dialog_id)
     href = escape_html(dismiss_href)
     done_class = (
@@ -264,12 +265,13 @@ def result_dialog_html(
         'aria-labelledby="%(id)s-title" open%(attrs)s>'
         '%(head)s<div class="modal__body">%(body)s</div>'
         '<div class="modal__actions">%(retry)s'
-        '<a class="%(done_class)s modal__done" href="%(href)s" data-modal-close autofocus>'
+        '<a class="%(done_class)s modal__done" href="%(href)s" data-modal-close%(done_focus)s>'
         '%(done)s</a></div></dialog>\n'
     ) % {
         "id": slug, "attrs": attrs, "body": body_html, "retry": retry_form_html,
         "head": _head_html(slug, title, "", href, "", True),
-        "done_class": done_class, "href": href, "done": escape_html(done_label),
+        "done_class": done_class, "done_focus": "" if retry_form_html else " autofocus",
+        "href": href, "done": escape_html(done_label),
     }
 
 

@@ -219,6 +219,11 @@ _FAILURE_KIND = {
     auth0_management.REASON_EXISTS_NO_CONNECTION_ID: users_page.FAIL_CONNECTION_ID,
     auth0_management.REASON_BAD_CONNECTION_ID: users_page.FAIL_CONNECTION_ID,
     auth0_management.REASON_RATE_LIMITED: users_page.FAIL_BUSY,
+    auth0_management.REASON_BAD_TICKET_URL: users_page.FAIL_CUSTOM_DOMAIN,
+    auth0_management.REASON_FORBIDDEN: users_page.FAIL_PERMISSIONS,
+    auth0_management.REASON_CREATE: users_page.FAIL_CONNECTION_NAME,
+    auth0_management.REASON_TOKEN: users_page.FAIL_CREDENTIALS,
+    auth0_management.REASON_BAD_RESULT_URL: users_page.FAIL_RESULT_URL,
 }
 
 

@@ -135,6 +135,11 @@ FAIL_BUSY = "busy"
 FAIL_GENERIC = "generic"
 FAIL_NOT_SET_UP = "not_set_up"
 FAIL_CONNECTION_ID = "connection_id"
+FAIL_CUSTOM_DOMAIN = "custom_domain"
+FAIL_PERMISSIONS = "permissions"
+FAIL_CONNECTION_NAME = "connection_name"
+FAIL_CREDENTIALS = "credentials"
+FAIL_RESULT_URL = "result_url"
 _FAILED_REASON = {
     FAIL_BUSY: i18n.msg(
         "admin_users.invitation_failed_busy",
@@ -152,6 +157,26 @@ _FAILED_REASON = {
         "A new invitation for someone who already has an Auth0 account needs "
         "the Auth0 connection id on the server (SKYPANE_AUTH0_DB_CONNECTION_ID). "
         "See the deployment guide."),
+    FAIL_CUSTOM_DOMAIN: i18n.msg(
+        "admin_users.invitation_failed_custom_domain",
+        "Auth0 answered with an address on another domain. Declare your custom "
+        "domain in SKYPANE_AUTH0_CUSTOM_DOMAIN on the server."),
+    FAIL_PERMISSIONS: i18n.msg(
+        "admin_users.invitation_failed_permissions",
+        "Auth0 refused the request. Give the Management API application the "
+        "create:users and create:user_tickets permissions."),
+    FAIL_CONNECTION_NAME: i18n.msg(
+        "admin_users.invitation_failed_connection_name",
+        "Auth0 could not create the account. Check that "
+        "SKYPANE_AUTH0_DB_CONNECTION is the exact name of the database connection."),
+    FAIL_CREDENTIALS: i18n.msg(
+        "admin_users.invitation_failed_credentials",
+        "Auth0 refused the server's credentials. Check SKYPANE_AUTH0_DOMAIN and "
+        "the Management API client id and secret."),
+    FAIL_RESULT_URL: i18n.msg(
+        "admin_users.invitation_failed_result_url",
+        "The address of this page could not be used as the return address. Check "
+        "that the web server passes the Host header unchanged."),
 }
 # Trying again changes nothing for these two: the server needs its settings
 # completed first.
@@ -616,14 +641,14 @@ def _failure_dialog(failure):
     """No link could be made: the person stays invited, and the dialog says
     why in a sentence (never a provider message) and, where trying again can
     help, offers to."""
-    body = '<p class="modal__note">%s %s</p>' % (
+    body = '<p class="modal__note">%s</p><p class="modal__note">%s</p>' % (
         _esc(i18n.t(_FAILED_LEAD) % failure.email),
         _t(_FAILED_REASON[failure.kind]))
     retry = ""
     if failure.kind not in _NO_RETRY:
         retry = (
             '<form method="post" action="%s">%s<input type="hidden" name="%s" '
-            'value="%s"><button type="submit" class="btn btn--primary">%s</button></form>'
+            'value="%s"><button type="submit" class="btn btn--primary" autofocus>%s</button></form>'
             % (_esc(_routes().USERS_INVITE_ROUTE), _ui().csrf_field(), EMAIL_FIELD,
                _esc(failure.email), _t(_FAILED_RETRY)))
     return ui_modal.result_dialog_html(

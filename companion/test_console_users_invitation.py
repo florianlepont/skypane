@@ -283,20 +283,25 @@ def test_a_busy_provider_says_to_try_again_in_a_moment(rig):
     assert "rate_limited" in _detail(outcome) and "rate_limited" not in body
 
 
-@pytest.mark.parametrize("knob, code", [
-    ("mgmt_token_status", "token_failed"), ("mgmt_users_status", "create_failed"),
-    ("mgmt_ticket_status", "ticket_failed")])
-def test_a_refusal_is_generic_for_the_administrator_and_specific_in_the_audit(
-        rig, knob, code):
+@pytest.mark.parametrize("knob, status, code, sentence", [
+    ("mgmt_token_status", 401, "token_failed", "the Management API client id and secret"),
+    ("mgmt_token_status", 403, "token_failed", "the Management API client id and secret"),
+    ("mgmt_users_status", 400, "create_failed", "exact name of the database connection"),
+    ("mgmt_users_status", 404, "create_failed", "exact name of the database connection"),
+    ("mgmt_users_status", 403, "permission_denied", "create:users and create:user_tickets"),
+    ("mgmt_ticket_status", 403, "permission_denied", "create:users and create:user_tickets"),
+    ("mgmt_ticket_status", 400, "ticket_failed", "did not accept the request")])
+def test_each_refusal_tells_the_administrator_what_to_check(
+        rig, knob, status, code, sentence):
     server, _seed, cookie, fake = rig
-    for status in (400, 401, 403):
-        fake.set_knob(knob, status)
-        _status, _headers, body = _invite(server, cookie)
-        dialog = _failed_dialog(body)
-        assert "did not accept the request" in dialog
-        assert code not in body and not re.search(r"\b%d\b" % status, dialog)
-    rows = _audit(server.state_dir, "user.invitation")
-    assert len(rows) == 3 and all(code in _detail(row) for row in rows)
+    fake.set_knob(knob, status)
+    _status, _headers, body = _invite(server, cookie)
+    dialog = _failed_dialog(body)
+    assert sentence in dialog and "Try again</button>" in dialog
+    assert dialog.count('<p class="modal__note">') == 2
+    assert code not in body and not re.search(r"\b%d\b" % status, dialog)
+    (outcome,) = _audit(server.state_dir, "user.invitation")
+    assert code in _detail(outcome)
 
 
 def test_without_the_management_credential_the_invite_stays_local_and_says_so(
@@ -348,8 +353,28 @@ def test_a_link_that_is_not_on_the_auth0_domain_is_never_shown(rig, ticket):
     dialog = _failed_dialog(body)
     assert "evil.example" not in body and "javascript:" not in body
     assert ticket not in body and "Try again</button>" in dialog
+    assert "SKYPANE_AUTH0_CUSTOM_DOMAIN" in dialog
     (outcome,) = _audit(server.state_dir, "user.invitation")
     assert "ticket_url_rejected" in _detail(outcome)
+
+
+def test_an_unusable_return_address_says_to_check_the_host_header(rig):
+    server, _seed, cookie, fake = rig
+    status, _headers, body = _post(
+        server, cookie, {"email": NEW_EMAIL}, {"Host": "a b"})[:3]
+    dialog = _failed_dialog(body.decode("utf-8"))
+    assert status == 200 and "Host header" in dialog and "bad_result_url" not in dialog
+    (outcome,) = _audit(server.state_dir, "user.invitation")
+    assert "bad_result_url" in _detail(outcome)
+
+
+def test_the_failure_dialog_focuses_the_retry_and_keeps_done_secondary(rig):
+    server, _seed, cookie, fake = rig
+    fake.set_knob("mgmt_ticket_status", 500)
+    dialog = _failed_dialog(_invite(server, cookie)[2])
+    assert re.search(r'<button type="submit" class="btn btn--primary" autofocus>', dialog)
+    done = re.search(r'<a class="([^"]*)" href="/users" data-modal-close([^>]*)>', dialog)
+    assert "modal__dismiss--button" in done.group(1) and "autofocus" not in done.group(2)
 
 
 def test_a_hostile_host_header_never_reaches_auth0_or_the_page(rig):
