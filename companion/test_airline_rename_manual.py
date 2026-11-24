@@ -173,7 +173,7 @@ def _put_png(directory, key):
 
 
 def test_the_artwork_and_the_default_type_follow_the_new_name_and_the_old_ones_stay(rig):
-    slug = sorted(illustrations.SHAPE_SLUGS)[0]
+    slug = illustrations.type_slug("A320")
     base = _put_png(rig.owned_dir, "zephyr-air")
     typed = _put_png(rig.owned_dir, "zephyr-air-" + slug)
     airline_default_types.set_default_type(rig.owned_dir, "zephyr-air", "A320")

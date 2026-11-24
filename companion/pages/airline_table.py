@@ -30,7 +30,7 @@ import companion.i18n as i18n
 import companion.illustration_normalize as illustration_normalize
 import companion.layout as layout
 from companion.layout import csrf_field, escape_html
-from companion.pages import airline_known_rows, airline_rows, airline_sheet
+from companion.pages import airline_families, airline_known_rows, airline_rows, airline_sheet
 from server.plane import airline_default_types
 from server.plane import airline_suggest
 from server.plane import illustrations
@@ -43,6 +43,8 @@ NO_VALUE = "—"
 # airlines_page._airline_card_manual_fields()).
 _NO_MANUAL_FIELDS = ("art", False, False, "", "", "", "", "", "", "", "", "")
 SUB_ROW_TYPE_SEP = " · "
+# The designator an `other` file with no type of its own is listed under.
+_OTHER_CODE = "OTHER"
 KNOWN_NAMES_LIST_ID = airline_rows.KNOWN_NAMES_LIST_ID
 
 CAPTION_TEXT = i18n.msg("airlines.table_caption", "Airlines")
@@ -384,6 +386,12 @@ def _sub_menu_html(page, sub, row):
     return _menu_html(items, i18n.t(MENU_ARIA) % ("%s, %s" % (row["name"], sub["code"])))
 
 
+def _family_title(sub):
+    """The `title` attribute naming the aircraft family of a type row."""
+    name = airline_families.family_label(sub["slug"])
+    return ' title="%s"' % escape_html(name) if name else ""
+
+
 def _sub_row_html(page, sub, row):
     label = sub["code"] if sub["model"] == sub["code"] else (
         "%s%s%s" % (sub["code"], SUB_ROW_TYPE_SEP, sub["model"]))
@@ -393,14 +401,14 @@ def _sub_row_html(page, sub, row):
         if sub["is_default"] else "")
     return (
         '<tr class="airlines-subrow">'
-        '<th scope="row" class="airlines-cell airlines-cell--name airlines-cell--type">'
+        '<th scope="row" class="airlines-cell airlines-cell--name airlines-cell--type"%s>'
         '<span class="airlines-type">%s</span>%s</th>'
         '<td class="airlines-cell airlines-cell--prefixes"></td>'
         '<td class="airlines-cell airlines-cell--art">%s</td>'
         '<td class="airlines-cell airlines-cell--views">%s</td>'
         '<td class="airlines-cell airlines-cell--seen airlines-cell--act">%s</td>'
         '<td class="airlines-cell airlines-cell--menu">%s</td></tr>'
-    ) % (escape_html(label), star, _sub_art_html(page, sub, row),
+    ) % (_family_title(sub), escape_html(label), star, _sub_art_html(page, sub, row),
          escape_html(_views_text(sub["views"])), _sub_action_html(page, sub, row),
          _sub_menu_html(page, sub, row))
 
@@ -408,9 +416,10 @@ def _sub_row_html(page, sub, row):
 def _slot_for(code, key):
     """The artwork key of the picture an aircraft type `code` is shown with
     (`{airline}-{slug}`, the file the exact-type tier of
-    `illustrations.select_illustration()` looks for), or `None` for a type no
-    picture slot exists for."""
-    slug = illustrations._TYPE_VARIANT_SLUGS.get(code) or illustrations.classify_aircraft_type(code)
+    `illustrations.select_illustration()` looks for), or `None` for an
+    empty designator. A type with no slot of its own gets the airline's
+    "other" slot."""
+    slug = illustrations.slot_slug(code)
     return "%s-%s" % (key, slug) if slug else None
 
 
@@ -420,18 +429,21 @@ def _sub_row(group, picture, slot, row):
     key an upload for the type goes to; the code the row names (and uploads,
     and sets as the default) is its first designator."""
     codes = group["codes"]
-    code_ok = airline_default_types.normalise_code(codes[0]) or ""
+    other = group["slug"] == illustrations.OTHER_SLUG
+    # The catch-all row names no one type: the designators seen in it follow.
+    named = [c for c in codes if c != _OTHER_CODE] if other else codes
+    code_ok = airline_default_types.normalise_code(named[0] if named else "") or ""
     path = picture and illustrations.override_path_for_key(picture.key, row["state_dir"])
-    shown = ", ".join(codes)
+    shown = i18n.t(airline_families.OTHER_TYPE_LABEL) if other else ", ".join(codes)
     return {
         "code": shown, "views": group["views"],
-        "model": panel_render._TYPE_DISPLAY_LABELS.get(codes[0], codes[0])
-        if len(codes) == 1 and group["views"] else shown,
+        "model": (", ".join(named) or shown) if other else panel_render._TYPE_DISPLAY_LABELS.get(
+            codes[0], codes[0]) if len(codes) == 1 and group["views"] else shown,
         "picture": picture, "slot": picture.key if picture is not None else slot,
         "has_own": picture is not None, "has_override": bool(path) and os.path.isfile(path),
         "code_ok": code_ok,
-        "is_default": any(illustrations.same_type(c, row["default_type"]) for c in codes),
-        "is_stored_default": any(illustrations.same_type(c, row["stored_default"]) for c in codes),
+        "is_default": any(illustrations.same_type(c, row["default_type"]) for c in named),
+        "is_stored_default": any(illustrations.same_type(c, row["stored_default"]) for c in named),
         "slug": group["slug"]}
 
 
@@ -450,8 +462,10 @@ def _sub_rows(entry, row, builtin_name, shapes):
         designator = code.strip().upper()
         slug = illustrations.type_slug(designator)
         if slug is None and picture is not None and picture.key.startswith(key + "-"):
-            # A curated label (A330, ATR72) names the slot its file is in.
+            # A label that is no designator names the slot its file is in.
             slug = picture.key[len(key) + 1:]
+        if slug is None and designator not in (NO_VALUE, ""):
+            slug = illustrations.OTHER_SLUG
         return groups.get(slug or designator), designator, slug
 
     def add(code, views, picture, merge_code=True):
