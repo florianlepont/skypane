@@ -108,7 +108,7 @@ tool actually used.
 | 18 | Lid to board clearance | 0.41 mm over the battery socket (design value, not measured) | Paper test | Lid sits flat with the plug mated | | | | | |
 | 19 | Hook rail ridges and notches | 0.4 mm ridges, 0.6 mm deep, 2 mm pitch (design value, not measured) | Real wall screw; load about 1 kg for 24 hours, over a soft surface and away from feet | Intact after 30 lifts and about 1 kg for 24 hours on the coupon section | | | | | |
 | 20 | Tab pad height and tab contact | Pad top 15.0 mm (design value, not measured) | By feel | The cassette does not slip when held vertical and shaken gently | | | | | |
-| 21 | Screw lugs | 2.2 mm hole, 4.2 mm head recess (design value, not measured) | The bought screws, by feel | Screws start on the fibreboard edge; failure is recorded as "fibreboard strips" | | | | | |
+| 21 | Screw lugs | Removed from the lid on 2026-11-24 (owner request after the first assembly); no longer a test | | | | | | | |
 | 22 | USB-C notch, buttons and switch notch, service bay | USB-C notch 13 mm, buttons and switch notch 47.5 mm, service bay 20 and 30 mm (design value, not measured) | Tool or finger | Tool or finger reaches each | | | | | |
 | 23 | Engraved text | 0.4 mm deep, 0.7 mm lines (design value, not measured) | By eye or loupe | Legible by eye or loupe | | | | | |
 
@@ -127,6 +127,8 @@ holds for PLA only.
 | Tray | All components placed in the tray | not applicable | fits ("j'ai pu mettre l'ensemble des composants", the owner's words); the list of components, the battery connection and any pinch of the cable or the ribbon are not stated | by feel | 2026-11-23 | reported by the owner on 2026-11-23 |
 | Tray and shim in one part | The alternative variant printed (ribbon, battery and fit not detailed) | not stated | works ("elle est top", the owner's words); whether the ribbon passes without a pinch, whether the battery fits, the supports used and the state of the supported face are not stated | by feel | 2026-11-24 | reported by the owner on 2026-11-24 |
 | Lid | Frame tabs on the lid tab pads (lid not yet screwed) | not stated | tabs of the left and right sides land beside their pad, just beyond its end; top and bottom tabs land on their pad, about 4 mm off its centre (estimates read by the assistant on the owner's photos, not measured); the frame holds anyway (reported by the owner) | photos, by eye | 2026-11-24 | reported by the owner on 2026-11-24 |
+| Lid | First assembly, lid mounted on the rest of the case and on the frame | not stated | assembled; the frame tabs on the tab pads hold the lid on the frame by themselves ("les languettes suffisent"); screwing the lid to the frame is impractical, so the owner asked to remove the screw lugs | by feel | 2026-11-24 | reported by the owner on 2026-11-24 |
+| Stand | Stand holding the frame | not stated | does not hold: the frame slides ("glisse directement"); cause, surface and angle not stated | by feel | 2026-11-24 | reported by the owner on 2026-11-24 |
 | Lid | Lid on the tray | | | | | |
 | Lid | Lid with screws and magnets | | | | | |
 | Stand | Stand plate in its stop walls | | | | | |
