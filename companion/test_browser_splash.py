@@ -68,7 +68,7 @@ def test_the_splash_script_is_preloaded_and_fetched_once(new_context, server):
         _login(page, server.base_url())
         fetched.clear()
         page.goto(server.base_url() + layout.HOME_ROUTE)
-        page.wait_for_function(SPLASH_DONE, timeout=6000)
+        page.wait_for_function(SPLASH_DONE, timeout=SAFETY_CAP_MS + 4000)
         hint = page.locator('head link[rel="preload"][as="script"]')
         assert hint.count() == 1
         assert hint.get_attribute("href") == page.locator(
@@ -87,7 +87,7 @@ def test_splash_plays_once_keeps_the_page_inert_then_opens_it(new_context, serve
         page.wait_for_function(SHELL_INERT, timeout=5000)
         assert page.evaluate(SHELL_INERT) is True
         page.wait_for_function(COVERED, timeout=3000)
-        page.wait_for_function(SPLASH_DONE, timeout=6000)
+        page.wait_for_function(SPLASH_DONE, timeout=SAFETY_CAP_MS + 4000)
         page.wait_for_function(SPLASH_OFF, timeout=2000)
         assert page.evaluate(SHELL_INERT) is False
         assert page.evaluate("() => document.querySelectorAll('[inert]').length") == 0
@@ -133,7 +133,7 @@ def test_on_a_fast_link_the_splash_is_its_fixed_sequence_and_the_safety_cap_is_t
     _prime_server(new_context, server)
     context, page = _home(new_context, server, viewport=VIEWPORT_PHONE)
     try:
-        page.wait_for_function(SPLASH_DONE, timeout=6000)
+        page.wait_for_function(SPLASH_DONE, timeout=SAFETY_CAP_MS + 4000)
         finished = page.evaluate("() => window.skypaneSplash.finishedAt")
         assert page.evaluate("() => window.skypaneSplash.capMs") == SAFETY_CAP_MS
         assert FIXED_SEQUENCE_END_MS - 100 <= finished <= FIXED_SEQUENCE_END_MS + 700, finished
@@ -180,7 +180,7 @@ def test_a_request_that_never_answers_cannot_hold_the_splash_past_the_safety_cap
         page.wait_for_function(SPLASH_ON, timeout=5000)
         page.wait_for_timeout(SAFETY_CAP_MS - 2500)
         assert page.evaluate(SPLASH_ON) is True
-        page.wait_for_function(SPLASH_DONE, timeout=6000)
+        page.wait_for_function(SPLASH_DONE, timeout=SAFETY_CAP_MS + 4000)
         finished = page.evaluate("() => window.skypaneSplash.finishedAt")
         assert SAFETY_CAP_MS - 300 <= finished <= SAFETY_CAP_MS + 600, finished
         assert held, "the stalled file was never requested"
@@ -192,7 +192,7 @@ def test_a_request_that_never_answers_cannot_hold_the_splash_past_the_safety_cap
 def test_second_visit_in_the_session_skips_the_splash(new_context, server):
     context, page = _home(new_context, server, viewport=VIEWPORT_PHONE)
     try:
-        page.wait_for_function(SPLASH_DONE, timeout=6000)
+        page.wait_for_function(SPLASH_DONE, timeout=SAFETY_CAP_MS + 4000)
         page.goto(server.base_url() + "/flights")
         page.wait_for_function("() => document.readyState === 'complete'")
         assert page.evaluate(SPLASH_ON) is False
@@ -228,7 +228,7 @@ def test_logo_is_small_centred_and_present_from_the_first_frame(
         assert box["shown"] and box["opacity"] > 0.2
         assert low <= box["height"] <= high and abs(box["width"] - box["height"]) < 1
         assert abs(box["cx"] - box["vw"] / 2) <= 1.5 and abs(box["cy"] - box["vh"] / 2) <= 1.5
-        page.wait_for_function(SPLASH_DONE, timeout=6000)
+        page.wait_for_function(SPLASH_DONE, timeout=SAFETY_CAP_MS + 4000)
     finally:
         context.close()
 
@@ -252,7 +252,7 @@ def test_the_animated_frame_is_a_small_centred_panel(new_context, server, name, 
         assert abs(box["w"] / box["h"] - 0.75) < 0.01, box
         assert abs(box["cx"] - box["vw"] / 2) <= 1.5 and abs(box["cy"] - box["vh"] / 2) <= 1.5, box
         assert 0 <= box["gap"] <= 48, box
-        page.wait_for_function(SPLASH_DONE, timeout=6000)
+        page.wait_for_function(SPLASH_DONE, timeout=SAFETY_CAP_MS + 4000)
     finally:
         context.close()
 
@@ -279,9 +279,10 @@ def test_the_planned_sequence_leaves_room_under_two_seconds(new_context, server)
     """the last step of the plan (the page opening from the frame) is over by 1.75s, so the
     frames each step waits for still leave the whole splash under two seconds on a calm
     device; the steps stay in order and none starts before the one it follows"""
+    _prime_server(new_context, server)
     context, page = _home(new_context, server, viewport=VIEWPORT_PHONE)
     try:
-        page.wait_for_function(SPLASH_DONE, timeout=6000)
+        page.wait_for_function(SPLASH_DONE, timeout=SAFETY_CAP_MS + 4000)
         sequence = page.evaluate("() => window.skypaneSplash.sequence")
         opening = sequence[-1]
         assert opening["kind"] == "open", sequence
@@ -296,9 +297,10 @@ def test_the_planned_sequence_leaves_room_under_two_seconds(new_context, server)
 def test_flash_rate_is_bounded_by_the_sequence(new_context, server):
     """the sequence declares exactly one luminance flash, no window of one second holds more than
     three, and the flashes the run really started respect the same bound"""
+    _prime_server(new_context, server)
     context, page = _home(new_context, server, viewport=VIEWPORT_PHONE)
     try:
-        page.wait_for_function(SPLASH_DONE, timeout=6000)
+        page.wait_for_function(SPLASH_DONE, timeout=SAFETY_CAP_MS + 4000)
         sequence = page.evaluate("() => window.skypaneSplash.sequence")
         flashes = [step for step in sequence if step["kind"] == "flash"]
         assert len(flashes) == 1
@@ -389,13 +391,14 @@ _EARLY_FIRST_FRAME = """
 def test_the_percentage_never_goes_below_zero_or_backwards(new_context, server, motion):
     """whatever the first frame's timestamp, the count starts at 0, only goes up and ends at
     100: it never shows a negative value"""
+    _prime_server(new_context, server)
     context = new_context(splash=True, viewport=VIEWPORT_PHONE, reduced_motion=motion)
     try:
         page = context.new_page()
         _login(page, server.base_url())
         context.add_init_script(_EARLY_FIRST_FRAME)
         page.goto(server.base_url() + layout.HOME_ROUTE, wait_until="commit")
-        page.wait_for_function(SPLASH_DONE, timeout=6000)
+        page.wait_for_function(SPLASH_DONE, timeout=SAFETY_CAP_MS + 4000)
         shown = page.evaluate("() => window.__percents")
         values = [int("".join(ch for ch in text if ch.isdigit() or ch == "-")) for text in shown]
         assert values, "no percentage was shown"
