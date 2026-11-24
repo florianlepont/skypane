@@ -1,0 +1,476 @@
+<!doctype html>
+<html lang="en" data-ui-lang="fr">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SkyPane mockup: Reassign and error modals (F5) (Phase 68)</title>
+<style>
+/* Standalone mockup, no external asset. Tokens are copied from companion/static/style.css (:root, dark and explicit theme blocks).
+   Phone boxes are 360px wide, desktop boxes 640 to 1040px. All names and addresses are invented. */
+:root {
+  
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+
+  
+  --app-bar-drop: 0px;
+
+  
+  --color-map-ground: #F2EFE9;
+
+  
+  --tab-bar-h: 68px;
+  --tab-bar-gap: 6px;
+  --tab-bar-side: 8px;
+  --tab-bar-pad: 2px;
+  
+  --tab-bar-max: 460px;
+
+  
+  --seg-edge: color-mix(in srgb, var(--color-text) 20%, transparent);
+  --seg-selected-bg: var(--color-accent);
+  --seg-selected-fg: var(--color-on-accent);
+  --seg-idle-fg: color-mix(in srgb, var(--color-text) 70%, transparent);
+
+  
+  --save-bar-h: calc(44px + 2 * var(--space-md) + 2px);
+
+  
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+  --space-3xl: 64px;
+
+  
+  --font-caption-size: 13px;
+  --font-label-size: 15px;
+  --font-body-size: 16px;
+  --font-heading-size: 22px;
+  --font-card-title-size: 17px;
+  --weight-title: 700;
+  --tracking-title: -0.03em;
+  
+  --font-page-title-size: clamp(1.875rem, 1.55rem + 1.4vw, 2.125rem);
+  --weight-regular: 400;
+  --weight-semibold: 600;
+
+  --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Helvetica, Arial, system-ui, sans-serif;
+  
+  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, "Helvetica Neue", Helvetica, Arial, system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  
+  --radius-control: 14px;
+  --radius-card: 22px;
+  --radius-pill: 32px;
+  --radius-sheet: 28px;
+  
+  --radius-frame-pic: 5px;
+
+  
+  --color-image-backdrop: #ffffff;
+  --color-scrim: rgba(0, 0, 0, 0.5);
+  
+  --color-overlay-icon: rgba(23, 25, 31, 0.55);
+  --color-overlay-text: rgba(23, 25, 31, 0.7);
+  
+  --color-control-wash: rgba(23, 25, 31, 0.045);
+  --color-control-border-subtle: rgba(23, 25, 31, 0.09);
+  --shadow-control: inset 0 1px 0 rgba(255, 255, 255, .14), 0 1px 2px rgba(18, 21, 27, .14);
+  --shadow-control-hover: inset 0 1px 0 rgba(255, 255, 255, .16), 0 2px 5px rgba(18, 21, 27, .18);
+  --color-shadow-strong: rgba(18, 21, 27, 0.16);
+  
+  --shadow-toast-docked: 0 1px 2px rgba(10, 12, 18, 0.12);
+  --shadow-toast-float: 0 22px 44px -16px rgba(10, 12, 18, 0.5), 0 4px 10px -2px rgba(10, 12, 18, 0.22);
+
+  
+  --motion-fast: 180ms;
+  
+  --motion-enter: 400ms;
+  
+  --opening-opacity: 0.6;
+  --motion-stagger: 60ms;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  
+  --motion-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --motion-spring-duration: 420ms;
+  
+  --motion-view-transition: 260ms;
+  
+  --motion-spin: 700ms;
+  --motion-press: 90ms;
+  
+  --motion-shimmer: 1.3s;
+  --motion-reveal: 900ms;
+  
+  --motion-picture: 480ms;
+  --motion-unlock: 560ms;
+  --motion-count: 600ms;
+  --motion-slow: 2s;
+  --motion-toast-dwell: 6s;
+  --motion-toast-dwell-long: 12s;
+  --motion-dot-pulse: 3.2s;
+  
+  --motion-breathe: 6s;
+  
+
+  
+  --glass-blur: 22px;
+  --glass-saturate: 165%;
+  --radius-chip: 9px;
+
+  
+  
+  --sky-top: #E7EEF7;
+  --sky-mid: #F1F3F6;
+  --sky-bottom: #EDF1F6;
+  
+  --glass-bg: rgba(255, 255, 255, 0.72);
+  --glass-border: rgba(255, 255, 255, 0.85);
+  --glass-highlight: rgba(255, 255, 255, 0.9);
+  --glass-solid: #FFFFFF;
+  --glass-hairline: rgba(23, 25, 31, 0.1);
+  --picture-placeholder: rgba(23, 25, 31, 0.07);
+  --shadow-glass: inset 0 1px 0 var(--glass-highlight), 0 1px 2px rgba(18, 21, 27, 0.06), 0 14px 32px -16px rgba(18, 21, 27, 0.22);
+  --bar-bg: rgba(255, 255, 255, 0.66);
+  --bar-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.12));
+  --bar-border: #AEB8C8;
+  
+  --bar-shadow: 0 1px 2px rgba(18, 21, 27, 0.2), 0 -4px 8px -4px rgba(18, 21, 27, 0.22);
+  --bar-sheet-shadow: 0 -10px 28px -12px rgba(18, 21, 27, 0.4);
+  --pop-bg: rgba(255, 255, 255, 0.9);
+  --color-canvas: #F1F3F6;
+  --color-dominant: #FFFFFF;
+  --color-secondary: #E9EEF5;
+  --color-border: #DAE1EB;
+  
+  --color-accent: #1F2430;
+  --color-accent-hover: #343B4D;
+  --color-on-accent: #FFFFFF;
+  --shadow-card: 0 1px 3px rgba(18, 21, 27, 0.06), 0 1px 2px rgba(18, 21, 27, 0.04);
+  --shadow-card-hover: 0 4px 12px rgba(18, 21, 27, 0.08), 0 2px 4px rgba(18, 21, 27, 0.05);
+  --color-text: #17191F;
+  --color-status-ok: #16A34A;
+  --color-status-warn: #D97706;
+  
+  --color-status-error: #BE123C;
+  
+  --color-yellow-tile-edge: #7A6D1D;
+  
+  --color-switch-thumb: #FFFFFF;
+  --color-switch-off: #7C8799;
+  --color-switch-thumb-on: #FFFFFF;
+  
+  --color-rarity-occasional: #0F766E;
+  --color-rarity-rare: #6D28D9;
+  
+  --color-frame-bezel: #2A2622;
+  --color-frame-bezel-hi: #4A433C;
+  --shadow-pop: 0 18px 48px rgba(18, 21, 27, 0.18), 0 4px 12px rgba(18, 21, 27, 0.08);
+
+  
+  --color-toast-bg: #1D2028;
+  --color-toast-fg: #F4F1EC;
+  --color-toast-success: #4ADE80;
+  --color-toast-info: #C3C9D4;
+  --color-toast-warning: #FBBF24;
+  --color-toast-error: #FB7185;
+  --color-toast-pending: #FF9A70;
+
+  
+  --rarity-tint: 10%;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --rarity-tint: 28%;
+    --sky-top: #12151D;
+    --sky-mid: #161A24;
+    --sky-bottom: #1A1F2B;
+    --glass-bg: rgba(255, 255, 255, 0.09);
+    --glass-border: rgba(255, 255, 255, 0.16);
+    --glass-highlight: rgba(255, 255, 255, 0.18);
+    --glass-solid: #1C222D;
+    --glass-hairline: rgba(255, 255, 255, 0.1);
+    --picture-placeholder: rgba(255, 255, 255, 0.08);
+    --shadow-glass: inset 0 1px 0 var(--glass-highlight), 0 1px 2px rgba(0, 0, 0, 0.3), 0 14px 32px -16px rgba(0, 0, 0, 0.55);
+    --bar-bg: rgba(20, 24, 34, 0.86);
+    --bar-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.01));
+    --bar-border: #46506A;
+    --bar-shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 -4px 8px -4px rgba(0, 0, 0, 0.6);
+    --bar-sheet-shadow: 0 -10px 28px -12px rgba(0, 0, 0, 0.7);
+    --pop-bg: rgba(28, 34, 45, 0.92);
+    --color-canvas: #161A24;
+    --color-dominant: #151922;
+    --color-secondary: #1C222D;
+    --color-border: #2A3040;
+    --color-accent: #F2EFE9;
+    --color-accent-hover: #E2DED5;
+    --color-on-accent: #14171F;
+    --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
+    --shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.35), 0 2px 4px rgba(0, 0, 0, 0.2);
+    --color-text: #F1F3F6;
+    --color-status-ok: #4ADE80;
+    --color-status-warn: #FBBF24;
+    
+    --color-status-error: #FB7185;
+    --color-yellow-tile-edge: #D9C24A;
+    --color-switch-thumb: #E6E9EE;
+    --color-switch-off: #6B7589;
+    --color-switch-thumb-on: #14171F;
+    --color-rarity-occasional: #5EEAD4;
+    --color-rarity-rare: #C4B5FD;
+    --color-frame-bezel: #050608;
+    --color-frame-bezel-hi: #2B2F36;
+    --shadow-pop: 0 18px 48px rgba(0, 0, 0, 0.55), 0 4px 12px rgba(0, 0, 0, 0.35);
+    --color-toast-bg: #E9ECF1;
+    --color-toast-fg: #151922;
+    --color-toast-success: #166534;
+    --color-toast-info: #4A505D;
+    --color-toast-warning: #92400E;
+    --color-toast-error: #BE123C;
+    --color-toast-pending: #B13F16;
+  }
+}
+
+
+
+html[data-ui-theme="light"] {
+  --sky-top: #E7EEF7;
+  --sky-mid: #F1F3F6;
+  --sky-bottom: #EDF1F6;
+  --glass-bg: rgba(255, 255, 255, 0.72);
+  --glass-border: rgba(255, 255, 255, 0.85);
+  --glass-highlight: rgba(255, 255, 255, 0.9);
+  --glass-solid: #FFFFFF;
+  --glass-hairline: rgba(23, 25, 31, 0.1);
+  --picture-placeholder: rgba(23, 25, 31, 0.07);
+  --shadow-glass: inset 0 1px 0 var(--glass-highlight), 0 1px 2px rgba(18, 21, 27, 0.06), 0 14px 32px -16px rgba(18, 21, 27, 0.22);
+  --bar-bg: rgba(255, 255, 255, 0.66);
+  --bar-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.12));
+  --bar-border: #AEB8C8;
+  --bar-shadow: 0 1px 2px rgba(18, 21, 27, 0.2), 0 -4px 8px -4px rgba(18, 21, 27, 0.22);
+  --bar-sheet-shadow: 0 -10px 28px -12px rgba(18, 21, 27, 0.4);
+  --pop-bg: rgba(255, 255, 255, 0.9);
+  --color-canvas: #F1F3F6;
+  --color-dominant: #FFFFFF;
+  --color-secondary: #E9EEF5;
+  --color-border: #DAE1EB;
+  --color-accent: #1F2430;
+  --color-accent-hover: #343B4D;
+  --color-on-accent: #FFFFFF;
+  --shadow-card: 0 1px 3px rgba(18, 21, 27, 0.06), 0 1px 2px rgba(18, 21, 27, 0.04);
+  --shadow-card-hover: 0 4px 12px rgba(18, 21, 27, 0.08), 0 2px 4px rgba(18, 21, 27, 0.05);
+  --color-text: #17191F;
+  --color-status-ok: #16A34A;
+  --color-status-warn: #D97706;
+  --color-status-error: #BE123C;
+  
+  --color-yellow-tile-edge: #7A6D1D;
+  --color-switch-thumb: #FFFFFF;
+  --color-switch-off: #7C8799;
+  --color-switch-thumb-on: #FFFFFF;
+  --color-rarity-occasional: #0F766E;
+  --color-rarity-rare: #6D28D9;
+  --color-frame-bezel: #2A2622;
+  --color-frame-bezel-hi: #4A433C;
+  --shadow-pop: 0 18px 48px rgba(18, 21, 27, 0.18), 0 4px 12px rgba(18, 21, 27, 0.08);
+  --color-toast-bg: #1D2028;
+  --color-toast-fg: #F4F1EC;
+  --color-toast-success: #4ADE80;
+  --color-toast-info: #C3C9D4;
+  --color-toast-warning: #FBBF24;
+  --color-toast-error: #FB7185;
+  --color-toast-pending: #FF9A70;
+  --rarity-tint: 10%;
+  color-scheme: light;
+}
+
+html[data-ui-theme="dark"] {
+  --rarity-tint: 28%;
+  --sky-top: #12151D;
+  --sky-mid: #161A24;
+  --sky-bottom: #1A1F2B;
+  --glass-bg: rgba(255, 255, 255, 0.09);
+  --glass-border: rgba(255, 255, 255, 0.16);
+  --glass-highlight: rgba(255, 255, 255, 0.18);
+  --glass-solid: #1C222D;
+  --glass-hairline: rgba(255, 255, 255, 0.1);
+  --picture-placeholder: rgba(255, 255, 255, 0.08);
+  --shadow-glass: inset 0 1px 0 var(--glass-highlight), 0 1px 2px rgba(0, 0, 0, 0.3), 0 14px 32px -16px rgba(0, 0, 0, 0.55);
+  --bar-bg: rgba(20, 24, 34, 0.86);
+  --bar-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.01));
+  --bar-border: #46506A;
+  --bar-shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 -4px 8px -4px rgba(0, 0, 0, 0.6);
+  --bar-sheet-shadow: 0 -10px 28px -12px rgba(0, 0, 0, 0.7);
+  --pop-bg: rgba(28, 34, 45, 0.92);
+  --color-canvas: #161A24;
+  --color-dominant: #151922;
+  --color-secondary: #1C222D;
+  --color-border: #2A3040;
+  --color-accent: #F2EFE9;
+  --color-accent-hover: #E2DED5;
+  --color-on-accent: #14171F;
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.35), 0 2px 4px rgba(0, 0, 0, 0.2);
+  --color-text: #F1F3F6;
+  --color-status-ok: #4ADE80;
+  --color-status-warn: #FBBF24;
+  --color-status-error: #FB7185;
+  --color-yellow-tile-edge: #D9C24A;
+  --color-switch-thumb: #E6E9EE;
+  --color-switch-off: #6B7589;
+  --color-switch-thumb-on: #14171F;
+  --color-rarity-occasional: #5EEAD4;
+  --color-rarity-rare: #C4B5FD;
+  --color-frame-bezel: #050608;
+  --color-frame-bezel-hi: #2B2F36;
+  --shadow-pop: 0 18px 48px rgba(0, 0, 0, 0.55), 0 4px 12px rgba(0, 0, 0, 0.35);
+  --color-toast-bg: #E9ECF1;
+  --color-toast-fg: #151922;
+  --color-toast-success: #166534;
+  --color-toast-info: #4A505D;
+  --color-toast-warning: #92400E;
+  --color-toast-error: #BE123C;
+  --color-toast-pending: #B13F16;
+  --color-map-ground: #16140F;
+  --map-control-bg: #2B3345;
+  --map-control-edge: rgba(241, 243, 246, 0.55);
+  color-scheme: dark;
+}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--color-canvas);color:var(--color-text);font:var(--font-body-size)/1.4 var(--font-ui);padding:32px 16px 96px}
+html{background:linear-gradient(var(--sky-top),var(--sky-mid) 45%,var(--sky-bottom))}
+button,input,select{font:inherit;color:inherit}
+a{color:inherit}
+:focus-visible{outline:2px solid var(--color-accent);outline-offset:2px}
+.ic{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.sm{color:color-mix(in srgb,var(--color-text) 70%,transparent)}
+[data-ui-lang="en"] [data-lang="fr"],[data-ui-lang="fr"] [data-lang="en"]{display:none}
+
+/* mockup chrome (not part of the design) */
+.top{max-width:1500px;margin:0 auto 24px;display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between;align-items:flex-start}
+.top h1{margin:0 0 8px;font-size:34px;letter-spacing:var(--tracking-title);font-weight:700}
+.top p{margin:0;max-width:75ch}
+.toggles{display:flex;gap:16px;flex-wrap:wrap}
+.mseg{display:inline-flex;border:1px solid var(--seg-edge);border-radius:var(--radius-pill);padding:4px;gap:4px;background:var(--glass-bg)}
+.mseg button{border:0;background:none;min-height:44px;padding:0 16px;border-radius:var(--radius-pill);cursor:pointer;font-size:15px;color:var(--seg-idle-fg)}
+.mseg button[aria-pressed="true"]{background:var(--seg-selected-bg);color:var(--seg-selected-fg);font-weight:600}
+.changes{max-width:1500px;margin:0 auto 8px;padding:16px 24px;border-radius:var(--radius-card);border:1px dashed var(--color-border);background:var(--glass-bg)}
+.changes h2{margin:0 0 8px;font-size:17px}
+.changes ul{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:4px;max-width:110ch}
+.sec{max-width:1500px;margin:48px auto 0}
+.sec>h2{margin:0 0 4px;font-size:26px;letter-spacing:-.02em}
+.sec>p.lead{margin:0 0 20px;max-width:90ch}
+.row2{display:flex;flex-wrap:wrap;gap:24px 32px;align-items:flex-start}
+.mock{margin:0;display:flex;flex-direction:column;gap:8px;min-width:0;max-width:100%}
+.mock>figcaption{font-size:15px;font-weight:600}
+.mock>figcaption small{display:block;font-weight:400;font-size:13px;color:color-mix(in srgb,var(--color-text) 70%,transparent)}
+.scroller{max-width:100%;overflow-x:auto;padding-bottom:8px}
+.vp{position:relative;overflow:hidden;border:1px solid var(--color-border);background:linear-gradient(var(--sky-top),var(--sky-mid) 45%,var(--sky-bottom));box-shadow:0 12px 40px rgba(20,30,50,.12);padding:24px}
+.vp.phone{width:360px;border-radius:32px;padding:16px}
+.vp.desktop{width:1040px;border-radius:16px}
+.vp.dlgdesk{width:640px;border-radius:16px;min-height:var(--h,520px);display:flex;align-items:center;justify-content:center}
+.vp.phone.sheetvp{min-height:var(--h,640px);display:flex;align-items:flex-end;padding:0}
+.scrim{position:absolute;inset:0;background:var(--color-scrim)}
+.ghostbg{position:absolute;inset:0;padding:24px;display:flex;flex-direction:column;gap:16px;opacity:.55;filter:blur(1px)}
+.ghostbg i{display:block;border-radius:var(--radius-card);background:var(--glass-bg);border:1px solid var(--glass-border);height:72px}
+.ghostbg i:first-child{height:44px;width:40%}
+
+/* real components */
+.glass{background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:var(--radius-card);box-shadow:var(--shadow-glass)}
+.flat{background:var(--glass-solid);border:1px solid var(--color-border);border-radius:var(--radius-card);box-shadow:var(--shadow-card)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:var(--space-sm);box-sizing:border-box;min-width:44px;min-height:44px;padding:0 var(--space-md);border:1px solid transparent;border-radius:var(--radius-control);font-size:var(--font-label-size);font-weight:var(--weight-semibold);line-height:1.2;text-align:center;text-decoration:none;cursor:pointer;background:none}
+.btn--primary{background:var(--color-accent);box-shadow:var(--shadow-control);color:var(--color-on-accent)}
+.btn--secondary{background:color-mix(in srgb,var(--color-text) 6%,transparent);border-color:color-mix(in srgb,var(--color-text) 20%,transparent);color:var(--color-text)}
+.btn--ghost{color:var(--color-text)}
+.btn--danger{border-color:color-mix(in srgb,var(--color-status-error) 45%,transparent);color:var(--color-status-error)}
+.btn--link{min-height:44px;padding:0 var(--space-xs);color:var(--color-status-error);text-decoration:underline;text-underline-offset:3px}
+.btn--icon{width:44px;padding:0;border-radius:50%}
+.btn[disabled]{opacity:.4;cursor:not-allowed;box-shadow:none}
+.btn--block{width:100%}
+.field{display:flex;align-items:center;gap:8px;min-height:44px;padding:0 14px;border:1px solid color-mix(in srgb,var(--color-text) 20%,transparent);border-radius:var(--radius-control);background:var(--glass-solid)}
+.field input,.field select{flex:1;min-width:0;border:0;background:none;min-height:42px;outline:0;appearance:none}
+.field .ic{color:color-mix(in srgb,var(--color-text) 70%,transparent)}
+.lbl{display:block;margin:0 0 6px 2px;font-size:var(--font-caption-size);font-weight:600;color:color-mix(in srgb,var(--color-text) 70%,transparent)}
+.help{margin:6px 2px 0;font-size:var(--font-caption-size);color:color-mix(in srgb,var(--color-text) 70%,transparent)}
+.title{margin:0;font-family:var(--font-display);font-size:var(--font-page-title-size);font-weight:var(--weight-title);letter-spacing:var(--tracking-title);line-height:1.1}
+.vp.desktop .title{font-size:40px}
+.section-label{margin:0 0 6px 4px;font-size:var(--font-caption-size);font-weight:600;color:color-mix(in srgb,var(--color-text) 70%,transparent)}
+.pill{display:inline-flex;align-items:center;gap:6px;min-height:26px;padding:0 10px;border-radius:var(--radius-pill);background:color-mix(in srgb,var(--color-text) 8%,transparent);font-size:var(--font-caption-size);font-weight:600;white-space:nowrap}
+.pill--ok{color:var(--color-status-ok);background:color-mix(in srgb,var(--color-status-ok) 14%,transparent)}
+.pill--warn{color:var(--color-status-warn);background:color-mix(in srgb,var(--color-status-warn) 14%,transparent)}
+.pill--err{color:var(--color-status-error);background:color-mix(in srgb,var(--color-status-error) 12%,transparent)}
+.pill .dot{width:8px;height:8px;border-radius:50%;background:currentColor}
+.group{list-style:none;margin:0;padding:0;overflow:hidden}
+.group>li{display:flex;align-items:center;gap:12px;min-height:54px;padding:8px 16px;border-top:1px solid var(--glass-hairline)}
+.group>li:first-child{border-top:0}
+.group .who{flex:1;min-width:0}
+.group .who b{display:block;font-weight:600;overflow-wrap:anywhere}
+.group .who small{display:block;font-size:var(--font-caption-size);color:color-mix(in srgb,var(--color-text) 70%,transparent)}
+.avatar{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;flex:none;font-size:14px;font-weight:700;background:color-mix(in srgb,var(--color-text) 10%,transparent)}
+.avatar.dashed{background:none;border:1.5px dashed color-mix(in srgb,var(--color-text) 40%,transparent);color:color-mix(in srgb,var(--color-text) 70%,transparent)}
+.chipic{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;flex:none;background:color-mix(in srgb,var(--color-text) 8%,transparent)}
+.seg{display:flex;border:1px solid var(--seg-edge);border-radius:var(--radius-pill);padding:3px;background:var(--glass-bg)}
+.seg span{flex:1;display:flex;align-items:center;justify-content:center;gap:4px;min-height:44px;padding:0 12px;border-radius:var(--radius-pill);font-size:var(--font-label-size);color:var(--seg-idle-fg);white-space:nowrap}
+.seg span.on{background:var(--seg-selected-bg);color:var(--seg-selected-fg);font-weight:600}
+.seg span i{font-style:normal;font-size:12px;opacity:.75}
+.switch{flex:none;position:relative;width:52px;height:32px;border-radius:32px;background:var(--color-switch-off)}
+.switch::after{content:"";position:absolute;top:4px;left:4px;width:24px;height:24px;border-radius:50%;background:var(--color-switch-thumb)}
+.switch.on{background:var(--color-accent)}.switch.on::after{left:24px;background:var(--color-switch-thumb-on)}
+.badge{min-width:20px;height:20px;padding:0 6px;border-radius:10px;display:inline-grid;place-items:center;font-size:12px;font-weight:700;background:var(--color-accent);color:var(--color-on-accent)}
+.fchip{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 14px;border-radius:var(--radius-pill);border:1px solid var(--seg-edge);background:var(--glass-bg);font-size:var(--font-label-size);white-space:nowrap}
+.fchip.on{background:var(--seg-selected-bg);color:var(--seg-selected-fg);border-color:transparent;font-weight:600}
+.modal{position:relative;z-index:2;width:480px;max-width:calc(100% - 0px);background:var(--color-dominant);color:var(--color-text);border:1px solid var(--color-border);border-radius:var(--radius-card);box-shadow:var(--shadow-pop);padding:var(--space-lg);display:flex;flex-direction:column;gap:16px}
+.vp.phone .modal{width:100%;border-radius:var(--radius-sheet) var(--radius-sheet) 0 0;border-width:1px 0 0;padding:12px 16px 24px}
+.modal .grab{display:none;width:44px;height:5px;border-radius:5px;background:var(--color-border);margin:0 auto}
+.vp.phone .modal .grab{display:block}
+.modal h3{margin:0;font-size:var(--font-heading-size);font-weight:600;letter-spacing:-.01em;line-height:1.2}
+.modal .msub{margin:2px 0 0;font-size:var(--font-label-size)}
+.mhead{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.mfoot{display:flex;gap:12px;align-items:center}
+.mfoot.end{justify-content:flex-end}
+.vp.phone .mfoot.eq .btn{flex:1}
+.mfoot.eq .btn{flex:1}
+.cap{margin:8px 0 0;font-size:13px;color:color-mix(in srgb,var(--color-text) 70%,transparent)}
+.tiles{display:grid;gap:var(--space-sm);grid-auto-rows:1fr;margin:0;padding:0;list-style:none}
+.tiles>li>.tile{flex:1}
+.tile{--tile-tone:color-mix(in srgb,var(--color-text) 50%,transparent);display:flex;flex-direction:column;gap:var(--space-xs);min-width:0;height:100%;min-height:132px;padding:var(--space-md);border:1px solid var(--color-border);border-radius:var(--radius-card);background:var(--glass-solid);box-shadow:var(--shadow-glass)}
+.tile[data-state="ok"]{--tile-tone:var(--color-status-ok)}
+.tile__head{display:flex;align-items:center;gap:var(--space-sm)}
+.tile__icon{display:grid;flex:none;place-items:center;width:32px;height:32px;border-radius:50%;background:color-mix(in srgb,var(--tile-tone) 16%,transparent);color:var(--tile-tone)}
+.tile__label{font-size:var(--font-caption-size);color:color-mix(in srgb,var(--color-text) 70%,transparent)}
+.tile__value{font-size:var(--font-card-title-size);font-weight:var(--weight-semibold);line-height:1.25}
+.tile__meta{font-size:var(--font-caption-size);line-height:1.3;color:color-mix(in srgb,var(--color-text) 70%,transparent)}
+.tile__more{display:flex;align-items:center;gap:var(--space-xs);margin-top:auto;padding-top:var(--space-sm);font-size:var(--font-caption-size);font-weight:var(--weight-semibold)}
+.note{margin:12px 0 0;padding:12px 16px;border:1px dashed var(--color-border);border-radius:14px;font-size:14px;max-width:90ch}
+
+
+</style>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></symbol><symbol id="i-sort" viewBox="0 0 24 24"><path d="M7 4v16M7 20l-3-3M7 20l3-3M17 20V4M17 4l-3 3M17 4l3 3"/></symbol><symbol id="i-filter" viewBox="0 0 24 24"><path d="M4 5h16l-6 8v6l-4-2v-4z"/></symbol><symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8v.5"/></symbol><symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol><symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol><symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol><symbol id="i-chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol><symbol id="i-down" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5"/></symbol><symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol><symbol id="i-chip" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/></symbol><symbol id="i-plane" viewBox="0 0 24 24"><path d="M2 14l8-2 3-8 2 1-1 7 6 2v2l-6-1-2 4-2-.5.5-3.5L2 16z"/></symbol><symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></symbol><symbol id="i-wifi" viewBox="0 0 24 24"><path d="M3 9a14 14 0 0 1 18 0M6 12.5a9.5 9.5 0 0 1 12 0M9 16a5 5 0 0 1 6 0"/><circle cx="12" cy="19" r=".8"/></symbol><symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z"/></symbol><symbol id="i-timer" viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M9 2h6"/></symbol><symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"/></symbol><symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></symbol><symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></symbol><symbol id="i-mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></symbol><symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.5"/></symbol><symbol id="i-star" viewBox="0 0 24 24"><path d="M12 3l2.8 5.9 6.2.8-4.6 4.3 1.2 6.3L12 17.3 6.4 20.3l1.2-6.3L3 9.7l6.2-.8z"/></symbol><symbol id="i-swap" viewBox="0 0 24 24"><path d="M4 8h14l-3-3M20 16H6l3 3"/></symbol><symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/></symbol><symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2.5"/><circle cx="9" cy="10" r="1.6"/><path d="M4 18l5-5 4 4 3-3 4 4"/></symbol><symbol id="i-frame" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2.5"/><rect x="7" y="8" width="10" height="8" rx="1"/></symbol><symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14-4M4 4v4h4M4 13a8 8 0 0 0 14 4M20 20v-4h-4"/></symbol></svg>
+<div class="top">
+  <div>
+    <h1>Reassign and error modals (F5)</h1>
+    <p class="sm">“Réattribuer « Frame of The City » ?” and the “Lien d’invitation non créé” error.</p>
+  </div>
+  <div class="toggles">
+    <div class="mseg" id="theme" role="group" aria-label="Theme"><button type="button" data-v="auto" aria-pressed="true">Auto</button><button type="button" data-v="light" aria-pressed="false">Light</button><button type="button" data-v="dark" aria-pressed="false">Dark</button></div>
+    <div class="mseg" id="lang" role="group" aria-label="Language"><button type="button" data-v="en" aria-pressed="false">English</button><button type="button" data-v="fr" aria-pressed="true">Fran&ccedil;ais</button></div>
+  </div>
+</div>
+<section class="changes"><h2>What changes</h2><ul><li>Reassign: new-owner select first, then what is kept (nothing erased, access kept) in plain words, then two equal answers.</li><li>The confirm button stays disabled (40% opacity, aria-disabled) with a one-line hint until an owner is chosen.</li><li>Error dialog restyled: two short lines, “Réessayer” primary (with refresh glyph), “Terminé” secondary; no raw error text.</li><li>Both are the shared modal: centred card on desktop, bottom sheet with grabber on a phone; two equal-width buttons.</li></ul></section>
+<section class="sec"><h2><span data-lang="fr">Variante A : liste de ce qui est conservé</span><span data-lang="en">Variant A: checklist of what is kept</span></h2><p class="lead sm"><span data-lang="fr">Sélecteur, puis deux lignes à coches vertes. Erreur : titre et deux lignes, sans icône.</span><span data-lang="en">Select, then two ticked lines. Error: title and two lines, no icon.</span></p><div class="row2"><figure class="mock"><figcaption><span data-lang="fr">Réattribuer : aucun choix (désactivé)</span><span data-lang="en">Reassign: nothing chosen (disabled)</span> · <span data-lang="fr">bureau</span><span data-lang="en">desktop</span><small></small></figcaption><div class="scroller"><div class="vp dlgdesk" style="--h:460px"><div class="ghostbg"><i></i><i></i><i></i></div><div class="scrim"></div><div class="modal" role="dialog"><div class="grab"></div><div class="mhead"><h3><span data-lang="fr">Réattribuer « Frame of The City » ?</span><span data-lang="en">Reassign “Frame of The City”?</span></h3><button class="btn btn--ghost btn--icon" aria-label="Fermer"><svg class="ic " viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"/></svg></button></div><div><span class="lbl"><span data-lang="fr">Nouveau propriétaire</span><span data-lang="en">New owner</span></span><label class="field"><svg class="ic " viewBox="0 0 24 24" aria-hidden="true"><use href="#i-user"/></svg><select aria-label="Nouveau propriétaire"><option>Choisir un nouveau propriétaire…</option></select><svg class="ic " viewBox="0 0 24 24" aria-hidden="true"><use href="#i-down"/></svg></label><p class="help" style="margin-top:6px" style="margin:0"><span data-lang="fr">Choisissez un propriétaire pour continuer.</span><span data-lang="en">Choose an owner to continue.</span></p></div><ul class="group glass" style="font-size:15px"><li style="min-height:48px"><span style="color:var(--color-status-ok)"><svg class="ic " viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg></span><span class="who"><b style="font-weight:500"><span data-lang="fr">Rien n’est effacé : historique, réglages et illustrations restent.</span><span data-lang="en">Nothing is erased: history, settings and artwork stay.</span></b></span></li><li style="min-height:48px"><span style="color:var(--color-status-ok)"><svg class="ic " viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg></span><span class="who"><b style="font-weight:500"><span data-lang="fr">Les cogestionnaires gardent leur accès.</span><span data-lang="en">Co-managers keep their access.</span></b></span></li></ul><div class="mfoot eq"><button class="btn btn--secondary"><span data-lang="fr">Annuler</span><span data-lang="en">Cancel</span></button><button class="btn btn--primary" disabled aria-disabled="true"><span data-lang="fr">Réattribuer</span><span data-lang="en">Reassign</span></button></div></div></div></div></figure><figure class="mock"><figcaption><span data-lang="fr">Réattribuer : aucun choix (désactivé)</span><span data-lang="en">Reassign: nothing chosen (disabled)</span> · <span data-lang="fr">téléphone</span><span data-lang="en">phone</span><small></small></figcaption><div class="scroller"><div class="vp phone sheetvp" style="--h:560px"><div class="ghostbg"><i></i><i></i><i></i></div><div class="scrim"></div><div class="modal" role="dialog"><div class="grab"></div><div class="mhead"><h3><span data-lang="fr">Réattribuer « Frame of The City » ?</span><span data-lang="en">Reassign “Frame of The City”?</span></h3><button class="btn btn--ghost btn--icon" aria-label="Fermer"><svg class="ic " viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"/></svg></button></div><div><span class="lbl"><span data-lang="fr">Nouveau propriétaire</span><span data-lang="en">New owner</span></span><label class="field"><svg class="ic " viewBox="0 0 24 24" aria-hidden="true"><use href="#i-user"/></svg><select aria-label="Nouveau propriétaire"><option>Choisir un nouveau propriétaire…</option></select><svg class="ic " viewBox="0 0 24 24" aria-hidden="true"><use href="#i-down"/></svg></label><p class="help" style="margin-top:6px" style="margin:0"><span data-lang="fr">Choisissez un propriétaire pour continuer.</span><span data-lang="en">Choose an owner to continue.</span></p></div><ul class="group glass" style="font-size:15px"><li style="min-height:48px"><span style="color:var(--color-status-ok)"><svg class="ic " viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg></span><span class="who"><b style="font-weight:500"><span data-lang="fr">Rien n’est effacé : historique, réglages et illustrations restent.</span><span data-lang="en">Nothing is erased: history, settings and artwork stay.</span></b></span></li><li style="min-height:48px"><span style="color:var(--color-status-ok)"><svg class="ic " viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg></span><span class="who"><b style="font-weight:500"><span data-lang="fr">Les cogestionnaires gardent leur accès.</span><span data-lang="en">Co-managers keep their access.</span></b></span></li></ul><div class="mfoot eq"><button class="btn btn--secondary"><span data-lang="fr">Annuler</span><span data-lang="en">Cancel</span></button><button class="btn btn--primary" disabled aria-disabled="true"><span data-lang="fr">Réattribuer</span><span data-lang="en">Reassign</span></button></div></div></div></div></figure><figure class="mock"><figcaption><span data-lang="fr">Réattribuer : propriétaire choisi</span><span data-lang="en">Reassign: owner chosen</span> · <span data-lang="fr">bureau</span><span data-lang="en">desktop</span><small></small></figcaption><div class="scroller"><div class="vp dlgdesk" style="--h:460px"><div class="ghostbg"><i></i><i></i><i></i></div><div class="scrim"></div><div class="modal" role="dialog"><div class="grab"></div><div class="mhead"><h3><span data-lang="fr">Réattribuer « Frame of The City » ?</span><span data-lang="en">Reassign “Frame of The City”?</span></h3><button class="btn btn--ghost btn--icon" aria-label="Fermer"><svg class="ic " viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"/></svg></button></div><div><span class="lbl"><span data-lang="fr">Nouveau propriétaire</span><span data-lang="en">New owner</span></span><label class="field"><svg class="ic " viewBox="0 0 24 24" aria-hidden="true"><use href="#i-user"/></svg><select aria-label="Nouveau propriétaire"><option>lea.bernard@example.org</option></select><svg class="ic " viewBox="0 0 24 24" aria-hidden="true"><use href="#i-down"/></svg></label></div><ul class="group glass" style="font-size:15px"><li style="min-height:48px"><span style="color:var(--color-status-ok)"><svg class="ic " viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg></span><span class="who"><b style="font-weight:500"><span data-lang="fr">Rien n’est effacé : historique, réglages et illustrations restent.</span><span data-lang="en">Nothing is erased: history, settings and artwork stay.</span></b></span></li><li style="min-height:48px"><span style="color:var(--color-status-ok)"><svg class="ic " viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg></span><span class="who"><b style="font-weight:500"><span data-lang="fr">Les cogestionnaires gardent leur accès.</span><span data-lang="en">Co-managers keep their access.</span></b></span></li></ul><div class="mfoot eq"><button class="btn btn--secondary"><span data-lang="fr">Annuler</span><span data-lang="en">Cancel</span></button><button class="btn btn--primary" ><span data-lang="fr">Réattribuer</span><span data-lang="en">Reassign</span></button></div></div></div></div></figure><figure class="mock"><figcaption><span data-lang="fr">Réattribuer : propriétaire choisi</span><span data-lang="en">Reassign: owner chosen</span> · <span data-lang="fr">téléphone</span><span data-lang="en">phone</span><small></small></figcaption><div class="scroller"><div class="vp phone sheetvp" style="--h:560px"><div class="ghostbg"><i></i><i></i><i></i></div><div class="scrim"></div><div class="modal" role="dialog"><div class="grab"></div><div class="mhead"><h3><span data-lang="fr">Réattribuer « Frame of The City » ?</span><span data-lang="en">Reassign “Frame of The City”?</span></h3><button class="btn btn--ghost btn--icon" aria-label="Fermer"><svg class="ic " viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"/></svg></button></div><div><span class="lbl"><span data-lang="fr">Nouveau propriétaire</span><span data-lang="en">New owner</span></span><label class="field"><svg class="ic " viewBox="0 0 24 24" aria-hidden="true"><use href="#i-user"/></svg><select aria-label="Nouveau propriétaire"><option>lea.bernard@example.org</option></select><svg class="ic " viewBox="0 0 24 24" aria-hidden="true"><use href="#i-down"/></svg></label></div><ul class="group glass" style="font-size:15px"><li style="min-height:48px"><span style="color:var(--color-status-ok)"><svg class="ic " viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg></span><span class="who"><b style="font-weight:500"><span data-lang="fr">Rien n’est effacé : historique, réglages et illustrations restent.</span><span data-lang="en">Nothing is erased: history, settings and artwork stay.</span></b></span></li><li style="min-height:48px"><span style="color:var(--color-status-ok)"><svg class="ic " viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg></span><span class="who"><b style="font-weight:500"><span data-lang="fr">Les cogestionnaires gardent leur accès.</span><span data-lang="en">Co-managers keep their access.</span></b></span></li></ul><div class="mfoot eq"><button class="btn btn--secondary"><span data-lang="fr">Annuler</span><span data-lang="en">Cancel</span></button><button class="btn btn--primary" ><span data-lang="fr">Réattribuer</span><span data-lang="en">Reassign</span></button></div></div></div></div></figure><figure class="mock"><figcaption><span data-lang="fr">Erreur Auth0</span><span data-lang="en">Auth0 error</span> · <span data-lang="fr">bureau</span><span data-lang="en">desktop</span><small></small></figcaption><div class="scroller"><div class="vp dlgdesk" style="--h:360px"><div class="ghostbg"><i></i><i></i><i></i></div><div class="scrim"></div><div class="modal" role="alertdialog" style="gap:12px"><div class="grab"></div><h3><span data-lang="fr">Lien d’invitation non créé</span><span data-lang="en">Invitation link not created</span></h3><p class="sm" style="margin:0"><span data-lang="fr">Le service d’identité n’a pas répondu.</span><span data-lang="en">The identity service did not answer.</span><br><span data-lang="fr">Rien n’a été envoyé. Réessayez dans un instant.</span><span data-lang="en">Nothing was sent. Try again in a moment.</span></p><div class="mfoot eq"><button class="btn btn--secondary"><span data-lang="fr">Terminé</span><span data-lang="en">Done</span></button><button class="btn btn--primary"><svg class="ic " viewBox="0 0 24 24" aria-hidden="true"><use href="#i-refresh"/></svg><span data-lang="fr">Réessayer</span><span data-lang="en">Try again</span></button></div></div></div></div></figure><figure class="mock"><figcaption><span data-lang="fr">Erreur Auth0</span><span data-lang="en">Auth0 error</span> · <span data-lang="fr">téléphone</span><span data-lang="en">phone</span><small></small></figcaption><div class="scroller"><div class="vp phone sheetvp" style="--h:420px"><div class="ghostbg"><i></i><i></i><i></i></div><div class="scrim"></div><div class="modal" role="alertdialog" style="gap:12px"><div class="grab"></div><h3><span data-lang="fr">Lien d’invitation non créé</span><span data-lang="en">Invitation link not created</span></h3><p class="sm" style="margin:0"><span data-lang="fr">Le service d’identité n’a pas répondu.</span><span data-lang="en">The identity service did not answer.</span><br><span data-lang="fr">Rien n’a été envoyé. Réessayez dans un instant.</span><span data-lang="en">Nothing was sent. Try again in a moment.</span></p><div class="mfoot eq"><button class="btn btn--secondary"><span data-lang="fr">Terminé</span><span data-lang="en">Done</span></button><button class="btn btn--primary"><svg class="ic " viewBox="0 0 24 24" aria-hidden="true"><use href="#i-refresh"/></svg><span data-lang="fr">Réessayer</span><span data-lang="en">Try again</span></button></div></div></div></div></figure></div></section><section class="sec"><h2><span data-lang="fr">Variante B : phrase unique</span><span data-lang="en">Variant B: one sentence</span></h2><p class="lead sm"><span data-lang="fr">Sélecteur puis une seule phrase. Erreur : disque d’icône d’alerte centré au-dessus du titre.</span><span data-lang="en">Select then one sentence. Error: a centred alert icon disc above the title.</span></p><div class="row2"><figure class="mock"><figcaption><span data-lang="fr">Réattribuer : aucun choix (désactivé)</span><span data-lang="en">Reassign: nothing chosen (disabled)</span> · <span data-lang="fr">bureau</span><span data-lang="en">desktop</span><small></small></figcaption><div class="scroller"><div class="vp dlgdesk" style="--h:460px"><div class="ghostbg"><i></i><i></i><i></i></div><div class="scrim"></div><div class="modal" role="dialog"><div class="grab"></div><div class="mhead"><h3><span data-lang="fr">Réattribuer « Frame of The City » ?</span><span data-lang="en">Reassign “Frame of The City”?</span></h3><button class="btn btn--ghost btn--icon" aria-label="Fermer"><svg class="ic " viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"/></svg></button></div><div><span class="lbl"><span data-lang="fr">Nouveau propriétaire</span><span data-lang="en">New owner</span></span><label class="field"><svg class="ic " viewBox="0 0 24 24" aria-hidden="true"><use href="#i-user"/></svg><select aria-label="Nouveau propriétaire"><option>Choisir un nouveau propriétaire…</option></select><svg class="ic " viewBox="0 0 24 24" aria-hidden="true"><use href="#i-down"/></svg></label><p class="help" style="margin-top:6px" style="margin:0"><span data-lang="fr">Choisissez un propriétaire pour continuer.</span><span data-lang="en">Choose an owner to continue.</span></p></div><p class="sm" style="margin:0;font-size:15px"><span data-lang="fr">Rien n’est effacé et l’accès est conservé : historique, réglages, illustrations et cogestionnaires restent en place.</span><span data-lang="en">Nothing is erased and access is kept: history, settings, artwork and co-managers stay in place.</span></p><div class="mfoot eq"><button class="btn btn--secondary"><span data-lang="fr">Annuler</span><span data-lang="en">Cancel</span></button><button class="btn btn--primary" disabled aria-disabled="true"><span data-lang="fr">Réattribuer</span><span data-lang="en">Reassign</span></button></div></div></div></div></figure><figure class="mock"><figcaption><span data-lang="fr">Réattribuer : aucun choix (désactivé)</span><span data-lang="en">Reassign: nothing chosen (disabled)</span> · <span data-lang="fr">téléphone</span><span data-lang="en">phone</span><small></small></figcaption><div class="scroller"><div class="vp phone sheetvp" style="--h:560px"><div class="ghostbg"><i></i><i></i><i></i></div><div class="scrim"></div><div class="modal" role="dialog"><div class="grab"></div><div class="mhead"><h3><span data-lang="fr">Réattribuer « Frame of The City » ?</span><span data-lang="en">Reassign “Frame of The City”?</span></h3><button class="btn btn--ghost btn--icon" aria-label="Fermer"><svg class="ic " viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"/></svg></button></div><div><span class="lbl"><span data-lang="fr">Nouveau propriétaire</span><span data-lang="en">New owner</span></span><label class="field"><svg class="ic " viewBox="0 0 24 24" aria-hidden="true"><use href="#i-user"/></svg><select aria-label="Nouveau propriétaire"><option>Choisir un nouveau propriétaire…</option></select><svg class="ic " viewBox="0 0 24 24" aria-hidden="true"><use href="#i-down"/></svg></label><p class="help" style="margin-top:6px" style="margin:0"><span data-lang="fr">Choisissez un propriétaire pour continuer.</span><span data-lang="en">Choose an owner to continue.</span></p></div><p class="sm" style="margin:0;font-size:15px"><span data-lang="fr">Rien n’est effacé et l’accès est conservé : historique, réglages, illustrations et cogestionnaires restent en place.</span><span data-lang="en">Nothing is erased and access is kept: history, settings, artwork and co-managers stay in place.</span></p><div class="mfoot eq"><button class="btn btn--secondary"><span data-lang="fr">Annuler</span><span data-lang="en">Cancel</span></button><button class="btn btn--primary" disabled aria-disabled="true"><span data-lang="fr">Réattribuer</span><span data-lang="en">Reassign</span></button></div></div></div></div></figure><figure class="mock"><figcaption><span data-lang="fr">Réattribuer : propriétaire choisi</span><span data-lang="en">Reassign: owner chosen</span> · <span data-lang="fr">bureau</span><span data-lang="en">desktop</span><small></small></figcaption><div class="scroller"><div class="vp dlgdesk" style="--h:460px"><div class="ghostbg"><i></i><i></i><i></i></div><div class="scrim"></div><div class="modal" role="dialog"><div class="grab"></div><div class="mhead"><h3><span data-lang="fr">Réattribuer « Frame of The City » ?</span><span data-lang="en">Reassign “Frame of The City”?</span></h3><button class="btn btn--ghost btn--icon" aria-label="Fermer"><svg class="ic " viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"/></svg></button></div><div><span class="lbl"><span data-lang="fr">Nouveau propriétaire</span><span data-lang="en">New owner</span></span><label class="field"><svg class="ic " viewBox="0 0 24 24" aria-hidden="true"><use href="#i-user"/></svg><select aria-label="Nouveau propriétaire"><option>lea.bernard@example.org</option></select><svg class="ic " viewBox="0 0 24 24" aria-hidden="true"><use href="#i-down"/></svg></label></div><p class="sm" style="margin:0;font-size:15px"><span data-lang="fr">Rien n’est effacé et l’accès est conservé : historique, réglages, illustrations et cogestionnaires restent en place.</span><span data-lang="en">Nothing is erased and access is kept: history, settings, artwork and co-managers stay in place.</span></p><div class="mfoot eq"><button class="btn btn--secondary"><span data-lang="fr">Annuler</span><span data-lang="en">Cancel</span></button><button class="btn btn--primary" ><span data-lang="fr">Réattribuer</span><span data-lang="en">Reassign</span></button></div></div></div></div></figure><figure class="mock"><figcaption><span data-lang="fr">Réattribuer : propriétaire choisi</span><span data-lang="en">Reassign: owner chosen</span> · <span data-lang="fr">téléphone</span><span data-lang="en">phone</span><small></small></figcaption><div class="scroller"><div class="vp phone sheetvp" style="--h:560px"><div class="ghostbg"><i></i><i></i><i></i></div><div class="scrim"></div><div class="modal" role="dialog"><div class="grab"></div><div class="mhead"><h3><span data-lang="fr">Réattribuer « Frame of The City » ?</span><span data-lang="en">Reassign “Frame of The City”?</span></h3><button class="btn btn--ghost btn--icon" aria-label="Fermer"><svg class="ic " viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"/></svg></button></div><div><span class="lbl"><span data-lang="fr">Nouveau propriétaire</span><span data-lang="en">New owner</span></span><label class="field"><svg class="ic " viewBox="0 0 24 24" aria-hidden="true"><use href="#i-user"/></svg><select aria-label="Nouveau propriétaire"><option>lea.bernard@example.org</option></select><svg class="ic " viewBox="0 0 24 24" aria-hidden="true"><use href="#i-down"/></svg></label></div><p class="sm" style="margin:0;font-size:15px"><span data-lang="fr">Rien n’est effacé et l’accès est conservé : historique, réglages, illustrations et cogestionnaires restent en place.</span><span data-lang="en">Nothing is erased and access is kept: history, settings, artwork and co-managers stay in place.</span></p><div class="mfoot eq"><button class="btn btn--secondary"><span data-lang="fr">Annuler</span><span data-lang="en">Cancel</span></button><button class="btn btn--primary" ><span data-lang="fr">Réattribuer</span><span data-lang="en">Reassign</span></button></div></div></div></div></figure><figure class="mock"><figcaption><span data-lang="fr">Erreur Auth0</span><span data-lang="en">Auth0 error</span> · <span data-lang="fr">bureau</span><span data-lang="en">desktop</span><small></small></figcaption><div class="scroller"><div class="vp dlgdesk" style="--h:360px"><div class="ghostbg"><i></i><i></i><i></i></div><div class="scrim"></div><div class="modal" role="alertdialog" style="gap:12px;text-align:center;align-items:stretch"><div class="grab"></div><span class="tile__icon" style="--tile-tone:var(--color-status-error);width:44px;height:44px;margin:0 auto"><svg class="ic " viewBox="0 0 24 24" aria-hidden="true"><use href="#i-alert"/></svg></span><h3><span data-lang="fr">Lien d’invitation non créé</span><span data-lang="en">Invitation link not created</span></h3><p class="sm" style="margin:0"><span data-lang="fr">Le service d’identité n’a pas répondu.</span><span data-lang="en">The identity service did not answer.</span><br><span data-lang="fr">Rien n’a été envoyé. Réessayez dans un instant.</span><span data-lang="en">Nothing was sent. Try again in a moment.</span></p><div class="mfoot eq"><button class="btn btn--secondary"><span data-lang="fr">Terminé</span><span data-lang="en">Done</span></button><button class="btn btn--primary"><svg class="ic " viewBox="0 0 24 24" aria-hidden="true"><use href="#i-refresh"/></svg><span data-lang="fr">Réessayer</span><span data-lang="en">Try again</span></button></div></div></div></div></figure><figure class="mock"><figcaption><span data-lang="fr">Erreur Auth0</span><span data-lang="en">Auth0 error</span> · <span data-lang="fr">téléphone</span><span data-lang="en">phone</span><small></small></figcaption><div class="scroller"><div class="vp phone sheetvp" style="--h:420px"><div class="ghostbg"><i></i><i></i><i></i></div><div class="scrim"></div><div class="modal" role="alertdialog" style="gap:12px;text-align:center;align-items:stretch"><div class="grab"></div><span class="tile__icon" style="--tile-tone:var(--color-status-error);width:44px;height:44px;margin:0 auto"><svg class="ic " viewBox="0 0 24 24" aria-hidden="true"><use href="#i-alert"/></svg></span><h3><span data-lang="fr">Lien d’invitation non créé</span><span data-lang="en">Invitation link not created</span></h3><p class="sm" style="margin:0"><span data-lang="fr">Le service d’identité n’a pas répondu.</span><span data-lang="en">The identity service did not answer.</span><br><span data-lang="fr">Rien n’a été envoyé. Réessayez dans un instant.</span><span data-lang="en">Nothing was sent. Try again in a moment.</span></p><div class="mfoot eq"><button class="btn btn--secondary"><span data-lang="fr">Terminé</span><span data-lang="en">Done</span></button><button class="btn btn--primary"><svg class="ic " viewBox="0 0 24 24" aria-hidden="true"><use href="#i-refresh"/></svg><span data-lang="fr">Réessayer</span><span data-lang="en">Try again</span></button></div></div></div></div></figure></div></section>
+<script>
+(function(){
+  var h=document.documentElement;
+  function set(attr,val,sel){h.setAttribute(attr,val);[].forEach.call(document.querySelectorAll(sel+' button'),function(b){b.setAttribute('aria-pressed',String(b.getAttribute('data-v')===val));});}
+  [].forEach.call(document.querySelectorAll('#theme button'),function(b){b.onclick=function(){var v=b.getAttribute('data-v');if(v==='auto')h.removeAttribute('data-ui-theme');else h.setAttribute('data-ui-theme',v);[].forEach.call(document.querySelectorAll('#theme button'),function(x){x.setAttribute('aria-pressed',String(x===b));});};});
+  [].forEach.call(document.querySelectorAll('#lang button'),function(b){b.onclick=function(){set('data-ui-lang',b.getAttribute('data-v'),'#lang');};});
+})();
+</script>
+</html>
