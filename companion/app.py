@@ -33,7 +33,7 @@ if _REPO_ROOT not in sys.path:
 
 from companion import (  # noqa: E402
     access, audit, auth, console_flash, console_routes, credits_page, detection_actions, device_dispatch, device_scope, export_api, flash, fleet_moves, freshness, i18n, illustration_normalize, layout, legacy_pages,
-    login_page, next_route as next_route_check, page_cache, page_context, page_policy, post_actions, preview_images, prefs, quiet_server, request_body, routes, server_error, sign_in,
+    login_page, next_route as next_route_check, page_cache, page_context, page_policy, post_actions, preview_images, prefs, preload_assets, quiet_server, request_body, routes, server_error, sign_in,
     sign_in_config, static_files, theme_preview, user_view)
 from companion.pages import (  # noqa: E402
     # airlines_page is unused by this module's own code; kept so
@@ -261,57 +261,9 @@ _CHILD_PAGE_TITLES = {
 # The frame pages that belong to the Console: they show no foreign-frame strip.
 _CONSOLE_FRAME_ROUTES = frozenset((layout.DEVICE_ROUTE, airlines_page.MANAGE_ROUTE))
 
-# Each tab's own extra scripts, on top of layout.GLOBAL_PAGE_SCRIPTS
-# (present on every authenticated page regardless). One tuple per
-# layout.NAV_TABS route - companion/test_page_scripts.py's hook-coverage
-# test fails, naming the route, if a tab is ever added here without one.
-# Each tuple is the SUPERSET over every state the page can be in,
-# including a region freshness.js may swap in later with no fresh page
-# load of its own (for example Flights' rows, or Display's calendar-
-# disconnect confirm dialog once the calendar is connected) - never only
-# what a freshly-seeded, empty state happens to render.
-_PAGE_SCRIPTS = {
-    layout.HOME_ROUTE: (
-        layout.DIRTY_STATE_SCRIPT_SRC,
-        layout.FRESHNESS_SCRIPT_SRC,
-        layout.QUICK_SWITCH_SCRIPT_SRC,
-    ),
-    layout.DISPLAY_ROUTE: (
-        layout.CALENDAR_CONNECT_SCRIPT_SRC,
-        layout.CONFIRM_SUBMIT_SCRIPT_SRC,
-        layout.DIRTY_STATE_SCRIPT_SRC,
-        layout.FRESHNESS_SCRIPT_SRC,
-        layout.QUICK_SWITCH_SCRIPT_SRC,
-        layout.THEME_PREVIEW_SCRIPT_SRC,
-        layout.VALUE_CONTROLS_SCRIPT_SRC,
-    ),
-    layout.DEVICE_ROUTE: (
-        layout.DIRTY_STATE_SCRIPT_SRC,
-        layout.QUICK_SWITCH_SCRIPT_SRC,
-        layout.VALUE_CONTROLS_SCRIPT_SRC,
-    ),
-    detection_page.DETECTION_ROUTE: place_page.PAGE_SCRIPTS,
-    layout.FLIGHTS_ROUTE: (
-        layout.FRESHNESS_SCRIPT_SRC,
-        layout.LIST_FILTER_SCRIPT_SRC,
-        layout.PANEL_LOOKUP_SCRIPT_SRC,
-    ),
-    layout.AIRLINES_ROUTE: (
-        layout.LIST_FILTER_SCRIPT_SRC,
-    ),
-    airlines_page.MANAGE_ROUTE: (
-        layout.LIST_FILTER_SCRIPT_SRC,
-        layout.AIRLINE_TYPES_SCRIPT_SRC,
-        layout.AIRLINE_SUGGEST_SCRIPT_SRC,
-        layout.PANEL_LOOKUP_SCRIPT_SRC,
-    ),
-    # UPDATE_QUESTION_SCRIPT_SRC turns the per-release Install form's
-    # data-confirm-* attributes into a question dialog; without it the form
-    # lands on _handle_update_install_post()'s server-side confirm page.
-    layout.UPDATE_ROUTE: (
-        layout.UPDATE_QUESTION_SCRIPT_SRC,
-    ),
-}
+# Each tab's own extra scripts: companion/preload_assets.py's table, also the
+# source of the files the splash preloads.
+_PAGE_SCRIPTS = preload_assets.PAGE_SCRIPTS
 
 # The freshness-token machinery (the four refresh-page slugs, every
 # _freshness_*() stamp/signal helper, and _page_freshness_token() itself)

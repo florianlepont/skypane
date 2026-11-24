@@ -13,7 +13,7 @@
  * skips it). It never shows when session storage is unavailable (the
  * once-only promise could not be kept). A page restored from the back/forward
  * cache keeps whatever it showed; the splash does not replay there. The hard
- * cap below removes the class again even if the main splash script never
+ * safety cap below (a little above the main script's own) removes the class again even if the main splash script never
  * runs.
  *
  * The main splash script is not linked from the page: this script loads it,
@@ -24,7 +24,7 @@
   "use strict";
 
   var KEY = "skypane.splash";
-  var HARD_CAP_MS = 3200;
+  var HARD_CAP_MS = 10200;
   var EARLY_CLASS = "js-early";
   var WEB_APP_CLASS = "web-app";
   // How long the Location page's loading state may wait for the map before

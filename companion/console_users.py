@@ -180,6 +180,12 @@ def _view(h, **invite_state):
         app_url=_app_url(h), **invite_state)
 
 
+# The scripts the Users page loads beyond the shared ones.
+PAGE_SCRIPTS = (
+    ui_base.LIST_FILTER_SCRIPT_SRC, ui_base.COPY_BUTTON_SCRIPT_SRC,
+    ui_base.QUICK_SWITCH_SCRIPT_SRC)
+
+
 def _render(h, status=200, **invite_state):
     from companion import console_routes
     return h._console_page(
@@ -187,9 +193,7 @@ def _render(h, status=200, **invite_state):
         lambda: users_page.render(_view(h, **invite_state)),
         None, status=status,
         action_html=users_page.header_action_html,
-        scripts=(
-            ui_base.LIST_FILTER_SCRIPT_SRC, ui_base.COPY_BUTTON_SCRIPT_SRC,
-            ui_base.QUICK_SWITCH_SCRIPT_SRC))
+        scripts=PAGE_SCRIPTS)
 
 
 def _asked_role_change(h):
