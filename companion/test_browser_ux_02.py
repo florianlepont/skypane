@@ -777,7 +777,8 @@ _DISCLOSURE_SWEEP_PROBE = (
     "    const r = el.getBoundingClientRect();"
     "    let inStrip = false;"
     "    for (let up = el.parentElement; up; up = up.parentElement) {"
-    "      if (getComputedStyle(up).scrollSnapType.indexOf('x') === 0) { inStrip = true; break; }"
+    "      if (getComputedStyle(up).scrollSnapType.indexOf('x') === 0"
+    "          || up.classList.contains('filter-bar__chips--scroll')) { inStrip = true; break; }"
     "    }"
     "    if (r.width > 0 && r.right > vw + 0.5 && !inStrip)"
     "      escaped.push(el.className.toString() || el.tagName);"
@@ -785,7 +786,10 @@ _DISCLOSURE_SWEEP_PROBE = (
     "    const ox = cs.overflowX;"
     # A scroll-snap strip (the Airlines type carousel) is a deliberate horizontal scroller
     # with its own pagination dots, not a page bug the sweep exists to catch.
-    "    const snaps = cs.scrollSnapType.indexOf('x') === 0;"
+    # The scrolling chip row of the filter controls is the same kind of deliberate scroller:
+    # a phone swipes it sideways and no scrollbar is drawn.
+    "    const snaps = cs.scrollSnapType.indexOf('x') === 0"
+    "        || el.classList.contains('filter-bar__chips--scroll');"
     "    if ((ox === 'auto' || ox === 'scroll') && !snaps"
     "        && el.scrollWidth > el.clientWidth + 0.5) {"
     "      const kid = el.firstElementChild;"

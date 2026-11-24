@@ -270,8 +270,8 @@ def test_the_french_ui_names_the_airlines_page_airlines_everywhere():
     assert by_id["nav.airline_collection"] == "Airlines"
     assert by_id["airlines.table_caption"] == "Airlines"
     assert by_id["airlines.back_to_airlines"] == "\u2190 Retour \u00e0 Airlines"
-    assert by_id["airlines.collection_count"] == "Airlines\u00a0: %d"
-    assert by_id["airlines.collection_count_template"] == "Airlines\u00a0: #"
+    assert by_id["airlines.collection_count_of_total"] == "%d sur %d compagnies"
+    assert by_id["airlines.collection_count_of_total_template"] == "# sur # compagnies"
     stale = [identifier for identifier, french in by_id.items()
              if re.search(r"\b(la |à la |de la )?page Compagnies\b|^Compagnies$", french)]
     assert not stale, "French value still names the page Compagnies: %r" % (stale,)

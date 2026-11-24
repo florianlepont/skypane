@@ -430,10 +430,10 @@ def test_data_table_wrap_scroll_edge_affordance_css(served_css):
 
 
 def test_the_search_is_one_named_form_the_chips_and_sort_join(tmp_path):
-    """Flights' search is one GET form with one named, valued field and a link-shaped clear; the
-    direction chips and the sort are fields of that same form (form="..."), so one Enter or one
-    Apply sends them together; no list-filter.js marker (data-filter-input, -empty, -clear) is
-    left on the page for the script to drive the list client-side"""
+    """Flights' controls are one GET form with one named, valued search field and a link-shaped
+    clear; the direction chips, the sort and the Apply button are inside that same form, so one
+    Enter or one Apply sends them together; no list-filter.js marker (data-filter-input, -empty,
+    -clear) is left on the page for the script to drive the list client-side"""
     vp.seed_runway_events(tmp_path, [
         {"ts": "2026-08-27T10:00:00+00:00", "hex": "fb01", "callsign": "FB1"},
     ])
@@ -448,8 +448,9 @@ def test_the_search_is_one_named_form_the_chips_and_sort_join(tmp_path):
     clears = form.select("[data-flights-clear]")
     assert len(clears) == 1 and clears[0].tag == "a" and clears[0].attrs["href"] == "/flights"
     assert clears[0].attrs.get("aria-label") == "Clear search"
-    joined = [n for n in doc.select("input") + doc.select("select") + doc.select("button")
-              if n.attrs.get("form") == form.attrs["id"]]
+    joined = [n for n in form.select("input") + form.select("select") + form.select("button")
+              if n.attrs.get("type") != "search"
+              and not (n.tag == "button" and n.attrs.get("type") != "submit")]
     assert {n.attrs.get("name") for n in joined} == {"kind", "sort", None}
     assert len([n for n in joined if n.attrs.get("name") == "kind"]) == 3
     assert [n.tag for n in joined if n.attrs.get("name") is None] == ["button"]
@@ -471,8 +472,8 @@ def test_filter_input_carries_safari_autofill_suppression_attributes(tmp_path):
 
 
 def test_the_match_count_reads_in_english_and_french(tmp_path):
-    """with a search typed, Flights tells screen readers how many flights match it, in English
-    and French (singular, plural and none); without a search it counts the flights listed"""
+    """Flights prints how many flights it lists under the controls, in English and French: the
+    whole history's number, "N of M" once a search narrows it, and "No flight matches" for none"""
     vp.seed_runway_events(tmp_path, [
         {"ts": "2026-08-27T10:00:00+00:00", "hex": "fc01", "callsign": "FC1", "airline": "Air France"},
         {"ts": "2026-08-27T09:00:00+00:00", "hex": "fc02", "callsign": "FC2", "airline": "Air France"},
@@ -489,12 +490,12 @@ def test_the_match_count_reads_in_english_and_french(tmp_path):
         node = doc.select_one("[data-filter-count]")
         return node.text(), "visually-hidden" in node.attrs["class"]
 
-    assert count("en", "air france") == ("2 flights match", True)
-    assert count("en", "other") == ("1 flight matches", True)
-    assert count("fr", "air france") == ("2 vols correspondent", True)
-    assert count("fr", "other") == ("1 vol correspond", True)
-    assert count("en", "") == ("3 flights", True)
-    assert count("en", "zzz") == ("No flight matches", True)
+    assert count("en", "air france") == ("2 of 3 flights", False)
+    assert count("en", "other") == ("1 of 3 flights", False)
+    assert count("fr", "air france") == ("2 sur 3 vols", False)
+    assert count("fr", "other") == ("1 sur 3 vols", False)
+    assert count("en", "") == ("3 flights", False)
+    assert count("en", "zzz") == ("No flight matches", False)
 
 
 def test_the_filter_bar_meta_group_keeps_one_page_agnostic_rule(served_css):
@@ -569,8 +570,8 @@ def test_filter_text_covers_airline_airport_and_type_but_not_the_fallback(tmp_pa
 
 def test_rows_carry_the_direction_kind_the_chips_filter_on(tmp_path):
     """each row (desktop <tr> and phone <li>) carries data-filter-kind equal to its confirmed
-    runway direction, only for the two values the detector writes, and the chips
-    carry no number"""
+    runway direction, only for the two values the detector writes, and each chip
+    carries the number of flights it lists"""
     vp.seed_runway_events(tmp_path, [
         {"ts": "2026-08-27T10:00:00+00:00", "hex": "k1", "callsign": "K1", "confirmed_state": "departing"},
         {"ts": "2026-08-27T09:00:00+00:00", "hex": "k2", "callsign": "K2", "confirmed_state": "departing"},
@@ -582,7 +583,7 @@ def test_rows_carry_the_direction_kind_the_chips_filter_on(tmp_path):
         kinds = [n.attrs["data-filter-kind"] for n in doc.select("%s[data-filter-kind]" % tag)]
         assert kinds == ["departing", "departing", "arriving", ""], (tag, kinds)
     assert [c.text().strip() for c in doc.select(".filter-chip")] == [
-        "All", "Departures", "Arrivals"]
+        "All4", "Departures2", "Arrivals1"]
 
 
 def test_filter_text_attribute_on_both_representations(tmp_path):
@@ -628,6 +629,7 @@ def test_each_flight_has_one_picture_link_on_desktop_and_card(tmp_path):
     doc = parse_html(rendered)
     assert not doc.select("[aria-expanded]")
     assert not [node for node in doc.select("summary")
-                if "collection-sort__toggle" not in node.attrs.get("class", "")]
+                if "collection-sort__toggle" not in node.attrs.get("class", "")
+                and node.parent.attrs.get("class") != "row-menu filter-info"]
 
 

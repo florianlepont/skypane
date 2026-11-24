@@ -137,11 +137,11 @@ def test_the_quiet_hours_dialog_is_opaque_and_its_save_button_needs_no_scrolling
         context.close()
 
 
-# --- Flights: the search keeps clear of the frame button -----------------------
+# --- Flights: the controls keep clear of the frame button and the title ---------
 
 
 @pytest.mark.parametrize("width", (960, 1100, 1280, 1440))
-def test_the_flights_search_never_overlaps_the_frame_button_or_the_title(
+def test_the_flights_controls_never_overlap_the_frame_button_or_the_title(
         new_context, make_app_server, width):
     server = make_app_server(seed=vp.seed_flight_card_variety, fake_providers=True)
     context, page = _page(new_context, server, "/flights", {"width": width, "height": 800})
@@ -150,7 +150,7 @@ def test_the_flights_search_never_overlaps_the_frame_button_or_the_title(
         boxes = page.evaluate(
             """() => { const f = e => (r => ({l: r.left, r: r.right, t: r.top, b: r.bottom}))(
                 e.getBoundingClientRect());
-              return {search: f(document.querySelector('.filter-bar--title')),
+              return {search: f(document.querySelector('.filter-controls')),
                       button: f(document.querySelector('.frame-menu__button')),
                       title: f(document.querySelector('.page-title'))}; }""")
 

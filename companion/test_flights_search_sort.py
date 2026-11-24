@@ -54,7 +54,7 @@ def _doc(state_dir, query=None, more=None, lang="en"):
 
 
 def _chips(doc):
-    """the chip labels: plain direction names, no number"""
+    """the chip labels, each followed by its number of flights"""
     return [c.text().strip() for c in doc.select(".filter-chip")]
 
 
@@ -64,14 +64,14 @@ def _callsigns(doc):
 
 def test_an_old_call_sign_beyond_the_first_page_is_found(state_dir):
     """the first page holds LIMIT flights and not the oldest one, yet searching its call sign
-    lists it and says one flight matches"""
+    lists it and says it is one of the whole history"""
     plain = _doc(state_dir)
     assert len(plain.select("li.history-card")) == LIMIT
     assert OLD_CALLSIGN not in _callsigns(plain)
     found = _doc(state_dir, {"q": "oldone1"})
     assert _callsigns(found) == [OLD_CALLSIGN]
-    assert found.select_one("[data-filter-count]").text() == "1 flight matches"
-    assert _chips(found) == ["All", "Departures", "Arrivals"]
+    assert found.select_one("[data-filter-count]").text() == "1 of %d flights" % (TOTAL + 1)
+    assert _chips(found) == ["All1", "Departures0", "Arrivals1"]
     assert not found.select(".history-more")
 
 
@@ -83,12 +83,12 @@ def test_the_search_covers_airline_airport_and_aircraft_words(state_dir):
     assert _callsigns(_doc(state_dir, {"q": "iberia nce"})) == []
 
 
-def test_the_chips_are_plain_labels_and_a_direction_filters_the_list(state_dir):
-    """the chips never show a number, with or without a search; a chosen direction filters the
-    list and is the checked chip"""
-    assert _chips(_doc(state_dir)) == ["All", "Departures", "Arrivals"]
+def test_the_chips_carry_their_counts_and_a_direction_filters_the_list(state_dir):
+    """each chip shows how many flights it lists (the search applied); a chosen direction
+    filters the list and is the checked chip"""
+    assert _chips(_doc(state_dir)) == ["All65", "Departures32", "Arrivals33"]
     doc = _doc(state_dir, {"kind": "departing"})
-    assert _chips(doc) == ["All", "Departures", "Arrivals"]
+    assert _chips(doc) == ["All65", "Departures32", "Arrivals33"]
     assert [n.attrs["value"] or "all" for n in doc.select("input")
             if n.attrs.get("name") == "kind" and "checked" in n.attrs] == ["departing"]
     assert all("Transavia" in li.select_one(".history-card__airline").text()
@@ -97,7 +97,7 @@ def test_the_chips_are_plain_labels_and_a_direction_filters_the_list(state_dir):
 
 def test_a_search_with_no_match_shows_only_the_empty_card(state_dir):
     """no table, no table header, no day groups, no Load more and no shown-count line under
-    the card; the chips stay plain labels, the body quotes the whole history and the
+    the card; the chips show zero, the body quotes the whole history and the
     Clear link is a plain address keeping the sort"""
     doc = _doc(state_dir, {"q": "zzzz", "sort": "airline"})
     assert not doc.select("table") and not doc.select("thead") and not doc.select("th")
@@ -107,13 +107,13 @@ def test_a_search_with_no_match_shows_only_the_empty_card(state_dir):
     assert "all %d flights" % (TOTAL + 1) in card.select_one(".empty-state__body").text()
     clear = card.select_one("a")
     assert clear.text() == "Clear" and clear.attrs["href"] == "/flights?sort=airline"
-    assert _chips(doc) == ["All", "Departures", "Arrivals"]
+    assert _chips(doc) == ["All0", "Departures0", "Arrivals0"]
     assert doc.select_one("[data-filter-count]").text() == "No flight matches"
 
 
 def test_a_direction_with_no_flights_shows_the_empty_card_in_french(tmp_path):
     """a history of departures only, asked for arrivals: the empty card in French, the chips
-    still plain direction labels, and no table header"""
+    still the direction labels with their counts, and no table header"""
     vp.seed_runway_events(tmp_path, [
         {"ts": "2026-09-03T10:00:00+00:00", "hex": "d1", "callsign": "D1",
          "confirmed_state": "departing"}])
@@ -122,7 +122,7 @@ def test_a_direction_with_no_flights_shows_the_empty_card_in_french(tmp_path):
         "Aucun vol correspondant")
     assert doc.select_one("[data-flights-empty] a").text() == "Effacer"
     assert not doc.select("thead") and not doc.select(".history-more")
-    assert _chips(doc) == ["Tous", "Départs", "Arrivées"]
+    assert _chips(doc) == ["Tous1", "Départs1", "Arrivées0"]
 
 
 def test_an_empty_history_has_no_controls_at_all(tmp_path):

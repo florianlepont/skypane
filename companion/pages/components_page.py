@@ -154,6 +154,12 @@ _M_STATE_CHIPS = i18n.msg("components.state_chips", "Filter chips")
 _M_STATE_CHIP_LINKS = i18n.msg("components.state_chip_links", "Filter chips as links")
 _M_STATE_CHIPS_SCROLL = i18n.msg(
     "components.state_chips_scroll", "Filter chips on one scrolling row")
+_M_STATE_CONTROLS = i18n.msg(
+    "components.state_filter_controls", "Filter controls: search, sort, info and chips")
+_M_SAMPLE_INFO = i18n.msg("components.sample_info", "About this list")
+_M_SAMPLE_INFO_BODY = i18n.msg(
+    "components.sample_info_body", "The info button opens a short explanation of the list.")
+_M_SAMPLE_APPLY = i18n.msg("components.sample_apply", "Apply")
 _M_STATE_NUMBER = i18n.msg("components.state_number", "Number")
 _M_SAMPLE_NUMBER_HINT = i18n.msg("components.sample_number_hint", "Default")
 _M_STATE_SEARCH = i18n.msg("components.state_search", "Search")
@@ -206,7 +212,7 @@ _M_FAMILY_SEGMENTED = i18n.msg("components.family_segmented", "Segmented control
 _M_FAMILY_SEGMENTED_DESC = i18n.msg("components.family_segmented_desc", "One track, one selected pill. Radios inside a form, buttons that post, links "
                         "between pages and filter chips all share it.")
 _M_FAMILY_INPUTS = i18n.msg("components.family_inputs", "Inputs and search")
-_M_FAMILY_INPUTS_DESC = i18n.msg("components.family_inputs_desc", "A labelled field runs the full width of its card; search opens from the title row.")
+_M_FAMILY_INPUTS_DESC = i18n.msg("components.family_inputs_desc", "A labelled field runs the full width of its card; search is a field with an inline clear.")
 _M_FAMILY_MENUS = i18n.msg("components.family_menus", "Menus and sort")
 _M_FAMILY_MENUS_DESC = i18n.msg("components.family_menus_desc", "The sort menu and the row actions menu.")
 _M_FAMILY_CARDS = i18n.msg("components.family_cards", "Cards, groups and tiles")
@@ -383,6 +389,7 @@ def _segmented():
                       _t(_SAMPLE_FILTER_EMPTY), _t(_SAMPLE_FILTER_EMPTY_BODY),
                       chips=chips, chips_legend=_t(_INDEX_LABEL), search_in_bar=False,
                       chips_scroll=True))),
+        State(_M_STATE_CONTROLS, _filter_controls_sample()),
         State(_M_STATE_CHIP_LINKS,
               ui_filter.chip_links_html(
                   [("#components-segmented", _t(label), index == 0)
@@ -392,17 +399,33 @@ def _segmented():
     ]
 
 
+def _filter_controls_sample():
+    """The shared filter controls with the sample chips and a sort menu."""
+    values = (("newest", _SORT_NEWEST), ("oldest", _SORT_OLDEST), ("airline", _SORT_AIRLINE))
+    chips = [("", _t(_ALL), 42), ("departing", _t(_DEPARTURES), 25), ("arriving", _t(_ARRIVALS), 17)]
+    return ui_filter.controls_html(
+        COMPONENTS_ROUTE,
+        ui_filter.server_search_html(
+            "components-controls-search", _t(_SAMPLE_SEARCH), _t(_SAMPLE_PLACEHOLDER),
+            "q", "", COMPONENTS_ROUTE),
+        ui_filter.sort_menu_html("components_controls_sort", values, "newest", _SORT),
+        ui_filter.info_menu_html(
+            _M_SAMPLE_INFO, "<p class=\"text-body\">%s</p>" % _esc(_t(_M_SAMPLE_INFO_BODY))),
+        ui_filter.chips_row_html(
+            chips, _t(_INDEX_LABEL), ("components_kind", "", "")),
+        _t(_M_SAMPLE_APPLY))
+
+
 # --- Inputs ------------------------------------------------------------------
 
 def _inputs():
     field = ui_components.text_field_html
     error = ui_modal.field_error_html("components", "name", _t(_SAMPLE_ERROR))
-    search = ui_filter.filter_title_search_html(
-        "components-title-search", _t(_SAMPLE_SEARCH), _t(_SAMPLE_PLACEHOLDER))
-    search_form = ui_filter.filter_title_search_form_html(
+    search = ui_filter.named_search_html(
+        "components-title-search", _t(_SAMPLE_SEARCH), _t(_SAMPLE_PLACEHOLDER), "q", "", 60)
+    search_form = ui_filter.server_search_html(
         "components-search-form-field", _t(_SAMPLE_SEARCH),
-        _t(_SAMPLE_PLACEHOLDER), "components-search-form", COMPONENTS_ROUTE, "q",
-        _t(_SAMPLE_VALUE), COMPONENTS_ROUTE)
+        _t(_SAMPLE_PLACEHOLDER), "q", _t(_SAMPLE_VALUE), COMPONENTS_ROUTE)
     return [
         State(_DEFAULT, field(
             "components-name", "name", _t(_SAMPLE_NAME), _t(_SAMPLE_VALUE), _t(_SAMPLE_HELP))),
@@ -420,9 +443,11 @@ def _inputs():
             input_attrs=' min="30" max="3600" placeholder="%s"' % _esc(
                 _t(_M_SAMPLE_NUMBER_HINT)))),
         State(_M_STATE_SEARCH,
-              '<div class="page-header">%s</div>' % search),
+              '<form class="filter-bar" method="get" action="%s">%s</form>' % (
+                  COMPONENTS_ROUTE, search)),
         State(_M_STATE_SEARCH_VALUE,
-              '<div class="page-header">%s</div>' % search_form),
+              '<form class="filter-bar" method="get" action="%s">%s</form>' % (
+                  COMPONENTS_ROUTE, search_form)),
     ]
 
 
@@ -733,11 +758,12 @@ CATALOGUE = (
            _M_FAMILY_SEGMENTED_DESC,
            ("ui_segmented.segmented_radios_html", "ui_segmented.segmented_buttons_html",
             "ui_segmented.segmented_links_html", "ui_filter.filter_bar_html",
-            "ui_filter.chip_links_html"), _segmented),
+            "ui_filter.chip_links_html", "ui_filter.controls_html", "ui_filter.chips_row_html",
+            "ui_filter.info_menu_html"), _segmented),
     Family("inputs", _M_FAMILY_INPUTS,
            _M_FAMILY_INPUTS_DESC,
            ("ui_components.text_field_html", "ui_modal.field_error_html",
-            "ui_filter.filter_title_search_html", "ui_filter.filter_title_search_form_html"), _inputs),
+            "ui_filter.named_search_html", "ui_filter.server_search_html"), _inputs),
     Family("menus", _M_FAMILY_MENUS,
            _M_FAMILY_MENUS_DESC,
            ("ui_filter.sort_menu_html", "ui_entity_list.row_menu_html"), _menus),

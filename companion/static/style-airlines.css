@@ -127,68 +127,6 @@
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-/* One control bar: the filter field, the sort menu button and the legend button.
- * Every control is 44px. */
-.collection-controls {
-  position: sticky;
-  top: calc(var(--space-sm) + var(--safe-top));
-  z-index: 5;
-  align-items: center;
-  gap: var(--space-sm);
-  margin-bottom: var(--space-md);
-  padding: var(--space-sm);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-card);
-  background: var(--glass-solid);
-  box-shadow: var(--shadow-glass);
-}
-
-.collection-controls .filter-bar__search {
-  flex: 1 1 0;
-  order: 1;
-  min-width: 0;
-  max-width: none;
-}
-
-.collection-controls .collection-sort {
-  order: 2;
-}
-
-.collection-controls .collection-legend {
-  order: 3;
-}
-
-.collection-controls__apply {
-  order: 5;
-  min-height: 44px;
-  padding: 0 var(--space-md);
-  font-size: var(--font-body-size);
-}
-
-/* With a script the sort submits on change. */
-.js .collection-controls__apply {
-  display: none;
-}
-
-@media (min-width: 700px) {
-  .collection-controls .filter-bar__search {
-    flex: 1 1 150px;
-    max-width: 340px;
-  }
-
-  .collection-controls .collection-sort {
-    order: 3;
-  }
-
-  .collection-controls .collection-legend {
-    order: 4;
-  }}
-
-.collection-legend__panel {
-  width: max-content;
-  padding: var(--space-sm) var(--space-md);
-}
-
 .rarity-legend {
   display: grid;
   gap: var(--space-xs);

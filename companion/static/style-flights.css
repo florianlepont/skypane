@@ -74,28 +74,6 @@
     display: flex;
   }}
 
-/* Flights: the direction chips and the sort share one row under the title
- * (the search is in the title row). The Apply button is the no-script way to
- * send them; with a script they act on change. */
-.history-controls .filter-bar__chips {
-  display: flex;
-}
-
-.history-controls .collection-sort {
-  flex: 0 0 auto;
-  margin: 0;
-}
-
-.history-controls__apply {
-  min-height: 44px;
-  padding: 0 var(--space-md);
-  font-size: var(--font-body-size);
-}
-
-.js .history-controls__apply {
-  display: none;
-}
-
 /* The filter hides rows with [hidden]: the hairline is drawn between two
  * visible rows only, so a hidden first row never leaves a stray line. */
 .history-day .group > .row {

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Browser checks of the Flights search, empty state, sort and Load more. Tapping the search
-icon turns the title row into the field in place, so the direction control and the list keep the
-same top at 360 and 390 px in English and French (the field covers exactly the 44px title row);
-the field closes again once empty and blurred. The search covers the whole history (an old call
+"""Browser checks of the Flights search, empty state, sort and Load more. The shared filter
+controls sit under the title in two rows (search, sort and info; then the direction chips with
+their counts) at every width from 320 to 1280 px in English and French, every control 44px, and
+typing in the field moves nothing below it. The search covers the whole history (an old call
 sign beyond the first page is found); a search that matches nothing shows the empty card with
-plain chips, no table header and no Load more, on the phone and the desktop. With more
+zero counts, no table header and no Load more, on the phone and the desktop. With more
 flights stored than one page shows, Load more appends the next flights in place (same document,
 same scroll position, focus on the first new row, the address updated), the sort changes the
 order and survives Load more, and without scripts the plain links still work and land on the
@@ -36,8 +36,16 @@ EMPTY = "[data-flights-empty]"
 _SETTLED = animation_settle.SETTLED
 _TOPS = (
     "() => { const top = (s) => document.querySelector(s).getBoundingClientRect().top;"
-    " return {chips: top('.filter-bar--chips'), card: top('li.history-card'),"
+    " return {controls: top('.filter-controls'), chips: top('.filter-bar__chips'),"
+    "  card: top('li.history-card'),"
     "  header: document.querySelector('.page-header').getBoundingClientRect().height}; }")
+_ROW_ONE = (
+    "() => { const box = (s) => document.querySelector(s).getBoundingClientRect();"
+    " const r = (b) => ({x: b.x, y: b.y, w: b.width, h: b.height});"
+    " return {search: r(box('.filter-controls__row .filter-bar__search input')),"
+    "  sort: r(box('.filter-controls__row .collection-sort > summary')),"
+    "  info: r(box('.filter-controls__row .filter-info > summary')),"
+    "  chips: r(box('.filter-bar__chips')), title: r(box('.page-title'))}; }")
 
 
 
@@ -162,37 +170,78 @@ def test_back_after_a_first_search_shows_the_full_list(new_context, many, viewpo
 
 @pytest.mark.parametrize("lang", ["en", "fr"])
 @pytest.mark.parametrize("viewport", [VIEWPORT_MIN_SUPPORTED, VIEWPORT_PHONE], ids=["360", "390"])
-def test_search_opens_in_the_title_row_without_moving_the_list(new_context, few, viewport, lang):
+def test_typing_in_the_search_moves_nothing_below_it(new_context, few, viewport, lang):
     context, page = _open(new_context, few, viewport, lang)
     try:
         before = page.evaluate(_TOPS)
-        icon = page.locator(FIELD).bounding_box()
-        assert icon["width"] >= 44 - 0.5 and icon["height"] >= 44 - 0.5, icon
         page.click(FIELD)
-        page.wait_for_function(
-            "() => document.querySelector('.filter-bar--title').getBoundingClientRect().width"
-            " > 200", timeout=5000)
-        assert page.evaluate(_TOPS) == before
-        field = page.locator(".filter-bar--title").bounding_box()
-        header = page.locator(".page-header").bounding_box()
-        assert abs(field["y"] - header["y"]) <= 0.5 and abs(field["height"] - 44) <= 0.5, (
-            field, header)
         page.keyboard.type("tvf")
         page.wait_for_function(
             "() => document.querySelector('[data-flights-search]').value === 'tvf'", timeout=5000)
         # The answer replaces the list under the field, which keeps its place.
         _wait_count(page, CARD, 1)
-        page.click(".filter-bar--title [data-flights-clear]")
+        after = page.evaluate(_TOPS)
+        assert (after["controls"], after["chips"], after["header"]) == (
+            before["controls"], before["chips"], before["header"])
+        page.click(".filter-controls [data-flights-clear]")
         page.wait_for_function(
             "() => document.querySelector('[data-flights-search]').value === ''", timeout=5000)
         _wait_count(page, CARD, len(vp.FLIGHT_CARD_FLIGHTS))
-        page.locator(".page-title").click(force=True)
-        page.evaluate("() => document.activeElement && document.activeElement.blur()")
-        page.wait_for_function(
-            "() => document.querySelector('.filter-bar--title').getBoundingClientRect().width"
-            " <= 48", timeout=5000)
         assert page.evaluate(_TOPS) == before
         assert not _assert_no_page_overflow(page, "flights search", viewport["width"])
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("lang", ["en", "fr"])
+@pytest.mark.parametrize("width", [320, 360, 480, 768, 1280, 1440])
+def test_the_controls_are_two_rows_under_the_title_at_every_width(new_context, few, width, lang):
+    """Row 1 holds the search (the remaining width), the sort and the info button, the info
+    button last, every one 44px and on one line; row 2 the chips with their counts, under row 1
+    and under the title; the page never scrolls sideways and the search has an accessible name."""
+    context, page = _open(new_context, few, {"width": width, "height": 800}, lang)
+    try:
+        boxes = page.evaluate(_ROW_ONE)
+        search, sort, info = boxes["search"], boxes["sort"], boxes["info"]
+        assert abs(search["h"] - 44) <= 0.5, search
+        assert sort["w"] >= 43.5 and sort["h"] >= 43.5 and info["w"] >= 43.5 and info["h"] >= 43.5
+        assert abs(sort["y"] + sort["h"] / 2 - (search["y"] + search["h"] / 2)) <= 1
+        assert abs(info["y"] + info["h"] / 2 - (search["y"] + search["h"] / 2)) <= 1
+        assert search["x"] + search["w"] <= sort["x"] + 0.5 <= info["x"] + 0.5, boxes
+        assert boxes["chips"]["y"] >= search["y"] + search["h"] - 0.5
+        assert search["y"] >= boxes["title"]["y"] + boxes["title"]["h"] - 0.5
+        assert page.locator("label.visually-hidden[for=history_filter_input]").count() == 1
+        labels = page.evaluate(
+            "() => [...document.querySelectorAll('.filter-chip')].map(e => e.textContent.trim())")
+        assert len(labels) == 3 and all(label[-1].isdigit() for label in labels), labels
+        failure = _assert_no_page_overflow(page, "Flights controls %d" % width, expected_width=width)
+        assert not failure, failure
+    finally:
+        context.close()
+
+
+def test_a_chip_filters_in_place_and_the_counts_follow_the_search(new_context, many):
+    """Choosing a direction answers in the same document, keeps the typed text, and the counts
+    on the chips are the search's own."""
+    context, page = _open(new_context, many, VIEWPORT_PHONE)
+    try:
+        page.evaluate("() => { window.__marker = 'same document'; }")
+        chips = lambda: page.evaluate(  # noqa: E731
+            "() => [...document.querySelectorAll('.filter-chip')].map(e => e.textContent.trim())")
+        assert chips() == ["All%d" % TOTAL, "Departures%d" % TOTAL, "Arrivals0"]
+        page.click(FIELD)
+        page.keyboard.type(OLDEST.lower())
+        _wait_count(page, CARD, 1)
+        page.wait_for_function(
+            "() => [...document.querySelectorAll('.filter-chip')].map(e => e.textContent.trim())"
+            ".join() === 'All1,Departures1,Arrivals0'", timeout=10000)
+        page.locator(".filter-chip", has_text="Arrivals").click()
+        card = page.locator(EMPTY)
+        card.wait_for(state="visible", timeout=10000)
+        assert page.input_value(FIELD) == OLDEST.lower()
+        assert "kind=arriving" in page.url and page.evaluate("() => window.__marker") == (
+            "same document")
+        assert page.locator(".filter-chip input[value=arriving]").is_checked()
     finally:
         context.close()
 
@@ -334,9 +383,10 @@ def test_the_search_finds_a_flight_older_than_the_loaded_page(new_context, many,
         _wait_count(page, selector, 1)
         assert OLDEST in page.locator(selector).first.evaluate("e => e.textContent")
         page.wait_for_function(
-            "() => document.querySelector('[data-filter-count]').textContent === '1 flight matches'")
+            "(t) => document.querySelector('[data-filter-count]').textContent === '1 of ' + t",
+            arg="%d flights" % TOTAL)
         assert page.evaluate(
-            "() => document.querySelectorAll('.filter-chip__count').length") == 0
+            "() => document.querySelectorAll('.filter-chip__count').length") == 3
         assert page.locator(MORE).count() == 0
         assert "q=afr100" in page.url
     finally:
@@ -346,9 +396,9 @@ def test_the_search_finds_a_flight_older_than_the_loaded_page(new_context, many,
 @pytest.mark.parametrize("lang", ["en", "fr"])
 @pytest.mark.parametrize("viewport", [VIEWPORT_PHONE, VIEWPORT_DESKTOP], ids=["390", "1280"])
 def test_a_search_with_no_match_shows_one_coherent_empty_card(new_context, many, viewport, lang):
-    """The chips stay plain direction labels, no table header,
-    no shown-count line and no Load more stay under the card, whose body quotes the whole
-    history and whose Clear brings the list back."""
+    """The chips show zero for every direction, no table header, no shown-count line and no
+    Load more stay under the card, whose body quotes the whole history and whose Clear brings
+    the list back."""
     context, page = _open(new_context, many, viewport, lang)
     try:
         page.click(FIELD)
@@ -360,8 +410,7 @@ def test_a_search_with_no_match_shows_one_coherent_empty_card(new_context, many,
         assert str(TOTAL) in card.locator(".empty-state__body").inner_text()
         labels = page.evaluate(
             "() => [...document.querySelectorAll('.filter-chip')].map(e => e.textContent.trim())")
-        assert not any(ch.isdigit() for label in labels for ch in label), labels
-        assert len(labels) == 3, labels
+        assert [label[-1] for label in labels] == ["0", "0", "0"], labels
         assert _count(page, "thead") == 0 and _count(page, "table") == 0
         assert _count(page, CARD) == 0 and _count(page, ".history-more") == 0
         assert not _assert_no_page_overflow(page, "empty flights", viewport["width"])
@@ -477,67 +526,12 @@ def test_a_pointer_choice_still_closes_the_sort_menu(new_context, many):
 def test_the_sort_works_without_scripts(new_context, many):
     with _no_js_page(new_context, many.base_url(), "/flights", viewport=VIEWPORT_PHONE) as page:
         _choose_sort(page, "oldest")
-        page.click(".history-controls__apply")
+        page.click(".filter-controls__apply")
         page.wait_for_url("**sort=oldest*")
         assert _first_callsign(page) == OLDEST
         page.click(MORE)
         page.wait_for_url("**sort=oldest*more=1*")
         assert _first_callsign(page) == OLDEST and _count(page, CARD) == TOTAL
-
-
-@pytest.mark.parametrize("lang", ["en", "fr"])
-@pytest.mark.parametrize("width", [1280, 1440])
-def test_the_desktop_search_shares_the_title_row_clear_of_the_frame_button(
-        new_context, few, width, lang):
-    """From 1280px the search sits on the title's row at its right edge, clear of the frame
-    button, and is as wide as the 44px row is high (nothing floats between title and chips)."""
-    context, page = _open(new_context, few, {"width": width, "height": 800}, lang)
-    try:
-        box = lambda s: page.locator(s).first.bounding_box()  # noqa: E731
-        field, title, button = box(".filter-bar--title"), box(".page-title"), box(".frame-menu__button")
-        chips = box(".history-controls")
-        assert field["x"] >= title["x"] + title["width"], (field, title)
-        assert field["x"] + field["width"] <= button["x"] + 0.5, (field, button)
-        assert field["y"] < title["y"] + title["height"] and field["y"] + field["height"] > title["y"]
-        assert abs(field["height"] - 44) <= 0.5 and chips["y"] >= field["y"] + field["height"]
-    finally:
-        context.close()
-
-
-def test_the_desktop_search_wraps_left_aligned_under_the_title_when_the_row_is_narrow(
-        new_context, few):
-    context, page = _open(new_context, few, {"width": 1100, "height": 800})
-    try:
-        field, title = page.locator(".filter-bar--title").bounding_box(), page.locator(
-            ".page-title").bounding_box()
-        assert field["y"] >= title["y"] + title["height"] - 0.5, (field, title)
-        assert abs(field["x"] - title["x"]) <= 1, (field, title)
-    finally:
-        context.close()
-
-
-@pytest.mark.parametrize("lang", ["en", "fr"])
-@pytest.mark.parametrize("width", [320, 360, 480, 768, 1280])
-def test_the_search_stays_on_the_title_row_at_every_width(new_context, few, width, lang):
-    """From 320 to 1280px the search field shares the title's row: its top is not below the
-    title's bottom, the field keeps its 44px height and an accessible name, and the page never
-    scrolls sideways."""
-    context, page = _open(new_context, few, {"width": width, "height": 800}, lang)
-    try:
-        field = page.locator(".filter-bar--title").first
-        box = field.bounding_box()
-        title = page.locator(".page-title").first.bounding_box()
-        assert box["y"] < title["y"] + title["height"], (box, title)
-        assert box["height"] >= 43.5, box
-        control = page.locator("[data-flights-search], .filter-bar--title button, "
-                               ".filter-bar--title [role=search] button").first
-        assert (control.get_attribute("aria-label") or field.get_attribute("aria-label")
-                or page.locator(FIELD).first.get_attribute("aria-label")
-                or page.locator(".filter-bar--title label").count()), "the search needs a name"
-        failure = _assert_no_page_overflow(page, "Flights header %d" % width, expected_width=width)
-        assert not failure, failure
-    finally:
-        context.close()
 
 
 @pytest.mark.parametrize("viewport", [VIEWPORT_MIN_SUPPORTED, VIEWPORT_PHONE], ids=["360", "390"])

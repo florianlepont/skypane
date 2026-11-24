@@ -136,7 +136,7 @@ def test_search_narrows_the_list_in_place_and_updates_the_count(new_context, ser
         page.fill("[data-flights-search]", "obs")
         page.wait_for_function(_ONLY_OBS, timeout=10000)
         page.wait_for_function(
-            "() => document.querySelector('[data-filter-count]').textContent === '1 flight matches'",
+            "() => document.querySelector('[data-filter-count]').textContent === '1 of 5 flights'",
             timeout=10000)
         page.click(".filter-bar__clear")
         page.wait_for_function(
@@ -171,7 +171,7 @@ _COUNTS_VS_CARDS = (
 
 def test_each_chip_lists_the_folded_cards_of_its_direction(new_context, folded_server):
     """a pass stored twice shows as one card: each chip then lists exactly the folded cards of its
-    direction (5 / 4 / 1), and the chips themselves carry no number"""
+    direction (5 / 4 / 1), the number each chip carries"""
     context, page = _open_flights(new_context, folded_server, VIEWPORT_PHONE)
     try:
         for chip, kind, expected in (
@@ -185,8 +185,8 @@ def test_each_chip_lists_the_folded_cards_of_its_direction(new_context, folded_s
             if len(state["cards"]) != len(shown) or len(shown) != expected:
                 raise AssertionError("expected %s to list %d folded cards, got %r"
                                      % (chip, expected, state))
-        if page.evaluate(_COUNTS_VS_CARDS)["labels"] != ["All", "Departures", "Arrivals"]:
-            raise AssertionError("expected plain chip labels")
+        if page.evaluate(_COUNTS_VS_CARDS)["labels"] != ["All5", "Departures4", "Arrivals1"]:
+            raise AssertionError("expected the chips to carry 5 / 4 / 1")
     finally:
         context.close()
 
@@ -359,8 +359,8 @@ def _wait_callsigns(page, expected):
 
 @pytest.mark.parametrize("lang", ["en", "fr"])
 def test_the_direction_chips_fit_one_row_at_360(new_context, server, lang):
-    """the three chips are plain labels that sit on one row inside the page at 360px, none cut
-    off and each at least 44px tall"""
+    """the three chips, each with its number, sit on one row at 360px, none cut off and each at
+    least 44px tall; the row is the page's own width and scrolls sideways when they need more"""
     context, page = _open_flights(new_context, server, VIEWPORT_MIN_SUPPORTED, lang)
     try:
         page.wait_for_function("() => document.readyState === 'complete'")
@@ -369,10 +369,10 @@ def test_the_direction_chips_fit_one_row_at_360(new_context, server, lang):
             " const r = l.getBoundingClientRect(); const t = l.querySelector('.filter-chip__text');"
             " return {top: r.top, left: r.left, right: r.right, height: r.height,"
             " cut: t.scrollWidth > t.clientWidth, digits: /[0-9]/.test(l.textContent)}; })")
-        if len(boxes) != 3 or any(b["digits"] or b["cut"] for b in boxes):
-            raise AssertionError("expected three uncut plain chips, got %r" % (boxes,))
-        if len({round(b["top"]) for b in boxes}) != 1 or boxes[-1]["right"] > 360 or boxes[0]["left"] < 0:
-            raise AssertionError("expected one row inside 360px, got %r" % (boxes,))
+        if len(boxes) != 3 or any(not b["digits"] or b["cut"] for b in boxes):
+            raise AssertionError("expected three uncut chips with a number, got %r" % (boxes,))
+        if len({round(b["top"]) for b in boxes}) != 1 or boxes[0]["left"] < 0:
+            raise AssertionError("expected one row from the page's left edge, got %r" % (boxes,))
         if any(b["height"] < 43.5 for b in boxes):
             raise AssertionError("expected 44px chip targets, got %r" % (boxes,))
     finally:
@@ -380,14 +380,14 @@ def test_the_direction_chips_fit_one_row_at_360(new_context, server, lang):
 
 
 def test_direction_chips_filter_and_clear(new_context, server):
-    """The chips are plain labels (no number, whatever the search), filter the list in
-    place, combine with the search text, drop a day group left with no flight, and the empty
-    card's Clear resets both the text and the chip."""
+    """The chips carry the direction counts of the search, filter the list in place, combine
+    with the search text, drop a day group left with no flight, and the empty card's Clear
+    resets both the text and the chip."""
     context, page = _open_flights(new_context, server, VIEWPORT_PHONE)
     try:
         labels = page.evaluate(_CHIP_LABELS)
-        if labels != ["All", "Departures", "Arrivals"]:
-            raise AssertionError("expected plain chip labels, got %r" % (labels,))
+        if labels != ["All5", "Departures4", "Arrivals1"]:
+            raise AssertionError("expected the chips to carry 5 / 4 / 1, got %r" % (labels,))
         page.locator(".filter-chip", has_text="Arrivals").click()
         _wait_callsigns(page, ["AFR6152"])
         heads = page.evaluate(
@@ -403,9 +403,9 @@ def test_direction_chips_filter_and_clear(new_context, server):
         empty = page.locator("[data-flights-empty]")
         empty.wait_for(state="visible")
         _wait_callsigns(page, [])
-        if page.evaluate(_CHIP_LABELS) != labels:
-            raise AssertionError("expected plain chip labels under the empty card, got %r"
-                                 % (page.evaluate(_CHIP_LABELS),))
+        page.wait_for_function(
+            "() => [...document.querySelectorAll('.filter-chip')].map(l => l.textContent.trim())"
+            ".join() === 'All1,Departures0,Arrivals1'", timeout=10000)
         if page.locator("table thead").count() or page.locator(".history-more").count():
             raise AssertionError("expected no table header and no Load more under the empty card")
         _wait_until_still(page, ".filter-bar__search", ".filter-bar__chips",
@@ -441,20 +441,17 @@ def test_search_matches_airline_and_airport_text_and_inline_clear(new_context, s
 
 
 @pytest.mark.parametrize("viewport", [VIEWPORT_PHONE, VIEWPORT_MIN_SUPPORTED])
-def test_search_collapses_expands_and_keeps_44px_targets(new_context, server, viewport):
-    """On a phone the search rests as a square icon button beside the chips, opens over the row
-    on focus and while it holds text, uses 16px text (no iOS zoom) and keeps a 44px clear
-    target, in both themes with no horizontal overflow."""
+def test_the_search_is_always_open_and_keeps_44px_targets(new_context, server, viewport):
+    """The search is an open field on the first row beside the sort and the info button, uses
+    16px text (no iOS zoom) and keeps a 44px clear target, in both themes with no horizontal
+    overflow."""
     context, page = _open_flights(new_context, server, viewport)
     try:
         for _theme in _in_both_themes(page):
             box = page.locator(".filter-bar__search input").bounding_box()
-            if not (44 <= box["width"] <= 56 and box["height"] >= 44):
-                raise AssertionError("expected a collapsed icon-sized field, got %r" % (box,))
-            _assert_no_page_overflow(page, "collapsed filter bar")
-        page.locator(".filter-bar__search input").focus()
-        page.wait_for_function(
-            "() => document.querySelector('.filter-bar__search').getBoundingClientRect().width > 250")
+            if not (box["width"] >= 150 and abs(box["height"] - 44) <= 0.5):
+                raise AssertionError("expected an open 44px field, got %r" % (box,))
+            _assert_no_page_overflow(page, "filter controls")
         font = page.eval_on_selector(
             ".filter-bar__search input", "el => parseFloat(getComputedStyle(el).fontSize)")
         if font < 16:
@@ -462,18 +459,12 @@ def test_search_collapses_expands_and_keeps_44px_targets(new_context, server, vi
         page.fill("[data-flights-search]", "tvf")
         page.locator(".filter-bar__clear").wait_for(state="visible")
         _assert_hit_target(page, ".filter-bar__clear", "inline clear")
-        page.locator(".filter-chip input").first.focus()
-        page.wait_for_timeout(300)
-        width = page.eval_on_selector(
-            ".filter-bar__search", "el => el.getBoundingClientRect().width")
-        if width < 250:
-            raise AssertionError("expected the search to stay open while it holds text")
-        _assert_no_page_overflow(page, "expanded filter bar")
+        _assert_no_page_overflow(page, "filter controls with text")
     finally:
         context.close()
 
 
-def test_desktop_search_is_always_open_in_the_title_row(new_context, server):
+def test_desktop_search_fills_the_first_row_under_the_title(new_context, server):
     context = new_context(viewport=VIEWPORT_DESKTOP)
     try:
         page = context.new_page()
@@ -481,14 +472,14 @@ def test_desktop_search_is_always_open_in_the_title_row(new_context, server):
         page.goto(server.base_url() + "/flights")
         page.locator(".filter-bar__search").wait_for(state="visible")
         field = page.locator(".filter-bar__search").bounding_box()
-        header = page.locator(".page-header").bounding_box()
         title = page.locator(".page-title").bounding_box()
-        # On the title's row (centred against the title, so a few pixels below the header top).
-        if (field["width"] < 300 or not header["y"] - 1 <= field["y"] <= header["y"] + 4
-                or field["x"] < title["x"] + title["width"]
-                or field["y"] + field["height"] > header["y"] + header["height"] + 1):
-            raise AssertionError("expected an open search right of the title, got %r %r %r"
-                                 % (field, title, header))
+        info = page.locator(".filter-info > summary").bounding_box()
+        # Left-aligned with the title, below it, and running up to the info button.
+        if (field["width"] < 300 or abs(field["x"] - title["x"]) > 1
+                or field["y"] < title["y"] + title["height"] - 1
+                or field["x"] + field["width"] > info["x"]):
+            raise AssertionError("expected an open search under the title, got %r %r %r"
+                                 % (field, title, info))
     finally:
         context.close()
 
@@ -498,12 +489,12 @@ def test_the_controls_work_as_a_plain_form_without_scripts(new_context, server):
     search is the plain full-width field, and sending the form filters the list by the
     server."""
     with _no_js_page(new_context, server.base_url(), "/flights", viewport=VIEWPORT_PHONE) as page:
-        for selector in (".filter-bar__chips", ".collection-sort > summary", ".history-controls__apply"):
+        for selector in (".filter-bar__chips", ".collection-sort > summary", ".filter-controls__apply"):
             if not page.locator(selector).is_visible():
                 raise AssertionError("expected %s shown with scripts blocked" % selector)
-        if page.locator(".history-controls__apply").bounding_box()["height"] < 44 - 0.5:
+        if page.locator(".filter-controls__apply").bounding_box()["height"] < 44 - 0.5:
             raise AssertionError("expected a 44px Apply button")
-        if page.locator(".filter-bar__search input").bounding_box()["width"] < 250:
+        if page.locator(".filter-bar__search input").bounding_box()["width"] < 200:
             raise AssertionError("expected the plain full-width search without scripts")
         page.fill("[data-flights-search]", "obs")
         page.keyboard.press("Enter")
@@ -511,7 +502,7 @@ def test_the_controls_work_as_a_plain_form_without_scripts(new_context, server):
         if page.locator(CARD).count() != 1:
             raise AssertionError("expected the server to answer the search with one flight")
         page.locator(".filter-chip", has_text="Arrivals").click()
-        page.click(".history-controls__apply")
+        page.click(".filter-controls__apply")
         page.wait_for_url("**kind=arriving*")
         if page.locator(CARD).count() != 0 or page.locator("[data-flights-empty]").count() != 1:
             raise AssertionError("expected the empty card for no arrival matching obs")

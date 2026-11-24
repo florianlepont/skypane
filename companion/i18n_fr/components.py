@@ -44,6 +44,11 @@ MESSAGES = {
     "components.state_chips": "Filtres",
     "components.state_chip_links": "Filtres en liens",
     "components.state_chips_scroll": "Filtres sur une ligne qui défile",
+    "components.state_filter_controls":
+        "Contrôles de filtre\u00a0: recherche, tri, infos et filtres",
+    "components.sample_info": "À propos de cette liste",
+    "components.sample_info_body": "Le bouton d’infos ouvre une courte explication de la liste.",
+    "components.sample_apply": "Appliquer",
     "components.state_number": "Nombre",
     "components.state_search": "Recherche",
     "components.state_search_value": "Recherche avec une valeur",
@@ -102,7 +107,7 @@ MESSAGES = {
         "liens entre pages et filtres la partagent tous.",
     "components.family_inputs": "Champs et recherche",
     "components.family_inputs_desc":
-        "Un champ avec son libellé occupe toute la largeur de sa carte ; la recherche s’ouvre depuis la ligne du titre.",
+        "Un champ avec son libellé occupe toute la largeur de sa carte ; la recherche est un champ avec son bouton d’effacement.",
     "components.family_menus": "Menus et tri",
     "components.family_menus_desc": "Le menu de tri et le menu d’actions d’une ligne.",
     "components.family_cards": "Cartes, groupes et tuiles",

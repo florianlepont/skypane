@@ -79,10 +79,6 @@
   outline-offset: 1px;
 }
 
-.filter-bar--title .filter-bar__search {
-  flex: 1 1 100%;
-  max-width: none;
-}
 @media (min-width: 960px) {
   .filter-bar--chips {
     flex-wrap: nowrap;
@@ -252,7 +248,7 @@ details.row-menu[open] > .row-menu__toggle {
 }
 
 .collection-sort__toggle,
-.collection-legend .row-menu__toggle {
+.filter-info .row-menu__toggle {
   border: 1px solid var(--color-border);
   background: var(--color-dominant);
 }
@@ -535,4 +531,69 @@ button.row-menu__item:hover {
   min-height: 44px;
   text-align: center;
   text-align-last: center;
+}
+
+/* The shared filter controls of Flights and Airlines (one GET form): row 1 is
+ * the search field (taking the remaining width), the sort menu button and the
+ * info button, every one 44px; row 2 is the scrolling pill row of the filter
+ * chips with their counts. The Apply button is how the form is sent without a
+ * script; with one the controls act on change. */
+.filter-bar.filter-controls {
+  gap: var(--space-sm);
+  margin-bottom: var(--space-sm);
+}
+
+.filter-controls__row {
+  display: flex;
+  flex: 1 1 100%;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.filter-bar.filter-bar--scroll-chips .filter-controls__row .filter-bar__search {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: none;
+}
+
+.filter-controls__row > .row-menu {
+  flex: none;
+}
+
+/* The chips of a server-answered list work without a script, so they are not
+ * gated and need their own flex display. */
+.filter-bar__chips--scroll:not(.js-gate) {
+  display: flex;
+}
+
+.filter-controls__apply {
+  min-height: 44px;
+  padding: 0 var(--space-md);
+  font-size: var(--font-body-size);
+}
+
+:is(.js, .js-early) .filter-controls__apply {
+  display: none;
+}
+
+.filter-info__panel {
+  width: max-content;
+  max-width: min(22rem, calc(100vw - 2 * var(--space-lg)));
+  padding: var(--space-sm) var(--space-md);
+}
+
+.filter-info__panel > p {
+  margin: 0;
+}
+
+.filter-info__panel > p + p {
+  margin-top: var(--space-xs);
+}
+
+/* The line that counts the rows under the controls ("34 of 148 flights"). */
+.filter-count {
+  margin: 0 0 var(--space-sm) var(--space-xs);
+  font-size: var(--font-caption-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }

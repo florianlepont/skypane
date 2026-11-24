@@ -348,7 +348,7 @@ def test_the_wake_interval_field_is_wide_enough_for_its_placeholder(new_context,
         context.close()
 
 
-def test_the_empty_flights_search_keeps_plain_chips_and_a_standard_clear(
+def test_the_empty_flights_search_keeps_its_chips_and_a_standard_clear(
         new_context, module_app_server_factory):
     import companion.test_view_pages_helpers as vp
     server = module_app_server_factory(seed=vp.seed_flight_card_variety, fake_providers=True)
@@ -357,7 +357,7 @@ def test_the_empty_flights_search_keeps_plain_chips_and_a_standard_clear(
         result = page.evaluate(
             "() => ({labels: [...document.querySelectorAll('.filter-chip')].map(e => e.textContent.trim()),"
             " clear: document.querySelector('[data-flights-empty] .btn--secondary').getBoundingClientRect().height})")
-        assert result["labels"] == ["All", "Departures", "Arrivals"], result
+        assert result["labels"] == ["All0", "Departures0", "Arrivals0"], result
         assert result["clear"] >= 43.5, result
     finally:
         context.close()
