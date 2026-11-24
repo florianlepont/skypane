@@ -3,8 +3,8 @@ id: SEED-022
 status: dormant
 planted: 2026-11-24
 planted_during: "v1.2, Phase 69 (rear enclosure of the 7.3 inch frame), owner's scope decision"
-trigger_when: "After the 7.3 inch enclosure is validated (Phase 69) and the owner wants a rear enclosure for the 13.3 inch frame, the first device (Seeed XIAO ePaper DIY Kit EE02); also at v1.4 hardware planning"
-target_milestone: v1.4
+trigger_when: "After the 7.3 inch enclosure is validated (Phase 69) and the owner wants a rear enclosure for the 13.3 inch frame, the first device (Seeed XIAO ePaper DIY Kit EE02); also at v1.3 hardware planning"
+target_milestone: v1.3
 scope: large
 ---
 
@@ -21,7 +21,7 @@ later as its own piece of hardware work, so that this is not forgotten.
 ## When to Surface
 
 **Trigger:** after the 7.3 inch enclosure has been fitted and validated, or at
-the planning of the hardware milestone (v1.4, SEED-014).
+the planning of the hardware milestone (v1.3, SEED-014).
 
 ## Scope Estimate
 

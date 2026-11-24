@@ -3,8 +3,8 @@ id: SEED-014
 status: dormant
 planted: 2026-11-14
 planted_during: "v1.2, owner's roadmap discussion after the photo mode exploration"
-trigger_when: "Milestone v1.4 (hardware) — the owner planned it on 2026-11-14 to follow v1.3; surface it at /gsd-new-milestone, or earlier if a hardware type is frozen."
-target_milestone: v1.4
+trigger_when: "Milestone v1.3 (hardware) — the owner planned it on 2026-11-14 to follow v1.4; surface it at /gsd-new-milestone, or earlier if a hardware type is frozen."
+target_milestone: v1.3
 scope: medium
 ---
 
@@ -21,13 +21,13 @@ anyone else, including the later go-to-market study (SEED-015).
 
 ## When to Surface
 
-**Trigger:** milestone v1.4, planned by the owner after v1.3. It depends on the
+**Trigger:** milestone v1.3, planned by the owner after v1.4. It depends on the
 hardware types being settled, so surface it when Phase 58 (second hardware) is
 done and the types to be supported are known.
 
-## Milestone v1.4 "Ready to give" (owner, 2026-11-15)
+## Milestone v1.3 "Ready to give" (owner, 2026-11-15)
 
-This seed is the physical core of v1.4. The milestone also carries the
+This seed is the physical core of v1.3. The milestone also carries the
 getting-started wizard and the simplified Wi-Fi setup (SEED-013, items 4 and 6),
 the invitation that creates the Auth0 account (SEED-012), remote diagnostic
 telemetry (SEED-017), the firmware update policy (SEED-018) and the battery
@@ -36,7 +36,7 @@ discharge and curve validation (SEED-019). See
 
 ## Split decided on 2026-11-18
 
-The physical enclosure of the 7.3 inch frame is now **Phase 69 of v1.2** (an owner-driven parallel track, requirement ENC-01). This seed keeps the rest for v1.4: the administrator tool for initial setup and flashing, the enclosure for the 13.3 inch frame if wanted, and the identity label.
+The physical enclosure of the 7.3 inch frame is now **Phase 69 of v1.2** (an owner-driven parallel track, requirement ENC-01). This seed keeps the rest for v1.3: the administrator tool for initial setup and flashing, the enclosure for the 13.3 inch frame if wanted, and the identity label.
 
 ## Design work started (owner, 2026-11-16)
 
@@ -92,7 +92,7 @@ command or one small screen on the owner's machine:
 The first image of a board is always cable-flashed (`firmware/SIGNING.md`);
 later updates go over the air. It is tooling for the owner, not a customer
 feature, and it feeds the production section of SEED-015. It also relates to the
-Wi-Fi setup of v1.3 (SEED-013, item 6): the tool may still write a first
+Wi-Fi setup of v1.4 (SEED-013, item 6): the tool may still write a first
 network, which the frame can later change without a cable.
 
 ## Breadcrumbs
@@ -109,5 +109,5 @@ network, which the frame can later change without a cable.
 ## Notes
 
 Not a software milestone: GSD phases for it would track decisions, prototypes
-and test results (photos, measurements) rather than code. The v1.3 photo mode
-does not depend on it, and it does not depend on v1.3.
+and test results (photos, measurements) rather than code. The v1.4 photo mode
+does not depend on it, and it does not depend on v1.4.
