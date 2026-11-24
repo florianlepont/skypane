@@ -312,11 +312,9 @@ def test_an_empty_code_is_a_400_and_is_not_counted(rig, monkeypatch):
 def test_a_user_cannot_reach_the_administrator_routes(rig):
     server, _seed, cookie = rig
     assert fx.get(server, cookie, "/fleet")[0] == 404
-    for path, form in (
-            ("/fleet/register", {
-                "mac": fx.MAC_NEW, "secret_sha256": fx.SECRET_HASH,
-                "hardware_type": hardware.LEGACY_KEY})):
-        assert fx.post(server, cookie, path, form)[0] == 404, path
+    assert fx.post(server, cookie, "/fleet/register", {
+        "mac": fx.MAC_NEW, "secret_sha256": fx.SECRET_HASH,
+        "hardware_type": hardware.LEGACY_KEY})[0] == 404
     assert _device(server.state_dir) is None
     assert _device(server.state_dir, fx.MAC_NEW) is None
 
