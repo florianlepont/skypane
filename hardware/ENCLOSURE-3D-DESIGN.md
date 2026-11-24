@@ -20,8 +20,8 @@ Print the back of the SkyPane 7.3 inch e-ink frame, to sit inside an IKEA RÖDAL
 13 x 18 cm black frame in place of the original back and spacer. Four parts:
 
 1. **Tray** (bac): holds the board, the battery and the antenna.
-2. **Lid** (couvercle): carries the two wall hooks, the supports for the frame tabs (no screw lugs since 2026-11-24), two pairs of hinge sockets for the stand and the engraved name.
-3. **Stand** (chevalet): one hinged leg, 76 mm wide at the hinge and 56 mm at the foot, whose two pins snap into sockets on the lid (one pair for landscape, one for portrait) and stand the frame on a piece of furniture at a tilt of 20 degrees; it folds flat on the lid back.
+2. **Lid** (couvercle): carries the two wall hooks, the supports for the frame tabs (no screw lugs since 2026-11-24), two lugs for the diagonal hinge of the stand and the engraved name.
+3. **Stand** (chevalet): one flat leg on a diagonal hinge near the logo, with two small lugs on the lid; it stands the frame in landscape and in portrait without being moved (tilt about 26 to 27 degrees), and folds flat on the lid back.
 4. **Centring shim** (cale) for the screen.
 
 Intended use: landscape as the base format (board at the bottom), portrait as
@@ -140,7 +140,7 @@ In this repository, `hardware/cad/` (added by the owner on 2026-11-17, reorganis
 - `reference/ee04_board.stl`: the board, converted from the GrabCAD STEP file (about 12.5 MB).
 - `reference/ikea_rodalm_13x18_noir.glb`: the IKEA 3D model of the frame (about 0.14 MB).
 - `print/skypane_tray_shim_merged.stl`, `print/skypane_lid.stl`, `print/skypane_stand.stl`: the three parts to print since 2026-11-24 (the tray and the shim are one part);
-  the lid was exported again on 2026-11-24 after the tab pads moved and the screw lugs went, the stand on 2026-11-24 as a hinged leg; the owner's confirmation that the earlier exports match the blend is recorded in the print order.
+  the lid was exported again on 2026-11-24 after the tab pads moved and the screw lugs went, the stand on 2026-11-24 as one leg on a diagonal hinge; the owner's confirmation that the earlier exports match the blend is recorded in the print order.
 - `print/skypane_lid.3mf`: the owner's one Bambu Studio project (recreated on 2026-11-24): the lid, the one-part tray and shim, and the stand.
 - `old/`: the previous two-part design (`skypane_tray.stl`, `skypane_shim.stl`, `skypane_cassette_separate.blend`), kept until the one-part design has been fitted in the frame. The one-part design was chosen by the owner on 2026-11-24 (reprinted well, not yet fitted).
 - The Blender automatic backup copy (`skypane_cassette.blend1`) was removed on 2026-11-24;
