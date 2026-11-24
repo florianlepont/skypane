@@ -103,7 +103,7 @@ def test_titles_are_on_the_type_scale_in_the_display_face(
         assert read["h1Count"] == 1, (path, "exactly one h1 per page")
         low, high = (30, 34) if viewport["width"] < 960 else (40, 44)
         if path == "/":
-            # Home's title is the frame's name beside its pencil: 32px on a phone as in the
+            # Home's title is the frame's name: 32px on a phone as in the
             # approved Home mockup, 44px on a desktop like every other page title.
             low, high = (32, 32) if viewport["width"] < 960 else (44, 44)
         for title in read["pageTitles"]:

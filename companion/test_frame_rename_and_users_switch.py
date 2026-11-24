@@ -182,7 +182,7 @@ def test_the_first_frames_default_name_reads_one_way_on_every_page(rig, lang, sh
     other = "Cadre d’Orly" if lang == "en" else "Orly frame"
     assert other not in account.text()
     field = _dialog(
-        fx.get(server, cookies["admin"], live + "/", headers=headers)[2], seed.live_id)
+        fx.get(server, cookies["admin"], "/account", headers=headers)[2], seed.live_id)
     assert field.select_one('input[name="name"]').attrs["value"] == shown
 
 
@@ -192,7 +192,7 @@ def test_a_name_someone_gave_is_never_translated(rig):
     server, seed, cookies = rig
     assert _rename(server, cookies["owner"], seed.owned_id, "Orly frame")[0] == 303
     french = _dialog(fx.get(
-        server, cookies["owner"], "/devices/%s/" % seed.owned_id,
+        server, cookies["owner"], "/account",
         headers={"Accept-Language": "fr"})[2], seed.owned_id)
     assert french.select_one('input[name="name"]').attrs["value"] == "Orly frame"
     account = fx.get(server, cookies["owner"], "/account", headers={"Accept-Language": "fr"})[2]
@@ -326,7 +326,7 @@ def test_a_hostile_or_unknown_return_to_is_ignored(rig, hostile):
 
 def test_the_rename_route_sends_a_get_to_the_page_that_holds_the_dialog(rig):
     server, seed, cookies = rig
-    home = _home_of(seed)
+    home = "/account"
     url = "/devices/%s/frame/name?return_to=%s" % (seed.owned_id, quote(home, safe=""))
     status, headers, _b = http_request(server.url(url), cookie=cookies["owner"])
     assert status == 303 and headers["Location"] == home + "#" + _slug(seed.owned_id)
@@ -337,7 +337,7 @@ def test_the_rename_route_sends_a_get_to_the_page_that_holds_the_dialog(rig):
 
 def test_a_refused_name_keeps_the_origin(rig):
     server, seed, cookies = rig
-    home = _home_of(seed)
+    home = "/account"
     status, headers, _b = _rename(server, cookies["owner"], seed.owned_id, "", home)
     assert status == 303 and headers["Location"].startswith(home + "?rename=" + seed.owned_id)
     dialog = _dialog(_follow(server, cookies["owner"], headers), seed.owned_id)

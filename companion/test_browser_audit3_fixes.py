@@ -64,21 +64,15 @@ def test_a_long_frame_name_never_covers_the_logo_and_wraps_inside_the_title_colu
             ".getBoundingClientRect();"
             " const name = document.querySelector('.frame-menu__name');"
             " const title = document.querySelector('.title-action__text').getBoundingClientRect();"
-            " const pencil = document.querySelector('.title-action .btn--icon')"
-            ".getBoundingClientRect();"
             " const body = document.querySelector('.home-state').getBoundingClientRect();"
             " return {brandRight: brand.right, menuLeft: menu.left, menuRight: menu.right,"
             " cut: name.scrollWidth > name.clientWidth,"
             " titleRight: title.right, titleTop: title.top, titleBottom: title.bottom,"
-            " pencilLeft: pencil.left, pencilRight: pencil.right, pencilTop: pencil.top,"
             " bodyRight: body.right, viewport: innerWidth}; }")
         assert geometry["brandRight"] <= geometry["menuLeft"] + 0.5, geometry
         assert geometry["menuRight"] <= geometry["viewport"], geometry
         assert geometry["cut"], geometry
-        # The long name wraps inside its own column; the pencil stays beside it, in view.
-        assert geometry["pencilLeft"] >= geometry["titleRight"] - 0.5, geometry
-        assert geometry["pencilTop"] < geometry["titleBottom"], geometry
-        assert geometry["pencilRight"] <= geometry["viewport"], geometry
+        # The long name wraps inside its own column.
         assert geometry["titleRight"] <= geometry["bodyRight"] + 0.5, geometry
     finally:
         context.close()

@@ -227,7 +227,9 @@ def test_cadence_is_an_info_button_at_the_end_of_the_next_update_line(tmp_path, 
     assert bubble.attrs["id"] == button.attrs["aria-describedby"]
     assert bubble.text().strip() == " ".join(sentence.split())
     sentence_node = line.select_one("span.home-state__sentence")
-    assert [c.attrs.get("class") for c in sentence_node.children if not isinstance(c, str)][-1] == "info-tip"
+    tail = [c for c in sentence_node.children if not isinstance(c, str)][-1]
+    assert tail.attrs.get("class") == "home-state__tail"
+    assert [c.attrs.get("class") for c in tail.children if not isinstance(c, str)][-1] == "info-tip"
     assert not tree.select("details")
 
 
@@ -286,9 +288,9 @@ def test_overdue_date_appears_only_when_not_today():
     """an expected time on an earlier day carries its date, one on the same day does not"""
     now = datetime.fromisoformat(NOW)
     same_day = _next_row((now - timedelta(minutes=40)).isoformat())
-    assert re.search(r"expected at <span class=\"time-value\">\d\d:\d\d</span>", same_day)
+    assert re.search(r"expected at (?:<span class=\"home-state__tail\">)?<span class=\"time-value\">\d\d:\d\d</span>", same_day)
     earlier = _next_row((now - timedelta(days=3)).isoformat())
-    assert re.search(r"expected at <span class=\"time-value\">\d+ \w+\.? \d\d:\d\d</span>", earlier)
+    assert re.search(r"expected at (?:<span class=\"home-state__tail\">)?<span class=\"time-value\">\d+ \w+\.? \d\d:\d\d</span>", earlier)
 
 
 def test_a_quiet_hours_hold_is_never_overdue(tmp_path):

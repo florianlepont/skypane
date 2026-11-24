@@ -60,7 +60,6 @@ MESSAGES = {
     "home.quiet_presets_label": "Préréglages des heures calmes",
     "home.quiet_or_choose": "Ou choisir ses heures",
     "home.battery_label": "Batterie",
-    "home.rename_frame_action": "Renommer le cadre",
     "home.battery_low": "Faible",
     "home.battery_critical": "Très faible",
     "home.battery_row_percent": "%d\u00a0%%",

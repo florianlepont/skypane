@@ -1,7 +1,7 @@
 """Home's title block: the frame's name, its state and the next update.
 
 One section, `home-frame-state`, that `freshness.js` and the quick switches
-repaint in place: the name (the page's one `<h1>`, with its rename pencil),
+repaint in place: the name (the page's one `<h1>`),
 the shared frame-status dot beside its word, and one line with the next
 update or, for a frame that has lost contact, its last contact, ending with
 the "i" that explains why the frame does not refresh continuously. The
@@ -75,11 +75,32 @@ def cadence_info_html(base_interval_s):
         layout.icon_html("icon-info", 18), CADENCE_INFO_ID, escape_html(text))
 
 
+def _split_before_last_word(text_html):
+    """`text_html` cut after its last space that is outside every tag and every
+    element, as (head, tail); the tail is balanced markup. ("", text) when the
+    text holds no such space."""
+    depth, cut, in_tag = 0, 0, False
+    for index, char in enumerate(text_html):
+        if in_tag:
+            if char == ">":
+                in_tag = False
+        elif char == "<":
+            in_tag = True
+            depth += -1 if text_html.startswith("</", index) else 1
+        elif char == " " and depth == 0:
+            cut = index + 1
+    return text_html[:cut], text_html[cut:]
+
+
 def _line_html(icon_id, text_html, base_interval_s, modifier=""):
+    """The next-update line. The "i" is held on one line with the sentence's
+    last word, so it never drops under the text."""
+    head, tail = _split_before_last_word(text_html)
     return (
-        '<p class="home-state__next%s">%s<span class="home-state__sentence">%s%s</span></p>'
+        '<p class="home-state__next%s">%s<span class="home-state__sentence">%s'
+        '<span class="home-state__tail">%s%s</span></span></p>'
     ) % (modifier, layout.icon_html(icon_id, 18, "home-state__next-icon"),
-         text_html, cadence_info_html(base_interval_s))
+         head, tail, cadence_info_html(base_interval_s))
 
 
 def next_update_html(next_iso, interval_s, hold_reason, now, base_interval_s):

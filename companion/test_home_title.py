@@ -1,7 +1,6 @@
-"""Home's title: the frame's name is the page's one h1, with a rename pencil
-beside it for the people who may rename the frame (its owner and
-administrators) and none for a co-manager. Every assertion reads the served
-page."""
+"""Home's title: the frame's name is the page's one h1, with no rename pencil
+or dialog for anyone (renaming lives in Account). Every assertion reads the
+served page."""
 import re
 
 import pytest
@@ -40,40 +39,23 @@ def _home(server, seed, cookie, lang="en"):
     return fx.get(server, cookie, "/devices/%s/" % seed.owned_id, headers=headers)[2]
 
 
-@pytest.mark.parametrize("who", ["owner", "admin"])
-@pytest.mark.parametrize("lang, label, home", [
-    ("en", "Rename frame", "Home"), ("fr", "Renommer le cadre", "Accueil")])
-def test_the_h1_is_the_frame_name_with_a_rename_pencil(rig, who, lang, label, home):
+@pytest.mark.parametrize("who", ["owner", "admin", "co"])
+@pytest.mark.parametrize("lang, home", [("en", "Home"), ("fr", "Accueil")])
+def test_the_h1_is_the_frame_name_with_no_rename_pencil_or_dialog(rig, who, lang, home):
     server, seed, cookies = rig
-    body = _home(server, seed, cookies[who], lang)
-    tree = parse_html(body)
+    tree = parse_html(_home(server, seed, cookies[who], lang))
     assert len(tree.select("h1")) == 1
-    assert tree.select_one("main h1").text().strip() == "Kitchen"
-    link = tree.select_one(".title-action a.btn--icon")
-    slug = "dlg-rename-" + seed.owned_id.replace("_", "-")
-    assert link.attrs["href"] == "#" + slug and "data-modal-open" in link.attrs
-    dialog = tree.select_one("dialog#" + slug)
-    assert dialog.select_one("h2").text().strip() == label
-    assert dialog.select_one("form").attrs["action"] == "/devices/%s/frame/name" % seed.owned_id
-    assert dialog.select_one('input[name="return_to"]').attrs["value"] == (
-        "/devices/%s/" % seed.owned_id)
-    assert "open" not in dialog.attrs
-    assert link.attrs["aria-label"] == label
-    assert tree.select_one("title").text().strip().startswith(home)
-
-
-def test_a_co_manager_sees_the_title_without_the_pencil(rig):
-    server, seed, cookies = rig
-    tree = parse_html(_home(server, seed, cookies["co"]))
     assert tree.select_one("main h1").text().strip() == "Kitchen"
     assert tree.select(".title-action a") == []
     assert tree.select(".title-action__action") == []
+    assert tree.select("dialog[id^='dlg-rename-']") == []
+    assert tree.select("main [data-modal-open]") == []
+    assert tree.select_one("title").text().strip().startswith(home)
 
 
 def test_the_greeting_and_the_frame_name_row_are_gone(rig):
     server, seed, cookies = rig
     body = _home(server, seed, cookies["owner"])
-    # The only "Frame name" on the page is the label of the Rename dialog's field.
     page = re.sub(r"<dialog.*?</dialog>", "", body, flags=re.S)
     for gone in ("data-greeting", "page-greeting", "home-greeting", "frame-rename",
                  "Frame name"):

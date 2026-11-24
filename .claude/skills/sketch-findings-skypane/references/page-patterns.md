@@ -10,10 +10,9 @@ content), complete and correct with scripts blocked, 360px without horizontal sc
 One column of blocks, built for three states: online, sleeping (quiet hours or screen off) and
 offline (no contact).
 - **Title block** (`home_state.py`): the `h1` is the frame name (32px phone, 44px from 700px) with
-  a 28px round rename pencil right after it (`pages/home_title.py`, a 44px target; it opens the
-  frame-name page and returns to Home); under it the status dot and its word, then the next update
+  no rename control (renaming lives in Account and the Fleet header; `pages/home_title.py`); under it the status dot and its word, then the next update
   sentence ("Next update in 12 min", or "Last contact 3h ago" for a frame that lost contact) ending
-  with the cadence "i" button inside the sentence. The dot halo pulses and stops under reduced
+  with the cadence "i" button inside the sentence (held with the last word, so it never wraps under the text). The dot halo pulses and stops under reduced
   motion, at rest after a minute idle and while a dialog is open.
 - **Flight card** (`home_flight_card.py`): the newest archived picture beside a direction badge,
   callsign, airline, route and type ("ORY → TLS · A320") and a live "Detected 4m ago". A thin ring

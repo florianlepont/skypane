@@ -1,9 +1,8 @@
 """The Home page: answers whether the frame is alive, what it is showing, how
 busy the runway has been and what it showed recently.
 
-Top to bottom, one column: the title block (the frame's name with its rename
-pencil, its state and the next update), the notification while the frame
-needs help, the flight card (the picture on the frame beside its flight), the
+Top to bottom, one column: the title block (the frame's name, its state and
+the next update), the notification while the frame needs help, the flight card (the picture on the frame beside its flight), the
 pills (Screen switch, Quiet hours, place, battery), the statistics card (today
 by hour or the week by day) and the strip of recent flights. Home links to no
 Health page (Health is an administrator's Console page), and neither a user
@@ -25,7 +24,7 @@ import companion.ui_modal as ui_modal
 import companion.user_view as user_view
 from companion.pages import (
     home_battery_row, home_flight_card, home_notice, home_pills, home_recent_strip,
-    home_state, home_stats, home_title)
+    home_state, home_stats)
 from companion.settings import quiet_hours
 from server import history_db
 from server.plane import name_overrides
@@ -234,7 +233,6 @@ def render(ctx, quiet_errors=None, quiet_submitted=None, place=None):
             rows, ctx.now, ctx.state_dir, ctx.gallery_entries or [], landscape=profile.width > profile.height)
         + "</div>"
         + quiet_hours_dialog_html(ctx, quiet_errors, quiet_submitted)
-        + home_title.rename_dialog_html(device_scope.current_device())
     )
 
 
