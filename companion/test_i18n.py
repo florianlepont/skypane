@@ -221,6 +221,9 @@ _UNCHANGED_IN_FRENCH = frozenset({
     # "Administration", "Audit" and "Console" are the French words too,
     # spelled identically: real cognates for the console's nav labels.
     "nav.administration", "nav.console", "nav.personalisation",
+    # The French UI keeps the English word "Airlines" for the nav entry and the
+    # page it names: "Compagnies" does not fit the six-tab phone bar.
+    "nav.airline_collection", "airlines.table_caption",
     # The French column heading for a list of row actions is the same word.
     "admin_users.actions",
     # "Action" is the French word too, for the audit table's column heading.
@@ -259,17 +262,19 @@ def test_every_catalog_value_is_non_empty():
     assert not empty, "empty French value for: %r" % (empty,)
 
 
-def test_no_french_value_names_the_airlines_page_in_english():
-    """The French UI calls the page Compagnies; the English word never shows in a
-    French sentence, the back link, the count or the table caption."""
-    english = [
-        identifier for identifier, _english, french in _sweep_entries()
-        if re.search(r"\bAirlines\b", french)]
-    assert not english, "French value naming Airlines in English: %r" % (english,)
+def test_the_french_ui_names_the_airlines_page_airlines_everywhere():
+    """The French nav entry, the page title, the table caption, the back link, the count and
+    the reload hints all say Airlines (the tab must fit the six-tab phone bar); French prose
+    about airlines in general stays French."""
     by_id = {identifier: french for identifier, _english, french in _sweep_entries()}
-    assert by_id["airlines.back_to_airlines"] == "\u2190 Retour aux compagnies"
-    assert by_id["airlines.collection_count"] == "Compagnies\u00a0: %d"
-    assert by_id["airlines.table_caption"] == "Compagnies"
+    assert by_id["nav.airline_collection"] == "Airlines"
+    assert by_id["airlines.table_caption"] == "Airlines"
+    assert by_id["airlines.back_to_airlines"] == "\u2190 Retour \u00e0 Airlines"
+    assert by_id["airlines.collection_count"] == "Airlines\u00a0: %d"
+    assert by_id["airlines.collection_count_template"] == "Airlines\u00a0: #"
+    stale = [identifier for identifier, french in by_id.items()
+             if re.search(r"\b(la |à la |de la )?page Compagnies\b|^Compagnies$", french)]
+    assert not stale, "French value still names the page Compagnies: %r" % (stale,)
 
 
 _PLACEHOLDER_RE = re.compile(r"%[sd]|\{[^}]*\}")
@@ -431,7 +436,7 @@ _FRENCH_PAGE_CASES = (
     ("/", "Accueil", "Home"),
     ("/display", "Style", "Display"),
     ("/flights", "Vols", "Flights"),
-    ("/airlines", "Compagnies", "Airlines"),
+    ("/airlines", "Airlines", "Airlines"),
     ("/fleet", "Flotte", "Fleet"),
     ("/fleet?view=system", "Système", "System"),
 )

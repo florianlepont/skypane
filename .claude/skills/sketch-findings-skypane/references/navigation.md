@@ -102,7 +102,7 @@ shorter bar word except the two Console ones noted).
 |------|------|---------|
 | Home | Home / Accueil | same |
 | Flights | Flights / Vols | same |
-| Airlines | Airlines / Compagnies | same |
+| Airlines | Airlines / Airlines | same |
 | Style | Style / Style | same |
 | Location | Location / Lieu | same |
 | More | More / Plus | |
@@ -115,7 +115,7 @@ shorter bar word except the two Console ones noted).
 | Space switch and the Console's way back | My frames / Mes cadres | |
 
 Concept words: frame / cadre, look / allure ("special look" is "allure spéciale"), airline /
-compagnie (the French page and tab are "Compagnies"). Style is never called "Personalisation".
+compagnie (the French page and tab stay "Airlines" so the label fits the six-tab bar). Style is never called "Personalisation".
 A new page picks its name and, only if it must fit the bar, a short word. French strings:
 `i18n_fr/nav.py`, `i18n_fr/admin_shell.py`, `i18n_fr/account.py`.
 

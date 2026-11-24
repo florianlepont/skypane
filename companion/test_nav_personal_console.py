@@ -21,7 +21,7 @@ ADMIN_WORDS_FR = (
     "Flotte", "Versions", "État", "Appareil", "Console", "Administration", "Système")
 
 PERSONAL_BAR_EN = ["Home", "Flights", "Airlines", "Style", "Location"]
-PERSONAL_BAR_FR = ["Accueil", "Vols", "Compagnies", "Style", "Lieu"]
+PERSONAL_BAR_FR = ["Accueil", "Vols", "Airlines", "Style", "Lieu"]
 PERSONAL_SIDEBAR_EN = PERSONAL_BAR_EN + ["Account"]
 PERSONAL_SIDEBAR_FR = PERSONAL_BAR_FR + ["Compte"]
 CONSOLE_BAR_EN = ["Fleet", "Users", "Editor", "System"]

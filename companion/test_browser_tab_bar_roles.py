@@ -1,6 +1,6 @@
 """Real-browser proof of the phone tab bar's content. The personal bar is Home,
 Flights, Airlines, Style, Place and then, for an administrator, More (Accueil,
-Vols, Compagnies, Style, Lieu, Plus) or, for a plain user, Account (Compte): a
+Vols, Airlines, Style, Lieu, Plus) or, for a plain user, Account (Compte): a
 direct link to the Account page, which carries theme, language and Sign out
 itself, so a user has no More sheet. An administrator's space switch has no
 cell of its own: it is a row of the More panel beside Account, theme, language
@@ -17,11 +17,11 @@ pytestmark = pytest.mark.browser
 
 _BAR_LABELS = {
     "en": ["Home", "Flights", "Airlines", "Style", "Location", "More"],
-    "fr": ["Accueil", "Vols", "Compagnies", "Style", "Lieu", "Plus"],
+    "fr": ["Accueil", "Vols", "Airlines", "Style", "Lieu", "Plus"],
 }
 _USER_BAR_LABELS = {
     "en": ["Home", "Flights", "Airlines", "Style", "Location", "Account"],
-    "fr": ["Accueil", "Vols", "Compagnies", "Style", "Lieu", "Compte"],
+    "fr": ["Accueil", "Vols", "Airlines", "Style", "Lieu", "Compte"],
 }
 
 
@@ -251,7 +251,7 @@ _PAGE_TITLE = "() => document.querySelector('h1').textContent.trim()"
 def test_french_airlines_tab_and_page_title_agree_with_a_visible_bar_margin(
         new_context, app_server_in_process, width):
     """The French nav entry and the airline page title agree: the tab reads
-    "Compagnies", the page is titled the same, and the floating bar keeps a
+    "Airlines", the page is titled the same, and the floating bar keeps a
     visible gap to both viewport edges with no clipped label."""
     context, page = _admin_page(
         new_context, app_server_in_process, "/airlines",
@@ -259,7 +259,7 @@ def test_french_airlines_tab_and_page_title_agree_with_a_visible_bar_margin(
     try:
         page.wait_for_function(_OWN_CELL_AT_CENTRE)
         tab = page.locator(".tab-bar__link--active .tab-bar__label").inner_text().strip()
-        assert tab == "Compagnies"
+        assert tab == "Airlines"
         assert page.evaluate(_PAGE_TITLE) == tab
         edges = page.evaluate(_BAR_EDGES)
         assert edges["left"] >= 4 and edges["width"] - edges["right"] >= 4, edges

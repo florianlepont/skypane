@@ -8,7 +8,7 @@
 - French copy: sentence case, typographic apostrophe (U+2019), a no-break space (U+00A0) before
   `:` `;` `?` `!`. "FR"/"EN" are identifiers, not translated.
 - Page names: see `navigation.md`; one name per page, the same on the tab, the sidebar and the
-  title (Flights / Vols, Location / Lieu, Airlines / Compagnies, My frames / Mes cadres, System /
+  title (Flights / Vols, Location / Lieu, Airlines / Airlines, My frames / Mes cadres, System /
   Système). Concept words: frame / cadre, look / allure, airline / compagnie. The French word
   "Airlines" never appears in a French value (a catalogue test refuses it). Console bar labels stay
   short (Équipe, Éditeur).

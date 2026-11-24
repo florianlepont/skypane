@@ -15,7 +15,7 @@ non-breaking space (U+00A0) before ":" ";" "?" "!".
 
 MESSAGES = {
     # --- Editor table ------------------------------------------------
-    "airlines.table_caption": "Compagnies",
+    "airlines.table_caption": "Airlines",
     "airlines.types_seen_head": "Types d’avion vus",
     "airlines.col_default_type": "Type par défaut",
     "airlines.name_it": "Nommer",
@@ -96,7 +96,7 @@ MESSAGES = {
         "%d compagnies.",
 
     # --- The "resolve an unidentified flight" section ----------------
-    "airlines.back_to_airlines": "← Retour aux compagnies",
+    "airlines.back_to_airlines": "← Retour à Airlines",
     "airlines.that_coverage_gap_isn_t_there_anymore_it_may":
         "Cette lacune n’existe plus — elle est peut-être déjà résolue. "
         "Consultez État pour la liste complète des lacunes actuelles.",
@@ -156,8 +156,8 @@ MESSAGES = {
     "airlines.collection_filter_label": "Filtrer les compagnies",
     "airlines.collection_filter_placeholder": "Filtrer",
     "airlines.collection_apply": "Appliquer",
-    "airlines.collection_count": "Compagnies\u00a0: %d",
-    "airlines.collection_count_template": "Compagnies\u00a0: #",
+    "airlines.collection_count": "Airlines\u00a0: %d",
+    "airlines.collection_count_template": "Airlines\u00a0: #",
     "airlines.collection_range_rare": "Moins de %d passages",
     "airlines.collection_range_occasional": "De %d à %d passages",
     "airlines.collection_range_regular": "%d passages ou plus",

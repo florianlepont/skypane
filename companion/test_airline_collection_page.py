@@ -245,7 +245,7 @@ def test_the_bar_is_one_form_with_sort_and_count_and_a_no_script_apply(rig):
     assert "Airlines: 4" in form
     assert "Airlines: 1<" in _main(rig.page(query="?q=zed"))
     fr = _main(rig.page(lang="fr", query="?q=zed"))
-    assert "Compagnies\u00a0: 1<" in fr and "Airlines" not in fr and "Moins de 3 passages" in fr
+    assert "Airlines\u00a0: 1<" in fr and "Moins de 3 passages" in fr
 
 
 def test_sort_and_text_are_applied_by_the_server(rig):
@@ -290,7 +290,7 @@ def test_hostile_stored_text_is_escaped(rig):
 def test_the_page_is_french_with_french_strings(rig):
     rig.seed_history()
     body = rig.page(lang="fr")
-    for text in (">Compagnies</h1>", "encore 1 pour le badge 5",
+    for text in (">Airlines</h1>", "encore 1 pour le badge 5",
                  "Les compagnies vues par votre cadre", "Vue 12 fois", "Vue une fois",
                  "Habituelle", "Occasionnelle", "Nouveau",
                  "Première observation", "Appliquer", "Les plus vues"):

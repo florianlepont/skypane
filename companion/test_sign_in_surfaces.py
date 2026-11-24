@@ -223,7 +223,7 @@ def test_new_login_surfaces_render_the_approved_french():
 
 # The pinned digests cover the shared sprite (icon-fit, icon-eye, icon-chevron-left,
 # icon-departure, icon-arrival, icon-spark) and the shared nav names and order
-# (Home, Flights, Airlines, Style, Location; French Vols, Compagnies, Lieu).
+# (Home, Flights, Airlines, Style, Location; French Vols, Airlines, Lieu).
 _LOGIN_BASELINE = {
     "en": {
         "nf": "eebd9c27e34917fe4c1605d103aa1e0ce1ad9a5642564e2152b0c0518d9f875d",
@@ -349,7 +349,7 @@ def test_unrecognised_principal_clears_to_default():
 # The digest of the personal pages and the Update page. The Health and Device pages were removed, so
 # their two shells left the list; every remaining shell is byte-identical to before the removal.
 _SHELL_BASELINE_DIGEST = (
-    "d1a42f48d29cb061d9678c64811bcf04242927ff7c1b3115e1c0cb02d2008ee9")
+    "aa829e009d78a6f861c664b885c6889bdc3ea828840230139f1b4b7ae57686b7")
 
 
 def test_shell_without_a_principal_is_byte_identical_to_before():
