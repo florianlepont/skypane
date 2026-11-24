@@ -785,7 +785,7 @@ def _lightbox_html(name_form_hidden_html=""):
         '<dialog class="lightbox lightbox--wide" id="%s" aria-label="%s">'
         "%s"
         '<img class="lightbox__image" src="" alt="">'
-        '<p class="lightbox__caption text-label mono"></p>'
+        '<p class="lightbox__caption text-label"></p>'
         '<p class="lightbox__note text-body">%s</p>'
         "%s"
         "%s"

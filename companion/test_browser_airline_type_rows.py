@@ -74,6 +74,25 @@ def test_the_editor_lists_type_rows_only_with_the_star_on_the_default_type(
 
 
 @pytest.mark.parametrize("lang", ("en", "fr"))
+def test_the_add_illustration_dialog_subtitle_is_body_text_not_code(
+        new_context, server, lang):
+    context, page = _open(new_context, server, VIEWPORT_DESKTOP, lang, "/airlines/manage")
+    try:
+        page.locator("tbody.airline-group--known", has_text="Lufthansa").locator(
+            ".airlines-known__add").click()
+        subtitle = page.locator("#panel-lookup-dialog .lightbox__caption")
+        subtitle.wait_for(state="visible")
+        assert subtitle.inner_text().strip() == "Lufthansa"
+        font = subtitle.evaluate("el => getComputedStyle(el).fontFamily")
+        body = page.evaluate("() => getComputedStyle(document.body).fontFamily")
+        assert "mono" not in font.lower() and font == body, font
+        assert subtitle.evaluate("el => getComputedStyle(el).color") != page.evaluate(
+            "() => getComputedStyle(document.body).color")
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("lang", ("en", "fr"))
 @pytest.mark.parametrize("name,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
 def test_the_airlines_page_shows_the_picture_of_the_default_type(
         new_context, server, name, viewport, lang):
