@@ -110,7 +110,7 @@ sliced (see "Slice check, 2026-11-24" below). Still to do: the tray is reprinted
 in PLA on the same machine and plate; the fit of the ribbon, of the battery and
 of the board is tried again; then the lid is printed.
 
-#### Alternative: tray and shim in one part (not decided)
+#### Alternative: tray and shim in one part (abandoned by the owner on 2026-11-24)
 
 Asked for by the owner on 2026-11-24 as an alternative version. The main design
 stays two parts that the owner glues; this variant is only a file to look at and
@@ -134,8 +134,13 @@ generating script, like the tray change above.
   not known. The opposite pose (floor up) would need supports under the whole floor,
   which is worse.
 - Sliced once on 2026-11-24 (see "Slice check, 2026-11-24" below): the slicer
-  does add support under the pocket ceiling. Not done: no print, no fit trial
-  of this variant.
+  does add support under the pocket ceiling.
+- Owner decision of 2026-11-24: the variant was printed once and the owner could
+  not get a clean print; his reading is that the support is too thin. The owner
+  stopped this design and the work continues with the main design, tray and shim
+  as two parts (reported by the owner; no cause was measured and no photo of the
+  failed print was examined). The files stay in `hardware/cad/alternatives/` as
+  a record; no fit trial of this variant.
 
 Values kept, because the model and the owner's tape readings differ by about
 1 mm or less, which is the tape's resolution (owner instruction, 2026-11-18):
