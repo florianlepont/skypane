@@ -165,7 +165,7 @@ frame). Console label "Airline editor", bar label "Editor".
 - **Frame page** (`/fleet?frame=<id>`): a header with the `h1` name, the state line and two 44px
   icon buttons (personal view, Rename); then a State section of **three equal tiles** and the
   Settings and Access sections stacked in one column of equal cards (on a phone, three sticky
-  anchors State / Settings / Access, 44px, mark the section in view; from 960px the anchors are
+  anchors State / Settings / Access, 44px, mark the section in view on a solid bar whose gap above (safe area and app-bar drop) is painted too; from 960px the anchors are
   hidden):
   - **Connection** tile: a verdict and two lines, "Last check-in <age>" and "Next wake <clock>"; a
     plain block, not a link, no Details mark. A frame that never checked in says so once and still

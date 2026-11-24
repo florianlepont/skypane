@@ -74,6 +74,39 @@ def test_the_three_anchors_fit_and_all_three_sections_are_stacked_in_order(
         context.close()
 
 
+@pytest.mark.parametrize("theme", UI_THEMES_EXPLICIT)
+@pytest.mark.parametrize("lang", ["en", "fr"])
+def test_the_sticky_bar_is_solid_and_covers_the_gap_above_it_on_an_iphone(
+        new_context, app_server_in_process, lang, theme):
+    """with a notch (safe area) and the installed web app's drop, the bar sticks below that gap:
+    its own background is opaque and the gap above it is painted too, so scrolled content never
+    shows through between the screen top and the chips"""
+    context, page = _open(new_context, app_server_in_process, PHONE, lang, theme=theme)
+    try:
+        page.evaluate(
+            "() => { document.documentElement.classList.add('web-app');"
+            " document.documentElement.style.setProperty('--safe-top', '47px'); }")
+        page.evaluate("() => window.scrollTo(0, document.documentElement.scrollHeight)")
+        page.wait_for_function(
+            "() => document.querySelector('nav.fleet-anchors').getBoundingClientRect().top > 60",
+            timeout=5000)
+        look = page.evaluate(
+            """() => {
+              const nav = document.querySelector('nav.fleet-anchors');
+              const alpha = (c) => { const p = c.slice(c.indexOf('(') + 1, -1).split(',');
+                                     return p.length === 4 ? parseFloat(p[3]) : 1; };
+              const gap = getComputedStyle(nav, '::before');
+              return {top: nav.getBoundingClientRect().top, bar: alpha(getComputedStyle(nav).backgroundColor),
+                      strip: alpha(gap.backgroundColor), stripHeight: parseFloat(gap.height),
+                      hit: [2, 20, 40, 60].map((y) => document.elementFromPoint(195, y) === nav)};
+            }""")
+        assert look["bar"] == 1 and look["strip"] == 1, look
+        assert abs(look["stripHeight"] - look["top"]) <= 1, look
+        assert all(look["hit"]), look
+    finally:
+        context.close()
+
+
 @pytest.mark.parametrize("lang", ["en", "fr"])
 @pytest.mark.parametrize("viewport", [VIEWPORT_MIN_SUPPORTED, PHONE, VIEWPORT_DESKTOP],
                          ids=["360", "390", "1440"])

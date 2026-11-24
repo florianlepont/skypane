@@ -2924,7 +2924,20 @@ a.fleet-action-button {
     box-sizing: border-box;
     margin: 0 calc(-1 * var(--space-lg)) var(--space-md);
     padding: var(--space-sm) var(--space-lg);
-    background: var(--color-canvas);
+    background-color: var(--color-canvas);
+  }
+
+  /* The bar sticks below the safe area and the app bar's drop; this strip
+   * paints the same solid colour in that gap so the page never scrolls
+   * through it. */
+  .fleet-anchors::before {
+    content: "";
+    position: absolute;
+    right: 0;
+    bottom: 100%;
+    left: 0;
+    height: calc(var(--safe-top) + var(--app-bar-drop));
+    background-color: var(--color-canvas);
   }
 
   .fleet-anchor {
