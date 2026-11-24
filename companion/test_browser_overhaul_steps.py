@@ -29,7 +29,7 @@ MAP_TILES = "() => document.querySelectorAll('#place-map .leaflet-tile-loaded').
 
 # Measured counts, asserted exactly. Targets are in the design record.
 MEASURED = {
-    "U4a": 3, "U4b": 4, "U4c": 4, "L1": 4, "L1-pin": 5, "L2": 4, "L3": 5, "L4": 3,
+    "U4a": 3, "U4b": 4, "U4c": 3, "L1": 4, "L1-pin": 5, "L2": 4, "L3": 5, "L4": 3,
     "S1": 2, "S2": 2, "A7": 1, "A8": 5, "A9": 4, "V1-phone": 1, "V1-desktop": 1}
 _OFFSCREEN = (
     "el => { const r = el.getBoundingClientRect();"
@@ -590,14 +590,14 @@ def test_u4c_the_administrator_changes_the_refresh_interval(world, new_context):
         # in the Settings section of the same page.
         page.wait_for_function("() => document.readyState === 'complete'", timeout=10000)
         _select_frame(steps, page, "Kitchen")
-        field = page.locator("input[type=number][name=wake_interval_s]")
-        target = "1500" if field.input_value() != "1500" else "1200"
+        field = page.locator("input[type=number][name=wake_interval_min]")
+        target = "25" if field.input_value() != "25" else "20"
         steps.type_value(field, target, "refresh interval")
         with page.expect_navigation():
             steps.tap(page.locator("button.dirty-bar__save"), "Save")
         page.wait_for_function(
             "t => document.readyState === 'complete' && document.querySelector("
-            "'input[type=number][name=wake_interval_s]').value === t", arg=target, timeout=10000)
+            "'input[type=number][name=wake_interval_min]').value === t", arg=target, timeout=10000)
         _report_measured("U4c", steps, 4)
     finally:
         context.close()

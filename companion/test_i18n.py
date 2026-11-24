@@ -198,6 +198,8 @@ _UNCHANGED_IN_FRENCH = frozenset({
     "airlines.collection_rarity_rare",
     # "Suggestion" is spelled identically in French.
     "airlines.suggest_tag",
+    # "min" is the abbreviation in both languages.
+    "display.wake_interval_unit_min", "display.wake_minutes_value",
     # Place names spelled identically in French.
     "display.timezone_opt_martinique", "display.timezone_opt_guadeloupe",
     "display.timezone_opt_mayotte",

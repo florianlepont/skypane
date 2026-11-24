@@ -328,7 +328,7 @@ def test_the_rename_field_fills_its_dialog_and_the_dialog_has_a_visible_save(
         context.close()
 
 
-def test_the_wake_interval_field_is_wide_enough_for_its_placeholder(new_context, fleet_server):
+def test_the_wake_interval_field_is_wide_enough_for_its_widest_value(new_context, fleet_server):
     conn = fleet_db.connect(fleet_server.state_dir)
     try:
         owned = conn.execute("SELECT id FROM devices WHERE name = 'Kitchen'").fetchone()[0]
@@ -338,11 +338,11 @@ def test_the_wake_interval_field_is_wide_enough_for_its_placeholder(new_context,
         new_context, fleet_server, "/fleet?frame=%s&tab=settings" % owned)
     try:
         field = page.evaluate(
-            "() => { const i = document.querySelector('#wake-interval-s');"
+            "() => { const i = document.querySelector('#wake-interval-m');"
             " const c = document.createElement('canvas').getContext('2d');"
             " const s = getComputedStyle(i); c.font = s.fontSize + ' ' + s.fontFamily;"
             " const pad = parseFloat(s.paddingLeft) + parseFloat(s.paddingRight);"
-            " return {width: i.getBoundingClientRect().width - pad, text: c.measureText(i.placeholder).width}; }")
+            " return {width: i.getBoundingClientRect().width - pad, text: c.measureText('60').width}; }")
         assert field["width"] >= field["text"], field
     finally:
         context.close()

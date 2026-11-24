@@ -100,19 +100,25 @@ def test_the_signed_in_administrators_row_offers_no_delete(new_context, app_serv
         context.close()
 
 
-def test_a_typed_wake_interval_keeps_the_slider_where_it_was_typed(
+def test_a_typed_wake_interval_is_brought_back_into_range_and_the_seconds_follow(
         new_context, app_server_in_process):
     server = app_server_in_process
     device_config.save_device_config(server.state_dir, wake_interval_s=600)
     context, page, _seed = _page(
         new_context, server, "/fleet?frame={live}&tab=settings", VIEWPORT_DESKTOP)
     try:
-        page.locator("#wake-interval-s").scroll_into_view_if_needed()
-        page.wait_for_function(_OWNS_CENTRE, arg="#wake-interval-s", timeout=10000)
-        page.locator("#wake-interval-s").fill("700")
+        page.locator("#wake-interval-m").scroll_into_view_if_needed()
+        page.wait_for_function(_OWNS_CENTRE, arg="#wake-interval-m", timeout=10000)
+        page.locator("#wake-interval-m").fill("12")
+        seconds = page.locator("input[name='wake_interval_s']")
         page.wait_for_function(
-            "() => document.querySelector('.wake-slider__input').value === '700'", timeout=10000)
-        assert page.locator("#wake-interval-s").input_value() == "700"
+            "() => document.querySelector('input[name=wake_interval_s]').value === '720'",
+            timeout=10000)
+        page.locator("#wake-interval-m").fill("700")
+        page.keyboard.press("Tab")
+        page.wait_for_function(
+            "() => document.querySelector('#wake-interval-m').value === '60'", timeout=10000)
+        assert seconds.input_value() == "3600"
     finally:
         context.close()
 

@@ -299,7 +299,7 @@ def test_the_unsaved_changes_bar_docks_under_the_frame_column_clear_of_the_list(
         new_context, app_server_in_process, VIEWPORT_DESKTOP, "en", "light",
         "/fleet?frame={owned}", extra=8)
     try:
-        page.locator("#wake-interval-s").fill("120")
+        page.locator("#wake-interval-m").fill("2")
         bar = page.locator(".dirty-bar")
         bar.wait_for(state="visible")
         # Let the bar's own entrance end before it is measured.

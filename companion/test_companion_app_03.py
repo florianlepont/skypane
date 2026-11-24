@@ -1273,10 +1273,10 @@ _NO_JS_CONTROL_REGISTRY = (
     # for the argument. Kept out of this registry rather than repointed at markup that introduces
     # no `layout.JS_GATE_CLASS`-wrapped element at all.
     {
-        "control": "the wake-interval slider (D18)",
-        "plan": "25-05-PLAN.md Task 2",
-        "wrapper_attr": layout.VALUE_CONTROL_ATTR,
-        "field": config_page.WAKE_INTERVAL_FIELD_NAME,
+        "control": "the wake-interval step buttons",
+        "plan": "wake-interval tile",
+        "wrapper_attr": "data-minutes-step",
+        "field": "wake_interval_min",
         "form": config_page.SETTINGS_FORM_ID,
         "form_assoc": "enclosing",
         "page_route": "/fleet",

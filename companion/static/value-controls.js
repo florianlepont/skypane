@@ -656,6 +656,113 @@
     steerFromPointer(wrapper, evt.clientX, evt.clientY);
   });
 
+  // The wake-interval tile: whole minutes over a stored seconds field.
+  // [data-minutes-control] wraps a number input ([data-minutes-input], posts
+  // its own name), a hidden seconds field ([data-minutes-seconds], the one the
+  // server stores), step and shortcut buttons, a readout and a "Default" tag.
+  // The seconds field is always derived from the minutes input: minutes x 60,
+  // except that the saved seconds are kept while the minutes still round up
+  // to them (an interval on disk that is not a whole minute). Derived on every
+  // event, so a form reset needs no separate handling.
+  var MINUTES_ATTR = "data-minutes-control";
+  var MINUTES_MIN = 1;
+  var MINUTES_MAX = 60;
+
+  function minutesPart(tile, name) {
+    return tile.querySelector("[data-minutes-" + name + "]");
+  }
+
+  function wholeMinutes(text) {
+    var value = parseInt(text, 10);
+    return /^\s*\d+\s*$/.test(String(text)) && isFinite(value) ? value : null;
+  }
+
+  function syncMinutesTile(tile) {
+    var input = minutesPart(tile, "input");
+    var seconds = minutesPart(tile, "seconds");
+    if (!input || !seconds) {
+      return;
+    }
+    var minutes = wholeMinutes(input.value);
+    var saved = seconds.getAttribute("data-saved-seconds");
+    if (saved === null) {
+      saved = seconds.defaultValue;
+      seconds.setAttribute("data-saved-seconds", saved);
+    }
+    var savedSeconds = wholeMinutes(saved);
+    var text = "";
+    if (minutes !== null) {
+      text = savedSeconds !== null && Math.ceil(savedSeconds / 60) === minutes
+        ? String(savedSeconds) : String(minutes * SECONDS_PER_MINUTE);
+    }
+    writeValue(seconds, text);
+    var readout = minutesPart(tile, "readout");
+    var template = tile.getAttribute("data-minutes-text");
+    if (readout && template) {
+      readout.textContent = minutes === null ? "\u2014" : template.replace(TEXT_TOKEN, minutes);
+    }
+    var tag = minutesPart(tile, "tag");
+    if (tag) {
+      tag.hidden = minutes === null || String(minutes) !== tile.getAttribute("data-minutes-default");
+    }
+    var presets = tile.querySelectorAll("[data-minutes-preset]");
+    for (var i = 0; i < presets.length; i++) {
+      var on = minutes !== null && presets[i].getAttribute("data-minutes-preset") === String(minutes);
+      presets[i].setAttribute("aria-pressed", on ? "true" : "false");
+      presets[i].classList.toggle("theme-option--active", on);
+    }
+  }
+
+  function syncMinutesTiles() {
+    var tiles = document.querySelectorAll("[" + MINUTES_ATTR + "]");
+    for (var i = 0; i < tiles.length; i++) {
+      syncMinutesTile(tiles[i]);
+    }
+  }
+
+  function setMinutes(tile, value) {
+    var input = minutesPart(tile, "input");
+    if (!input) {
+      return;
+    }
+    var clamped = Math.max(MINUTES_MIN, Math.min(MINUTES_MAX, Math.round(value)));
+    if (writeValue(input, String(clamped))) {
+      notify(input);
+    }
+  }
+
+  document.addEventListener("click", function (evt) {
+    var button = evt.target && evt.target.closest ? evt.target.closest("button") : null;
+    var tile = button ? ancestorWith(button, MINUTES_ATTR) : null;
+    if (!tile) {
+      return;
+    }
+    var input = minutesPart(tile, "input");
+    var current = input ? wholeMinutes(input.value) : null;
+    if (button.hasAttribute("data-minutes-step")) {
+      var base = current === null ? parseInt(tile.getAttribute("data-minutes-default"), 10) : current;
+      setMinutes(tile, (isFinite(base) ? base : MINUTES_MIN) + parseInt(button.getAttribute("data-minutes-step"), 10));
+    } else if (button.hasAttribute("data-minutes-preset")) {
+      setMinutes(tile, parseInt(button.getAttribute("data-minutes-preset"), 10));
+    }
+  });
+
+  // A typed value outside 1 to 60 is brought back into range once the field
+  // is left, never while it is being typed.
+  document.addEventListener("change", function (evt) {
+    var target = evt.target;
+    var tile = target && target.hasAttribute && target.hasAttribute("data-minutes-input")
+      ? ancestorWith(target, MINUTES_ATTR) : null;
+    var typed = tile ? wholeMinutes(target.value) : null;
+    if (tile && typed !== null && (typed < MINUTES_MIN || typed > MINUTES_MAX)) {
+      setMinutes(tile, typed);
+    }
+  });
+
+  function syncAll() {
+    syncMinutesTiles();
+  }
+
   // Repaints from the native input for a write this file did not cause:
   // a visitor typing into the field, browser autofill, or (the live
   // case) dirty-state.js's quiet-hours preset buttons, which assign to
@@ -665,6 +772,7 @@
   // click reaches document. Idempotent: the change event this file
   // sends after its own write finds the value already correct.
   function repaintAll() {
+    syncAll();
     var wrappers = document.querySelectorAll("[" + WRAPPER_ATTR + "]");
     for (var i = 0; i < wrappers.length; i++) {
       var bounds = boundsFor(wrappers[i]);

@@ -13,7 +13,6 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import pytest
 
 from companion import app
-from companion.pages import config_page
 from companion.test_browser_ux_helpers import _login, _persist_without_js
 from server import device_config
 
@@ -146,7 +145,7 @@ def test_same_origin_quick_switch_and_settings_save_still_work(app_server, page,
     # companion/conftest.py.
     result = _persist_without_js(
         new_context, app_server.base_url(), "/fleet",
-        config_page.WAKE_INTERVAL_FIELD_NAME, "600",
-        lambda: device_config.load_device_config(app_server.state_dir)["wake_interval_s"],
-        restore=False)
-    assert str(result["stored"]) == "600"
+        "wake_interval_min", "10",
+        lambda: (device_config.load_device_config(app_server.state_dir)["wake_interval_s"] or 0) // 60,
+        restore=False, shows_back=False)
+    assert str(result["stored"]) == "10"

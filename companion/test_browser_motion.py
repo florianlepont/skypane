@@ -14,7 +14,7 @@ from companion.test_browser_ux_helpers import (
 
 pytestmark = pytest.mark.browser
 
-SWITCH = "#quick-switch-led-label ~ .settings-switch-row .switch"
+SWITCH = ".fleet-tile:has(#quick-switch-led-label) .switch"
 
 # Counts navigator.vibrate calls without needing a motor.
 _VIBRATE_SPY = """() => {
