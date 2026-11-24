@@ -49,7 +49,7 @@ def _claim(server, cookie, code, **extra):
 
 
 def _card(page):
-    return re.search(r'<form class="pair-form".*?</form>', page, re.S).group(0)
+    return re.search(r'<form class="pair-form[ \"].*?</form>', page, re.S).group(0)
 
 
 def test_a_user_pairs_a_frame_and_becomes_its_owner(rig):

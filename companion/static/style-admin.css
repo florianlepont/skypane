@@ -1211,12 +1211,96 @@ a.pair-link--primary:hover {
 .pair-form {
   display: grid;
   gap: var(--space-md);
-  max-width: 28rem;
+  max-width: 35rem;
 }
 
 .pair-form input {
   box-sizing: border-box;
   width: 100%;
+}
+
+/* The one card of the page: the form on top, then a tinted footer that holds
+ * the Reset hint. */
+.pair-card {
+  gap: 0;
+  overflow: hidden;
+  background: var(--glass-solid);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-glass);
+}
+
+.pair-card__main {
+  display: grid;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+}
+
+@media (min-width: 700px) {
+  .pair-card__main {
+    padding: var(--space-lg);
+  }
+}
+
+.pair-card__heading,
+.pair-card__lead {
+  margin: 0;
+}
+
+/* The code is read off the frame and typed whole: big, centred, spaced. */
+.pair-card input.mono {
+  min-height: 56px;
+  text-align: center;
+  font-size: 26px;
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.pair-card input.mono::placeholder {
+  font-size: var(--font-label-size);
+  letter-spacing: 0.08em;
+}
+
+.pair-card__help {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: var(--space-sm) var(--space-md);
+  border-top: 1px solid var(--glass-hairline);
+  background: color-mix(in srgb, var(--color-text) 4%, transparent);
+}
+
+@media (min-width: 700px) {
+  .pair-card__help {
+    padding-inline: var(--space-lg);
+  }
+}
+
+.pair-card__help .icon {
+  flex: none;
+  margin-top: 2px;
+}
+
+.pair-card__help p {
+  margin: 0;
+}
+
+.pair-card__help b {
+  color: var(--color-text);
+}
+
+@media (max-width: 699.98px) {
+  .pair-card .pair-form__actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .pair-card a.pair-form__cancel {
+    justify-content: center;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-control);
+  }
 }
 
 /* The refused code: a tinted error box, the icon beside a bold sentence with the
