@@ -64,7 +64,7 @@ round.
 | A | Shim, coupon plate | Bambu Lab X1 Carbon | 2026-11-23 (print date not stated) | PLA |  |  |  | PEI plate (smooth or textured not stated) |  |  |  |  |  |  |  | reported by the owner on 2026-11-23: all parts printed (coupon plate not mentioned); filament brand, colour, spool, settings and print date not stated |
 | B | Tray | Bambu Lab X1 Carbon | 2026-11-23 (print date not stated) | PLA |  |  |  | PEI plate (smooth or textured not stated) |  |  |  |  |  |  |  | reported by the owner on 2026-11-23: all parts printed (coupon plate not mentioned); filament brand, colour, spool, settings and print date not stated |
 | C | Lid, stand | Bambu Lab X1 Carbon | 2026-11-23 (print date not stated) | PLA |  |  |  | PEI plate (smooth or textured not stated) |  |  |  |  |  |  |  | reported by the owner on 2026-11-23: all parts printed; later the same day the owner said the lid print is still to be done (planned for 2026-11-24), so which of the lid and the stand exist is to be clarified; filament brand, colour, spool, settings and print date not stated |
-| D | | | | | | | | | | | | | | | | |
+| D | Tray and shim in one part (alternative variant) | not stated | 2026-11-24 (print date not stated) |  |  |  |  |  |  |  |  |  |  |  |  | reported by the owner on 2026-11-24: the owner printed the alternative variant and said it is "top"; machine, filament, plate, settings, supports and print time not stated |
 
 ## Export stamps
 
@@ -125,6 +125,7 @@ holds for PLA only.
 | Shim | Shim in the frame rebate | not stated | fits ("rentre bien", the owner's words) | by feel | 2026-11-23 | reported by the owner on 2026-11-23 |
 | Tray | Board on the four standoffs with M2 screws | not applicable | fits ("j'ai pu visser proprement la carte", the owner's words); screw length not stated | by feel | 2026-11-23 | reported by the owner on 2026-11-23 |
 | Tray | All components placed in the tray | not applicable | fits ("j'ai pu mettre l'ensemble des composants", the owner's words); the list of components, the battery connection and any pinch of the cable or the ribbon are not stated | by feel | 2026-11-23 | reported by the owner on 2026-11-23 |
+| Tray and shim in one part | The alternative variant printed (ribbon, battery and fit not detailed) | not stated | works ("elle est top", the owner's words); whether the ribbon passes without a pinch, whether the battery fits, the supports used and the state of the supported face are not stated | by feel | 2026-11-24 | reported by the owner on 2026-11-24 |
 | Lid | Frame tabs on the lid tab pads (lid not yet screwed) | not stated | tabs of the left and right sides land beside their pad, just beyond its end; top and bottom tabs land on their pad, about 4 mm off its centre (estimates read by the assistant on the owner's photos, not measured); the frame holds anyway (reported by the owner) | photos, by eye | 2026-11-24 | reported by the owner on 2026-11-24 |
 | Lid | Lid on the tray | | | | | |
 | Lid | Lid with screws and magnets | | | | | |
