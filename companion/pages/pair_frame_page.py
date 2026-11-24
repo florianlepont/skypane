@@ -123,7 +123,7 @@ def render(view=PairView()):
         '<div class="pair-card__help">%s<p class="text-label"><b>%s</b><br>%s</p></div>'
         % (icon_html("icon-info", size=20), _t(_NO_CODE_TITLE), _t(_NO_CODE_HELP)))
     form = (
-        '<form class="%s pair-card" method="post" action="%s">%s'
+        '<form class="%s pair-card reveal" method="post" action="%s">%s'
         '<div class="pair-card__main"><h2 class="text-heading pair-card__heading">%s</h2>'
         '%s%s'
         '<div class="pair-form__actions"><button type="submit">%s</button>'
@@ -131,6 +131,4 @@ def render(view=PairView()):
             FORM_CLASS, PAIR_FRAME_ROUTE, ui_components.csrf_field(),
             _t(_CARD_HEADING), view.toast_html, _code_field(view),
             _t(_SUBMIT), _t(_CANCEL), footer)
-    return (
-        layout.page_header(i18n.t(PAIR_TITLE))
-        + '<section class="page-section">%s</section>' % form)
+    return layout.page_header(i18n.t(PAIR_TITLE)) + form
