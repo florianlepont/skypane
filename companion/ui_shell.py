@@ -518,7 +518,7 @@ def _sidebar_aside_html(active, frame_notice, brand_inner, sidebar_html, footer_
         "sidebar_footer": footer_html})
 
 
-def _splash_preload(active, bare, device_config, sidebar_html, tab_bar_html):
+def _splash_preload(active, bare, device_config):
     """The addresses the splash fetches while it plays: every file the
     destinations this page's own navigation links to need and it does not
     already load. A page with no navigation lists none."""
@@ -527,7 +527,7 @@ def _splash_preload(active, bare, device_config, sidebar_html, tab_bar_html):
     # Imported here: preload_assets imports the page modules, which import this one.
     from companion import preload_assets
     return preload_assets.preload_urls(
-        (sidebar_html, tab_bar_html), prefs.current_request_path() or "", device_config)
+        active, prefs.current_request_path() or "", device_config)
 
 
 def page_shell(
@@ -630,8 +630,7 @@ def page_shell(
         "body_attrs": body_attrs,
         "skip_link": skip_link_html,
         "icon_defs": ICON_DEFS_HTML,
-        "splash": ui_splash.splash_html(_splash_preload(
-            active, bare, device_config, sidebar_html, tab_bar_html)),
+        "splash": ui_splash.splash_html(_splash_preload(active, bare, device_config)),
         "splash_boot_src": SPLASH_BOOT_SCRIPT_SRC,
         "splash_src": SPLASH_SCRIPT_SRC,
         "shell_modifier": " dashboard-shell--bare" if bare else "",

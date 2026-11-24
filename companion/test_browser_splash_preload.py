@@ -4,6 +4,7 @@ stylesheets and scripts (it fails if a page's file is missing), it is role-aware
 list holds no administrator-only file), and once the splash is over tapping each destination
 asks the network for no stylesheet, script or Style picture again."""
 import re
+from collections import Counter
 
 import pytest
 
@@ -64,12 +65,19 @@ def _sign_in(context, page, server, who):
         "sameSite": "Strict"}])
 
 
+CONSOLE_PATHS = ("/fleet", "/users", "/audit", "/airlines/manage", "/update")
+
+
+def _is_console(path):
+    return path.partition("?")[0].endswith(CONSOLE_PATHS)
+
+
 def _crawl(page, server):
-    """{path: its own static files} for every page reachable through the navigation links,
-    starting at the root (the first entry); the root's preload list is returned too."""
+    """({path: its own static files}, {path: its preload list}) for every page reachable
+    through the navigation links, starting at the root (the first entry)."""
     pages = {}
+    preloads = {}
     todo = ["/"]
-    preload = None
     while todo:
         href = todo.pop(0)
         page.goto(server.base_url() + href)
@@ -77,36 +85,39 @@ def _crawl(page, server):
         if path in pages:
             continue
         pages[path] = page.evaluate(PAGE_FILES)
-        if preload is None:
-            preload = page.evaluate(PRELOAD)
+        preloads[path] = page.evaluate(PRELOAD)
         for link in page.evaluate(NAV_HREFS, NAV_LINKS):
             if not SKIPPED.match(link) and link not in pages and link not in todo:
                 todo.append(link)
-    return pages, preload
+    return pages, preloads
 
 
 def _stripped(url):
-    return url.partition("?")[0]
+    return re.sub(r"^/devices/d_[0-9a-f]{8}", "", url.partition("?")[0])
 
 
 @pytest.mark.parametrize("who", ["admin", "owner"])
 def test_the_preload_list_holds_every_reachable_pages_own_files(
         new_context, server, who, blocked_requests):
-    """the root page's list plus its own files cover the stylesheets and scripts (the map
-    page's starter-loaded ones included) of every page its navigation reaches, with the
-    same version tokens the pages use"""
+    """the list of a space's first page plus its own files cover the stylesheets and scripts
+    (the map page's starter-loaded ones included) of every page of that space, with the same
+    version tokens the pages use"""
     context = new_context(viewport=VIEWPORT_DESKTOP)
     try:
         page = context.new_page()
         _sign_in(context, page, server, who)
-        pages, preload = _crawl(page, server)
+        pages, preloads = _crawl(page, server)
         assert len(pages) >= (8 if who == "admin" else 4), sorted(pages)
-        root = next(iter(pages.values()))
-        covered = set(preload) | set(root)
+        root = next(iter(pages))
+        refs = {"personal": root}
+        if who == "admin":
+            refs["console"] = next(p for p in pages if _is_console(p))
         for path, files in pages.items():
+            ref = refs["console" if who == "admin" and _is_console(path) else "personal"]
+            covered = set(preloads[ref]) | set(pages[ref])
             missing = [f for f in files if f not in covered]
-            assert not missing, "%s needs %s, absent from the preload list" % (path, missing)
-        assert preload and all(url.startswith("/") for url in preload), preload
+            assert not missing, "%s needs %s, absent from the list of %s" % (path, missing, ref)
+        assert preloads[root] and all(url.startswith("/") for url in preloads[root])
         # The Location page asks the map tile server by design; nothing else may leave.
         assert all("tile.openstreetmap.org" in url for url in blocked_requests), blocked_requests
         blocked_requests.clear()
@@ -114,24 +125,34 @@ def test_the_preload_list_holds_every_reachable_pages_own_files(
         context.close()
 
 
-def test_the_preload_list_is_role_aware(new_context, server):
-    """an administrator's list holds the Console pages' scripts; a plain user's holds none of
-    the administrator-only files, nor the Fleet or Users sheets they bring"""
-    lists = {}
-    for who in ("admin", "owner"):
-        context = new_context(viewport=VIEWPORT_DESKTOP)
-        try:
-            page = context.new_page()
-            _sign_in(context, page, server, who)
-            page.goto(server.base_url() + "/")
-            lists[who] = [_stripped(url) for url in page.evaluate(PRELOAD)]
-        finally:
-            context.close()
+def _lists(new_context, server, who, path):
+    context = new_context(viewport=VIEWPORT_DESKTOP)
+    try:
+        page = context.new_page()
+        _sign_in(context, page, server, who)
+        page.goto(server.base_url() + path)
+        return page.evaluate(PRELOAD)
+    finally:
+        context.close()
+
+
+def test_the_preload_list_follows_the_space_and_a_user_never_gets_console_files(
+        new_context, server):
+    """a personal page lists the same files for an administrator and a plain user (none of
+    the Console's); the Console's own pages list the Console's scripts"""
+    # The Style pictures follow each frame's own settings, so only the files are compared.
+    admin_home = [
+        _stripped(u) for u in _lists(new_context, server, "admin", "/") if u.startswith("/static/")]
+    owner_home = [
+        _stripped(u) for u in _lists(new_context, server, "owner", "/") if u.startswith("/static/")]
+    assert admin_home and sorted(admin_home) == sorted(owner_home), (
+        Counter(admin_home) - Counter(owner_home), Counter(owner_home) - Counter(admin_home))
     for name in ADMIN_ONLY_FILES:
-        assert "/static/" + name in lists["admin"], name
-        assert "/static/" + name not in lists["owner"], name
-    assert lists["owner"], "a plain user's list is empty"
-    assert "/static/style-flights.css" in lists["owner"]
+        assert "/static/" + name not in owner_home, name
+        assert "/static/" + name not in admin_home, name
+    assert "/static/style-flights.css" in owner_home
+    console = [_stripped(u) for u in _lists(new_context, server, "admin", "/users")]
+    assert "/static/airline-types.js" in console and "/static/fleet-anchors.js" in console
 
 
 class _AssetRecorder:
@@ -174,7 +195,7 @@ class _AssetRecorder:
 def test_after_the_splash_no_tab_asks_the_network_for_its_stylesheets_scripts_or_pictures(
         new_context, server):
     """on a fresh session, once the splash has played and its downloads are in, tapping each
-    destination of the navigation (the Console's included) is served from the cache"""
+    personal destination of the navigation is served from the cache"""
     context = new_context(splash=True, viewport=VIEWPORT_DESKTOP)
     try:
         # The guard's interception makes the browser skip its HTTP cache, which is what this
@@ -190,8 +211,9 @@ def test_after_the_splash_no_tab_asks_the_network_for_its_stylesheets_scripts_or
         page.wait_for_timeout(500)
         visited = []
         todo = [h for h in page.evaluate(NAV_HREFS, ".dashboard-sidebar a[href]")]
-        # The Console is entered last; its own destinations are listed once inside it.
-        todo.sort(key=lambda h: h == "/fleet")
+        # The Console is not preloaded from a personal page (its files are listed by its own
+        # pages, which play no splash): only the personal destinations are tapped.
+        todo = [h for h in todo if h not in ("/fleet",)]
         while todo:
             href = todo.pop(0)
             if SKIPPED.match(href) or href in visited or href == "/":
@@ -202,8 +224,6 @@ def test_after_the_splash_no_tab_asks_the_network_for_its_stylesheets_scripts_or
             page.wait_for_load_state("load")
             page.wait_for_timeout(700)
             assert recorder.from_network("tap " + href) == [], href
-            if href == "/fleet":
-                todo += page.evaluate(NAV_HREFS, ".dashboard-sidebar a[href]")
-        assert len(visited) >= 8, visited
+        assert len(visited) >= 5, visited
     finally:
         context.close()

@@ -4,13 +4,11 @@ opening splash can fetch them while it plays.
 Each page names its own stylesheets (companion/page_styles.py) and scripts
 (`PAGE_SCRIPTS` here, the table `page_shell()` is called with); the list for
 a page is built from those same tables, never from a second copy. It holds
-only the destinations the viewer's own navigation links to, so an account
-that cannot reach a page is never told its files. Every address carries the
+only the destinations of the space the page belongs to (personal or Console),
+the same for whoever looks, so a plain user is never told the Console's files. Every address carries the
 `?v=` token the page itself uses, which makes the later request an
 immutable cache hit.
 """
-import re
-
 from companion import layout, page_styles, static_files
 from companion.pages import airlines_page, detection_page, place_page
 from companion.settings import layout_picker
@@ -68,11 +66,6 @@ PAGE_SCRIPTS = {
 }
 
 CORE_STYLE = "/static/style.css"
-_HREF = re.compile(r'<a\b[^>]*?\shref="([^"]+)"')
-# A route that is not a destination: sign-out and the quick switches.
-_NOT_A_PAGE = re.compile(r"^/(logout|login|quick)(/|$)")
-
-
 def _console_scripts(route):
     """The scripts a Console page loads, which its handler (not the tab
     table) names. The Fleet page lists the union of its two views."""
@@ -101,39 +94,21 @@ def page_assets(route):
     return styles + tuple(src for src in scripts if src not in layout.GLOBAL_PAGE_SCRIPTS)
 
 
-def nav_routes(*nav_html):
-    """The routes the navigation `nav_html` links to, first appearance first
-    (no frame prefix, no query, no sign-out or quick switch)."""
-    routes = []
-    for html in nav_html:
-        for href in _HREF.findall(html or ""):
-            path = href.replace("&amp;", "&").partition("#")[0].partition("?")[0]
-            route = page_styles.route_of(path)
-            if path.startswith("/") and not _NOT_A_PAGE.match(route) and route not in routes:
-                routes.append(route)
-    return routes
-
-
 def _versioned(route):
     version = static_files.asset_version(route)
     return "%s?v=%s" % (route, version) if version else None
 
 
-def preload_urls(nav_html, current_route, device_cfg):
-    """The addresses to fetch while the splash plays, for a page at
-    `current_route` whose navigation is `nav_html` (a sequence of markup
-    strings): the versioned stylesheets and scripts of every linked page the
-    current one does not already load, then the pictures the Style page shows
-    at once, then the map library (the heaviest, last)."""
-    have = set(page_assets(current_route)) | {CORE_STYLE}
-    routes = nav_routes(*nav_html)
-    from companion import console_routes
-    if console_routes.FLEET_ROUTE in routes:
-        # The Console is one tap away and its own navigation lists the rest of it.
-        routes += [
-            route for route in nav_routes(*('<a href="%s">' % path for _key, path, _label
-                                           in console_routes.available_nav_entries()))
-            if route not in routes]
+def preload_urls(active, current_route, device_cfg):
+    """The addresses to fetch while the splash plays, for the page `active`
+    at `current_route`: the versioned stylesheets and scripts of every
+    destination of the page's own space (personal or Console), then the pictures the Style page shows at once,
+    then the map library (the heaviest, last). It depends on the space
+    only, never on who looks: an administrator's personal page lists what a
+    user's does."""
+    from companion import ui_nav
+    routes = ui_nav.space_destinations(active)
+    have = {CORE_STYLE}
     ordered = []
     for route in routes:
         for asset in page_assets(route):
