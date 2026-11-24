@@ -19,7 +19,7 @@ from companion import device_scope, i18n
 from companion import theme_preview
 from companion.layout import escape_html
 import companion.layout as layout
-from server import pairings, screen_layouts
+from server import device_config, pairings, screen_layouts
 
 from companion.settings import look
 from companion.settings.form import (
@@ -170,6 +170,25 @@ def offers_pairings(layout_id):
     """True when a frame on `layout_id` picks colours from the five pairings
     rather than the eighteen themes."""
     return layout_id is not None and screen_layouts.is_giant_layout(layout_id)
+
+
+def first_view_preview_srcs(device_cfg):
+    """The picture addresses the Style page loads at once for a frame: the
+    large picture of its departures look (on a classic-layout frame) and the
+    small picture of every layout. The same calls the page's markup makes,
+    so each address is the one the page asks for."""
+    cfg = device_cfg or {}
+    theme_id = departures_safe_theme_id(cfg.get("theme", device_config.DEFAULT_THEME_ID), None)
+    departing = theme_preview.FRAME_PREVIEW_STATE_DEPARTING
+    srcs = []
+    if not offers_pairings(screen_layouts.normalise_layout_id(cfg.get("layout"))):
+        srcs.append(theme_preview.frame_preview_src(
+            theme_id, departing, theme_preview.FRAME_PREVIEW_SIZE_LARGE))
+    srcs.extend(
+        theme_preview.frame_preview_src(
+            theme_id, departing, theme_preview.FRAME_PREVIEW_SIZE_SMALL, layout=layout_id)
+        for layout_id in screen_layouts.LAYOUT_IDS)
+    return srcs
 
 
 def preview_layout(layout_id):

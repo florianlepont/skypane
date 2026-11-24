@@ -309,6 +309,19 @@ def _personal_routes(pages):
     return [route for route in pages if _user_can_open(route)]
 
 
+def space_destinations(active):
+    """The routes the space of page `active` offers, whoever the viewer is:
+    the personal pages (when the scope holds a frame) or the Console pages,
+    then Account. Empty without a signed-in principal."""
+    if prefs.current_principal() is None:
+        return []
+    if current_space(active) == CONSOLE_SPACE:
+        routes = [path.partition("?")[0] for _key, path, _label in console_routes.available_nav_entries()]
+    else:
+        routes = _personal_routes(_PERSONAL_PAGES)
+    return routes + [ACCOUNT_ROUTE]
+
+
 def user_brand_href():
     """Where a user's wordmark leads: the request-scope frame's Home when
     the user can open it, else Account."""

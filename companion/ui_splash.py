@@ -25,11 +25,13 @@ LOGO_CLASS = "splash__logo"
 BAND_COUNT = 4
 
 
-def splash_html():
+def splash_html(preload=()):
     """The hidden overlay: the frame (panel with ink layer, four colour
     bands, the ghosted logo, the sharp logo and the scan line; the outline
     with its track and its progress bar) and the caption. `data-splash-ready`
-    carries the translated word the script writes when the preload ends."""
+    carries the translated word the script writes when the preload ends.
+    `preload` is the list of addresses the script fetches in the background
+    while it plays (`data-splash-preload`, space separated)."""
     bands = "".join(
         '<i class="splash__band splash__band--%d"></i>' % number
         for number in range(1, BAND_COUNT + 1))
@@ -40,7 +42,7 @@ def splash_html():
         '<rect class="splash__bar" x="0" y="0" width="100%%" height="100%%" '
         'rx="%(r)d" pathLength="100" stroke-dasharray="100 100" stroke-dashoffset="100"/></svg>') % {"r": OUTLINE_RADIUS}
     return (
-        '<div class="splash" data-splash data-splash-ready="%s">'
+        '<div class="splash" data-splash data-splash-ready="%s"%s>'
         '<div class="splash__frame"><div class="splash__panel">'
         '<span class="splash__ink"></span>%s%s%s<span class="splash__scan"></span>'
         "</div>%s</div>"
@@ -48,7 +50,8 @@ def splash_html():
         '<span class="splash__percent" aria-hidden="true"></span></p>'
         "</div>"
     ) % (
-        escape_html(i18n.t(SPLASH_READY_TEXT)), bands,
+        escape_html(i18n.t(SPLASH_READY_TEXT)),
+        ' data-splash-preload="%s"' % escape_html(" ".join(preload)) if preload else "", bands,
         icon_html("icon-logo", 30, LOGO_CLASS + " " + LOGO_CLASS + "--ghost"),
         icon_html("icon-logo", 30, LOGO_CLASS + " " + LOGO_CLASS + "--sharp"),
         outline, escape_html(i18n.t(SPLASH_LOADING_TEXT)))
