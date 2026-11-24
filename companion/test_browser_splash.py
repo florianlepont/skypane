@@ -2,7 +2,7 @@
 per session on a first visit, leaves the page inert while it plays and interactive after, is
 skipped on the second visit, without scripts and (as a static logo) under reduced motion, keeps
 its logo small and centred from the first frame, never flashes more than the limit by
-construction, and ends under the hard cap; the Location map shows its loading note until its
+construction, and ends when its preload is in (or at the safety cap); the Location map shows its loading note until its
 pictures are in, in both languages."""
 import pytest
 
@@ -99,14 +99,92 @@ def test_splash_plays_once_keeps_the_page_inert_then_opens_it(new_context, serve
         context.close()
 
 
-def test_splash_ends_under_the_hard_cap(new_context, server):
-    """the whole splash, opening included, ends within the cap"""
+SAFETY_CAP_MS = 10000
+FIXED_SEQUENCE_END_MS = 1800
+THROTTLED_LINK = {
+    "offline": False, "latency": 150, "downloadThroughput": int(1.6e6 / 8),
+    "uploadThroughput": int(0.75e6 / 8)}
+PRELOAD_PROGRESS = "() => window.skypaneSplash.warm"
+
+
+def _throttle(context, page):
+    cdp = context.new_cdp_session(page)
+    cdp.send("Network.enable")
+    cdp.send("Network.emulateNetworkConditions", THROTTLED_LINK)
+    return cdp
+
+
+def _prime_server(new_context, server):
+    """An earlier visit, so the server has already drawn (and kept) the Style pictures the
+    splash preloads: what follows measures the splash, not the first drawing."""
+    context, page = _home(new_context, server, viewport=VIEWPORT_PHONE)
+    try:
+        page.wait_for_function(SPLASH_DONE, timeout=15000)
+        page.wait_for_function(
+            "() => window.skypaneSplash.warm.settled === window.skypaneSplash.warm.queued",
+            timeout=15000)
+    finally:
+        context.close()
+
+
+def test_on_a_fast_link_the_splash_is_its_fixed_sequence_and_the_safety_cap_is_ten_seconds(
+        new_context, server):
+    """with every file near, the splash ends at the end of the fixed sequence, no later"""
+    _prime_server(new_context, server)
     context, page = _home(new_context, server, viewport=VIEWPORT_PHONE)
     try:
         page.wait_for_function(SPLASH_DONE, timeout=6000)
         finished = page.evaluate("() => window.skypaneSplash.finishedAt")
-        cap = page.evaluate("() => window.skypaneSplash.capMs")
-        assert cap <= 3000 and 0 < finished <= cap
+        assert page.evaluate("() => window.skypaneSplash.capMs") == SAFETY_CAP_MS
+        assert FIXED_SEQUENCE_END_MS - 100 <= finished <= FIXED_SEQUENCE_END_MS + 700, finished
+    finally:
+        context.close()
+
+
+def test_on_a_slow_link_the_splash_holds_until_every_preloaded_file_has_arrived(
+        new_context, server):
+    """the splash outlasts the fixed sequence, shows progress below 100% while it waits, and
+    opens when the files of the other destinations are all in, before the safety cap"""
+    context = new_context(splash=True, viewport=VIEWPORT_PHONE)
+    try:
+        page = context.new_page()
+        _login(page, server.base_url())
+        _throttle(context, page)
+        page.goto(server.base_url() + layout.HOME_ROUTE, wait_until="commit")
+        page.wait_for_function(SPLASH_ON, timeout=15000)
+        page.wait_for_timeout(FIXED_SEQUENCE_END_MS + 400)
+        assert page.evaluate(SPLASH_ON) is True
+        percent = page.evaluate(
+            "() => parseInt(document.querySelector('.splash__percent').textContent, 10)")
+        assert percent < 100
+        page.wait_for_function(SPLASH_DONE, timeout=SAFETY_CAP_MS + 4000)
+        finished = page.evaluate("() => window.skypaneSplash.finishedAt")
+        warm = page.evaluate(PRELOAD_PROGRESS)
+        assert warm["queued"] > 20 and warm["settled"] == warm["queued"], warm
+        assert FIXED_SEQUENCE_END_MS + 400 < finished < SAFETY_CAP_MS, finished
+        assert len(page.evaluate("() => window.skypaneSplash.flashLog")) == 1
+    finally:
+        context.close()
+
+
+def test_a_request_that_never_answers_cannot_hold_the_splash_past_the_safety_cap(
+        new_context, server):
+    """one preloaded file never arrives: the page opens at the safety cap and not before"""
+    context = new_context(splash=True, viewport=VIEWPORT_PHONE)
+    try:
+        page = context.new_page()
+        _login(page, server.base_url())
+        held = []
+        page.route("**/static/style-airlines.css*", lambda route: held.append(route))
+        page.goto(server.base_url() + layout.HOME_ROUTE, wait_until="commit")
+        page.wait_for_function(SPLASH_ON, timeout=5000)
+        page.wait_for_timeout(SAFETY_CAP_MS - 2500)
+        assert page.evaluate(SPLASH_ON) is True
+        page.wait_for_function(SPLASH_DONE, timeout=6000)
+        finished = page.evaluate("() => window.skypaneSplash.finishedAt")
+        assert SAFETY_CAP_MS - 300 <= finished <= SAFETY_CAP_MS + 600, finished
+        assert held, "the stalled file was never requested"
+        assert page.evaluate("() => document.querySelectorAll('[inert]').length") == 0
     finally:
         context.close()
 
@@ -181,6 +259,7 @@ def test_the_animated_frame_is_a_small_centred_panel(new_context, server, name, 
 
 @pytest.mark.parametrize("scheme", ["light", "dark"])
 def test_reduced_motion_shows_a_static_logo_with_no_animation(new_context, server, scheme):
+    _prime_server(new_context, server)
     context, page = _home(
         new_context, server, viewport=VIEWPORT_PHONE, reduced_motion="reduce", color_scheme=scheme)
     try:
