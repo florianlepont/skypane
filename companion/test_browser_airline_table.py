@@ -232,9 +232,9 @@ def test_the_chevron_expands_the_aircraft_type_sub_rows(new_context, server, nam
         assert first.locator("a.airlines-thumb").is_visible()
         assert first.locator(".row-menu__toggle").is_visible()
         assert "Uses the default" not in third.inner_text()
-        assert third.locator(".airlines-act").inner_text() == "Add artwork"
-        assert first.locator(".airlines-act").inner_text() == "Change artwork"
-        assert second.locator(".airlines-act").inner_text() == "Change artwork"
+        assert third.locator(".airlines-act:visible").inner_text() == "Add artwork"
+        assert first.locator(".airlines-act:visible").inner_text() == "Change artwork"
+        assert second.locator(".airlines-act:visible").inner_text() == "Change artwork"
         assert "Own artwork" in first.inner_text() and "Own artwork" in second.inner_text()
         assert second.locator("th").inner_text().startswith("B738")
         assert third.locator("th").inner_text().startswith("A333")
@@ -636,6 +636,25 @@ def _audit_actions(state_dir):
         conn.close()
 
 
+def _add_a333_artwork_through_the_dialog(page):
+    """"Add artwork" of the A333 row opens the add-illustration dialog with the type fixed
+    (a chip, no select); the picture is chosen there and Upload sends it."""
+    page.locator(A333_ROW + " .airlines-act:visible").click()
+    dialog = page.locator("#panel-lookup-dialog")
+    dialog.wait_for(state="visible")
+    assert dialog.locator(".lightbox__heading").inner_text() == "Add an illustration"
+    assert dialog.locator(".lightbox__caption").inner_text() == "Transavia France · A333"
+    assert dialog.locator("[data-upload-type-chip]").inner_text() == "A333"
+    assert dialog.locator("#airline_artwork_type").is_hidden()
+    upload = dialog.locator(".lightbox__upload")
+    assert upload.is_disabled()
+    dialog.locator("#manual-illustration-input-dialog").set_input_files(_PNG)
+    page.wait_for_function(
+        "() => !document.querySelector('.lightbox__upload').disabled", timeout=10000)
+    with page.expect_navigation():
+        upload.click()
+
+
 def _expand_transavia(page):
     chevron = TRANSAVIA + " .airlines-expand > summary"
     _settle(page, chevron)
@@ -659,13 +678,12 @@ def test_a_type_row_is_given_a_picture_then_its_artwork_is_deleted(
         assert not os.path.exists(slot)
         # A type with no picture has no menu: it cannot be the default yet.
         assert page.locator(A333_ROW + " .row-menu__toggle").count() == 0
-        with page.expect_navigation():
-            page.locator(A333_ROW + " .airlines-act input[type=file]").set_input_files(_PNG)
+        _add_a333_artwork_through_the_dialog(page)
         page.wait_for_function(_SETTLED, timeout=15000)
         assert os.path.isfile(slot)
         _expand_transavia(page)
         assert "Own artwork" in page.locator(A333_ROW).inner_text()
-        assert page.locator(A333_ROW + " .airlines-act").inner_text() == "Change artwork"
+        assert page.locator(A333_ROW + " .airlines-act:visible").inner_text() == "Change artwork"
         toggle = A333_ROW + " .row-menu__toggle"
         _settle(page, toggle)
         page.locator(toggle).click()
@@ -677,7 +695,7 @@ def test_a_type_row_is_given_a_picture_then_its_artwork_is_deleted(
         assert not os.path.exists(slot)
         _expand_transavia(page)
         assert "Uses the default" not in page.locator(A333_ROW).inner_text()
-        assert page.locator(A333_ROW + " .airlines-act").inner_text() == "Add artwork"
+        assert page.locator(A333_ROW + " .airlines-act:visible").inner_text() == "Add artwork"
         assert "airline.artwork_delete" in _audit_actions(server.state_dir)
     finally:
         context.close()
@@ -691,8 +709,7 @@ def test_the_type_menu_sets_the_default_type_and_deletes_only_an_uploaded_pictur
         _expand_transavia(page)
         items = page.locator(A333_ROW + " .row-menu__panel .row-menu__item")
         assert page.locator(A333_ROW + " .row-menu__toggle").count() == 0
-        with page.expect_navigation():
-            page.locator(A333_ROW + " .airlines-act input[type=file]").set_input_files(_PNG)
+        _add_a333_artwork_through_the_dialog(page)
         page.wait_for_function(_SETTLED, timeout=15000)
         _expand_transavia(page)
         page.locator(A333_ROW + " .row-menu__toggle").click()
@@ -766,7 +783,7 @@ def test_every_type_of_a_fully_identified_airline_is_editable(new_context, serve
         subrows.first.wait_for(state="visible")
         for index in range(subrows.count()):
             row = subrows.nth(index)
-            assert row.locator(".airlines-act").count() == 1
+            assert row.locator(".airlines-act:visible").count() == 1
             assert "Uses the default" not in row.inner_text()
     finally:
         context.close()

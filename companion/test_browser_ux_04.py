@@ -1050,8 +1050,7 @@ def test_dropped_and_picked_files_are_stored_identically(new_context, make_app_s
         page = context.new_page()
         _login(page, base_url)
         _open_artwork_step(page, base_url)
-        submit = "#%s button[type=\"submit\"]" % (
-            airlines_page.MANUAL_UPLOAD_FORM_ID + "-dialog")
+        submit = "#panel-lookup-dialog .lightbox__upload"
 
         def upload_current_selection():
             """Submit, then read the stored bytes and put the fixture back
@@ -1424,14 +1423,20 @@ def test_the_artwork_drop_zone_is_operable_from_the_keyboard_alone(
         _set_ui_theme(page, theme)
 
         input_sel = "#%s" % (airlines_page.MANUAL_UPLOAD_INPUT_ID + "-dialog")
-        submit_sel = "#%s button[type=\"submit\"]" % (
-            airlines_page.MANUAL_UPLOAD_FORM_ID + "-dialog")
+        submit_sel = "#panel-lookup-dialog .lightbox__upload"
+        type_sel = "#panel-lookup-dialog #airline_artwork_type"
 
         # Armed before the very first Tab press, so "zero pointer events"
         # is a measurement of the entire sequence below, not just its tail.
         page.evaluate(_POINTER_RECORDER_ARM)
 
-        _tab_until_focused(page, input_sel, theme, "from the top of the document")
+        # The aircraft type comes first in the dialog: answered by the arrow keys, then the file.
+        _tab_until_focused(page, type_sel, theme, "from the top of the document")
+        page.keyboard.press("ArrowDown")
+        if not page.evaluate("sel => document.querySelector(sel).value", type_sel):
+            raise AssertionError(
+                "theme=%s: ArrowDown did not answer the aircraft type question" % theme)
+        _tab_until_focused(page, input_sel, theme, "after answering the aircraft type")
 
         chooser = _open_file_chooser_with_space(page)
         chooser.set_files(fixtures["art_path"])
@@ -1440,14 +1445,7 @@ def test_the_artwork_drop_zone_is_operable_from_the_keyboard_alone(
             " return !!(i.files && i.files.length); }",
             arg=input_sel, timeout=5000)
 
-        type_sel = "#panel-lookup-dialog #airline_artwork_type"
-        _tab_until_focused(page, type_sel, theme, "after choosing a file")
-        page.keyboard.press("ArrowDown")
-        if not page.evaluate("sel => document.querySelector(sel).value", type_sel):
-            raise AssertionError(
-                "theme=%s: ArrowDown did not answer the aircraft type question" % theme)
-
-        _tab_until_focused(page, submit_sel, theme, "after answering the aircraft type")
+        _tab_until_focused(page, submit_sel, theme, "after choosing a file")
 
         with page.expect_navigation():
             page.keyboard.press("Enter")

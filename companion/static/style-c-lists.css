@@ -186,8 +186,7 @@
   min-width: 0;
 }
 
-.lightbox__replace-zone:not([hidden]),
-.resolve-upload-zone:not([hidden]) {
+.lightbox__replace-zone:not([hidden]) {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -521,16 +520,12 @@ button.row-menu__item:hover {
   overflow: visible;
 }
 
-/* The aircraft-type select of the add-first-artwork step: the full width of
- * the upload zone, its text centred like the zone's own controls. */
+/* The aircraft-type select of the add-first-artwork step, beside its label. */
 .resolve-upload-zone .upload-type:not([hidden]) {
   display: block;
-  width: 100%;
   max-width: 100%;
   box-sizing: border-box;
   min-height: 44px;
-  text-align: center;
-  text-align-last: center;
 }
 
 /* The shared filter controls of Flights and Airlines (one GET form): row 1 is

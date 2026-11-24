@@ -151,7 +151,7 @@ def test_artwork_added_from_the_row_moves_the_airline_to_the_table(new_context, 
         upload.set_input_files(_PNG)
         page.locator("#airline_artwork_type").select_option("A333")
         with page.expect_navigation():
-            page.locator("#manual-illustration-form-dialog button[type=submit]").click()
+            page.locator("#panel-lookup-dialog .lightbox__upload").click()
         page.wait_for_function(_SETTLED, timeout=15000)
         assert "Zephyr Air" not in _known_names(page)
         assert page.locator(KNOWN).count() == before - 1

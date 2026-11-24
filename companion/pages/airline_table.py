@@ -332,15 +332,38 @@ def _sub_art_html(page, sub, row):
     return ""
 
 
-def _sub_action_html(page, sub):
+def _add_art_trigger(page, sub, row):
+    """"Add artwork" of a type with no picture of its own: the button that opens
+    the add-illustration dialog with the aircraft type fixed (its chip), the
+    airline and the type as the subtitle and the upload address already naming
+    the type. Without a script the plain upload form (`_change_art_form`) is
+    the way to add it. A type whose designator cannot be named asks for the
+    type in the dialog instead."""
+    code = sub["code_ok"]
+    label = "%s · %s" % (row["name"], code) if code else row["name"]
+    text = '<span class="airlines-act__text">%s</span>' % escape_html(i18n.t(ACTION_ADD_ART))
+    fixed = '%s="%s" ' % (page.FIXED_TYPE_ATTR, escape_html(code)) if code else (
+        '%s="" ' % page.ASK_TYPE_ATTR)
+    trigger = page._airline_card_zoom_html(
+        label, page._VIEW_PANEL_MODE_NEEDS_ARTWORK, text, "",
+        page._illustration_url(sub["slot"], "POST"), "", "", i18n.t(page.STEP_B_TITLE),
+        _upload_action(page, sub["slot"], code), "", "", "", "", "",
+        aria_label="%s: %s" % (i18n.t(ACTION_ADD_ART), label), css_class="airlines-act",
+        extra_attrs=fixed)
+    return '<span class="js-gate airlines-act-gate">%s</span><span class="airlines-act-nojs">%s</span>' % (
+        trigger, _change_art_form(page, sub["slot"], i18n.t(ACTION_ADD_ART), "airlines-act", code))
+
+
+def _sub_action_html(page, sub, row):
     """The type row's one upload entry: "Add artwork" for a type with no
     picture, "Change artwork" for one that has it; nothing for a type no
     picture slot exists for. The upload names the row's type."""
     if sub["slot"] is None:
         return ""
+    if not sub["has_own"]:
+        return _add_art_trigger(page, sub, row)
     return _change_art_form(
-        page, sub["slot"], i18n.t(MENU_CHANGE_ART if sub["has_own"] else ACTION_ADD_ART),
-        "airlines-act", sub["code_ok"])
+        page, sub["slot"], i18n.t(MENU_CHANGE_ART), "airlines-act", sub["code_ok"])
 
 
 def _sub_menu_html(page, sub, row):
@@ -378,7 +401,7 @@ def _sub_row_html(page, sub, row):
         '<td class="airlines-cell airlines-cell--seen airlines-cell--act">%s</td>'
         '<td class="airlines-cell airlines-cell--menu">%s</td></tr>'
     ) % (escape_html(label), star, _sub_art_html(page, sub, row),
-         escape_html(_views_text(sub["views"])), _sub_action_html(page, sub),
+         escape_html(_views_text(sub["views"])), _sub_action_html(page, sub, row),
          _sub_menu_html(page, sub, row))
 
 

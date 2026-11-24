@@ -108,7 +108,7 @@ def test_both_dialogs_fade_in_and_leave_nothing_behind(new_context, server, rout
                 "%s: expected the dialog to settle at its own scale, got %r"
                 % (route, settled["transform"]))
 
-        page.click("[data-view-panel-close]")
+        page.click("[data-view-panel-close]:visible")
         # Deliberately NO settle wait here: the whole point is that the
         # close is over the instant it happens. A wait would hide
         # exactly the defect this measures.
