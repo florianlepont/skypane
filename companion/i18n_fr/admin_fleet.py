@@ -48,6 +48,9 @@ MESSAGES = {
     "admin_fleet.new_owner": "Nouveau propriétaire",
     "admin_fleet.reassign_frame_title": "Réattribuer «\u00a0%s\u00a0»\u00a0?",
     "admin_fleet.cancel": "Annuler",
+    "admin_fleet.reassign_choose_owner_hint": "Choisissez un propriétaire pour continuer.",
+    "admin_fleet.reassign_co_managers_lose_access":
+        "Les cogestionnaires perdent l’accès à ce cadre.",
     "admin_fleet.reassign_aria": "Réattribuer %s à un autre propriétaire",
     "admin_fleet.this_frame_will_show_a_retired_screen_and_stop_updating":
         "Ce cadre affichera un écran « retiré » et ne se mettra plus à jour. "

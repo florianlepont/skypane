@@ -12,12 +12,12 @@ from companion.test_browser_ux_helpers import (
 
 pytestmark = pytest.mark.browser
 
-SWITCH = "#quick-switch-led-label ~ .settings-switch-row .switch"
-REGION = "#quick-switch-led-label ~ .settings-switch-row"
+SWITCH = ".fleet-tile:has(#quick-switch-led-label) .switch"
+REGION = ".fleet-tile:has(#quick-switch-led-label) .fleet-tile__switch"
 
 # The paint of the region's box and of the switch button, read after the cascade has run.
 _PAINT = """sel => {
-  const el = document.querySelector(sel.region).closest('.theme-status');
+  const el = document.querySelector(sel.region).closest('.fleet-tile');
   const sw = document.querySelector(sel.sw);
   const read = (e) => {
     const cs = getComputedStyle(e);

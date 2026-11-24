@@ -166,6 +166,15 @@ def _cards_block(heading, items_html, extra_class, slug):
         '<div class="fleet-cards">%s</div>' % cards)
 
 
+def _tiles_block(heading_msg, content_html, extra_class, slug):
+    """One labelled block whose content is its own run of tiles (the Settings
+    form), with no glass group around it."""
+    from companion import ui_groups
+    return '<section class="group-block fleet-block%s" id="%s%s" aria-labelledby="%s">%s%s</section>' % (
+        extra_class, fleet_tiles.SECTION_ID_PREFIX, slug, "fleet-block-" + slug,
+        ui_groups.section_label(i18n.t(heading_msg), "fleet-block-" + slug), content_html)
+
+
 def _item(content_html, flush=False):
     """Free content (forms, the battery row, version cards) as one item of a
     block's group; the hairline above it is drawn by the group."""
@@ -219,9 +228,8 @@ def frame_html(ctx, device, view, header_html="", focus=""):
             ctx, scope=config_page.SCOPE_DEVICE, embedded=True)
         blocks = (
             fleet_tiles.tiles_section_html(device.id, tiles, firmware)
-            + _block(
-                _SETTINGS_HEADING, _item(settings_html),
-                " fleet-block--settings", "settings")
+            + _tiles_block(
+                _SETTINGS_HEADING, settings_html, " fleet-block--settings", "settings")
             + _access_block(device, view.access, view))
     return (
         '<div class="fleet-frame">' + header_html + anchors_html()

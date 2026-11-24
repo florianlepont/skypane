@@ -167,8 +167,12 @@ _SORT_TEXTS = (
     (history_query.SORT_DIRECTION, i18n.msg("flights.sort_direction", "Direction")),
 )
 _APPLY_TEXT = i18n.msg("flights.apply_filters", "Apply")
-_MATCHES_TEXT = i18n.msg("flights.matches_many", "%d flights match")
-_MATCH_ONE_TEXT = i18n.msg("flights.matches_one", "1 flight matches")
+_INFO_LABEL = i18n.msg("flights.info_label", "About this list")
+_INFO_DIRECTIONS_TEXT = i18n.msg(
+    "flights.info_directions", "Departures took off from the runway; arrivals landed on it.")
+_INFO_FOLDED_TEXT = i18n.msg(
+    "flights.info_folded", "A plane seen twice in a row is listed once.")
+_OF_TOTAL_TEXT = i18n.msg("flights.count_of_total", "%d of %d flights")
 _NO_MATCH_TEXT = i18n.msg("flights.matches_none", "No flight matches")
 _TOTAL_TEXT = i18n.msg("flights.count_many", "%d flights")
 _TOTAL_ONE_TEXT = i18n.msg("flights.count_one", "1 flight")
@@ -619,27 +623,17 @@ def _flight_cell_html(row):
         CELL_PRIMARY_CLASS, escape_html(airline), sign)
 
 
-def _chips_html(view):
-    """The direction chips: radios of the search form (`kind`), labelled only
-    with the direction. The number of flights stays in the screen-reader line
-    under the controls."""
+def _chips_html(view, result):
+    """The direction chips, each with its number of flights (the search
+    applied): radios of the search form (`kind`) that work without a script."""
     chips = (
-        ("", i18n.t(_CHIP_ALL_TEXT)),
-        ("departing", i18n.t(_CHIP_DEPARTURES_TEXT)),
-        ("arriving", i18n.t(_CHIP_ARRIVALS_TEXT)),
+        ("", i18n.t(_CHIP_ALL_TEXT), result.matched),
+        ("departing", i18n.t(_CHIP_DEPARTURES_TEXT), result.counts["departing"]),
+        ("arriving", i18n.t(_CHIP_ARRIVALS_TEXT), result.counts["arriving"]),
     )
-    parts = []
-    for kind, text in chips:
-        parts.append(
-            '<label class="filter-chip"><input type="radio" class="visually-hidden" '
-            'name="%s" value="%s" form="%s"%s data-flights-auto data-flights-key="kind-%s">'
-            '<span class="filter-chip__box">'
-            '<span class="filter-chip__text">%s</span></span></label>' % (
-                history_query.KIND_PARAM, kind, _FORM_ID,
-                " checked" if kind == view.kind else "", kind or "all",
-                escape_html(text)))
-    return ('<fieldset class="filter-bar__chips" data-tabs="flights"><legend class="visually-hidden">%s</legend>'
-            "%s</fieldset>") % (escape_html(i18n.t(_FILTER_CHIPS_LEGEND)), "".join(parts))
+    return ui_filter.chips_row_html(
+        chips, i18n.t(_FILTER_CHIPS_LEGEND),
+        (history_query.KIND_PARAM, view.kind, 'data-flights-auto data-flights-key="kind-{kind}"'))
 
 
 def _sort_html(view):
@@ -647,39 +641,53 @@ def _sort_html(view):
     script (the Apply button sends it) and with one it reorders in place."""
     return ui_filter.sort_menu_html(
         history_query.SORT_PARAM, _SORT_TEXTS, view.sort, _SORT_LABEL,
-        ' form="%s" data-flights-auto data-flights-key="sort"' % _FORM_ID,
-        ' data-flights-key="sort"')
+        ' data-flights-auto data-flights-key="sort"', ' data-flights-key="sort"')
+
+
+def _info_html():
+    return ui_filter.info_menu_html(
+        _INFO_LABEL, '<p class="text-body">%s</p><p class="text-body">%s</p>' % (
+            escape_html(i18n.t(_INFO_DIRECTIONS_TEXT)), escape_html(i18n.t(_INFO_FOLDED_TEXT))))
 
 
 def _matches_html(view, result):
-    """How many flights the page lists in all (the chosen direction's, when
-    one is chosen): "N flights match" while a search is typed, else just
-    "N flights". Read out by screen readers only: the sighted reader has the
-    chips carry no number, and a visible line here would push the list down
-    whenever a search opens."""
-    many, one, none = (
-        (_MATCHES_TEXT, _MATCH_ONE_TEXT, _NO_MATCH_TEXT) if view.q
-        else (_TOTAL_TEXT, _TOTAL_ONE_TEXT, _TOTAL_NONE_TEXT))
+    """How many flights the page lists, under the controls: "N flights" for
+    the whole history, "N of M flights" once a search or a direction narrows it
+    ("No flight matches" when nothing does)."""
     listed = result.counts[view.kind] if view.kind else result.matched
+    narrowed = bool(view.q or view.kind)
     if listed == 0:
-        text = i18n.t(none)
+        text = i18n.t(_NO_MATCH_TEXT if narrowed else _TOTAL_NONE_TEXT)
+    elif narrowed:
+        text = i18n.t(_OF_TOTAL_TEXT) % (listed, result.total)
     elif listed == 1:
-        text = i18n.t(one)
+        text = i18n.t(_TOTAL_ONE_TEXT)
     else:
-        text = i18n.t(many) % listed
-    return '<p class="visually-hidden" data-filter-count data-flights-view role="status">%s</p>' % (
+        text = i18n.t(_TOTAL_TEXT) % listed
+    return '<p class="filter-count" data-filter-count data-flights-view role="status">%s</p>' % (
         escape_html(text))
 
 
 def _controls_html(view, result):
-    """The direction chips and the sort under the title, plus the Apply
-    button that stands in for their change handler when no script runs."""
-    return (
-        '<div class="filter-bar filter-bar--chips history-controls" data-flights-view>%s%s'
-        '<button type="submit" class="history-controls__apply" form="%s">%s</button>'
-        "</div>%s"
-    ) % (_chips_html(view), _sort_html(view), _FORM_ID,
-         escape_html(i18n.t(_APPLY_TEXT)), _matches_html(view, result))
+    """The shared filter controls under the title: the search, the sort and
+    the info on one row, the direction chips on the next. One GET form the
+    server answers, so Enter, a chip or the Apply button sends all of them."""
+    return ui_filter.controls_html(
+        device_scope.scoped(layout.FLIGHTS_ROUTE),
+        ui_filter.server_search_html(
+            _FILTER_INPUT_ID, i18n.t(_FILTER_LABEL_TEXT), i18n.t(_FILTER_PLACEHOLDER_TEXT),
+            history_query.Q_PARAM, view.q,
+            view_href(history_query.View("", view.kind, view.sort))),
+        _sort_html(view), _info_html(), _chips_html(view, result), i18n.t(_APPLY_TEXT),
+        attrs=' id="%s" data-flights-form' % _FORM_ID,
+        extra_html=ui_filter.list_offline_template_html())
+
+
+def _synced_controls_html(view, result):
+    """The parts of the controls a script replaces after every answer, the
+    sort menu (it names the order) and the chips (they carry the counts),
+    followed by the line that counts the flights."""
+    return _sort_html(view) + _chips_html(view, result) + _matches_html(view, result)
 
 
 def _empty_html(view, result):
@@ -989,15 +997,6 @@ def _load_more_html(shown, view, pages):
     ) % (escape_html(i18n.t(_SHOWN_COUNT_TEXT) % shown), links)
 
 
-def _search_form_html(view):
-    """The title-row search: a GET form the server answers. The direction chips
-    and the sort join it by `form=`, so one Enter sends all three."""
-    return layout.filter_title_search_form_html(
-        _FILTER_INPUT_ID, i18n.t(_FILTER_LABEL_TEXT), i18n.t(_FILTER_PLACEHOLDER_TEXT),
-        _FORM_ID, device_scope.scoped(layout.FLIGHTS_ROUTE), history_query.Q_PARAM, view.q,
-        view_href(history_query.View("", view.kind, view.sort)))
-
-
 def _list_html(formatted_rows, view, result, pages, now, first=0):
     """The cards, the table and the Load more block for the flights shown.
     `formatted_rows` is the list from position `first` on (the whole list
@@ -1081,8 +1080,9 @@ def render_part(ctx, part):
         return _list_html(formatted_rows, view, result, pages, now, first) if (
             len(formatted_rows) > 1) else ""
     if not formatted_rows:
-        return _controls_html(view, result) + _empty_html(view, result)
-    return _controls_html(view, result) + _list_html(formatted_rows, view, result, pages, now)
+        return _synced_controls_html(view, result) + _empty_html(view, result)
+    return _synced_controls_html(view, result) + _list_html(
+        formatted_rows, view, result, pages, now)
 
 
 def render(ctx):
@@ -1096,8 +1096,7 @@ def render(ctx):
     # with no [data-loaded-at], so the silent marker is what keeps it on
     # the loop.
     header = layout.page_header(
-        i18n.t(PAGE_TITLE), freshness_html=layout.refresh_marker_html(now),
-        action_html=_search_form_html(view) if has_history else None)
+        i18n.t(PAGE_TITLE), freshness_html=layout.refresh_marker_html(now))
 
     if not available:
         body = ui_groups.group_panel('<p class="text-body">%s</p>' % escape_html(
@@ -1114,7 +1113,7 @@ def render(ctx):
 
     formatted_rows = [format_event_row(row, now) for row in result.rows]
     _attach_pictures(formatted_rows, ctx.gallery_entries or [], ctx.state_dir)
-    inner = _controls_html(view, result)
+    inner = _controls_html(view, result) + _matches_html(view, result)
     if formatted_rows:
         inner += _list_html(formatted_rows, view, result, pages, now)
     else:

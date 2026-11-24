@@ -45,9 +45,10 @@ offline (no contact).
 
 ## Flights (`pages/history_page.py`, `style-flights.css`)
 
-- Title row with a search field that opens from the title and stays on the title row from 320 to
-  1280px; a Departures / All / Arrivals segmented filter (no counts) and a sort menu. Search, sort
-  and "Load more" run on the server (`?q`, `?kind`, `?sort`); counts stay at the whole history's.
+- Under the title the shared filter controls (`ui_filter.controls_html`): search, sort and an info
+  button on row 1, All / Departures / Arrivals chips with their counts on row 2 (they scroll on a
+  phone), then the count line ("34 of 148 flights"). Search, sort, chips and "Load more" run on
+  the server (`?q`, `?kind`, `?sort`); the chip counts follow the search.
 - Phone: one glass group per Paris calendar day (section label "Today", "Yesterday", "3 Sep"); a
   row is a 56x36 thumbnail (a 44px-tall picture control), the airline over one route line (an
   arrow-over-runway icon for the direction, two airport codes, a chevron), and the time (bold) over
@@ -115,9 +116,11 @@ Read-only, and different by role.
 - **An administrator** on the personal page sees the same per-frame collection; the fleet-wide
   view is the Editor (below).
 - A grid of glass cards (artwork on a neutral plate, name) with a **filled rarity pill** on every
-  card (tinted by `--rarity-tint`, a word as well as a colour), and a control bar: a filter field, a
-  sort icon menu (Most seen, Rarest, Latest, A to Z; Rarest is the default), a legend button behind one info button and the
-  next-badge goal line. Two lines on a phone; the bar sticks while the cards scroll.
+  card (tinted by `--rarity-tint`, a word as well as a colour), and the shared filter controls (the
+  same module and placement as Flights): a filter field, a sort icon menu (Most seen, Rarest,
+  Latest, A to Z; Rarest is the default) and the rarity legend behind the info button on row 1;
+  All / With artwork / No artwork / Seen this month chips with counts on row 2 (script-driven, so
+  hidden without a script), then the count line ("21 of 36 airlines") and the next-badge goal line.
 - Detail sheet: three facts as hairline rows under the picture and the rarity pill, the round
   opaque cross at the top as the only Close (the foot strip is hidden), no inner scroll on a phone
   or desktop; aircraft types load lazily as a fragment. A newly seen airline's card plays an unlock

@@ -211,12 +211,15 @@ def test_a_user_with_two_frames_sees_each_frame_on_its_own_page(world):
     assert "Quux" not in on_a and "Zorro" not in on_b
 
 
-def test_the_user_page_lists_only_seen_airlines_without_progress_or_filter_chips(world):
+def test_the_user_page_lists_only_seen_airlines_without_progress_or_a_not_seen_filter(world):
     _s, body = _get(world, world.user_a, "/devices/%s/airlines" % world.a_id)
     assert len(ITEM_RE.findall(body)) == 2
     for gone in ("collection-card--unseen", "collection-progress__bar", "<progress",
-                 "filter-chip", 'name="show"', "Not yet seen", "spotted"):
+                 'name="show"', "Not yet seen", "spotted"):
         assert gone not in body, gone
+    # The chips only narrow the airlines the frame saw: artwork and recency, never "not seen".
+    assert re.findall(r'class="filter-chip__text">([^<]*)<', body) == [
+        "All", "With artwork", "No artwork", "Seen this month"]
 
 
 def _dir(tmp_path, name, registry):

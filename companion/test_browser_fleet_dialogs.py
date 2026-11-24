@@ -248,6 +248,55 @@ def test_the_reassign_sheet_is_short_with_a_cancel_button(
         context.close()
 
 
+def test_a_long_owner_address_wraps_inside_the_reassign_sheet(
+        new_context, app_server_in_process):
+    """An unbreakable address in the effects list must not widen the sheet
+    (it would scroll sideways and hide the left padding)."""
+    server = app_server_in_process
+    context, page, seed = _open(new_context, server, viewport=_PHONE)
+    try:
+        page.locator(".fleet-block--access li.row", has_text=fx.OWNER_EMAIL).first.locator(
+            "a.row-action").click()
+        dialog = page.locator("#dlg-reassign-%s" % _slug(seed.owned_id))
+        page.wait_for_function("d => d.open", arg=dialog.element_handle(), timeout=10000)
+        dialog.evaluate(
+            "d => { d.querySelector('.modal__effect span').textContent ="
+            " 'owner.with.a.very.long.address.that.never.breaks.anywhere@example.test'; }")
+        fit = dialog.evaluate(_FIT)
+        assert fit["sw"] <= fit["cw"]
+        box = dialog.locator("select").bounding_box()
+        sheet = dialog.bounding_box()
+        assert box["x"] >= sheet["x"] + 8
+        assert box["x"] + box["width"] <= sheet["x"] + sheet["width"] - 8
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("lang", ["en", "fr"])
+def test_the_reassign_confirm_waits_for_an_owner_and_lists_two_effects(
+        lang, new_context, app_server_in_process):
+    server = app_server_in_process
+    context, page, seed = _open(new_context, server, viewport=_PHONE, lang=lang)
+    try:
+        page.locator(".fleet-block--access li.row", has_text=fx.OWNER_EMAIL).first.locator(
+            "a.row-action").click()
+        dialog = page.locator("#dlg-reassign-%s" % _slug(seed.owned_id))
+        page.wait_for_function("d => d.open", arg=dialog.element_handle(), timeout=10000)
+        submit = dialog.locator("button[type=submit]")
+        hint = dialog.locator("[data-gate-hint]")
+        assert submit.is_disabled() and hint.is_visible()
+        assert submit.get_attribute("aria-disabled") == "true"
+        assert dialog.locator(".modal__effects li").count() == 2
+        dialog.locator("select").select_option(index=1)
+        assert submit.is_enabled() and not hint.is_visible()
+        dialog.locator("select").select_option(index=0)
+        assert submit.is_disabled() and hint.is_visible()
+        dialog.locator("a.modal__dismiss").click()
+        assert _device(server, seed.owned_id)["owner_user_id"] == seed.owner_id
+    finally:
+        context.close()
+
+
 def test_reactivate_from_the_retired_frames_page(new_context, app_server_in_process):
     server = app_server_in_process
     context, page, seed = _open(new_context, server)

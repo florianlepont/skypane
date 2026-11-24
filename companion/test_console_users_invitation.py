@@ -257,6 +257,9 @@ def test_a_failure_keeps_the_local_invite_and_offers_to_try_again(rig):
     dialog = _failed_dialog(body)
     assert "%s is invited, but no invitation link was created." % NEW_EMAIL in dialog
     assert "Try again" in dialog
+    # The retry is the primary action, with the refresh glyph before its label.
+    assert re.search(
+        r"autofocus><svg[^>]*>.*?</svg><span>Try again</span>", dialog, re.S)
     retry = re.search(r'<form method="post" action="/users/invite">(.*?)</form>', dialog, re.S)
     assert retry and 'name="csrf_token"' in retry.group(1)
     assert 'name="email" value="%s"' % NEW_EMAIL in retry.group(1)
@@ -278,7 +281,7 @@ def test_a_busy_provider_says_to_try_again_in_a_moment(rig):
     fake.set_knob("mgmt_users_status", 429)
     _status, _headers, body = _invite(server, cookie)
     dialog = _failed_dialog(body)
-    assert "Try again in a moment." in dialog and "Try again</button>" in dialog
+    assert "Try again in a moment." in dialog and "Try again</span></button>" in dialog
     (outcome,) = _audit(server.state_dir, "user.invitation")
     assert "rate_limited" in _detail(outcome) and "rate_limited" not in body
 
@@ -297,7 +300,7 @@ def test_each_refusal_tells_the_administrator_what_to_check(
     fake.set_knob(knob, status)
     _status, _headers, body = _invite(server, cookie)
     dialog = _failed_dialog(body)
-    assert sentence in dialog and "Try again</button>" in dialog
+    assert sentence in dialog and "Try again</span></button>" in dialog
     assert dialog.count('<p class="modal__note">') == 2
     assert code not in body and not re.search(r"\b%d\b" % status, dialog)
     (outcome,) = _audit(server.state_dir, "user.invitation")
@@ -316,7 +319,7 @@ def test_without_the_management_credential_the_invite_stays_local_and_says_so(
     assert status == 200
     dialog = _failed_dialog(body)
     assert "Automatic invitations are not set up on this server." in dialog
-    assert "Try again</button>" not in dialog and "Done" in dialog
+    assert "Try again</span></button>" not in dialog and "Done" in dialog
     assert _sql(server.state_dir, "SELECT COUNT(*) FROM users WHERE email = ?",
                 (NEW_EMAIL,)) == [(1,)]
     (outcome,) = _audit(server.state_dir, "user.invitation")
@@ -335,7 +338,7 @@ def test_a_renewal_without_a_usable_connection_id_fails_closed_with_a_clear_mess
     assert status == 200 and not LINK_RE.search(body)
     dialog = _failed_dialog(body)
     assert "SKYPANE_AUTH0_DB_CONNECTION_ID" in dialog and "deployment guide" in dialog
-    assert "Try again</button>" not in dialog and code not in body
+    assert "Try again</span></button>" not in dialog and code not in body
     rows = _audit(server.state_dir, "user.invitation")
     assert [row["outcome"] for row in rows] == ["ok", "failed"]
     assert code in _detail(rows[-1])
@@ -352,7 +355,7 @@ def test_a_link_that_is_not_on_the_auth0_domain_is_never_shown(rig, ticket):
     _status, _headers, body = _invite(server, cookie)
     dialog = _failed_dialog(body)
     assert "evil.example" not in body and "javascript:" not in body
-    assert ticket not in body and "Try again</button>" in dialog
+    assert ticket not in body and "Try again</span></button>" in dialog
     assert "SKYPANE_AUTH0_CUSTOM_DOMAIN" in dialog
     (outcome,) = _audit(server.state_dir, "user.invitation")
     assert "ticket_url_rejected" in _detail(outcome)

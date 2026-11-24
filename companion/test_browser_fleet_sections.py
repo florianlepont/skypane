@@ -89,7 +89,7 @@ def test_the_sections_are_one_content_wide_column_present_once_and_in_order(
         assert page.locator("a.fleet-sum").count() == 0
         assert page.locator("nav.fleet-tabs").count() == 0
         assert page.locator("nav.fleet-anchors").is_hidden()
-        assert page.locator("#wake-interval-s").is_visible()
+        assert page.locator("#wake-interval-m").is_visible()
     finally:
         context.close()
 
@@ -103,8 +103,8 @@ def test_no_fact_is_shown_twice_in_the_column(new_context, app_server_in_process
         assert MODEL not in text, text
         # The frame's name is the column's title and appears once.
         assert text.count("Orly frame") == 1, text
-        for heading in ("Wake interval", "Diagnostic LED"):
-            assert page.locator(COLUMN).get_by_role("heading", name=heading).count() == 1
+        for label in ("Wake interval", "Diagnostic LED"):
+            assert page.locator(COLUMN + " .fleet-tile__label", has_text=label).count() == 1
         # The owner is named once (the Reassign picker's options are choices, not facts).
         owners = page.locator(COLUMN + " .co-manager__email").all_inner_texts()
         assert owners == [fx.ADMIN_EMAIL], owners
@@ -162,8 +162,8 @@ def test_settings_are_edited_inline_and_saved_through_the_bar(
     server = app_server_in_process
     context, page, _seed = _open(new_context, server)
     try:
-        field = page.locator("#wake-interval-s")
-        field.fill("900")
+        field = page.locator("#wake-interval-m")
+        field.fill("15")
         page.locator(BAR).wait_for(state="visible")
         page.wait_for_function(_SETTLED, timeout=15000)
         # Editing never opens a dialog.
@@ -171,8 +171,8 @@ def test_settings_are_edited_inline_and_saved_through_the_bar(
         page.wait_for_function(_OWNS_CENTRE, arg=BAR + " .dirty-bar__save", timeout=10000)
         page.locator(BAR + " .dirty-bar__save").click()
         page.wait_for_function(
-            "() => { const f = document.querySelector('#wake-interval-s');"
-            " return document.readyState === 'complete' && !!f && f.value === '900'; }",
+            "() => { const f = document.querySelector('#wake-interval-m');"
+            " return document.readyState === 'complete' && !!f && f.value === '15'; }",
             timeout=15000)
         assert device_config.load_device_config(server.state_dir)["wake_interval_s"] == 900
     finally:
@@ -221,7 +221,7 @@ def test_the_sections_work_without_scripts(new_context, app_server_in_process):
     context, page, seed = _open(
         new_context, server, java_script_enabled=False)
     try:
-        assert page.locator("#wake-interval-s").is_visible()
+        assert page.locator("#wake-interval-m").is_visible()
         assert page.locator("details.update-all").count() in (0, 1)
         page.goto(server.base_url() + "/fleet?frame=" + seed.owned_id)
         link = page.locator("a.fleet-retire__link")

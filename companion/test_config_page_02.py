@@ -1325,24 +1325,24 @@ def test_render_exactly_three_dirty_sections_in_order():
 
 
 def test_each_group_emits_exactly_one_caption_between_heading_and_control():
-    """led_group() emits exactly one section-caption <p> element,
-    positioned after the group's own naming element and before its control"""
+    """led_group() emits exactly one caption, positioned after the group's own naming element
+    and before its control"""
     led_rendered = config_page.led_group(True)
     groups = (
         # The control marker is the switch's own class — the LED's
         # control changed, the heading-then-caption-then-control ORDER
         # this row is about did not.
-        ("led_group()", led_rendered, "</h2>", 'class="switch"', 1),
+        ("led_group()", led_rendered, 'class="fleet-tile__label"', 'class="switch"', 0),
     )
     for name, rendered, heading_close_marker, control_marker, expected_p_count in groups:
         assert rendered.count("<p") == expected_p_count, (
             "expected %s to emit exactly %d <p element(s), got %d"
             % (name, expected_p_count, rendered.count("<p")))
-        assert rendered.count("section-caption") == 1, (
-            "expected %s to emit exactly one section-caption occurrence, got %d"
-            % (name, rendered.count("section-caption")))
+        assert rendered.count("fleet-tile__meta") == 1, (
+            "expected %s to emit exactly one caption occurrence, got %d"
+            % (name, rendered.count("fleet-tile__meta")))
         heading_close = rendered.index(heading_close_marker)
-        caption_pos = rendered.index("section-caption")
+        caption_pos = rendered.index("fleet-tile__meta")
         assert heading_close < caption_pos, "expected %s's caption to fall after %s" % (name, heading_close_marker)
         assert control_marker in rendered, "expected %s's control marker %r to be present" % (name, control_marker)
         control_pos = rendered.index(control_marker)

@@ -214,7 +214,9 @@ def test_the_card_and_its_dialog_fit_and_meet_the_tap_targets(
             assert target.bounding_box()["width"] >= MIN_TAP_PX - SUBPIXEL, selector
         if who == "owner" and viewport["width"] == 360:
             long_owner = dialog.locator(".co-manager__email", has_text=LONG_OWNER)
-            assert long_owner.bounding_box()["height"] > 30, "the long address wraps"
+            assert long_owner.get_attribute("title") == LONG_OWNER
+            assert long_owner.evaluate("e => e.scrollWidth > e.clientWidth"), (
+                "the long address is cut with an ellipsis, its title holds the whole")
         if who == "co":
             assert dialog.locator('button[type="submit"]').inner_text() == labels["confirm"]
             assert dialog.locator("a.modal__dismiss").inner_text() == labels["stay"]

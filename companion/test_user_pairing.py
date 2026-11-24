@@ -49,7 +49,7 @@ def _claim(server, cookie, code, **extra):
 
 
 def _card(page):
-    return re.search(r'<form class="pair-form".*?</form>', page, re.S).group(0)
+    return re.search(r'<form class="pair-form[ \"].*?</form>', page, re.S).group(0)
 
 
 def test_a_user_pairs_a_frame_and_becomes_its_owner(rig):
@@ -147,8 +147,8 @@ def test_a_refused_code_is_one_alert_with_the_sentence_and_the_validity_line(rig
     assert alert.find_all("svg")
     text = alert.text()
     assert text.startswith("Code not recognised. Check the code and try again.")
-    assert "The code stays valid for about 35 minutes" in text
-    assert _card(page).count("The code stays valid for about 35 minutes") == 1
+    assert "Valid for 35 minutes" in text
+    assert _card(page).count("Valid for 35 minutes") == 1
     assert 'aria-describedby="%s"' % alert.attrs["id"] in _card(page)
     assert "press its Reset button" not in _card(page)
 
@@ -159,12 +159,12 @@ def test_a_refused_code_reads_in_french(rig):
     alert = parse_html(_card(page)).find(attrs={"role": "alert"})
     text = alert.text()
     assert text.startswith("Code non reconnu. Vérifiez le code et réessayez.")
-    assert "Le code reste valable environ" in text
+    assert "Valable 35" in text and "minutes." in text
 
 
 @pytest.mark.parametrize("lang,sentence", [
-    (None, "If your frame shows no code, press its Reset button."),
-    ("fr", "Si votre cadre n’affiche aucun code, appuyez sur son bouton Reset."),
+    (None, "Press its Reset button."),
+    ("fr", "Appuyez sur son bouton Reset."),
 ])
 def test_the_plain_form_tells_a_frame_without_a_code_to_press_reset(rig, lang, sentence):
     server, _seed, cookie = rig

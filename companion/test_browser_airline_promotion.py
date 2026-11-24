@@ -42,11 +42,11 @@ def test_artwork_uploaded_for_a_known_by_name_airline_gives_it_a_row_of_the_tabl
         page.wait_for_function(_SETTLED, timeout=15000)
         assert ask.bounding_box()["height"] >= 44
         # No type chosen: the browser refuses the submission.
-        page.locator("#manual-illustration-form-dialog button[type=submit]").click()
+        page.locator("#panel-lookup-dialog .lightbox__upload").click()
         assert page.locator(KNOWN + ":has-text('Finnair')").count() == 1
         ask.select_option("A333")
         with page.expect_navigation():
-            page.locator("#manual-illustration-form-dialog button[type=submit]").click()
+            page.locator("#panel-lookup-dialog .lightbox__upload").click()
         page.wait_for_function(_SETTLED, timeout=15000)
         assert page.locator(KNOWN + ":has-text('Finnair')").count() == 0
         row = page.locator("#airline-finnair")

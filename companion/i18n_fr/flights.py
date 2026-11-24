@@ -50,8 +50,11 @@ MESSAGES = {
     "flights.sort_airline": "Compagnie",
     "flights.sort_direction": "Sens",
     "flights.apply_filters": "Appliquer",
-    "flights.matches_many": "%d vols correspondent",
-    "flights.matches_one": "1 vol correspond",
+    "flights.count_of_total": "%d sur %d vols",
+    "flights.info_label": "À propos de cette liste",
+    "flights.info_directions":
+        "Les départs ont décollé de la piste, les arrivées s’y sont posées.",
+    "flights.info_folded": "Un avion vu deux fois de suite n’apparaît qu’une fois.",
     "flights.matches_none": "Aucun vol ne correspond",
     "flights.count_many": "%d vols",
     "flights.count_one": "1 vol",

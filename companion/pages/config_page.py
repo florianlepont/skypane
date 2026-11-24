@@ -180,16 +180,11 @@ from companion.settings.wake_interval import (
     WAKE_GAUGE_SECONDS_PER_MINUTE as WAKE_GAUGE_SECONDS_PER_MINUTE,
     WAKE_INTERVAL_FIELD_NAME as WAKE_INTERVAL_FIELD_NAME,
     WAKE_INTERVAL_INPUT_ID as WAKE_INTERVAL_INPUT_ID,
-    WAKE_INTERVAL_PLACEHOLDER_TEXT as WAKE_INTERVAL_PLACEHOLDER_TEXT,
     WAKE_INTERVAL_SECTION_CAPTION as WAKE_INTERVAL_SECTION_CAPTION,
     WAKE_INTERVAL_SECTION_CAPTION_ID as WAKE_INTERVAL_SECTION_CAPTION_ID,
     WAKE_INTERVAL_SECTION_HEADING as WAKE_INTERVAL_SECTION_HEADING,
     WAKE_INTERVAL_UNIT_LABEL as WAKE_INTERVAL_UNIT_LABEL,
     WAKE_INTERVAL_MINUTES_TEXT as WAKE_INTERVAL_MINUTES_TEXT,
-    WAKE_SLIDER_CLASS as WAKE_SLIDER_CLASS,
-    WAKE_SLIDER_INPUT_CLASS as WAKE_SLIDER_INPUT_CLASS,
-    WAKE_SLIDER_LABEL as WAKE_SLIDER_LABEL,
-    WAKE_SLIDER_STEP_S as WAKE_SLIDER_STEP_S,
     _wake_battery_cutoff_iso as _wake_battery_cutoff_iso,
     _wake_minutes as _wake_minutes,
     wake_battery_observed_text as wake_battery_observed_text,
@@ -200,8 +195,7 @@ from companion.settings.wake_interval import (
     wake_gauge_interval_s as wake_gauge_interval_s,
     wake_gauges_html as wake_gauges_html,
     wake_interval_group as wake_interval_group,
-    wake_screen_off_text as wake_screen_off_text,
-    wake_slider_html as wake_slider_html)
+    wake_screen_off_text as wake_screen_off_text)
 # handle_post()'s own per-group resolvers moved to form_post.py (that
 # module never imports this one back), so its shared error/checkbox
 # constants and the calendar-signal sentinels live there now too;
@@ -438,10 +432,11 @@ def _device_groups_html(builders, groups):
     Each card names its own task, so intermediate headings would only
     repeat information a person needs to scan and act on.
     """
-    return "".join(
-        builders[group]()
+    tiles = "".join(
+        '<li class="fleet-tiles__span">%s</li>' % builders[group]()
         for group in (screens.GROUP_WAKE_INTERVAL, screens.GROUP_LED)
         if group in groups and group in builders)
+    return '<ul class="fleet-tiles fleet-tiles--rows">%s</ul>' % tiles
 
 
 def _render_current_values(ctx):
@@ -529,7 +524,7 @@ def _group_builders(ctx, values, errors, submitted, next_wake_clock):
         screens.GROUP_WAKE_INTERVAL: lambda: wake_interval_group(
             values["wake_interval_s"], errors=errors, submitted=submitted,
             next_wake_clock=next_wake_clock,
-            battery_rows=wake_battery_rows(ctx.state_dir, ctx.now)),
+            default_interval_s=ctx.wake_interval_env_default),
     }
 
 

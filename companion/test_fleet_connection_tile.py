@@ -75,12 +75,12 @@ def test_no_check_in_tile_in_french_has_no_repeat(make_app_server):
 
 def test_a_frame_with_a_check_in_states_the_last_and_the_next_connection(make_app_server):
     tile = _connection_tile(make_app_server, _seed_with_check_in, "en")
-    lines = [line.text().strip() for line in tile.select(".fleet-tile__line")]
+    lines = [line.text().strip() for line in tile.select(".fleet-stat")]
     assert lines[0].startswith(_LAST_CHECK_IN["en"]) and len(lines[0]) > len(_LAST_CHECK_IN["en"])
     assert lines[1].startswith(_NEXT_WAKE["en"]) and len(lines[1]) > len(_NEXT_WAKE["en"])
 
 
 def test_the_connection_lines_are_in_french(make_app_server):
     tile = _connection_tile(make_app_server, _seed_with_check_in, "fr")
-    lines = [line.text().strip() for line in tile.select(".fleet-tile__line")]
+    lines = [line.text().strip() for line in tile.select(".fleet-stat")]
     assert lines[0].startswith(_LAST_CHECK_IN["fr"]) and lines[1].startswith(_NEXT_WAKE["fr"])

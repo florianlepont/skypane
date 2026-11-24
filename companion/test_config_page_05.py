@@ -35,7 +35,7 @@ from companion.layout import escape_html
 from companion.pages import config_page, place_page
 from companion import theme_preview
 from companion.settings import form_post, look, wake_interval
-from companion_app_server import get, http_request, login, served_asset, served_stylesheet, with_csrf
+from companion_app_server import get, http_request, login, served_stylesheet, with_csrf
 from companion_markup import (
     css_rules, declarations_for, flash_toast, flash_toast_title_detail, parse_html)
 from server import device_config, history_db
@@ -54,13 +54,6 @@ def app(module_app_server_factory):
 def served_css(app):
     """The stylesheet companion/app.py actually serves."""
     return served_stylesheet(app)
-
-
-@pytest.fixture(scope="module")
-def value_controls_js(app):
-    """companion/static/value-controls.js's served text, fetched over
-    HTTP instead of opened from disk."""
-    return served_asset(app, "/static/value-controls.js")
 
 
 # ======================================================================
@@ -131,6 +124,10 @@ def _measured_section_captions(rendered):
         if set(classes) - {"text-label", "section-caption"}:
             continue
         out.append((m.start(), m.end(), m.group(2)))
+    # The device tiles' captions are muted spans named by an id ending in "-caption".
+    for m in re.finditer(
+            r'<span class="fleet-tile__meta" id="[^"]*-caption">(.*?)</span>', rendered, re.DOTALL):
+        out.append((m.start(), m.end(), m.group(1)))
     return out
 
 
@@ -837,27 +834,24 @@ def test_style_css_carries_b9_b15_and_b7_geometry_rules(served_css):
 
 # --- the wake-interval field ------------------------------------------
 
-def test_the_wake_interval_field_has_a_label_above_it_and_a_content_sized_input(served_css):
-    """the wake-interval field puts its label on its own line above a content-sized input (8ch
-    with a 96px minimum, no height declared so the 44px touch-target floor is untouched) with
-    the unit as a sibling label"""
+def test_the_wake_interval_field_is_a_labelled_minutes_input_with_its_unit(served_css):
+    """the wake-interval minutes field has its own (visually hidden) label, a unit sibling and
+    a compact fixed width, with no height declared so the 44px touch-target floor is untouched"""
     rendered = config_page.wake_interval_group(300)
-    label = '<label for="%s" class="visually-hidden">%s</label>' % (
+    label = '<label class="visually-hidden" for="%s">%s</label>' % (
         config_page.WAKE_INTERVAL_INPUT_ID, escape_html(i18n.t(wake_interval.WAKE_INTERVAL_INPUT_LABEL)))
-    assert label in rendered, "expected the label to be its own element above the control (B17)"
-    assert "</label><input" in rendered, "expected the input to be the label's SIBLING, not its child (B17)"
+    assert label in rendered, "expected the label to be its own element, sibling of the input"
+    assert "</label><input" in rendered, "expected the input to be the label's SIBLING, not its child"
     unit = (
-        '<span class="text-label field-inline-value" aria-hidden="true">%s</span>'
+        '<span class="fleet-unit" aria-hidden="true">%s</span>'
         % i18n.t(config_page.WAKE_INTERVAL_UNIT_LABEL))
-    assert unit in rendered, "expected the unit as a sibling label, not a placeholder (B17)"
+    assert unit in rendered, "expected the unit as a sibling label, not a placeholder"
     input_tag = rendered[rendered.index('<input type="number"'):]
     input_tag = input_tag[:input_tag.index(">") + 1]
-    assert 'placeholder="%s"' % config_page.WAKE_INTERVAL_PLACEHOLDER_TEXT in input_tag
-    assert "title=" not in input_tag, "the unit must not be carried as a title on the control (B17)"
+    assert "title=" not in input_tag, "the unit must not be carried as a title on the control"
 
-    decls = declarations_for(served_css, '.config-form input[name="wake_interval_s"]')
-    assert decls.get("width") == "11rem", "expected a width that holds the placeholder (B17)"
-    assert decls.get("min-width") == "96px", "expected a pixel minimum (B17)"
+    decls = declarations_for(served_css, ".config-form input.fleet-minutes")
+    assert decls.get("width") == "84px"
     assert "height" not in decls, (
         "expected NO height - the global input/select 44px min-height is the touch-target "
         "register's 'kept' entry for <input type=\"number\">")
@@ -1135,7 +1129,7 @@ def test_wake_interval_caption_is_shortened_in_both_languages():
         finally:
             prefs.set_request_prefs(lang="en")
         m = re.search(
-            r'<p class="text-label section-caption" id="%s">(.*?)</p>'
+            r'<span class="fleet-tile__meta" id="%s">(.*?)</span>'
             % re.escape(config_page.WAKE_INTERVAL_SECTION_CAPTION_ID), rendered)
         assert m, "%s: #%s is missing from wake_interval_group()'s own markup" % (
             lang, config_page.WAKE_INTERVAL_SECTION_CAPTION_ID)
@@ -1200,180 +1194,76 @@ def test_quiet_hours_caption_is_shortened_and_carries_no_delay_sentence():
 
 
 _WAKE_CONTROL_CASES = [
-    ("saved-in-band", 600, None, ' value="600"'),
-    ("stored-below-floor", 30, None, ""),
-    ("stored-above-ceiling", device_config.WAKE_INTERVAL_MAX_S + 1, None, ""),
-    ("never-set", None, None, ""),
-    ("rejected-save-raw-echo", 600, {"wake_interval_s": "7"}, ' value="7"'),
-    ("rejected-save-echoing-usable-value", 600, {"wake_interval_s": "900"}, ' value="900"'),
+    # name, stored seconds, submitted, minutes shown, seconds posted
+    ("saved-in-band", 600, None, "10", "600"),
+    ("saved-not-a-whole-minute", 90, None, "2", "90"),
+    ("stored-below-floor", 30, None, "", ""),
+    ("stored-above-ceiling", device_config.WAKE_INTERVAL_MAX_S + 1, None, "", ""),
+    ("never-set", None, None, "", ""),
+    ("rejected-save-raw-echo", 600, {"wake_interval_min": "99"}, "99", "5940"),
+    ("rejected-save-echoing-usable-value", 600, {"wake_interval_min": "15"}, "15", "900"),
+    ("rejected-save-from-seconds", 600, {"wake_interval_s": "900"}, "15", "900"),
 ]
 
 
 @pytest.mark.parametrize(
-    "name,current,submitted,value_attr", _WAKE_CONTROL_CASES,
+    "name,current,submitted,minutes,seconds", _WAKE_CONTROL_CASES,
     ids=[case[0] for case in _WAKE_CONTROL_CASES])
-def test_the_wake_control_preserves_the_native_input_contract(
-        name, current, submitted, value_attr):
-    """the two gauges are an ADDITION: across five argument shapes (in band, stored below the
-    60s floor, stored above the ceiling, never set, and a rejected save's raw echo) the
-    <input type="number"> is byte-identical to its pre-plan output - same id, name, min, max and
-    placeholder, the value attribute present exactly when the guard admits it and absent
-    otherwise (an out-of-range value blocks submission of the ENTIRE form) - with B17's label
-    still above it, the unit sibling still immediately after it, the error block still attached,
-    and both gauges appended after all of them"""
-    min_s = device_config.WAKE_INTERVAL_MIN_S
-    max_s = device_config.WAKE_INTERVAL_MAX_S
-    expected_head = (
-        '<input type="number" id="%s" name="wake_interval_s" min="%d" max="%d" placeholder="%s"'
-        % (escape_html(config_page.WAKE_INTERVAL_INPUT_ID), min_s, max_s,
-           escape_html(i18n.t(config_page.WAKE_INTERVAL_PLACEHOLDER_TEXT))))
-    markup = config_page.wake_interval_group(current, submitted=submitted, battery_rows=_FALLING)
+def test_the_wake_control_posts_minutes_and_seconds_that_agree(
+        name, current, submitted, minutes, seconds):
+    """across the argument shapes (in band, not a whole minute, stored below the floor or above
+    the ceiling, never set, and a rejected save's echo) the minutes input is bounded to 1..60
+    and filled only for a usable value (an out-of-range value blocks submission of the ENTIRE
+    form), and the hidden seconds field carries what the server will store"""
+    markup = config_page.wake_interval_group(current, submitted=submitted)
     tag = re.search(r'<input type="number"[^>]*>', markup)
-    assert tag, "%s: no <input type=\"number\"> at all" % name
+    assert tag, "%s: no minutes input at all" % name
     element = tag.group(0)
-    assert element.startswith(expected_head), (
-        "%s: the number input is no longer byte-identical to its pre-plan output.\n  expected "
-        "it to start %r\n  got %r" % (name, expected_head, element))
-    if value_attr:
-        assert value_attr in element, "%s: expected %r in %s" % (name, value_attr, element)
-    if not value_attr:
-        assert " value=" not in element, (
-            "%s: the number input carries a value attribute - an out-of-range value fails "
-            "HTML5 constraint validation" % name)
-    label = '<label for="%s" class="visually-hidden">%s</label>' % (
-        escape_html(config_page.WAKE_INTERVAL_INPUT_ID), escape_html(i18n.t(wake_interval.WAKE_INTERVAL_INPUT_LABEL)))
-    unit = ('<span class="text-label field-inline-value" aria-hidden="true">%s</span>'
-            % escape_html(i18n.t(config_page.WAKE_INTERVAL_UNIT_LABEL)))
-    assert label in markup and unit in markup, "%s: the B17 label or the unit sibling changed" % name
-    assert markup.index(label) < markup.index(element), "%s: the label is no longer ABOVE the control (B17)" % name
-    assert markup.index(unit) == markup.index(element) + len(element), (
-        "%s: the unit sibling no longer sits immediately after the input" % name)
-    assert 'class="wake-gauge"' not in markup, (
-        "%s: the Device card still presents battery-duration or arrival-delay copy" % name)
+    assert 'name="wake_interval_min"' in element and 'min="1"' in element and 'max="60"' in element, element
+    shown = re.search(r' value="([^"]*)"', element)
+    assert (shown.group(1) if shown else "") == minutes, (name, element)
+    hidden = re.search(r'<input type="hidden" name="wake_interval_s" value="([^"]*)"', markup)
+    assert hidden and hidden.group(1) == seconds, (name, hidden)
+    assert "wake-slider" not in markup and 'type="range"' not in markup
 
 
-def test_the_gauges_error_block_still_attaches_with_the_gauges_after_it():
-    """the error block still attaches to the field, with the gauges after it - the second half
-    of the six-shape check above, split out because it exercises a distinct fixture (an `errors`
-    dict) rather than a seventh parametrize case"""
+def test_the_error_block_attaches_to_the_minutes_input():
+    """a refused value renders its error once, marks the minutes input invalid and names the error
+    block in aria-describedby"""
     with_error = config_page.wake_interval_group(
         600, errors={"wake_interval_s": form_post.ERROR_WAKE_INTERVAL_RANGE},
-        submitted={"wake_interval_s": "900"}, battery_rows=_FALLING)
-    error_block = re.search(r'<p class="field-error[^"]*" id="wake-interval-s-error"', with_error)
+        submitted={"wake_interval_min": "99"})
+    error_block = re.search(r'<p class="field-error[^"]*" id="wake-interval-m-error"', with_error)
     assert error_block, "the field error block no longer renders"
-    assert 'class="wake-gauge"' not in with_error
-    assert error_block.start() < with_error.index('<input type="range"'), (
-        "the range renders before the error it should follow")
+    element = re.search(r'<input type="number"[^>]*>', with_error).group(0)
+    assert 'aria-invalid="true"' in element and "wake-interval-m-error" in element, element
 
 
-# ------------------------------------------------------------------
-# The gated range, and the seam it shares with the one script.
-# ------------------------------------------------------------------
-
-def test_the_range_is_gated_nameless_and_bounded_by_device_config():
-    """the wake-interval range is NAMELESS (a named one would post a second value for the same
-    setting and the last to arrive would win), carries no role="slider" on top of a native
-    slider, takes its min/max from server.device_config rather than a literal, steps by exactly
-    the minute both gauges speak in, has its own accessible name and describes itself by the two
-    gauges, renders ONLY inside the .js gate and only when there is a saved interval to
-    start from, and nothing on the card is a live region"""
-    markup = config_page.wake_interval_group(600, battery_rows=_FALLING)
-    tag = re.search(r'<input type="range"[^>]*>', markup)
-    assert tag, "no <input type=\"range\"> renders on the card"
-    element = tag.group(0)
-    assert not re.search(r"\bname=", element), (
-        "the range carries a name (%s) - it would post a second value for the same setting" % element)
-    assert "role=" not in element, "the range carries a role (%s)" % element
-    for attr, expected in (("min", device_config.WAKE_INTERVAL_MIN_S),
-                           ("max", device_config.WAKE_INTERVAL_MAX_S),
-                           ("value", 600)):
-        assert ('%s="%d"' % (attr, expected)) in element, "the range's %s is not %d - %s" % (attr, expected, element)
-    # The native range does not snap a typed value (step="any"); the minute
-    # step both gauges speak in is the wrapper's data-value-step.
-    assert 'step="any"' in element
-    assert ('%s="%d"' % (layout.VALUE_CONTROL_STEP_ATTR, config_page.WAKE_SLIDER_STEP_S)) in markup
-    for needed in ('aria-label="%s"' % escape_html(i18n.t(config_page.WAKE_SLIDER_LABEL)),
-                   'aria-describedby="%s"' % config_page.WAKE_INTERVAL_SECTION_CAPTION_ID):
-        assert needed in element, "the range is missing %r - %s" % (needed, element)
-    assert i18n.t(config_page.WAKE_SLIDER_LABEL) != i18n.t(wake_interval.WAKE_INTERVAL_INPUT_LABEL), (
-        "the range and the number input share one accessible name")
-    for tag_match in re.finditer(r"<[a-zA-Z][-\w]*\b[^>]*>", markup):
-        text = tag_match.group(0)
-        if layout.VALUE_CONTROL_ATTR not in text:
-            continue
-        assert layout.JS_GATE_CLASS in text, (
-            "an element carries %s outside the %r gate: %s" % (layout.VALUE_CONTROL_ATTR, layout.JS_GATE_CLASS, text))
-    gate_at = markup.find(layout.JS_GATE_CLASS)
-    gate_end = markup.find("</div>", gate_at)
-    assert gate_at != -1 and gate_at < markup.index(element) < gate_end, (
-        "the range is rendered outside the gated wrapper")
-    assert markup.count('<input type="range"') == 1, "the card renders %d ranges" % markup.count('<input type="range"')
+def test_the_wake_controls_that_need_a_script_sit_inside_the_gate():
+    """the step buttons and the shortcut row only work with a script, so they carry the
+    script gate; the number field, the hidden seconds field, the readout and the hint do not;
+    nothing on the tile is a live region, and the shortcut matching the value is pressed"""
+    markup = config_page.wake_interval_group(900, default_interval_s=900)
+    gate = layout.JS_GATE_CLASS
+    for tag_match in re.finditer(r'<button[^>]*data-minutes-step[^>]*>', markup):
+        assert gate in tag_match.group(0), tag_match.group(0)
+    shortcuts = re.search(r'<span class="[^"]*fleet-presets[^"]*"[^>]*>', markup).group(0)
+    assert gate in shortcuts
+    assert 'data-minutes-preset="15" aria-pressed="true"' in markup
+    assert 'data-minutes-preset="5" aria-pressed="false"' in markup
+    assert re.search(r'<input type="number"[^>]*>', markup).group(0).count(gate) == 0
     for banned in ("aria-live", 'role="status"'):
-        assert banned not in markup, "the wake-interval card carries %r" % banned
-    empty = config_page.wake_interval_group(None, battery_rows=_FALLING)
-    assert "<input type=\"range\"" not in empty and layout.VALUE_CONTROL_ATTR not in empty, (
-        "a range renders with no saved interval")
+        assert banned not in markup, "the wake-interval tile carries %r" % banned
+    assert "Default: 15 min." in markup
 
 
-def test_the_readout_seam_this_card_declares_is_the_one_the_script_reads(value_controls_js):
-    """the readout seam is pinned from BOTH sides: every attribute this card emits is named in
-    companion/static/value-controls.js and vice versa, every readout describes the field the
-    form actually posts, the script takes the same CEILING the server does (a floor would print
-    a bound that is false), all three gesture listeners stand aside for a wrapper holding a
-    native mirror (without which preventDefault cancels the thumb drag), the relative clause's
-    base is the saved interval so it renders EMPTY until something else is proposed, and no
-    readout template contains the days wording at all
-
-    Fetched over HTTP (served_asset()), never opened from disk; comments stripped with
-    `strip_js_line_and_block_comments()` (preserves string/template literals, unlike
-    `companion_markup.strip_js_comments_and_strings()`, which the quoted-literal searches below
-    depend on).
-    """
-    markup = config_page.wake_interval_group(600, battery_rows=_FALLING)
-    script = cp.strip_js_line_and_block_comments(value_controls_js)
-    assert layout.VALUE_CONTROL_INPUT_ATTR in markup
-    # The card's one readout is the minutes beside the seconds value: no
-    # battery or arrival sentence, so no base and no days wording.
-    assert markup.count(layout.VALUE_CONTROL_READOUT_ATTR + "=") == 1
-    assert 'data-value-readout-text="%s"' % html.escape(
-        i18n.t(config_page.WAKE_INTERVAL_MINUTES_TEXT)) in markup
-    assert layout.VALUE_CONTROL_READOUT_BASE_ATTR not in markup
-    assert ('"%s"' % layout.VALUE_CONTROL_INPUT_ATTR) in script
-    return
-    for attr in (layout.VALUE_CONTROL_INPUT_ATTR, layout.VALUE_CONTROL_READOUT_ATTR,
-                 layout.VALUE_CONTROL_READOUT_TEXT_ATTR, layout.VALUE_CONTROL_READOUT_SCALE_ATTR,
-                 layout.VALUE_CONTROL_READOUT_BASE_ATTR):
-        assert attr in markup, "the card emits no %r" % attr
-        assert ('"%s"' % attr) in script, (
-            "value-controls.js never names %r - the markup's own attribute would be read by "
-            "nothing" % attr)
-    for match in re.finditer(r'%s="([^"]*)"' % re.escape(layout.VALUE_CONTROL_READOUT_ATTR), markup):
-        assert match.group(1) == config_page.WAKE_INTERVAL_FIELD_NAME, (
-            "a readout describes %r, which is not the field this form posts (%r)"
-            % (match.group(1), config_page.WAKE_INTERVAL_FIELD_NAME))
-    assert "Math.ceil(value / scale)" in script, (
-        "value-controls.js does not take the CEILING of value/scale - the server does")
-    assert "function steeredHere(wrapper)" in script, (
-        "value-controls.js has no mirror guard")
-    for listener in ("keydown", "pointerdown", "pointermove"):
-        block = script[script.index('document.addEventListener("%s"' % listener):]
-        block = block[:block.index("});")]
-        assert "steeredHere(wrapper)" in block, (
-            "value-controls.js's %s listener does not stand aside for a wrapper with a mirror" % listener)
-    base = re.search(r'%s="(\d+)"' % re.escape(layout.VALUE_CONTROL_READOUT_BASE_ATTR), markup)
-    assert base and int(base.group(1)) == 600, (
-        "the relative readout's base is not the saved interval")
-    span = re.search(
-        r'<span %s="[^"]*"[^>]*></span>' % re.escape(layout.VALUE_CONTROL_READOUT_ATTR), markup)
-    assert span, "the relative clause is not EMPTY at the saved value"
-    days_words = [i18n.t(config_page.WAKE_BATTERY_DAYS_TEXT), i18n.t(config_page.WAKE_BATTERY_DAY_TEXT)]
-    for match in re.finditer(
-            r'%s="([^"]*)"' % re.escape(layout.VALUE_CONTROL_READOUT_TEXT_ATTR), markup):
-        template = html.unescape(match.group(1))
-        for wording in days_words:
-            stem = wording.split(layout.VALUE_CONTROL_TEXT_TOKEN)[-1].strip()
-            assert not (stem and stem in template), (
-                "a readout template carries the days wording (%r)" % template)
+def test_the_default_tag_shows_only_on_the_default_interval():
+    """the Default tag is visible when the interval equals the server default and hidden
+    otherwise"""
+    on = config_page.wake_interval_group(900, default_interval_s=900)
+    off = config_page.wake_interval_group(600, default_interval_s=900)
+    assert 'fleet-default" data-minutes-tag' in on and 'fleet-default" hidden' not in on
+    assert 'fleet-default" hidden' in off
 
 
 # The two closing structural proofs over the whole rendered Display page.

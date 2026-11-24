@@ -488,15 +488,16 @@ def test_a_rejected_value_claims_nothing_the_field_echoes_it_and_disk_is_untouch
         page.goto(base_url + "/fleet")
 
         before = str(device_config.load_device_config(server.tmpdir)["wake_interval_s"])
-        # Below server/device_config.py's own WAKE_INTERVAL_MIN_S (60): a genuine server-side
-        # rejection, exercising the 200-is-not-a-redirect branch, never a client-side shortcut.
-        rejected = "30"
+        # Above the 60 minutes of server/device_config.py's WAKE_INTERVAL_MAX_S: a genuine
+        # server-side rejection, exercising the 200-is-not-a-redirect branch. The value is set
+        # without a change event (the field itself brings a typed value back into range once
+        # it is left), so it reaches the server as a crafted post would.
+        rejected = "99"
 
-        wake_sel = 'input[name="wake_interval_s"]'
-        page.eval_on_selector(wake_sel, "el => el.focus()")
-        page.keyboard.press("ControlOrMeta+A")
-        page.keyboard.type(rejected)
-        page.keyboard.press("Tab")
+        wake_sel = 'input[name="wake_interval_min"]'
+        page.eval_on_selector(
+            wake_sel, "el => { el.value = '99';"
+            " el.dispatchEvent(new Event('input', { bubbles: true })); }")
         _wait_for_bar(page)
         # noValidate disables only the browser's own pre-flight check for this one native
         # submit; the request that follows is still a real native POST, so the server's own
@@ -507,14 +508,14 @@ def test_a_rejected_value_claims_nothing_the_field_echoes_it_and_disk_is_untouch
 
         # 1. THE INLINE ERROR IS PRESENT AND NAMES THE FIELD.
         described_by = page.get_attribute(wake_sel, "aria-describedby") or ""
-        if "wake-interval-s-error" not in described_by:
+        if "wake-interval-m-error" not in described_by:
             raise AssertionError(
                 "expected %r's own aria-describedby to name its error anchor "
-                "(wake-interval-s-error), got %r" % (wake_sel, described_by))
-        error_el = page.locator("#wake-interval-s-error")
+                "(wake-interval-m-error), got %r" % (wake_sel, described_by))
+        error_el = page.locator("#wake-interval-m-error")
         if not error_el.count() or not (error_el.inner_text() or "").strip():
             raise AssertionError(
-                "expected a non-empty inline error at #wake-interval-s-error")
+                "expected a non-empty inline error at #wake-interval-m-error")
 
         # 2. THE USER'S REJECTED INPUT IS ECHOED BACK.
         echoed = page.input_value(wake_sel)
@@ -698,8 +699,9 @@ def _settings_card_title_probe(page):
 
 
 def test_a_settings_card_title_renders_identically_on_both_settings_pages(new_context, server):
-    """The real proof, not a grep: one probe renders both settings pages (Display and
-    Device) in one session, addresses every settings-card title by structural position
+    """The real proof, not a grep: one probe renders the Display settings pages (and the
+    Device tiles, which carry the State tiles' own label language instead of card titles)
+    in one session, addresses every settings-card title by structural position
     rather than by class name, reads its getComputedStyle font-size/font-weight/font-family,
     and asserts the combined set across both pages has cardinality 1. Fails naming the empty
     side if either page contributes zero titles; every Device title must be one of the two
@@ -721,6 +723,7 @@ def test_a_settings_card_title_renders_identically_on_both_settings_pages(new_co
         entries = []
         nested_titles = []
         by_page = {"/display": [], "/device": []}
+        tile_labels = []
         for theme in UI_THEMES_EXPLICIT:
             # Personalisation's cards are on its Special looks and Calendar views.
             for route in ("/display/special-looks", "/display/calendar", "/device"):
@@ -728,6 +731,10 @@ def test_a_settings_card_title_renders_identically_on_both_settings_pages(new_co
                     "/fleet?frame=live&tab=settings" if route == "/device" else route))
                 _set_ui_theme(page, theme)
                 key = "/device" if route == "/device" else "/display"
+                if key == "/device":
+                    tile_labels.append(page.locator(
+                        ".fleet-block--settings .fleet-tile__label").all_inner_texts())
+                    continue
                 for title in _settings_card_title_probe(page):
                     if title["underSectionHeading"]:
                         nested_titles.append(title["text"])
@@ -740,26 +747,19 @@ def test_a_settings_card_title_renders_identically_on_both_settings_pages(new_co
                     entries.append(entry)
                     by_page[key].append(entry)
 
-        # Clause (a): both pages have settings-card titles to compare.
-        for route, side in by_page.items():
-            if not side:
-                raise AssertionError(
-                    "expected at least one settings-card title on %s, got NONE - a "
-                    "comparator with an empty side would pass vacuously" % route)
-
-        # Device must contribute exactly the two NAMED cards.
-        allowed_device_texts = {
-            config_page.LED_SECTION_HEADING,
-            config_page.WAKE_INTERVAL_SECTION_HEADING}
-        device_texts = {e["text"] for e in by_page["/device"]}
-        unexpected = device_texts - allowed_device_texts
-        if unexpected:
+        # Clause (a): Display has settings-card titles to compare; the Device settings are
+        # two tiles named like the State tiles, with no card title of their own.
+        if not by_page["/display"]:
             raise AssertionError(
-                "expected every Device settings-card title to be one of %r, found "
-                "unexpected title(s) %r - a probe addressing titles by class name rather "
-                "than structural position would pick up supersection intro headings too, "
-                "which is exactly the 27-06-shaped mistake this check exists to avoid"
-                % (sorted(allowed_device_texts), sorted(unexpected)))
+                "expected at least one settings-card title on /display, got NONE - a "
+                "comparator with an empty side would pass vacuously")
+        allowed_device_texts = [
+            config_page.WAKE_INTERVAL_SECTION_HEADING, config_page.LED_SECTION_HEADING]
+        for labels in tile_labels:
+            if labels != allowed_device_texts:
+                raise AssertionError(
+                    "expected the Device settings to be the tiles %r, got %r"
+                    % (allowed_device_texts, labels))
         # Display contributes exactly the two Personalisation cards, in the same voice (the
         # look views are the picker itself and have no card title).
         display_texts = {e["text"] for e in by_page["/display"]}
@@ -1050,8 +1050,7 @@ def test_dropped_and_picked_files_are_stored_identically(new_context, make_app_s
         page = context.new_page()
         _login(page, base_url)
         _open_artwork_step(page, base_url)
-        submit = "#%s button[type=\"submit\"]" % (
-            airlines_page.MANUAL_UPLOAD_FORM_ID + "-dialog")
+        submit = "#panel-lookup-dialog .lightbox__upload"
 
         def upload_current_selection():
             """Submit, then read the stored bytes and put the fixture back
@@ -1424,14 +1423,20 @@ def test_the_artwork_drop_zone_is_operable_from_the_keyboard_alone(
         _set_ui_theme(page, theme)
 
         input_sel = "#%s" % (airlines_page.MANUAL_UPLOAD_INPUT_ID + "-dialog")
-        submit_sel = "#%s button[type=\"submit\"]" % (
-            airlines_page.MANUAL_UPLOAD_FORM_ID + "-dialog")
+        submit_sel = "#panel-lookup-dialog .lightbox__upload"
+        type_sel = "#panel-lookup-dialog #airline_artwork_type"
 
         # Armed before the very first Tab press, so "zero pointer events"
         # is a measurement of the entire sequence below, not just its tail.
         page.evaluate(_POINTER_RECORDER_ARM)
 
-        _tab_until_focused(page, input_sel, theme, "from the top of the document")
+        # The aircraft type comes first in the dialog: answered by the arrow keys, then the file.
+        _tab_until_focused(page, type_sel, theme, "from the top of the document")
+        page.keyboard.press("ArrowDown")
+        if not page.evaluate("sel => document.querySelector(sel).value", type_sel):
+            raise AssertionError(
+                "theme=%s: ArrowDown did not answer the aircraft type question" % theme)
+        _tab_until_focused(page, input_sel, theme, "after answering the aircraft type")
 
         chooser = _open_file_chooser_with_space(page)
         chooser.set_files(fixtures["art_path"])
@@ -1440,14 +1445,7 @@ def test_the_artwork_drop_zone_is_operable_from_the_keyboard_alone(
             " return !!(i.files && i.files.length); }",
             arg=input_sel, timeout=5000)
 
-        type_sel = "#panel-lookup-dialog #airline_artwork_type"
-        _tab_until_focused(page, type_sel, theme, "after choosing a file")
-        page.keyboard.press("ArrowDown")
-        if not page.evaluate("sel => document.querySelector(sel).value", type_sel):
-            raise AssertionError(
-                "theme=%s: ArrowDown did not answer the aircraft type question" % theme)
-
-        _tab_until_focused(page, submit_sel, theme, "after answering the aircraft type")
+        _tab_until_focused(page, submit_sel, theme, "after choosing a file")
 
         with page.expect_navigation():
             page.keyboard.press("Enter")

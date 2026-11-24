@@ -219,9 +219,11 @@ def _chip_labels(doc):
     return [chip.text().strip() for chip in doc.select(".filter-chip")]
 
 
-def _assert_chips_carry_no_number(doc):
-    assert _chip_labels(doc) == ["All", "Departures", "Arrivals"]
-    assert not doc.select(".filter-chip__count")
+def _assert_chip_counts(doc, expected):
+    """the chips are the direction labels, each followed by its number of flights"""
+    assert _chip_labels(doc) == ["All%d" % expected[0], "Departures%d" % expected[1],
+                                 "Arrivals%d" % expected[2]]
+    assert len(doc.select(".filter-chip__count")) == 3
 
 
 def _listed(doc):
@@ -247,15 +249,15 @@ def test_a_repeated_pass_inside_a_minute_is_one_flight(
 
 
 def test_status_count_and_day_headers_follow_the_folded_list(make_app_server):
-    """the status count and the day headers count flights, not stored events: a pass stored
-    twice adds nothing to either, and the chips stay plain direction labels"""
+    """the status count, the chip counts and the day headers count flights, not stored events: a
+    pass stored twice adds nothing to any of them"""
     doc = _doc_for(make_app_server, [
         _event("2026-09-03T20:55:00+00:00"),
         _event("2026-09-03T20:54:30+00:00", corroborated=None),
         _event("2026-09-03T20:40:00+00:00", callsign="AFR6152", state="arriving", hex_="3c0002"),
         _event("2026-09-02T09:00:00+00:00", callsign="SMR42", hex_="4b0003"),
         _event("2026-09-02T08:59:40+00:00", callsign="SMR42", hex_="4b0003", corroborated=None)])
-    _assert_chips_carry_no_number(doc)
+    _assert_chip_counts(doc, (3, 2, 1))
     assert len(doc.select(".history-cards li.history-card")) == 3
     assert len(doc.select(".history-cards h2.section-label")) == 2
     assert len(doc.select("tr.flight-day-row")) == 2
@@ -291,7 +293,7 @@ def test_all_fifty_flights_are_in_the_first_response_with_no_paging_step(make_ap
     assert not doc.select(".flights-more")
     assert "show more" not in doc.text().lower()
     assert not [a for a in doc.select("a") if "limit=" in a.attrs.get("href", "")]
-    _assert_chips_carry_no_number(doc)
+    _assert_chip_counts(doc, (50, 40, 10))
     assert doc.select_one("[data-filter-count]").text() == "50 flights"
 
 

@@ -46,9 +46,9 @@ def _page(server, cookie, path, lang="en"):
 
 def _tiles(page):
     """(label, value, meta, href, state) of every tile of the State section."""
-    section = re.search(r'<ul class="fleet-tiles">.*?</ul>', page, re.S).group(0)
+    section = re.search(r'<ul class="fleet-tiles[^"]*">.*?</ul>', page, re.S).group(0)
     found = []
-    for tile in re.findall(r'<(?:a|div) class="fleet-tile".*?</(?:a|div)>', section, re.S):
+    for tile in re.findall(r'<(?:a|div) class="fleet-tile(?: [^"]*)?".*?</(?:a|div)>', section, re.S):
         def part(name):
             m = re.search(r'<span class="fleet-tile__%s">(.*?)</span>(?=<)' % name, tile, re.S)
             return html.unescape(re.sub(r"<[^>]+>", "", m.group(1))).strip() if m else ""

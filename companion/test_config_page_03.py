@@ -224,17 +224,18 @@ def test_render_no_new_args_byte_identical_and_no_field_error_markup():
 
 def test_render_wake_interval_error_shows_message_value_and_aria():
     """render(ctx, errors={"wake_interval_s": ERROR_WAKE_INTERVAL_RANGE}, submitted={"wake_interval_s": "7"})
-    renders the message once, echoes value="7" back into the input, and sets aria-invalid plus a
-    matching aria-describedby"""
+    renders the message once, echoes the typed minutes back into the input, and sets aria-invalid
+    plus a matching aria-describedby"""
     error_message = form_post.ERROR_WAKE_INTERVAL_RANGE
     rendered = config_page.render(
         _TASK2_BASE_CTX, errors={"wake_interval_s": error_message},
-        submitted={"wake_interval_s": "7"})
+        submitted={"wake_interval_min": "99", "wake_interval_s": "300"})
     assert rendered.count(error_message) == 1, (
         "expected the error message to render exactly once, got %d" % rendered.count(error_message))
-    assert 'value="7"' in rendered, "expected the submitted value 7 to be echoed back into the input"
+    assert ' value="99"' in rendered, "expected the submitted value 99 to be echoed back into the input"
     input_match = re.search(
-        r'<input type="number" id="[^"]*" name="wake_interval_s"[^>]*>', rendered)
+        r'<input type="number" id="[^"]*" class="fleet-minutes" name="wake_interval_min"[^>]*>',
+        rendered)
     assert input_match, "expected the wake_interval_s input to still be present"
     assert 'aria-invalid="true"' in input_match.group(0), "expected aria-invalid=\"true\" on the errored input"
     describedby_match = re.search(r'aria-describedby="([^"]+)"', input_match.group(0))

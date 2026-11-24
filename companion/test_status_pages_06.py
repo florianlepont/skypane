@@ -239,8 +239,7 @@ def test_replace_control_retired_from_every_surface(css_text, tmp_path):
 def test_replace_zone_icon_comes_from_the_shared_sprite(tmp_path):
     """the framed zone's upload glyph comes from layout.ICON_DEFS_HTML via
     layout.icon_html() - 'icon-upload' is a member of ICON_IDS, the rendered
-    page carries exactly two matching <use> references (the framed zone's
-    own and the dialog's own resolve-upload form's copy), and
+    page carries exactly one matching <use> reference (the replace zone's), and
     REPLACE_ICON_CLASS appears in the rendered icon's class attribute.
 
     Dropped in place (rubric S): the legacy check also opened `companion/
@@ -253,11 +252,10 @@ def test_replace_zone_icon_comes_from_the_shared_sprite(tmp_path):
     assert "icon-upload" in layout.ICON_IDS
     tmp = str(tmp_path)
     rendered = airlines_page.render(shp.ctx(tmp))
-    # The shared dialog now also renders its own resolve-upload form's
-    # file input, reusing the identical icon-upload glyph, so two
-    # occurrences are expected, not one.
+    # The replace zone is the only place the glyph shows now: the add-illustration form is
+    # one drop zone without it.
     use_tag = "<use href=" + '"#icon-upload"'
-    assert rendered.count(use_tag) == 2
+    assert rendered.count(use_tag) == 1
     icon_svg_match = re.search(
         r'<svg[^>]*class="[^"]*%s[^"]*"[^>]*>' % re.escape(airlines_page.REPLACE_ICON_CLASS), rendered)
     assert icon_svg_match
@@ -312,43 +310,45 @@ def test_replace_zone_markup_and_styling_contract(css_text, tmp_path):
 # FORMS THAT DID NOT CHANGE.
 # =============================================================================
 
-def test_upload_forms_native_controls_are_unchanged_by_the_drop_zone():
-    """all three upload-form renderings (the no-JS fallback's, the dialog's
-    copy, and the lightbox replace form) keep their <input type="file" ...
-    accept="image/png" required>, their single shared submit button,
-    their hint paragraph, their method/enctype/action and exactly one
-    <form> byte-identical to their pre-25-07 output - each now also
-    carrying its own id and, as the form's LAST child after the submit
-    button, a drop zone naming the very input it writes into (D19,
-     Task 1)"""
+def test_upload_forms_keep_their_native_controls_and_carry_a_drop_zone():
+    """all three upload-form renderings (the no-JS fallback's, the dialog's copy, and the
+    lightbox replace form) keep their <input type="file" ... accept="image/png" required>,
+    their method/enctype/action and exactly one <form>, each carrying its own id and a drop
+    zone naming the very input it writes into; the two add-illustration forms also carry the
+    compact list of constraints and one submit button only in the no-JS fallback (the dialog's
+    Upload sits in its action row, re-attached by form=), the replace form its hint and its
+    one submit button"""
     renderings = (
         ("the no-JS fallback upload form",
          airlines_page._resolve_upload_form_html("/illustration/demo.png", ""),
          airlines_page.MANUAL_UPLOAD_INPUT_ID,
          airlines_page.MANUAL_UPLOAD_FORM_ID,
-         'action="/illustration/demo.png"'),
+         'action="/illustration/demo.png"', 1),
         ("the dialog's copy of the upload form",
          airlines_page._resolve_upload_form_html("", "-dialog"),
          airlines_page.MANUAL_UPLOAD_INPUT_ID + "-dialog",
          airlines_page.MANUAL_UPLOAD_FORM_ID + "-dialog",
-         'action=""'),
+         'action=""', 0),
         ("the lightbox replace form",
          airlines_page._lightbox_replace_form_html(),
          airlines_page.REPLACE_INPUT_ID,
          airlines_page.REPLACE_FORM_ID,
-         'action=""'),
+         'action=""', 1),
     )
     hint_html = '<p class="%s">%s</p>' % (
         airlines_page.REPLACE_HINT_CLASS,
         airlines_page.i18n.t(airlines_page.REPLACE_HINT_TEXT))
-    for label, markup, input_id, form_id, action_attr in renderings:
+    for label, markup, input_id, form_id, action_attr, buttons in renderings:
         expected_input = (
             '<input type="file" id="%s" name="image" accept="image/png" required>' % input_id)
         assert markup.count(expected_input) == 1, label
-        assert markup.count('<button type="submit" class="btn btn--secondary">') == 1, label
-        assert markup.count("<button") == 1, label
-        assert markup.count(hint_html) == 1, label
+        assert markup.count("<button") == buttons, label
         assert markup.count("<form") == 1, label
+        if "replace" in label:
+            assert markup.count(hint_html) == 1, label
+        else:
+            assert markup.count('<ul class="upload-constraints">') == 1, label
+            assert markup.count("<li>") == len(airlines_page.UPLOAD_CONSTRAINTS), label
         form_tag = re.search(r"<form\b[^>]*>", markup)
         assert form_tag, label
         for required in ('method="post"', 'enctype="multipart/form-data"', action_attr,
@@ -356,8 +356,8 @@ def test_upload_forms_native_controls_are_unchanged_by_the_drop_zone():
             assert required in form_tag.group(0), "%s: expected %r in %r" % (label, required, form_tag.group(0))
         drop_at = markup.find(airlines_page.UPLOAD_DROP_ATTR)
         assert drop_at != -1, "%s: renders no drop zone at all" % (label,)
-        assert drop_at > markup.index('<button type="submit" class="btn btn--secondary">'), (
-            "%s: the drop zone renders BEFORE the submit button" % (label,))
+        assert drop_at > markup.index(expected_input), (
+            "%s: the drop zone renders BEFORE its file input" % (label,))
         expected_hook = '%s="%s"' % (airlines_page.UPLOAD_DROP_INPUT_ATTR, input_id)
         assert expected_hook in markup, label
 

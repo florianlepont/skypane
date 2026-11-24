@@ -1288,6 +1288,10 @@ def _measured_section_captions(rendered):
         if set(classes) - {"text-label", "section-caption"}:
             continue
         out.append((m.start(), m.end(), m.group(2)))
+    # The device tiles' captions are muted spans named by an id ending in "-caption".
+    for m in re.finditer(
+            r'<span class="fleet-tile__meta" id="[^"]*-caption">(.*?)</span>', rendered, re.DOTALL):
+        out.append((m.start(), m.end(), m.group(1)))
     return out
 
 

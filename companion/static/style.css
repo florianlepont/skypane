@@ -3270,112 +3270,11 @@ table.data-table--flights .cell-inline-sep {
   color: var(--seg-selected-fg);
 }
 
-/* The search lives in the page header's title row (.filter-bar--title).
- * Without a script it is a plain field beside the title. With one, a phone
- * shows a 44px magnifier at the row's right edge that opens over the whole
- * row, in place: the title keeps its box under the field, so nothing below
- * moves. From 960px the field is always open at the right. */
-.page-header:has(> .filter-bar--title) {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-xs) var(--space-md);
-  min-height: 44px;
-}
-
-.page-header:has(> .filter-bar--title) > .page-title {
-  margin: 0;
-}
-
-.filter-bar--title {
-  flex: 1 1 280px;
-  margin: 0 0 0 auto;
-  max-width: 560px;
-}
-
-:is(.js, .js-early) .filter-bar--title {
-  position: absolute;
-  top: 0;
-  right: 0;
-  z-index: 2;
-  width: 44px;
-  max-width: none;
-  margin: 0;
-}
-
-:is(.js, .js-early) .filter-bar--title .filter-bar__search input {
-  padding: 0;
-  cursor: pointer;
-}
-
-:is(.js, .js-early) .filter-bar--title .filter-bar__search input::placeholder {
-  color: transparent;
-}
-
-:is(.js, .js-early) .filter-bar--title:focus-within,
-:is(.js, .js-early) .filter-bar--title[data-filter-active] {
-  width: 100%;
-}
-
-:is(.js, .js-early) .filter-bar--title:focus-within input,
-:is(.js, .js-early) .filter-bar--title[data-filter-active] input {
-  padding: 0 52px 0 46px;
-  cursor: text;
-}
-
-:is(.js, .js-early) .filter-bar--title:focus-within input::placeholder,
-:is(.js, .js-early) .filter-bar--title[data-filter-active] input::placeholder {
-  color: color-mix(in srgb, var(--color-text) 55%, transparent);
-}
 @media (min-width: 960px) {
-
   .filter-bar--chips .filter-chip {
     flex: 0 0 auto;
   }
-
-  /* In the title row, after the title and clear of the frame button (the
-   * header keeps that space free); it wraps under the title when the row is
-   * too narrow for both. */
-  :is(.js, .js-early) .filter-bar--title,
-  :is(.js, .js-early) .filter-bar--title:focus-within,
-  :is(.js, .js-early) .filter-bar--title[data-filter-active] {
-    position: relative;
-    top: auto;
-    right: auto;
-    flex: 0 1 360px;
-    width: 360px;
-    max-width: 100%;
-    margin: 0;
-  }
-
-  :is(.js, .js-early) .filter-bar--title .filter-bar__search input,
-  :is(.js, .js-early) .filter-bar--title:focus-within input {
-    padding: 0 52px 0 46px;
-    cursor: text;
-  }
-
-  :is(.js, .js-early) .filter-bar--title .filter-bar__search input::placeholder {
-    color: color-mix(in srgb, var(--color-text) 55%, transparent);
-  }
 }
-
-@media (min-width: 1280px) {
-  .page-header:has(> .filter-bar--title) {
-    flex-wrap: nowrap;
-  }
-
-  .page-header:has(> .filter-bar--title) > .page-title {
-    flex: none;
-  }
-
-  :is(.js, .js-early) .filter-bar--title,
-  :is(.js, .js-early) .filter-bar--title:focus-within,
-  :is(.js, .js-early) .filter-bar--title[data-filter-active] {
-    min-width: 260px;
-    margin-left: auto;
-  }
-}
-
 
 /* The empty state: a soft card with a search glyph in a halo and its
  * own Clear action. Sets no display, so [hidden] still hides it. */

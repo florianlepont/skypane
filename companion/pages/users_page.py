@@ -648,9 +648,10 @@ def _failure_dialog(failure):
     if failure.kind not in _NO_RETRY:
         retry = (
             '<form method="post" action="%s">%s<input type="hidden" name="%s" '
-            'value="%s"><button type="submit" class="btn btn--primary" autofocus>%s</button></form>'
+            'value="%s"><button type="submit" class="btn btn--primary" autofocus>%s<span>%s</span>'
+            '</button></form>'
             % (_esc(_routes().USERS_INVITE_ROUTE), _ui().csrf_field(), EMAIL_FIELD,
-               _esc(failure.email), _t(_FAILED_RETRY)))
+               _esc(failure.email), icon_html("icon-refresh"), _t(_FAILED_RETRY)))
     return ui_modal.result_dialog_html(
         "dlg-invitation-failed", i18n.t(_FAILED_TITLE), body, i18n.t(_DONE),
         _routes().USERS_ROUTE, retry_form_html=retry)

@@ -350,7 +350,7 @@ def test_the_fleet_page_keeps_its_name_in_the_navigation_and_the_tab_title(
 _SHARED = re.compile(
     r"^(SkyPane|Orly|Kitchen|Attic|Orly frame|Console|Audit|Distance|Station|Local|Total|"
     r"Version|Versions|Image|Plus|Type|Description|Identification|Original|Information|Document|Action|"
-    r"Actions|Style|Airlines|Contact|Standard|Message|Notes?|Auto|Latitude|Longitude|XIAO ePaper|"
+    r"Actions|Style|Airlines|Contact|Standard|Message|Notes?|Auto|Latitude|Longitude|XIAO ePaper|min|"
     r"Air France|easyJet|Transavia|Ryanair|Confirmed|Rare|test|Emirates|FedEx Express|Finnair|"
     r"KLM Royal Dutch Airlines|Korean Air|Turkish Airlines)\b|^[A-Z0-9]{4} · |^(Paris-Orly Airport|Watching Runway)")
 

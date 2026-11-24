@@ -53,6 +53,16 @@ ASK_TYPE_ATTR = "data-view-panel-ask-type"
 ASK_TYPE_ID = "airline_artwork_type"
 ASK_TYPE_CLASS = "upload-type"
 ASK_TYPE_LABEL = i18n.msg("airlines.artwork_aircraft_type", "Aircraft type")
+# A trigger that already knows the aircraft type (a type row's "Add artwork")
+# carries it here; the dialog then shows it as a fixed chip instead of the select.
+FIXED_TYPE_ATTR = "data-view-panel-fixed-type"
+UPLOAD_CONSTRAINTS = (
+    i18n.msg("airlines.constraint_transparent_png", "Transparent PNG"),
+    i18n.msg("airlines.constraint_min_width", "At least 1200 px wide"),
+    i18n.msg("airlines.constraint_landscape", "Landscape"),
+)
+DIALOG_CANCEL_TEXT = i18n.msg("airlines.cancel", "Cancel")
+DIALOG_UPLOAD_TEXT = i18n.msg("airlines.table_upload", "Upload")
 
 # A row's accessible name: ACTION_LABEL_TEMPLATE takes the action (or the
 # edit wording and the airline) then the airline's types / name.
@@ -795,7 +805,9 @@ def _lightbox_html(name_form_hidden_html=""):
         "%s"
         '<div class="%s">'
         '<button type="button" %s>%s</button>'
+        "%s"
         '<button type="submit" form="%s">%s</button>'
+        "%s"
         "</div>"
         "</dialog>"
     ) % (
@@ -811,7 +823,15 @@ def _lightbox_html(name_form_hidden_html=""):
         delete_html,
         LIGHTBOX_ACTIONS_CLASS,
         _VIEW_PANEL_CLOSE_ATTR, escape_html(i18n.t(_CLOSE_TEXT)),
+        ui_components.button_html(
+            i18n.t(DIALOG_CANCEL_TEXT), "secondary",
+            attrs=" %s hidden" % _VIEW_PANEL_CLOSE_ATTR).replace(
+                'class="btn btn--secondary"', 'class="btn btn--secondary lightbox__cancel"'),
         MANUAL_RESOLVE_FORM_ID + "-dialog", escape_html(i18n.t(SAVE_BUTTON_TEXT)),
+        ui_components.button_html(
+            i18n.t(DIALOG_UPLOAD_TEXT), "primary", button_type="submit",
+            attrs=' form="%s" hidden' % (MANUAL_UPLOAD_FORM_ID + "-dialog")).replace(
+                'class="btn btn--primary"', 'class="btn btn--primary lightbox__upload"'),
     )
 
 
@@ -988,60 +1008,73 @@ def _resolve_name_form_html(prefix_value, id_suffix, include_submit=True, hidden
 
 
 def _ask_type_html(inline=False):
-    """The aircraft-type select of the add-first-artwork step. In the dialog
-    it is hidden unless the opening trigger asks for a type and has no `name`:
+    """The aircraft-type row of the add-first-artwork step: its label, the
+    select and (in the dialog) the fixed-type chip. In the dialog the select
+    is hidden unless the opening trigger asks for a type and has no `name`:
     the multipart body holds the file alone, so panel-lookup.js puts the choice
-    on the upload address as `default_type`. Without a script (`inline`) it is
-    shown, required and named: the browser sends it as a text part before the
-    file, which the upload route reads. Same options either way."""
+    on the upload address as `default_type`; the chip replaces it when the
+    trigger names the type. Without a script (`inline`) the select is shown,
+    required and named: the browser sends it as a text part before the file,
+    which the upload route reads. Same options either way."""
     options = sorted(set(illustrations._TYPE_SHAPE_BUCKETS) | set(illustrations._TYPE_VARIANT_SLUGS))
-    return (
+    select_id = ASK_TYPE_ID + ("-page" if inline else "")
+    select = (
         '<select id="%s" class="%s" aria-label="%s"%s%s>'
         '<option value="">%s</option>%s</select>'
     ) % (
-        ASK_TYPE_ID + ("-page" if inline else ""), ASK_TYPE_CLASS, escape_html(i18n.t(ASK_TYPE_LABEL)),
+        select_id, ASK_TYPE_CLASS, escape_html(i18n.t(ASK_TYPE_LABEL)),
         ' name="%s" required' % DEFAULT_TYPE_QUERY_PARAM if inline else " hidden",
         "" if inline else validation_attrs("select"), escape_html(i18n.t(ASK_TYPE_LABEL)),
         "".join('<option value="%s">%s</option>' % (escape_html(c), escape_html(c)) for c in options))
+    chip = "" if inline else '<span class="upload-type-chip mono" data-upload-type-chip hidden></span>'
+    return (
+        '<div class="upload-type-row"><label class="upload-type-row__label" for="%s">%s</label>%s%s</div>'
+    ) % (select_id, escape_html(i18n.t(ASK_TYPE_LABEL)), select, chip)
+
+
+def _upload_constraints_html():
+    """The compact list of what the picture must be."""
+    return '<ul class="upload-constraints">%s</ul>' % "".join(
+        "<li>%s</li>" % escape_html(i18n.t(text)) for text in UPLOAD_CONSTRAINTS)
 
 
 def _resolve_upload_form_html(action, id_suffix):
-    """Step B's upload-zone form — one definition, two call sites: the no-JS
+    """Step B's upload form — one definition, two call sites: the no-JS
     fallback calls this with the real `/illustration/{key}.png` action and
     `id_suffix=""`; the dialog calls it with `action=""` and
     `id_suffix="-dialog"`, and panel-lookup.js overwrites `action` via
     `setAttribute`.
 
-    `action=""` on the dialog's call is a real, present placeholder, never
-    omitted. The drop zone sits inside the `<form>`, since it writes into
-    that form's own input.
+    Reads top to bottom: the aircraft type (select, or the fixed chip), the
+    file input and its framing preview in one drop zone, then the compact list
+    of what the picture must be. The dialog's Upload button lives in its
+    action row (re-attached by `form=`); the no-JS fallback keeps its own
+    inside the form. `action=""` on the dialog's call is a real, present
+    placeholder, never omitted. The drop zone sits inside the `<form>`, since
+    it writes into that form's own input.
     """
     upload_input_id = MANUAL_UPLOAD_INPUT_ID + id_suffix
-    icon_html = layout.icon_html("icon-upload", extra_class=REPLACE_ICON_CLASS)
+    submit = "" if id_suffix else ui_components.button_html(
+        i18n.t(REPLACE_BUTTON_TEXT), "secondary", button_type="submit")
     return (
         '<div class="%s">'
-        "%s"
-        '<label for="%s">%s</label>'
-        '<p class="%s">%s</p>'
         '<form id="%s" method="post" enctype="multipart/form-data" action="%s">'
         "%s%s"
+        '<label class="visually-hidden" for="%s">%s</label>'
         '<input type="file" id="%s" name="image" accept="image/png" required>'
-        "%s"
-        "%s"
+        "%s%s%s"
         "</form>"
         "</div>"
     ) % (
         RESOLVE_UPLOAD_ZONE_CLASS,
-        icon_html,
-        upload_input_id, i18n.t(_CHOOSE_AN_IMAGE_TEXT),
-        REPLACE_HINT_CLASS, i18n.t(REPLACE_HINT_TEXT),
         MANUAL_UPLOAD_FORM_ID + id_suffix,
         action,
-        csrf_field(),
-        _ask_type_html(inline=not id_suffix),
+        csrf_field(), _ask_type_html(inline=not id_suffix),
+        upload_input_id, i18n.t(_CHOOSE_AN_IMAGE_TEXT),
         upload_input_id,
-        ui_components.button_html(i18n.t(REPLACE_BUTTON_TEXT), "secondary", button_type="submit"),
         _upload_drop_html(upload_input_id),
+        _upload_constraints_html(),
+        submit,
     )
 
 

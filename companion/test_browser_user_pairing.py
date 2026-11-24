@@ -128,6 +128,31 @@ def test_the_add_your_frame_button_text_is_readable_on_its_fill(
         context.close()
 
 
+@pytest.mark.parametrize("width", (360, 1280))
+@pytest.mark.parametrize("lang", ["en", "fr"])
+def test_the_add_frame_page_is_one_card_with_the_help_footer_below_the_actions(
+        new_context, seeded, lang, width):
+    server, _seed = seeded
+    context, page = _open(new_context, server, fx.USER_EMAIL, "/pair-frame", lang)
+    try:
+        page.set_viewport_size({"width": width, "height": 800})
+        page.locator("#pair-code").wait_for(state="visible")
+        card = page.locator("form.pair-card")
+        assert card.count() == 1
+        assert card.locator("#pair-code").count() == 1
+        assert card.locator(".pair-card__help").count() == 1
+        actions = card.locator(".pair-form__actions").bounding_box()
+        footer = card.locator(".pair-card__help").bounding_box()
+        assert footer["y"] >= actions["y"] + actions["height"] - 1
+        box = card.bounding_box()
+        assert box["x"] >= -1 and box["x"] + box["width"] <= width + 1
+        assert page.locator("#pair-code").evaluate(
+            "e => getComputedStyle(e).textAlign") == "center"
+        assert _no_sideways_scroll(page)
+    finally:
+        context.close()
+
+
 @pytest.mark.parametrize("lang", ["en", "fr"])
 def test_a_user_pairs_a_frame_from_the_empty_state_and_lands_on_its_home(
         new_context, seeded, lang):
