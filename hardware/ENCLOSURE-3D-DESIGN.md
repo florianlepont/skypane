@@ -133,16 +133,17 @@ Fallbacks, only if the first fit asks for them: a U.FL antenna extension, M2 hea
 In this repository, `hardware/cad/` (added by the owner on 2026-11-17, reorganised on
 2026-11-24; the folder has its own `README.md`):
 
-- `source/skypane_cassette.blend`: the Blender file with the four parts and the generating
+- `source/skypane_cassette.blend`: the Blender file with the parts and the generating
   script `skypane_cassette.py` (renamed from "Sans titre.blend"; about 5.5 MB). It
   was reworked on 2026-11-18 and saved in this repository; the owner reports that the
   figurine and the abandoned versions are no longer in it.
 - `reference/ee04_board.stl`: the board, converted from the GrabCAD STEP file (about 12.5 MB).
 - `reference/ikea_rodalm_13x18_noir.glb`: the IKEA 3D model of the frame (about 0.14 MB).
-- `print/skypane_tray.stl`, `print/skypane_lid.stl`, `print/skypane_stand.stl`, `print/skypane_shim.stl`: the four parts to print;
-  the tray was exported again on 2026-11-23, the others on 2026-11-18; the owner's confirmation that they match the final blend is recorded in the print order.
+- `print/skypane_tray_shim_merged.stl`, `print/skypane_lid.stl`, `print/skypane_stand.stl`: the three parts to print since 2026-11-24 (the tray and the shim are one part);
+  the lid was exported again on 2026-11-24 after the tab pads moved, the stand on 2026-11-18; the owner's confirmation that the earlier exports match the blend is recorded in the print order.
 - `print/skypane_lid.3mf`: present in the print folder; its role is open (asked of the owner on 2026-11-19).
-- `alternatives/`: the one-part design, tray and shim together (chosen by the owner on 2026-11-24; reprinted well, not yet fitted).
+- `print/skypane_tray_shim_merged.3mf`: the owner's Bambu Studio project of the one-part main part.
+- `old/`: the previous two-part design (`skypane_tray.stl`, `skypane_shim.stl`, `skypane_cassette_separate.blend`), kept until the one-part design has been fitted in the frame. The one-part design was chosen by the owner on 2026-11-24 (reprinted well, not yet fitted).
 - The Blender automatic backup copy (`skypane_cassette.blend1`) was removed on 2026-11-24;
   it stays in the git history, and `*.blend1` is now ignored.
 

@@ -110,13 +110,13 @@ sliced (see "Slice check, 2026-11-24" below). Still to do: the tray is reprinted
 in PLA on the same machine and plate; the fit of the ribbon, of the battery and
 of the board is tried again; then the lid is printed.
 
-#### Tray and shim in one part (chosen by the owner on 2026-11-24)
+#### Tray and shim in one part (the main design since 2026-11-24)
 
 Asked for by the owner on 2026-11-24 as an alternative version. The main design
 stays two parts that the owner glues; this variant is only a file to look at and
-slice. Files: `hardware/cad/alternatives/skypane_cassette_merged.blend` (the main blend with a
+slice. Files (moved on 2026-11-24, see the paragraph on the layout below): `hardware/cad/source/skypane_cassette.blend` (the blend with a
 union of the tray and the shim, the separate objects kept and hidden) and
-`hardware/cad/alternatives/skypane_tray_shim_merged.stl` (one part, 132.0 x 182.0 x
+`hardware/cad/print/skypane_tray_shim_merged.stl` (one part, 132.0 x 182.0 x
 12.0 mm: 1.0 mm rim in front of the 11.0 mm tray). Made by the assistant in the
 generating script, like the tray change above.
 
@@ -143,7 +143,7 @@ generating script, like the tray change above.
   design. The cause is not determined and the defect is not yet described or
   photographed. The earlier line that the design was abandoned is withdrawn: the
   variant is only set aside, not decided either way. The files stay in
-  `hardware/cad/alternatives/`; no fit trial of this variant.
+  `hardware/cad/alternatives/` at that time; no fit trial of this variant.
 - Owner report of 2026-11-24, reprint: before the reprint the owner purged the
   nozzle and changed nothing else he mentioned (no change to the file or the
   settings reported); the print started without a problem and, in his words, the
@@ -156,9 +156,23 @@ generating script, like the tray change above.
   facilement" (the owner's words); no photo or measurement. Owner decision of
   2026-11-24: the design goes to one part, tray and shim together. This replaces
   the earlier lines of this section that said the variant was set aside or not
-  decided. The files stay in `hardware/cad/alternatives/` for now; the separate
-  tray and shim files stay as they are. The one-part design has not been fitted
+  decided. The layout change that followed is described below. The one-part design has not been fitted
   in the frame, the lid has not been tried on it, and no go/no-go is recorded.
+- Photos sent by the owner on 2026-11-24 (two photos, not stored in the repo),
+  read by the assistant by eye, nothing measured: the face that lies against the
+  screen is flat and even with fine parallel lines, with no visible hole, string
+  or torn area, and the ribbon slot is clear; inside, the engraved texts
+  BATTERIE, CARTE and ANTENNE are readable, and the four board standoffs, the
+  walls, the corner screw posts and the shim pegs are present, with no visible
+  string or lifted corner. Photos cannot show dimensions: fit is still to be tried.
+- Layout change, 2026-11-24, made by the assistant at the owner's request ("le
+  modele alternatif doit devenir le principal", folder `old` chosen by the
+  owner): `source/skypane_cassette.blend` is now the blend with the union; the
+  previous blend is `old/skypane_cassette_separate.blend`; the separate tray and
+  shim STL moved to `old/`; the merged STL and its 3mf moved to `print/`. No
+  geometry changed (the files were moved, not re-exported). The old files stay
+  until the one-part design has been fitted in the frame. The file table and the
+  slice rows below name the separate tray and shim as they were at the time.
 
 Values kept, because the model and the owner's tape readings differ by about
 1 mm or less, which is the tape's resolution (owner instruction, 2026-11-18):
@@ -285,12 +299,12 @@ Reading of the rows:
 **Slicer projects saved by the owner (2026-11-24).** The owner saved two Bambu
 Studio projects and the assistant read them (unzipped, not opened in the
 slicer; nothing was sliced from them): `hardware/cad/print/skypane_printing.3mf`
-and `hardware/cad/alternatives/skypane_tray_shim_merged.3mf`. Contents:
+and `hardware/cad/print/skypane_tray_shim_merged.3mf` (then in `alternatives/`). Contents:
 
 | Project | Plates | Parts and check against the repo STL |
 |---|---|---|
 | `skypane_printing.3mf` | 3: shim and stand; lid; tray | The four meshes have the same triangle counts and volumes as the STL in `print/` (tray 7292 triangles, 52246 mm3: the version with the 8 x 34 mm slot; lid 8406; stand 396; shim 208) |
-| `skypane_tray_shim_merged.3mf` | 1: the merged part | Same mesh as `alternatives/skypane_tray_shim_merged.stl` (7408 triangles, 56954 mm3) |
+| `skypane_tray_shim_merged.3mf` | 1: the merged part | Same mesh as `print/skypane_tray_shim_merged.stl` (7408 triangles, 56954 mm3) |
 
 Settings stored in both: Bambu Lab X1 Carbon, 0.4 mm nozzle, "0.20mm Standard @BBL
 X1C", 3 walls, 20 % grid infill, Textured PEI Plate, filament "Bambu PLA Matte

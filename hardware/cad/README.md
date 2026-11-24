@@ -6,10 +6,10 @@ print and what was decided is in `../ENCLOSURE-PRINT-ORDER.md`.
 
 | Folder | What it holds | Edit it? |
 |---|---|---|
-| `source/` | `skypane_cassette.blend`: the one source file. The parts are built by the script stored inside it (text block `skypane_cassette.py`, Blender 5.3). | yes, this is the design |
-| `print/` | The files to slice and print: `skypane_tray.stl`, `skypane_lid.stl`, `skypane_stand.stl`, `skypane_shim.stl`, each in its printing pose. `skypane_printing.3mf` is the Bambu Studio project of the owner (2026-11-24): three plates, shim and stand, lid, tray. `skypane_lid.3mf` is an older slicer project whose role is not stated by the owner. | no, they come from the blend |
+| `source/` | `skypane_cassette.blend`: the one source file. The parts are built by the script stored inside it (text block `skypane_cassette.py`, Blender 5.3). Since 2026-11-24 it is the one-part design: the tray and the shim are united into `SkyPane_Bac_Cale`; the separate tray and shim objects stay in the file, hidden. | yes, this is the design |
+| `print/` | The files to slice and print: `skypane_tray_shim_merged.stl` (the main part, tray and shim in one), `skypane_lid.stl`, `skypane_stand.stl`, each in its printing pose. `skypane_tray_shim_merged.3mf` is the Bambu Studio project of the main part (owner, 2026-11-24). `skypane_printing.3mf` is the owner's earlier project (shim and stand, lid, tray): its lid and stand are still the current ones, its tray and shim are the old separate parts. `skypane_lid.3mf` is an older slicer project whose role is not stated by the owner. | no, they come from the blend |
 | `reference/` | Models of real objects, only to check fits: `ee04_board.stl` (the board) and `ikea_rodalm_13x18_noir.glb` (the frame). | no |
-| `alternatives/` | The one-part design chosen by the owner on 2026-11-24, tray and shim together (`skypane_cassette_merged.blend`, `skypane_tray_shim_merged.stl`, and its Bambu Studio project `skypane_tray_shim_merged.3mf`). Reprinted well on 2026-11-24 after a nozzle purge (reported by the owner); not yet fitted in the frame. The files are still in this folder. | only if you try the variant |
+| `old/` | The previous design, tray and shim as two parts: `skypane_tray.stl`, `skypane_shim.stl` and `skypane_cassette_separate.blend` (the blend before the union). Kept until the one-part design has been fitted in the frame; remove them after a good fit. | no |
 
 ## Changing the design
 
