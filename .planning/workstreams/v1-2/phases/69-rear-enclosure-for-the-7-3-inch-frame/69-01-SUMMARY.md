@@ -6,7 +6,7 @@ tags: [enclosure, measurements, owner-driven]
 requires: []
 provides:
   - hardware/ENCLOSURE-MEASUREMENTS.md with the owner's readings
-affects: [hardware/ENCLOSURE-3D-DESIGN.md, hardware/ENCLOSURE-PRINT-ORDER.md, hardware/cad/skypane_cassette.blend]
+affects: [hardware/ENCLOSURE-3D-DESIGN.md, hardware/ENCLOSURE-PRINT-ORDER.md, hardware/cad/source/skypane_cassette.blend]
 key-files:
   modified:
     - hardware/ENCLOSURE-MEASUREMENTS.md
@@ -23,7 +23,7 @@ The measurement sheet exists in the table style of the second-hardware sheet and
 
 ## What changed
 - `hardware/ENCLOSURE-MEASUREMENTS.md`: rows 1 to 13 filled from the owner's reports; rows 7b to 7d (tab height, width, positions along the sides) and 13 (Wi-Fi antenna cable) added; notes that frames vary from one to the next.
-- The owner confirmed that `hardware/cad/skypane_cassette.blend` is the working design file and drove its rework in a local session (see plan 02).
+- The owner confirmed that `hardware/cad/source/skypane_cassette.blend` is the working design file and drove its rework in a local session (see plan 02).
 
 ## Limits
 - No calliper was used: every reading has about 0.1 to 0.2 mm of uncertainty. The tab force and the wood profile behind the screw lugs are not measured.
