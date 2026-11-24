@@ -6272,6 +6272,25 @@ a.modal__dismiss {
     border-radius: var(--radius-control);
     background: var(--color-border);
   }
+
+  /* With the keyboard up the sheet floats above it, and iOS leaves its
+   * autofill bar transparent: this fixed strip carries the sheet's own surface
+   * from the sheet's bottom edge down to the bottom of the viewport. Fixed, so
+   * it is not clipped by the sheet's scroll and adds no page height; it is
+   * zero tall while no keyboard lifts the sheet. */
+  dialog.modal::after {
+    content: "";
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    height: var(--keyboard-inset, 0px);
+    background: inherit;
+  }
+
+  dialog.modal[open] {
+    border-bottom-width: 0;
+  }
 }
 
 
