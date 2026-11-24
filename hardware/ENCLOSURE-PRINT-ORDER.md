@@ -352,6 +352,42 @@ the two earlier projects `skypane_printing.3mf` and
 `skypane_tray_shim_merged.3mf`. Read by the assistant from the files (triangle
 counts), not sliced or printed.
 
+### Stand redesigned as a hinged leg, 2026-11-24
+
+Owner request of 2026-11-24, after the loose plate did not hold: a real stand like
+the original IKEA easel leg, hinged, working in landscape and in portrait; the
+magnet bosses and the two U-shaped stop walls of the lid can go, and the folded
+leg may cover the USB access (nothing measured; all numbers are design values).
+
+- Lid: the two stop walls with their guides, the four support columns under them
+  in the tray, and the two magnet bosses are removed. Two pairs of hinge sockets
+  are added on the lid back (5 x 7 mm, 6 mm high, hole 3.4 mm, snap-in throat
+  2.7 mm open upward): landscape on an axis along y at x = +17, portrait on an
+  axis along x at y = -42. Both axes are 57 mm from the lower edge of the frame.
+- Leg (`print/skypane_stand.stl`): one panel 76 mm wide, 4 mm thick, 60.7 mm long
+  from the axis, rounded hinge end with a pin of 3 mm on each side (4.6 mm long),
+  foot end cut parallel to the desk, printed flat on its lid-side face (300
+  triangles, closed mesh, 62.7 x 85.2 x 4.0 mm including the pins). A 42 mm wide
+  notch at the foot end clears the landscape hook block when the leg is folded;
+  a 9 mm notch in the hinge end clears the landscape sockets when it is folded in
+  portrait. The same leg is clipped on the landscape or the portrait sockets, as
+  on the original easel.
+- It stands the frame at 20 degrees on its lower edge, the leg 40 degrees from the
+  lid back (the same tilt and foot position as the loose plate). Folded flat on the
+  lid back it lies between the sockets with 0.5 mm clearance and leaves the hook
+  blocks free.
+- Checked by the assistant on the model (Blender 5.3.0, background): leg and lid
+  meshes closed; the folded leg, in landscape and in portrait, has zero overlap
+  with the lid (boolean intersection); the tray and shim part is regenerated
+  without the four columns (6644 triangles, volume 55855.2 mm3, was 7408 and
+  56954.0). Files re-exported: `skypane_lid.stl` (7090 triangles, volume
+  40263.3 mm3), `skypane_stand.stl`, `skypane_tray_shim_merged.stl`.
+- Not done: nothing printed or fitted. Whether the pins snap in and hold, whether
+  PLA is stiff enough at 4 mm, the friction of the foot on the laminate (two feet
+  of 17 mm; adhesive anti-slip pads are still the owner's to add), and the hanging
+  of the frame with the leg folded are not known. The lid, the tray and the leg
+  must be reprinted.
+
 ### Lid tab pads moved, 2026-11-24
 
 First trial of the lid on the frame (photos from the owner, lid not yet screwed):
