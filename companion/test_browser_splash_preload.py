@@ -167,6 +167,8 @@ class _AssetRecorder:
         cdp.on("Network.requestWillBeSent", self._sent)
         cdp.on("Network.responseReceived", self._received)
         cdp.on("Network.requestServedFromCache", self._cached)
+        cdp.on("Network.loadingFinished", self._finished)
+        cdp.on("Network.loadingFailed", self._finished)
 
     @staticmethod
     def _wanted(url):
@@ -176,7 +178,7 @@ class _AssetRecorder:
         url = event["request"]["url"]
         if self._wanted(url):
             self.requests[event["requestId"]] = {
-                "url": url, "phase": self.phase, "cached": False}
+                "url": url, "phase": self.phase, "cached": False, "finished": False}
 
     def _cached(self, event):
         if event["requestId"] in self.requests:
@@ -187,9 +189,33 @@ class _AssetRecorder:
         if entry and event["response"].get("fromDiskCache"):
             entry["cached"] = True
 
+    def _finished(self, event):
+        if event["requestId"] in self.requests:
+            self.requests[event["requestId"]]["finished"] = True
+
+    def pending(self):
+        return sum(1 for r in self.requests.values() if not r["finished"])
+
     def from_network(self, phase):
         return sorted(
             r["url"] for r in self.requests.values() if r["phase"] == phase and not r["cached"])
+
+
+def _settle(page, recorder, quiet_ms=700, timeout_ms=20000):
+    """Waits until every request the page made has finished and none has started for
+    `quiet_ms`: the Location page loads its map scripts one after the other, after its first
+    paint, so a request can still be in flight (and not yet known to come from the cache)
+    long after the load event on a busy machine."""
+    waited = quiet = 0
+    seen = len(recorder.requests)
+    while waited < timeout_ms and quiet < quiet_ms:
+        page.wait_for_timeout(50)
+        waited += 50
+        if recorder.pending() or len(recorder.requests) != seen:
+            quiet = 0
+            seen = len(recorder.requests)
+        else:
+            quiet += 50
 
 
 def test_after_the_splash_no_tab_asks_the_network_for_its_stylesheets_scripts_or_pictures(
@@ -222,8 +248,9 @@ def test_after_the_splash_no_tab_asks_the_network_for_its_stylesheets_scripts_or
             recorder.phase = "tap " + href
             page.locator('.dashboard-sidebar a[href="%s"]:visible' % href).first.click()
             page.wait_for_load_state("load")
-            page.wait_for_timeout(700)
-            assert recorder.from_network("tap " + href) == [], href
+            _settle(page, recorder)
+            late = recorder.from_network("tap " + href)
+            assert late == [], href
         assert len(visited) >= 5, visited
     finally:
         context.close()
