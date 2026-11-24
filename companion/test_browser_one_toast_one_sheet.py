@@ -19,7 +19,6 @@ from server.plane import calendar_rules
 pytestmark = pytest.mark.browser
 
 INVITE = "#dlg-invite-user"
-ADD = "#dlg-add-frame"
 CALENDAR = "#disconnect-calendar"
 CALENDAR_OPENER = "a.form-page__danger[data-modal-open]"
 TOAST = ".toast-region--flash .toast"
@@ -151,7 +150,7 @@ def test_the_calendar_disconnect_dialog_is_centred_on_a_wide_screen(new_context,
 
 
 def test_a_refused_pairing_code_is_shown_once(new_context, app_server_in_process):
-    """one error element, beside the field: no toast and no repeated sentence in the dialog"""
+    """one error element, beside the field: no toast and no repeated sentence on the page"""
     server = app_server_in_process
     seed = fx.seed_fleet(server.state_dir)
     fx.issue_code(server.state_dir, seed.pending_id)
@@ -163,13 +162,13 @@ def test_a_refused_pairing_code_is_shown_once(new_context, app_server_in_process
         page.locator(".fleet-add-button").click()
         page.fill("#pair-code", "kkkk-2222")
         page.select_option("#pair-owner", label=fx.OWNER_EMAIL)
-        page.locator(ADD + " button[type=submit]").click()
-        page.locator(ADD + ".is-modal[open]").wait_for(state="visible")
-        page.locator(ADD + " .field-error").wait_for(state="visible")
-        assert page.locator(ADD + " .field-error").count() == 1
-        assert page.locator(ADD + " .toast").count() == 0
-        assert page.locator(ADD).inner_text().count("Code not recognised") == 1
-        assert page.locator(ADD).inner_text().count("Check the code and try again.") == 1
+        card = page.locator("form.pair-form")
+        card.locator("button[type=submit]").click()
+        card.locator(".field-error").wait_for(state="visible")
+        assert card.locator(".field-error").count() == 1
+        assert page.locator(".toast").count() == 0
+        assert card.inner_text().count("Code not recognised") == 1
+        assert card.inner_text().count("Check the code and try again.") == 1
     finally:
         context.close()
 

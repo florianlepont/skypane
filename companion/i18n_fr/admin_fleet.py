@@ -17,13 +17,6 @@ MESSAGES = {
     "admin_fleet.retire_frame_title": "Retirer «\u00a0%s\u00a0»\u00a0?",
     "admin_fleet.re_activate_frame_title": "Réactiver «\u00a0%s\u00a0»\u00a0?",
     "admin_fleet.add_a_frame": "Ajouter un cadre",
-    "admin_fleet.back_to_fleet": "Retour à la flotte",
-    "admin_fleet.the_code_stays_valid_for_about_35_minutes":
-        "Le code reste valable environ 35 minutes\u00a0; un nouveau s’affiche ensuite "
-        "sur le cadre.",
-    "admin_fleet.no_frame_is_showing_a_code_yet":
-        "Aucun cadre n’affiche de code pour l’instant. Allumez le cadre\u00a0; son "
-        "code s’affiche à l’écran.",
     "admin_fleet.frames": "Cadres",
     "admin_fleet.group_live": "En service",
     "admin_fleet.group_pending": "En attente d’appairage",
@@ -64,10 +57,6 @@ MESSAGES = {
     "admin_fleet.only_the_owner_changes_nothing_is_erased":
         "Rien n’est effacé.",
     "admin_fleet.the_current_owner": "Le propriétaire actuel",
-    "admin_fleet.enter_the_code_shown_on_the_frame_s_screen_and_choose":
-        "Saisissez le code affiché sur l’écran du cadre et choisissez à qui il "
-        "appartient.",
-    "admin_fleet.pairing_code": "Code d’association",
     "admin_fleet.pair_owner": "Propriétaire",
     "admin_fleet.choose_an_owner_option": "Choisissez un propriétaire",
     "admin_fleet.pair_frame": "Associer le cadre",

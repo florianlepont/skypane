@@ -65,7 +65,7 @@ def test_no_frame_chosen_shows_the_list_of_every_frame(fleet):
     assert re.search(r'<h1 class="fleet-list__heading fleet-list__heading--narrow">Frames</h1>', page)
     assert re.search(r'<h1 class="fleet-head__title">', _main(page))
     assert not [1 for _h, current in _tiles(page) if current]
-    assert 'href="#dlg-add-frame"' in _list(page)
+    assert 'href="/pair-frame"' in _list(page)
     groups = re.findall(r'class="section-label" id="fleet-list-[a-z]+">([^<]*)<', page)
     assert groups == ["Live \u00b7 2", "Waiting to be paired \u00b7 1", "Retired \u00b7 1"]
 
@@ -111,7 +111,7 @@ def test_a_pending_frame_opens_its_own_page_with_the_pairing_action(fleet):
         server, cookie, "/fleet?frame=%s" % seed.pending_id)
     main = _main(page)
     assert 'data-fleet-mode="other"' in page
-    assert 'href="#dlg-add-frame"' in main and "Pair frame" in main
+    assert 'href="/pair-frame"' in main and "Pair frame" in main
     assert "fleet-block" not in main
 
 

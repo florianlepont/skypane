@@ -146,14 +146,13 @@ class FleetRow(NamedTuple):
 
 class FleetView(NamedTuple):
     """Everything the page renders. `owners` is a (value, label) sequence;
-    `owner_selected` preselects the re-assign owner; `register_errors` holds
-    the messages of a refused scripted registration. `access` is a tuple of (frame id,
-    co_managers_card.CardView) for the frames whose Manage access dialog is
-    offered; `open_access` is the frame id whose dialog renders open."""
+    `register_errors` holds the messages of a refused scripted registration.
+    `access` is a tuple of (frame id, co_managers_card.CardView) for the
+    frames whose Manage access dialog is offered; `open_access` is the frame
+    id whose dialog renders open."""
     rows: tuple
     owners: tuple
     now: datetime.datetime
-    owner_selected: str = ""
     register_errors: tuple = ()
     access: tuple = ()
     open_access: str = ""
@@ -224,19 +223,8 @@ def _owner_options(view, placeholder=True):
     options = (
         ['<option value="">%s</option>' % _t(_PAIR_OWNER_CHOOSE)] if placeholder else [])
     for value, label in view.owners:
-        selected = " selected" if value == view.owner_selected else ""
-        options.append(
-            '<option value="%s"%s>%s</option>' % (_esc(value), selected, _esc(label)))
+        options.append('<option value="%s">%s</option>' % (_esc(value), _esc(label)))
     return "".join(options)
-
-
-def _field_error(dialog_id, field, message):
-    """(attributes for the control, the error paragraph) of one field."""
-    if not message:
-        return "", ""
-    return (
-        ' aria-invalid="true" aria-describedby="%s"' % _esc(ui_modal.error_id(dialog_id, field)),
-        ui_modal.field_error_html(dialog_id, field, message))
 
 
 def _frame_dialog(
@@ -279,7 +267,7 @@ def reassign_dialog_html(row, view):
         '<select id="%s" name="%s" required data-gate-select%s>%s</select>'
         '<p class="text-label" data-gate-hint hidden>%s</p></div>' % (
             field_id, _t(_NEW_OWNER), field_id, OWNER_FIELD,
-            validation_attrs("select"), _owner_options(view._replace(owner_selected="")),
+            validation_attrs("select"), _owner_options(view),
             _t(_REASSIGN_CHOOSE_HINT)))
     # What the change does, in two lines: a tick when nothing is lost, a
     # warning mark when something is.
@@ -354,7 +342,7 @@ def unnamed_text():
 def render(view):
     """The Fleet page's frame-independent part: the empty state of a fleet
     without frames and every dialog the page opens (the retire and
-    re-activate confirmations and the pairing dialog)."""
+    re-activate confirmations)."""
     empty = "" if view.rows else _ui().empty_state(
         i18n.t(_EMPTY_HEADING), i18n.t(_EMPTY_BODY), compact=True)
     section = (

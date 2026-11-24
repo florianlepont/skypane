@@ -165,9 +165,9 @@ def test_a_failed_claim_row_shows_no_target_and_never_the_guess(rig, monkeypatch
         console_pairing, "GLOBAL_THROTTLE", throttle.LockoutThrottle(limit=20, lockout_s=900))
     fx.issue_code(server.state_dir, seed.pending_id)
     guess = "WXYZ7654"
-    status, _headers, _body = fx.post(server, cookie, "/fleet/pair", {
+    status, _headers, _body = fx.post(server, cookie, "/pair-frame", {
         "code": guess, "owner_user_id": str(seed.owner_id)})
-    assert status == 200
+    assert status == 303
     status, _headers, html = _page(server, cookie)
     assert status == 200
     assert guess not in html and fx.FAKE_CODE not in html

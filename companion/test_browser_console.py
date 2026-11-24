@@ -99,8 +99,9 @@ def _user_context(new_context, server, viewport=None):
 
 
 def click_add(page):
-    """Choose Add a frame in the Fleet list (it opens the pairing dialog)."""
+    """Choose Add a frame in the Fleet list (it leads to the Add a frame page)."""
     page.locator(".fleet-add-button").click()
+    page.wait_for_url("**/pair-frame")
 
 
 def _flash(page):
@@ -170,7 +171,7 @@ def test_forms_and_confirm_controls_meet_the_touch_target(
         assert _height(page, "li.fleet-frame-row > a") >= MIN_TAP_PX
         click_add(page)
         for selector in (
-                "#pair-code", "#pair-owner", 'form[action="/fleet/pair"] button'):
+                "#pair-code", "#pair-owner", 'form.pair-form button[type=submit]'):
             assert _height(page, selector) >= MIN_TAP_PX, selector
         page.goto(server.base_url() + "/users")
         assert _height(page, "a.page-header__action") >= MIN_TAP_PX
@@ -247,7 +248,7 @@ def test_pair_form_posts_and_redirects_with_scripts_blocked(
         click_add(page)
         page.fill("#pair-code", code)
         page.select_option("#pair-owner", str(seed.user_id))
-        page.click('form[action="/fleet/pair"] button')
+        page.click('form.pair-form button[type=submit]')
         page.wait_for_url("**/fleet")
         assert "Frame paired" in _flash(page).inner_text()
     finally:
@@ -418,7 +419,7 @@ def test_pairing_flow_in_the_browser(new_context, app_server_in_process, monkeyp
         page.goto(server.base_url() + "/fleet")
         click_add(page)
         page.fill("#pair-code", wrong)
-        page.click('form[action="/fleet/pair"] button')
+        page.click('form.pair-form button[type=submit]')
         first_text = _refusal_text(page)
         assert first_text
 
@@ -428,14 +429,14 @@ def test_pairing_flow_in_the_browser(new_context, app_server_in_process, monkeyp
             other = pairing_code.generate_code()
         click_add(page)
         page.fill("#pair-code", other)
-        page.click('form[action="/fleet/pair"] button')
+        page.click('form.pair-form button[type=submit]')
         assert _strip_codes(first_text, wrong) == _strip_codes(_refusal_text(page), other)
 
         page.goto(server.base_url() + "/fleet")
         click_add(page)
         page.fill("#pair-code", code)
         page.select_option("#pair-owner", str(_owner_id(server.state_dir)))
-        page.click('form[action="/fleet/pair"] button')
+        page.click('form.pair-form button[type=submit]')
         page.wait_for_url("**/fleet")
         assert "Frame paired" in _flash(page).inner_text()
         conn = fleet_db.connect(server.state_dir)

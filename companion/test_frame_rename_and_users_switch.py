@@ -282,7 +282,7 @@ def test_the_pairing_message_names_an_unnamed_frame_without_its_id(rig):
     fx.issue_code(server.state_dir, seed.pending_id)
     cookie = cookies["admin"]
     status, headers, _b = http_request(
-        server.url("/fleet/pair"), method="POST", cookie=cookie,
+        server.url("/pair-frame"), method="POST", cookie=cookie,
         data=with_csrf(cookie, {"code": fx.FAKE_CODE, "owner_user_id": str(seed.owner_id)}),
         extra_headers={"Origin": server.base_url()})
     assert status == 303

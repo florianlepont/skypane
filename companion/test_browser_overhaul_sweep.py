@@ -218,7 +218,7 @@ def _case(persona, path, dialog=None, label=None):
 
 CASES = (
     _case("admin", "/fleet", None, "fleet"),
-    _case("admin", "/fleet", "dlg-add-frame", "fleet-add-dialog"),
+    _case("admin", "/pair-frame", None, "admin-pair-frame"),
     _case("admin", "/fleet", "dlg-retire-{slug}", "fleet-retire-dialog"),
     _case("admin", "/users", None, "users"),
     _case("admin", "/users", "dlg-invite-user", "users-invite-dialog"),

@@ -96,7 +96,7 @@ def test_add_a_frame_lives_in_the_list_header_and_there_is_no_register_form(flee
     server, _seed, cookie = fleet
     _status, _headers, page = fx.get(server, cookie, "/fleet")
     head = re.search(r'<div class="fleet-list__head">.*?</div></div>', page, re.S).group(0)
-    assert 'class="fleet-add-button"' in head and 'href="#dlg-add-frame"' in head
+    assert 'class="fleet-add-button" href="/pair-frame"' in head
     assert page.count('class="fleet-add-button"') == 1
     assert "frame-menu" not in page
     assert '<h1 class="fleet-list__heading fleet-list__heading--narrow">Frames</h1>' in head
@@ -140,7 +140,7 @@ def test_each_frame_state_offers_only_its_useful_action(fleet):
         server, cookie, "/fleet?frame=%s" % seed.pending_id)
     pending = _main(pending_page)
     assert re.findall(r'class="fleet-action-button row__trailing"[^>]*>([^<]*)<', pending) == ["Pair frame"]
-    assert 'href="#dlg-add-frame"' in pending
+    assert 'href="/pair-frame"' in pending
     _status, _headers, retired_page = fx.get(
         server, cookie, "/fleet?frame=%s" % seed.retired_id)
     retired = _main(retired_page)
@@ -156,7 +156,6 @@ def test_dialogs_post_to_the_unchanged_routes_with_csrf(fleet):
     prefix = console_routes.FRAME_ACTION_PREFIX
     # A live frame's dialogs dismiss back to that frame's view.
     cases = (
-        ("dlg-add-frame", "/fleet/pair", "/fleet"),
         ("dlg-retire-" + _slug(seed.owned_id),
          prefix + seed.owned_id + console_routes.FRAME_RETIRE_SUFFIX,
          "/fleet?frame=" + seed.owned_id + "&amp;tab=access"),
@@ -224,7 +223,7 @@ def test_the_markup_carries_no_secret_material(fleet):
         assert secret not in page, secret
 
 
-def test_the_empty_state_and_the_add_dialog(app_server_in_process):
+def test_the_empty_state_and_the_owner_choice_of_the_add_page(app_server_in_process):
     server = app_server_in_process
     seed = fx.seed_users(server.state_dir)
     conn = fleet_db.connect(server.state_dir)
@@ -236,46 +235,13 @@ def test_the_empty_state_and_the_add_dialog(app_server_in_process):
     _status, _headers, page = fx.get(server, cookie, "/fleet")
     assert "No frames yet" in page and "<table" not in page
     assert "Switch a frame on. When its pairing code appears" in page
-    dialog = _dialog(page, "dlg-add-frame")
-    assert dialog is not None and "Pair frame" in dialog and "Back to Fleet" in dialog
-    owners = re.search(r'<select id="pair-owner".*?</select>', dialog, re.S).group(0)
-    assert "Choose an owner" in owners
+    assert "dlg-add-frame" not in page and "confirm(" not in page
+    assert "Register a frame" not in page
+    _status, _headers, add = fx.get(server, cookie, "/pair-frame")
+    owners = re.search(r'<select id="pair-owner".*?</select>', add, re.S).group(0)
     assert fx.ADMIN_EMAIL in owners and fx.OWNER_EMAIL in owners
     assert fx.USER_EMAIL not in owners
     assert 'value="%d"' % seed.user_id not in owners
-    assert "No frame is showing a code yet" in dialog
-    assert "confirm(" not in page and "Register a frame" not in page
-
-
-def test_the_pair_hint_disappears_when_a_frame_waits(fleet):
-    server, _seed, cookie = fleet
-    _status, _headers, page = fx.get(server, cookie, "/fleet")
-    assert "No frame is showing a code yet" not in page
-    assert "confirm(" not in page
-
-
-def test_the_add_dialog_is_open_only_with_the_pair_flag_or_a_refusal(fleet):
-    server, _seed, cookie = fleet
-    _status, _headers, plain = fx.get(server, cookie, "/fleet")
-    _status, _headers, flagged = fx.get(server, cookie, "/fleet?pair=1")
-    assert " open" not in _dialog(plain, "dlg-add-frame").split(">", 1)[0]
-    assert " open" in _dialog(flagged, "dlg-add-frame").split(">", 1)[0]
-
-
-def test_a_refused_pair_reopens_the_dialog_with_the_escaped_code_and_field_errors(fleet):
-    server, seed, cookie = fleet
-    status, _headers, page = fx.post(server, cookie, "/fleet/pair", {
-        "code": '"><b>x</b>', "owner_user_id": str(seed.owner_id)})
-    assert status == 200
-    dialog = _dialog(page, "dlg-add-frame")
-    assert " open" in dialog.split(">", 1)[0]
-    assert "<b>x</b>" not in page
-    assert 'aria-invalid="true"' in dialog and "Code not recognised" in dialog
-    status, _headers, page = fx.post(server, cookie, "/fleet/pair", {"code": "abcd-2345"})
-    assert status == 400
-    dialog = _dialog(page, "dlg-add-frame")
-    assert " open" in dialog.split(">", 1)[0] and "Choose an owner." in dialog
-    assert 'aria-describedby="dlg-add-frame-owner-error"' in dialog
 
 
 def test_a_user_gets_the_unknown_path_404_and_anonymous_the_sign_in_redirect(fleet):
@@ -293,8 +259,8 @@ def test_french_rendering_uses_the_console_terms(fleet):
     _status, _headers, page = fx.get(
         server, cookie, "/fleet?frame=%s" % seed.owned_id,
         headers={"Accept-Language": "fr"})
-    for term in ("Flotte", "Ajouter un cadre", "Retiré", "Associer le cadre",
-                 "Code affich\u00e9 il y a 20\u00a0min", "Retour \u00e0 la flotte",
+    for term in ("Flotte", "Ajouter un cadre", "Retiré",
+                 "Code affich\u00e9 il y a 20\u00a0min",
                  "Tous les cadres (4)", "En service", "Retirés", "Garder le cadre",
                  "Laisser retiré", "Retirer ce cadre", "Renommer Kitchen",
                  "Retiré le ", "Nouveau cadre"):
