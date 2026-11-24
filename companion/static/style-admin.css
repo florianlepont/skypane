@@ -1242,8 +1242,7 @@ a.pair-link--primary:hover {
   }
 }
 
-.pair-card__heading,
-.pair-card__lead {
+.pair-card__heading {
   margin: 0;
 }
 

@@ -24,17 +24,14 @@ FLASH_FRAME_PAIRED = "frame_paired"
 PAIR_TITLE = i18n.msg("pair_frame.add_a_frame", "Add a frame")
 _CARD_HEADING = i18n.msg(
     "pair_frame.enter_the_code_shown_by_the_frame", "Enter the code shown by the frame")
-_CARD_INSTRUCTION = i18n.msg(
-    "pair_frame.turn_the_frame_on_it_shows_an_8_character_code",
-    "Turn the frame on: it shows an 8-character code.")
 _NO_CODE_TITLE = i18n.msg("pair_frame.no_code_on_screen", "No code on screen?")
 _CODE_LABEL = i18n.msg("pair_frame.pairing_code", "Pairing code")
 _CODE_HELP = i18n.msg(
     "pair_frame.the_code_stays_valid_for_about_35_minutes",
-    "The code stays valid for about 35 minutes; a new one then appears on the frame.")
+    "Valid for 35 minutes.")
 _NO_CODE_HELP = i18n.msg(
     "pair_frame.if_your_frame_shows_no_code_press_its_reset_button",
-    "If your frame shows no code, press its Reset button.")
+    "Press its Reset button.")
 _SUBMIT = i18n.msg("pair_frame.add_frame", "Add frame")
 _CANCEL = i18n.msg("pair_frame.cancel", "Cancel")
 
@@ -119,7 +116,7 @@ def _code_field(view):
 
 def render(view=PairView()):
     """The Add a frame page body."""
-    # One card: heading, instruction, code field with its validity line and
+    # One card: heading, code field with its validity line and
     # the actions, then a tinted footer carrying the Reset hint (left out after
     # a refusal: the frame did show a code, it was typed wrong).
     footer = "" if view.code_error else (
@@ -128,11 +125,11 @@ def render(view=PairView()):
     form = (
         '<form class="%s pair-card" method="post" action="%s">%s'
         '<div class="pair-card__main"><h2 class="text-heading pair-card__heading">%s</h2>'
-        '<p class="text-label pair-card__lead">%s</p>%s%s'
+        '%s%s'
         '<div class="pair-form__actions"><button type="submit">%s</button>'
         '<a class="pair-form__cancel" href="/account">%s</a></div></div>%s</form>') % (
             FORM_CLASS, PAIR_FRAME_ROUTE, ui_components.csrf_field(),
-            _t(_CARD_HEADING), _t(_CARD_INSTRUCTION), view.toast_html, _code_field(view),
+            _t(_CARD_HEADING), view.toast_html, _code_field(view),
             _t(_SUBMIT), _t(_CANCEL), footer)
     return (
         layout.page_header(i18n.t(PAIR_TITLE))
