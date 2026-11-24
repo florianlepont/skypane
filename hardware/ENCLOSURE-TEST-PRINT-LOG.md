@@ -125,6 +125,7 @@ holds for PLA only.
 | Shim | Shim in the frame rebate | not stated | fits ("rentre bien", the owner's words) | by feel | 2026-11-23 | reported by the owner on 2026-11-23 |
 | Tray | Board on the four standoffs with M2 screws | not applicable | fits ("j'ai pu visser proprement la carte", the owner's words); screw length not stated | by feel | 2026-11-23 | reported by the owner on 2026-11-23 |
 | Tray | All components placed in the tray | not applicable | fits ("j'ai pu mettre l'ensemble des composants", the owner's words); the list of components, the battery connection and any pinch of the cable or the ribbon are not stated | by feel | 2026-11-23 | reported by the owner on 2026-11-23 |
+| Lid | Frame tabs on the lid tab pads (lid not yet screwed) | not stated | tabs of the left and right sides land beside their pad, just beyond its end; top and bottom tabs land on their pad, about 4 mm off its centre (estimates read by the assistant on the owner's photos, not measured); the frame holds anyway (reported by the owner) | photos, by eye | 2026-11-24 | reported by the owner on 2026-11-24 |
 | Lid | Lid on the tray | | | | | |
 | Lid | Lid with screws and magnets | | | | | |
 | Stand | Stand plate in its stop walls | | | | | |

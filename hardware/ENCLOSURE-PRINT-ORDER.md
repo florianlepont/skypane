@@ -277,6 +277,30 @@ was found. So the owner's plate is a textured PEI plate and the spool is PLA
 Matte, as stored in the projects (the slice figures above used PLA Basic, 1.26
 g/cm3, so masses differ a little). The projects hold no slice result.
 
+### Lid tab pads moved, 2026-11-24
+
+First trial of the lid on the frame (photos from the owner, lid not yet screwed):
+the folded tabs of the left and right sides land beside their pad, just beyond
+its end, and the top and bottom tabs land on their pad about 4 mm off its centre.
+The frame holds anyway (reported by the owner). The owner asked the assistant to
+change the model from its visual estimates of the photos (not measured, about
+plus or minus 3 mm).
+
+- Left pad (x- side) centre moved from y -3.5 to +9.5 mm (+13 mm); right pad
+  (x+ side) centre from y -7.5 to +1.5 mm (+9 mm). Seen from the back with the
+  logo at the top left, both pads move toward the top of the frame. Top and
+  bottom pads, size (20 x 8 mm, top at 15.0 mm) and all other parts: unchanged.
+- Made in the generating script (parameters `tab_c_left` and `tab_c_right`),
+  regenerated and re-exported on 2026-11-24 with Blender 5.3.0 in the
+  background. Check: the tray, stand and shim regenerate with the same volume
+  (the stand and shim STL are byte-identical to the previous export); the lid
+  volume grows by 90 mm3, exactly the right pad no longer cut short by the stand
+  stop (4.5 mm x 8 mm x 2.5 mm); the lid keeps its size (132.0 x 182.0 x 11.2
+  mm). No slicer run, no print of the new lid.
+- The owner's Bambu Studio project `print/skypane_printing.3mf` still holds the
+  previous lid mesh: the lid has to be re-imported in the project before the
+  reprint. Design values, not measured.
+
 ## Files
 
 Printable files are in `hardware/cad/print/`, one per part, exported by the
@@ -286,7 +310,7 @@ in millimetres, each part lying in its printing pose (lowest point at z = 0):
 | File | Size of the part | Triangles | Exported (as reported) | Blend saved (as reported) |
 |---|---|---|---|---|
 | `skypane_tray.stl` | 132.0 x 182.0 x 11.0 mm | 7292 (re-exported on 2026-11-23 with the 8 x 34 mm ribbon slot and the 2 mm longer battery pocket; 7298 before) | 2026-11-18 per the previous record; export date to confirm (asked 2026-11-19) | to confirm |
-| `skypane_lid.stl` | 132.0 x 182.0 x 11.2 mm | 8406 | as above | to confirm |
+| `skypane_lid.stl` | 132.0 x 182.0 x 11.2 mm | 8408 (re-exported on 2026-11-24 with the left and right tab pads moved; 8406 before) | as above | to confirm |
 | `skypane_stand.stl` | 71.0 x 30.0 x 4.0 mm | 396 | as above | to confirm |
 | `skypane_shim.stl` | 132.0 x 182.0 x 1.0 mm | 208 | as above | to confirm |
 | `skypane_lid.3mf` | not read | not read | present in the export folder; its role is open (asked 2026-11-19) | to confirm |
