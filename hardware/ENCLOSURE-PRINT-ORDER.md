@@ -352,7 +352,50 @@ the two earlier projects `skypane_printing.3mf` and
 `skypane_tray_shim_merged.3mf`. Read by the assistant from the files (triangle
 counts), not sliced or printed.
 
+### Stand redesigned as a hinged leg, 2026-11-24
+
+Owner request of 2026-11-24, after the loose plate did not hold: a real stand like
+the original IKEA easel leg, hinged, working in landscape and in portrait; the
+magnet bosses and the two U-shaped stop walls of the lid can go, and the folded
+leg may cover the USB access (nothing measured; all numbers are design values).
+The owner sent a side photo of the IKEA frame on its leg; from it, by eye, the
+frame leans about 20 degrees and the leg stands about 48 degrees from the frame,
+hinged high on the back, a flat panel cut flat at the foot with a bevelled corner.
+In the IKEA 3D model the hinge points of that leg sit where the wall hooks of the
+lid are, so the owner chose to keep the hooks and a lower hinge (option A).
+
+- Lid: the two stop walls with their guides, the four support columns under them
+  in the tray, and the two magnet bosses are removed. Two pairs of hinge sockets
+  are added on the lid back (5 x 7 mm, 6 mm high, hole 3.4 mm, snap-in throat
+  2.7 mm open upward): landscape on an axis along y at x = +25, portrait on an
+  axis along x at y = -50. Both axes are 49 mm from the lower edge of the frame.
+- Leg (`print/skypane_stand.stl`): one panel 4 mm thick, 76 mm wide at the hinge
+  end, narrowing to 56 mm at the foot over the last 45 percent of its 56.4 mm
+  length, rounded hinge end with a pin of 3 mm on each side (4.6 mm long), foot
+  end cut parallel to the desk, printed flat on its lid-side face (292
+  triangles, closed mesh, 58.4 x 85.2 x 4.0 mm including the pins). A 9 mm wide
+  notch, 12.6 mm deep, in the hinge end clears the landscape sockets when the leg
+  is folded in portrait. The same leg is clipped on the landscape or the portrait
+  sockets, as on the original easel.
+- It stands the frame at 20 degrees on its lower edge, the leg 48 degrees from the
+  lid back; the foot lands at height 0 of the desk on the model (x about 61 to 63
+  in landscape). Folded flat on the lid back it lies between the sockets with
+  0.5 mm clearance, toward -x in landscape and toward +y in portrait, and leaves
+  the hook blocks free.
+- Checked by the assistant on the model (Blender 5.3.0, background): leg and lid
+  meshes closed; the folded leg, in landscape and in portrait, has zero overlap
+  with the lid (boolean intersection); the tray and shim part is regenerated
+  without the four columns (6644 triangles, volume 55855.2 mm3, was 7408 and
+  56954.0). Files re-exported: `skypane_lid.stl` (7066 triangles),
+  `skypane_stand.stl`; `skypane_tray_shim_merged.stl` was already regenerated.
+- Not done: nothing printed or fitted. Whether the pins snap in and hold, whether
+  PLA is stiff enough at 4 mm, the friction of the foot on the laminate (adhesive
+  anti-slip pads are still the owner's to add), and the hanging of the frame with
+  the leg folded are not known. The lid, the tray and the leg must be reprinted.
+
 ### Stand redesigned with a wide foot, 2026-11-24
+
+Superseded the same day by the hinged leg described just above (owner request); kept as the record of the intermediate design, which was merged but is no longer in the files.
 
 Reported by the owner on 2026-11-24: the stand does not hold, because its foot
 slides backward on the laminate desk (both landscape and portrait), and the
