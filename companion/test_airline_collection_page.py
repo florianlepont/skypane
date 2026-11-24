@@ -239,8 +239,8 @@ def test_the_bar_is_one_form_with_sort_and_count_and_a_no_script_apply(rig):
     sort = re.search(r'<details class="row-menu collection-sort">.*?</details>', form, flags=re.S).group(0)
     assert re.findall(r'<input type="radio"[^>]*name="sort" value="(\w+)"', sort) == [
         "most", "rarest", "latest", "az"]
-    assert sort.count(" checked") == 1 and 'value="most" checked' in sort
-    assert 'aria-label="Sort by: Most seen"' in sort
+    assert sort.count(" checked") == 1 and 'value="rarest" checked' in sort
+    assert 'aria-label="Sort by: Rarest"' in sort
     assert form.index('name="q"') < form.index("collection-sort") < form.index("collection-legend")
     assert "Airlines: 4" in form
     assert "Airlines: 1<" in _main(rig.page(query="?q=zed"))
@@ -251,6 +251,9 @@ def test_the_bar_is_one_form_with_sort_and_count_and_a_no_script_apply(rig):
 def test_sort_and_text_are_applied_by_the_server(rig):
     rig.seed_history()
     assert len(_cards(rig.page())) == 4
+    default = [_text(card) for card in _cards(rig.page())]
+    assert "Seen once" in default[0] and "Seen 12 times" in default[3]
+    assert default == [_text(card) for card in _cards(rig.page(query="?sort=rarest"))]
     most = [_text(card) for card in _cards(rig.page(query="?sort=most"))]
     assert "Seen 12 times" in most[0] and "Seen 3 times" in most[1]
     az = _cards(rig.page(query="?sort=az"))

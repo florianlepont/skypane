@@ -795,7 +795,7 @@
   }
 
   var VIEW = ".collection-grid, .collection-sheet, [data-filter-empty], [data-collection-empty]";
-  var DEFAULTS = { sort: "most" };
+  var DEFAULTS = { sort: "rarest" };
   var SORT_NAME = "sort";
   var OFFLINE = window.skypaneListOffline.REASON;
   var latest = 0;

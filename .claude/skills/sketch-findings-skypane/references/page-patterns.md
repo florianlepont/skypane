@@ -116,7 +116,7 @@ Read-only, and different by role.
   view is the Editor (below).
 - A grid of glass cards (artwork on a neutral plate, name) with a **filled rarity pill** on every
   card (tinted by `--rarity-tint`, a word as well as a colour), and a control bar: a filter field, a
-  sort icon menu (Most seen, Rarest, Latest, A to Z), a legend button behind one info button and the
+  sort icon menu (Most seen, Rarest, Latest, A to Z; Rarest is the default), a legend button behind one info button and the
   next-badge goal line. Two lines on a phone; the bar sticks while the cards scroll.
 - Detail sheet: three facts as hairline rows under the picture and the rarity pill, the round
   opaque cross at the top as the only Close (the foot strip is hidden), no inner scroll on a phone
