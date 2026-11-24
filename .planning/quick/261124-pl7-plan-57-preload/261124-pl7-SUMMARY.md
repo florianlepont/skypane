@@ -32,3 +32,11 @@ numbers, because the splash itself now waits for the downloads.
 - Map tiles (third party) not measured. Real iPhone Safari, production compression (Caddy gzip/zstd would cut the 7.9 s) not verified.
 - First visit to a frame makes the server draw the Style pictures (about 0.75 s extra splash, measured on phone-fast).
 - Unification of w=264/w=450 not done (different card sizes); both are fetched instead.
+
+## Correction after CI (commit c52e5f43)
+
+The preload list follows the space of the page being rendered (personal or Console), never the
+viewer's role, so a personal page is byte-identical for an administrator and a user and a signed-out
+shell carries no list. The "late requests = 0" figures above were measured with the earlier
+role-aware list: a session's first tap from a personal page into the Console still loads five Console
+scripts late (about 19.6 KB uncompressed). The Console stylesheets are already cached.
