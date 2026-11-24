@@ -81,10 +81,10 @@ def test_a_submitted_owner_is_ignored_and_other_frames_are_unaffected(rig):
     assert _device(server.state_dir, fx.MAC_LIVE)["owner_user_id"] == seed.admin_id
 
 
-def test_an_administrator_route_claim_still_chooses_the_owner(rig):
+def test_an_administrator_claim_on_the_page_still_chooses_the_owner(rig):
     server, seed, _cookie = rig
     admin = fx.admin_cookie(server.state_dir)
-    status, _headers, _body = fx.post(server, admin, "/fleet/pair", {
+    status, _headers, _body = fx.post(server, admin, PATH, {
         "code": fx.FAKE_CODE, "owner_user_id": str(seed.owner_id)})
     assert status == 303
     assert _device(server.state_dir)["owner_user_id"] == seed.owner_id
@@ -296,7 +296,7 @@ def test_the_global_throttle_covers_users_and_administrators_alike(rig):
     fresh = fx.user_cookie(server.state_dir, "fresh@example.test")
     assert _claim(server, fresh, fx.FAKE_CODE)[0] == 429
     admin = fx.admin_cookie(server.state_dir)
-    assert fx.post(server, admin, "/fleet/pair", {
+    assert fx.post(server, admin, PATH, {
         "code": fx.FAKE_CODE, "owner_user_id": str(seed.owner_id)})[0] == 429
 
 

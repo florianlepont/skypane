@@ -2,10 +2,14 @@
 with the code shown on the frame.
 
 Security invariants (the shared ones live in companion/console_pairing.py):
-- The owner of the new frame is always the signed-in person. The form has no
-  owner field and a submitted one is ignored, so nobody can assign a frame to
-  someone else here; registration by MAC or enrolment secret stays under the
-  administrator-only Fleet routes.
+- The owner of the new frame is the signed-in person, except that an
+  administrator may choose any other active user. Only an administrator's
+  form has an Owner field, and a submitted owner is read only when the
+  signed-in role is administrator (checked on the server, never from the
+  form): for everyone else it is ignored, so a tampered form cannot assign a
+  frame to someone else. An administrator's owner must be an existing active
+  user, else the form is refused with a field error. Registration by MAC or
+  enrolment secret stays under the administrator-only Fleet routes.
 - The same two throttles as the administrator route are checked before any
   code is evaluated, and every refusal gives the one identical answer.
 - The typed code is never stored, audited, put in a URL or a flash. A refused
@@ -18,7 +22,8 @@ Security invariants (the shared ones live in companion/console_pairing.py):
 from urllib.parse import parse_qs
 
 from companion import (
-    console_pairing, i18n, layout, pair_code_cookie, prefs, route_types)
+    access, console_flash, console_pairing, i18n, layout, pair_code_cookie, prefs,
+    route_types)
 from companion.pages import fleet_page, pair_frame_page
 from server import fleet_ops
 
@@ -26,6 +31,8 @@ PAIR_FRAME_ROUTE = pair_frame_page.PAIR_FRAME_ROUTE
 ACCOUNT_ROUTE = "/account"
 _MAX_ECHOED_CODE = 32
 REFUSED_QUERY = "refused=1"
+OWNER_QUERY = "owner"
+FLEET_ROUTE = console_pairing.FLEET_PATH
 
 
 def _respond(h, status, view, set_cookies=()):
@@ -40,6 +47,21 @@ def _echoed(code):
     return code.strip().upper()[:_MAX_ECHOED_CODE]
 
 
+def _is_admin(principal):
+    return principal.role == access.ADMIN
+
+
+def _owner_view(h, principal, selected=""):
+    """The Owner choices of an administrator's page, with `selected` when it
+    is one of them and else the administrator first; empty for anyone else."""
+    if not _is_admin(principal):
+        return {}
+    owners = console_pairing.pairing_owners(h.args.state_dir, principal.user_id)
+    chosen = selected if selected in {value for value, _label in owners} else (
+        owners[0][0] if owners else "")
+    return {"owners": owners, "owner_selected": chosen}
+
+
 def handle_get(h, m):
     prefs.set_request_prefs(lang=h._lang_from_request())
     principal = h._safe_principal()
@@ -51,11 +73,20 @@ def handle_get(h, m):
     error = ""
     # The refusal is shown with the code it blames, once: a reload carries no
     # cookie, so it shows a plain form instead of an error about an empty field.
-    if parse_qs(m.query or "").get("refused") == ["1"] and clear:
+    query = parse_qs(m.query or "")
+    if query.get("refused") == ["1"] and clear:
         error = fleet_page.claim_refused_error()
+    # The kept choice is only an id: it is checked against the list below.
+    owner = (query.get(OWNER_QUERY) or [""])[0]
     return _respond(
-        h, 200, pair_frame_page.PairView(code_value=code, code_error=error),
+        h, 200, pair_frame_page.PairView(
+            code_value=code, code_error=error, **_owner_view(h, principal, owner)),
         set_cookies=(clear,) if clear else ())
+
+
+def _refused_view(h, principal, code, owner_raw, **fields):
+    return pair_frame_page.PairView(
+        code_value=_echoed(code), **dict(_owner_view(h, principal, owner_raw), **fields))
 
 
 def handle_post(h, m):
@@ -65,26 +96,47 @@ def handle_post(h, m):
     principal = h._safe_principal()
     if principal is None or principal.user_id is None:
         return h.send_html(404, h._not_found_page())
-    code = h.read_form().get(pair_frame_page.CODE_FIELD, "")
-    if not code.strip():
-        return _respond(h, 400, pair_frame_page.PairView(
-            code_error=i18n.t(fleet_page.CLAIM_EMPTY_CODE)))
+    form = h.read_form()
+    code = form.get(pair_frame_page.CODE_FIELD, "")
+    # Anyone but an administrator is always the owner: the form's owner is
+    # not even read for them.
+    admin = _is_admin(principal)
+    owner_raw = form.get(pair_frame_page.OWNER_FIELD, "") if admin else ""
+    owner_id = console_pairing.owner_choice(owner_raw) if admin else principal.user_id
+    code_error = "" if code.strip() else i18n.t(fleet_page.CLAIM_EMPTY_CODE)
+    owner_error = i18n.t(fleet_page.CLAIM_EMPTY_OWNER) if owner_id is None else ""
+    if code_error or owner_error:
+        return _respond(h, 400, _refused_view(
+            h, principal, code, owner_raw, code_error=code_error,
+            owner_error=owner_error))
     key = console_pairing.session_key(h)
     if console_pairing.is_locked(key):
-        return _respond(h, 429, pair_frame_page.PairView(
-            code_value=_echoed(code), toast_html=console_pairing.docked_toast(
+        return _respond(h, 429, _refused_view(
+            h, principal, code, owner_raw, toast_html=console_pairing.docked_toast(
                 "warning", fleet_page.CLAIM_THROTTLED_TITLE,
                 fleet_page.CLAIM_THROTTLED_DETAIL)))
+    if admin and not console_pairing.owner_is_active(h.args.state_dir, owner_id):
+        return _respond(h, 400, _refused_view(
+            h, principal, code, owner_raw,
+            owner_error=i18n.t(fleet_page.CLAIM_OWNER_GONE)))
     try:
-        device_id, _name, _email = console_pairing.claim_code(h, code, principal.user_id)
+        device_id, frame, email = console_pairing.claim_code(h, code, owner_id)
     except fleet_ops.ClaimRefused:
         console_pairing.record_refused_attempt(h, key)
-        return h.redirect(
-            "%s?%s" % (PAIR_FRAME_ROUTE, REFUSED_QUERY),
-            set_cookie=pair_code_cookie.keep_header(key, code))
+        again = "%s?%s" % (PAIR_FRAME_ROUTE, REFUSED_QUERY)
+        if admin:
+            again += "&%s=%d" % (OWNER_QUERY, owner_id)
+        return h.redirect(again, set_cookie=pair_code_cookie.keep_header(key, code))
     except fleet_ops.OwnerUnavailable:
+        if admin:
+            return _respond(h, 400, _refused_view(
+                h, principal, code, owner_raw,
+                owner_error=i18n.t(fleet_page.CLAIM_OWNER_GONE)))
         return h.send_html(404, h._not_found_page())
     console_pairing.SESSION_THROTTLE.record_success(key)
+    if owner_id != principal.user_id:
+        return h.redirect(FLEET_ROUTE, set_cookie=console_flash.queue_flash(
+            console_pairing.FLASH_PAIRED, frame=frame, email=email))
     return h.redirect("/devices/%s/?flash=%s" % (device_id, pair_frame_page.FLASH_FRAME_PAIRED))
 
 

@@ -27,8 +27,6 @@ HASH_FIELD = "secret_sha256"
 HARDWARE_FIELD = "hardware_type"
 PAIR_QUERY_FLAG = "pair"
 
-ADD_DIALOG_ID = "dlg-add-frame"
-
 _FRAMES_TEXT = i18n.msg("admin_fleet.frames", "Frames")
 # Same id and English as the frame button's, so one name reads one way.
 _LIVE_FRAME_NAME = i18n.msg("nav.device_default_name", "Orly frame")
@@ -87,21 +85,9 @@ _RETIRE_HINT = i18n.msg(
 _RETIRE_ACTION = i18n.msg("admin_fleet.retire_this_frame_action", "Retire…")
 
 _ADD_TITLE = i18n.msg("admin_fleet.add_a_frame", "Add a frame")
-_BACK_TO_FLEET = i18n.msg("admin_fleet.back_to_fleet", "Back to Fleet")
-_PAIR_PURPOSE = i18n.msg(
-    "admin_fleet.enter_the_code_shown_on_the_frame_s_screen_and_choose",
-    "Enter the code shown on the frame's screen and choose who it belongs to.")
-_PAIR_CODE_LABEL = i18n.msg("admin_fleet.pairing_code", "Pairing code")
-_PAIR_CODE_HELP = i18n.msg(
-    "admin_fleet.the_code_stays_valid_for_about_35_minutes",
-    "The code stays valid for about 35 minutes; a new one then appears on the frame.")
-_PAIR_OWNER_LABEL = i18n.msg("admin_fleet.pair_owner", "Owner")
+PAIR_OWNER_LABEL = i18n.msg("admin_fleet.pair_owner", "Owner")
 _PAIR_OWNER_CHOOSE = i18n.msg("admin_fleet.choose_an_owner_option", "Choose an owner")
 _PAIR_SUBMIT = i18n.msg("admin_fleet.pair_frame", "Pair frame")
-_PAIR_NONE_WAITING = i18n.msg(
-    "admin_fleet.no_frame_is_showing_a_code_yet",
-    "No frame is showing a code yet. Switch the frame on; its code appears on "
-    "its screen.")
 _ADMIN_SUFFIX = i18n.msg("admin_fleet.admin_suffix", "(admin)")
 CLAIM_REFUSED_TITLE = i18n.msg("admin_fleet.code_not_recognised", "Code not recognised")
 CLAIM_REFUSED_DETAIL = i18n.msg(
@@ -160,21 +146,14 @@ class FleetRow(NamedTuple):
 
 class FleetView(NamedTuple):
     """Everything the page renders. `owners` is a (value, label) sequence;
-    `code_value`, `owner_selected`, the error fields and `open_add_dialog`
-    carry the state of a refused submission; `register_errors` the messages
-    of a refused scripted registration. `access` is a tuple of (frame id,
+    `owner_selected` preselects the re-assign owner; `register_errors` holds
+    the messages of a refused scripted registration. `access` is a tuple of (frame id,
     co_managers_card.CardView) for the frames whose Manage access dialog is
     offered; `open_access` is the frame id whose dialog renders open."""
     rows: tuple
     owners: tuple
-    has_pending: bool
     now: datetime.datetime
-    code_value: str = ""
     owner_selected: str = ""
-    claim_toast_html: str = ""
-    code_error: str = ""
-    owner_error: str = ""
-    open_add_dialog: bool = False
     register_errors: tuple = ()
     access: tuple = ()
     open_access: str = ""
@@ -258,31 +237,6 @@ def _field_error(dialog_id, field, message):
     return (
         ' aria-invalid="true" aria-describedby="%s"' % _esc(ui_modal.error_id(dialog_id, field)),
         ui_modal.field_error_html(dialog_id, field, message))
-
-
-def _add_dialog(view):
-    code_attrs, code_error = _field_error(ADD_DIALOG_ID, "code", view.code_error)
-    owner_attrs, owner_error = _field_error(ADD_DIALOG_ID, "owner", view.owner_error)
-    none_waiting = (
-        "" if view.has_pending
-        else '<p class="text-label">%s</p>' % _t(_PAIR_NONE_WAITING))
-    body = (
-        '%s<p class="text-body">%s</p>'
-        '<div class="modal__field"><label for="pair-code">%s</label>'
-        '<input type="text" id="pair-code" name="%s" class="mono" '
-        'autocomplete="off" autocapitalize="characters" spellcheck="false" '
-        'inputmode="text" maxlength="12" placeholder="XXXX-XXXX" value="%s"%s>%s'
-        '<p class="text-label">%s</p></div>'
-        '<div class="modal__field"><label for="pair-owner">%s</label>'
-        '<select id="pair-owner" name="%s"%s>%s</select>%s</div>%s' % (
-            view.claim_toast_html, _t(_PAIR_PURPOSE), _t(_PAIR_CODE_LABEL),
-            CODE_FIELD, _esc(view.code_value), code_attrs, code_error,
-            _t(_PAIR_CODE_HELP), _t(_PAIR_OWNER_LABEL), OWNER_FIELD, owner_attrs,
-            _owner_options(view), owner_error, none_waiting))
-    return ui_modal.dialog_html(
-        ADD_DIALOG_ID, i18n.t(_ADD_TITLE), _routes().FLEET_PAIR_ROUTE,
-        _ui().csrf_field(), body, i18n.t(_PAIR_SUBMIT), i18n.t(_BACK_TO_FLEET),
-        _routes().FLEET_ROUTE, open_=view.open_add_dialog)
 
 
 def _frame_dialog(
@@ -406,7 +360,7 @@ def render(view):
     section = (
         '<section class="page-section" aria-label="%s">%s</section>' % (
             _t(_FRAMES_TEXT), empty) if empty else "")
-    dialogs = _add_dialog(view) + "".join(_row_dialogs(row) for row in view.rows)
+    dialogs = "".join(_row_dialogs(row) for row in view.rows)
     return _register_errors_html(view) + section + dialogs
 
 
