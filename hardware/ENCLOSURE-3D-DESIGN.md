@@ -140,7 +140,7 @@ In this repository, `hardware/cad/` (added by the owner on 2026-11-17, reorganis
 - `reference/ee04_board.stl`: the board, converted from the GrabCAD STEP file (about 12.5 MB).
 - `reference/ikea_rodalm_13x18_noir.glb`: the IKEA 3D model of the frame (about 0.14 MB).
 - `print/skypane_tray_shim_merged.stl`, `print/skypane_lid.stl`, `print/skypane_stand.stl`: the three parts to print since 2026-11-24 (the tray and the shim are one part);
-  the lid was exported again on 2026-11-24 after the tab pads moved, the stand on 2026-11-18; the owner's confirmation that the earlier exports match the blend is recorded in the print order.
+  the lid was exported again on 2026-11-24 after the tab pads moved and the screw lugs went, the stand on 2026-11-24 with a wide foot for anti-slip pads; the owner's confirmation that the earlier exports match the blend is recorded in the print order.
 - `print/skypane_lid.3mf`: the owner's one Bambu Studio project (recreated on 2026-11-24): the lid, the one-part tray and shim, and the stand.
 - `old/`: the previous two-part design (`skypane_tray.stl`, `skypane_shim.stl`, `skypane_cassette_separate.blend`), kept until the one-part design has been fitted in the frame. The one-part design was chosen by the owner on 2026-11-24 (reprinted well, not yet fitted).
 - The Blender automatic backup copy (`skypane_cassette.blend1`) was removed on 2026-11-24;
