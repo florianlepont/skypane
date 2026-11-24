@@ -110,7 +110,7 @@ sliced (see "Slice check, 2026-11-24" below). Still to do: the tray is reprinted
 in PLA on the same machine and plate; the fit of the ribbon, of the battery and
 of the board is tried again; then the lid is printed.
 
-#### Alternative: tray and shim in one part (abandoned by the owner on 2026-11-24)
+#### Alternative: tray and shim in one part (not decided; set aside on 2026-11-24)
 
 Asked for by the owner on 2026-11-24 as an alternative version. The main design
 stays two parts that the owner glues; this variant is only a file to look at and
@@ -135,12 +135,15 @@ generating script, like the tray change above.
   which is worse.
 - Sliced once on 2026-11-24 (see "Slice check, 2026-11-24" below): the slicer
   does add support under the pocket ceiling.
-- Owner decision of 2026-11-24: the variant was printed once and the owner could
-  not get a clean print; his reading is that the support is too thin. The owner
-  stopped this design and the work continues with the main design, tray and shim
-  as two parts (reported by the owner; no cause was measured and no photo of the
-  failed print was examined). The files stay in `hardware/cad/alternatives/` as
-  a record; no fit trial of this variant.
+- Owner report of 2026-11-24, first version: the variant was printed once and
+  the owner could not get a clean print; he first thought the support was too
+  thin and said the work would continue with the main design.
+- Owner report of 2026-11-24, correction: he has the same print problem with the
+  main part (the tray), so he thinks the cause may be the printer and not the
+  design. The cause is not determined and the defect is not yet described or
+  photographed. The earlier line that the design was abandoned is withdrawn: the
+  variant is only set aside, not decided either way. The files stay in
+  `hardware/cad/alternatives/`; no fit trial of this variant.
 
 Values kept, because the model and the owner's tape readings differ by about
 1 mm or less, which is the tape's resolution (owner instruction, 2026-11-18):
