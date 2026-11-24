@@ -259,6 +259,24 @@ Reading of the rows:
 - Masses and times are estimates of the slicer (design values), not weighed and
   not measured on a print.
 
+**Slicer projects saved by the owner (2026-11-24).** The owner saved two Bambu
+Studio projects and the assistant read them (unzipped, not opened in the
+slicer; nothing was sliced from them): `hardware/cad/print/skypane_printing.3mf`
+and `hardware/cad/alternatives/skypane_tray_shim_merged.3mf`. Contents:
+
+| Project | Plates | Parts and check against the repo STL |
+|---|---|---|
+| `skypane_printing.3mf` | 3: shim and stand; lid; tray | The four meshes have the same triangle counts and volumes as the STL in `print/` (tray 7292 triangles, 52246 mm3: the version with the 8 x 34 mm slot; lid 8406; stand 396; shim 208) |
+| `skypane_tray_shim_merged.3mf` | 1: the merged part | Same mesh as `alternatives/skypane_tray_shim_merged.stl` (7408 triangles, 56954 mm3) |
+
+Settings stored in both: Bambu Lab X1 Carbon, 0.4 mm nozzle, "0.20mm Standard @BBL
+X1C", 3 walls, 20 % grid infill, Textured PEI Plate, filament "Bambu PLA Matte
+@BBL X1C" (density 1.32 g/cm3 in the profile), auto brim. Supports: off in the
+printing project, automatic (normal) in the merged project. No per-part override
+was found. So the owner's plate is a textured PEI plate and the spool is PLA
+Matte, as stored in the projects (the slice figures above used PLA Basic, 1.26
+g/cm3, so masses differ a little). The projects hold no slice result.
+
 ## Files
 
 Printable files are in `hardware/cad/print/`, one per part, exported by the
