@@ -387,6 +387,39 @@ leg may cover the USB access (nothing measured; all numbers are design values).
   of 17 mm; adhesive anti-slip pads are still the owner's to add), and the hanging
   of the frame with the leg folded are not known. The lid, the tray and the leg
   must be reprinted.
+### Stand redesigned with a wide foot, 2026-11-24
+
+Superseded the same day by the hinged leg described just above (owner request); kept as the record of the intermediate design, which was merged but is no longer in the files.
+
+Reported by the owner on 2026-11-24: the stand does not hold, because its foot
+slides backward on the laminate desk (both landscape and portrait), and the
+plate also comes out of its housing on the lid. The owner asked for a new stand
+design, without changing the lid, and has adhesive anti-slip pads of no defined
+size. Nothing was measured; the numbers below are computed on the model.
+
+- Cause, by computation on the model: the plate is about 20 degrees from
+  vertical, so the frame pushes the foot backward with about 0.36 times its
+  weight on the stand; the foot holds only if the friction coefficient is above
+  about 0.36, which smooth PLA on laminate barely reaches (design reasoning, not
+  a measurement). The end of the old plate that touches the desk is only about
+  4 mm deep by 30 mm wide, too narrow for a round pad.
+- Change, made by the assistant in the generating script (Blender 5.3.0,
+  background): a foot rib of 14 mm along the desk plane, away from the frame,
+  3 mm thick at the tip and rooted 8 mm along the plate, so that the contact
+  with the desk is about 18 mm by 30 mm. The plate is now printed on its small
+  face, the one with the two magnet pockets (the face that lies on the lid
+  when stored), so the rib stands on the other face and does not touch the lid
+  when the plate is stored; no overhang on the strut, the rib leans 20 degrees
+  from vertical. The pockets are now open on the bed face (2.2 mm deep, 6.2 mm).
+  The plate length, width, thickness, tilt (20 degrees) and the lid are
+  unchanged.
+- Check on the model: closed mesh (0 non-manifold edges), 408 triangles, volume
+  10342.3 mm3, print size 75.8 x 30.0 x 18.2 mm; the tray and the lid keep the
+  same vertex hashes. `print/skypane_stand.stl` re-exported; the owner's
+  `skypane_lid.3mf` project still holds the old stand.
+- Not done: printed, fitted, or tried on the desk; the housing on the lid is
+  unchanged, so whether the plate still comes out of it is not known. The
+  assistant did not pick a pad size: the pads stick under the flat foot face.
 
 ### Lid tab pads moved, 2026-11-24
 
