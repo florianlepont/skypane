@@ -79,7 +79,9 @@ def test_pair_a_frame_in_four_actions(new_context, app_server_in_process):
     try:
         click_add(page)  # 1
         page.wait_for_url("**/pair-frame")
-        page.keyboard.type(fx.FAKE_CODE)  # 2: focus starts on the code field
+        # Focus starts on the code field; wait for it so the keystrokes cannot start before it.
+        page.wait_for_function("() => document.activeElement && document.activeElement.id === 'pair-code'")
+        page.keyboard.type(fx.FAKE_CODE)  # 2
         page.select_option("#pair-owner", label=fx.OWNER_EMAIL)  # 3
         page.locator("form.pair-form button[type=submit]").click()  # 4
         page.wait_for_url("**/fleet")
