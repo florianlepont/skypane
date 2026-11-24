@@ -153,6 +153,35 @@ def test_the_add_frame_page_is_one_card_with_the_help_footer_below_the_actions(
         context.close()
 
 
+@pytest.mark.parametrize("width", (390, 1280))
+def test_the_pair_card_is_the_only_surface_around_the_form(new_context, seeded, width):
+    """no outer card around the card: walking up from the form, nothing before the page's main
+    column paints a background, border or shadow, and the form is the card that does"""
+    server, _seed = seeded
+    context, page = _open(new_context, server, fx.USER_EMAIL, "/pair-frame", "fr")
+    try:
+        page.set_viewport_size({"width": width, "height": 844})
+        page.locator("#pair-code").wait_for(state="visible")
+        page.wait_for_function(animation_settle.SETTLED, timeout=15000)
+        surfaces = page.evaluate(
+            """() => {
+              const out = [];
+              for (let e = document.querySelector('form.pair-card'); e && e.tagName !== 'MAIN';
+                   e = e.parentElement) {
+                const s = getComputedStyle(e);
+                const painted = s.backgroundColor !== 'rgba(0, 0, 0, 0)' || s.backgroundImage !== 'none'
+                  || parseFloat(s.borderTopWidth) > 0 || s.boxShadow !== 'none';
+                if (painted) { out.push(e.tagName.toLowerCase() + '.' + e.className); }
+              }
+              return out;
+            }""")
+        assert len(surfaces) == 1 and "pair-card" in surfaces[0], surfaces
+        card = page.locator("form.pair-card").bounding_box()
+        assert card["x"] >= 0 and card["x"] + card["width"] <= width
+    finally:
+        context.close()
+
+
 @pytest.mark.parametrize("lang", ["en", "fr"])
 def test_a_user_pairs_a_frame_from_the_empty_state_and_lands_on_its_home(
         new_context, seeded, lang):

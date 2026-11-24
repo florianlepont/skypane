@@ -110,13 +110,13 @@ sliced (see "Slice check, 2026-11-24" below). Still to do: the tray is reprinted
 in PLA on the same machine and plate; the fit of the ribbon, of the battery and
 of the board is tried again; then the lid is printed.
 
-#### Tray and shim in one part (chosen by the owner on 2026-11-24)
+#### Tray and shim in one part (the main design since 2026-11-24)
 
 Asked for by the owner on 2026-11-24 as an alternative version. The main design
 stays two parts that the owner glues; this variant is only a file to look at and
-slice. Files: `hardware/cad/alternatives/skypane_cassette_merged.blend` (the main blend with a
+slice. Files (moved on 2026-11-24, see the paragraph on the layout below): `hardware/cad/source/skypane_cassette.blend` (the blend with a
 union of the tray and the shim, the separate objects kept and hidden) and
-`hardware/cad/alternatives/skypane_tray_shim_merged.stl` (one part, 132.0 x 182.0 x
+`hardware/cad/print/skypane_tray_shim_merged.stl` (one part, 132.0 x 182.0 x
 12.0 mm: 1.0 mm rim in front of the 11.0 mm tray). Made by the assistant in the
 generating script, like the tray change above.
 
@@ -143,7 +143,7 @@ generating script, like the tray change above.
   design. The cause is not determined and the defect is not yet described or
   photographed. The earlier line that the design was abandoned is withdrawn: the
   variant is only set aside, not decided either way. The files stay in
-  `hardware/cad/alternatives/`; no fit trial of this variant.
+  `hardware/cad/alternatives/` at that time; no fit trial of this variant.
 - Owner report of 2026-11-24, reprint: before the reprint the owner purged the
   nozzle and changed nothing else he mentioned (no change to the file or the
   settings reported); the print started without a problem and, in his words, the
@@ -156,9 +156,23 @@ generating script, like the tray change above.
   facilement" (the owner's words); no photo or measurement. Owner decision of
   2026-11-24: the design goes to one part, tray and shim together. This replaces
   the earlier lines of this section that said the variant was set aside or not
-  decided. The files stay in `hardware/cad/alternatives/` for now; the separate
-  tray and shim files stay as they are. The one-part design has not been fitted
+  decided. The layout change that followed is described below. The one-part design has not been fitted
   in the frame, the lid has not been tried on it, and no go/no-go is recorded.
+- Photos sent by the owner on 2026-11-24 (two photos, not stored in the repo),
+  read by the assistant by eye, nothing measured: the face that lies against the
+  screen is flat and even with fine parallel lines, with no visible hole, string
+  or torn area, and the ribbon slot is clear; inside, the engraved texts
+  BATTERIE, CARTE and ANTENNE are readable, and the four board standoffs, the
+  walls, the corner screw posts and the shim pegs are present, with no visible
+  string or lifted corner. Photos cannot show dimensions: fit is still to be tried.
+- Layout change, 2026-11-24, made by the assistant at the owner's request ("le
+  modele alternatif doit devenir le principal", folder `old` chosen by the
+  owner): `source/skypane_cassette.blend` is now the blend with the union; the
+  previous blend is `old/skypane_cassette_separate.blend`; the separate tray and
+  shim STL moved to `old/`; the merged STL and its 3mf moved to `print/`. No
+  geometry changed (the files were moved, not re-exported). The old files stay
+  until the one-part design has been fitted in the frame. The file table and the
+  slice rows below name the separate tray and shim as they were at the time.
 
 Values kept, because the model and the owner's tape readings differ by about
 1 mm or less, which is the tape's resolution (owner instruction, 2026-11-18):
@@ -285,12 +299,12 @@ Reading of the rows:
 **Slicer projects saved by the owner (2026-11-24).** The owner saved two Bambu
 Studio projects and the assistant read them (unzipped, not opened in the
 slicer; nothing was sliced from them): `hardware/cad/print/skypane_printing.3mf`
-and `hardware/cad/alternatives/skypane_tray_shim_merged.3mf`. Contents:
+and `hardware/cad/print/skypane_tray_shim_merged.3mf` (then in `alternatives/`). Contents:
 
 | Project | Plates | Parts and check against the repo STL |
 |---|---|---|
 | `skypane_printing.3mf` | 3: shim and stand; lid; tray | The four meshes have the same triangle counts and volumes as the STL in `print/` (tray 7292 triangles, 52246 mm3: the version with the 8 x 34 mm slot; lid 8406; stand 396; shim 208) |
-| `skypane_tray_shim_merged.3mf` | 1: the merged part | Same mesh as `alternatives/skypane_tray_shim_merged.stl` (7408 triangles, 56954 mm3) |
+| `skypane_tray_shim_merged.3mf` | 1: the merged part | Same mesh as `print/skypane_tray_shim_merged.stl` (7408 triangles, 56954 mm3) |
 
 Settings stored in both: Bambu Lab X1 Carbon, 0.4 mm nozzle, "0.20mm Standard @BBL
 X1C", 3 walls, 20 % grid infill, Textured PEI Plate, filament "Bambu PLA Matte
@@ -299,6 +313,119 @@ printing project, automatic (normal) in the merged project. No per-part override
 was found. So the owner's plate is a textured PEI plate and the spool is PLA
 Matte, as stored in the projects (the slice figures above used PLA Basic, 1.26
 g/cm3, so masses differ a little). The projects hold no slice result.
+
+### First assembly and the screw lugs removed, 2026-11-24
+
+Reported by the owner on 2026-11-24, after mounting the lid on the rest of the
+case, which completes the first assembly (nothing measured):
+
+- The screws that fix the case to the frame are useless: the tabs on the tab
+  pads hold the case on the frame. Screwing to the frame is not practical for
+  the assembly. The owner asked to remove the four screw lugs of the lid.
+- The stand does not work: the frame slides directly. Which surface it stands
+  on, the angle, and whether it slides on the stand or the stand slides are not
+  reported yet. No change was made to the stand.
+
+Change made by the assistant in the generating script on 2026-11-24 (Blender
+5.3.0, background mode): the four lugs of the lid (4 x 8 mm, z 12.5 to 22 mm,
+with their 2.2 mm hole and head recess) and their parameters are removed. The
+tab pads, hooks, stand stops and every other part are unchanged. Check: the
+one-part tray and the stand regenerate with the same volume (56954.0 and 8010.5
+mm3, the stand STL byte-identical); the lid volume goes from 42583.8 to 41487.5
+mm3 (-1096.3 mm3), 8408 to 7552 triangles, and keeps its size (132.0 x 182.0 x
+11.2 mm). Only `print/skypane_lid.stl` was re-exported. The lid must be
+reprinted, and `skypane_printing.3mf` and any other project still hold the lid
+with lugs. Design value, not measured, not printed.
+
+The 4 M2 screws of the lid on the tray corners (the corner posts) are not part
+of this change.
+
+Owner report of 2026-11-24 (evening): the owner saved the Blender file after
+deleting the two duplicate copies of the one-part tray that the assistant's
+regeneration had left in it (`SkyPane_Bac_Cale.001` and `.002`; the old separate
+tray and shim objects are visible again in the file). The meshes are unchanged
+(checked by the assistant on 2026-11-24: same vertex hashes, the stand still at
+its 20 degree design, same script). The owner also recreated the Bambu Studio
+project as `print/skypane_lid.3mf`, holding the lid with no lugs (7552
+triangles), the one-part tray and shim (7408) and the stand (396), and removed
+the two earlier projects `skypane_printing.3mf` and
+`skypane_tray_shim_merged.3mf`. Read by the assistant from the files (triangle
+counts), not sliced or printed.
+
+### Stand redesigned as a hinged leg, 2026-11-24
+
+Owner request of 2026-11-24, after the loose plate did not hold: a real stand like
+the original IKEA easel leg, hinged, working in landscape and in portrait; the
+magnet bosses and the two U-shaped stop walls of the lid can go, and the folded
+leg may cover the USB access (nothing measured; all numbers are design values).
+The owner sent a side photo of the IKEA frame on its leg; from it, by eye, the
+frame leans about 20 degrees and the leg stands about 48 degrees from the frame,
+hinged high on the back, a flat panel cut flat at the foot with a bevelled corner.
+In the IKEA 3D model the hinge points of that leg sit where the wall hooks of the
+lid are, so the owner chose to keep the hooks and a lower hinge (option A).
+
+- Lid: the two stop walls with their guides, the four support columns under them
+  in the tray, and the two magnet bosses are removed. Two pairs of hinge sockets
+  are added on the lid back (5 x 7 mm, 6 mm high, hole 3.4 mm, snap-in throat
+  2.7 mm open upward): landscape on an axis along y at x = +25, portrait on an
+  axis along x at y = -50. Both axes are 49 mm from the lower edge of the frame.
+- Leg (`print/skypane_stand.stl`): one panel 4 mm thick, 76 mm wide at the hinge
+  end, narrowing to 56 mm at the foot over the last 45 percent of its 56.4 mm
+  length, rounded hinge end with a pin of 3 mm on each side (4.6 mm long), foot
+  end cut parallel to the desk, printed flat on its lid-side face (292
+  triangles, closed mesh, 58.4 x 85.2 x 4.0 mm including the pins). A 9 mm wide
+  notch, 12.6 mm deep, in the hinge end clears the landscape sockets when the leg
+  is folded in portrait. The same leg is clipped on the landscape or the portrait
+  sockets, as on the original easel.
+- It stands the frame at 20 degrees on its lower edge, the leg 48 degrees from the
+  lid back; the foot lands at height 0 of the desk on the model (x about 61 to 63
+  in landscape). Folded flat on the lid back it lies between the sockets with
+  0.5 mm clearance, toward -x in landscape and toward +y in portrait, and leaves
+  the hook blocks free.
+- Checked by the assistant on the model (Blender 5.3.0, background): leg and lid
+  meshes closed; the folded leg, in landscape and in portrait, has zero overlap
+  with the lid (boolean intersection); the tray and shim part is regenerated
+  without the four columns (6644 triangles, volume 55855.2 mm3, was 7408 and
+  56954.0). Files re-exported: `skypane_lid.stl` (7066 triangles),
+  `skypane_stand.stl`; `skypane_tray_shim_merged.stl` was already regenerated.
+- Not done: nothing printed or fitted. Whether the pins snap in and hold, whether
+  PLA is stiff enough at 4 mm, the friction of the foot on the laminate (adhesive
+  anti-slip pads are still the owner's to add), and the hanging of the frame with
+  the leg folded are not known. The lid, the tray and the leg must be reprinted.
+
+### Stand redesigned with a wide foot, 2026-11-24
+
+Superseded the same day by the hinged leg described just above (owner request); kept as the record of the intermediate design, which was merged but is no longer in the files.
+
+Reported by the owner on 2026-11-24: the stand does not hold, because its foot
+slides backward on the laminate desk (both landscape and portrait), and the
+plate also comes out of its housing on the lid. The owner asked for a new stand
+design, without changing the lid, and has adhesive anti-slip pads of no defined
+size. Nothing was measured; the numbers below are computed on the model.
+
+- Cause, by computation on the model: the plate is about 20 degrees from
+  vertical, so the frame pushes the foot backward with about 0.36 times its
+  weight on the stand; the foot holds only if the friction coefficient is above
+  about 0.36, which smooth PLA on laminate barely reaches (design reasoning, not
+  a measurement). The end of the old plate that touches the desk is only about
+  4 mm deep by 30 mm wide, too narrow for a round pad.
+- Change, made by the assistant in the generating script (Blender 5.3.0,
+  background): a foot rib of 14 mm along the desk plane, away from the frame,
+  3 mm thick at the tip and rooted 8 mm along the plate, so that the contact
+  with the desk is about 18 mm by 30 mm. The plate is now printed on its small
+  face, the one with the two magnet pockets (the face that lies on the lid
+  when stored), so the rib stands on the other face and does not touch the lid
+  when the plate is stored; no overhang on the strut, the rib leans 20 degrees
+  from vertical. The pockets are now open on the bed face (2.2 mm deep, 6.2 mm).
+  The plate length, width, thickness, tilt (20 degrees) and the lid are
+  unchanged.
+- Check on the model: closed mesh (0 non-manifold edges), 408 triangles, volume
+  10342.3 mm3, print size 75.8 x 30.0 x 18.2 mm; the tray and the lid keep the
+  same vertex hashes. `print/skypane_stand.stl` re-exported; the owner's
+  `skypane_lid.3mf` project still holds the old stand.
+- Not done: printed, fitted, or tried on the desk; the housing on the lid is
+  unchanged, so whether the plate still comes out of it is not known. The
+  assistant did not pick a pad size: the pads stick under the flat foot face.
 
 ### Lid tab pads moved, 2026-11-24
 

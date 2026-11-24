@@ -3,8 +3,11 @@ under three anchors that stay at the top while the page scrolls, each 44 px and 
 390 px in English and French, the section in view marked current, plain links that work without
 scripts, a saved-section landing, the three State tiles, the full single column on a desktop,
 the unsaved-changes bar, and the designed empty picture on Home."""
+import io
+
 import animation_settle
 import pytest
+from PIL import Image
 
 import fleet_console_support as fx
 from companion import auth
@@ -88,7 +91,7 @@ def test_the_sticky_bar_is_solid_and_covers_the_gap_above_it_on_an_iphone(
             " document.documentElement.style.setProperty('--safe-top', '47px'); }")
         page.evaluate("() => window.scrollTo(0, document.documentElement.scrollHeight)")
         page.wait_for_function(
-            "() => document.querySelector('nav.fleet-anchors').getBoundingClientRect().top > 60",
+            "() => document.querySelector('nav.fleet-anchors').hasAttribute('data-stuck')",
             timeout=5000)
         look = page.evaluate(
             """() => {
@@ -103,6 +106,77 @@ def test_the_sticky_bar_is_solid_and_covers_the_gap_above_it_on_an_iphone(
         assert look["bar"] == 1 and look["strip"] == 1, look
         assert abs(look["stripHeight"] - look["top"]) <= 1, look
         assert all(look["hit"]), look
+    finally:
+        context.close()
+
+
+def _as_iphone_web_app(page):
+    page.evaluate(
+        "() => { document.documentElement.classList.add('web-app');"
+        " document.documentElement.style.setProperty('--safe-top', '47px'); }")
+
+
+def _rgb_at(page, x, y):
+    """The colour painted at one viewport pixel (a one-pixel screenshot)."""
+    png = page.screenshot(clip={"x": x, "y": y, "width": 1, "height": 1})
+    return Image.open(io.BytesIO(png)).convert("RGB").getpixel((0, 0))
+
+
+def _the_same_colour(first, second, tolerance=3):
+    return all(abs(a - b) <= tolerance for a, b in zip(first, second))
+
+
+@pytest.mark.parametrize("theme", UI_THEMES_EXPLICIT)
+def test_the_resting_bar_does_not_cover_the_status_line_above_it(
+        new_context, app_server_in_process, theme):
+    """at the top of the page the bar has not stuck, so the strip meant for the gap above a stuck
+    bar must not paint over the frame's status line"""
+    context, page = _open(new_context, app_server_in_process, PHONE, "fr", theme=theme)
+    try:
+        _as_iphone_web_app(page)
+        page.evaluate("() => window.scrollTo(0, 0)")
+        page.wait_for_timeout(300)
+        hits = page.evaluate(
+            """() => {
+              const line = document.querySelector('.fleet-head__state').getBoundingClientRect();
+              const nav = document.querySelector('nav.fleet-anchors');
+              return {line: [line.top, line.bottom], navTop: nav.getBoundingClientRect().top,
+                      stuck: nav.hasAttribute('data-stuck'),
+                      hit: [0.2, 0.5, 0.8].map((f) => {
+                        const el = document.elementFromPoint(40, line.top + f * line.height);
+                        return !!el && !!el.closest('.fleet-head__state'); })};
+            }""")
+        assert hits["line"][1] <= hits["navTop"] and not hits["stuck"], hits
+        assert all(hits["hit"]), hits
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("theme", UI_THEMES_EXPLICIT)
+@pytest.mark.parametrize("scroll", [0, 300, 700, 100000])
+def test_the_bar_and_the_gap_above_it_are_the_colour_of_the_page_behind_them(
+        new_context, app_server_in_process, theme, scroll):
+    """the page background is a gradient on <html>; the bar and the strip over the gap must be
+    indistinguishable from it, resting or stuck: a pixel in an empty part of each equals the pixel
+    there with the bar hidden"""
+    context, page = _open(new_context, app_server_in_process, PHONE, "fr", theme=theme)
+    try:
+        _as_iphone_web_app(page)
+        page.evaluate("(y) => window.scrollTo(0, y)", scroll)
+        page.wait_for_timeout(400)
+        box = page.evaluate(
+            """() => { const r = document.querySelector('nav.fleet-anchors').getBoundingClientRect();
+                       return {top: r.top, height: r.height,
+                               stuck: document.querySelector('nav.fleet-anchors').hasAttribute('data-stuck')}; }""")
+        points = [(3, box["top"] + box["height"] / 2), (3, box["top"] + 2)]
+        if box["stuck"]:
+            points.append((3, box["top"] - 20))
+        with_bar = [_rgb_at(page, x, int(y)) for x, y in points]
+        page.evaluate("() => { document.querySelector('nav.fleet-anchors').style.visibility = 'hidden'; }")
+        without_bar = [_rgb_at(page, x, int(y)) for x, y in points]
+        for shown, bare, point in zip(with_bar, without_bar, points):
+            assert _the_same_colour(shown, bare), (scroll, box, point, shown, bare)
+        assert box["stuck"] == (scroll >= 300)
     finally:
         context.close()
 
