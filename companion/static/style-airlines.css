@@ -474,15 +474,16 @@ table.airlines-table {
   border-radius: 0 0 var(--radius-card) var(--radius-card);
 }
 
-/* An airline's row on a phone is one line: its picture, its name over
- * `AFR · A320 · 37 views` in small mono, and the "..." menu. The row opens
+/* An airline's row on a phone is one line: its name over
+ * `AFR · A320 · 37 views` in small mono, and the "..." menu (the pictures are
+ * the type rows'; the default type is in the second line). The row opens
  * on a tap: the chevron's summary is laid over the whole row, under the
  * picture and the menu, and the text lets the tap through to it. */
 .airlines-row {
   position: relative;
   display: grid;
-  grid-template-columns: 84px minmax(0, 1fr) 44px;
-  grid-template-areas: "art name menu";
+  grid-template-columns: minmax(0, 1fr) 44px;
+  grid-template-areas: "name menu";
   align-items: center;
   gap: 0 12px;
   min-height: 60px;
@@ -606,7 +607,7 @@ table.airlines-table {
   grid-area: art;
 }
 
-.airlines-row > .airlines-cell--art .airlines-deftype {
+.airlines-row > .airlines-cell--art {
   display: none;
 }
 
@@ -679,10 +680,6 @@ table.airlines-table {
   font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
   white-space: nowrap;
-}
-
-.airlines-cell--type > .airlines-pill {
-  margin-left: var(--space-sm);
 }
 
 .airlines-pill--star {
@@ -1211,8 +1208,8 @@ dialog.modal .airlines-remove {
     display: none;
   }
 
-  .airlines-row > .airlines-cell--art .airlines-deftype {
-    display: inline;
+  .airlines-row > .airlines-cell--art {
+    display: table-cell;
   }
 
   .airlines-subrow {
@@ -1331,6 +1328,12 @@ dialog.modal .airlines-remove {
   .airlines-cell--type {
     display: table-cell;
     padding-left: calc(44px + var(--space-md) + var(--space-xs));
+  }
+
+  /* In the table the pill follows the code inline; in a card the flex gap
+   * spaces it. */
+  .airlines-cell--type > .airlines-pill {
+    margin-left: var(--space-sm);
   }
 
   .airlines-subrow .airlines-cell--seen {

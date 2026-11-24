@@ -140,6 +140,7 @@ files = [
     "server/plane/calendar_rules/ics.py",
     "server/plane/fleet_registries.py",
     "server/plane/fleet_artwork.py",
+    "server/plane/fleet_set_defaults.py",
     "server/plane/calendar_rules/match.py",
     "server/wake.py",
     "server/panel_format.py",

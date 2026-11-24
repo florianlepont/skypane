@@ -131,6 +131,25 @@ def _record_resolution(handler, state_dir, key, default_type, suggestion=""):
     return refused
 
 
+def _make_first_type_the_default(handler, state_dir, key, code):
+    """After a picture was stored under `key` for the aircraft type `code`:
+    an airline with no default type gets this type as its default, through
+    `set_default_type` (so the livery rule holds), fleet-wide, audited like the
+    other default-type changes. An airline that already has an effective
+    default type (a stored one with a picture, or the airframe of its legacy
+    picture) keeps it.
+    Returns False only when a default was to be set and was refused."""
+    airline_key = artwork_airline.base_key(key)
+    if illustrations.effective_default_type(airline_key, state_dir):
+        return True
+    if airline_default_types.set_default_type(
+            state_dir, airline_key, code, livery_key=key) != airline_default_types.SET_OK:
+        return False
+    airline_actions.record(
+        handler, airline_actions.ACTION_DEFAULT_TYPE, airline_key, {"type": code, "automatic": True})
+    return True
+
+
 def type_slugs():
     """Every file-name suffix an airline's per-type picture can carry."""
     return tuple(illustrations.SHAPE_SLUGS) + tuple(illustrations._TYPE_VARIANT_SLUGS.values())
@@ -247,7 +266,6 @@ class SettingsActionsMixin:
         # Sent by the add-first-artwork dialog only: the aircraft type the
         # artwork is for. Validated before anything is stored.
         asked_type = query_values.get(DEFAULT_TYPE_QUERY_PARAM, [None])[0]
-        default_type = None if asked_type is None else airline_default_types.normalise_code(asked_type)
         filename = key + ".png"
         if not illustration_filename_known(filename, device.state_dir):
             return self.send_html(404, self._not_found_page())
@@ -259,10 +277,19 @@ class SettingsActionsMixin:
             return self._scoped_redirect("%s#airline-%s" % (
                 resolve_dialog.with_query(back, query), artwork_airline.base_key(key)))
 
+        raw = self._read_upload_body()
+        if asked_type is None and raw is not None:
+            # The script-free form sends the chosen type next to the file.
+            asked_type = upload_form.parse_upload_type(self.headers.get("Content-Type"), raw)
+        default_type = None if asked_type is None else airline_default_types.normalise_code(asked_type)
         if asked_type is not None and default_type is None:
             return refused(FLASH_KEY_ARTWORK_TYPE_INVALID)
+        # A first picture of an airline always says which aircraft type it
+        # shows: an airline has no picture of its own, only its types do.
+        if default_type is None and artwork_airline.base_key(key) == key \
+                and not illustrations.has_pictures(key, device.state_dir):
+            return refused(FLASH_KEY_ARTWORK_TYPE_INVALID)
 
-        raw = self._read_upload_body()
         if raw is None:
             # Over the size cap, or a body that could not be read at all.
             too_large = request_body.parse_content_length(self.headers) > MAX_ILLUSTRATION_UPLOAD_BYTES
@@ -325,9 +352,8 @@ class SettingsActionsMixin:
             override_path = illustrations.override_path_for_key(key, state_dir)
             atomic_io.atomic_write(override_path, buffer.getvalue())
             flash_key = FLASH_KEY_ILLUSTRATION_REPLACED
-            # The file just stored is the picture of the chosen type.
-            if default_type and airline_default_types.set_default_type(
-                    state_dir, key, default_type, livery_key=key) != airline_default_types.SET_OK:
+            if default_type and not _make_first_type_the_default(
+                    self, state_dir, key, default_type):
                 flash_key = FLASH_KEY_DEFAULT_TYPE_FAILED
             return self._scoped_redirect(
                 resolve_dialog.with_query(back, "flash=%s" % quote(flash_key)))

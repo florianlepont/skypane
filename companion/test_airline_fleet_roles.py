@@ -110,7 +110,7 @@ def test_admin_editor_shows_the_artwork_of_the_whole_fleet(world):
     # is there for the editor opened on any frame, and the airline moves out
     # of "known by name only".
     for frame in (world.a_id, world.b_id):
-        _s, body = _get(world, world.admin, "/devices/%s/airlines/manage" % frame)
+        _s, body = _get(world, world.admin, "/devices/%s/airlines/manage?types=all" % frame)
         assert "illustration/zorro-air.png?v=" in body
         assert "Zorro Air" not in KNOWN_NAME_RE.findall(body)
 

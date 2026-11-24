@@ -53,15 +53,6 @@ ASK_TYPE_ATTR = "data-view-panel-ask-type"
 ASK_TYPE_ID = "airline_artwork_type"
 ASK_TYPE_CLASS = "upload-type"
 ASK_TYPE_LABEL = i18n.msg("airlines.artwork_aircraft_type", "Aircraft type")
-TYPE_LABEL_TEXT = i18n.msg("airlines.aircraft_type", "Aircraft type")
-# The type label of an owner-named airline: its one picture is used for
-# every aircraft, so it names no single type. A built-in airline always
-# names the airframe its picture shows (`illustrations.aircraft_label()`).
-TYPE_ALL_TEXT = i18n.msg("airlines.all_types", "All types")
-
-# A row lists up to this many aircraft types, else its first two and "+N".
-ROW_TYPES_SHOWN_MAX = 3
-ROW_TYPES_SEP = " · "
 
 # A row's accessible name: ACTION_LABEL_TEMPLATE takes the action (or the
 # edit wording and the airline) then the airline's types / name.
@@ -993,18 +984,21 @@ def _resolve_name_form_html(prefix_value, id_suffix, include_submit=True, hidden
     )
 
 
-def _ask_type_html():
-    """The aircraft-type select of the add-first-artwork step, hidden unless
-    the opening trigger asks for a type. It has no `name`: the multipart body
-    holds the file alone, so panel-lookup.js puts the choice on the upload
-    address as `default_type`."""
+def _ask_type_html(inline=False):
+    """The aircraft-type select of the add-first-artwork step. In the dialog
+    it is hidden unless the opening trigger asks for a type and has no `name`:
+    the multipart body holds the file alone, so panel-lookup.js puts the choice
+    on the upload address as `default_type`. Without a script (`inline`) it is
+    shown, required and named: the browser sends it as a text part before the
+    file, which the upload route reads. Same options either way."""
     options = sorted(set(illustrations._TYPE_SHAPE_BUCKETS) | set(illustrations._TYPE_VARIANT_SLUGS))
     return (
-        '<select id="%s" class="%s" aria-label="%s" hidden%s>'
+        '<select id="%s" class="%s" aria-label="%s"%s%s>'
         '<option value="">%s</option>%s</select>'
     ) % (
-        ASK_TYPE_ID, ASK_TYPE_CLASS, escape_html(i18n.t(ASK_TYPE_LABEL)),
-        validation_attrs("select"), escape_html(i18n.t(ASK_TYPE_LABEL)),
+        ASK_TYPE_ID + ("-page" if inline else ""), ASK_TYPE_CLASS, escape_html(i18n.t(ASK_TYPE_LABEL)),
+        ' name="%s" required' % DEFAULT_TYPE_QUERY_PARAM if inline else " hidden",
+        "" if inline else validation_attrs("select"), escape_html(i18n.t(ASK_TYPE_LABEL)),
         "".join('<option value="%s">%s</option>' % (escape_html(c), escape_html(c)) for c in options))
 
 
@@ -1041,7 +1035,7 @@ def _resolve_upload_form_html(action, id_suffix):
         MANUAL_UPLOAD_FORM_ID + id_suffix,
         action,
         csrf_field(),
-        _ask_type_html() if id_suffix else "",
+        _ask_type_html(inline=not id_suffix),
         upload_input_id,
         ui_components.button_html(i18n.t(REPLACE_BUTTON_TEXT), "secondary", button_type="submit"),
         _upload_drop_html(upload_input_id),
@@ -1134,7 +1128,7 @@ def _resolve_section_html(ctx):
     # delete form is eligible in both.
     delete_form = _manual_delete_form_html(_manual_delete_action(prefix))
 
-    if illustrations.resolved_illustration_path(key, state_dir) is None:
+    if not illustrations.has_pictures(key, state_dir):
         # Step B: name already saved, no artwork exists yet.
         upload_action = _illustration_url(key, "POST")
         upload_zone = _resolve_upload_form_html(upload_action, "")
@@ -1193,7 +1187,7 @@ def _manual_resolution_rows(state_dir, registry):
         needs_artwork = False
         if not superseded:
             key = manual_resolutions.illustration_key_for_name(airline_name)
-            needs_artwork = bool(key) and illustrations.resolved_illustration_path(key, state_dir) is None
+            needs_artwork = bool(key) and not illustrations.has_pictures(key, state_dir)
         rows.append((prefix, airline_name, created_at, superseded, needs_artwork))
     return rows
 

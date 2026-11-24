@@ -14,8 +14,8 @@ from PIL import Image
 import companion.test_companion_app_helpers as cah
 import companion.test_status_pages_helpers as shp
 import fleet_console_support as fx
-from companion import device_scope
-from companion_app_server import InProcessAppServer, http_request, with_csrf, with_csrf_part
+from companion.test_airline_editor_helpers import Rig
+from companion_app_server import InProcessAppServer, http_request, with_csrf_part
 from server import fleet_db
 from server.plane import airline_default_types, manual_resolutions, name_overrides
 
@@ -25,51 +25,6 @@ VENDORED = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
     "server", "assets", "icons", "illustrations")
 STAMP = "2026-01-01T00:00:00+00:00"
-
-
-class Rig:
-    def __init__(self, server, seed, cookies):
-        self.server = server
-        self.seed = seed
-        self.cookies = cookies
-        devices = {d.id: d for d in device_scope.load_devices(server.state_dir)}
-        self.owned_dir = devices[seed.owned_id].state_dir
-        os.makedirs(self.owned_dir, exist_ok=True)
-        self.frame = "/devices/%s" % seed.owned_id
-
-    def get(self, who, path):
-        status, headers, body = http_request(self.server.url(path), cookie=self.cookies.get(who))
-        return status, headers, body.decode("utf-8", "replace")
-
-    def post(self, who, path, form):
-        cookie = self.cookies.get(who)
-        status, headers, body = http_request(
-            self.server.url(path), method="POST", cookie=cookie,
-            data=with_csrf(cookie, form), extra_headers={"Origin": self.server.base_url()})
-        return status, headers, body.decode("utf-8", "replace")
-
-    def upload(self, who, path, payload):
-        body, content_type = with_csrf_part(
-            self.cookies.get(who), *cah.encode_multipart(payload, field_name="illustration"))
-        status, headers, _b = http_request(
-            self.server.url(path), method="POST", data=body,
-            cookie=self.cookies.get(who), content_type=content_type,
-            extra_headers={"Origin": self.server.base_url()})
-        return status, headers
-
-    def stored(self):
-        """Every file the editing flows write, by relative path with its bytes:
-        the frame's own files plus the fleet artwork directory at the root."""
-        found = {}
-        fleet_art = os.path.join(self.server.state_dir, "illustration_overrides")
-        for base, anchor in ((self.owned_dir, self.owned_dir), (fleet_art, self.server.state_dir)):
-            for root, _dirs, names in os.walk(base):
-                for name in names:
-                    if name.endswith((".json", ".png")):
-                        path = os.path.join(root, name)
-                        with open(path, "rb") as handle:
-                            found[os.path.relpath(path, anchor)] = handle.read()
-        return found
 
 
 @pytest.fixture
@@ -353,7 +308,7 @@ def _default_type_flash(rig, key, code):
 
 def test_a_type_without_a_picture_is_refused_as_default_and_nothing_is_written(rig):
     before = rig.stored()
-    assert _default_type_flash(rig, "air-france", "A320") == ["airline_default_type_failed"]
+    assert _default_type_flash(rig, "air-france", "A333") == ["airline_default_type_failed"]
     assert _default_type_flash(rig, "air-france", "B738") == ["airline_default_type_failed"]
     assert airline_default_types.load_default_types(rig.owned_dir) == {}
     assert rig.stored() == before
@@ -375,14 +330,25 @@ def test_clearing_the_default_stays_allowed_without_a_picture(rig):
     assert airline_default_types.load_default_types(rig.owned_dir) == {}
 
 
-def test_deleting_the_picture_of_the_default_type_clears_the_default(rig):
-    _override(rig, "air-france-a320")
+def test_deleting_the_picture_of_the_default_type_repoints_the_default_to_a_remaining_type(rig):
     _override(rig, "air-france-b737")
-    _default_type_flash(rig, "air-france", "A320")
+    _default_type_flash(rig, "air-france", "B738")
     rig.post("admin", rig.frame + "/airlines/artwork/delete", {"key": "air-france-b737"})
+    # Air France keeps its legacy picture, the picture of an A320.
     assert airline_default_types.load_default_types(rig.owned_dir) == {"air-france": "A320"}
-    rig.post("admin", rig.frame + "/airlines/artwork/delete", {"key": "air-france-a320"})
+
+
+def test_deleting_the_last_picture_of_the_default_type_clears_the_default(rig):
+    manual_resolutions.add_entry(rig.owned_dir, "ZEP", "Zephyr Air")
+    _override(rig, "zephyr-air-a320")
+    assert _default_type_flash(rig, "zephyr-air", "A320") == ["airline_default_type_saved"]
+    rig.post("admin", rig.frame + "/airlines/artwork/delete", {"key": "zephyr-air-a320"})
     assert airline_default_types.load_default_types(rig.owned_dir) == {}
+
+
+def test_the_legacy_picture_of_a_built_in_airline_is_a_livery_for_its_airframe(rig):
+    assert _default_type_flash(rig, "air-france", "A320") == ["airline_default_type_saved"]
+    assert airline_default_types.load_default_types(rig.owned_dir) == {"air-france": "A320"}
 
 
 def test_deleting_an_upload_keeps_the_default_while_a_built_in_picture_remains(rig):

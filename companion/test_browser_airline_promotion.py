@@ -54,7 +54,11 @@ def test_artwork_uploaded_for_a_known_by_name_airline_gives_it_a_row_of_the_tabl
         text = row.inner_text()
         assert "Finnair" in text and "FIN" in text
         assert "A333" in text
-        assert row.locator("img").count() >= 1
+        # The airline has no picture of its own: its A333 type row shows it.
+        row.locator(".airlines-expand > summary").click()
+        row.locator(".airlines-subrow").first.wait_for(state="visible")
+        assert row.locator(".airlines-subrow").first.locator("th").inner_text().startswith("A333")
+        assert row.locator(".airlines-subrow img").count() >= 1
         assert row.locator(".row-menu__toggle").count() == 1
         captions = page.locator("caption.airlines-label").all_inner_texts()
         assert any(c.startswith(known_label) and c.endswith("· 7") for c in captions)

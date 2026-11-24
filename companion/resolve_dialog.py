@@ -94,7 +94,7 @@ def step_b_trigger_html(state_dir, prefix_raw, return_target):
         return ""
     name = entry.get("airline_name")
     key = manual_resolutions.illustration_key_for_name(name)
-    if not key or illustrations.resolved_illustration_path(key, state_dir) is not None:
+    if not key or illustrations.has_pictures(key, state_dir):
         return ""
     query = _return_query(return_target)
     upload_action = device_scope.scoped(

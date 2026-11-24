@@ -377,7 +377,8 @@ def _stand_in_thumb_html(row, state_dir):
     icon. Neither is a link, so nothing claims to be a picture of the flight."""
     airline = row.get("airline_raw")
     key = illustrations.normalise_airline_key(airline) if airline else None
-    if key and illustrations.resolved_illustration_path(key, state_dir):
+    key = illustrations.display_key(key, state_dir) if key else None
+    if key:
         # The 44px box never needs the full-size picture: ask for the
         # small variant, with the override's mtime so a replaced picture
         # is not served from the browser cache.

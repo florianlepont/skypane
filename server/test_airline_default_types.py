@@ -81,7 +81,7 @@ def test_default_types_are_one_fleet_file_and_the_file_loader_is_path_based(tmp_
 
 def test_a_type_without_a_picture_is_refused_and_writes_nothing(tmp_path):
     state = str(tmp_path)
-    assert adt.set_default_type(state, "air-france", "A320") == adt.SET_REJECTED
+    assert adt.set_default_type(state, "air-france", "B738") == adt.SET_REJECTED
     assert not os.path.exists(adt.default_types_path(state))
 
 

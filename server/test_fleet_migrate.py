@@ -31,8 +31,23 @@ def _run(seeded, *extra, owner=OWNER):
     return fleet_migrate.main(args)
 
 
+# What the default-type migration writes on a run: every airline with pictures gets a default.
+_DEFAULT_TYPE_OUTPUTS = (
+    "airline_default_types.json", "airline_default_types_set.json",
+    "airline_default_types_set_migration.json")
+
+
 def _db_files(snap):
-    return {k: v for k, v in snap.items() if not k.startswith("fleet.db")}
+    return {k: v for k, v in snap.items()
+            if not k.startswith("fleet.db") and k not in _DEFAULT_TYPE_OUTPUTS}
+
+
+def _forget_default_type_migration(root):
+    """Start the default-type migration over, as on a deploy that has not run it."""
+    for name in _DEFAULT_TYPE_OUTPUTS:
+        path = os.path.join(root, name)
+        if os.path.exists(path):
+            os.unlink(path)
 
 
 def _without_wal_sides(snap):
@@ -227,10 +242,7 @@ def test_second_run_with_orphan_token_is_a_noop(seeded, capsys):
     _add_stray_token(seeded)
     assert _run(seeded) == 0
     capsys.readouterr()
-    legacy_before = {
-        k: v for k, v in live.snapshot_dir(seeded.state_dir).items()
-        if not k.startswith("fleet.db")
-    }
+    legacy_before = _db_files(live.snapshot_dir(seeded.state_dir))
     main_before = _db_main(seeded.state_dir)
     assert _run(seeded) == 0
     out = capsys.readouterr().out
@@ -294,10 +306,7 @@ def test_second_run_with_upper_case_token_key_is_a_noop(seeded, capsys):
            {"tokens": {seeded.mac: seeded.token, UPPER_MAC: UPPER_TOKEN}})
     assert _run(seeded) == 0
     capsys.readouterr()
-    legacy_before = {
-        k: v for k, v in live.snapshot_dir(seeded.state_dir).items()
-        if not k.startswith("fleet.db")
-    }
+    legacy_before = _db_files(live.snapshot_dir(seeded.state_dir))
     main_before = _db_main(seeded.state_dir)
     assert _run(seeded) == 0
     out = capsys.readouterr().out
@@ -540,8 +549,7 @@ def _macs(seeded, table):
 def test_pending_legacy_mac_is_skipped_in_dry_run_and_real_run(seeded, capsys):
     _legacy_with_extra_mac(seeded)
     _make_pending(seeded)
-    legacy_files = live.snapshot_dir(seeded.state_dir)
-    legacy_files = {k: v for k, v in legacy_files.items() if not k.startswith("fleet.db")}
+    legacy_files = _db_files(live.snapshot_dir(seeded.state_dir))
     capsys.readouterr()
 
     assert _run(seeded, "--dry-run") == 0
@@ -556,7 +564,7 @@ def test_pending_legacy_mac_is_skipped_in_dry_run_and_real_run(seeded, capsys):
     assert _macs(seeded, "devices") == [seeded.mac]
     assert _macs(seeded, "pending_devices") == [PENDING_MAC]
     after = live.snapshot_dir(seeded.state_dir)
-    assert {k: v for k, v in after.items() if not k.startswith("fleet.db")} == legacy_files
+    assert _db_files(after) == legacy_files
 
 
 def test_second_run_with_pending_legacy_mac_is_a_noop(seeded, capsys):
@@ -711,24 +719,57 @@ def test_an_artwork_write_failure_exits_1(seeded, monkeypatch, capsys):
 def test_default_types_without_a_picture_are_cleared_once(seeded, capsys):
     _run(seeded)
     root = seeded.state_dir
+    _forget_default_type_migration(root)
     with open(os.path.join(root, "airline_default_types.json"), "w") as fh:
-        json.dump({"air-france": "A320", "transavia-france": "A320"}, fh)
+        json.dump({"air-france": "B738", "transavia-france": "A320"}, fh)
     capsys.readouterr()
     before = _without_wal_sides(live.snapshot_dir(root))
 
     assert _run(seeded, "--dry-run") == 0
     out = capsys.readouterr().out
     assert "airline default types: would clear 1" in out
-    assert "airline default types: would clear air-france: A320" in out
+    assert "airline default types: would clear air-france: B738" in out
+    assert "airline default types: would set air-france: A320 (rule a)" in out
+    assert not any("transavia-france" in line and "would set" in line for line in out.splitlines())
     assert _without_wal_sides(live.snapshot_dir(root)) == before
 
     assert _run(seeded) == 0
     out = capsys.readouterr().out
     assert "airline default types: cleared 1" in out
-    assert json.load(open(os.path.join(root, "airline_default_types.json"))) == {
-        "transavia-france": "A320"}
+    stored = json.load(open(os.path.join(root, "airline_default_types.json")))
+    # Air France lost its default for lack of a picture and gets its airframe back by rule a.
+    assert stored["transavia-france"] == "A320" and stored["air-france"] == "A320"
+    assert "airline default types: set air-france: A320 (rule a)" in out
     cleared = json.load(open(os.path.join(root, "airline_default_types_cleared.json")))
-    assert [(r["airline_key"], r["type"]) for r in cleared] == [("air-france", "A320")]
+    assert [(r["airline_key"], r["type"]) for r in cleared] == [("air-france", "B738")]
+    after = _without_wal_sides(live.snapshot_dir(root))
+
+    assert _run(seeded) == 0
+    assert capsys.readouterr().out.count("airline default types: nothing to do") == 2
+    assert _without_wal_sides(live.snapshot_dir(root)) == after
+
+
+def test_every_airline_with_pictures_and_no_default_gets_one_once(seeded, capsys):
+    _run(seeded)
+    root = seeded.state_dir
+    _forget_default_type_migration(root)
+    capsys.readouterr()
+    before = _without_wal_sides(live.snapshot_dir(root))
+
+    assert _run(seeded, "--dry-run") == 0
+    out = capsys.readouterr().out
+    assert "airline default types: would set air-france: A320 (rule a)" in out
+    assert "airline default types: would set tap-portugal: A321 (rule a)" in out
+    assert _without_wal_sides(live.snapshot_dir(root)) == before
+    assert not os.path.exists(os.path.join(root, "airline_default_types.json"))
+
+    assert _run(seeded) == 0
+    out = capsys.readouterr().out
+    assert "airline default types: set air-france: A320 (rule a)" in out
+    stored = json.load(open(os.path.join(root, "airline_default_types.json")))
+    archive = json.load(open(os.path.join(root, "airline_default_types_set.json")))
+    assert sorted(record["airline_key"] for record in archive) == sorted(stored)
+    assert os.path.isfile(os.path.join(root, "airline_default_types_set_migration.json"))
     after = _without_wal_sides(live.snapshot_dir(root))
 
     assert _run(seeded) == 0

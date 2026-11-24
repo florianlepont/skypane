@@ -74,7 +74,7 @@ def test_manual_only_and_unidentified_rows_have_no_rename_dialog(tmp_path):
     manual_resolutions.add_entry(tmp, "XQZ", "Totally Novel Airline", now="2026-01-01T00:00:00+00:00")
     shp.seed_unresolved_prefixes(tmp, {
         "XYZ": {"count": 5, "first_seen": "t1", "last_seen": "t2", "example_callsign": "XYZ123"}})
-    rendered = airlines_page.render(shp.ctx(tmp))
+    rendered = airlines_page.render(shp.ctx(tmp) | {"types_open": "all"})
     triggers = re.findall(r"<(?:a|button)\b[^>]*data-view-panel-src[^>]*>", rendered)
     assert len(triggers) > 30
     for trigger in triggers:
@@ -121,7 +121,7 @@ def test_a_renamed_airline_shows_its_new_name_and_new_artwork_key_without_a_chip
     card = _card(rendered, "Transavia")
     assert 'name="airline" value="Transavia France"' in card
     assert 'name="airline_name" value="Transavia"' in card
-    assert 'action="/illustration/transavia-a320.png"' in card
+    assert 'action="/illustration/transavia-a320.png?default_type=A320"' in card
     reset = card[card.index('<form class="airlines-menu__form"'):]
     assert 'action="/airlines/rename/reset"' in reset and "Reset to the original name" in reset
     assert 'name="airline" value="Transavia France"' in reset
@@ -130,10 +130,10 @@ def test_a_renamed_airline_shows_its_new_name_and_new_artwork_key_without_a_chip
 
 def test_an_unrenamed_airline_has_no_reset_item(tmp_path):
     """the row menu offers the reset only for an airline carrying an owner name"""
-    rendered = airlines_page.render(shp.ctx(str(tmp_path)))
+    rendered = airlines_page.render(shp.ctx(str(tmp_path)) | {"types_open": "all"})
     card = _card(rendered, "Air France")
     assert "Reset to the original name" not in card and "airlines-menu__form" not in card
-    assert "Change artwork" in card and 'aria-label="Enlarge the artwork of Air France"' in card
+    assert "Change artwork" in card and 'aria-label="Enlarge the artwork of Air France, A320"' in card
 
 
 def test_a_row_names_the_airframe_and_never_an_any_aircraft_label(tmp_path):

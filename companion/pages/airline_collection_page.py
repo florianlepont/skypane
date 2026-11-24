@@ -190,14 +190,16 @@ def _sort_ranks(entries):
 
 
 def _picture_html(entry, state_dir):
-    """The airline picture, or the dashed placeholder when it has none."""
-    if illustrations.resolved_illustration_path(entry.picture_key, state_dir) is None:
+    """The picture of the airline's default type, or the dashed placeholder
+    when it has none."""
+    picture_key = illustrations.display_key(entry.picture_key, state_dir)
+    if picture_key is None:
         return (
             '<span class="airline-card__placeholder collection-card__blank" aria-hidden="true">'
             "%s</span>" % layout.icon_html("icon-plane", size=24))
     src = device_scope.scoped("%s%s.png" % (
-        airlines_page.ILLUSTRATION_ROUTE_PREFIX, escape_html(entry.picture_key)))
-    buster = airlines_page._illustration_cache_buster(entry.picture_key, state_dir)
+        airlines_page.ILLUSTRATION_ROUTE_PREFIX, escape_html(picture_key)))
+    buster = airlines_page._illustration_cache_buster(picture_key, state_dir)
     return (
         '<img class="collection-card__image" src="%s%s" width="%d" height="%d" '
         'loading="lazy" decoding="async" fetchpriority="low" alt="%s">'
@@ -291,8 +293,7 @@ def _sheet_html(entry, state_dir):
     on top, then the facts in one card. Nothing scrolls inside it."""
     body = '<div class="collection-sheet__rarity">%s</div>%s' % (
         _rarity_pill_html(entry.rarity), _facts_html(entry))
-    has_picture = illustrations.resolved_illustration_path(
-        entry.picture_key, state_dir) is not None
+    has_picture = illustrations.display_key(entry.picture_key, state_dir) is not None
     art = '<div class="collection-sheet__art">%s</div>' % _picture_html(
         entry, state_dir) if has_picture else ""
     return ui_modal.sections_dialog_html(

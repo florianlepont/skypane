@@ -4,10 +4,12 @@ type code}`, stored in `{fleet root}/airline_default_types.json`, one file
 for every frame.
 
 The companion's airline editor writes it (a star on one type row) and reads
-it back to mark that row. The live frame's picture choice reads it too
-(`illustrations.select_illustration`): an airline with no picture of its own
-shows the picture of its default type in place of a type that has none, ahead
-of the airline's own picture. Same file
+it back to mark that row. An airline has no picture of its own, only its
+aircraft types have: the default type is the airline's safety net, its picture
+is shown for a flight whose type has none (`illustrations.default_picture`; an
+airline with no stored default falls back to the airframe of its legacy
+`{airline}.png`). A type is only accepted as the default when the airline has a
+picture for it. Same file
 contract as the other owner registries: a never-raising load that rebuilds
 every entry from scratch, validate-before-write, an atomic write, a hard cap
 and one process-wide lock around the load-modify-write cycle.
@@ -77,6 +79,31 @@ def load_default_types_file(path):
     return registry
 
 
+def _keep_legacy_picture_as_type_picture(state_dir, key, old_code):
+    """An owner's upload `{airline}.png` is the picture of the type chosen when
+    it was uploaded, which is only known as long as that type is the stored
+    default. Before the default moves away from it, copy the picture to the
+    type's own slot (never overwriting, never deleting) so it stays listed
+    under its type. Best effort."""
+    try:
+        if not old_code or illustrations.legacy_picture_type(key, state_dir) != old_code:
+            return
+        builtin = illustrations.illustration_path_for_key(key)
+        slots = illustrations.type_artwork_keys(key, old_code)
+        if (builtin and os.path.isfile(builtin)) or not slots:
+            return
+        source = illustrations.resolved_illustration_path(key, state_dir)
+        target = illustrations.override_path_for_key(slots[0], state_dir)
+        if source is None or target is None or os.path.exists(target):
+            return
+        with open(source, "rb") as fh:
+            data = fh.read()
+        os.makedirs(os.path.dirname(target), exist_ok=True)
+        atomic_io.atomic_write(target, data)
+    except Exception:
+        return
+
+
 def set_default_type(state_dir, key, code, livery_key=None):
     """Make `code` the default type of the airline `key`, or clear the entry
     when `code` is empty. Returns a `SET_*` value; never raises.
@@ -97,6 +124,8 @@ def set_default_type(state_dir, key, code, livery_key=None):
         return SET_REJECTED
     with _WRITE_LOCK:
         registry = load_default_types(state_dir)
+        if registry.get(key) != normalised:
+            _keep_legacy_picture_as_type_picture(state_dir, key, registry.get(key))
         if clear:
             registry.pop(key, None)
         elif key not in registry and len(registry) >= MAX_ENTRIES:

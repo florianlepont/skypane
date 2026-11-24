@@ -744,6 +744,40 @@ merges, in the same backup, dry-run and real-run steps as the rest.
   that the cleared airlines show no default type, and read the archive file to
   restore any entry on purpose (upload the type's picture first, then set it).
 
+### A default type for every airline with pictures
+
+An airline has no picture of its own: its pictures are its aircraft types' (the
+older `{airline}.png` counts as the picture of its airframe type) and one type
+is its default, the picture shown for a type it has none of. After the clearing
+above, the same run (`server.plane.fleet_set_defaults`, called by
+`server.fleet_migrate`) gives every airline that has pictures and no default
+type one, by fixed rules and without any Editor choice: (a) a legacy picture
+with a known airframe gives that type; (b) otherwise one typed picture gives
+that type, several give the most seen type across all frames, a tie or no
+sighting the first type code alphabetically; (c) a legacy picture of an unknown
+airframe gives the most seen typed picture, or the airline is reported
+`unresolved`; (d) an airline with no picture gets nothing. Sightings are the
+`runway_events` of the root and of every frame, read-only.
+
+- **Reading the log.** `airline default types: would set N` (dry run) or `set
+  N`, then one `<airline key>: <type> (rule a|b|c)` line per entry, then
+  `airline default types: unresolved M` and one `unresolved <key>: <reason>`
+  line each; `airline default types: nothing to do` once the run has happened
+  (the clearing prints its own `nothing to do` line too). Expect about forty
+  `rule a` lines on the first deploy: every built-in airline gets its airframe.
+  The dry run judges the fleet root as it is before the merges of the same run
+  (a picture or default still pending in the per-frame merge is not counted); it
+  does count the defaults the clearing is about to remove as gone.
+- **Nothing is lost.** Every default set is first appended to
+  `airline_default_types_set.json` (airline key, type, rule, time) in the state
+  root; `airline_default_types_set_migration.json` marks the run and is written
+  last. Both are in the backup. Nothing visible changes on a frame except for an
+  airline whose chosen default now wins; a default the owner clears later is not
+  set again, the airline's legacy picture still being its effective default.
+- **After a deploy.** Check the `set` and `unresolved` lines, open the Editor:
+  each airline shows its type rows with the default marked; handle the
+  `unresolved` airlines by choosing a default in the Editor.
+
 ## Backups
 
 A nightly systemd timer (`skypane-backup.timer`, 03:15 UTC,

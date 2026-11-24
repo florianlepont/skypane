@@ -12,12 +12,12 @@ from server.plane import illustrations, manual_resolutions, name_overrides
 
 
 def seed_airline_editor(state_dir):
-    """An owner-like state: Transavia seen on an A320 (its own artwork slot) and a B738 (none),
+    """An owner-like state: Transavia seen on an A320 (its own artwork slot), a B738 (the slot of its legacy B737 picture) and an A333 (no picture),
     a renamed TAP, an owner-named airline without artwork and one unidentified prefix."""
     seed_state_dir(state_dir)
     now = datetime.now(timezone.utc)
     with history_db.open_db(state_dir) as conn:
-        for index, code in enumerate(("A320", "A320", "B738")):
+        for index, code in enumerate(("A320", "A320", "B738", "A333")):
             history_db.record_runway_event(
                 conn, ts=(now - timedelta(days=index + 1)).isoformat(), hex="tv%04d" % index,
                 callsign="TVF%03d" % index, aircraft_type=code, confirmed_state="departing",

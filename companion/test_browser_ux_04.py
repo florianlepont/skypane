@@ -1495,8 +1495,8 @@ def test_a_row_expands_to_its_types_and_each_type_has_its_own_replace(new_contex
 
 def test_every_type_stays_listed_and_reachable_without_scripts(new_context, server):
     """With scripts blocked the chevron still expands a multi-type row to its types as text,
-    a single-type airline expands to its one seen type (editable, following the airline's artwork), all inside the narrowest supported viewport without
-    overflow."""
+    a single-type airline expands to its one type (its legacy picture's airframe, editable, with its
+    own artwork), all inside the narrowest supported viewport without overflow."""
     with _no_js_page(new_context, server.base_url(), "/airlines/manage",
                      viewport=VIEWPORT_MIN_SUPPORTED, reduced_motion="reduce") as page:
         with page.expect_navigation():
@@ -1511,10 +1511,11 @@ def test_every_type_stays_listed_and_reachable_without_scripts(new_context, serv
         single.locator(".airlines-expand > summary").click()
         row = single.locator(".airlines-subrow")
         row.first.wait_for(state="visible")
-        if row.count() != 1 or "Own artwork" in row.first.inner_text() or (
+        if row.count() != 1 or not row.first.locator("th").inner_text().startswith("A320") or (
+                "Own artwork" not in row.first.inner_text()) or (
                 row.first.locator(".airlines-act").count() != 1):
-            raise AssertionError("expected one seen type, editable, following the airline's "
-                                 "artwork, got %r" % row.all_inner_texts())
+            raise AssertionError("expected one A320 type row, editable, with its own artwork, "
+                                 "got %r" % row.all_inner_texts())
         problem = _assert_no_page_overflow(page, "airlines without scripts")
         if problem:
             raise AssertionError(problem)
