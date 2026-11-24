@@ -270,12 +270,13 @@ def test_back_after_two_typed_and_entered_searches_returns_to_the_first(new_cont
 
 def test_without_scripts_every_artwork_upload_form_has_a_visible_44px_submit_button(
         new_context, make_app_server):
-    """with scripts off, once a row's menu is opened each per-illustration upload form offers a
-    visible Upload button (the file input alone only sends on change, which needs a script)"""
+    """with scripts off, once the aircraft-type rows are in the page (an airline has no picture of
+    its own: its type rows carry the upload forms) each per-type upload form offers a visible
+    Upload button (the file input alone only sends on change, which needs a script)"""
     from companion.test_browser_ux_helpers import _no_js_page
     server = make_app_server(seed=seed_state_dir, fake_providers=True)
     with _no_js_page(
-            new_context, server.base_url(), "/airlines/manage",
+            new_context, server.base_url(), "/airlines/manage?types=all",
             viewport={"width": 1280, "height": 900}, reduced_motion="reduce") as page:
         page.locator("form.airlines-art").first.wait_for(state="attached")
         page.evaluate("() => document.querySelectorAll('details').forEach(d => { d.open = true; })")

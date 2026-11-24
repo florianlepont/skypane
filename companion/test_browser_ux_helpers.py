@@ -682,6 +682,10 @@ def _upload_without_js(make_context, base_url, route, input_selector, submit_sel
                 "file input must be rendered UNCONDITIONALLY, and with none this helper measures "
                 "nothing" % (input_selector, found, route))
         page.set_input_files(input_selector, source_path)
+        # A first picture names its aircraft type: the script-free form's select is required.
+        asks = page.locator("select[name=default_type]")
+        if asks.count():
+            asks.first.select_option("A320")
         with page.expect_navigation():
             page.click(submit_selector)
         landed = page.url

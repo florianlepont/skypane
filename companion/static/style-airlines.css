@@ -682,10 +682,6 @@ table.airlines-table {
   white-space: nowrap;
 }
 
-.airlines-cell--type > .airlines-pill {
-  margin-left: var(--space-sm);
-}
-
 .airlines-pill--star {
   display: inline-flex;
   align-items: center;
@@ -1332,6 +1328,12 @@ dialog.modal .airlines-remove {
   .airlines-cell--type {
     display: table-cell;
     padding-left: calc(44px + var(--space-md) + var(--space-xs));
+  }
+
+  /* In the table the pill follows the code inline; in a card the flex gap
+   * spaces it. */
+  .airlines-cell--type > .airlines-pill {
+    margin-left: var(--space-sm);
   }
 
   .airlines-subrow .airlines-cell--seen {
