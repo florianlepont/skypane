@@ -236,7 +236,7 @@ def test_the_notice_is_in_french(app):
     assert "Vous consultez le cadre de %s" % NASTY_OWNER in strip.text()
 
 
-def test_the_french_airlines_label_is_compagnies_on_every_surface(app):
+def test_the_french_airlines_label_is_airlines_on_every_surface(app):
     _server, seed, _cookies = app
     _status, _headers, body = _get(
         app, "keeper", "/devices/%s/airlines" % seed.keeper_frame,
@@ -244,9 +244,9 @@ def test_the_french_airlines_label_is_compagnies_on_every_surface(app):
     root = parse_html(body)
     for region in ("nav.sidebar-nav", "nav.tab-bar"):
         labels = [a.text().strip() for a in root.select_one(region).find_all("a")]
-        assert any("Compagnies" in label for label in labels), (region, labels)
-        assert not any("Airlines" in label for label in labels), (region, labels)
-    assert root.select_one("h1").text().strip() == "Compagnies"
+        assert any("Airlines" in label for label in labels), (region, labels)
+        assert not any("Compagnies" in label for label in labels), (region, labels)
+    assert root.select_one("h1").text().strip() == "Airlines"
 
 
 @pytest.mark.parametrize("page", ("/", "/display", "/flights", "/airlines"))

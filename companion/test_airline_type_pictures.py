@@ -118,8 +118,7 @@ def test_every_type_row_uploads_with_its_own_type(rig):
 def test_the_default_menu_item_is_offered_on_a_picture_type_only(rig):
     _override(rig, "air-france-b737")
     group = _group(_editor(rig), "air-france")
-    assert group.count("Use as the airline&#x27;s default picture") + group.count(
-        "Use as the airline's default picture") == 1
+    assert group.count("Set as default") == 1
 
 
 def test_the_airlines_list_shows_the_picture_of_the_default_type(tmp_path):
@@ -196,3 +195,12 @@ def test_a_seen_type_and_the_legacy_airframe_of_one_slot_are_one_row(tmp_path):
     assert rows[1]["views"] == 3 and rows[1]["picture"].key == "air-france"
     assert rows[1]["is_default"] and not rows[0]["is_default"]
     assert rows[0]["picture"] is None and rows[2]["picture"] is None
+
+
+def test_the_default_menu_labels_are_short_in_both_languages():
+    from companion import i18n
+    from companion.pages import airline_table
+    assert i18n.t_lang(airline_table.MENU_SET_DEFAULT_TYPE, "en") == "Set as default"
+    assert i18n.t_lang(airline_table.MENU_CLEAR_DEFAULT_TYPE, "en") == "Remove as default"
+    assert i18n.t_lang(airline_table.MENU_SET_DEFAULT_TYPE, "fr") == "Image par défaut"
+    assert i18n.t_lang(airline_table.MENU_CLEAR_DEFAULT_TYPE, "fr") == "Retirer par défaut"

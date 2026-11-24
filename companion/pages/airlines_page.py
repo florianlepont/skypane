@@ -289,6 +289,9 @@ NAME_LABEL_TEXT = i18n.msg("airlines.airline_name", "Airline name")
 SAVE_BUTTON_TEXT = i18n.msg("airlines.save_airline_name", "Save airline name")
 STEP_B_HEADING_TEMPLATE = i18n.msg(
     "airlines.add_an_illustration_for", "Add an illustration for %s")
+# The add-illustration dialog's one-line title; the airline (and type) shows
+# beneath it as the subtitle.
+STEP_B_TITLE = i18n.msg("airlines.add_an_illustration", "Add an illustration")
 STEP_B_SKIP_TEXT = i18n.msg(
     "airlines.skip_i_ll_add_artwork_later", "Skip — I’ll add artwork later")
 # Fourth reachable state: a bookmark or Back press lands on a prefix
@@ -489,7 +492,7 @@ def _airline_card_manual_fields(manual_info, airline_name, key, state_dir, now):
     heading_value = ""
     upload_action_value = ""
     if mode == _VIEW_PANEL_MODE_NEEDS_ARTWORK:
-        heading_value = i18n.t(STEP_B_HEADING_TEMPLATE) % escape_html(airline_name)
+        heading_value = i18n.t(STEP_B_TITLE)
         upload_action_value = _illustration_url(key, "POST")
 
     delete_action_value = _manual_delete_action(prefix) if has_manual else ""
@@ -629,7 +632,7 @@ def _type_fields(card, type_key, type_title, is_base, has_art):
         fields = [_VIEW_PANEL_MODE_ART, False, False, "", "", "", "", "", "", "", "", ""]
     if not has_art and fields[0] == _VIEW_PANEL_MODE_ART:
         fields[0] = _VIEW_PANEL_MODE_NEEDS_ARTWORK
-        fields[5] = i18n.t(STEP_B_HEADING_TEMPLATE) % escape_html(type_title)
+        fields[5] = i18n.t(STEP_B_TITLE)
         fields[6] = _illustration_url(type_key, "POST")
     elif not fields[5]:
         fields[5] = escape_html(card["name"])

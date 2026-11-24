@@ -1231,6 +1231,33 @@ def test_dropped_and_picked_files_are_stored_identically(new_context, make_app_s
         context.close()
 
 
+@pytest.mark.parametrize("lang, title", [("en", "Add an illustration"),
+                                         ("fr", "Ajouter une illustration")])
+def test_the_add_illustration_dialog_title_is_one_line_with_the_airline_as_subtitle(
+        new_context, artwork_server, lang, title):
+    """at 360px the title is short enough for one line and the airline's name sits under it
+    as the subtitle instead of being part of the title"""
+    base_url = artwork_server.base_url()
+    context = new_context(viewport=VIEWPORT_MIN_SUPPORTED)
+    context.add_cookies([{
+        "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
+    try:
+        page = context.new_page()
+        _login(page, base_url)
+        _open_artwork_step(page, base_url)
+        heading = page.locator("#panel-lookup-dialog .lightbox__heading")
+        caption = page.locator("#panel-lookup-dialog .lightbox__caption")
+        assert heading.inner_text().strip() == title
+        line = page.evaluate(
+            "() => parseFloat(getComputedStyle(document.querySelector("
+            "'#panel-lookup-dialog .lightbox__heading')).lineHeight)")
+        assert heading.bounding_box()["height"] <= line * 1.5, heading.bounding_box()
+        assert caption.is_visible() and caption.inner_text().strip() == ARTWORK_NAME
+        assert ARTWORK_NAME not in heading.inner_text()
+    finally:
+        context.close()
+
+
 def test_the_artwork_drop_zone_meets_its_floors_at_360px_in_both_themes(
         new_context, artwork_server):
     """The artwork drop zone clears the 44px target by real hit-testing in its own
