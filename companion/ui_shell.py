@@ -507,6 +507,17 @@ def _expect_link(marker_id, wanted):
     return '<link rel="expect" href="#%s" blocking="render">\n' % marker_id if wanted else ""
 
 
+def _sidebar_aside_html(active, frame_notice, brand_inner, sidebar_html, footer_html):
+    """The sidebar block. Consulting someone else's frame, the only way out is
+    the notice's Back to Fleet: the space switch would be a second, ambiguous
+    one."""
+    return SIDEBAR_ASIDE_TEMPLATE.format_map({
+        "brand_inner_sidebar": brand_inner,
+        "sidebar_switch": "" if frame_notice else space_switch_html(active),
+        "sidebar": sidebar_html,
+        "sidebar_footer": footer_html})
+
+
 def page_shell(
         title, active, body, ui_theme="auto", flash=None, banner=None,
         health_alert=None, lang=None, device_config=None, scripts=(),
@@ -611,13 +622,8 @@ def page_shell(
         "splash_boot_src": SPLASH_BOOT_SCRIPT_SRC,
         "splash_src": SPLASH_SCRIPT_SRC,
         "shell_modifier": " dashboard-shell--bare" if bare else "",
-        "sidebar_aside": "" if bare else SIDEBAR_ASIDE_TEMPLATE.format_map({
-            "brand_inner_sidebar": brand_inner_sidebar,
-            # Consulting someone else's frame, the only way out is the notice's
-            # Back to Fleet: the space switch would be a second, ambiguous one.
-            "sidebar_switch": "" if frame_notice else space_switch_html(active),
-            "sidebar": sidebar_html,
-            "sidebar_footer": sidebar_footer_html}),
+        "sidebar_aside": "" if bare else _sidebar_aside_html(
+            active, frame_notice, brand_inner_sidebar, sidebar_html, sidebar_footer_html),
         "main_id": SKIP_LINK_TARGET_ID,
         "frame_notice": frame_notice,
         "frame_menu": "" if frame_notice or bare else frame_menu.header_menu_html(active),

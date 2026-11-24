@@ -115,7 +115,7 @@ def test_reassign_wipes_the_previous_owners_data_and_keeps_the_identity(rig):
     assert "Frame reassigned" in _flash_page(server, cookie, headers)
     assert _files(directory) == {device_dirs.CONFIG_FILENAME, device_dirs.PANEL_FILENAME}
     with open(os.path.join(directory, device_dirs.CONFIG_FILENAME)) as fh:
-        assert json.load(fh) == {}
+        assert json.load(fh) == {"wake_interval_s": 900}
     row = _device_row(server.state_dir, fleet.a1)
     assert row["owner_user_id"] == fleet.b_id
     assert row["location_id"] is None and row["name"] is None

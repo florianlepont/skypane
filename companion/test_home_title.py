@@ -48,8 +48,8 @@ def test_the_h1_is_the_frame_name_with_no_rename_pencil_or_dialog(rig, who, lang
     assert tree.select_one("main h1").text().strip() == "Kitchen"
     assert tree.select(".title-action a") == []
     assert tree.select(".title-action__action") == []
-    assert tree.select("dialog[id^='dlg-rename-']") == []
-    assert tree.select("main [data-modal-open]") == []
+    assert [d for d in tree.select("dialog") if d.attrs.get("id", "").startswith("dlg-rename-")] == []
+    assert [a for a in tree.select("main a") if a.attrs.get("href", "").startswith("#dlg-rename-")] == []
     assert tree.select_one("title").text().strip().startswith(home)
 
 

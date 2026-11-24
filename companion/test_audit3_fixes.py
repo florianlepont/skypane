@@ -36,15 +36,16 @@ def test_french_names_a_special_look_one_way():
 
 
 def test_an_error_page_keeps_the_tab_bar_for_a_signed_in_user(make_app_server):
-    """a user refused an administrator page, and the public credits page, still show the
-    user's tab bar instead of a dead end"""
+    """a user refused an administrator page still shows the user's tab bar instead of a dead
+    end; the credits page, signed in, has no navigation at all"""
     server = make_app_server(seed=fx.seed_fleet)
     cookie = fx.user_cookie(server.state_dir, fx.OWNER_EMAIL)
-    for path, status in (("/fleet", 404), ("/credits", 200)):
-        got, _headers, body = http_request(server.url(path), cookie=cookie)
-        assert got == status, path
-        assert NAV_TAB.search(body.decode()), path
-        assert "tab-bar__link" in body.decode(), path
+    got, _headers, body = http_request(server.url("/fleet"), cookie=cookie)
+    assert got == 404
+    assert NAV_TAB.search(body.decode()) and "tab-bar__link" in body.decode()
+    got, _headers, body = http_request(server.url("/credits"), cookie=cookie)
+    assert got == 200
+    assert not NAV_TAB.search(body.decode()) and "tab-bar__link" not in body.decode()
 
 
 def test_the_not_found_copy_uses_typographic_apostrophes(make_app_server):
@@ -176,7 +177,7 @@ def test_an_uncacheable_response_never_gets_a_validator(make_app_server):
     assert "ETag" not in headers
 
 
-def test_an_owner_and_an_administrator_see_a_rename_row_on_the_frame_page_and_a_co_manager_does_not(
+def test_an_owner_and_an_administrator_see_a_rename_link_on_account_or_fleet_and_a_co_manager_does_not(
         make_app_server):
     from server import fleet_db
 
@@ -195,11 +196,12 @@ def test_an_owner_and_an_administrator_see_a_rename_row_on_the_frame_page_and_a_
     finally:
         conn.close()
     link = 'href="#dlg-rename-%s"' % owned.replace("_", "-")
-    for cookie, expected in (
-            (fx.user_cookie(server.state_dir, fx.OWNER_EMAIL), True),
-            (fx.admin_cookie(server.state_dir), True),
-            (fx.user_cookie(server.state_dir, fx.USER_EMAIL), False)):
-        status, _headers, body = http_request(
-            server.url("/devices/%s/" % owned), cookie=cookie)
+    for cookie, path, expected in (
+            (fx.user_cookie(server.state_dir, fx.OWNER_EMAIL), "/account", True),
+            (fx.admin_cookie(server.state_dir), "/fleet?frame=%s" % owned, True),
+            (fx.user_cookie(server.state_dir, fx.USER_EMAIL), "/account", False)):
+        status, _headers, body = http_request(server.url(path), cookie=cookie)
         assert status == 200
         assert (link in body.decode()) is expected, (cookie, expected)
+        _s, _h, home = http_request(server.url("/devices/%s/" % owned), cookie=cookie)
+        assert link not in home.decode(), "Home carries no rename link"

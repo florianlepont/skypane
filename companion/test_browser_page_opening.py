@@ -881,7 +881,7 @@ def test_map_tiles_do_not_fade_in_under_reduced_motion(new_context, place_server
 # --- The bottom tab bar's pill ---------------------------------------------------------------
 
 
-@pytest.mark.parametrize("path", ["/credits", "/components", "/", "/account"])
+@pytest.mark.parametrize("path", ["/components", "/", "/account"])
 def test_the_tab_bar_pill_is_on_every_page(new_context, server, path):
     """the sliding pill sits under an active cell on every page but the error pages: a page that
     belongs to no bar cell is reached through More, which carries the pill there"""
