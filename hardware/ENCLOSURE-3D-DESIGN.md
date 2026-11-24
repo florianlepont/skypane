@@ -2,7 +2,7 @@
 
 **Status (2026-11-19).** The design was reworked with the owner in a Blender session
 and checked on the model; the original text of 2026-11-16 below is updated where it
-had become wrong. The four parts are exported as STL in `hardware/cad/export/`. The
+had become wrong. The four parts are exported as STL in `hardware/cad/print/`. The
 changes, the checks and the measured values are listed in
 [ENCLOSURE-PRINT-ORDER.md](ENCLOSURE-PRINT-ORDER.md) and
 [ENCLOSURE-MEASUREMENTS.md](ENCLOSURE-MEASUREMENTS.md). Values the owner has not
@@ -130,19 +130,21 @@ Fallbacks, only if the first fit asks for them: a U.FL antenna extension, M2 hea
 
 ## Files
 
-In this repository, `hardware/cad/` (added by the owner on 2026-11-17):
+In this repository, `hardware/cad/` (added by the owner on 2026-11-17, reorganised on
+2026-11-24; the folder has its own `README.md`):
 
-- `skypane_cassette.blend`: the Blender file with the four parts and the generating
+- `source/skypane_cassette.blend`: the Blender file with the four parts and the generating
   script `skypane_cassette.py` (renamed from "Sans titre.blend"; about 5.5 MB). It
   was reworked on 2026-11-18 and saved in this repository; the owner reports that the
   figurine and the abandoned versions are no longer in it.
-- `ee04_board.stl`: the board, converted from the GrabCAD STEP file (about 12.5 MB).
-- `ikea_rodalm_13x18_noir.glb`: the IKEA 3D model of the frame (about 0.14 MB).
-
-- `skypane_cassette.blend1`: a Blender automatic backup copy, not a design source.
-- `export/skypane_tray.stl`, `export/skypane_lid.stl`, `export/skypane_stand.stl`, `export/skypane_shim.stl`: the four parts to print,
-  exported 2026-11-18 per the previous record; the owner's confirmation that they match the final blend is recorded in the print order.
-- `export/skypane_lid.3mf`: present in the export folder; its role is open (asked of the owner on 2026-11-19).
+- `reference/ee04_board.stl`: the board, converted from the GrabCAD STEP file (about 12.5 MB).
+- `reference/ikea_rodalm_13x18_noir.glb`: the IKEA 3D model of the frame (about 0.14 MB).
+- `print/skypane_tray.stl`, `print/skypane_lid.stl`, `print/skypane_stand.stl`, `print/skypane_shim.stl`: the four parts to print;
+  the tray was exported again on 2026-11-23, the others on 2026-11-18; the owner's confirmation that they match the final blend is recorded in the print order.
+- `print/skypane_lid.3mf`: present in the print folder; its role is open (asked of the owner on 2026-11-19).
+- `alternatives/`: the variant where the tray and the shim are one part (not decided).
+- The Blender automatic backup copy (`skypane_cassette.blend1`) was removed on 2026-11-24;
+  it stays in the git history, and `*.blend1` is now ignored.
 
 ## Notes for the planning
 

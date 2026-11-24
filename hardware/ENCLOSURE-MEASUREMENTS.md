@@ -126,7 +126,7 @@ Points to settle with the owner (nothing here is concluded by the assistant):
 
 Reported by the owner on 2026-11-18, not checked by Claude:
 
-- `hardware/cad/skypane_cassette.blend` is saved and current; last save
+- `hardware/cad/source/skypane_cassette.blend` is saved and current; last save
   2026-11-17.
 - The four parts and the script `skypane_cassette.py` are in it.
 - The Father Christmas figurine and the abandoned versions are no longer in it.

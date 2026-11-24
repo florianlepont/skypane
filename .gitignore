@@ -50,3 +50,6 @@ firmware/main/secrets.h
 # Cached research API responses, not needed to reconstruct any planning
 # artifact.
 .planning/research/.cache/
+
+# --- Blender automatic backup of the previous save of a .blend file ---
+*.blend1

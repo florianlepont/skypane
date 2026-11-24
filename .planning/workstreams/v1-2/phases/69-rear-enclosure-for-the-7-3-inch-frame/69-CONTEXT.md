@@ -58,9 +58,9 @@ Not in this phase: the administrator flashing tool (SEED-014, v1.4), a 13.3 inch
 
 ### Enclosure design
 - `hardware/ENCLOSURE-3D-DESIGN.md` — owner's design record: four parts, dimensions, clearances, decisions, open questions
-- `hardware/cad/skypane_cassette.blend` — Blender file with the generating script (cannot be opened here; owner must confirm it is saved and current)
-- `hardware/cad/ee04_board.stl` — board model
-- `hardware/cad/ikea_rodalm_13x18_noir.glb` — IKEA frame model
+- `hardware/cad/source/skypane_cassette.blend` — Blender file with the generating script (cannot be opened here; owner must confirm it is saved and current)
+- `hardware/cad/reference/ee04_board.stl` — board model
+- `hardware/cad/reference/ikea_rodalm_13x18_noir.glb` — IKEA frame model
 - `.planning/seeds/SEED-014-enclosure-for-the-back-of-the-frame.md` — origin, split of 2026-11-18
 
 ### Hardware

@@ -11,7 +11,7 @@ checked on the model, and exported. Nothing was sliced or printed.
 
 ## Done
 
-- Design reworked in `hardware/cad/skypane_cassette.blend` (script `skypane_cassette.py` inside it), scene grouped
+- Design reworked in `hardware/cad/source/skypane_cassette.blend` (script `skypane_cassette.py` inside it), scene grouped
   into three collections: IKEA frame, SkyPane electronics, SkyPane mechanics.
 - Owner readings and decisions applied: frame tabs (height 15 mm, width 4 mm, positions along the sides), mat of the
   reference model, antenna moved above the board (owner's cable is 50 mm), tray interior reorganised and labelled,
@@ -20,7 +20,7 @@ checked on the model, and exported. Nothing was sliced or printed.
   a stop wall on the lid, in landscape or portrait. It is stored flat on the lid back, held by two magnet pairs (4 magnets to buy).
 - Checks redone on the model (closed meshes, overhangs, walls, slots, bridges, centre of gravity, stand foot on the
   desk, forward-tipping margin), listed in `hardware/ENCLOSURE-PRINT-ORDER.md`.
-- Four STL exported to `hardware/cad/export/` in their printing pose, size and bounding box verified.
+- Four STL exported to `hardware/cad/print/` in their printing pose, size and bounding box verified.
 - Tables of `ENCLOSURE-PRINT-ORDER.md` filled with what was done and reported, with date and origin; measurement
   sheet gained the owner's new readings (rows 7b to 7d and 13); design record updated where it had become wrong.
 
@@ -52,5 +52,5 @@ checked on the model, and exported. Nothing was sliced or printed.
 
 ## Files
 
-`hardware/cad/skypane_cassette.blend`, `hardware/cad/export/*.stl`, `hardware/ENCLOSURE-PRINT-ORDER.md`,
+`hardware/cad/source/skypane_cassette.blend`, `hardware/cad/print/*.stl`, `hardware/ENCLOSURE-PRINT-ORDER.md`,
 `hardware/ENCLOSURE-MEASUREMENTS.md`, `hardware/ENCLOSURE-3D-DESIGN.md`.
