@@ -142,7 +142,7 @@ In this repository, `hardware/cad/` (added by the owner on 2026-11-17, reorganis
 - `print/skypane_tray.stl`, `print/skypane_lid.stl`, `print/skypane_stand.stl`, `print/skypane_shim.stl`: the four parts to print;
   the tray was exported again on 2026-11-23, the others on 2026-11-18; the owner's confirmation that they match the final blend is recorded in the print order.
 - `print/skypane_lid.3mf`: present in the print folder; its role is open (asked of the owner on 2026-11-19).
-- `alternatives/`: the variant where the tray and the shim are one part (not decided).
+- `alternatives/`: the variant where the tray and the shim are one part (abandoned by the owner on 2026-11-24).
 - The Blender automatic backup copy (`skypane_cassette.blend1`) was removed on 2026-11-24;
   it stays in the git history, and `*.blend1` is now ignored.
 

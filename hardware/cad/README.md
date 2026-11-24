@@ -9,7 +9,7 @@ print and what was decided is in `../ENCLOSURE-PRINT-ORDER.md`.
 | `source/` | `skypane_cassette.blend`: the one source file. The parts are built by the script stored inside it (text block `skypane_cassette.py`, Blender 5.3). | yes, this is the design |
 | `print/` | The files to slice and print: `skypane_tray.stl`, `skypane_lid.stl`, `skypane_stand.stl`, `skypane_shim.stl`, each in its printing pose. `skypane_printing.3mf` is the Bambu Studio project of the owner (2026-11-24): three plates, shim and stand, lid, tray. `skypane_lid.3mf` is an older slicer project whose role is not stated by the owner. | no, they come from the blend |
 | `reference/` | Models of real objects, only to check fits: `ee04_board.stl` (the board) and `ikea_rodalm_13x18_noir.glb` (the frame). | no |
-| `alternatives/` | Variants that are not the current design: tray and shim in one part (`skypane_cassette_merged.blend`, `skypane_tray_shim_merged.stl`, and its Bambu Studio project `skypane_tray_shim_merged.3mf`). Not decided, not printed. | only if you try the variant |
+| `alternatives/` | Variants that are not the current design: tray and shim in one part (`skypane_cassette_merged.blend`, `skypane_tray_shim_merged.stl`, and its Bambu Studio project `skypane_tray_shim_merged.3mf`). Abandoned by the owner on 2026-11-24 after one print that was not clean; kept as a record. | only if you try the variant |
 
 ## Changing the design
 
