@@ -384,6 +384,13 @@ table.airlines-table {
     border-radius: var(--radius-card);
     box-shadow: var(--shadow-card);
   }
+
+  /* The last card's bottom margin collapses out of the block-level group, so
+   * the space under it is padding: it adds to the margin and equals the side
+   * padding of the cards. */
+  .airline-group:has(details.airlines-expand[open]) {
+    padding-bottom: var(--space-sm);
+  }
 }
 
 .airlines-table:not(:has(.airline-group:not([hidden]))) {
@@ -584,14 +591,6 @@ table.airlines-table {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-/* A card's state line: the views, then the state word after a middle dot. */
-.airlines-state-line > .airlines-state {
-  font-size: inherit;
-}
-
-.airlines-views-inline + .airlines-state::before {
-  content: "\00A0\00B7\00A0";
-}
 
 .airlines-cell--views {
   grid-area: views;
@@ -746,12 +745,6 @@ table.airlines-table {
 
 .airlines-star:is(:hover, :focus-visible) > .airlines-tip {
   display: block;
-}
-
-.airlines-state {
-  display: inline-block;
-  vertical-align: middle;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
 .airlines-cell--art .airlines-thumb {
@@ -1576,10 +1569,6 @@ body:has([data-filter-chip]:checked:not([value=""]):not([value="missing"])) .air
     display: none;
   }
 
-  .airlines-views-inline + .airlines-state::before {
-    content: none;
-  }
-
   .airlines-cell--type {
     display: table-cell;
     padding-left: calc(44px + var(--space-md) + var(--space-xs));
@@ -1653,18 +1642,6 @@ body:has([data-filter-chip]:checked:not([value=""]):not([value="missing"])) .air
   .airlines-subrow .airlines-cell--seen {
     justify-self: auto;
     padding-inline: var(--space-sm);
-  }
-
-  /* The artwork column is narrower than the thumbnail plus its state word:
-   * the state word stays for assistive technology and the dimming of the
-   * thumbnail says the rest. */
-  .airlines-subrow .airlines-state {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    margin: -1px;
-    overflow: hidden;
-    clip-path: inset(50%);
   }
 
   /* Counts and dates stay on one line. */

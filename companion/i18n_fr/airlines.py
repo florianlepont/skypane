@@ -81,7 +81,6 @@ MESSAGES = {
     "airlines.resolve_name_aria": "Nom de la compagnie pour le préfixe %s",
     "airlines.resolve_name_placeholder": "Nom de la compagnie",
     "airlines.resolve_validate": "Valider",
-    "airlines.state_own_artwork": "Illustration propre",
     "airlines.menu_delete_artwork": "Supprimer l’illustration",
     "airlines.menu_set_default_type": "Image par défaut",
     "airlines.menu_clear_default_type": "Retirer par défaut",

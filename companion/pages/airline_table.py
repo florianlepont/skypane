@@ -59,7 +59,6 @@ EXPAND_ARIA = i18n.msg("airlines.expand_types_aria", "Aircraft types seen for %s
 MENU_ARIA = i18n.msg("airlines.row_menu_aria", "Actions for %s")
 MENU_RESET = i18n.msg("airlines.reset_original_name", "Reset to the original name")
 MENU_CHANGE_ART = i18n.msg("airlines.change_artwork", "Change artwork")
-STATE_OWN = i18n.msg("airlines.state_own_artwork", "Own artwork")
 ACTION_ADD_ART = i18n.msg("airlines.add_artwork", "Add artwork")
 MENU_DELETE_ART = i18n.msg("airlines.menu_delete_artwork", "Delete the artwork")
 MENU_SET_DEFAULT_TYPE = i18n.msg("airlines.menu_set_default_type", "Set as default")
@@ -319,9 +318,8 @@ def _main_row_html(page, row):
 
 
 def _sub_art_html(page, sub, row):
-    """The type's picture (enlargeable) with "Own artwork" beside it, else the
-    picture the airline's default type gives it, dimmed and no words. The
-    state line of a card also carries the views (the table's own column holds
+    """The type's picture (enlargeable), else the picture the airline's
+    default type gives it, dimmed. The line under a card also carries the views (the table's own column holds
     them otherwise, and a card hides that column, so they are read once)."""
     label = "%s, %s" % (row["name"], sub["code"])
     views = '<span class="airlines-views-inline">%s</span>' % escape_html(views_text(sub["views"]))
@@ -330,8 +328,7 @@ def _sub_art_html(page, sub, row):
         # in the dialog (its delete action and superseded note).
         shown = row if sub["picture"].key == row["key"] else dict(row, manual_fields=_NO_MANUAL_FIELDS)
         thumb = _enlarge_html(page, shown, sub["picture"].key, label)
-        return '%s<span class="airlines-state-line">%s<span class="airlines-state text-label">%s</span></span>' % (
-            thumb, views, escape_html(i18n.t(STATE_OWN)))
+        return '%s<span class="airlines-state-line">%s</span>' % (thumb, views)
     line = '<span class="airlines-state-line">%s</span>' % views
     if row["default_key"]:
         return '<span class="airlines-thumb airlines-thumb--inherited">%s</span>%s' % (

@@ -235,7 +235,7 @@ def test_the_chevron_expands_the_aircraft_type_sub_rows(new_context, server, nam
         assert third.locator(".airlines-act:visible").inner_text() == "Add artwork"
         assert first.locator(".airlines-act:visible").inner_text() == "Change artwork"
         assert second.locator(".airlines-act:visible").inner_text() == "Change artwork"
-        assert "Own artwork" in first.inner_text() and "Own artwork" in second.inner_text()
+        assert "Own artwork" not in first.inner_text() + second.inner_text()
         assert second.locator("th").inner_text().startswith("Boeing 737")
         assert third.locator("th").inner_text().startswith("Airbus A330")
         assert second.locator("a.airlines-thumb").is_visible()
@@ -687,7 +687,8 @@ def test_a_type_row_is_given_a_picture_then_its_artwork_is_deleted(
         page.wait_for_function(_SETTLED, timeout=15000)
         assert os.path.isfile(slot)
         _expand_transavia(page)
-        assert "Own artwork" in page.locator(A333_ROW).inner_text()
+        assert page.locator(A333_ROW + " a.airlines-thumb").is_visible()
+        assert "Own artwork" not in page.locator(A333_ROW).inner_text()
         assert page.locator(A333_ROW + " .airlines-act:visible").inner_text() == "Change artwork"
         toggle = A333_ROW + " .row-menu__toggle"
         _settle(page, toggle)
