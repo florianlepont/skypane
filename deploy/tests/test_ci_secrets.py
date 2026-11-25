@@ -15,6 +15,7 @@ from pathlib import Path
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 _WORKFLOWS_DIR = _REPO_ROOT / ".github" / "workflows"
 _CI_YML = _WORKFLOWS_DIR / "ci.yml"
+_DEPLOY_YML = _WORKFLOWS_DIR / "deploy.yml"
 _FIRMWARE_RELEASE_YML = _WORKFLOWS_DIR / "firmware-release.yml"
 
 _RUN_LINE_RE = re.compile(r"^(?P<indent>[ \t]*)run:[ \t]*(?P<rest>.*)$")
@@ -109,7 +110,7 @@ def test_at_least_two_workflow_files_are_scanned():
 
 
 def test_deploy_job_passes_host_key_and_target_through_env():
-    text = _CI_YML.read_text()
+    text = _DEPLOY_YML.read_text()
     assert "DEPLOY_HOST_KEY: ${{ secrets.DEPLOY_HOST_KEY }}" in text
     assert "DEPLOY_SSH_TARGET: ${{ secrets.DEPLOY_SSH_TARGET }}" in text
     names_and_runs = dict(_steps_by_name(text))
@@ -144,5 +145,5 @@ def test_webfactory_ssh_agent_with_input_unaffected():
     # The ssh-agent action's own `with:` input is not a run: script and is
     # deliberately left interpolating the secret directly - only run:
     # blocks are the injection-risk surface this test guards.
-    text = _CI_YML.read_text()
+    text = _DEPLOY_YML.read_text()
     assert "ssh-private-key: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}" in text

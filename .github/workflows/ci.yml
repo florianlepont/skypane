@@ -17,14 +17,10 @@
 # pyproject.toml coverage floor to the combined result, and checks the
 # JUnit totals (no failures, executed count at or above the floor, skipped
 # count at or below the ceiling in scripts/ci_gates.py).
-# `deploy` runs only after `test` succeeds, on a push to main or a manual
-# dispatch, and pauses for a human reviewer. A tagged firmware release
-# publishes a GitHub Release, then dispatches this workflow on main itself
-# (see firmware-release.yml) so the reviewed deploy also imports it; the
-# import is idempotent, so an ordinary code-only deploy re-syncs whatever
-# is already published with no extra effect. Firmware builds live in their
-# own file (firmware.yml): path-restricted triggers are workflow-level, not
-# job-level.
+# The production deploy is not part of this file: it is the separate
+# deploy.yml, started by hand. A merge to main never deploys. Firmware
+# builds live in their own file (firmware.yml): path-restricted triggers are
+# workflow-level, not job-level.
 name: CI
 
 on:
@@ -307,7 +303,8 @@ jobs:
     name: Lint, test, coverage, attribution
     needs: [static, tests-core, tests-browser]
     # always(): a failed or skipped dependency must make this check fail,
-    # not leave it skipped, because `deploy` is gated on this job.
+    # not leave it skipped, because the deploy workflow requires this check
+    # to be green.
     if: ${{ always() }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -388,120 +385,3 @@ jobs:
         run: |
           set -euo pipefail
           server/.venv/bin/python scripts/ci_gates.py totals test-data/*/junit-*.xml | tee -a "$GITHUB_STEP_SUMMARY"
-
-  deploy:
-    name: Deploy to production
-    needs: test
-    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    # Separate group from `test`. cancel-in-progress: false means a
-    # running deploy is never killed mid-rsync; a newer queued deploy
-    # only supersedes an older *pending* one. The step below is what
-    # stops an approved-but-stale run from shipping old code.
-    concurrency:
-      group: production-deploy
-      cancel-in-progress: false
-    # Pauses for a required reviewer only once a "production" environment
-    # with a reviewer exists in this repo's Settings — otherwise this
-    # gate is inert.
-    environment:
-      name: production
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Refuse to deploy if main has moved on to different shipped code
-        # A reviewer can approve after a later push moves main past this
-        # commit. Deploys only if this commit is main's tip, or main only
-        # changed non-shipped paths; otherwise FAILS (never a silent
-        # green skip) so the newer commit's own run is what ships it.
-        run: |
-          set -euo pipefail
-          latest="$(git ls-remote origin refs/heads/main | cut -f1)"
-          if ! [[ "${latest}" =~ ^[0-9a-f]{40}$ ]]; then
-            echo "::error::Could not read the tip of main (got '${latest}'); refusing to deploy."
-            exit 1
-          fi
-          if [ "${latest}" = "${GITHUB_SHA}" ]; then
-            exit 0
-          fi
-          git fetch --quiet --depth=1 origin "${latest}"
-          # Markdown-only changes never run CI (paths filter above), so
-          # excluding them here stops them from blocking this deploy.
-          if git diff --quiet "${GITHUB_SHA}" "${latest}" -- \
-              server stub-server companion adsb-test/runway3.json deploy \
-              firmware/signing/skypane-signing-pubkey.pem \
-              ':(exclude,glob)**/*.md'; then
-            echo "::notice::main moved to ${latest}, but shipped files are identical to ${GITHUB_SHA}; deploying."
-          else
-            echo "::error::Not deploying ${GITHUB_SHA}: main is now ${latest}, which changes shipped files. That commit's own run deploys it once its tests pass."
-            exit 1
-          fi
-
-      - name: Load deployment SSH key into agent
-        uses: webfactory/ssh-agent@e83874834305fe9a4a2997156cb26c5de65a8555 # v0.10.0
-        with:
-          ssh-private-key: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
-
-      - name: Trust the production host key
-        # Not scanned at deploy time (trust-on-first-use would silently
-        # accept an impostor); the key comes from its own secret instead.
-        # Passed via env:, not interpolated into run: -- a `${{ }}` in
-        # run: becomes literal script text, letting a secret value inject shell commands.
-        env:
-          DEPLOY_HOST_KEY: ${{ secrets.DEPLOY_HOST_KEY }}
-        run: |
-          install -d -m 700 ~/.ssh
-          printf '%s\n' "$DEPLOY_HOST_KEY" >> ~/.ssh/known_hosts
-          chmod 644 ~/.ssh/known_hosts
-
-      - name: Download firmware releases
-        # Every fw-v* GitHub Release's image and manifest, so deploy.sh
-        # can ship them alongside the code and activate.sh can import
-        # them into the VPS state directory -- idempotent, so this runs
-        # on every deploy, not only one dispatched by a firmware
-        # release. Zero releases (no fw-v* tag published yet) is fine:
-        # the loop below simply does nothing. github.token is enough --
-        # reading releases needs no more than this job's own
-        # contents: read. A release missing either asset (for example a
-        # release created by hand, with no release.json) is skipped with
-        # a warning rather than aborting this whole step under set -e --
-        # firmware bookkeeping for one malformed release must not block
-        # every ordinary code deploy that follows it.
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          mkdir -p firmware-releases
-          tags="$(gh release list --limit 200 --json tagName --jq '.[].tagName' \
-              | grep -E '^fw-v(0|[1-9][0-9]{0,3})\.(0|[1-9][0-9]{0,3})\.(0|[1-9][0-9]{0,3})$' || true)"
-          for tag in $tags; do
-            assets="$(gh release view "$tag" --json assets --jq '.assets[].name')"
-            # scripts/fw_release_assets.py allow-lists the names: the
-            # legacy pair plus every typed pair with a valid key. Exit 1
-            # means no complete pair, so the tag is skipped.
-            wanted_rc=0
-            wanted="$(printf '%s\n' "$assets" | python3 scripts/fw_release_assets.py "$tag")" || wanted_rc=$?
-            if [ "$wanted_rc" -ne 0 ]; then
-              echo "::warning::release ${tag} is missing skypane-${tag}.bin or release.json - skipping its firmware import"
-              continue
-            fi
-            mkdir -p "firmware-releases/${tag}"
-            while IFS= read -r name; do
-              gh release download "$tag" \
-                  --pattern "$name" \
-                  --dir "firmware-releases/${tag}"
-            done <<< "$wanted"
-          done
-
-      - name: Deploy
-        # Runs deploy.sh: ships the committed tree and every downloaded
-        # firmware release, then activate.sh stages the release, imports
-        # the firmware, swaps `current` atomically, probes services and
-        # rolls back on failure. Both passed via env:, same
-        # injection-prevention reason as the host key above.
-        env:
-          DEPLOY_SSH_TARGET: ${{ secrets.DEPLOY_SSH_TARGET }}
-          SKYPANE_FIRMWARE_DIR: firmware-releases
-        run: ./deploy/deploy.sh "$DEPLOY_SSH_TARGET"
