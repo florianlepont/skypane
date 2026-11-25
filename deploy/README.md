@@ -489,22 +489,24 @@ held key, which involves no GitHub secret.
 
 ## Firmware releases (OTA)
 
-Signed firmware images reach the VPS only through this same reviewed
-deploy, never any other path (D-17):
+Signed firmware images reach the VPS only through the manual production
+deploy, never any other path:
 
-1. A `fw-vMAJOR.MINOR.PATCH` tag on `main` triggers
-   `.github/workflows/firmware-release.yml`, gated behind its own
-   `firmware-signing` GitHub environment reviewer approval. It builds,
-   signs and verifies the image, generates the release manifest from
-   git, and publishes a GitHub Release (`skypane-<tag>.bin` +
-   `release.json`, content-addressed by SHA-256).
-2. That workflow then dispatches `ci.yml` on `main`
-   (`gh workflow run ci.yml --ref main`), whose `deploy` job is gated
-   behind the same `production` GitHub environment reviewer approval
-   used for every ordinary code deploy — a manual `workflow_dispatch`
-   trigger, not a push, so this reviewed run carries no code change of
-   its own.
-3. Once approved, the `Download firmware releases` step lists every
+1. A `fw-vMAJOR.MINOR.PATCH` tag on `main` makes
+   `.github/workflows/firmware-release.yml` build both boards and upload
+   the unsigned images (run artifact `fw-unsigned-<tag>`). CI holds no
+   signing key and publishes nothing.
+2. The owner signs and publishes on the Mac with
+   `scripts/fw_publish_signed.py <tag> --key-file <path>` (run it with
+   `--dry-run` first; see "Releasing (signing on the Mac)" in
+   `firmware/SIGNING.md`). It publishes the GitHub Release
+   (`skypane-<tag>.bin` + `release.json`, content-addressed by SHA-256,
+   and the typed assets below) and offers to start the deploy. The deploy
+   is `.github/workflows/deploy.yml`, started by hand as described in
+   "Production deploy (started by hand)". A firmware release occupies the
+   next version number permanently: the registry refuses lower build
+   numbers and is never pruned.
+3. When the deploy runs, the `Download firmware releases` step lists every
    `fw-v*` GitHub Release and downloads each one's image and manifest
    into `firmware-releases/<tag>/`. `deploy.sh` ships that whole
    directory to the VPS (`SKYPANE_FIRMWARE_DIR=firmware-releases`)
@@ -517,11 +519,11 @@ deploy, never any other path (D-17):
    still re-downloads and re-imports whatever is already published,
    prints `exists <tag>` for each one, and changes nothing. Nothing
    ever prunes `/opt/skypane/state/firmware/` — every release is kept
-   forever (D-18) — and `byos_server.py` serves each image at
+   forever — and `byos_server.py` serves each image at
    `GET /fw/<sha256>.bin`, content-addressed against the registry.
 5. After import, a release is merely **available** (the companion
    Update page's "Available" state) — nothing installs it
-   automatically (D-01); an operator or the device owner still chooses
+   automatically; an operator or the device owner still chooses
    Install from the companion.
 
 ### Per-hardware-type releases

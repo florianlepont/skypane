@@ -117,7 +117,7 @@ Two hardware types are built from this tree: the live frame (board
 
 - one RSA signing key. The public half is
   `firmware/signing/skypane-signing-pubkey.pem`; the private half stays
-  in the `firmware-signing` environment. Rotation (below) applies to
+  on the owner's Mac (see "One-time key generation"). Rotation (below) applies to
   both types at once.
 - one project name and one app descriptor format.
 
@@ -162,8 +162,8 @@ and `hardware/SECOND-HARDWARE-VALIDATION.md`.
 ## One-time key generation (human only)
 
 Run this once, by hand, inside the pinned `espressif/idf:v5.3.1`
-container on the developer's own Mac -- offline if possible, since the
-key never needs to touch a network until it is uploaded as a secret.
+container on the developer's own Mac -- offline if possible. The key
+never needs to touch a network.
 
 1. Generate the signing key:
    ```
@@ -175,27 +175,85 @@ key never needs to touch a network until it is uploaded as a secret.
    espsecure.py extract_public_key --version 2 \
        --keyfile skypane-signing-key.pem skypane-signing-pubkey.pem
    ```
-3. Store the private key as a GitHub Actions environment secret, in an
-   environment named `firmware-signing` with the developer set as a
-   required reviewer, so every signing run needs an explicit approval:
-   ```
-   gh secret set FW_SIGNING_KEY --env firmware-signing \
-       < skypane-signing-key.pem
-   ```
+3. Keep the private key on the Mac as a file readable only by its owner
+   (`chmod 600`); `scripts/fw_publish_signed.py` refuses a key file with
+   looser permissions. It is not stored in a repository secret, a
+   workflow, the VPS or any agent session.
 4. Make an encrypted offline backup -- a password manager attachment, or
    an `age -p` / `gpg --symmetric` encrypted file kept on the developer's
-   Mac. Without this backup, losing the GitHub secret means losing the
-   key permanently (see Rotation below).
-5. Delete the plaintext private key from disk:
+   Mac. Without this backup, losing the Mac's copy means losing the key
+   permanently (see Rotation below).
+5. If the working copy is kept encrypted at rest, decrypt it only for the
+   duration of a signing run and delete the plaintext afterwards:
    ```
    rm -P skypane-signing-key.pem
    ```
 6. Commit only the public key, at `firmware/signing/skypane-signing-pubkey.pem`.
 
 The private key must never be copied to the VPS, committed to the
-repository, or pasted into a chat or a log. It exists in exactly two
-places: the `firmware-signing` GitHub environment secret, and the
-developer's own encrypted offline backup.
+repository, put in a GitHub secret, or pasted into a chat or a log. It
+exists in exactly two places: the owner's Mac, and the owner's own
+encrypted offline backup. While signing it is mounted read-only into the
+pinned signing container, which runs with `--network none`.
+
+## Releasing (signing on the Mac)
+
+CI never holds the key. It builds both boards for a tag and uploads the
+unsigned images; the owner signs and publishes them on the Mac.
+
+1. Tag `fw-vMAJOR.MINOR.PATCH` on a commit of `main` and push the tag.
+2. Wait for the "Firmware release" workflow
+   (`.github/workflows/firmware-release.yml`) to finish. It only builds
+   both boards and uploads the run artifact `fw-unsigned-<tag>` (the five
+   images plus `SHA256SUMS`, kept 14 days). It signs and publishes nothing.
+3. On the Mac, in a full clone with tags and with `gh` and Docker
+   available, run:
+   ```
+   scripts/fw_publish_signed.py <tag> --key-file <path> --dry-run
+   ```
+   Read the printed checks and the generated `notes.md`. The dry run does
+   everything except publish, then imports the result into a scratch
+   registry to prove the server accepts it.
+4. Run the same command again without `--dry-run`. It prints the release
+   notes, then publishes the GitHub Release with the seven assets
+   (`skypane-<tag>.bin`, `release.json`, `bootloader-<tag>.bin`,
+   `partition-table-<tag>.bin`, `ota_data_initial-<tag>.bin`,
+   `skypane-<key>-<tag>.bin`, `release-<key>.json`).
+5. The script then offers to start the production deploy
+   (`gh workflow run deploy.yml --ref main -f confirm_sha=<first 7
+   characters of the tip of main>`). Answer `y`, or decline and run the
+   deploy by hand as described in `deploy/README.md`. `--yes` answers the
+   question for you.
+6. Schedule the release in the companion Update page. Nothing reaches the
+   frame before that.
+
+Other options: `--repo` (clone to use, default the current directory),
+`--state-dir` (working directory, default a fresh temporary one) and
+`--platform` (Docker platform of the signing container, default
+`linux/amd64`).
+
+**Trust model.** The Mac signs the exact bytes CI built. They are trusted
+because of where they came from, which the script checks: the tag matches
+`fw-vMAJOR.MINOR.PATCH`, the tag commit is an ancestor of `origin/main`,
+a successful `firmware-release.yml` run exists for that tag at that exact
+commit, the downloaded artifact holds exactly the expected files and every
+SHA-256 in `SHA256SUMS` matches. Builds are not reproducible, so the Mac
+does not rebuild: a rebuild would produce different bytes from the ones CI
+built and tested. After signing, the signatures are verified against the
+committed public key, and both images and manifests are checked before
+anything is staged.
+
+**The script refuses** (and publishes nothing) when the tag is malformed
+or missing, the tag commit is not on `main`, no successful CI run matches
+the tag and commit, the artifact has extra or missing files or a checksum
+differs, the key file is not a regular file with mode `0600` or stricter,
+a signature does not verify against the committed public key, a manifest
+check fails, or a GitHub Release for the tag already exists (it never
+replaces one).
+
+**If the key was ever held in a GitHub secret.** Whether to rotate is the
+owner's decision, made with a transition release as in "Rotation" below.
+Sessions and automation never rotate, delete or read the key.
 
 ## Rotation
 
@@ -309,9 +367,8 @@ always cable-flashed, whatever the option.
 - Second hardware's first cable flash: signed with its own new key.
 - Cross-type protection on the device: a wrong-type binary fails the
   device's signature check even if the server is wrong.
-- CI and key custody: a second signing secret (for example a per-type
-  secret in the `firmware-signing` environment, or a second environment),
-  a per-type signing step, per-type public keys committed under
+- CI and key custody: a second private key to hold on the Mac (one per
+  type), a per-type signing step, per-type public keys committed under
   `firmware/signing/`, `flash.sh` and the manifest taking a per-type
   public key path. More keys to back up and rotate.
 
@@ -367,8 +424,8 @@ first signature block is honoured in this mode.
   future second board's first cable flash is signed with the existing key.
 - Key custody and backup note: no new key is created. The existing key
   stays where "One-time key generation (human only)" puts it: the
-  `firmware-signing` GitHub environment secret and the developer's own
-  encrypted offline backup, nowhere else. Rotation follows "Rotation".
+  owner's Mac and the developer's own encrypted offline backup, nowhere
+  else. Rotation follows "Rotation".
 - Decision date: 2026-10-29
 - Decided by: Florian Lepont (project owner)
 
