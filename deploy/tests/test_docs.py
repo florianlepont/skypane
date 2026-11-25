@@ -179,7 +179,7 @@ def test_deploy_readme_lift_runbook_is_owner_only_and_ends_in_a_deploy():
         "only by the owner",
         "written confirmation",
         "workflow_dispatch",
-        "`ci.yml`",
+        "`deploy.yml`",
         "no agent",
     ):
         assert phrase in runbook, phrase

@@ -92,14 +92,14 @@ def test_cli_rejects_hostile_tags(tag):
     assert result.stdout == ""
 
 
-# --- the ci.yml "Download firmware releases" step, run against a fake gh ---
+# --- the deploy.yml "Download firmware releases" step, run against a fake gh ---
 
-_CI_YML = _SCRIPT.parent.parent / ".github" / "workflows" / "ci.yml"
+_DEPLOY_YML = _SCRIPT.parent.parent / ".github" / "workflows" / "deploy.yml"
 
 
 def _download_step_script():
     """The run: body of the Download firmware releases step."""
-    lines = _CI_YML.read_text().splitlines()
+    lines = _DEPLOY_YML.read_text().splitlines()
     start = next(i for i, ln in enumerate(lines) if ln.strip() == "- name: Download firmware releases")
     run = next(i for i in range(start, len(lines)) if lines[i].strip() == "run: |")
     indent = len(lines[run]) - len(lines[run].lstrip())
