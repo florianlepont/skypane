@@ -81,6 +81,10 @@ The owner's attempts to take the signing key from his password manager failed: t
 
 ## Signing secret retired
 
-Not done yet. It needs the owner's own typed confirmation and must happen before the visibility changes.
+Date: 2026-11-25. The owner confirmed in writing ("confirm: retire the firmware-signing secret") and ran the deletion himself.
 
-key decision: pending (owner chooses to keep the key, or to rotate it with a transition release; rotation is a separate act and is not done here)
+deleted by the owner: yes (`gh secret delete FW_SIGNING_KEY --env firmware-signing`; the listing of that environment's secrets is empty afterwards)
+
+key decision: kept, decided by the owner (the key was read once by a workflow in a public repository and left no plaintext in logs or artifacts; rotating it needs a transition release and is a separate, later act). The key now exists only in the owner's encrypted vault, in two copies.
+
+Remaining optional cleanup by the owner: delete the now unused `firmware-signing` and `production` environments (the manual deploy uses repository-level secrets and no environment).
