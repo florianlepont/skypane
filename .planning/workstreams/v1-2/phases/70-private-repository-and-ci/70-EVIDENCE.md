@@ -45,3 +45,42 @@ chosen: dedicated-key-only (decided by the owner, 2026-11-25)
 The standing limitation applies whatever is chosen: on the Free private plan anyone with write access to the repository can dispatch `deploy.yml`, and a workflow on any branch can read repository secrets. With this choice the barrier is that the repository has one owner and the sessions and Dependabot are the only other writers. The key gives administrator rights on the server (the deploy user has passwordless sudo).
 
 Phase 66 hand-off: write access = ability to dispatch deploy.yml and read repository secrets from any branch; owner choice: dedicated-key-only
+
+## Signed test release
+
+Date: 2026-11-25. Done by the owner on his Mac and in GitHub; sessions never read, used or deleted a key or secret.
+
+tag: fw-v1.2.2 (the next free number after fw-v1.2.1; the release occupies it permanently and is never scheduled for the frame)
+
+prerequisites ok (Docker running, `gh` logged in with repository and workflow scopes, a full clone with tags, Mac on Apple Silicon so signing runs under emulation)
+
+| Step | Result |
+|------|--------|
+| Build by CI (no key, no environment) | run 45715502682, success, unsigned artifact `fw-unsigned-fw-v1.2.2` |
+| Dry run on the Mac | provenance and checksums verified, signatures verified against the committed public key, scratch import succeeded |
+| dry-run published nothing: yes | `gh release view fw-v1.2.2` answered "release not found" after the dry run |
+| Real publication on the Mac | release `fw-v1.2.2` with 7 assets (checked through the API) |
+| release assets: 7 | main board image, `release.json`, second-board image and its json, bootloader, partition table, OTA data |
+| Deploy answer at the publish prompt | `n` (deploy started by hand afterwards) |
+| First deploy attempt | run 45720954578 refused as designed: the tip of main was a docs-only commit with no CI run (guard step), nothing deployed |
+| Deploy by hand | run 45721077282, success, the server imported the release |
+| listed in firmware_cli: not run | checked on the companion Update page instead: `fw-v1.2.2` shown as "available" and "newest", `fw-v1.2.1` still "running" |
+| offered to frame: no | no installation scheduled; the owner did not press Install |
+| frame poll unchanged: yes | the frame stayed online with the same flight, picture and settings (owner's check) |
+
+## Signing key recovery (incident during this step)
+
+The owner's attempts to take the signing key from his password manager failed: the first copy was a short unrelated field (20 bytes), and Apple Passwords cannot hold attachments. The only remaining copy was the environment secret `FW_SIGNING_KEY`, which cannot be read back. Recovery done once, by the owner:
+
+- The owner created a recovery key pair on his Mac. Only the public certificate was given to a session and committed (on a branch that was never merged).
+- A one-time workflow, started by the owner pushing a tag, encrypted the secret for that certificate and uploaded only the encrypted file (kept one day). The first attempt (run 45719131128) was refused by the environment's tag rule, so no secret was read; the owner added a temporary tag rule, and the second attempt (run 45719795193) succeeded.
+- The owner decrypted it on his Mac, checked it is a valid RSA key, and the dry run then verified its signatures against the committed public key.
+- The signing key and the recovery key now live in an encrypted disk image (vault) whose password is in the owner's password manager, with a second copy of the image elsewhere.
+- Cleanup: the recovery branch and its two tags were deleted; the temporary tag rule was removed again; the temporary plaintext key file and the encrypted download were deleted by the owner (artifact deletion and file removal confirmed by the owner).
+- Exposure to record: the key was read by a GitHub workflow in a repository that is still public, and left no plaintext in logs or artifacts. Whether to keep it or rotate it is the owner's decision below.
+
+## Signing secret retired
+
+Not done yet. It needs the owner's own typed confirmation and must happen before the visibility changes.
+
+key decision: pending (owner chooses to keep the key, or to rotate it with a transition release; rotation is a separate act and is not done here)
