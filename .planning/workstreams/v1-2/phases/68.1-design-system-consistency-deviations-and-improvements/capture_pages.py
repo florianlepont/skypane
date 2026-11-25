@@ -253,7 +253,7 @@ def build_jobs(only, servers):
 def run_driver(jobs, outdir, result_name, chrome):
     cfg = {
         "jobs": jobs, "langs": LANGS, "themes": THEMES, "widths": WIDTHS,
-        "shots": ["/".join((w, t, l)) for (w, t, l) in SHOT_CELLS],
+        "shots": ["/".join((w, t, lang)) for (w, t, lang) in SHOT_CELLS],
         "outdir": outdir, "result": result_name, "chrome": chrome, "measure": MEASURE_JS, "dialogs": DIALOGS_JS}
     cfg["shots"] = ["%s/%s/%s" % cell for cell in SHOT_CELLS]
     cfg_path = os.path.join(outdir, "driver-config-" + result_name)
