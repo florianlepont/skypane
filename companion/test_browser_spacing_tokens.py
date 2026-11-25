@@ -180,8 +180,13 @@ def server(module_app_server_factory):
     return module_app_server_factory(seed=seed_state_dir, fake_providers=True)
 
 
-def _open(new_context, server, route, lang="en", theme=None, reduced_motion="reduce"):
-    """A signed-in 360px page on `route` in `lang`, in an explicit theme when `theme` is given."""
+def _open(new_context, server, route, lang="en", theme=None, reduced_motion=None):
+    """A signed-in 360px page on `route` in `lang`, in an explicit theme when `theme` is given.
+
+    Reduced motion is the default only without a theme: with it the shell's 0.01ms transitions
+    still start one, so `_set_ui_theme` would read the colour from before the switch."""
+    if reduced_motion is None:
+        reduced_motion = "reduce" if theme is None else "no-preference"
     context = new_context(viewport=VIEWPORT_MIN_SUPPORTED, reduced_motion=reduced_motion)
     page = context.new_page()
     _login(page, server.base_url())
