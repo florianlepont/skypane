@@ -689,6 +689,8 @@ ICON_IDS = ICON_IDS + (
 ICON_IDS = ICON_IDS + (
     "icon-picture",
     "icon-plane",
+    "icon-picture-add",
+    "icon-picture-edit",
 )
 
 # A four-point sparkle with a small one beside it: marks a suggestion made
@@ -1015,6 +1017,25 @@ ICON_DEFS_HTML = (
     'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
     '<rect x="2.5" y="3.5" width="15" height="13" rx="2"/><circle cx="7.5" cy="8.5" r="1.5"/>'
     '<path d="M17.5 13.5l-4.5-4.5-8 7.5"/>'
+    "</symbol>"
+    # A picture with a plus (add) or a pencil (change) badge at its lower right
+    # corner, for the airline editor's icon-only buttons. The badge sits in a
+    # disc (class icon-ko, filled with `--ko`, the colour of the button behind the
+    # glyph) so it reads apart from the frame without a thicker stroke.
+    '<symbol id="icon-picture-add" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
+    '<rect x="2.5" y="3.5" width="13.5" height="11.5" rx="2"/><circle cx="7" cy="8" r="1.4"/>'
+    '<path d="M16 11l-3.5-3.5L5 14.5"/>'
+    '<circle cx="15" cy="15" r="4.7" class="icon-ko"/>'
+    '<path d="M15 12.4v5.2M12.4 15h5.2"/>'
+    "</symbol>"
+    '<symbol id="icon-picture-edit" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
+    '<rect x="2.5" y="3.5" width="13.5" height="11.5" rx="2"/><circle cx="7" cy="8" r="1.4"/>'
+    '<path d="M16 11l-3.5-3.5L5 14.5"/>'
+    '<circle cx="14.8" cy="14.8" r="5.2" class="icon-ko"/>'
+    '<g transform="translate(8.45 8.6) scale(.62)" stroke-width="2.6">'
+    '<path d="M13.5 3.5l3 3L7 16H4v-3z"/><path d="M11.5 5.5l3 3"/></g>'
     "</symbol>"
     # Points right (east), the direction the route line reads in.
     '<symbol id="icon-plane" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="0">'
