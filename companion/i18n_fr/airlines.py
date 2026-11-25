@@ -216,7 +216,7 @@ MESSAGES = {
     "airlines.family_crj": "Bombardier CRJ",
     "airlines.family_falcon": "Dassault Falcon",
     "airlines.family_bizjetlarge": "Jet d’affaires gros porteur (Gulfstream / Global)",
-    "airlines.family_bizjet": "Jet d’affaires (Citation, Learjet, Challenger…)",
+    "airlines.family_bizjet": "Jet d’affaires",
     "airlines.family_kingair": "Beechcraft King Air",
     "airlines.family_pc12": "Turbopropulseur monomoteur (PC-12, TBM)",
     "airlines.family_helicopter": "Hélicoptère (moyen, bimoteur)",
