@@ -47,12 +47,12 @@ def _card_slice(rendered, airline_name):
 
 
 def _known_slice(rendered, airline_name):
-    """The one known-by-name `<tbody>` of `airline_name`."""
-    marker = 'airlines-known__name">%s<' % layout.escape_html(airline_name)
+    """The list of `airline_name` in the missing-illustrations section: its header and its rows."""
+    marker = 'airlines-missing__name">%s<' % layout.escape_html(airline_name)
     index = rendered.find(marker)
     assert index >= 0, airline_name
-    start = rendered.rindex('<tbody class="airline-group airline-group--known"', 0, index)
-    return rendered[start:rendered.index("</tbody>", start)]
+    start = rendered.rindex('<ul class="airlines-missing__airline"', 0, index)
+    return rendered[start:rendered.index("</ul>", index)]
 
 
 def _grid_section(rendered):
@@ -186,7 +186,7 @@ def test_replace_control_escapes_hostile_airline_name(monkeypatch):
         rendered, re.DOTALL)
     assert form_match, "expected to find the lightbox replace form's own markup"
     assert "script" not in form_match.group(0).lower()
-    assert '<span class="airlines-known__name">%s</span>' % (
+    assert '<span class="airlines-missing__name">%s</span>' % (
         layout.escape_html(hostile_name)) in rendered
 
 
@@ -612,7 +612,7 @@ def test_active_manual_states_render_expected_attributes_and_no_chip(tmp_path):
 
     assert "Totally Novel Airline" not in _grid_section(rendered)
     known = _known_slice(rendered, "Totally Novel Airline")
-    assert 'aria-label="Add the first artwork for Totally Novel Airline"' in known
+    assert 'aria-label="Add an illustration for Totally Novel Airline, type to choose"' in known
     assert 'data-view-panel-upload-action="/illustration/totally-novel-airline.png"' in known
     assert 'action="%s"' % airlines_page._manual_delete_action("XQZ") in known
     assert ">XQZ<" in known and "airline-card__chip" not in known
@@ -679,14 +679,14 @@ def test_render_grid_injection_adds_exactly_one_novel_row_and_none_for_supersede
     manual_resolutions.add_entry(tmp_novel, "XQZ", "Totally Novel Airline", now="2026-01-01T00:00:00+00:00")
     rendered_novel = airlines_page.render(shp.ctx(tmp_novel))
     assert "Totally Novel Airline" not in _grid_section(rendered_novel)
-    assert rendered_novel.count('<span class="airlines-known__name">Totally Novel Airline</span>') == 1
+    assert rendered_novel.count('<span class="airlines-missing__name">Totally Novel Airline</span>') == 1
     key_path = illustrations.override_path_for_key("totally-novel-airline", tmp_novel)
     os.makedirs(os.path.dirname(key_path), exist_ok=True)
     shutil.copy(os.path.join(illustrations.ILLUSTRATION_DIR, "vueling-airlines.png"), key_path)
     rendered_art = airlines_page.render(shp.ctx(tmp_novel))
     assert _grid_section(rendered_art).count(
         '<span class="airlines-name airlines-name--fixed">Totally Novel Airline</span>') == 1
-    assert "airlines-known__name\">Totally Novel Airline" not in rendered_art
+    assert "airlines-missing__name\">Totally Novel Airline" not in rendered_art
 
     manual_resolutions.add_entry(tmp_none, "AFR", "Some Other Airline", now="2026-01-01T00:00:00+00:00")
     manual_resolutions.add_entry(tmp_none, "OLD", "Air France", now="2026-01-01T00:00:00+00:00")
@@ -1440,7 +1440,7 @@ def test_airlines_page_drops_decorative_labels_and_explains_owner_actions(tmp_pa
     assert 'aria-label="Airline name: Air France"' in card
     assert ">Replace artwork</" not in card
     novel = _known_slice(rendered, "Totally Novel Airline")
-    assert 'aria-label="Add the first artwork for Totally Novel Airline"' in novel
+    assert 'aria-label="Add an illustration for Totally Novel Airline, type to choose"' in novel
     assert "airline-card__chip" not in novel
     assert "Resolved by hand" not in novel
     assert ">Add artwork</" not in novel

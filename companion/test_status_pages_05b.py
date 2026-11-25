@@ -474,7 +474,7 @@ def test_gallery_filter_bar_carries_all_four_contract_markers_exactly_once(tmp_p
     assert 'data-filter-clear-all' in rendered
     labels = re.findall(r'<span class="filter-chip__text">([^<]*)</span>', rendered)
     assert labels == [
-        "All", "Unidentified", "Known by name only", "Seen", "Not seen yet"]
+        "All", "Unidentified", "Missing illustrations", "Seen", "Not seen yet"]
     counts = re.findall(r'<span class="filter-chip__count">([^<]*)</span>', rendered)
     known = len(enrich.names_without_artwork())
     assert counts == [str(36 + known), "0", str(known), "0", "36"]
@@ -775,8 +775,10 @@ def test_replace_form_action_matches_trigger_attribute_membership(tmp_path):
     assert len(actions) == expected + typed_with_art
     uploads = re.findall(r'<form class="airlines-art"[^>]* action="([^"]+)"', rendered)
     # One per type row: the legacy picture's airframe and each secondary type.
+    # Plus the plain upload form of each row of the missing-illustrations section.
     assert len(uploads) == sum(
-        len(shapes) + 1 for _name, shapes in illustrations.target_variants_by_airline())
+        len(shapes) + 1 for _name, shapes in illustrations.target_variants_by_airline()
+    ) + rendered.count('class="airlines-missing__item"')
     for action in actions + uploads:
         action = action.split("?", 1)[0]
         assert action.startswith(prefix) and action.endswith(".png"), (

@@ -127,25 +127,30 @@ Read-only, and different by role.
   flip once (`motion.js`, tracked in `localStorage`; no animation if storage fails) and carries a
   "New" pill in its corner.
 
-## Editor (`pages/airlines_page.py`, `airline_table.py`, `airline_rows.py`, `airline_known_rows.py`)
+## Editor (`pages/airlines_page.py`, `airline_table.py`, `airline_rows.py`, `airline_missing.py`)
 
 Administrator only, **fleet-wide**: the airlines seen by any frame, one registry of names and one
 directory of artwork for the whole fleet (a name or picture given on one frame shows on every
 frame). Console label "Airline editor", bar label "Editor".
-- Order: the unidentified prefixes (first, compact), then the **Known by name only** block, then the
-  Airlines table. A filter bar with a search field and five scrolling chips with counts: All,
-  Unidentified, Known by name only, Seen, Not seen yet.
+- Order: the unidentified prefixes (first, compact), then the Airlines table, then the **Missing
+  illustrations** section. A filter bar with a search field and five wrapping chips with counts: All,
+  Unidentified, Missing illustrations, Seen, Not seen yet.
 - **Unidentified prefix:** one compact row on a phone and desktop: the prefix, an example callsign,
   the count and last seen, and one **Name it** button (a sheet on a phone, a centred card on
   desktop) that posts to the resolve route. There is no Ignore. When the suggestion service is on, a
   cached suggestion shows as a Suggestion tag with the proposed name in bold, an Edit link and a
   round 44px check (a real form), never blocking the Name it flow; a pending prefix says "Looking
   for a name".
-- **Known by name only:** every airline that has a name and no artwork, whoever named it (the
-  application, a person, or a renamed built-in), as a read-only row with an **Artwork** button that
-  asks for the aircraft type first; adding artwork moves the row to the table. Its "..." menu has
-  Rename and Reset to the original name (a renamed built-in) or Rename and Delete my name (a
-  hand-named one).
+- **Missing illustrations · N:** N counts rows, one per airline x aircraft family without a picture
+  (a family is one of the picture slots, "Other" for rare designators). One solid list surface; each
+  airline has a small header (name, prefix, "No artwork yet" or "<family> already done", "· n to
+  do") and its rows: a dashed 44px slot, the family, the designators and views, and a 44px
+  **+ Illustration** button that opens the add dialog with the family in its chip. An airline with
+  no sighting and no artwork has one "Type to choose" row whose dialog asks the type first; one with
+  art and no sighting is not listed. The "..." menu (Rename, Reset or Delete my name) is in the
+  header of an airline that has no row in the table. After an upload the page reloads and the row is
+  gone; an empty list says "All illustrations are in place" with a check. The chip counts the same
+  rows and "All" adds the unidentified prefixes and the airlines of the table.
 - **Airlines table:** only airlines with artwork. The airline's name is plain text with its
   default type's picture; Rename (a dialog), Reset to the original name and Delete my name are in
   the "..." menu (even padding, 44px items, Escape closes). The chevron opens one row per aircraft

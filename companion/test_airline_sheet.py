@@ -81,8 +81,8 @@ def test_manual_only_and_unidentified_rows_have_no_rename_dialog(tmp_path):
         for attr in airline_sheet.SHEET_ATTRS:
             assert ('%s="' % attr) in trigger, (attr, trigger[:120])
     assert 'airlines-name--fixed">Totally Novel Airline<' not in rendered
-    novel = rendered[rendered.index('airlines-known__name">Totally Novel Airline<'):]
-    novel = novel[:novel.index("</tbody>")]
+    novel = rendered[rendered.index('airlines-missing__name">Totally Novel Airline<'):]
+    novel = novel[:novel.index("</li>")]
     dialog_of_novel = novel[novel.index("<dialog"):novel.index("</dialog>")]
     assert 'action="/airlines/rename/manual"' in dialog_of_novel
     assert 'name="prefix" value="XQZ"' in dialog_of_novel and 'name="airline"' not in dialog_of_novel

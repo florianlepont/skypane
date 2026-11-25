@@ -78,8 +78,8 @@ def test_the_add_illustration_dialog_subtitle_is_body_text_not_code(
         new_context, server, lang):
     context, page = _open(new_context, server, VIEWPORT_DESKTOP, lang, "/airlines/manage")
     try:
-        page.locator("tbody.airline-group--known", has_text="Lufthansa").locator(
-            ".airlines-known__add").click()
+        page.locator(".airlines-missing__airline", has_text="Lufthansa").locator(
+            ".airlines-missing__add").click()
         subtitle = page.locator("#panel-lookup-dialog .lightbox__caption")
         subtitle.wait_for(state="visible")
         assert subtitle.inner_text().strip() == "Lufthansa"

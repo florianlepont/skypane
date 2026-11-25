@@ -137,13 +137,13 @@ def test_deleting_the_picture_on_another_frame_removes_it_for_all(fleet):
 def test_a_hand_named_airline_with_a_picture_on_another_frame_is_in_the_table(fleet):
     manual_resolutions.add_entry(fleet.frame_b, "ZZZ", "Zed Air", now="2026-01-01T00:00:00+00:00")
     before = fleet.manage(fleet.second_id)
-    assert "airline-group--known" in before[max(0, before.index("Zed Air") - 400):before.index("Zed Air")]
+    assert 'airlines-missing__name">Zed Air<' in before
     status, _h = fleet.upload(fleet.seed.owned_id, "zed-air", _png())
     assert status == 303
     assert fleet.fleet_listing() == ["zed-air.png"]
     after = fleet.manage(fleet.second_id)
     assert "illustration/zed-air.png?v=" in after
-    assert "airline-group--known" not in after[max(0, after.index("Zed Air") - 400):after.index("Zed Air")]
+    assert 'airlines-missing__name">Zed Air<' not in after
 
 
 @pytest.mark.parametrize("what", ["too_big", "not_png", "unknown_key", "path_key", "no_csrf", "wide"])

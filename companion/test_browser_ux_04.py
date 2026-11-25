@@ -79,11 +79,11 @@ DIALOG_ZONE = "#panel-lookup-dialog [%s='%s']" % (
 
 def _open_artwork_step(page, base_url, pick_type=True):
     """Opens the add-artwork step of the hand-named airline from its row of the
-    "Known by name only" block, and waits for its drop zone. The step asks the
+    missing-illustrations section, and waits for its drop zone. The step asks the
     aircraft type of the first artwork (required); `pick_type` answers it."""
     page.goto(base_url + "/airlines/manage")
-    page.locator("tbody.airline-group--known", has_text=ARTWORK_NAME).locator(
-        ".airlines-known__add").click()
+    page.locator(".airlines-missing__airline", has_text=ARTWORK_NAME).locator(
+        ".airlines-missing__add").click()
     _await_upload_zone(page, DIALOG_ZONE)
     if pick_type:
         page.locator("#panel-lookup-dialog #airline_artwork_type").select_option("A320")
@@ -1557,7 +1557,7 @@ def test_deleting_a_manual_name_states_its_outcome_and_removes_the_entry(
         page = context.new_page()
         _login(page, server.base_url())
         page.goto(server.base_url() + "/airlines/manage")
-        row = page.locator("tbody.airline-group--known", has_text=ARTWORK_NAME)
+        row = page.locator(".airlines-missing__airline", has_text=ARTWORK_NAME)
         row.locator(".row-menu__toggle").click()
         delete_form = row.locator("form.airlines-menu__form")
         delete_form.wait_for(state="visible")

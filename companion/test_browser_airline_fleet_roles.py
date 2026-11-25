@@ -54,7 +54,7 @@ def test_admin_editor_shows_the_whole_fleet(new_context, server, size, lang):
             "AAA", "BBB", "CCC", "LLL"]
         samples = [text[:6] for text in page.locator(".airlines-gap__meta").all_inner_texts()]
         assert samples == ["AAA101", "BBB301", "CCC302", "LLL601"]
-        known = page.locator("tbody.airline-group--known .airlines-known__name").all_inner_texts()
+        known = page.locator(".airlines-missing__name").all_inner_texts()
         assert {"Quux Air", "Zorro Air"} <= set(known)
         assert page.locator("tbody.airline-group--gap").first.is_visible()
         assert not _assert_no_page_overflow(page, "the editor", size[0])

@@ -1,5 +1,5 @@
 """Real-browser checks of Rename on an airline the owner named by hand: the menu item and the
-dialog in the "Known by name only" block and in the table, at phone and desktop sizes, English
+dialog in the missing-illustrations section and in the table, at phone and desktop sizes, English
 and French, light and dark; 44 px hit areas, no horizontal overflow, a 100-character name
 fits; submitting renames the row and flashes; Escape and Cancel close without a request."""
 import os
@@ -14,8 +14,8 @@ from server.plane import illustrations, manual_resolutions
 pytestmark = pytest.mark.browser
 
 _PNG = os.path.join(illustrations.ILLUSTRATION_DIR, "vueling-airlines.png")
-KNOWN = "tbody.airline-group--known"
-TABLE_ROWS = "tbody.airline-group:not(.airline-group--known):not(.airline-group--gap)"
+KNOWN = ".airlines-missing__airline"
+TABLE_ROWS = "tbody.airline-group:not(.airline-group--gap)"
 SIZES = ((390, 844), (1440, 900))
 RENAME = {"en": "Rename", "fr": "Renommer"}
 SAVE = {"en": "Save", "fr": "Enregistrer"}
@@ -104,8 +104,8 @@ def test_submitting_renames_the_row_and_flashes(new_context, make_app_server, wh
             dialog.locator("button[type=submit]").click()
         page.locator(".toast").first.wait_for(state="visible")
         assert FLASH["en"] in page.locator(".toast").first.inner_text()
-        assert page.locator("tbody", has_text=new).count() >= 1
-        assert page.locator("tbody", has_text=old + "<").count() == 0
+        assert page.locator("tbody, .airlines-missing__airline", has_text=new).count() >= 1
+        assert page.locator("tbody, .airlines-missing__airline", has_text=old + "<").count() == 0
     finally:
         context.close()
 
@@ -124,6 +124,6 @@ def test_escape_and_cancel_close_without_a_request(new_context, make_app_server,
             dialog.locator("[data-modal-close]", has_text=CANCEL["en"]).click()
         page.locator("dialog[open]").wait_for(state="detached")
         assert posts == []
-        assert "Zephyr Air" in page.locator(KNOWN + " .airlines-known__name").all_inner_texts()
+        assert "Zephyr Air" in page.locator(KNOWN + " .airlines-missing__name").all_inner_texts()
     finally:
         context.close()

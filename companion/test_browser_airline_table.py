@@ -53,7 +53,7 @@ _OWNS_CENTRE = (
 
 
 _seed = seed_airline_editor
-KNOWN_ROW = 'tbody.airline-group--known:has(.airlines-known__name:text-is("%s"))'
+KNOWN_ROW = '.airlines-missing__airline:has(.airlines-missing__name:text-is("%s"))'
 
 
 @pytest.fixture(scope="module")
@@ -183,7 +183,7 @@ def test_the_unidentified_prefix_is_a_compact_row_on_top_named_in_a_dialog(
         assert page.locator(DIALOG + "[open]").count() == 0
         row = KNOWN_ROW % "Xyz Wings"
         assert page.locator(row).count() == 1
-        assert page.locator(row + " .airlines-known__prefix").inner_text() == "XYZ"
+        assert page.locator(row + " .airlines-missing__prefix").inner_text() == "XYZ"
         assert page.locator(row + " .airlines-pill").count() == 0
         assert "Named by hand" not in page.locator(row).inner_text()
         saved = manual_resolutions.load_manual_resolutions(server.state_dir)
@@ -483,7 +483,8 @@ _NAMES = VISIBLE_GROUPS + " .airlines-row .airlines-name--fixed"
 
 def _visible_group_count_is(page, count):
     page.wait_for_function(
-        "n => document.querySelectorAll('tbody.airline-group:not([hidden])').length === n",
+        "n => document.querySelectorAll("
+        "'tbody.airline-group:not([hidden]), .airlines-missing__item:not([hidden])').length === n",
         arg=count, timeout=5000)
 
 
@@ -491,11 +492,13 @@ def test_the_filter_finds_an_airline_by_name_type_or_prefix(new_context, server)
     context, page = _open(new_context, server, VIEWPORT_DESKTOP)
     try:
         field = page.locator("[data-filter-input]")
-        total = page.locator("tbody.airline-group").count()
-        for text, expected in (("tfv", ["Transavia France"]), ("b738", ["Transavia France"]),
-                               ("tap portugal", ["TAP Air Portugal"])):
+        tables = page.locator("tbody.airline-group").count()
+        total = tables + page.locator(".airlines-missing__item").count()
+        # "tfv" also finds Transavia's A330 row of the missing-illustrations section.
+        for text, expected, groups in (("tfv", ["Transavia France"], 2), ("b738", ["Transavia France"], 1),
+                                       ("tap portugal", ["TAP Air Portugal"], 1)):
             field.fill(text)
-            _visible_group_count_is(page, len(expected))
+            _visible_group_count_is(page, groups)
             assert page.locator(_NAMES).all_inner_texts() == expected, text
         field.fill("zzzz-nothing")
         _visible_group_count_is(page, 0)
@@ -514,12 +517,13 @@ def _chip(page, label):
 @pytest.mark.parametrize("name,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
 def test_the_chips_filter_by_kind_and_clearing_restores_every_row(
         new_context, server, name, viewport):
-    """the chips carry their counts: Unidentified shows the prefix rows, Known by name only every
-    airline without a picture (the owner-named ones too), Seen and Not seen yet split the airlines
-    of the table by sightings; All brings everything back"""
+    """the chips carry their counts: Unidentified shows the prefix rows, Missing illustrations
+    every airline x family row of the section below the table, Seen and Not seen yet split the
+    airlines of the table by sightings; All counts the three units and brings everything back"""
     context, page = _open(new_context, server, viewport)
     try:
-        total = page.locator("tbody.airline-group").count()
+        tables = page.locator("tbody.airline-group").count()
+        total = tables + page.locator(".airlines-missing__item").count()
         labels = page.locator(".filter-chip__text").all_inner_texts()
         counts = [int(count) for count in page.locator(".filter-chip__count").all_inner_texts()]
         assert labels[:2] == ["All", "Unidentified"], labels
@@ -527,8 +531,9 @@ def test_the_chips_filter_by_kind_and_clearing_restores_every_row(
         known = counts[2]
         seen, unseen = counts[3], counts[4]
         assert len(counts) == 5 and known >= 1 and seen >= 1, counts
-        assert seen + unseen == total - 1 - known, counts
-        assert labels[2] == "Known by name only", labels
+        assert seen + unseen == tables - 1, counts
+        assert known == page.locator(".airlines-missing__item").count(), counts
+        assert labels[2] == "Missing illustrations", labels
         _chip(page, "Unidentified").click()
         _visible_group_count_is(page, 1)
         assert page.locator(GAP).is_visible()
@@ -538,11 +543,11 @@ def test_the_chips_filter_by_kind_and_clearing_restores_every_row(
         _chip(page, "Not seen yet").click()
         _visible_group_count_is(page, unseen)
         assert page.locator(TRANSAVIA).is_hidden()
-        _chip(page, "Known by name only").click()
+        _chip(page, "Missing illustrations").click()
         _visible_group_count_is(page, known)
-        assert page.locator("tbody.airline-group--known:not([hidden])").count() == known
+        assert page.locator(".airlines-missing__item:not([hidden])").count() == known
         assert "Lufthansa" in page.locator(
-            "tbody.airline-group--known:not([hidden]) .airlines-known__name").all_inner_texts()
+            ".airlines-missing__head:not([hidden]) .airlines-missing__name").all_inner_texts()
         _chip(page, "All").click()
         _visible_group_count_is(page, total)
     finally:
@@ -552,7 +557,7 @@ def test_the_chips_filter_by_kind_and_clearing_restores_every_row(
 def test_a_needs_artwork_airline_opens_the_add_artwork_step(new_context, server):
     context, page = _open(new_context, server, VIEWPORT_MIN_SUPPORTED)
     try:
-        button = 'tbody.airline-group--known[data-filter-text^="lufthansa "] .airlines-known__add'
+        button = '.airlines-missing__item[data-filter-text^="lufthansa "] .airlines-missing__add'
         _settle(page, button)
         page.locator(button).click()
         dialog = page.locator(DIALOG)
@@ -560,7 +565,7 @@ def test_a_needs_artwork_airline_opens_the_add_artwork_step(new_context, server)
         assert "Lufthansa" in dialog.inner_text()
         assert dialog.locator(".resolve-upload-zone").is_visible()
         assert page.locator("#airline-lufthansa").count() == 1
-        assert page.locator("tbody.airline-group:not(.airline-group--known) .airlines-name").filter(
+        assert page.locator("tbody.airline-group .airlines-name").filter(
             has_text="Lufthansa").count() == 0
     finally:
         context.close()
