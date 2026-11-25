@@ -254,3 +254,40 @@ def test_the_type_rows_work_without_scripts(new_context, server):
         assert codes.is_visible()
         line = codes.evaluate("el => parseFloat(getComputedStyle(el).lineHeight)")
         assert _box(codes)["h"] <= 2 * line + 1
+
+
+@pytest.mark.parametrize("lang,one,many", (("en", "1 view", "views"), ("fr", "1 vue", "vues")))
+@pytest.mark.parametrize("name,viewport", VIEWPORTS[:2], ids=[v[0] for v in VIEWPORTS[:2]])
+def test_a_card_shows_the_views_in_its_state_line_once(
+        new_context, server, name, viewport, lang, one, many):
+    context, page = _open(new_context, server, viewport, lang)
+    try:
+        rows = page.locator(TRANSAVIA + " .airlines-subrow")
+        for index in range(rows.count()):
+            row = rows.nth(index)
+            column = row.locator(".airlines-cell--views")
+            expected = column.text_content().strip()
+            assert expected == one or expected.endswith(many), expected
+            inline = row.locator(".airlines-views-inline")
+            assert inline.is_visible() and inline.inner_text() == expected
+            assert column.is_hidden()
+            own = row.locator(".airlines-state")
+            if own.count():
+                assert own.is_visible()
+                assert "\u00b7" in own.evaluate("el => getComputedStyle(el, '::before').content")
+        # Nothing is read twice: the hidden column and the table copy are out of the accessibility tree.
+        assert page.locator(TRANSAVIA + " .airlines-subrow").nth(0).get_by_text(expected).count() <= 1
+    finally:
+        context.close()
+
+
+def test_a_table_row_shows_its_views_in_their_column_only(new_context, server):
+    context, page = _open(new_context, server, VIEWPORT_DESKTOP, "en")
+    try:
+        row = page.locator(TRANSAVIA + " .airlines-subrow").first
+        assert row.locator(".airlines-views-inline").is_hidden()
+        assert row.locator(".airlines-cell--views").is_visible()
+        assert "\u00b7" not in row.locator(".airlines-state-line").evaluate(
+            "el => getComputedStyle(el.querySelector('.airlines-state') || el, '::before').content")
+    finally:
+        context.close()

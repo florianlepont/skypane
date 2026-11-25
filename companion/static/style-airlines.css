@@ -576,11 +576,21 @@ table.airlines-table {
   grid-area: thumb;
 }
 
-.airlines-subrow .airlines-cell--art > .airlines-state,
+.airlines-subrow .airlines-cell--art > .airlines-state-line,
 .airlines-subrow .airlines-cell--art > .airlines-uses {
   grid-area: state;
   margin: 0;
   font-size: var(--font-caption-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* A card's state line: the views, then the state word after a middle dot. */
+.airlines-state-line > .airlines-state {
+  font-size: inherit;
+}
+
+.airlines-views-inline + .airlines-state::before {
+  content: "\00A0\00B7\00A0";
 }
 
 .airlines-cell--views {
@@ -1552,10 +1562,22 @@ body:has([data-filter-chip]:checked:not([value=""]):not([value="missing"])) .air
     display: table-cell;
   }
 
-  .airlines-subrow .airlines-cell--art > .airlines-state,
   .airlines-subrow .airlines-cell--art > .airlines-uses {
     margin: 0;
     font-size: var(--font-label-size);
+  }
+
+  /* The table has a column of views: the card's copy is not drawn. */
+  .airlines-subrow .airlines-cell--art > .airlines-state-line {
+    display: contents;
+  }
+
+  .airlines-views-inline {
+    display: none;
+  }
+
+  .airlines-views-inline + .airlines-state::before {
+    content: none;
   }
 
   .airlines-cell--type {
