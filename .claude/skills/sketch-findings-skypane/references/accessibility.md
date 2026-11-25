@@ -17,6 +17,9 @@
   "+ Invite a user" button) keeps its label as the accessible name.
 - A bare un-classed `<button type="submit">` still falls to the legacy 30px base rule (AA met, AAA
   not): always use `.btn`.
+- **Known exception:** a link inside running text is not a stand-alone control and keeps its text
+  height (the "Orly frame" link in a sample sentence on the Components page is 24px tall). A link
+  that stands alone is a 44px target.
 - Focus: a global 2px outline at 2px offset (`:focus-visible`), accent coloured, visible on every
   control type; a dialog container draws none (its controls do). Tap targets taller than the box use a
   pseudo-element so the ring stays tight. Cancel on the Save bar returns focus to the last changed
