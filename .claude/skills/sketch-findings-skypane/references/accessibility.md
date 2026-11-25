@@ -19,7 +19,9 @@
   not): always use `.btn`.
 - **Known exception:** a link inside running text is not a stand-alone control and keeps its text
   height (the "Orly frame" link in a sample sentence on the Components page is 24px tall). A link
-  that stands alone is a 44px target.
+  that stands alone is a 44px target, drawn with a `::before` or `::after` when its text box is
+  smaller (the Components page's "Back to the index" links; the "Location" link of the Quiet hours
+  dialog keeps its 21px text box and a 44px-high `::after`).
 - **Known exception:** the hit circles of the Battery chart (about 8px, one per daily average: 80 on the deployed 90-day series,
   `.sparkline-hit`, each named with its date and reading count) are the points of a chart, not
   stand-alone controls. They are a tap and keyboard enhancement (a roving tab stop that visits the
