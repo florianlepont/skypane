@@ -15,8 +15,8 @@
 - Words the latest pages fixed: a retired frame's header reads "Retired · Belonged to <address>" /
   "Retiré · Appartenait à <address>"; the foreign-frame marker "You are viewing <address>'s frame" /
   "Vous consultez le cadre de <address>" with "Back to Fleet" / "Retour à la flotte"; the leave
-  dialog "Leave without saving?" / "Quitter sans enregistrer ?"; the editor's "Known by name only"
-  / "Connues par leur nom seulement" and "Name it" / "Rename" / "Reset to the original name"; Fleet
+  dialog "Leave without saving?" / "Quitter sans enregistrer ?"; the editor's "Missing illustrations"
+  / "Illustrations manquantes" and "Name it" / "Rename" / "Reset to the original name"; Fleet
   groups "Live / Waiting to be paired / Retired" / "En service / En attente d’appairage / Retirés".
 - Language is a cookie-backed preference (Account page and the More panel's Settings group);
   it never changes the route.

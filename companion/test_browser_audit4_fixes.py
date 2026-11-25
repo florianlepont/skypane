@@ -204,8 +204,8 @@ def test_the_picture_dialog_caption_uses_the_body_font(new_context, app_server_i
 
 
 def test_a_hand_named_airline_keeps_its_row_one_line_tall(new_context, app_server_in_process):
-    """With artwork the airline is a row of the table, like the others; without it, a row of the
-    "Known by name only" block, as tall and as aligned as the block's other rows."""
+    """With artwork the airline is a row of the table, like the others; without it, the
+    header of the missing-illustrations section, as tall and as aligned as the other headers."""
     import os
     import shutil
     from server.plane import illustrations, manual_resolutions
@@ -227,10 +227,10 @@ def test_a_hand_named_airline_keeps_its_row_one_line_tall(new_context, app_serve
                     left(mine), left(other)]; }""")
         assert abs(sizes[0] - sizes[1]) <= 2 and abs(sizes[2] - sizes[3]) <= 1, sizes
         known = page.evaluate("""() => { const rows = [...document.querySelectorAll(
-                'tbody.airline-group--known .airlines-known')];
+                '.airlines-missing__head')];
             const zephyr = rows.find(r => r.textContent.includes('Zephyr Air'));
             const other = rows.find(r => !r.textContent.includes('Zephyr Air'));
-            const left = el => el.querySelector('.airlines-known__name').getBoundingClientRect().left;
+            const left = el => el.querySelector('.airlines-missing__name').getBoundingClientRect().left;
             return [zephyr.getBoundingClientRect().height, other.getBoundingClientRect().height,
                     left(zephyr), left(other)]; }""")
         assert abs(known[0] - known[1]) <= 2 and abs(known[2] - known[3]) <= 1, known

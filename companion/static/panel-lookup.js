@@ -279,16 +279,24 @@
   var uploadSubmit = dialog.querySelector(".lightbox__upload");
   var typeChip = resolveUploadZone ? resolveUploadZone.querySelector("[data-upload-type-chip]") : null;
   var uploadFileInput = resolveUploadZone ? resolveUploadZone.querySelector('input[type="file"]') : null;
+  var uploadTypeSelect = resolveUploadZone ? resolveUploadZone.querySelector("select") : null;
 
-  // Upload is available once the zone's file input holds a file; the plain
+  // Upload is available once the zone's file input holds a file and, when the
+  // dialog asks for the aircraft type, once a type is chosen; the plain
   // aria-disabled state is mirrored so a screen reader hears it.
   function refreshUploadReady() {
     if (!uploadSubmit || !uploadFileInput) {
       return;
     }
     var ready = !!uploadFileInput.files && uploadFileInput.files.length > 0;
+    if (ready && uploadTypeSelect && !uploadTypeSelect.hidden && uploadTypeSelect.required) {
+      ready = uploadTypeSelect.value !== "";
+    }
     uploadSubmit.disabled = !ready;
     uploadSubmit.setAttribute("aria-disabled", ready ? "false" : "true");
+  }
+  if (uploadTypeSelect) {
+    uploadTypeSelect.addEventListener("change", refreshUploadReady);
   }
   if (uploadFileInput) {
     uploadFileInput.addEventListener("change", refreshUploadReady);

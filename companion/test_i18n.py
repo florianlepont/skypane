@@ -232,6 +232,8 @@ _UNCHANGED_IN_FRENCH = frozenset({
     "admin_users.actions",
     # "Action" is the French word too, for the audit table's column heading.
     "admin_lifecycle.action",
+    # "Illustration" is the French word too, on the "+ Illustration" button.
+    "airlines.missing_add",
 })
 
 

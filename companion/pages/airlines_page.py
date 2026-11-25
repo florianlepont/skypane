@@ -28,7 +28,7 @@ import companion.layout as layout
 import companion.page_context as page_context
 import companion.ui_components as ui_components
 from companion import airline_collection, fleet_unresolved
-from companion.pages import airline_known_rows, airline_rows, airline_sheet, airline_table
+from companion.pages import airline_missing, airline_rows, airline_sheet, airline_table
 from companion.ui_base import AIRLINE_EDITOR_LABEL, validation_attrs
 from server.plane import airline_default_types, illustrations
 # manual_resolutions and enrich import this page module in
@@ -1007,6 +1007,11 @@ def _resolve_name_form_html(prefix_value, id_suffix, include_submit=True, hidden
     )
 
 
+def ask_type_options():
+    """The aircraft types an add-illustration dialog offers, sorted."""
+    return sorted(set(illustrations._TYPE_SHAPE_BUCKETS) | set(illustrations._TYPE_VARIANT_SLUGS))
+
+
 def _ask_type_html(inline=False):
     """The aircraft-type row of the add-first-artwork step: its label, the
     select and (in the dialog) the fixed-type chip. In the dialog the select
@@ -1016,7 +1021,7 @@ def _ask_type_html(inline=False):
     trigger names the type. Without a script (`inline`) the select is shown,
     required and named: the browser sends it as a text part before the file,
     which the upload route reads. Same options either way."""
-    options = sorted(set(illustrations._TYPE_SHAPE_BUCKETS) | set(illustrations._TYPE_VARIANT_SLUGS))
+    options = ask_type_options()
     select_id = ASK_TYPE_ID + ("-page" if inline else "")
     select = (
         '<select id="%s" class="%s" aria-label="%s"%s%s>'
@@ -1294,10 +1299,10 @@ def _table_data(ctx):
                 and airline_name not in injected_names):
             injected_pairs.append((airline_name, []))
             injected_names.add(airline_name)
-    promoted_prefixes = airline_known_rows.promoted(
+    promoted_prefixes = airline_missing.promoted(
         state_dir, registry, curated_names | injected_names)
     entries_by_slug = _entries_by_slug(ctx, now)
-    known_rows = airline_known_rows.rows(state_dir, registry)
+    known_rows = airline_missing.rows(state_dir, registry)
     taken = curated_names | injected_names | set(promoted_prefixes) | {
         name for _prefix, name in known_rows}
     pairs = pairs + injected_pairs + [(name, []) for name in promoted_prefixes] + [
@@ -1358,8 +1363,7 @@ def render(ctx):
     pairs, gap_shown = table_data.pairs, table_data.gap_rows
     lightbox_html = _lightbox_html() if (pairs or gap_shown) else ""
     table_html, chips = airline_table.table_and_chips(table_data)
-    filter_html = _filter_bar_html(
-        len(gap_shown) + len(table_data.known_rows) + len(pairs), chips) if (pairs or gap_shown) else ""
+    filter_html = _filter_bar_html(chips[0][2], chips) if (pairs or gap_shown) else ""
     return (
         layout.page_header(i18n.t(AIRLINE_EDITOR_LABEL))
         + filter_html

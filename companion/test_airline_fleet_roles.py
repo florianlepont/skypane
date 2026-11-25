@@ -24,7 +24,7 @@ GAP_META_RE = re.compile(
     r'<span class="airlines-gap__meta">([^<]*)<span class="cell-inline-sep">[^<]*</span>([^<]*)<')
 ITEM_RE = re.compile(r'<li class="collection-item" data-filter-text="([^"]*)".*?</li>', re.S)
 SEEN_RE = re.compile(r"Seen (once|\d+ times)")
-KNOWN_NAME_RE = re.compile(r'airlines-known__name">([^<]+)<')
+KNOWN_NAME_RE = re.compile(r'airlines-missing__name">([^<]+)<')
 SUGGESTION_MARK = "Bravo Suggest Air"
 
 
@@ -108,11 +108,11 @@ def test_admin_editor_shows_the_artwork_of_the_whole_fleet(world):
         handle.write(artwork_png())
     # Frame B's directory resolves to the one fleet directory, so the picture
     # is there for the editor opened on any frame, and the airline moves out
-    # of "known by name only".
+    # of the airlines with no artwork.
     for frame in (world.a_id, world.b_id):
         _s, body = _get(world, world.admin, "/devices/%s/airlines/manage?types=all" % frame)
         assert "illustration/zorro-air.png?v=" in body
-        assert "Zorro Air" not in KNOWN_NAME_RE.findall(body)
+        assert '<tbody class="airline-group" id="airline-zorro-air"' in body
 
 
 def test_admin_names_a_prefix_only_another_frame_saw(world):

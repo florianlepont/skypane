@@ -218,8 +218,8 @@ def test_a_hand_named_airline_without_artwork_is_a_known_row_with_a_delete_item(
     manual_resolutions.add_entry(rig.owned_dir, "ZZZ", "Zed Air", now=STAMP)
     page = rig.get("admin", rig.frame + EDITOR)[2]
     assert not re.search(r'<tbody class="airline-group"(?:(?!</tbody>).)*Zed Air', page, re.S)
-    group = re.search(r'<tbody class="airline-group airline-group--known"(?:(?!</tbody>).)*Zed Air.*?</tbody>', page, re.S)
-    assert group, "the hand-named airline has no row in the block"
+    group = re.search(r'<li class="airlines-missing__head"(?:(?!</li>).)*Zed Air.*?</li>', page, re.S)
+    assert group, "the hand-named airline has no header in the missing-illustrations section"
     text = group.group(0)
     assert "Named by hand" not in text and ">ZZZ<" in text
     form = re.search(r'<form class="airlines-menu__form"[^>]*manual-resolutions/ZZZ/delete".*?</form>', text, re.S)

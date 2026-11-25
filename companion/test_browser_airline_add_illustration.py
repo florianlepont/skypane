@@ -128,7 +128,7 @@ def test_for_an_airline_without_artwork_the_type_select_comes_first(
     server = make_app_server(seed=_seed, fake_providers=True)
     context, page = _open(new_context, server, VIEWPORT_DESKTOP, lang)
     try:
-        page.locator("tbody.airline-group--known .airlines-known__add").first.click()
+        page.locator(".airlines-missing__add[data-view-panel-ask-type]").first.click()
         dialog = page.locator(DIALOG)
         dialog.wait_for(state="visible")
         page.wait_for_function(_SETTLED, timeout=15000)

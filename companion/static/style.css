@@ -7213,10 +7213,6 @@ button.row-menu__item {
   animation-delay: calc(3 * var(--motion-stagger));
 }
 
-.dashboard-main[data-page-open] > .airlines-table--known ~ .airlines-table:not(.airlines-table--known) {
-  animation-delay: calc(4 * var(--motion-stagger));
-}
-
 /* A filter that only hides rows replays a fade of its list, nothing else:
  * opacity alone, so a tall list costs the compositor one layer. The
  * page-opening rules above must not win over it while the page is still

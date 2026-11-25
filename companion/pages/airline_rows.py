@@ -54,19 +54,19 @@ SUGGEST_REMOVE = i18n.msg("airlines.suggest_remove", "Remove the suggestion")
 COL_DEFAULT_TYPE = i18n.msg("airlines.col_default_type", "Default type")
 CHIP_ALL = i18n.msg("airlines.chip_all", "All")
 CHIP_UNIDENTIFIED = i18n.msg("airlines.chip_unidentified", "Unidentified")
-CHIP_KNOWN = i18n.msg("airlines.chip_known", "Known by name only")
+CHIP_MISSING = i18n.msg("airlines.chip_missing", "Missing illustrations")
 CHIP_SEEN = i18n.msg("airlines.chip_seen", "Seen")
 CHIP_NOT_SEEN = i18n.msg("airlines.chip_not_seen", "Not seen yet")
 CHIPS_LEGEND = i18n.msg("airlines.chips_legend", "Filter the airlines")
 
 KIND_UNIDENTIFIED = "unidentified"
-KIND_KNOWN = "known"
+KIND_MISSING = "missing"
 KIND_SEEN = "seen"
 KIND_NOT_SEEN = "unseen"
 
 # The chip order and labels; the first chip (every row) carries the empty kind.
 _CHIPS = (
-    (KIND_UNIDENTIFIED, CHIP_UNIDENTIFIED), (KIND_KNOWN, CHIP_KNOWN),
+    (KIND_UNIDENTIFIED, CHIP_UNIDENTIFIED), (KIND_MISSING, CHIP_MISSING),
     (KIND_SEEN, CHIP_SEEN), (KIND_NOT_SEEN, CHIP_NOT_SEEN))
 
 KNOWN_NAMES_LIST_ID = "airlines-known-names"
@@ -74,7 +74,7 @@ KNOWN_NAMES_LIST_ID = "airlines-known-names"
 
 def row_kinds(views):
     """The filter kind of an airline of the table (one with artwork): whether
-    it was ever seen. An airline without artwork is a known-by-name row."""
+    it was ever seen. An airline without artwork has no row in the table."""
     return KIND_SEEN if views else KIND_NOT_SEEN
 
 
