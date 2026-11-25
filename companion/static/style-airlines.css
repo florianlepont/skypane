@@ -168,7 +168,7 @@
 .collection-card > .rarity-pill--new {
   min-height: 20px;
   height: 20px;
-  padding: 0 8px;
+  padding: 0 var(--space-sm);
   position: absolute;
   top: var(--space-xs);
   right: var(--space-sm);
@@ -1667,7 +1667,7 @@ body:has([data-filter-chip]:checked:not([value=""]):not([value="missing"])) .air
     vertical-align: middle;
     padding: var(--space-sm) var(--space-md);
     border-bottom: 1px solid var(--glass-hairline);
-    font-size: 13px;
+    font-size: var(--font-caption-size);
     font-weight: var(--weight-semibold);
     text-transform: none;
     text-align: left;
@@ -1743,7 +1743,7 @@ body:has([data-filter-chip]:checked:not([value=""]):not([value="missing"])) .air
   min-height: 32px;
   padding: 0 var(--space-sm);
   border: 1px solid var(--color-border);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--glass-solid);
   font-size: var(--font-label-size);
 }

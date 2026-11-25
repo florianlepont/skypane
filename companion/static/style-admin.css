@@ -2367,6 +2367,18 @@ dialog.access-sheet .modal__actions {
   margin: var(--space-md) 0 0;
 }
 
+/* The link is a stand-alone control: an invisible box around the text makes
+ * it a 44px target without moving the paragraph. */
+.components-family__top .text-link {
+  position: relative;
+}
+
+.components-family__top .text-link::before {
+  content: "";
+  position: absolute;
+  inset: -13px -8px;
+}
+
 .components-family {
   min-width: 0;
   margin: 0 0 var(--space-xl);
@@ -3088,7 +3100,7 @@ a.fleet-action-button {
   border-radius: 50%;
   background: var(--glass-solid);
   color: var(--color-text);
-  font-size: 22px;
+  font-size: var(--font-heading-size);
   line-height: 1;
   cursor: pointer;
   box-shadow: none;

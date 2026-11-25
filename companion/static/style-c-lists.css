@@ -107,7 +107,7 @@
   display: inline-flex;
   align-items: center;
   height: 20px;
-  padding: 0 8px;
+  padding: 0 var(--space-sm);
   border-radius: var(--radius-pill);
   font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);

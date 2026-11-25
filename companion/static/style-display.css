@@ -68,7 +68,7 @@
   align-items: center;
   gap: 12px;
   margin-top: var(--space-sm);
-  padding: var(--space-sm) 4px 0;
+  padding: var(--space-sm) var(--space-xs) 0;
 }
 
 .calendar-status__tile {
@@ -345,7 +345,7 @@ button.look-frame__open:focus-visible {
   align-items: center;
   gap: var(--space-sm);
   min-height: 44px;
-  padding: 4px 14px 4px 6px;
+  padding: var(--space-xs) 14px var(--space-xs) 6px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-control);
   font-size: var(--font-label-size);
@@ -353,7 +353,7 @@ button.look-frame__open:focus-visible {
 }
 
 .look-option__name:first-child {
-  padding-left: 8px;
+  padding-left: var(--space-sm);
 }
 
 .look-table__scroll {
@@ -366,7 +366,7 @@ button.look-frame__open:focus-visible {
 }
 
 .look-table th {
-  padding: 0 4px;
+  padding: 0 var(--space-xs);
   font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
   line-height: 1.2;
