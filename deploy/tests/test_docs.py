@@ -209,3 +209,13 @@ def test_signing_md_has_per_type_release_section():
         "firmware-release.yml",
     ):
         assert name in section, name
+
+
+def test_signing_md_documents_mac_signing():
+    text = _signing_text()
+    assert "fw_publish_signed.py" in text
+    assert "--dry-run" in text
+    assert "## Releasing (signing on the Mac)" in text
+    assert "gh secret set FW_SIGNING_KEY" not in text
+    assert "firmware-signing" not in text
+
