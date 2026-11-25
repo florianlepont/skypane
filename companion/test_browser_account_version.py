@@ -36,9 +36,18 @@ _FACTS = """sel => {
     if (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') { fill = bg; }
     el = el.parentElement;
   }
+  const ctx = document.createElement('canvas').getContext('2d', {willReadFrequently: true});
+  const over = (ink, under) => {
+    ctx.clearRect(0, 0, 1, 1); ctx.fillStyle = under; ctx.fillRect(0, 0, 1, 1);
+    ctx.fillStyle = ink; ctx.fillRect(0, 0, 1, 1);
+    const d = ctx.getImageData(0, 0, 1, 1).data;
+    return '#' + [d[0], d[1], d[2]].map(v => v.toString(16).padStart(2, '0')).join('');
+  };
+  const flat = over(fill, '#ffffff');
   const main = document.querySelector('main').getBoundingClientRect();
   return {
-    fontSize: s.fontSize, transform: s.textTransform, ink: s.color, hintInk: hs.color,
+    fontSize: s.fontSize, transform: s.textTransform, ink: over(s.color, flat),
+    hintInk: over(hs.color, flat), flat: flat,
     hintSize: hs.fontSize, fill: fill, height: box.height, text: id.textContent,
     hint: hint.textContent, lineScroll: line.scrollWidth, lineClient: line.clientWidth,
     mainRight: main.right, lineRight: box.right,
@@ -81,8 +90,8 @@ def test_the_build_line_is_a_quiet_44px_caption(new_context, server, lang, theme
         assert facts["height"] >= 44, facts
         assert facts["fill"], facts
         for ink in (facts["ink"], facts["hintInk"]):
-            assert skypane_contrast_check.contrast_ratio(ink, facts["fill"]) >= 4.5, facts
-        _assert_no_page_overflow(page)
+            assert skypane_contrast_check.contrast_ratio(ink, facts["flat"]) >= 4.5, facts
+        _assert_no_page_overflow(page, "account build line")
     finally:
         context.close()
 
@@ -112,7 +121,7 @@ def test_a_tap_copies_the_version_text_and_the_label_swaps_back(new_context, ser
         facts = page.evaluate(_FACTS, LINE)
         assert facts["lineScroll"] <= facts["lineClient"], facts
         assert facts["lineRight"] <= facts["mainRight"] + 0.5, facts
-        _assert_no_page_overflow(page)
+        _assert_no_page_overflow(page, "account build line")
         page.wait_for_function(
             "(t) => document.querySelector('%s').textContent === t" % HINT_LINE,
             arg=TEXT[lang]["hint"], timeout=5000)
@@ -121,7 +130,8 @@ def test_a_tap_copies_the_version_text_and_the_label_swaps_back(new_context, ser
 
 
 def test_under_reduced_motion_the_swap_is_instant(new_context, server):
-    context, page = _open(new_context, server, reduced_motion="reduce", permissions=CLIPBOARD)
+    context, page = _open(
+        new_context, server, theme=None, reduced_motion="reduce", permissions=CLIPBOARD)
     try:
         page.locator(LINE).click()
         page.wait_for_function(

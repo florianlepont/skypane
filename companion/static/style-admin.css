@@ -109,6 +109,56 @@
   color: var(--color-status-ok);
 }
 
+/* The build caption that ends Account: a quiet two-line button, at least 44px
+ * high, whose second line is the copy script's label. The copied word replaces
+ * the hint in the same place (no floating label), in the caption's own ink so
+ * the contrast of the pair does not change. */
+.account-build-wrap {
+  margin: var(--space-md) 0 0;
+}
+
+.account-build {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  min-height: 44px;
+  padding: var(--space-sm) var(--space-md);
+  border: none;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  font: inherit;
+  font-size: var(--font-caption-size);
+  text-align: left;
+  text-transform: none;
+  cursor: pointer;
+}
+
+.account-build:hover {
+  background: color-mix(in srgb, var(--color-text) 7%, transparent);
+}
+
+.account-build .account-build__id,
+.account-build .account-build__hint {
+  display: block;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.account-build .copy-btn__label,
+.account-build.copy-btn--copied .copy-btn__label {
+  display: block;
+  position: static;
+  transform: none;
+  margin: 0;
+  white-space: normal;
+  font-size: var(--font-caption-size);
+  font-weight: inherit;
+  color: inherit;
+}
+
 .audit-event + .audit-event {
   border-top: 1px solid var(--glass-hairline);
 }
