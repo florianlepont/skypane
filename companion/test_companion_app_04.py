@@ -49,6 +49,7 @@ ENTRANCE_SELECTORS = (".reveal-appended", ".reveal-replay",
     ".dashboard-main[data-page-open] .personalisation > .personalisation-nav",
     ".dashboard-main[data-page-open] .fleet-frame > .fleet-head",
     ".dashboard-main[data-page-open] .fleet-split__main > .fleet-head",
+    ".dashboard-main[data-page-open] .fleet-split__main > .fleet-empty",
     ".dashboard-main[data-page-open] .fleet-frame > .fleet-anchors",
     ".dashboard-main[data-page-open] .fleet-tiles--system")
 # A table or an empty state straight on the sky opens like a card, in its place in the order.
