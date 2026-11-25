@@ -1781,6 +1781,7 @@ a.row-action {
     vertical-align: middle;
     padding: var(--space-sm);
     border-bottom: 1px solid var(--glass-hairline);
+    background: var(--color-secondary);
     font-size: 12px;
     font-weight: var(--weight-semibold);
     text-transform: none;
@@ -1791,21 +1792,15 @@ a.row-action {
   /* The card clips its table at the card's corners. While a row menu is open the
    * clip is released so the menu can reach past the card's edge; the corner
    * cells carry the same radius, so the corners stay round meanwhile. */
-  .users-table {
-    overflow: hidden;
-  }
-
   .users-table:has(.row-menu[open]) {
     overflow: visible;
   }
 
-  /* The header row is tinted and the last row has no rule under it. */
-  .users-col {
-    background: var(--color-secondary);
-  }
-
+  /* The last row has no rule under it and keeps the rule's room, so it is as
+   * tall as the others. */
   .users-table tbody .users-row:last-child .users-cell {
     border-bottom-width: 0;
+    padding-bottom: calc(var(--space-sm) + 1px);
   }
 
   .users-table thead .users-col:first-child {

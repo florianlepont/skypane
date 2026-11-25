@@ -7039,6 +7039,7 @@ button.row-menu__item {
     width: 100%;
     border-collapse: separate;
     border-spacing: 0;
+    overflow: hidden;
   }
 
   .users-table tbody {
