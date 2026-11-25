@@ -216,9 +216,9 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: var(--space-6);
   min-height: 26px;
-  padding: 0 10px;
+  padding: 0 var(--space-10);
   border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--color-text) 9%, var(--color-dominant));
   font-size: var(--font-caption-size);
@@ -399,7 +399,7 @@ table.airlines-table {
 
 .airlines-label {
   position: absolute;
-  bottom: calc(100% + 6px);
+  bottom: calc(100% + var(--space-6));
   left: var(--space-md);
   margin: 0;
   font-size: var(--font-caption-size);
@@ -436,9 +436,9 @@ table.airlines-table {
   grid-template-columns: minmax(0, 1fr) 44px;
   grid-template-areas: "name menu";
   align-items: center;
-  gap: 0 12px;
+  gap: 0 var(--space-12);
   min-height: 60px;
-  padding: var(--space-sm) 12px;
+  padding: var(--space-sm) var(--space-12);
 }
 
 /* An unidentified prefix is one cell holding its resolve form. */
@@ -717,7 +717,7 @@ table.airlines-table {
   width: max-content;
   max-width: 320px;
   padding: var(--space-sm) var(--space-md);
-  border-radius: 10px;
+  border-radius: var(--radius-10);
   background: var(--color-toast-bg);
   color: var(--color-toast-fg);
   box-shadow: var(--shadow-toast-float);
@@ -835,7 +835,7 @@ table.airlines-table {
   box-sizing: border-box;
   padding: var(--space-xs);
   background: color-mix(in srgb, var(--color-text) 6%, transparent);
-  border-radius: 12px;
+  border-radius: var(--radius-12);
   color: var(--color-accent);
   text-decoration: none;
   cursor: pointer;
@@ -937,7 +937,7 @@ table.airlines-table {
   min-width: 50px;
   box-sizing: border-box;
   padding-inline: var(--space-sm);
-  border-radius: 10px;
+  border-radius: var(--radius-10);
   background: color-mix(in srgb, var(--color-text) 8%, transparent);
   font-size: var(--font-caption-size);
   font-weight: var(--weight-bold);
@@ -1042,7 +1042,7 @@ table.airlines-table {
   justify-content: center;
   min-width: 44px;
   min-height: 44px;
-  padding: 0 6px;
+  padding: 0 var(--space-6);
   box-sizing: border-box;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
   font-size: 14px;
@@ -1117,7 +1117,7 @@ dialog.modal .airlines-remove {
 .airlines-missing {
   position: relative;
   margin: 0 0 var(--space-lg);
-  padding-top: calc(var(--font-caption-size) * 1.4 + 6px);
+  padding-top: calc(var(--font-caption-size) * 1.4 + var(--space-6));
 }
 
 .airlines-missing > .airlines-label {
@@ -1224,7 +1224,7 @@ dialog.modal .airlines-remove {
   width: 44px;
   height: 44px;
   border: 1.5px dashed color-mix(in srgb, var(--color-text) 35%, transparent);
-  border-radius: 12px;
+  border-radius: var(--radius-12);
   background: var(--picture-placeholder);
   color: color-mix(in srgb, var(--color-text) 55%, transparent);
 }
@@ -1545,7 +1545,7 @@ body:has([data-filter-chip]:checked:not([value=""]):not([value="missing"])) .air
   /* A type row keeps its empty prefixes and action cells: dropping either
    * would pull the following cells one column to the left. */
   .airlines-act {
-    padding: 0 12px;
+    padding: 0 var(--space-12);
     font-size: var(--font-caption-size);
   }
 
@@ -1606,7 +1606,7 @@ body:has([data-filter-chip]:checked:not([value=""]):not([value="missing"])) .air
     width: max-content;
     max-width: 320px;
     padding: var(--space-sm) var(--space-md);
-    border-radius: 10px;
+    border-radius: var(--radius-10);
     background: var(--color-toast-bg);
     color: var(--color-toast-fg);
     box-shadow: var(--shadow-toast-float);
@@ -1810,7 +1810,7 @@ body:has([data-filter-chip]:checked:not([value=""]):not([value="missing"])) .air
   top: 50%;
   z-index: 6;
   padding: var(--space-sm) var(--space-md);
-  border-radius: 10px;
+  border-radius: var(--radius-10);
   background: var(--color-toast-bg);
   color: var(--color-toast-fg);
   box-shadow: var(--shadow-toast-float);

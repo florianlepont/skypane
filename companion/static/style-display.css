@@ -66,7 +66,7 @@
 .calendar-status {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-12);
   margin-top: var(--space-sm);
   padding: var(--space-sm) var(--space-xs) 0;
 }
@@ -121,7 +121,7 @@
 .calendar-status__pill .dot {
   width: 8px;
   height: 8px;
-  margin-right: 6px;
+  margin-right: var(--space-6);
 }
 
 .calendar-status__detail {
@@ -139,7 +139,7 @@ a.calendar-manage {
   align-items: center;
   justify-content: center;
   min-height: 44px;
-  padding: 0 10px;
+  padding: 0 var(--space-10);
   font-size: var(--font-label-size);
   font-weight: var(--weight-semibold);
   color: var(--color-text);
@@ -291,9 +291,9 @@ button.look-frame__open:focus-visible {
 .look-edit__summary {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-6);
   min-height: 44px;
-  padding: 0 14px;
+  padding: 0 var(--space-14);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
   background: var(--color-dominant);
@@ -345,7 +345,7 @@ button.look-frame__open:focus-visible {
   align-items: center;
   gap: var(--space-sm);
   min-height: 44px;
-  padding: var(--space-xs) 14px var(--space-xs) 6px;
+  padding: var(--space-xs) var(--space-14) var(--space-xs) var(--space-6);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-control);
   font-size: var(--font-label-size);
@@ -382,7 +382,7 @@ button.look-frame__open:focus-visible {
 
 .look-table__ink {
   display: inline-block;
-  margin-right: 6px;
+  margin-right: var(--space-6);
   vertical-align: -1px;
 }
 
@@ -574,7 +574,7 @@ button.look-sheet__close[hidden] {
   flex: 1 1 0;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: var(--space-6);
   min-width: 0;
   min-height: 44px;
   margin: 0;
@@ -589,7 +589,7 @@ button.look-sheet__close[hidden] {
 .look-seg__option::before {
   content: "";
   position: absolute;
-  inset: 6px 0;
+  inset: var(--space-6) 0;
   z-index: -1;
   border-radius: var(--radius-control);
 }
@@ -680,7 +680,7 @@ button.look-sheet__done:hover {
 .special-row__main {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: var(--space-14);
   min-height: 64px;
 }
 
@@ -717,8 +717,8 @@ button.look-sheet__done:hover {
 
 .special-row__tag {
   display: inline-block;
-  margin-right: 6px;
-  padding: 2px 6px;
+  margin-right: var(--space-6);
+  padding: 2px var(--space-6);
   border-radius: var(--radius-chip);
   background: color-mix(in srgb, var(--color-text) 7%, transparent);
   font-size: var(--font-caption-size);
@@ -787,7 +787,7 @@ a.special-row__edit:hover {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
     align-items: flex-start;
-    gap: var(--space-sm) 14px;
+    gap: var(--space-sm) var(--space-14);
   }
 
   .rule-row .special-row__mini {
@@ -907,7 +907,7 @@ a.form-page__danger:hover {
 .special-add__summary {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: var(--space-14);
   min-height: 64px;
   font-weight: var(--weight-semibold);
   color: var(--color-accent);
@@ -928,7 +928,7 @@ a.form-page__danger:hover {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-6);
 }
 
 .rule-suggestions[hidden],
@@ -939,7 +939,7 @@ a.form-page__danger:hover {
 .rule-suggestions__group {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--space-6);
 }
 
 button.rule-suggestion-chip {
