@@ -219,3 +219,13 @@ def test_signing_md_documents_mac_signing():
     assert "gh secret set FW_SIGNING_KEY" not in text
     assert "firmware-signing" not in text
 
+
+def test_firmware_releases_section_describes_the_manual_path():
+    text = _text()
+    start = text.index("## Firmware releases (OTA)")
+    section = text[start:text.index("\n## ", start + 5)]
+    assert "fw_publish_signed.py" in section
+    assert "deploy.yml" in section
+    assert "reviewer approval" not in section
+    assert "gh workflow run ci.yml" not in text
+    assert "gh secret set FW_SIGNING_KEY" not in text
