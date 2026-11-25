@@ -281,8 +281,9 @@ and under it "Tap to copy for support" / "Touchez pour copier (support)", both 1
 ink (text at 70%), no uppercase, no mid-dot, a button at least 44px high with no card around it.
 The id is the first 7 hex characters of the release directory name (the real path of the code, so
 the `current` symlink is followed), else `SKYPANE_BUILD` (7 to 40 hex characters, a manual
-override no deploy file sets), else `dev`. A tap copies the whole line with the existing copy
-script (`data-copy-value`); the copied word replaces the hint line in place, in the same ink.
+override no deploy file sets), else `dev`. A tap copies the whole line with its own small script
+(`account-build.js`, listed in the personal space's preload list; `copy-button.js` stays a Console
+file); the copied word replaces the hint line in place, in the same ink.
 
 ## Sign-in, Credits and error pages
 

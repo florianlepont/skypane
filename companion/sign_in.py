@@ -409,5 +409,5 @@ class SignInMixin:
         page = layout.page_shell(
             title=i18n.t(account_page.ACCOUNT_TITLE), active=layout.nav_slug(ACCOUNT_ROUTE),
             body=body, ui_theme=theme, health_alert=None, flash=self._account_flash_html(),
-            scripts=(layout.COPY_BUTTON_SCRIPT_SRC,))
+            scripts=(layout.ACCOUNT_BUILD_SCRIPT_SRC,))
         return self.send_html(200, page)

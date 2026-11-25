@@ -258,6 +258,8 @@ AIRLINE_SUGGEST_SCRIPT_SRC = "/static/airline-suggest.js"
 UPDATE_QUESTION_SCRIPT_SRC = "/static/update-question.js"
 # Marks the section in view among the phone anchors of a frame's page.
 FLEET_ANCHORS_SCRIPT_SRC = "/static/fleet-anchors.js"
+# Copies the build line of the Account page.
+ACCOUNT_BUILD_SCRIPT_SRC = "/static/account-build.js"
 LEAFLET_STYLE_HREF = "/static/vendor/leaflet/leaflet.css"
 
 # The registration seam value-controls.js reads, defined here so a page

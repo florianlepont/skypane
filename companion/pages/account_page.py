@@ -213,16 +213,16 @@ def _frame_dialogs(frames, open_access):
 
 def _build_line_html():
     """The quiet build caption that ends the page: the build id and a hint line.
-    The button reuses the copy script, which writes the copied word into the
-    `.copy-btn__label` hint line and restores it. The id is validated hex."""
+    account-build.js copies the text and swaps the hint line for the copied word.
+    The id is validated hex."""
     text = i18n.t(_BUILD_LINE) % build_info.build_id()
     escape = layout.escape_html
     return (
         '<p class="account-build-wrap"><button type="button" class="account-build" '
-        'data-copy-value="%s" data-copied-text="%s">'
+        'data-build-copy="%s" data-copied-text="%s">'
         '<span class="account-build__id">%s</span>'
-        '<span class="account-build__hint copy-btn__label">%s</span></button>'
-        '<span class="visually-hidden" role="status" data-copy-feedback></span></p>' % (
+        '<span class="account-build__hint" data-build-hint>%s</span></button>'
+        '<span class="visually-hidden" role="status" data-build-status></span></p>' % (
             escape(text), escape(i18n.t(_BUILD_COPIED)), escape(text),
             escape(i18n.t(_BUILD_HINT))))
 

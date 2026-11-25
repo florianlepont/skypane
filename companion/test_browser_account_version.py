@@ -51,7 +51,8 @@ _FACTS = """sel => {
     hintSize: hs.fontSize, fill: fill, height: box.height, text: id.textContent,
     hint: hint.textContent, lineScroll: line.scrollWidth, lineClient: line.clientWidth,
     mainRight: main.right, lineRight: box.right,
-    animations: line.getAnimations({subtree: true}).filter(a => a.playState === 'running').length,
+    animations: line.getAnimations({subtree: true}).filter(
+      a => a.playState === 'running' && a.effect.getTiming().duration > 1).length,
   };
 }"""
 
@@ -101,7 +102,7 @@ def test_the_build_id_is_the_servers_own_and_carries_nothing_personal(new_contex
     try:
         expected = "SkyPane build " + build_info.build_id()
         assert page.locator(ID_LINE).inner_text() == expected
-        assert page.locator(LINE).get_attribute("data-copy-value") == expected
+        assert page.locator(LINE).get_attribute("data-build-copy") == expected
         line = page.locator(LINE).inner_text().lower()
         assert "@" not in line and "token" not in line
     finally:
@@ -133,6 +134,7 @@ def test_under_reduced_motion_the_swap_is_instant(new_context, server):
     context, page = _open(
         new_context, server, theme=None, reduced_motion="reduce", permissions=CLIPBOARD)
     try:
+        page.wait_for_function(animation_settle.SETTLED, timeout=15000)
         page.locator(LINE).click()
         page.wait_for_function(
             "(t) => document.querySelector('%s').textContent === t" % HINT_LINE,

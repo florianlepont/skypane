@@ -63,6 +63,10 @@ PAGE_SCRIPTS = {
     layout.UPDATE_ROUTE: (
         layout.UPDATE_QUESTION_SCRIPT_SRC,
     ),
+    # The build line at the end of Account copies its text with account-build.js.
+    layout.ACCOUNT_ROUTE: (
+        layout.ACCOUNT_BUILD_SCRIPT_SRC,
+    ),
 }
 
 CORE_STYLE = "/static/style.css"
