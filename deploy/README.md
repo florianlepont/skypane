@@ -1334,6 +1334,65 @@ configuration are reproducible from this repository at any commit — but
 illustrations, `gallery/`) is not, which is exactly why it is backed up
 nightly and pulled off-box (see "Backups" and "Restore" above).
 
+## Private repository (GitHub Free plan)
+
+Once the repository is private it sits on a personal account with no
+collaborators, on the GitHub Free plan. The Free plan does not provide
+branch protection, rulesets, deployment environments, secret scanning or
+push protection for private repositories, and nothing in this setup relies
+on any of them.
+
+Where each control lives instead:
+
+| Concern | Where it lives now |
+|---------|--------------------|
+| Production deploy | Manual `deploy.yml` (see "Production deploy (started by hand)"): main only, `confirm_sha`, a green CI run for the commit. It uses a dedicated deploy key, and the owner has decided to rely on that key alone, with no server-side restriction of it. |
+| Firmware signing | The owner's Mac, with `scripts/fw_publish_signed.py` (see `firmware/SIGNING.md`). GitHub holds no signing key; CI only builds unsigned images. |
+| CI | The self-hosted runner kit in `deploy/runner/README.md`, selected by the repository variable `CI_RUNS_ON`. The kit exists, but the runner is still to be installed and `CI_RUNS_ON` is still unset, so CI runs on GitHub-hosted runners until the owner completes the install steps in that file. |
+| Secret handling | Repository-level secrets only; the old environments are no longer used, and the signing secret was deleted from GitHub. The owner may delete the unused environments. |
+
+Three consequences to remember:
+
+- Repository secrets are readable by a workflow on any branch of the
+  repository, so anyone who can push a branch can use the deploy key.
+  Write access to the repository is therefore the ability to dispatch
+  `deploy.yml` and read those secrets.
+- Branches pushed by assistant sessions run their code on the Mac runner
+  once it is live, inside its isolated VM.
+- Environment settings cannot be edited once the repository is private, so
+  any change to an environment or its secrets has to be made before the
+  visibility changes.
+
+Dependabot is hosted and free. Its pull requests run CI on the runner
+selected by `CI_RUNS_ON`; its "run on self-hosted runners" setting stays
+off.
+
+Hosted fallback: delete the repository variable (`gh variable delete
+CI_RUNS_ON`) and every job runs on GitHub-hosted `ubuntu-latest` again. A
+private repository gets the smaller 2-vCPU runner and a monthly allowance
+of free minutes, so a full CI run is slower than on a public repository and
+can use up the allowance.
+
+Watched risk: GitHub announced, then postponed with no date, a per-minute
+charge for self-hosted runners. Re-check the GitHub Actions changelog
+before relying on the free runner.
+
+### Checking after a change
+
+After changing visibility, the runner or the tokens, check in this order:
+
+1. A session can clone, push a branch, open a draft pull request through
+   the REST API and read the CI status and job logs (its token is valid).
+2. A pull request run goes green on the selected runner, and the hosted
+   fallback works once.
+3. Dependabot: "Check for updates" opens a pull request and its CI runs.
+4. The nightly backup pull still succeeds (it uses SSH to the VPS, not
+   GitHub).
+5. A `deploy.yml` run from main downloads the firmware releases with
+   `gh release download` and the import reports each tag as existing.
+6. A firmware release dry run with `scripts/fw_publish_signed.py --dry-run`
+   verifies and publishes nothing.
+
 ## Secrets discipline
 
 No cloud-provider API token is used in this flow (the OVH VPS is created
