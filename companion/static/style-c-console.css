@@ -123,7 +123,7 @@ html.js-early .dirty-bar[data-dirty-wait] {
  * colour keeps a label legible over the line. */
 .sparkline-text {
   fill: color-mix(in srgb, var(--color-text) 70%, transparent);
-  font-size: 13px;
+  font-size: var(--font-caption-size);
   paint-order: stroke;
   stroke: var(--color-dominant);
   stroke-width: 4px;

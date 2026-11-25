@@ -1377,7 +1377,7 @@ select.visually-hidden {
    * the left instead of filling the bordered container as one control. */
   flex: 1 1 0;
   min-width: 0;
-  padding: 0 4px;
+  padding: 0 var(--space-xs);
   white-space: nowrap;
   /* A label wider than its equal-width segment is clipped with an
    * ellipsis inside its own box; it can never paint over a neighbour. */
@@ -1959,7 +1959,7 @@ select.visually-hidden {
   display: inline-flex;
   align-items: center;
   height: 20px;
-  padding: 0 8px;
+  padding: 0 var(--space-sm);
   border-radius: var(--radius-pill);
   font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
@@ -2336,8 +2336,8 @@ body:has(> .frame-notice) .dashboard-shell {
   display: inline-flex;
   align-items: center;
   height: 20px;
-  padding: 0 8px;
-  gap: 4px;
+  padding: 0 var(--space-sm);
+  gap: var(--space-xs);
   border-radius: var(--radius-pill);
   font-size: var(--font-caption-size);
   font-weight: var(--weight-regular);
@@ -2367,7 +2367,7 @@ body:has(> .frame-notice) .dashboard-shell {
  * beside a title, not a property of the pill itself. */
 .page-header .refresh-pill {
   position: absolute;
-  top: 8px;
+  top: var(--space-sm);
   right: 0;
 }
 
@@ -5944,7 +5944,7 @@ a.btn[aria-disabled="true"] {
 
 .look-frame__picture {
   position: relative;
-  padding: 8px;
+  padding: var(--space-sm);
   border-radius: var(--radius-control);
   background: linear-gradient(145deg, var(--color-frame-bezel-hi), var(--color-frame-bezel));
   box-shadow: 0 14px 30px -14px var(--color-shadow-strong);
@@ -6053,7 +6053,7 @@ a.form-back {
   .look-sheet::before {
     content: "";
     position: absolute;
-    top: 8px;
+    top: var(--space-sm);
     left: 50%;
     width: 40px;
     height: 4px;
@@ -6276,7 +6276,7 @@ a.modal__dismiss {
   dialog.modal::before {
     content: "";
     position: absolute;
-    top: 8px;
+    top: var(--space-sm);
     left: 50%;
     width: 40px;
     height: 4px;
@@ -6496,7 +6496,7 @@ dialog.modal--compact[open] > *,
 .modal__linkbox {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-sm);
   padding: 6px 6px 6px 12px;
   background: var(--color-secondary);
   border: 1px solid var(--color-border);
@@ -6509,7 +6509,7 @@ dialog.modal--compact[open] > *,
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 13px;
+  font-size: var(--font-caption-size);
   user-select: all;
 }
 
@@ -6559,7 +6559,7 @@ dialog.modal--compact[open] > *,
   }
 
   .modal--compact .modal__actions {
-    padding-bottom: calc(24px + var(--safe-bottom));
+    padding-bottom: calc(var(--space-lg) + var(--safe-bottom));
   }
 }
 
