@@ -658,7 +658,7 @@ def suggest_row_html(page, index, gap_row, now, suggestion=None):
     callsign = callsign if isinstance(callsign, str) else str(callsign)
     meta = '%s<span class="cell-inline-sep">·</span>%s<span class="cell-inline-sep">·</span>%s' % (
         escape_html(callsign), escape_html(views_text(count)),
-        layout.concise_timestamp_html(last_seen, now, fallback=""))
+        layout.local_timestamp_html(last_seen, now, fallback=""))
     return airline_rows.gap_group_html(
         index, prefix, meta, "%s %s" % (callsign.lower(), prefix.lower()),
         device_scope.scoped(page.RESOLVE_ROUTE, "POST"), csrf_field(),

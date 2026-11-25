@@ -807,3 +807,22 @@ def test_replace_form_declares_post_multipart_enctype_and_present_action(tmp_pat
         "silently send the file as a filename string" % (form_tag,))
     assert 'action=""' in form_tag, (
         "expected a literally present action=\"\" placeholder in %r" % (form_tag,))
+
+
+@pytest.mark.parametrize("lang", ("en", "fr"))
+def test_an_unidentified_prefix_row_has_its_date_and_no_relative_age(tmp_path, lang):
+    """the row of an unidentified prefix reads callsign, views and the local date and time; the
+    relative age ("il y a 83 j", "83 d ago") is not served, and no ticker element is left in it"""
+    shp.seed_unresolved_prefixes(str(tmp_path), {
+        "DEFGM": {"count": 4, "first_seen": "2020-09-03T08:00:00+00:00",
+                  "last_seen": "2020-09-03T08:00:00+00:00", "example_callsign": "DEFGM12"}})
+    try:
+        prefs.set_request_prefs(lang=lang)
+        rendered = airlines_page.render(shp.ctx(str(tmp_path)))
+    finally:
+        prefs.set_request_prefs(lang="en")
+    start = rendered.index("airline-group--gap")
+    meta = re.search(r'<span class="airlines-gap__meta">(.*?)</span></span>', rendered[start:], re.S)
+    text = re.sub(r"<[^>]+>", "", meta.group(1))
+    assert "DEFGM12" in text and "10:00" in text
+    assert "il y a" not in text and " ago" not in text and "data-relative" not in meta.group(1)
