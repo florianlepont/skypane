@@ -33,6 +33,8 @@ codes all have a family slot.
   uploaded `{airline}-embraer.png` falls back to its default picture for E145 until it uploads there.
 
 ## Placeholder generics (replace by dropping a file of the same name; no code change)
+
+Update 2026-11-25: all 18 placeholders below were replaced by real generic silhouettes (see `.planning/quick/261125-gen-silhouettes/SUMMARY.md`); the list is kept as originally written.
 - `generic-erj145.png`  (copy of `generic-embraer.png`)
 - `generic-b787.png`  (copy of `generic-a350.png`)
 - `generic-a220.png`  (copy of `generic-a320.png`)
