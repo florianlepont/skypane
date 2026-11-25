@@ -139,7 +139,7 @@ def test_a_tile_opens_its_page_in_one_tap_and_the_way_back_returns(
         page.wait_for_url("**/fleet?frame=*")
         assert page.locator("#fleet-section-state .fleet-tile").count() == 3
         assert page.locator("a.fleet-tile").count() == 2
-        page.locator("a.fleet-tile", has_text="Firmware").click()
+        page.locator("a.fleet-tile", has_text="Software").click()
         page.wait_for_url("**view=versions")
         assert page.locator("main h1:visible").inner_text() == "Versions"
         assert page.locator(".update-cta form button[type=submit]").is_visible()

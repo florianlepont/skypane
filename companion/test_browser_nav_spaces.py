@@ -120,7 +120,7 @@ _SIDEBAR_LINKS = (
     " return {text: c.textContent.trim(), h: e.getBoundingClientRect().height}; })")
 
 CONSOLE_SIDEBAR_LABELS = [
-    "Fleet", "Users", "Editor", "Audit log", "System", "Account"]
+    "Fleet", "Users", "Editor", "Activity", "System", "Account"]
 PERSONAL_SIDEBAR_LABELS = [
     "Home", "Flights", "Airlines", "Style",
     "Location", "Account"]

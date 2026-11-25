@@ -27,7 +27,7 @@ HASH_FIELD = "secret_sha256"
 HARDWARE_FIELD = "hardware_type"
 PAIR_QUERY_FLAG = "pair"
 
-_FRAMES_TEXT = i18n.msg("admin_fleet.frames", "Frames")
+_FRAMES_TEXT = i18n.msg("nav.fleet", "Fleet")
 # Same id and English as the frame button's, so one name reads one way.
 _LIVE_FRAME_NAME = i18n.msg("nav.device_default_name", "Orly frame")
 _UNNAMED_FRAME = i18n.msg("admin_fleet.unnamed_frame", "Unnamed frame")

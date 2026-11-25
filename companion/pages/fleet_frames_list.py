@@ -19,7 +19,7 @@ SEARCH_FROM = 8
 CHIP_LIMIT = 8
 SEARCH_ID = "fleet-frame-search"
 
-_FRAMES = i18n.msg("admin_fleet.frames", "Frames")
+_FRAMES = i18n.msg("nav.fleet", "Fleet")
 _GROUP_LIVE = i18n.msg("admin_fleet.group_live", "Live")
 _GROUP_PENDING = i18n.msg("admin_fleet.group_pending", "Waiting to be paired")
 _GROUP_RETIRED = i18n.msg("admin_fleet.group_retired", "Retired")

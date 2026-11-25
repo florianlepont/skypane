@@ -233,7 +233,7 @@ MESSAGES = {
     "components.sample_banner": "Le cadre n’a pas donné de nouvelles depuis une heure",
     "components.sample_status_verdict": "Fonctionne normalement",
     "components.sample_status_detail": "Dernier rapport il y a deux minutes",
-    "components.sample_status_label": "Connexion",
+    "components.sample_status_label": "Dernier contact",
     "components.sample_section_heading": "Affichage",
     "components.sample_section_description": "Ce que le cadre affiche et quand.",
     "components.sample_header_title": "Historique des vols",

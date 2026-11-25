@@ -240,7 +240,7 @@ def test_the_audit_page_has_french_text(rig):
     status, _headers, html = fx.get(server, cookie + "; sp_ui_lang=fr", "/audit")
     assert status == 200
     assert "Code d’association utilisé" in html
-    assert "Journal d’audit" in html
+    assert "Activité" in html
     assert "Pairing code claimed" not in html
 
 

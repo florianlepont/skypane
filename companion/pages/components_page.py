@@ -130,7 +130,7 @@ _BANNER = i18n.msg(
     "components.sample_banner", "The frame has not reported for an hour")
 _STATUS_VERDICT = i18n.msg("components.sample_status_verdict", "Reporting normally")
 _STATUS_DETAIL = i18n.msg("components.sample_status_detail", "Last report two minutes ago")
-_STATUS_LABEL = i18n.msg("components.sample_status_label", "Connection")
+_STATUS_LABEL = i18n.msg("components.sample_status_label", "Last contact")
 _SECTION_HEADING = i18n.msg("components.sample_section_heading", "Display")
 _SECTION_DESCRIPTION = i18n.msg(
     "components.sample_section_description", "What the frame shows and when.")
