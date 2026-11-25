@@ -25,7 +25,7 @@ _ENGLISH = {
     'crj': 'Bombardier CRJ',
     'falcon': 'Dassault Falcon',
     'bizjetlarge': 'Large business jet (Gulfstream / Global)',
-    'bizjet': 'Business jet (Citation, Learjet, Challenger…)',
+    'bizjet': 'Business jet',
     'kingair': 'Beechcraft King Air',
     'pc12': 'Single turboprop (PC-12, TBM)',
     'helicopter': 'Helicopter (medium twin)',
