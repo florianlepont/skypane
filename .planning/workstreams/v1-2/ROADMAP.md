@@ -780,7 +780,7 @@ Build plans (owner choice of 2026-11-25): 68.1-11 P16 tokenise spacing and radii
 - P01 Home battery tile: v1.3 candidate (Home page work, refused by the owner on 2026-11-25).
 - P05 Editor lookup dialog height (DEV-38): v1.3 candidate (Editor page work, refused 2026-11-25).
 - P13 Flight arrives, line draws and plane flies in: v1.4 candidate (animation, refused 2026-11-25).
-- P15 Home hero, the callsign is the memorable thing: still OPEN, no build plan; the owner wants a more realistic mockup first (it carries a second uppercase/tracking exception that needs an explicit owner answer).
+- P15 Home hero, the callsign is the memorable thing: v1.3 / v1.4 candidate (Home page work, refused by the owner on 2026-11-25 after seeing the realistic mockup `68.1-PROPOSAL-P15-REALISTIC.html`; it would carry a second uppercase/tracking exception that needs an explicit owner answer, and the registration plate needs a new stored registration field).
 
 ### Phase 69: Rear Enclosure for the 7.3 Inch Frame (Design, Print, Fit)
 
