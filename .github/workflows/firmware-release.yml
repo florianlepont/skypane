@@ -1,18 +1,16 @@
-# SkyPane — Firmware release pipeline.
+# SkyPane — Firmware release build.
 #
-# Pushing a tag matching fw-v* on a commit already on main builds a
-# release image, signs it, verifies the signature against the
-# committed public key, generates a manifest and release notes from
-# git, and publishes a GitHub Release. Signing happens only here, never
-# on a developer's build machine or on the VPS: the private key lives
-# in the `firmware-signing` GitHub environment, which requires a human
-# reviewer to approve before the key is ever released to a run, so a
-# compromised laptop or a compromised server can never produce a signed
-# image. Publishing a release only makes it *available* — nothing
-# reaches the frame until the operator schedules it in the companion's
-# Update page. This workflow's last step asks the reviewer-gated
-# production deploy (ci.yml) to run, which is what actually copies the
-# release onto the VPS.
+# Pushing a tag matching fw-v* on a commit already on main builds both
+# boards' release images and uploads the UNSIGNED images with a checksum
+# list as a run artifact. Nothing else happens here: no workflow holds
+# the firmware signing key, signs, publishes a release or starts another
+# workflow. The owner signs on his own machine with
+# `scripts/fw_publish_signed.py <tag>`, which downloads this artifact,
+# checks provenance and checksums, signs with the local key, verifies
+# against the committed public key and publishes the GitHub Release.
+# The build is not reproducible, so the signer must use the exact bytes
+# built here. Publishing a release only makes it available; nothing
+# reaches the frame until the operator schedules it in the companion.
 name: Firmware release
 
 on:
@@ -26,17 +24,10 @@ permissions:
 jobs:
   guard:
     name: Guard the tag shape and that it is on main
-    # No `environment:` here, deliberately: this job carries no secret
-    # and needs no reviewer approval, so it can run -- and fail loudly on
-    # a malformed tag or an off-main commit -- before the release job
-    # below ever asks a human to approve entry into firmware-signing.
-    # Before this split, the environment gate was job-level and so ran
-    # ahead of every step, including this check: a reviewer approving
-    # the run had no guarantee yet that the tag was even well-formed or
-    # on main, and anyone who could push a fw-v* tag on an unmerged
-    # commit could edit this very check out of the workflow file the tag
-    # itself carries. The human approval on the `release` job below is
-    # now only ever requested for a tag this job has already verified.
+    # This job carries no secret and runs first, so a malformed tag or
+    # an off-main commit fails loudly before any build starts. The check
+    # lives in the workflow file the tag itself carries, which is why
+    # the signing step (on the owner's machine) repeats it.
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -69,15 +60,13 @@ jobs:
             exit 1
           fi
 
-  release:
-    name: Build, sign and publish a firmware release
+  build:
+    name: Build the unsigned release images
     needs: guard
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    environment: firmware-signing
     permissions:
-      contents: write
-      actions: write
+      contents: read
     concurrency:
       group: firmware-release
       cancel-in-progress: false
@@ -117,161 +106,27 @@ jobs:
         # second board's type.
         run: sh firmware/tests/check_production_config.sh built firmware/build-second second
 
-      - name: Sign the release image
-        # The private key reaches this step only through env: -- never
-        # interpolated into run: text, which would turn the key's bytes
-        # into shell syntax. It is written to a 0600 temp file outside
-        # the workspace (so it is never picked up by a later artifact
-        # upload or checked-out tree) and the always-run step below
-        # removes it whatever happens next. The image is pinned by
-        # digest, not the mutable `v5.3.1` tag, so a re-point or a
-        # compromise of that tag on Docker Hub cannot swap in a
-        # container image capable of exfiltrating the mounted key; the
-        # signing container is also given no network, so even a
-        # compromised (but still digest-matching) image cannot phone the
-        # key out.
-        env:
-          FW_SIGNING_KEY: ${{ secrets.FW_SIGNING_KEY }}
+      - name: Collect the unsigned images and checksums
         run: |
           set -eu
-          umask 077
-          KEY_PATH="$RUNNER_TEMP/fw-signing-key.pem"
-          printf '%s' "$FW_SIGNING_KEY" > "$KEY_PATH"
-          if [ ! -s "$KEY_PATH" ]; then
-            echo "::error::FW_SIGNING_KEY secret is empty"
-            exit 1
-          fi
-          docker run --rm \
-            --network none \
-            -v "$PWD/firmware:/project" \
-            -v "$KEY_PATH:/key.pem:ro" \
-            -u "$(id -u):$(id -g)" \
-            espressif/idf@sha256:55ab243e87584859c9af3acc124b0b9423a9d8b44fc99a5d5055d7bd7312722d \
-            espsecure.py sign_data --version 2 --keyfile /key.pem \
-              --output /project/build-ee02/skypane-signed.bin \
-              /project/build-ee02/skypane.bin
-          # Second board, same key file and same key lifetime: the
-          # always-run step below shreds the key after both signatures.
-          docker run --rm \
-            --network none \
-            -v "$PWD/firmware:/project" \
-            -v "$KEY_PATH:/key.pem:ro" \
-            -u "$(id -u):$(id -g)" \
-            espressif/idf@sha256:55ab243e87584859c9af3acc124b0b9423a9d8b44fc99a5d5055d7bd7312722d \
-            espsecure.py sign_data --version 2 --keyfile /key.pem \
-              --output /project/build-second/skypane-signed.bin \
-              /project/build-second/skypane.bin
+          mkdir unsigned
+          cp firmware/build-ee02/skypane.bin unsigned/ee02-skypane.bin
+          cp firmware/build-second/skypane.bin unsigned/second-skypane.bin
+          cp firmware/build-ee02/bootloader/bootloader.bin unsigned/bootloader.bin
+          cp firmware/build-ee02/partition_table/partition-table.bin unsigned/partition-table.bin
+          cp firmware/build-ee02/ota_data_initial.bin unsigned/ota_data_initial.bin
+          cd unsigned
+          sha256sum ee02-skypane.bin second-skypane.bin bootloader.bin \
+            partition-table.bin ota_data_initial.bin > SHA256SUMS
 
-      - name: Remove the signing key
-        if: always()
-        run: |
-          KEY_PATH="$RUNNER_TEMP/fw-signing-key.pem"
-          if command -v shred >/dev/null 2>&1; then
-            shred -u "$KEY_PATH" 2>/dev/null || true
-          else
-            rm -f "$KEY_PATH"
-          fi
+      - name: Upload the unsigned images
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: fw-unsigned-${{ github.ref_name }}
+          path: unsigned/
+          retention-days: 14
+          if-no-files-found: error
 
-      - name: Verify the signature against the committed public key
-        # The image the frame will actually download is checked here,
-        # in CI, with the same public key the device itself trusts --
-        # never trusting that signing "must have worked".
+      - name: Point the operator to the signing script
         run: |
-          set -eu
-          if [ ! -f firmware/signing/skypane-signing-pubkey.pem ]; then
-            echo "::error::public key not committed; run the signing key procedure in firmware/SIGNING.md"
-            exit 1
-          fi
-          docker run --rm \
-            --network none \
-            -v "$PWD/firmware:/project" \
-            -u "$(id -u):$(id -g)" \
-            espressif/idf@sha256:55ab243e87584859c9af3acc124b0b9423a9d8b44fc99a5d5055d7bd7312722d \
-            espsecure.py verify_signature --version 2 \
-              --keyfile /project/signing/skypane-signing-pubkey.pem \
-              /project/build-ee02/skypane-signed.bin
-          docker run --rm \
-            --network none \
-            -v "$PWD/firmware:/project" \
-            -u "$(id -u):$(id -g)" \
-            espressif/idf@sha256:55ab243e87584859c9af3acc124b0b9423a9d8b44fc99a5d5055d7bd7312722d \
-            espsecure.py verify_signature --version 2 \
-              --keyfile /project/signing/skypane-signing-pubkey.pem \
-              /project/build-second/skypane-signed.bin
-
-      - name: Verify image descriptor and signature sector
-        # The same stdlib parser the registry uses (no Pillow needed):
-        # chip id, project name, descriptor version, signature sector
-        # and size bound must match the declared hardware type, so a
-        # wrong or unsigned image fails here, before the release.
-        run: |
-          PYTHONPATH=. python3 scripts/fw_release_manifest.py \
-            --check-only \
-            --hardware-type xiao-ee02-13in3-spectra6 \
-            --tag "$GITHUB_REF_NAME" \
-            --image firmware/build-ee02/skypane-signed.bin
-
-      - name: Generate the release manifest and notes
-        # No hand-written release text: version, hash, size, date and
-        # commit all come from the image and git; notes are firmware/
-        # commit subjects since the previous release tag.
-        run: |
-          PYTHONPATH=. python3 scripts/fw_release_manifest.py \
-            --hardware-type xiao-ee02-13in3-spectra6 \
-            --tag "$GITHUB_REF_NAME" \
-            --image firmware/build-ee02/skypane-signed.bin \
-            --out release.json \
-            --notes-md notes.md
-
-      - name: Verify second board image descriptor and signature sector
-        run: |
-          PYTHONPATH=. python3 scripts/fw_release_manifest.py \
-            --check-only \
-            --hardware-type seeed-ee04-7in3-spectra6 \
-            --tag "$GITHUB_REF_NAME" \
-            --image firmware/build-second/skypane-signed.bin
-
-      - name: Generate the second board release manifest
-        # Only from firmware/build-second, after the built-mode check
-        # with the second board argument above.
-        run: |
-          PYTHONPATH=. python3 scripts/fw_release_manifest.py \
-            --hardware-type seeed-ee04-7in3-spectra6 \
-            --tag "$GITHUB_REF_NAME" \
-            --image firmware/build-second/skypane-signed.bin \
-            --out release-seeed-ee04-7in3-spectra6.json
-
-      - name: Stage release assets
-        # Fixed names the deploy job (plan 15) downloads by, and the
-        # hardware-session USB flash (plan 16) uses directly.
-        run: |
-          set -eu
-          cp firmware/build-ee02/skypane-signed.bin "skypane-${GITHUB_REF_NAME}.bin"
-          cp firmware/build-ee02/bootloader/bootloader.bin "bootloader-${GITHUB_REF_NAME}.bin"
-          cp firmware/build-ee02/partition_table/partition-table.bin "partition-table-${GITHUB_REF_NAME}.bin"
-          cp firmware/build-ee02/ota_data_initial.bin "ota_data_initial-${GITHUB_REF_NAME}.bin"
-          cp firmware/build-second/skypane-signed.bin "skypane-seeed-ee04-7in3-spectra6-${GITHUB_REF_NAME}.bin"
-
-      - name: Publish the GitHub Release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release create "$GITHUB_REF_NAME" \
-            "skypane-${GITHUB_REF_NAME}.bin" \
-            release.json \
-            "bootloader-${GITHUB_REF_NAME}.bin" \
-            "partition-table-${GITHUB_REF_NAME}.bin" \
-            "ota_data_initial-${GITHUB_REF_NAME}.bin" \
-            "skypane-seeed-ee04-7in3-spectra6-${GITHUB_REF_NAME}.bin" \
-            release-seeed-ee04-7in3-spectra6.json \
-            --title "$GITHUB_REF_NAME" \
-            --notes-file notes.md \
-            --verify-tag
-
-      - name: Trigger the reviewer-gated production deploy
-        # Dispatch ci.yml on main; its production environment requires review.
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          echo "::notice::Release $GITHUB_REF_NAME published. Triggering ci.yml on main for the reviewer-gated production deploy; nothing reaches the frame until the operator schedules it in the companion."
-          gh workflow run ci.yml --ref main
+          echo "::notice::Unsigned images for $GITHUB_REF_NAME uploaded. Sign and publish on the owner's Mac with: scripts/fw_publish_signed.py $GITHUB_REF_NAME --key-file <path>"
