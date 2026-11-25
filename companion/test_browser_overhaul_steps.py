@@ -27,10 +27,11 @@ pytestmark = pytest.mark.browser
 MAP_READY = "() => document.documentElement.classList.contains('map-ready')"
 MAP_TILES = "() => document.querySelectorAll('#place-map .leaflet-tile-loaded').length >= 1"
 
-# Measured counts, asserted exactly. Targets are in the design record.
+# Measured counts, asserted exactly. Targets are in the design record. A8 includes a scroll
+# past the missing-illustrations list, which sits above the airline table.
 MEASURED = {
     "U4a": 3, "U4b": 4, "U4c": 3, "L1": 4, "L1-pin": 5, "L2": 4, "L3": 5, "L4": 3,
-    "S1": 2, "S2": 2, "A7": 1, "A8": 5, "A9": 4, "V1-phone": 1, "V1-desktop": 1}
+    "S1": 2, "S2": 2, "A7": 1, "A8": 6, "A9": 4, "V1-phone": 1, "V1-desktop": 1}
 _OFFSCREEN = (
     "el => { const r = el.getBoundingClientRect();"
     " return r.top < 0 || r.bottom > window.innerHeight; }")
