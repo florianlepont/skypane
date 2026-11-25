@@ -240,6 +240,34 @@ def test_a_token_from_another_session_is_refused(live):
     assert status == 403 and _state_of(live) == before
 
 
+def test_the_invitation_post_needs_its_token_and_a_same_origin_post(
+        app_server_in_process, invitation_auth0):
+    """a tokenless or cross-origin invite creates no user and makes no call to Auth0"""
+    server = app_server_in_process
+    cookie = login(server)
+    fields = {"email": "csrf.person@example.test"}
+
+    def users():
+        conn = fleet_db.connect(server.state_dir)
+        try:
+            return conn.execute(
+                "SELECT COUNT(*) FROM users WHERE email = ?", (fields["email"],)).fetchone()[0]
+        finally:
+            conn.close()
+
+    status, _h, body = _raw_post(server, "/users/invite", cookie, fields)
+    assert status == 403 and b"This page expired" in body
+    status, _h, _b = http_request(
+        server.url("/users/invite"), method="POST", cookie=cookie,
+        data=with_csrf(cookie, fields), extra_headers={"Origin": "https://evil.example.test"})
+    assert status == 403
+    assert users() == 0 and invitation_auth0.calls == []
+    status, _h, body = http_request(
+        server.url("/users/invite"), method="POST", cookie=cookie,
+        data=with_csrf(cookie, fields), extra_headers={"Origin": server.base_url()})
+    assert status == 200 and users() == 1
+
+
 def _form_tokens(page_html, action_fragment):
     forms = re.findall(
         r'(<form[^>]*>)(.*?)</form>', page_html, re.S)
@@ -255,7 +283,7 @@ def _form_tokens(page_html, action_fragment):
     ("/airlines/manage", airlines_page.LIGHTBOX_DELETE_CLASS),
     ("/", "/quick/display"),
     ("/", "/quick/quiet-hours"),
-    ("/fleet?tab=settings", "/quick/led"),
+    ("/fleet?frame=live&tab=settings", "/quick/led"),
     ("/display", 'action="/settings"'),
     ("/display/calendar-look", 'action="/settings"'),
     ("/account", 'action="/ui-theme"'),
@@ -383,8 +411,11 @@ def test_only_the_known_routes_and_the_console_posts_are_flagged():
     quiet_window_post = {("POST", routes.Exact(routes.QUICK_QUIET_HOURS_WINDOW_ROUTE))}
     pair_frame_post = {("POST", routes.Exact("/pair-frame"))}
     airline_posts = {
+        ("POST", routes.Exact(routes.airlines_page.RENAME_MANUAL_ROUTE)),
         ("POST", routes.Exact(routes.airlines_page.ARTWORK_DELETE_ROUTE)),
-        ("POST", routes.Exact(routes.airlines_page.DEFAULT_TYPE_ROUTE))}
+        ("POST", routes.Exact(routes.airlines_page.DEFAULT_TYPE_ROUTE)),
+        ("POST", routes.Exact(routes.airlines_page.AIRLINE_SUGGEST_ROUTE)),
+        ("POST", routes.Exact(routes.airlines_page.AIRLINE_SUGGEST_REJECT_ROUTE))}
     assert len(routes.CSRF_ROUTE_KEYS) == 20
     assert flagged == (
         set(routes.CSRF_ROUTE_KEYS) | console_posts | co_manager_posts | quiet_window_post

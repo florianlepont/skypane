@@ -3,14 +3,14 @@ in and the browser preferences. Pure markup: it takes the signed-in identity
 and a sequence of the caller's own frame summaries as arguments and reads
 nothing else, so it carries no other account's frame and no MAC, token,
 firmware version or device id beyond the frame's own address and the forms of
-its dialogs. A frame shows no battery or last-contact figure, only its status
-dot.
+its dialogs. A frame shows no battery, hardware or last-contact figure, only its status
+dot and the last-seen word.
 """
 import time
 from typing import NamedTuple
 
-from companion import frame_status, i18n, layout, prefs, ui_groups, ui_modal, ui_shell
-from companion.pages import co_managers_card, pair_frame_page
+from companion import frame_status, i18n, layout, prefs, ui_components, ui_groups, ui_modal, ui_shell
+from companion.pages import co_managers_card, frame_name_page, pair_frame_page
 
 ACCOUNT_TITLE = i18n.msg("account.account", "Account")
 ACCOUNT_PURPOSE = i18n.msg(
@@ -31,14 +31,18 @@ _THEME_HINT = i18n.msg(
 _MY_FRAMES_TEXT = i18n.msg("account.my_frames", "My frames")
 UNNAMED_FRAME_TEXT = i18n.msg("account.unnamed_frame", "Unnamed frame")
 _SHARED_BY_TEXT = i18n.msg("account.shared_by", "Shared by %s")
-_LEAVE_FRAME_TEXT = i18n.msg("account.leave_frame", "Leave frame")
 _LEAVE_FRAME_ARIA = i18n.msg("account.leave_frame_aria", "Leave frame: %s")
 _MANAGE_ACCESS_ARIA = i18n.msg("account.manage_access_aria", "Manage access: %s")
+_RENAME_FRAME_ARIA = i18n.msg("account.rename_frame_aria", "Rename: %s")
 _PILL_OWNER_TEXT = i18n.msg("account.frame_owner", "Owner")
 _PILL_CO_MANAGER_TEXT = i18n.msg("account.frame_co_manager", "Co-manager")
 _CO_MANAGER_OF_ONE_TEXT = i18n.msg("account.co_manager_of_one", "Co-manager of 1 frame")
 _CO_MANAGER_OF_MANY_TEXT = i18n.msg("account.co_manager_of_many", "Co-manager of %d frames")
 _SIGN_OUT_TEXT = i18n.msg("common.sign_out", "Sign out")
+_CREDITS_TEXT = i18n.msg("credits.credits", "Credits")
+_ABOUT_TEXT = i18n.msg("account.about", "About")
+_CREDITS_ROW_DETAIL = i18n.msg("account.credits_detail", "Data sources and licences")
+CREDITS_ROUTE = "/credits"
 
 ROLE_USER = "user"
 ROLE_ADMIN = "admin"
@@ -53,7 +57,7 @@ class Identity(NamedTuple):
 
 class FrameSummary(NamedTuple):
     """One of the caller's own frames as the page shows it: the name, the
-    hardware label, the address of its Home and the frame id the dialogs post
+    hardware label (not shown), the address of its Home and the frame id the dialogs post
     to. `last_seen` (epoch seconds, None when never), `battery_percent`,
     `offline`, `state` and `screen_off` only feed the status dot. A frame the
     caller co-manages is `shared` and carries its owner's address in
@@ -111,33 +115,35 @@ def _role_row(identity, frames):
 
 
 def _frame_action_html(frame):
-    """The one 44px action of a frame row: Manage access on an owned frame,
-    Leave frame on a shared one; nothing when an owned frame has no view."""
+    """The actions of a frame row, 44px icon buttons named for assistive
+    technology: Rename (a pencil) on a frame the person owns, then Manage
+    access (a key) on an owned frame or Leave frame (a door and arrow) on a
+    shared one; no access button when an owned frame has no view."""
+    cls = "account-frame__action"
     if frame.shared:
         return ui_modal.trigger_html(
             co_managers_card.leave_dialog_id(frame.device_id),
-            layout.escape_html(i18n.t(_LEAVE_FRAME_TEXT)), "account-frame__action",
-            i18n.t(_LEAVE_FRAME_ARIA) % frame.name)
+            layout.icon_html("icon-sign-out", 20), cls, i18n.t(_LEAVE_FRAME_ARIA) % frame.name)
+    rename = frame_name_page.opener_html(
+        frame.device_id, layout.icon_html("icon-pencil", 20), cls,
+        i18n.t(_RENAME_FRAME_ARIA) % frame.name)
     if frame.access is None:
-        return ""
-    return ui_modal.trigger_html(
+        return rename
+    return rename + ui_modal.trigger_html(
         co_managers_card.access_dialog_id(frame.device_id),
-        layout.escape_html(i18n.t(co_managers_card.MENU_LABEL)), "account-frame__action",
-        i18n.t(_MANAGE_ACCESS_ARIA) % frame.name)
+        layout.icon_html("icon-key", 20), cls, i18n.t(_MANAGE_ACCESS_ARIA) % frame.name)
 
 
-def _frame_line(frame, show_hardware):
-    """The muted second line: who shared the frame, else its hardware (an
-    administrator's detail; a person has no use for the model)."""
-    if frame.shared:
-        return i18n.t(_SHARED_BY_TEXT) % frame.owner_email
-    return frame.hardware if show_hardware else ""
+def _frame_line(frame):
+    """The muted second line: who shared the frame. The hardware model is
+    shown to nobody on this page."""
+    return i18n.t(_SHARED_BY_TEXT) % frame.owner_email if frame.shared else ""
 
 
-def _frame_detail_html(frame, now, show_hardware):
-    """The row's detail: the hardware (or who shared the frame), then the
-    status dot with the last-seen word."""
-    line = _frame_line(frame, show_hardware)
+def _frame_detail_html(frame, now):
+    """The row's detail: who shared the frame, then the status dot with the
+    last-seen word."""
+    line = _frame_line(frame)
     return (
         '%s<span class="account-frame__status">%s<span>%s</span></span>' % (
             '<span class="account-frame__line">%s</span>' % layout.escape_html(line)
@@ -146,19 +152,20 @@ def _frame_detail_html(frame, now, show_hardware):
             layout.escape_html(ui_shell.seen_text(frame, now))))
 
 
-def _frame_row_html(frame, now, show_hardware):
-    """One frame: the drawn frame, its name, hardware and status, a chevron to
-    the frame's Home, and its one action (Manage access or Leave frame) as a
-    link line under the text."""
+def _frame_row_html(frame, now):
+    """One frame: the drawn frame, its name with its role pill and its status,
+    a chevron to the frame's Home, and its one action (Manage access or Leave
+    frame) as an icon button at the right."""
     pill = i18n.t(_PILL_CO_MANAGER_TEXT if frame.shared else _PILL_OWNER_TEXT)
     action_html = _frame_action_html(frame)
     # One affordance per row: the row itself opens the frame's Home, and a row
-    # that also carries an action link shows no chevron beside it.
+    # that also carries an action button shows no chevron beside it.
     return ui_groups.row(
-        label_html='%s <span class="banner__pill account-frame__role">%s</span>' % (
-            layout.escape_html(frame.name), layout.escape_html(pill)),
+        label_html='%s %s' % (
+            layout.escape_html(frame.name),
+            ui_components.pill_html(pill, extra_class="account-frame__role")),
         lead_html=ui_shell.frame_pic_html("account-frame"),
-        detail_html=_frame_detail_html(frame, now, show_hardware), href=frame.href,
+        detail_html=_frame_detail_html(frame, now), href=frame.href,
         trailing_html=action_html, chevron=not action_html, extra_class="account-frame")
 
 
@@ -168,14 +175,16 @@ def _frame_dialog_html(frame, open_access):
     if frame.shared:
         return co_managers_card.leave_dialog_html(
             frame.device_id, frame.name, co_managers_card.RETURN_ACCOUNT)
+    rename = frame_name_page.dialog_html(
+        frame.device_id, frame.name, co_managers_card.RETURN_ACCOUNT)
     if frame.access is None:
-        return ""
+        return rename
     return co_managers_card.manage_access_dialog_html(
         frame.access, frame.device_id, frame.name, co_managers_card.RETURN_ACCOUNT,
-        open_=frame.device_id == open_access)
+        open_=frame.device_id == open_access) + rename
 
 
-def _frames_card(frames, open_access, now, show_hardware):
+def _frames_card(frames, now):
     """The My frames group: the empty state with no frames, else one row per
     frame ordered by name, then the Add a frame row. The rows' dialogs come
     from `_frame_dialogs` and sit after the page's last group."""
@@ -188,7 +197,7 @@ def _frames_card(frames, open_access, now, show_hardware):
         i18n.t(pair_frame_page.ADD_LINK_TEXT), icon="icon-plus",
         href=pair_frame_page.PAIR_FRAME_ROUTE, extra_class="account-add-frame")
     return ui_groups.group(
-        "".join(_frame_row_html(f, now, show_hardware) for f in rows) + add_row,
+        "".join(_frame_row_html(f, now) for f in rows) + add_row,
         label=i18n.t(_MY_FRAMES_TEXT), label_id="account-frames")
 
 
@@ -214,6 +223,11 @@ def render(identity, ui_theme="auto", frames=(), open_access="", now=None):
             _LANGUAGE_TEXT, _LANGUAGE_HINT, layout._lang_form_html(prefs.current_lang()))
         + _preference_row(
             _THEME_TEXT, _THEME_HINT, layout._theme_form_html(resolved_theme)))
+    about_html = ui_groups.group(
+        ui_groups.row(
+            i18n.t(_CREDITS_TEXT), detail=i18n.t(_CREDITS_ROW_DETAIL),
+            href=CREDITS_ROUTE, extra_class="account-credits"),
+        label=i18n.t(_ABOUT_TEXT), label_id="account-about")
     sign_out_html = ui_groups.group(
         '<li class="row row--action row--danger">'
         '<form method="post" action="/logout" class="logout-form account-sign-out">%s'
@@ -222,13 +236,12 @@ def render(identity, ui_theme="auto", frames=(), open_access="", now=None):
         extra_class="account-sign-out-group")
     return (
         layout.page_header(i18n.t(ACCOUNT_TITLE), purpose=i18n.t(ACCOUNT_PURPOSE))
-        + _frames_card(
-            frames, open_access, time.time() if now is None else now,
-            identity.role == ROLE_ADMIN)
+        + _frames_card(frames, time.time() if now is None else now)
         + ui_groups.group(
             identity_html, label=i18n.t(_IDENTITY_TEXT), label_id="account-identity",
             extra_class="account-identity")
         + ui_groups.group(
             preferences_html, label=i18n.t(_PREFERENCES_TEXT), label_id="account-preferences")
+        + about_html
         + sign_out_html
         + _frame_dialogs(frames, open_access))

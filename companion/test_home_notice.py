@@ -89,15 +89,16 @@ def _render_key(state_dir, key, lang="en", name="Orly window"):
 
 @pytest.mark.parametrize("lang", ["en", "fr"])
 @pytest.mark.parametrize("key", ["not_seen", "overdue", "low_battery", "no_contact"])
-def test_notification_sits_above_the_hero_that_carries_the_title(tmp_path, key, lang):
+def test_notification_sits_between_the_title_block_and_the_flight_card(tmp_path, key, lang):
     _users(tmp_path, (ADMIN_EMAIL, "admin", False))
     last, _ = _seed(tmp_path, key)
     rendered = _render(tmp_path, lang, last=last,
                        device=_frame(tmp_path) if key == "no_contact" else None)
+    title = rendered.index('aria-labelledby="home-frame-state"')
     facts = rendered.index('<div class="home-facts">')
     notice = rendered.index("home-notice")
-    card = rendered.index('aria-labelledby="home-frame-state"')
-    assert facts < notice < card
+    card = rendered.index('aria-labelledby="home-flight"')
+    assert title < facts < notice < card
     assert rendered.index("</div>", notice) < card
 
 
@@ -158,7 +159,7 @@ def test_english_lines_and_tips_per_status_key(tmp_path):
             ["Frame battery at 8%"], "Charge it or plug it in."),
         "no_contact": (
             "Your frame has no contact with the server.",
-            ["Last contact 5h ago"],
+            [],
             "Check its power and your Wi-Fi, if it stays silent, contact an "
             "administrator."),
     }
@@ -183,8 +184,13 @@ def test_french_lines_and_tips_per_status_key(tmp_path):
     notice = _notice(_render_key(tmp_path, "no_contact", lang="fr"))
     assert notice.select(".toast__title")[0].text() == (
         "Votre cadre n’est plus en contact avec le serveur.")
-    assert _lines(notice)[0].startswith("Dernier contact : il y a 5")
-    assert len(_lines(notice)) == 1
+    # The title block says when contact was lost; the notification does not repeat it.
+    assert _lines(notice) == []
+    again = tmp_path / "title"
+    again.mkdir()
+    _users(again, (ADMIN_EMAIL, "admin", False))
+    line = parse_html(_render_key(again, "no_contact", lang="fr")).select_one(".home-state__next")
+    assert line.text().strip().startswith("Dernier contact : il y a 5")
     assert notice.select(".home-notice__tip")[0].text() == (
         "Vérifiez son alimentation et votre Wi-Fi, s’il reste muet, contactez "
         "un administrateur.")

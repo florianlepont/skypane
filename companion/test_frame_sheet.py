@@ -122,7 +122,7 @@ def test_hostile_names_and_emails_are_escaped(fleet):
         state_dir, "admin", seeded.admin_id, ADMIN_EMAIL,
         next(d.id for d in device_scope.load_devices(state_dir)
              if d.owner_user_id == seeded.admin_id))
-    html = frame_menu.personal_menu_html("health")
+    html = frame_menu.personal_menu_html("display")
     assert "<script>alert" not in html
     assert "&lt;script&gt;" in html
 
@@ -139,31 +139,18 @@ def test_the_airline_editor_is_one_global_list_without_a_frame_strip(fleet):
     assert _console_html(state_dir, seeded, "airlines/manage") == ""
 
 
-@pytest.mark.parametrize("active", ["health", "device"])
-def test_console_pages_list_every_frame_with_the_owner_email(fleet, active):
+@pytest.mark.parametrize("active", ["health", "device", "update", "fleet", "users", "system"])
+def test_console_pages_have_no_frame_button(fleet, active):
     state_dir, seeded = fleet
-    page = {"health": "/health", "device": "/device"}[active]
-    html = _console_html(state_dir, seeded, active)
-    cards = _cards(html)
-    hrefs = {c.attrs["href"] for c in cards}
-    assert hrefs >= {
-        "/devices/%s%s" % (seeded.owner_device, page),
-        "/devices/%s%s" % (seeded.other_device, page)}
-    notes = {
-        c.attrs["href"]: c.select_one(".frame-row__note").text().strip()
-        for c in cards if c.select(".frame-row__note")}
-    assert notes["/devices/%s%s" % (seeded.owner_device, page)] == OWNER_EMAIL
-    assert notes["/devices/%s%s" % (seeded.other_device, page)] == OTHER_EMAIL
+    assert _console_html(state_dir, seeded, active) == ""
+    assert frame_menu.header_menu_html(active) == ""
 
 
-def test_console_cards_put_problems_first_then_sort_by_name(fleet):
+def test_a_plain_user_keeps_the_frame_button_on_flights(fleet):
     state_dir, seeded = fleet
-    html = _console_html(state_dir, seeded, "health")
-    words = [
-        c.select_one('[role="img"]').attrs["aria-label"] for c in _cards(html)]
-    ranked = [0 if w == "No contact" else 1 if w in ("Not seen yet", "Overdue", "Low battery")
-              else 2 for w in words]
-    assert ranked == sorted(ranked)
+    _add_device(state_dir, seeded.owner_id, 0x11, "Desk")
+    _enter(state_dir, "user", seeded.owner_id, OWNER_EMAIL, seeded.owner_device)
+    assert "frame-menu" in frame_menu.personal_menu_html("flights")
 
 
 def test_the_personal_page_of_an_administrator_has_no_console_list(fleet):

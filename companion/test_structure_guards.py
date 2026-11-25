@@ -47,6 +47,10 @@ TRACKED_FILE_EXCEPTIONS = {
         "an area stylesheet cut from the one cascade by selector family; a page "
         "links its own area only, so a further split would add a request per page"
     ),
+    "companion/static/style-airlines.css": (
+        "an area stylesheet cut from the one cascade by selector family; a page "
+        "links its own area only, so a further split would add a request per page"
+    ),
     "companion/static/style-place.css": (
         "an area stylesheet cut from the one cascade by selector family; a page "
         "links its own area only, so a further split would add a request per page"

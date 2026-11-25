@@ -82,8 +82,8 @@ _DB_UNAVAILABLE = object()  # sentinel distinguishing "query raised" from
 
 # The battery-trend caption's two fixed wordings, and the two off-box
 # anomaly sentences.
-_LAST_3_MONTHS_DAILY_AVERAGE_TEXT = i18n.msg(
-    "health.last_3_months_daily_average", "Last 3 months, daily average")
+_LAST_90_DAYS_TEXT = i18n.msg("health.battery_last_90_days", "Last 90 days")
+_DAILY_AVERAGES_TEXT = i18n.msg("health.battery_daily_averages", "Daily averages")
 _LATEST_READINGS_TEMPLATE = i18n.msg("health.latest_readings", "Latest %d readings")
 _NO_OFFBOX_BACKUP_PULLED_TEXT = i18n.msg(
     "health.no_off_box_backup_has_been_pulled_yet",
@@ -98,8 +98,9 @@ _DEVICE_CHECK_IN_STALE_TEXT = i18n.msg(
 _FLIGHT_DATA_STALE_TEXT = i18n.msg("health.flight_data_is_stale", "Flight data is stale.")
 _BATTERY_DROPPED_ABNORMALLY_TEXT = i18n.msg(
     "health.battery_dropped_abnormally", "Battery dropped abnormally.")
+_BATTERY_LOW_TEXT = i18n.msg("health.battery_level_is_low", "Battery level is low.")
 _DATA_SOURCES_DISAGREED_RECENTLY_TEXT = i18n.msg(
-    "health.data_sources_disagreed_recently", "Data sources disagreed recently.")
+    "health.data_sources_disagreed_recently", "Sources disagreed recently.")
 _SOME_AIRLINES_ARE_UNIDENTIFIED_TEXT = i18n.msg(
     "health.some_airlines_are_unidentified", "Some airlines are unidentified.")
 _ALL_DATA_SOURCES_FAILED_TEXT = i18n.msg(
@@ -238,19 +239,21 @@ def _real_trend_reading_count(trend_rows):
 
 
 def _battery_trend_caption(trend_rows, daily_rows):
-    """The heading caption text, honest about which series is on screen:
+    """The chart title as `(title, detail)` text, honest about which series
+    is on screen (`detail` is empty when the title says it all):
     uses `_battery_daily_series_usable()`, the same predicate
     `_battery_section()` (the Health page) uses, so the
     two can never disagree. Three cases: the daily series plotted, no
-    readings at all (same 3-month framing), or a fallback of fewer than
+    readings at all (same 90-day framing), or a fallback of fewer than
     two days of raw readings ("Latest %d readings", the real count,
     never a fixed limit).
     """
+    daily = (i18n.t(_LAST_90_DAYS_TEXT), i18n.t(_DAILY_AVERAGES_TEXT))
     if _battery_daily_series_usable(daily_rows):
-        return i18n.t(_LAST_3_MONTHS_DAILY_AVERAGE_TEXT)
+        return daily
     if not trend_rows or trend_rows is _DB_UNAVAILABLE:
-        return i18n.t(_LAST_3_MONTHS_DAILY_AVERAGE_TEXT)
-    return i18n.t(_LATEST_READINGS_TEMPLATE) % _real_trend_reading_count(trend_rows)
+        return daily
+    return i18n.t(_LATEST_READINGS_TEMPLATE) % _real_trend_reading_count(trend_rows), ""
 
 
 def _latest_numeric_battery_reading(trend_rows):
@@ -337,6 +340,7 @@ def _offbox_anomaly_text(offbox):
 def collect_anomalies(
     device_state, pipeline_state, battery_state, disagreement_warn,
     coverage_state="ok", source_fault=False, offbox=None, fleet_fault=False,
+    battery_low=False,
 ):
     """A list of short, human-readable strings, one per non-healthy
     signal. An empty list means no anomaly banner renders; only the
@@ -354,7 +358,9 @@ def collect_anomalies(
         anomalies.append(i18n.t(_DEVICE_CHECK_IN_STALE_TEXT))
     if pipeline_state not in ("ok", "off"):
         anomalies.append(i18n.t(_FLIGHT_DATA_STALE_TEXT))
-    if battery_state != "ok":
+    if battery_low:
+        anomalies.append(i18n.t(_BATTERY_LOW_TEXT))
+    elif battery_state != "ok":
         anomalies.append(i18n.t(_BATTERY_DROPPED_ABNORMALLY_TEXT))
     if disagreement_warn:
         anomalies.append(i18n.t(_DATA_SOURCES_DISAGREED_RECENTLY_TEXT))
@@ -450,12 +456,40 @@ def _pipeline_state(pipeline_ts, last_detection, now):
     return staleness_status(age, STALE_PIPELINE_WARN_S, STALE_PIPELINE_ERROR_S)
 
 
-def _battery_state(trend_rows, daily_rows=None):
-    """The Battery row's verdict alone, with no markup built.
-    `battery_status()` is already pure state logic; this only restates
-    the two early-exit cases (`_DB_UNAVAILABLE`, no readings yet)
-    `_battery_section()` special-cases before ever reaching it, so a
-    caller with no markup to build never needs that function at all.
+def _battery_low(trend_rows, curve=None):
+    """True when the latest numeric reading is under the low-battery mark
+    of `curve` (None: the legacy curve)."""
+    if trend_rows is _DB_UNAVAILABLE or not trend_rows:
+        return False
+    latest = _latest_numeric_battery_reading(trend_rows)
+    return latest is not None and battery.is_low(latest[0], curve)
+
+
+def battery_dropped(trend_rows):
+    """True when the readings show an abnormal drop (`battery_status()`)."""
+    if trend_rows is _DB_UNAVAILABLE or not trend_rows:
+        return False
+    return battery_status(trend_rows) != "ok"
+
+
+def battery_both_sentences(anomalies, trend_rows):
+    """`anomalies` with the abnormal-drop sentence added right after the
+    low-battery one when both hold (the frame Health page's banner names
+    both). Unchanged when the low sentence is absent or the drop is."""
+    low = i18n.t(_BATTERY_LOW_TEXT)
+    dropped = i18n.t(_BATTERY_DROPPED_ABNORMALLY_TEXT)
+    if low not in anomalies or dropped in anomalies or not battery_dropped(trend_rows):
+        return list(anomalies)
+    at = anomalies.index(low) + 1
+    return list(anomalies[:at]) + [dropped] + list(anomalies[at:])
+
+
+def _battery_state(trend_rows, daily_rows=None, curve=None, curve_known=True):
+    """The Battery row's verdict alone, with no markup built: `"warn"` for
+    an abnormal drop (`battery_status()`) or a latest reading under the
+    low-battery mark, `"ok"` otherwise, and `"ok"` for the two early-exit
+    cases (`_DB_UNAVAILABLE`, no readings yet) `_battery_section()`
+    special-cases before ever reaching it.
     `daily_rows` plays no part in the verdict (only in which series the
     chart plots) but is accepted for signature symmetry with
     `_battery_section()`.
@@ -464,6 +498,8 @@ def _battery_state(trend_rows, daily_rows=None):
         return "ok"
     if not trend_rows:
         return "ok"
+    if curve_known and _battery_low(trend_rows, curve):
+        return "warn"
     return battery_status(trend_rows)
 
 
@@ -566,7 +602,7 @@ def _read_health_inputs(state_dir, now, fleet_root=None):
     }
 
 
-def health_signals(state_dir, now=None, fleet_root=None):
+def health_signals(state_dir, now=None, fleet_root=None, curve=None, curve_known=True):
     """Every state the nav-tab dot and the full Health page banner need
     — severity, the anomaly list, and each section's own state — derived
     from one `_read_health_inputs()` read, with zero markup built. This
@@ -579,8 +615,12 @@ def health_signals(state_dir, now=None, fleet_root=None):
     markup step), the device cadence/staleness/next-wake triple, every
     section's state, `disagreement_warn`, `coverage_state`,
     `source_fault`/`source_fault_raw`, `registry_rows`, `offbox`,
-    `severity` and `anomalies`. `fleet_root` is where the global fleet
-    status is read (default: `state_dir`).
+    `severity`, `anomalies` and `battery_low`. `fleet_root` is where the
+    global fleet status is read (default: `state_dir`); `curve` is the
+    device's discharge curve (None: legacy), which sets the low-battery
+    mark. With `curve_known` False (no device, so no known hardware
+    profile) the low-battery signal is not computed at all rather than
+    read off a guessed curve; every other signal is unchanged.
     """
     if now is None:
         now = history_db.utc_now_iso()
@@ -601,7 +641,9 @@ def health_signals(state_dir, now=None, fleet_root=None):
         next_wake_iso=next_wake_iso, effective_interval_s=effective_interval_s,
         hold_reason=hold_reason)
     pipeline_state = _pipeline_state(inputs["pipeline_ts"], inputs["last_detection"], now)
-    battery_state = _battery_state(inputs["trend_rows"], inputs["daily_rows"])
+    battery_state = _battery_state(
+        inputs["trend_rows"], inputs["daily_rows"], curve, curve_known)
+    battery_low = curve_known and _battery_low(inputs["trend_rows"], curve)
     disagreement_warn = _disagreement_warn(inputs["corroboration_counts"])
     coverage_state = coverage_status(inputs["registry_rows"])
     source_fault = _meta_flag_true(inputs["source_fault_raw"])
@@ -620,7 +662,7 @@ def health_signals(state_dir, now=None, fleet_root=None):
     anomalies = collect_anomalies(
         device_state, pipeline_state, battery_state, disagreement_warn,
         coverage_state=coverage_state, source_fault=source_fault,
-        offbox=offbox, fleet_fault=fleet_fault)
+        offbox=offbox, fleet_fault=fleet_fault, battery_low=battery_low)
     return {
         "now": now,
         "inputs": inputs,
@@ -637,6 +679,7 @@ def health_signals(state_dir, now=None, fleet_root=None):
         "device_state": device_state,
         "pipeline_state": pipeline_state,
         "battery_state": battery_state,
+        "battery_low": battery_low,
         "disagreement_warn": disagreement_warn,
         "coverage_state": coverage_state,
         "source_fault": source_fault,
@@ -648,12 +691,12 @@ def health_signals(state_dir, now=None, fleet_root=None):
     }
 
 
-def safe_health_signals(state_dir, now=None, fleet_root=None):
+def safe_health_signals(state_dir, now=None, fleet_root=None, curve=None, curve_known=True):
     """Fail-closed wrapper around `health_signals()`, mirroring
     `safe_health_state()`'s broad `except Exception` and "`None` means
     ok" convention: `None` on any unanticipated exception, never a raise.
     """
     try:
-        return health_signals(state_dir, now, fleet_root)
+        return health_signals(state_dir, now, fleet_root, curve, curve_known)
     except Exception:
         return None

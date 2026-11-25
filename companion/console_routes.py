@@ -1,7 +1,7 @@
 """The admin console's route paths, route aggregator and navigation entries.
 
 Each console page and action lives in its own module (`console_pairing`,
-`console_lifecycle`, `console_users`, `console_locations`) exporting a
+`console_lifecycle`, `console_users`) exporting a
 `ROUTES` tuple; `ROUTES` here is their concatenation and `companion/routes.py`
 appends it to the one route table. The route modules must build their
 `Route` entries from `companion.route_types`, never from `companion.routes`
@@ -12,14 +12,12 @@ Navigation links are derived from the live route table, so a link exists
 only while its GET page does.
 """
 from companion import (
-    console_components, console_lifecycle, console_locations, console_pairing, console_users,
-    i18n)
+    console_components, console_lifecycle, console_pairing, console_users, i18n)
 from companion.ui_base import (
-    AIRLINE_EDITOR_LABEL, AIRLINE_EDITOR_ROUTE, DEVICE_ROUTE, HEALTH_ROUTE)
+    AIRLINE_EDITOR_LABEL, AIRLINE_EDITOR_ROUTE)
 
 FLEET_ROUTE = "/fleet"
 FLEET_REGISTER_ROUTE = "/fleet/register"
-FLEET_PAIR_ROUTE = "/fleet/pair"
 FRAME_ACTION_PREFIX = "/fleet/frames/"
 FRAME_RETIRE_SUFFIX = "/retire"
 FRAME_REACTIVATE_SUFFIX = "/reactivate"
@@ -37,45 +35,38 @@ USER_DELETE_SUFFIX = "/delete"
 
 AUDIT_ROUTE = "/audit"
 
-LOCATIONS_ROUTE = "/locations"
-LOCATIONS_ADD_ROUTE = "/locations/add"
-LOCATION_ACTION_PREFIX = "/locations/"
-LOCATION_EDIT_SUFFIX = "/edit"
-LOCATION_DELETE_SUFFIX = "/delete"
-
 UPDATE_ROUTE = "/update"
 
 ROUTES = (
     console_pairing.ROUTES
     + console_lifecycle.ROUTES
     + console_users.ROUTES
-    + console_locations.ROUTES
     + console_components.ROUTES
 )
 
 ADMINISTRATION_LABEL = i18n.msg("nav.administration", "Administration")
 FLEET_LABEL = i18n.msg("nav.fleet", "Fleet")
 USERS_LABEL = i18n.msg("nav.users", "Users")
-# The Locations page is gone; the label still titles the page a refused
-# location submission re-renders.
-LOCATIONS_LABEL = i18n.msg("nav.locations", "Locations")
-HEALTH_LABEL = i18n.msg("nav.health", "Health")
-DEVICE_LABEL = i18n.msg("nav.device", "Device")
 AUDIT_LABEL = i18n.msg("nav.audit_log", "Audit log")
+SYSTEM_LABEL = i18n.msg("nav.system", "System")
 RELEASES_LABEL = i18n.msg("nav.releases", "Releases")
 SECTION_NAV_LABEL = i18n.msg("nav.administration_sections", "Administration sections")
 
+# The System view is a view of the Fleet page, named by a query: its entry
+# path carries it, and its route (the part before the query) is the Fleet one.
+SYSTEM_VIEW_QUERY = "view"
+SYSTEM_VIEW_VALUE = "system"
+SYSTEM_ROUTE = "%s?%s=%s" % (FLEET_ROUTE, SYSTEM_VIEW_QUERY, SYSTEM_VIEW_VALUE)
+
 # (key, path, label) in display order. A link is rendered only when a GET
-# route for its path exists. Health, Device and the Airline editor are
-# per-frame pages: the renderer scopes their paths to the frame in view.
+# route for its path exists.
 CONSOLE_NAV_ENTRIES = (
     ("fleet", FLEET_ROUTE, FLEET_LABEL),
     ("users", USERS_ROUTE, USERS_LABEL),
-    ("health", HEALTH_ROUTE, HEALTH_LABEL),
-    ("device", DEVICE_ROUTE, DEVICE_LABEL),
     ("editor", AIRLINE_EDITOR_ROUTE, AIRLINE_EDITOR_LABEL),
     ("audit", AUDIT_ROUTE, AUDIT_LABEL),
     ("releases", UPDATE_ROUTE, RELEASES_LABEL),
+    ("system", SYSTEM_ROUTE, SYSTEM_LABEL),
 )
 
 # Page title per console page path.
@@ -92,7 +83,7 @@ ADMIN_TAB_ROUTE = FLEET_ROUTE
 def _get_route_exists(path):
     # Imported here: companion.routes imports this module.
     from companion import routes
-    return routes.match("GET", path, "") is not None
+    return routes.match("GET", path.partition("?")[0], "") is not None
 
 
 def available_nav_entries():

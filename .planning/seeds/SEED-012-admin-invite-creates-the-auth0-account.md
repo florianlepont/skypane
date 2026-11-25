@@ -1,10 +1,11 @@
 ---
 id: SEED-012
-status: dormant
+status: fulfilled
+resolved_date: 2026-11-24
 planted: 2026-10-31
 planted_during: "v1.2 Phase 54 (Auth0 sign-in), owner's production test"
-trigger_when: "Milestone v1.4, set by the owner on 2026-11-15 when v1.3 and v1.4 were split; it belongs to the getting-started flow of the ready-to-give frame; surface it at /gsd-new-milestone."
-target_milestone: v1.4
+trigger_when: "Milestone v1.3, set by the owner on 2026-11-15 when v1.4 and v1.3 were split; it belongs to the getting-started flow of the ready-to-give frame; surface it at /gsd-new-milestone."
+target_milestone: v1.3
 scope: medium
 ---
 
@@ -56,3 +57,7 @@ or verification ticket). Points to settle:
 ## Notes
 
 Related: SEED-011. Not part of Phase 54's or Phase 55's current plans.
+
+## Resolution (2026-11-24)
+
+Found already delivered while the owner swapped milestones v1.3 and v1.4: Phase 68, plan 28 (PR #506): `companion/auth0_management.py` creates the Auth0 user and a password-change ticket, the Users page shows the invitation message to copy and paste, and a `user.invitation` audit row records the outcome; the application does not itself send an e-mail. Marked fulfilled; no milestone needed.

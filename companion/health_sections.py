@@ -1,5 +1,4 @@
-"""Health page markup builders for the registry ("Airlines we could not
-name"), the resolution-statistics breakdown ("How well we name flights")
+"""The resolution-statistics reads and wording ("How well we name flights")
 extracted out of
 companion/pages/health_page.py to keep that file under the companion
 app's own file-size ceiling (companion/test_structure_guards.py).
@@ -23,7 +22,6 @@ from companion.layout import escape_html
 import companion.battery_chart as battery_chart
 import companion.health_signals as health_signals_module
 import companion.i18n as i18n
-import companion.layout as layout
 from server import history_db
 
 # Re-read under their own bare names purely for this module's own
@@ -45,7 +43,7 @@ HEALTH_UNAVAILABLE_TEXT = i18n.msg(
 UNRESOLVED_SECTION_HEADING = i18n.msg(
     "health.airlines_we_could_not_name", "Airlines we could not name")
 STATS_SECTION_HEADING = i18n.msg(
-    "health.how_well_we_name_flights", "Flight identification")
+    "health.how_well_we_name_flights", "Identification")
 
 
 # The heading is a %-template interpolated with RESOLUTION_WINDOW_DAYS
@@ -57,16 +55,6 @@ _NO_STATS_BODY = i18n.msg(
     "health.the_frame_has_not_recorded_a_detection_in_this",
     "The frame has not recorded a detection in this window. It will "
     "appear here after the next wake.")
-
-# Only the event count varies between these templates; the day count is
-# always RESOLUTION_WINDOW_DAYS, so a "1 day" singular form would be
-# dead copy. Singular chosen at the call site, never a runtime "add an
-# s" rule, which French cannot express (it pluralises the noun and
-# needs article agreement too).
-_RESOLUTION_DETAIL_TEMPLATE = i18n.msg(
-    "health.over_the_last_days_events", "over the last %d days, %d events")
-_RESOLUTION_DETAIL_SINGULAR_TEMPLATE = i18n.msg(
-    "health.over_the_last_days_event", "over the last %d days, %d event")
 
 RESOLUTION_WINDOW_DAYS = 30  # A month smooths over a quiet week at this
 # single-airport traffic volume, while still reading as "recent".
@@ -116,10 +104,6 @@ _OTHER_SOURCE_GLOSS = i18n.msg(
     "at all — still counted here so the total always matches every "
     "event in the window.")
 
-# Single-sourced so the table and the mobile card list can never
-# disagree on a header word. Index 2 ("Count") is read directly by the
-# card builder; "Description" has no card-side equivalent, since the
-# mobile card renders the full description as stacked prose.
 _STATS_HEADERS = (
     i18n.msg("health.source", "Source"),
     i18n.msg("health.description", "Description"),
@@ -150,8 +134,8 @@ def resolution_stats(conn, window_days=RESOLUTION_WINDOW_DAYS, now=None):
 
     resolved = total - counts.get("miss", 0)
     resolved_pct = round((resolved / total) * 100, 1)
-    # label/gloss are translated here, the one place both
-    # _stats_cards_html() and _stats_table_html() read them from.
+    # label/gloss are translated here, the one place the System view's
+    # breakdown table reads them from.
     rows = [
         (i18n.t(label), i18n.t(gloss), counts.get(source, 0))
         for source, label, gloss in _SOURCE_ROWS
@@ -164,42 +148,3 @@ def resolution_stats(conn, window_days=RESOLUTION_WINDOW_DAYS, now=None):
             i18n.t(_OTHER_SOURCE_LABEL), i18n.t(_OTHER_SOURCE_GLOSS), other_count))
     return {"rows": rows, "total": total, "resolved_pct": resolved_pct}
 
-
-def _stats_cards_html(rows):
-    """Mobile stacked-prose representation of the resolution-statistics
-    table: one `<li class="data-card">` per `(label, gloss, count)` in
-    `rows`. A column of full sentences must wrap, not scroll
-    (`.data-table--prose` in style.css), so the Description sentence
-    renders full and untruncated rather than behind a disclosure.
-    """
-    if not rows:
-        return ""
-    items = []
-    for label, gloss, count in rows:
-        primary = (
-            '<div class="data-card__primary">'
-            '<span class="cell-primary">%s</span>'
-            '<span class="data-card__value">'
-            '<span class="data-card__label">%s</span> %s'
-            "</span>"
-            "</div>"
-        ) % (escape_html(label), escape_html(i18n.t(_STATS_HEADERS[2])), escape_html(count))
-        desc = '<p class="data-card__desc">%s</p>' % escape_html(gloss)
-        items.append('<li class="data-card">%s%s</li>' % (primary, desc))
-    return '<ul class="data-cards">%s</ul>' % "".join(items)
-
-
-def _stats_table_html(stats):
-    """The resolution-statistics breakdown table, with its `.data-cards`
-    mobile sibling emitted first (style.css's sibling-combinator toggle
-    depends on that order — do not reorder). Empty when there is nothing
-    to show: `_resolution_rate_tile_html()` already carries that message.
-    The only table whose Description column holds real prose, so it is
-    the only one opted into `layout.data_table()`'s `prose` keyword and
-    `desc` column role.
-    """
-    if stats is _DB_UNAVAILABLE or stats["total"] == 0:
-        return ""
-    return _stats_cards_html(stats["rows"]) + layout.data_table(
-        [i18n.t(header) for header in _STATS_HEADERS], stats["rows"],
-        desc_columns=(1,), prose=True)

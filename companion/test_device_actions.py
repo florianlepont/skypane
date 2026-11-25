@@ -1,5 +1,6 @@
 """Airline, illustration, colour-rule and calendar actions posted under
-/devices/<id>/ change that device's directory only, and every redirect stays
+/devices/<id>/ change that device's directory only (the airline name
+registries are fleet-wide and live at the state root), and every redirect stays
 under the device's prefix. Real app subprocess over a seeded two-device
 fleet, except the calendar connect cases, which stub the calendar transport
 and so run the app in this process.
@@ -82,15 +83,18 @@ def _others_unchanged(app, device, before, ignore=()):
 
 # --- illustration -------------------------------------------------------------
 
-def test_illustration_upload_writes_only_that_devices_override(app):
+def test_illustration_upload_lands_in_the_fleet_directory_only(app):
     fleet = app.fleet
     before = snapshot_all(app.server, fleet)
     status, headers = _post_upload(app, _prefix(fleet.dev_a) + "/illustration/air-france.png")
     assert status == 303
     assert headers["Location"].startswith(_prefix(fleet.dev_a) + "/airlines/manage?flash=")
-    assert os.path.exists(
-        illustrations.override_path_for_key("air-france", fleet.dev_a.state_dir))
-    _others_unchanged(app, fleet.dev_a, before)
+    fleet_file = os.path.join(app.server.state_dir, "illustration_overrides", "air-france.png")
+    assert os.path.isfile(fleet_file)
+    assert illustrations.override_path_for_key("air-france", fleet.dev_a.state_dir) == fleet_file
+    # Neither frame's own directory gains an image directory.
+    assert not os.path.exists(os.path.join(fleet.dev_a.state_dir, "illustration_overrides"))
+    assert snapshot(fleet.dev_b.state_dir) == before[2]
 
 
 def test_live_illustration_upload_writes_only_the_root(app):
@@ -105,22 +109,21 @@ def test_live_illustration_upload_writes_only_the_root(app):
     _others_unchanged(app, fleet.live, before)
 
 
-def test_illustration_allow_list_is_computed_per_device(app):
+def test_illustration_allow_list_follows_the_fleet_registry(app):
     fleet = app.fleet
-    manual_resolutions.add_entry(
-        fleet.dev_b.state_dir, "XQZ", RESOLVED_NAME, now="2026-01-01T00:00:00+00:00")
-    before = snapshot_all(app.server, fleet)
     path = "/illustration/%s.png" % RESOLVED_KEY
     status, _headers = _post_upload(app, _prefix(fleet.dev_a) + path)
     assert status == 404
-    assert snapshot_all(app.server, fleet) == before
-    status, _headers = _post_upload(app, _prefix(fleet.dev_b) + path)
+    # A name given on frame B is a fleet name: frame A accepts its artwork.
+    manual_resolutions.add_entry(
+        fleet.dev_b.state_dir, "XQZ", RESOLVED_NAME, now="2026-01-01T00:00:00+00:00")
+    status, _headers = _post_upload(app, _prefix(fleet.dev_a) + path)
     assert status == 303
 
 
 # --- airline resolve, rename, delete ------------------------------------------
 
-def test_manual_resolve_writes_only_that_devices_registry(app):
+def test_manual_resolve_writes_the_fleet_registry_only(app):
     fleet = app.fleet
     before = snapshot_all(app.server, fleet)
     status, headers, _ = post(
@@ -129,8 +132,12 @@ def test_manual_resolve_writes_only_that_devices_registry(app):
     assert status == 303
     assert headers["Location"].startswith(_prefix(fleet.dev_a) + "/airlines/manage?")
     assert "XQZ" in manual_resolutions.load_manual_resolutions(fleet.dev_a.state_dir)
-    # Naming an airline is audited in the shared fleet database; no registry elsewhere changes.
-    _others_unchanged(app, fleet.dev_a, before, ignore=("fleet.db",))
+    assert "XQZ" in manual_resolutions.load_manual_resolutions(fleet.dev_b.state_dir)
+    assert "XQZ" in manual_resolutions.load_manual_resolutions(app.server.state_dir)
+    # No frame directory gets a registry file; the name sits at the fleet root.
+    assert snapshot(fleet.dev_a.state_dir) == before[1]
+    assert snapshot(fleet.dev_b.state_dir) == before[2]
+    assert os.path.exists(manual_resolutions.manual_resolutions_path(app.server.state_dir))
 
 
 def test_live_manual_resolve_writes_only_the_root(app):
@@ -153,7 +160,7 @@ def test_resolve_dialog_return_route_lands_on_the_platform_wide_system_view(app)
     assert headers["Location"].startswith("/fleet?view=system&")
 
 
-def test_airline_rename_writes_only_that_devices_overrides(app):
+def test_airline_rename_writes_the_fleet_overrides_only(app):
     fleet = app.fleet
     before = snapshot_all(app.server, fleet)
     status, headers, _ = post(
@@ -162,10 +169,13 @@ def test_airline_rename_writes_only_that_devices_overrides(app):
     assert status == 303
     assert headers["Location"].startswith(_prefix(fleet.dev_a) + "/airlines/manage?flash=")
     assert "AFR" in name_overrides.load_name_overrides(fleet.dev_a.state_dir)
-    _others_unchanged(app, fleet.dev_a, before)
+    assert "AFR" in name_overrides.load_name_overrides(fleet.dev_b.state_dir)
+    # The acting frame only gains the carried artwork; no registry file lands in a frame directory.
+    assert snapshot(fleet.dev_b.state_dir) == before[2]
+    assert not os.path.exists(os.path.join(fleet.dev_a.state_dir, name_overrides.NAME_OVERRIDES_FILENAME))
 
 
-def test_airline_rename_reset_changes_only_that_devices_overrides(app):
+def test_airline_rename_reset_clears_the_fleet_override(app):
     fleet = app.fleet
     for device in (fleet.dev_a, fleet.dev_b):
         name_overrides.set_names(device.state_dir, ["AFR"], "Renamed Air")
@@ -175,10 +185,12 @@ def test_airline_rename_reset_changes_only_that_devices_overrides(app):
     assert status == 303
     assert headers["Location"].startswith(_prefix(fleet.dev_a) + "/airlines/manage?flash=")
     assert "AFR" not in name_overrides.load_name_overrides(fleet.dev_a.state_dir)
-    _others_unchanged(app, fleet.dev_a, before)
+    assert "AFR" not in name_overrides.load_name_overrides(fleet.dev_b.state_dir)
+    assert snapshot(fleet.dev_a.state_dir) == before[1]
+    assert snapshot(fleet.dev_b.state_dir) == before[2]
 
 
-def test_manual_resolution_delete_changes_only_that_devices_registry(app):
+def test_manual_resolution_delete_removes_the_fleet_name(app):
     fleet = app.fleet
     before = snapshot_all(app.server, fleet)
     status, headers, _ = post(
@@ -186,8 +198,9 @@ def test_manual_resolution_delete_changes_only_that_devices_registry(app):
     assert status == 303
     assert headers["Location"].startswith(_prefix(fleet.dev_a) + "/airlines/manage")
     assert "ABC" not in manual_resolutions.load_manual_resolutions(fleet.dev_a.state_dir)
-    assert "ABC" in manual_resolutions.load_manual_resolutions(fleet.dev_b.state_dir)
-    _others_unchanged(app, fleet.dev_a, before)
+    assert "ABC" not in manual_resolutions.load_manual_resolutions(fleet.dev_b.state_dir)
+    assert snapshot(fleet.dev_a.state_dir) == before[1]
+    assert snapshot(fleet.dev_b.state_dir) == before[2]
 
 
 # --- colour rules ---------------------------------------------------------------

@@ -1,9 +1,8 @@
-"""Real-browser checks of Home's hero and Frame group: the hero sits above the groups
-(the Frame group below the hero at every width), the two switches have 44px targets and nothing overflows from 1280
-down to 360 px, keyboard operation (Space and Enter) with a visible focus
-indicator, the persisted effect plus confirmation flash after each switch, the
-same flow with scripts blocked, the battery dial's accessible name, and a
-visible unchecked switch thumb in the dark theme."""
+"""Real-browser checks of Home's title block and pills: the blocks stack in the approved order
+and stay inside the content column at every width from 1280 down to 360 px, the Screen pill is
+one 44px switch (keyboard, whole-pill tap, scripts blocked, flipped in place with the state
+regions following), the Quiet hours pill opens the dialog, text sits centred in every pill, the
+cadence tooltip, the status dot and the dark-theme switch thumb."""
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlsplit
 
@@ -33,36 +32,45 @@ VIEWPORTS = (
     ("390", VIEWPORT_PHONE),
     ("360", VIEWPORT_MIN_SUPPORTED),
 )
+BLOCKS = (".home-state", ".home-flight", ".home-pills", ".home-stats", ".home-strip")
+
+
 def _assert_zone_arrangement(page, label):
-    """the hero and the Frame group (the two switch rows) stay inside the content column and
-    never overlap: the group sits below the hero at every width (the personal Home has no
-    battery zone)"""
+    """the title block, the flight card, the pills, the statistics and the strip stay inside the
+    content column, never overlap and follow one another from top to bottom; Home has no battery
+    dial"""
     geometry = page.evaluate(
-        """() => {
+        """blocks => {
             const r = s => document.querySelector(s).getBoundingClientRect();
-            return {status: r('.hero__body'), switches: r('.home-state__switches .group'),
-                    panel: r('main'), viewport: window.innerWidth};
-        }""")
-    status, switches, panel = geometry["status"], geometry["switches"], geometry["panel"]
-    for zone in (status, switches):
+            return {blocks: blocks.map(r), panel: r('main'), viewport: window.innerWidth};
+        }""", list(BLOCKS))
+    panel = geometry["panel"]
+    previous = None
+    for zone in geometry["blocks"]:
         assert panel["left"] - 1 <= zone["left"] and zone["right"] <= panel["right"] + 1, label
         assert 0 <= zone["left"] and zone["right"] <= geometry["viewport"], label
-    assert status["bottom"] <= switches["top"] + 1, label
+        if previous is not None:
+            assert previous["bottom"] <= zone["top"] + 1, label
+        previous = zone
     assert not page.locator(".home-battery").count(), label
 
 
 SCREEN_BUTTON = 'form[action="/quick/display"] button[role="switch"]'
-QUIET_BUTTON = 'form[action="/quick/quiet-hours"] button[role="switch"]'
+QUIET_PILL = ".home-pill--quiet"
 # The same switches under a frame prefix (a user's Home lives at /devices/<id>/).
 SCOPED_SCREEN_BUTTON = 'form[action$="/quick/display"] button[role="switch"]'
-SCOPED_QUIET_BUTTON = 'form[action$="/quick/quiet-hours"] button[role="switch"]'
 FLASH = '.toast-region--flash .toast[role="status"]'
 
 
 def _seed(state_dir):
+    """A frame that checked in two minutes ago (so Home reads "Online"), screen on, no schedule."""
     seed_state_dir(state_dir)
     device_config.save_device_config(
-        state_dir, display_enabled=True, quiet_hours_enabled=False)
+        state_dir, display_enabled=True, quiet_hours_enabled=False, wake_interval_s=900)
+    with history_db.open_db(state_dir) as conn:
+        history_db.record_device_health(
+            conn, (datetime.now(timezone.utc) - timedelta(minutes=2)).isoformat(),
+            battery_mv=4000, fw_version="1.0.0", boot_reason="wake", rssi="-60")
 
 
 def _open_home(new_context, base_url, lang, viewport):
@@ -88,32 +96,22 @@ def _has_visible_focus_indicator(page, selector):
 
 @pytest.mark.parametrize("lang", ["en", "fr"])
 @pytest.mark.parametrize("viewport_name,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
-def test_status_header_layout_targets_and_keyboard(
+def test_blocks_layout_targets_and_keyboard(
         new_context, make_app_server, lang, viewport_name, viewport):
-    """the hero sits above the Frame group, the two arrange for the width, both
-    switches are at least 44px tall inside the viewport with no page overflow, show a focus
-    indicator under keyboard navigation, and a Space press on the screen switch persists
-    display_enabled=false and lands back on Home with the confirmation flash and the
-    "Screen off" title"""
+    """the blocks stack in order inside the column, every pill is at least 44px tall inside the
+    viewport with no page overflow, the pills show a focus indicator under keyboard navigation,
+    and a Space press on the screen switch persists display_enabled=false in place and the title
+    block follows with "Resting" """
     server = make_app_server(seed=_seed, fake_providers=True)
     context, page = _open_home(new_context, server.base_url(), lang, viewport)
     try:
-        card = page.locator('section[aria-labelledby="home-frame-state"]')
-        card.wait_for(state="visible")
-        geometry = page.evaluate(
-            """() => {
-                const r = s => document.querySelector(s).getBoundingClientRect();
-                return {header: r('.home-state'), row: r('.home-state__switches'), title: r('h1')};
-            }""")
-        # The title is the frame name inside the hero, above the Frame group.
-        assert geometry["header"]["top"] <= geometry["title"]["top"] < geometry["row"]["top"]
-        assert geometry["title"]["bottom"] <= geometry["header"]["bottom"] + 1
+        page.locator('section[aria-labelledby="home-frame-state"]').wait_for(state="visible")
         _assert_zone_arrangement(page, viewport_name)
-        for selector in (SCREEN_BUTTON, QUIET_BUTTON):
+        for selector in (".home-pill--switch", QUIET_PILL, ".home-pill--place", ".home-battery-pill"):
             box = page.locator(selector).bounding_box()
             assert box is not None
-            assert box["height"] >= 44 and box["width"] >= 44, (
-                "%s: %s is %sx%s" % (viewport_name, selector, box["width"], box["height"]))
+            assert box["height"] >= 44, "%s: %s is %sx%s" % (
+                viewport_name, selector, box["width"], box["height"])
             assert box["x"] >= 0 and box["x"] + box["width"] <= viewport["width"], (
                 "%s: %s leaves the viewport" % (viewport_name, selector))
         overflow = _assert_no_page_overflow(page, "home/%s/%s" % (lang, viewport_name), viewport["width"])
@@ -121,64 +119,64 @@ def test_status_header_layout_targets_and_keyboard(
 
         page.locator(SCREEN_BUTTON).focus()
         page.keyboard.press("Tab")
-        assert _has_visible_focus_indicator(page, ".home-switch__window"), (
-            "no focus ring on the quiet-hours window link")
+        assert _has_visible_focus_indicator(page, QUIET_PILL), "no focus ring on the quiet-hours pill"
         page.keyboard.press("Tab")
-        assert _has_visible_focus_indicator(page, QUIET_BUTTON), "no focus ring on the quiet switch"
+        assert _has_visible_focus_indicator(page, ".home-pill--place"), "no focus ring on the place pill"
         page.keyboard.press("Shift+Tab")
         page.keyboard.press("Shift+Tab")
         assert _has_visible_focus_indicator(page, SCREEN_BUTTON), "no focus ring on the screen switch"
         page.evaluate("() => { window.__noReload = true; }")
         page.keyboard.press("Space")
-        # The switch flips in place and the headline follows without a page load.
+        # The switch flips in place and the title block follows without a page load.
         page.wait_for_function(
-            "() => document.querySelector('.home-state__pill')"
-            " && document.querySelector('.home-state__detail')"
-            " && document.querySelector('.home-state__detail').textContent.trim() !== ''",
-            timeout=15000)
+            "() => document.querySelector('.home-state__title')"
+            " && document.querySelector('.home-state__title').textContent.trim() !== ''"
+            " && document.querySelector('.home-state__dot').getAttribute('aria-label')"
+            " === document.querySelector('.home-state__title').textContent.trim()"
+            " && document.querySelector('.home-state--off')", timeout=15000)
         assert page.evaluate("() => window.__noReload === true")
         assert urlsplit(page.url).path == layout.HOME_ROUTE
         assert device_config.load_device_config(server.state_dir)["display_enabled"] is False
         assert page.locator(SCREEN_BUTTON).get_attribute("aria-checked") == "false"
-        headline = page.locator(".home-state__pill").inner_text()
-        dot_word = page.get_attribute(".home-state__dot", "aria-label")
-        assert headline.strip() == dot_word
-        detail = page.locator(".home-state__detail").inner_text()
-        assert detail.strip() == ("The frame stays blank" if lang == "en" else "Le cadre reste vide")
+        assert page.locator(".home-state__title").inner_text().strip() == (
+            "Resting" if lang == "en" else "Au repos")
     finally:
         context.close()
 
 
-def test_enter_on_the_quiet_switch_posts_and_the_header_follows(new_context, make_app_server):
-    """Enter on the quiet-hours switch (scripts on) posts over fetch and persists: the switch
-    reads checked in place, with no page load"""
+@pytest.mark.parametrize("viewport", [VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED], ids=["1280", "360"])
+def test_text_is_centred_in_every_pill_and_chip(new_context, make_app_server, viewport):
+    """in every pill and chip the text's own box is centred on the capsule's centre line (within
+    a pixel and a half), so a label never sits high or low in its box"""
     server = make_app_server(seed=_seed, fake_providers=True)
-    context, page = _open_home(new_context, server.base_url(), "en", VIEWPORT_DESKTOP)
+    context, page = _open_home(new_context, server.base_url(), "fr", viewport)
     try:
-        assert page.locator(QUIET_BUTTON).get_attribute("aria-checked") == "false"
-        page.locator(QUIET_BUTTON).focus()
-        page.evaluate("() => { window.__noReload = true; }")
-        page.keyboard.press("Enter")
-        page.wait_for_function(
-            "s => document.querySelector(s).getAttribute('aria-checked') === 'true'"
-            " && !document.querySelector('[data-quick-region][data-pending]')",
-            arg=QUIET_BUTTON, timeout=15000)
-        assert page.evaluate("() => window.__noReload === true")
-        assert page.locator(FLASH).count() == 0
-        assert device_config.load_device_config(server.state_dir)["quiet_hours_enabled"] is True
-        assert page.locator(QUIET_BUTTON).get_attribute("aria-checked") == "true"
+        offsets = page.evaluate(
+            """() => [...document.querySelectorAll(
+                '.home-pill, .home-flight__badge, .home-stats__period label')]
+              .map(el => {
+                const box = el.getBoundingClientRect();
+                const text = el.querySelector('.home-pill__text') || el;
+                const range = document.createRange(); range.selectNodeContents(text);
+                const t = range.getBoundingClientRect();
+                return {name: el.className || el.tagName,
+                        delta: (t.top + t.height / 2) - (box.top + box.height / 2)};
+              })""")
+        assert offsets
+        for entry in offsets:
+            assert abs(entry["delta"]) <= 1.5, entry
     finally:
         context.close()
 
 
 def test_clicking_the_row_toggles_the_switch(new_context, make_app_server):
-    """the whole switch row is the tap target: a click on the row's left edge, away from the
+    """the whole Screen pill is the tap target: a click on the pill's left edge, away from the
     track, still presses the switch (in place, no page load)"""
     server = make_app_server(seed=_seed, fake_providers=True)
     context, page = _open_home(new_context, server.base_url(), "en", VIEWPORT_PHONE)
     try:
         page.evaluate("() => { window.__noReload = true; }")
-        page.locator(".home-switch--on").first.click(position={"x": 12, "y": 28})
+        page.locator(".home-switch--on").first.click(position={"x": 8, "y": 22})
         page.wait_for_function(
             "() => document.querySelector('" + SCREEN_BUTTON + "')"
             ".getAttribute('aria-checked') === 'false'", timeout=15000)
@@ -203,8 +201,8 @@ def test_battery_is_read_on_health_not_on_the_personal_home(new_context, make_ap
         page.goto(server.base_url() + layout.HOME_ROUTE)
         page.locator(".home-state").wait_for(state="visible")
         assert page.locator(".home-battery").count() == 0
-        page.goto(server.base_url() + "/fleet")
-        row = page.locator('details.health-row[id$="battery"]')
+        page.goto(server.base_url() + "/fleet?frame=live&view=battery")
+        row = page.locator('div.health-row[id$="battery"]')
         row.wait_for(state="visible")
         assert "battery" in row.inner_text().lower()
         value = row.locator(".health-row__value").first
@@ -213,18 +211,18 @@ def test_battery_is_read_on_health_not_on_the_personal_home(new_context, make_ap
         context.close()
 
 
-def test_quiet_hours_switch_with_scripts_blocked(new_context, make_app_server):
-    """with JavaScript disabled the quiet-hours switch still posts, persists, redirects to Home
+def test_screen_switch_with_scripts_blocked(new_context, make_app_server):
+    """with JavaScript disabled the Screen pill's switch still posts, persists, redirects to Home
     and shows the flash plus the flipped switch"""
     server = make_app_server(seed=_seed, fake_providers=True)
     with _no_js_page(new_context, server.base_url(), layout.HOME_ROUTE) as page:
-        assert page.locator(QUIET_BUTTON).get_attribute("aria-checked") == "false"
+        assert page.locator(SCREEN_BUTTON).get_attribute("aria-checked") == "true"
         with page.expect_navigation():
-            page.locator(QUIET_BUTTON).click()
-        assert page.url == server.base_url() + "/?flash=quiet_on"
+            page.locator(SCREEN_BUTTON).click()
+        assert page.url == server.base_url() + "/?flash=display_off"
         assert page.locator(FLASH).count() == 1
-        assert device_config.load_device_config(server.state_dir)["quiet_hours_enabled"] is True
-        assert page.locator(QUIET_BUTTON).get_attribute("aria-checked") == "true"
+        assert device_config.load_device_config(server.state_dir)["display_enabled"] is False
+        assert page.locator(SCREEN_BUTTON).get_attribute("aria-checked") == "false"
 
 
 def _seed_checkin(minutes_ago, battery_mv):
@@ -319,8 +317,8 @@ def test_cadence_tooltip_opens_on_hover_and_keyboard_focus(
         assert not _assert_no_page_overflow(page, "tooltip/%s" % viewport_name, viewport["width"])
         page.mouse.move(0, 0)
         assert not bubble.is_visible()
-        page.locator(".home-state__pill").click()
-        # The rename pencil in the title row comes before the info button in tab order.
+        page.locator(".home-state__title").click()
+        # The info button is the first focusable control after the title.
         for _ in range(2):
             page.keyboard.press("Tab")
             if page.evaluate("document.activeElement.classList.contains('info-tip__button')"):
@@ -452,14 +450,17 @@ def _contrast(page, selector_a, selector_b):
 def test_dark_theme_unchecked_switch_thumb_stands_out_from_its_track(new_context, make_app_server):
     """in the dark theme an unchecked switch's thumb is a light disc on the dark track (at least
     3:1), not a dark-on-dark circle"""
-    server = make_app_server(seed=_seed, fake_providers=True)
+    def seed_screen_off(state_dir):
+        _seed(state_dir)
+        device_config.save_device_config(state_dir, display_enabled=False)
+    server = make_app_server(seed=seed_screen_off, fake_providers=True)
     context = new_context(viewport=VIEWPORT_DESKTOP, color_scheme="dark")
     try:
         page = context.new_page()
         _login(page, server.base_url())
         page.goto(server.base_url() + layout.HOME_ROUTE)
-        assert page.locator(QUIET_BUTTON).get_attribute("aria-checked") == "false"
-        ratio = _contrast(page, QUIET_BUTTON + " .switch__thumb", QUIET_BUTTON + " .switch__track")
+        assert page.locator(SCREEN_BUTTON).get_attribute("aria-checked") == "false"
+        ratio = _contrast(page, SCREEN_BUTTON + " .switch__thumb", SCREEN_BUTTON + " .switch__track")
         assert ratio >= 3, ratio
     finally:
         context.close()
@@ -467,17 +468,17 @@ def test_dark_theme_unchecked_switch_thumb_stands_out_from_its_track(new_context
 
 @pytest.mark.parametrize("lang", ["en", "fr"])
 @pytest.mark.parametrize("viewport_name,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
-def test_the_quiet_hours_link_owns_a_44px_square_around_it_at_every_width(
+def test_the_quiet_hours_pill_is_a_44px_target_at_every_width(
         new_context, make_app_server, lang, viewport_name, viewport):
     server = make_app_server(seed=_seed, fake_providers=True)
     context, page = _open_home(new_context, server.base_url(), lang, viewport)
     try:
-        link = page.locator(".home-switch__window")
+        link = page.locator(QUIET_PILL)
         link.wait_for(state="visible")
         link.scroll_into_view_if_needed()
         page.wait_for_function(
             """() => { if (document.readyState !== 'complete') return false;
-              const el = document.querySelector('.home-switch__window');
+              const el = document.querySelector('.home-pill--quiet');
               const r = el.getBoundingClientRect();
               const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
               return hit === el || el.contains(hit); }""", timeout=10000)
@@ -485,7 +486,7 @@ def test_the_quiet_hours_link_owns_a_44px_square_around_it_at_every_width(
             "() => document.getAnimations().every((a) => a.playState !== 'running'"
             " || a.effect.getComputedTiming().iterations === Infinity)")
         reach = page.evaluate(
-            """() => { const el = document.querySelector('.home-switch__window');
+            """() => { const el = document.querySelector('.home-pill--quiet');
               const r = el.getBoundingClientRect();
               const x = r.left + r.width / 2, cy = r.top + r.height / 2;
               const owns = (px, py) => { const n = document.elementFromPoint(px, py);
@@ -502,47 +503,28 @@ def test_the_quiet_hours_link_owns_a_44px_square_around_it_at_every_width(
 
 
 @pytest.mark.parametrize("viewport_name,viewport", [VIEWPORTS[0], VIEWPORTS[-2]], ids=["1280", "390"])
-def test_quiet_hours_window_link_opens_the_dialog_without_toggling(
+def test_quiet_hours_pill_opens_the_dialog_from_the_keyboard(
         new_context, make_app_server, viewport_name, viewport):
-    """the quiet-hours window is a keyboard-focusable link with a 44px target; activating it with
-    the keyboard opens the Quiet hours dialog and leaves the switch untouched, while a tap
-    elsewhere on the row still flips the switch"""
+    """the Quiet hours pill is a keyboard-focusable link; activating it opens the Quiet hours
+    dialog on its title and changes nothing; Escape closes it and returns focus to the pill"""
     server = make_app_server(seed=_seed, fake_providers=True)
     context, page = _open_home(new_context, server.base_url(), "en", viewport)
     try:
-        link = page.locator(".home-switch__window")
-        reach = page.evaluate(
-            """() => { const el = document.querySelector('.home-switch__window');
-              const r = el.getBoundingClientRect();
-              const x = r.left + r.width / 2; let up = 0, down = 0;
-              const cy = r.top + r.height / 2;
-              const owns = (y) => { const n = document.elementFromPoint(x, y);
-                return !!n && el.contains(n); };
-              while (up < 64 && owns(cy - up - 1)) up++;
-              while (down < 64 && owns(cy + down + 1)) down++;
-              return up + down + 1; }""")
-        assert reach >= 44, reach
+        link = page.locator(QUIET_PILL)
         link.focus()
         page.wait_for_function(
-            "() => document.activeElement && document.activeElement.matches('.home-switch__window')")
-        assert _has_visible_focus_indicator(page, ".home-switch__window")
+            "() => document.activeElement && document.activeElement.matches('.home-pill--quiet')")
+        assert _has_visible_focus_indicator(page, QUIET_PILL)
+        before = device_config.load_device_config(server.state_dir)
         page.keyboard.press("Enter")
         page.wait_for_function(
             "() => document.querySelector('#dlg-quiet-hours').open"
             " && document.activeElement.matches('#dlg-quiet-hours .modal__title')", timeout=10000)
-        assert device_config.load_device_config(server.state_dir)["quiet_hours_enabled"] is False
+        assert device_config.load_device_config(server.state_dir) == before
         page.keyboard.press("Escape")
         page.wait_for_function(
             "() => !document.querySelector('#dlg-quiet-hours').open"
-            " && document.activeElement.matches('.home-switch__window')", timeout=10000)
-        page.eval_on_selector(
-            "#home-switch-quiet-label", "el => el.scrollIntoView({block: 'center'})")
-        label = page.locator("#home-switch-quiet-label").bounding_box()
-        page.mouse.click(label["x"] + 4, label["y"] + 4)
-        page.locator(QUIET_BUTTON + '[aria-checked="true"]').wait_for()
-        page.wait_for_function(
-            "() => !document.querySelector('[data-quick-region][data-pending]')", timeout=15000)
-        assert device_config.load_device_config(server.state_dir)["quiet_hours_enabled"] is True
+            " && document.activeElement.matches('.home-pill--quiet')", timeout=10000)
     finally:
         context.close()
 
@@ -621,9 +603,9 @@ def test_user_home_dot_names_the_state_and_links_to_no_health_page(
 @pytest.mark.parametrize("viewport_name,viewport", [VIEWPORTS[0], VIEWPORTS[-1]], ids=["1280", "360"])
 def test_user_home_layout_has_the_frame_button_first_and_no_battery_tile(
         new_context, make_app_server, viewport_name, viewport, scheme, lang):
-    """a user with two frames sees the frame button above or level with the title, the hero, the Frame group
-    and the recent flights in that order; there is no battery tile and no attention bar; the
-    switches keep 44px targets and nothing overflows"""
+    """a user with two frames sees the frame button above or level with the title block, then the
+    flight card, the pills and the recent flights in that order; there is no battery dial and no
+    attention bar; the Screen pill keeps a 44px target and nothing overflows"""
     seed = _seed_user_fleet("silent")
     server = make_app_server(seed=seed)
     context, page = _open_user_home(
@@ -633,12 +615,12 @@ def test_user_home_layout_has_the_frame_button_first_and_no_battery_tile(
         assert page.locator(".home-action").count() == 0
         tops = page.evaluate(
             """() => ['details.frame-menu', '.home-state', '.home-state h1',
-                      '.home-state__switches', '.home-section[aria-labelledby="home-flights"]']
+                      '.home-pills', '.home-strip']
                 .map(s => document.querySelector(s).getBoundingClientRect().top)""")
-        # The title is the frame name inside the hero: the frame button is above or level with
-        # the hero, whose title comes before the Frame group and the recent flights.
+        # The title is the frame name inside the title block: the frame button is above or level
+        # with it, and the pills and the strip come after.
         assert tops[0] <= tops[1] <= tops[2] < tops[3] < tops[4]
-        for selector in (SCOPED_SCREEN_BUTTON, SCOPED_QUIET_BUTTON):
+        for selector in (SCOPED_SCREEN_BUTTON, ".home-pill--switch"):
             box = page.locator(selector).bounding_box()
             assert box["height"] >= 44 and box["x"] + box["width"] <= viewport["width"]
         assert page.locator('.home-state a[href$="/health"]').count() == 0
@@ -665,8 +647,8 @@ def _wait_controls_settled(page):
 
 def test_a_switch_flips_in_place_and_the_state_regions_follow(new_context, make_app_server):
     """pressing the screen switch posts over fetch: the page is never reloaded (a marker on window
-    survives, no navigation happens), the switch, the headline and the saved config all change,
-    and the quiet-hours switch then does the same"""
+    survives, no navigation happens), the switch, the title block and the saved config all change,
+    and pressing it again restores them"""
     server = make_app_server(seed=_seed, fake_providers=True)
     context, page = _open_home(new_context, server.base_url(), "en", VIEWPORT_PHONE)
     try:
@@ -676,20 +658,16 @@ def test_a_switch_flips_in_place_and_the_state_regions_follow(new_context, make_
         page.evaluate("() => { window.__noReload = true; }")
         page.locator(SCREEN_BUTTON).click()
         page.wait_for_function(
-            "() => document.querySelector('.home-state__detail')"
-            " && document.querySelector('.home-state__detail').textContent.includes('stays blank')",
+            "() => document.querySelector('.home-state__title')"
+            " && document.querySelector('.home-state__title').textContent.trim() === 'Resting'",
             timeout=15000)
         assert page.get_attribute(SCREEN_BUTTON, "aria-checked") == "false"
         assert device_config.load_device_config(server.state_dir)["display_enabled"] is False
         page.locator(SCREEN_BUTTON).click()
         page.wait_for_function(
-            "() => !document.querySelector('.home-state__detail')", timeout=15000)
-        page.locator(QUIET_BUTTON).click()
-        page.wait_for_function(
-            "s => document.querySelector(s).getAttribute('aria-checked') === 'true'"
-            " && !document.querySelector('[data-quick-region][data-pending]')",
-            arg=QUIET_BUTTON, timeout=15000)
-        assert device_config.load_device_config(server.state_dir)["quiet_hours_enabled"] is True
+            "() => document.querySelector('.home-state__title').textContent.trim() === 'Online'"
+            " && !document.querySelector('[data-quick-region][data-pending]')", timeout=15000)
+        assert device_config.load_device_config(server.state_dir)["display_enabled"] is True
         assert page.evaluate("() => window.__noReload === true")
         assert navigations == []
     finally:

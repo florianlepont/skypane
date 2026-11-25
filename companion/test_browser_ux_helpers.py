@@ -82,7 +82,7 @@ VIEW_TRANSITION_NAMES = {
     # thumbnail-to-picture transition runs: no element has it on any route at rest.
     "skypane-flight-pic": (),
     # The selected segment of a section strip whose segments change page.
-    "skypane-strip": ("/display", "/fleet"),
+    "skypane-strip": ("/display",),
 }
 
 # Named viewport sizes, replacing the inline {"width": ..., "height": ...} dicts this file used
@@ -223,18 +223,19 @@ def _no_js_page(make_context, base_url, route, viewport=None, sign_in=True,
         context.close()
 
 
-def _open_health_rows(page):
-    """Open every collapsed Health row the way a keyboard visitor does: focus its summary and
-    press Enter, the native disclosure. Needs no script, so it works on a scripts-blocked page.
-    Rows in a warn or error state render open already and are left alone. Raises if a row stays
-    shut, so a later measurement is never taken on content a visitor could not see."""
-    summaries = page.locator("details.health-row:not([open]) > summary")
-    for _attempt in range(16):
-        if not summaries.count():
-            return
-        summaries.first.focus()
-        page.keyboard.press("Enter")
-    raise AssertionError("a Health row would not open from its summary")
+def _assert_health_rows_flat(page):
+    """Every Health row is flat and always open: no `<details>` or `<summary>` carries a row, no
+    chevron is drawn on a row head, and every row body (the readings table included) is visible
+    without a tap or a script."""
+    assert page.locator("main .health-row details, main .health-row > summary").count() == 0
+    assert page.locator(".health-row__summary").count() > 0
+    assert page.evaluate(
+        "() => [...document.querySelectorAll('.health-row__summary')].every(s => {"
+        "  const b = getComputedStyle(s, '::before');"
+        "  return b.content === 'none' || b.content === 'normal'; })"), "a row head draws a chevron"
+    assert page.evaluate(
+        "() => [...document.querySelectorAll('.health-row__body')]"
+        ".every(b => b.getBoundingClientRect().height > 0)"), "a row body is collapsed"
 
 
 def _click_control(page, selector):
@@ -681,6 +682,10 @@ def _upload_without_js(make_context, base_url, route, input_selector, submit_sel
                 "file input must be rendered UNCONDITIONALLY, and with none this helper measures "
                 "nothing" % (input_selector, found, route))
         page.set_input_files(input_selector, source_path)
+        # A first picture names its aircraft type: the script-free form's select is required.
+        asks = page.locator(input_selector).locator("xpath=ancestor::form//select[@name='default_type']")
+        if asks.count():
+            asks.first.select_option("A320")
         with page.expect_navigation():
             page.click(submit_selector)
         landed = page.url

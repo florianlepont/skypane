@@ -1,7 +1,7 @@
-"""Real-browser checks of the Battery row in Home's Frame group: it is there for a plain user
-(not only an administrator) under the screen and quiet-hours rows, in English and French at
-360 and 1280 px, in both themes, for the four states (normal with an honest autonomy figure,
-low, no reading, probably charging), with a level bar drawn by SVG attributes alone."""
+"""Real-browser checks of the battery pill on Home: it is there for a plain user (not only an
+administrator) in the pills row, in English and French at 360 and 1280 px, in both themes, for the
+four states (normal, low, no reading, probably charging); its text is centred in the capsule, a low
+level says so in words and the page never overflows."""
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -69,18 +69,10 @@ def _seed_scene(scene):
 
 
 EXPECTED = {
-    "normal": {
-        "en": ("Battery", "69%", None, "battery life ~3 weeks"),
-        "fr": ("Batterie", "69 %", None, "autonomie ~3 semaines"),
-    },
-    "low": {
-        "en": ("Battery", "18%", "Low", "battery life ~"),
-        "fr": ("Batterie", "18 %", "Faible", "autonomie ~"),
-    },
-    "charging": {
-        "en": ("Battery", "5", "Probably charging", None),
-        "fr": ("Batterie", "5", "Probablement en charge", None),
-    },
+    "normal": {"en": ("Battery 69%", None), "fr": ("Batterie 69 %", None)},
+    "low": {"en": ("Battery 18%", "Low"), "fr": ("Batterie 18 %", "Faible")},
+    "charging": {"en": ("Battery", "Probably charging"), "fr": ("Batterie", "Probablement en charge")},
+    "none": {"en": ("Battery \u00b7 No reading yet", None), "fr": ("Batterie \u00b7 Aucune mesure pour l\u2019instant", None)},
 }
 
 
@@ -92,157 +84,67 @@ def _open_user_home(new_context, make_app_server, scene, lang, viewport, scheme)
     page = context.new_page()
     _login(page, server.base_url())
     page.goto(server.base_url() + layout.HOME_ROUTE)
-    page.locator(".frame-battery").wait_for(state="visible")
+    page.locator(".home-battery-pill").wait_for(state="visible")
     page.wait_for_function("document.readyState === 'complete'")
     return context, page
-
-
-def _row_geometry(page):
-    return page.evaluate(
-        """() => {
-            const box = s => { const r = document.querySelector(s).getBoundingClientRect();
-                               return {top: r.top, bottom: r.bottom, left: r.left, right: r.right,
-                                       width: r.width, height: r.height}; };
-            return {row: box('.frame-battery'), group: box('.home-state__switches .group'),
-                    quiet: box('.home-switch--quiet'), bar: document.querySelector(
-                        '.frame-battery__bar') ? box('.frame-battery__bar') : null,
-                    viewport: window.innerWidth};
-        }""")
 
 
 @pytest.mark.parametrize("scheme", ["light", "dark"])
 @pytest.mark.parametrize("lang", ["en", "fr"])
 @pytest.mark.parametrize("viewport_name,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
-@pytest.mark.parametrize("scene", ["normal", "low", "charging"])
-def test_battery_row_shows_the_level_word_and_a_bar(
+@pytest.mark.parametrize("scene", ["normal", "low", "charging", "none"])
+def test_battery_pill_shows_the_charge_and_a_word_and_fits(
         new_context, make_app_server, scene, viewport_name, viewport, lang, scheme):
-    """under the quiet-hours row, the row reads the percentage with its level word (or the
-    charging wording) and a bar; the autonomy line appears only while discharging and fits"""
-    label, percent, word, autonomy = EXPECTED[scene][lang]
-    context, page = _open_user_home(
-        new_context, make_app_server, scene, lang, viewport, scheme)
+    context, page = _open_user_home(new_context, make_app_server, scene, lang, viewport, scheme)
     try:
-        text = page.locator(".frame-battery").inner_text()
-        assert label in text
-        if word is None:
-            # The healthy level has no word, and nothing says "normal".
-            assert "ormal" not in text
-        else:
-            assert word in text
-        if scene != "charging":
-            assert percent in text
-        if autonomy is None:
-            assert page.locator(".frame-battery__note").count() == 0
-        else:
-            assert autonomy in page.locator(".frame-battery__note").inner_text()
+        pill = page.locator(".home-battery-pill")
+        text = " ".join(pill.inner_text().split()).replace("\u00a0", " ")
+        lead, word = EXPECTED[scene][lang]
+        assert text.startswith(lead.replace("\u00a0", " ")), (scene, text)
         if scene == "normal":
-            # The percentage and the estimate share one line, the bar below.
-            lines = page.evaluate(
-                """() => { const r = s => document.querySelector(s).getBoundingClientRect();
-                    return {state: r('.frame-battery__state'), note: r('.frame-battery__note'),
-                            bar: r('.frame-battery__bar')}; }""")
-            assert abs(lines["state"]["top"] - lines["note"]["top"]) < 4
-            assert lines["note"]["left"] > lines["state"]["right"]
-            assert lines["bar"]["top"] >= lines["state"]["bottom"] - 1
-        assert page.locator(".frame-battery__fill").count() == 1
-        assert page.locator(".frame-battery[class*='frame-battery--']").count() == 1
-        geometry = _row_geometry(page)
-        assert geometry["quiet"]["bottom"] <= geometry["row"]["top"] + 1
-        assert geometry["row"]["bottom"] <= geometry["group"]["bottom"] + 1
-        assert geometry["row"]["right"] <= geometry["viewport"]
-        assert geometry["bar"]["height"] <= 6 and geometry["bar"]["width"] > 100
-        assert page.evaluate(
-            "() => !document.querySelector('.frame-battery [style], .frame-battery[style]')")
-        _assert_no_page_overflow(page, "%s/%s/%s" % (scene, viewport_name, lang))
-    finally:
-        context.close()
-
-
-def test_the_bar_width_is_the_percentage(new_context, make_app_server):
-    """the fill covers the stated share of the track, drawn by attributes alone"""
-    context, page = _open_user_home(
-        new_context, make_app_server, "normal", "en", VIEWPORT_DESKTOP, "light")
-    try:
-        widths = page.evaluate(
-            """() => ({
-                track: document.querySelector('.frame-battery__track').getBoundingClientRect().width,
-                fill: document.querySelector('.frame-battery__fill').getBoundingClientRect().width})""")
-        assert abs(widths["fill"] / widths["track"] - 0.69) < 0.02
-    finally:
-        context.close()
-
-
-@pytest.mark.parametrize("lang,sentence", [
-    ("en", "No reading yet"), ("fr", "Aucune mesure pour l’instant")])
-@pytest.mark.parametrize("viewport_name,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
-def test_battery_row_without_a_reading_draws_no_bar(
-        new_context, make_app_server, viewport_name, viewport, lang, sentence):
-    """no reading: the sentence says so, with no bar and no autonomy line"""
-    context, page = _open_user_home(
-        new_context, make_app_server, "none", lang, viewport, "light")
-    try:
-        assert sentence in page.locator(".frame-battery").inner_text()
-        assert page.locator(".frame-battery__bar").count() == 0
-        assert page.locator(".frame-battery__note").count() == 0
-        _assert_no_page_overflow(page, "none/%s/%s" % (viewport_name, lang))
-    finally:
-        context.close()
-
-
-def test_battery_row_is_there_for_a_plain_user_without_the_dial(new_context, make_app_server):
-    """a person who is not an administrator sees the row on their frame's Home, and no dial"""
-    def seed(state_dir):
-        fleet = provision_fleet(state_dir)
-        directory = device_dir(state_dir, fleet.a1)
-        device_config.save_device_config(directory, wake_interval_s=300)
-        _write_scene(directory, "normal")
-        seed.fleet = fleet
-    server = make_app_server(seed=seed, fake_providers=True)
-    context = new_context(viewport=VIEWPORT_MIN_SUPPORTED)
-    try:
-        base = server.base_url()
-        name, value = session_cookie_for_state_dir(server.state_dir, USER_A_EMAIL).split("=", 1)
-        context.add_cookies([{
-            "name": name, "value": value, "url": base, "httpOnly": True,
-            "sameSite": "Strict"}])
-        page = context.new_page()
-        page.goto(base + "/devices/%s/" % seed.fleet.a1)
-        page.locator(".frame-battery").wait_for(state="visible")
-        assert "69%" in page.locator(".frame-battery").inner_text()
+            assert "\u00b7" not in text, text
+        if word:
+            assert word in text, (scene, text)
+        box = pill.bounding_box()
+        assert box["height"] >= 44 and box["x"] >= 0 and box["x"] + box["width"] <= viewport["width"]
+        offset = page.evaluate(
+            """() => { const el = document.querySelector('.home-battery-pill');
+              const box = el.getBoundingClientRect();
+              const range = document.createRange();
+              range.selectNodeContents(el.querySelector('.home-pill__text'));
+              const t = range.getBoundingClientRect();
+              return (t.top + t.height / 2) - (box.top + box.height / 2); }""")
+        assert abs(offset) <= 1.5, offset
         assert page.locator(".home-battery").count() == 0
-        assert page.locator(".frame-battery__note").count() == 1
+        failure = _assert_no_page_overflow(page, "home/%s" % scene, viewport["width"])
+        assert not failure, failure
     finally:
         context.close()
 
 
-WORDS = {
-    "en": {"online": "Online", "next": "Next refresh in", "banned": ("Up to date", "pdate")},
-    "fr": {"online": "En ligne", "next": "Prochain rafraîchissement dans",
-           "banned": ("À jour", "mise à jour")},
-}
-
-
-@pytest.mark.parametrize("lang", ["en", "fr"])
-@pytest.mark.parametrize("viewport", [VIEWPORT_PHONE, VIEWPORT_DESKTOP], ids=["390", "1280"])
-def test_the_status_block_reads_as_one_coherent_statement(
-        new_context, make_app_server, lang, viewport):
-    """The state word is "Online" and the line under it "Next refresh in N min": no "Up to date"
-    and no "update" anywhere in the block, the ring's accessible name says refresh too, and the
-    frame-name title is larger than the state pill beside it."""
-    context, page = _open_user_home(new_context, make_app_server, "normal", lang, viewport, "light")
+def test_the_pill_is_there_for_a_plain_user_without_a_dial(new_context, make_app_server):
+    """a plain user (not an administrator) sees the battery pill, and no pill ever draws a dial"""
+    seed = _user_seed()
+    server = make_app_server(seed=seed)
+    context = new_context(viewport=VIEWPORT_PHONE)
     try:
-        words = WORDS[lang]
-        block = page.locator(".home-state").inner_text()
-        assert words["online"] in block and words["next"] in block
-        for banned in words["banned"]:
-            assert banned not in block
-        ring = page.locator("[data-cycle-ring]").get_attribute("aria-label")
-        assert ("next refresh" if lang == "en" else "prochain rafraîchissement") in ring
-        sizes = page.evaluate(
-            """() => ({title: parseFloat(getComputedStyle(
-                          document.querySelector('main h1')).fontSize),
-                       word: parseFloat(getComputedStyle(
-                          document.querySelector('.home-state__title')).fontSize)})""")
-        assert sizes["title"] > sizes["word"] + 8
+        pair = session_cookie_for_state_dir(server.state_dir, USER_A_EMAIL)
+        name, value = pair.split("=", 1)
+        context.add_cookies([{"name": name, "value": value, "url": server.base_url(),
+                              "httpOnly": True, "sameSite": "Strict"}])
+        page = context.new_page()
+        page.goto("%s/devices/%s/" % (server.base_url(), seed.fleet.a1))
+        page.locator(".home-battery-pill").wait_for(state="visible")
+        assert page.locator(".home-battery-pill svg.drawing").count() == 0
+        assert "Battery" in page.locator(".home-battery-pill").inner_text()
     finally:
         context.close()
+
+
+def _user_seed():
+    def seed(state_dir):
+        seed.fleet = provision_fleet(state_dir)
+        directory = device_dir(state_dir, seed.fleet.a1)
+        with history_db.open_db(directory) as conn:
+            _record(conn, datetime.now(timezone.utc) - timedelta(minutes=2), _mv_for(70))
+    return seed

@@ -432,7 +432,10 @@
     var point = L.latLng(
       roundCoord(position.coords.latitude), roundCoord(position.coords.longitude));
     placePin(point, { zoom: LOCATE_ZOOM, animate: true });
-    report(format(text("located"), position.coords.accuracy || 0));
+    // The pin moving is the visible feedback: the "looking" note goes and only
+    // the visually hidden status line says the position was found.
+    showMessage("");
+    setStatus(format(text("located"), position.coords.accuracy || 0));
   }
 
   function onPositionError(error) {

@@ -1,0 +1,349 @@
+<!--
+OWNER-APPROVED 2026-11-18. Decisions: Install button on the right of the update card (full width on phone); no 'On the frame' footer; long release notes cut at 2 lines in the card, full text in the list; confirmation after Install/Roll back = card on desktop, bottom sheet on phone, same card as console page without script; this page replaces the markup of the standalone /update page.
+Covers R16 and R17: the Versions page (update card, flat list), the confirmation dialog after Install or Roll back (card on desktop, bottom sheet on phone), the same question as a console page when scripts are off, the rollback notice.
+-->
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SkyPane mockup: Versions and update (Phase 68, plan 04)</title>
+<style>
+/* Standalone mockup, no external asset. Tokens follow companion/static/style.css (light and dark only).
+   Each mock sits in a [data-viewport] box, 390 px (phone) or 1440 px (desktop); every translated block is a
+   [data-lang] wrapper and the toggle at the top shows one language at a time. All names and addresses are invented. */
+:root{
+  --sky:linear-gradient(#E7EEF7,#F1F3F6 45%,#EDF1F6); --canvas:#F1F3F6; --stage:#E4E9F0;
+  --text:#17191F; --muted:#5B6372; --border:#DAE1EB; --chip:#E9EEF5; --card:#fff;
+  --accent:#1F2430; --on-accent:#fff; --glass:rgba(255,255,255,.78); --tab:#fff; --shadow:0 6px 20px rgba(20,30,50,.08);
+  --ok:#16A34A; --okbg:#DDF3E4; --warn:#D97706; --err:#BE123C;
+}
+@media (prefers-color-scheme:dark){:root:not([data-ui-theme="light"]){
+  --sky:linear-gradient(#12151D,#161A24 45%,#1A1F2B); --canvas:#161A24; --stage:#0E1117;
+  --text:#F1F3F6; --muted:#A3ABBB; --border:#2A3040; --chip:#232A38; --card:#1C222D;
+  --accent:#F2EFE9; --on-accent:#14171F; --glass:rgba(34,40,54,.82); --tab:#1C222D; --shadow:0 6px 20px rgba(0,0,0,.35);
+  --ok:#4ADE80; --okbg:#173225; --warn:#FBBF24; --err:#FB7185; color-scheme:dark}}
+:root[data-ui-theme="dark"]{
+  --sky:linear-gradient(#12151D,#161A24 45%,#1A1F2B); --canvas:#161A24; --stage:#0E1117;
+  --text:#F1F3F6; --muted:#A3ABBB; --border:#2A3040; --chip:#232A38; --card:#1C222D;
+  --accent:#F2EFE9; --on-accent:#14171F; --glass:rgba(34,40,54,.82); --tab:#1C222D; --shadow:0 6px 20px rgba(0,0,0,.35);
+  --ok:#4ADE80; --okbg:#173225; --warn:#FBBF24; --err:#FB7185; color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--stage);color:var(--text);font:16px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;padding:32px 16px 96px}
+button,input{font:inherit;color:inherit}
+a{color:inherit;text-decoration:none}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.num{font-variant-numeric:tabular-nums}
+.top{max-width:1500px;margin:0 auto 24px;display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between;align-items:flex-end}
+.top h1{margin:0 0 8px;font-size:34px;letter-spacing:-.03em}
+.top p{margin:0;color:var(--muted);max-width:75ch}
+.toggles{display:flex;gap:16px;flex-wrap:wrap}
+.seg{display:inline-flex;background:var(--chip);border-radius:32px;padding:4px;gap:4px}
+.seg button{border:0;background:none;min-height:44px;padding:0 16px;border-radius:32px;cursor:pointer;font-size:15px}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent)}
+.sec{max-width:1500px;margin:56px auto 0}
+.sec>h2{margin:0 0 4px;font-size:26px;letter-spacing:-.02em}
+.sec>p.lead{margin:0 0 24px;color:var(--muted);max-width:85ch}
+.row2{display:flex;flex-wrap:wrap;gap:32px;align-items:flex-start}
+.mock{margin:0;display:flex;flex-direction:column;gap:8px;min-width:0}
+.mock>figcaption{font-size:15px;font-weight:600}
+.mock>figcaption small{display:block;font-weight:400;color:var(--muted);font-size:13px}
+.scroller{max-width:100%;overflow-x:auto;padding-bottom:8px}
+[data-ui-lang="en"] [data-lang="fr"],[data-ui-lang="fr"] [data-lang="en"]{display:none}
+.note{margin:12px 0 0;padding:12px 16px;border:1px dashed var(--border);border-radius:14px;color:var(--muted);font-size:14px;max-width:85ch}
+.note b{color:var(--text)}
+
+[data-viewport]{position:relative;overflow:hidden;border:1px solid var(--border);background:var(--sky) var(--canvas);box-shadow:0 12px 40px rgba(20,30,50,.12)}
+[data-viewport="phone"]{width:390px;height:780px;border-radius:36px}
+[data-viewport="desktop"]{width:1440px;height:900px;border-radius:16px}
+[data-viewport] [data-lang]{height:100%;position:relative}
+
+/* shared pieces */
+.ic{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--ok);flex:none;display:inline-block}
+.dot.idle{background:var(--muted)}.dot.err{background:var(--err)}.dot.pend{background:var(--warn)}
+.label{margin:0 0 6px 16px;font-size:13px;font-weight:600;color:var(--muted)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:22px;box-shadow:var(--shadow);overflow:hidden}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 18px;border:1px solid var(--border);border-radius:14px;background:var(--card);font-size:15px;font-weight:600;cursor:pointer}
+.btn.dark{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.btn.sq{width:44px;padding:0}
+.field{display:flex;align-items:center;gap:8px;min-height:44px;padding:0 14px;border:1px solid var(--border);border-radius:14px;background:var(--card)}
+.field input{flex:1;min-width:0;border:0;background:none;min-height:42px;outline:0}
+.title{margin:0;font-size:40px;line-height:1.1;font-weight:700;letter-spacing:-.03em}
+.sub{color:var(--muted);font-size:15px}
+.state{margin:6px 0 0;display:flex;align-items:center;gap:8px;font-weight:600}
+
+/* rows */
+.item{display:flex;align-items:center;gap:12px;min-height:64px;padding:10px 16px;border-top:1px solid var(--border)}
+.item:first-child{border-top:0}
+.item .who{flex:1;min-width:0}
+.item .who small{display:block;color:var(--muted);font-size:13px}
+.item .who b{display:block;font-weight:600}
+.item .val{color:var(--muted);font-size:14px;white-space:nowrap}
+.ico{width:36px;height:36px;border-radius:50%;background:var(--chip);display:flex;align-items:center;justify-content:center;flex:none}
+.ico.ok{background:var(--okbg);color:var(--ok)}
+.sw{flex:none;width:51px;height:31px;border-radius:31px;background:#7C8696;position:relative;cursor:pointer}
+.sw::after{content:"";position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.sw.on{background:var(--accent)}.sw.on::after{left:22px}
+.badge{display:inline-flex;align-items:center;min-height:24px;padding:0 10px;border-radius:32px;border:1px solid var(--border);font-size:12px;color:var(--muted)}
+.range{height:6px;border-radius:6px;background:var(--border);position:relative;margin:14px 0 4px}
+.range i{position:absolute;left:0;top:0;bottom:0;width:26%;border-radius:6px;background:var(--accent)}
+.range b{position:absolute;left:26%;top:50%;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;background:var(--accent)}
+.section{display:flex;flex-direction:column}
+.danger b{color:var(--err)}
+
+/* frame list rows */
+.frow{display:flex;align-items:center;gap:12px;min-height:56px;padding:6px 14px;border-top:1px solid var(--border);cursor:pointer}
+.frow:first-child{border-top:0}
+.frow .who{flex:1;min-width:0}
+.frow .who b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.frow .who small{display:block;color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.frow .seen{font-size:13px;color:var(--muted);white-space:nowrap}
+.frow.retired{opacity:.8}
+.frow.sel{background:var(--chip)}
+.chev{color:var(--muted)}
+
+/* phone shell */
+.ptop{position:absolute;left:0;right:0;top:0;height:64px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;z-index:5}
+.brand{display:flex;align-items:center;gap:8px;font-size:22px;font-weight:700;letter-spacing:-.02em}
+.screen{position:absolute;inset:64px 0 0 0;overflow-y:auto;padding:8px 16px 120px;display:flex;flex-direction:column;gap:16px;scrollbar-width:none}
+.screen::-webkit-scrollbar{display:none}
+.screen>*{flex-shrink:0}
+.tabs{position:absolute;left:12px;right:12px;bottom:14px;display:flex;justify-content:space-around;padding:8px 6px;background:var(--tab);border:1px solid var(--border);border-radius:34px;box-shadow:0 8px 24px rgba(20,30,50,.14);z-index:6}
+.tab{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-width:60px;min-height:52px;border-radius:26px;font-size:11px;color:var(--text)}
+.tab.on{background:var(--accent);color:var(--on-accent);font-weight:600}
+.chips{display:flex;gap:8px;overflow-x:auto;margin:0 -16px;padding:0 16px 4px;scrollbar-width:none}
+.chip{flex:none;display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 14px;border-radius:32px;background:var(--card);border:1px solid var(--border);font-size:14px;white-space:nowrap}
+.chip[aria-current="page"]{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.chip.all{background:var(--chip)}
+.anchors{position:sticky;top:-8px;z-index:3;margin:0 -16px;padding:8px 16px;display:flex;gap:8px;background:var(--canvas)}
+.anchors button{flex:1;min-height:44px;border:1px solid var(--border);border-radius:32px;background:var(--card);font-size:14px;cursor:pointer}
+.anchors button[aria-current="true"]{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.blk{scroll-margin-top:72px}
+
+/* desktop shell */
+.side{position:absolute;left:0;top:0;bottom:0;width:240px;padding:24px 16px;background:var(--glass);border-right:1px solid var(--border);display:flex;flex-direction:column;gap:8px}
+.side .brand{padding:0 8px;margin-bottom:8px}
+.space{display:flex;gap:4px;padding:4px;border-radius:16px;background:var(--chip);margin-bottom:8px}
+.space span{flex:1;text-align:center;min-height:36px;display:flex;align-items:center;justify-content:center;border-radius:12px;font-size:14px;font-weight:600;color:var(--muted)}
+.space span.on{background:var(--accent);color:var(--on-accent)}
+.nlabel{margin:12px 8px 0;font-size:13px;font-weight:600;color:var(--muted)}
+.nav{display:flex;align-items:center;gap:12px;min-height:46px;padding:0 12px;border-radius:14px;font-size:15px}
+.nav.on{background:var(--accent);color:var(--on-accent);font-weight:600}
+.sep{height:1px;background:var(--border);margin:8px 0}
+.signout{margin-top:auto}
+.listp{position:absolute;left:240px;top:0;bottom:0;width:350px;background:var(--glass);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.listp .lhead{flex:none;padding:20px 16px 12px;display:flex;flex-direction:column;gap:12px;border-bottom:1px solid var(--border)}
+.listp .lbody{flex:1;min-height:0;overflow-y:auto;padding:12px 12px 20px;display:flex;flex-direction:column;gap:14px}
+.main{position:absolute;left:590px;right:0;top:0;bottom:0;overflow-y:auto;padding:32px 44px 64px}
+.dcol{display:flex;flex-direction:column;gap:24px;max-width:760px;margin-top:20px}
+.titlerow{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.iconbtns{display:flex;gap:8px;flex:none}
+.sparkline{display:block;width:100%;height:44px}
+.sub2{display:flex;flex-direction:column;gap:6px;width:100%;padding-left:48px;font-size:13px;color:var(--muted)}
+.item.wrap{flex-wrap:wrap}
+.tiles2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.tile2{display:flex;flex-direction:column;gap:6px;min-height:132px;padding:14px;border-radius:22px;background:var(--card);border:1px solid var(--border);box-shadow:var(--shadow);min-width:0}
+.tile2 .th{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+.tile2 .tv{font-size:19px;font-weight:700;letter-spacing:-.01em}
+.tile2 .tm{font-size:13px;color:var(--muted)}
+.tile2 .more{margin-top:auto;display:flex;align-items:center;gap:4px;font-size:13px;font-weight:600}
+.bigspark{display:block;width:100%;height:120px;color:var(--accent)}
+.kv{display:grid;grid-template-columns:1fr auto;gap:6px 16px;padding:12px 16px;border-top:1px solid var(--border);font-size:14px}
+.kv span:nth-child(odd){color:var(--muted)}
+.kv span:nth-child(even){text-align:right}
+.rtable{width:100%;border-collapse:collapse;font-size:14px}
+.rtable th{text-align:left;color:var(--muted);font-weight:600;font-size:13px;padding:8px 16px}
+.rtable td{padding:8px 16px;border-top:1px solid var(--border)}
+.rtable td:last-child,.rtable th:last-child{text-align:right}
+.banner{display:flex;flex-direction:column;gap:8px;padding:12px 16px;border-radius:18px;border:1px solid var(--warn);background:var(--card)}
+.banner b{font-weight:700}
+.pills{display:flex;flex-wrap:wrap;gap:6px}
+.pill{display:inline-flex;align-items:center;min-height:26px;padding:0 10px;border-radius:32px;background:var(--chip);font-size:13px}
+.pill.warn{background:var(--card);border:1px solid var(--warn)}
+.unit{display:inline-flex;gap:4px;padding:3px;border-radius:12px;background:var(--chip)}
+.unit span{min-height:32px;padding:0 12px;display:flex;align-items:center;border-radius:9px;font-size:13px}
+.unit span.on{background:var(--accent);color:var(--on-accent);font-weight:600}
+details.rd{border-top:1px solid var(--border)}
+details.rd summary{min-height:48px;display:flex;align-items:center;padding:0 16px;font-size:14px;font-weight:600;cursor:pointer}
+.outcomes{list-style:none;margin:0;padding:0}
+.outcomes li{padding:10px 16px;border-top:1px solid var(--border)}
+.outcomes p{margin:0;display:flex;align-items:center;gap:8px;font-weight:600}
+.outcomes p span.n{margin-left:auto}
+.outcomes small{display:block;color:var(--muted);font-size:13px;margin:2px 0 0 16px}
+.rtable.l td:last-child,.rtable.l th:last-child{text-align:left}
+.pagehead{display:flex;flex-direction:column;gap:6px;margin-bottom:8px}
+.backl{display:inline-flex;align-items:center;gap:6px;min-height:44px;font-size:15px;font-weight:600}
+.ring{width:64px;height:64px;border-radius:50%;background:conic-gradient(var(--ok) 0 47%,var(--border) 0);display:flex;align-items:center;justify-content:center;flex:none}
+.ring b{width:48px;height:48px;border-radius:50%;background:var(--card);display:flex;align-items:center;justify-content:center;font-size:14px}
+.vrow{display:flex;align-items:center;gap:12px;min-height:52px;padding:6px 16px;border-top:1px solid var(--border)}
+.vrow .who{flex:1}
+.btn.quiet{min-height:40px;font-weight:500;color:var(--muted)}
+
+@media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+
+.scrim{position:absolute;inset:0;background:rgba(10,14,22,.45);z-index:20}
+.dlg{position:absolute;left:50%;transform:translate(-50%,-50%);top:50%;z-index:21;width:min(460px,88%);background:var(--card);border:1px solid var(--border);border-radius:24px;padding:22px;display:flex;flex-direction:column;gap:14px;box-shadow:0 20px 50px rgba(20,30,50,.3)}
+.dlg h4,.sheet h4{margin:0;font-size:20px}
+.dlg p,.sheet p{margin:0;color:var(--muted);font-size:15px}
+.dlg .row,.sheet .row{display:flex;gap:10px}.dlg .row .btn,.sheet .row .btn{flex:1}
+.sheet{position:absolute;left:0;right:0;bottom:0;z-index:21;background:var(--card);border-radius:28px 28px 0 0;padding:12px 16px 24px;display:flex;flex-direction:column;gap:14px;max-height:85%}
+.sheet .grab{width:44px;height:5px;border-radius:5px;background:var(--border);margin:0 auto 2px}
+[data-viewport="phone"] .dlgd{display:none}
+[data-viewport="desktop"] .sheetd{display:none}
+.cta{display:flex;flex-direction:column;gap:12px;padding:18px}
+.cta .big{font-size:22px;font-weight:700;letter-spacing:-.01em;display:flex;align-items:center;gap:10px}
+.cta .ver{font-family:ui-monospace,Menlo,monospace;font-size:18px;font-weight:600}
+.ctar{display:flex;gap:16px;align-items:center;justify-content:space-between}.ctal{display:flex;flex-direction:column;gap:8px;min-width:0}.ctar .btn{flex:none}
+[data-viewport="phone"] .ctar{flex-direction:column;align-items:stretch}
+.clamp{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.notes li{overflow-wrap:anywhere}
+.cta small{color:var(--muted);font-size:14px}
+.cta .foot{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;border-top:1px solid var(--border);padding-top:12px;font-size:14px;color:var(--muted)}
+.vlist .vr{display:flex;align-items:center;gap:12px;min-height:60px;padding:8px 16px;border-top:1px solid var(--border)}
+.vlist .vr:first-child{border-top:0}
+.vr .who{flex:1;min-width:0}
+.vr .who b{font-family:ui-monospace,Menlo,monospace;font-size:16px}
+.vr .who small{display:block;color:var(--muted);font-size:13px}
+.vr .act{flex:none}
+.notes{padding:4px 16px 14px 44px;color:var(--muted);font-size:14px;border-top:1px dashed var(--border)}
+.notes li{margin:3px 0}
+.chipv{display:inline-flex;align-items:center;min-height:22px;padding:0 8px;border-radius:32px;font-size:12px;font-weight:600;background:var(--chip);color:var(--muted);margin-left:8px;vertical-align:middle}
+.chipv.new{background:var(--okbg);color:var(--ok)}
+.chipv.run{background:var(--accent);color:var(--on-accent)}
+.toastb{display:flex;gap:10px;align-items:flex-start;padding:12px 16px;border-radius:18px;border:1px solid var(--warn);background:var(--card);font-size:14px}
+.btn.ghost2{background:transparent;border-color:transparent;color:var(--muted);min-height:40px;font-weight:600;text-decoration:underline;text-underline-offset:3px}
+.pagehead{display:flex;flex-direction:column;gap:6px;margin-bottom:8px}
+.backl{display:inline-flex;align-items:center;gap:6px;min-height:44px;font-size:15px;font-weight:600}
+.page2{max-width:760px;display:flex;flex-direction:column;gap:20px}
+.fallback{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:24px}
+</style>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-logo" viewBox="0 0 24 24"><rect x="4" y="3" width="14" height="18" rx="3"/><path d="M9 10l2 2 4-4"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8v.5"/></symbol>
+  <symbol id="i-fleet" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="3"/><path d="M9 11l2 2 4-4"/></symbol>
+  <symbol id="i-team" viewBox="0 0 24 24"><circle cx="9" cy="12" r="5"/><circle cx="15" cy="12" r="5"/></symbol>
+  <symbol id="i-tag" viewBox="0 0 24 24"><path d="M3 12V4h8l10 10-8 8z"/><circle cx="8" cy="8" r="1.4"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></symbol>
+  <symbol id="i-battery" viewBox="0 0 24 24"><rect x="2" y="7" width="17" height="10" rx="2"/><path d="M22 11v2"/></symbol>
+  <symbol id="i-plane" viewBox="0 0 24 24"><path d="M2 14l8-2 3-8 2 1-1 7 6 2v2l-6-1-2 4-2-.5.5-3.5L2 16z"/></symbol>
+  <symbol id="i-chip" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/></symbol>
+  <symbol id="i-timer" viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M9 2h6"/></symbol>
+  <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z"/></symbol>
+  <symbol id="i-frame" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2.5"/><rect x="7" y="8" width="10" height="8" rx="1"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+  <symbol id="i-down2" viewBox="0 0 24 24"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></symbol>
+  <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 7L4 12l5 5M4 12h11a5 5 0 0 1 0 10h-3"/></symbol>
+</svg>
+<div class="top">
+  <div><h1>Versions and update</h1><p>Mockup for the owner, on the real shell (CON-01: R16, R17). Sample data is invented. Use the toggles.</p></div>
+  <div class="toggles">
+    <div class="seg" id="theme" role="group" aria-label="Theme"><button type="button" data-t="auto" aria-pressed="true">Auto</button><button type="button" data-t="light" aria-pressed="false">Light</button><button type="button" data-t="dark" aria-pressed="false">Dark</button></div>
+    <div class="seg" id="lang" role="group" aria-label="Language"><button type="button" data-l="en" aria-pressed="true">English</button><button type="button" data-l="fr" aria-pressed="false">Fran&ccedil;ais</button></div>
+  </div>
+</div>
+<div id="app"></div>
+<script>
+(function(){
+  function nb(s){return s.replace(/ ([:;?!»])/g,' $1').replace(/« /g,'« ');}
+  var S={
+    en:{back:'Back to Salon',title:'Versions',forhw:'For XIAO ePaper EE02 13.3in Spectra 6',
+      avail:'Update available',relago:'Released 2 days ago',note1:'Faster wake after quiet hours, fixes the battery percentage shown on a full charge, and keeps the previous picture on screen when the server is unreachable during the night',install:'Install v1.4.3',onframe:'On the frame: v1.4.2',
+      sched:'Update scheduled',schedb:'v1.4.3 installs at the next wake, around 14:20.',cancelU:'Cancel update',
+      hist:'Versions',newest:'Newest',running:'Running',installed:'Installed',rb:'Roll back',notes:function(n){return 'Notes ('+n+')';},
+      cT:'Install firmware v1.4.3?',cB:'The frame will download and install this version at its next wake, around 14:20. It keeps the update after one successful check-in, otherwise it rolls back automatically.',cGo:'Install',cNo:'Cancel',
+      rT:'Roll back to v1.4.1?',rB:'The frame goes back to v1.4.1 at its next wake, around 14:20. Its settings are kept.',rGo:'Roll back',
+      toast:'Firmware rolled back: the update to v1.4.3 failed on trial boot; the frame is back on v1.4.2.',
+      tabs:['Fleet','Team','Editor','Journal','More'],nav:['Fleet','Users','Editor','Audit log'],account:'Account',space:['Console','My frames'],adminl:'Administration',signout:'Sign out',
+      n1:['Faster wake after quiet hours, fixes the battery percentage shown on a full charge, and keeps the previous picture on screen when the server is unreachable during the night','Fixes the battery percentage on a full charge'],n2:['Battery reading fix'],n3:['Quieter retired screen']},
+    fr:{back:'Retour à Salon',title:'Versions',forhw:'Pour XIAO ePaper EE02 13.3in Spectra 6',
+      avail:'Mise à jour disponible',relago:'Publiée il y a 2 jours',note1:'Réveil plus rapide après les heures calmes, corrige le pourcentage de batterie affiché à pleine charge et garde l’image précédente à l’écran quand le serveur est injoignable la nuit',install:'Installer v1.4.3',onframe:'Sur le cadre : v1.4.2',
+      sched:'Mise à jour programmée',schedb:'v1.4.3 s’installera au prochain réveil, vers 14:20.',cancelU:'Annuler la mise à jour',
+      hist:'Versions',newest:'La plus récente',running:'En cours',installed:'Installée',rb:'Revenir',notes:function(n){return 'Notes ('+n+')';},
+      cT:'Installer le micrologiciel v1.4.3 ?',cB:'Le cadre téléchargera et installera cette version à son prochain réveil, vers 14:20. Il la garde après une connexion réussie, sinon il revient automatiquement en arrière.',cGo:'Installer',cNo:'Annuler',
+      rT:'Revenir à v1.4.1 ?',rB:'Le cadre revient à v1.4.1 à son prochain réveil, vers 14:20. Ses réglages sont conservés.',rGo:'Revenir',
+      toast:'Micrologiciel annulé : la mise à jour vers v1.4.3 a échoué au démarrage d’essai ; le cadre est revenu à v1.4.2.',
+      tabs:['Flotte','Équipe','Éditeur','Journal','Plus'],nav:['Flotte','Utilisateurs','Éditeur','Journal d’audit'],account:'Compte',space:['Console','Mes cadres'],adminl:'Administration',signout:'Se déconnecter',
+      n1:['Réveil plus rapide après les heures calmes, corrige le pourcentage de batterie affiché à pleine charge et garde l’image précédente à l’écran quand le serveur est injoignable la nuit','Corrige le pourcentage de batterie à pleine charge'],n2:['Correction de la lecture de batterie'],n3:['Écran retiré plus discret']}
+  };
+  Object.keys(S.fr).forEach(function(k){var v=S.fr[k];if(typeof v==='string')S.fr[k]=nb(v);else if(Array.isArray(v))S.fr[k]=v.map(nb);});
+  function ic(n){return '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-'+n+'"/></svg>';}
+  function sidebar(t){
+    var icons=['fleet','team','tag','clock'];
+    return '<div class="side"><span class="brand">'+ic('logo')+'SkyPane</span><div class="space"><span>'+t.space[1]+'</span><span class="on">'+ic('check')+t.space[0]+'</span></div><div class="sep"></div><div class="nlabel">'+t.adminl+'</div>'+
+      t.nav.map(function(x,i){return (i===2?'<div class="sep"></div>':'')+'<div class="nav'+(i===0?' on':'')+'">'+ic(icons[i])+x+'</div>';}).join('')+
+      '<div class="sep"></div><div class="nav">'+ic('user')+t.account+'</div><div class="signout"><a class="btn" href="#">'+t.signout+'</a></div></div>';
+  }
+  function phoneShell(t,inner,overlay){
+    var icons=['fleet','team','tag','clock','more'];
+    return '<div class="ptop"><span class="brand">'+ic('logo')+'SkyPane</span></div><div class="screen">'+inner+'</div><div class="tabs">'+t.tabs.map(function(x,i){return '<div class="tab'+(i===0?' on':'')+'">'+ic(icons[i])+x+'</div>';}).join('')+'</div>'+(overlay||'');
+  }
+  function ctaCard(t,state){
+    if(state==='sched')return '<div class="card cta"><div class="ctar"><div class="ctal"><span class="big">'+ic('clock')+t.sched+'</span><small>'+t.schedb+'</small></div><a class="btn" href="#">'+t.cancelU+'</a></div></div>';
+    return '<div class="card cta"><div class="ctar"><div class="ctal"><span class="big">'+ic('down2')+t.avail+'</span><div><span class="ver">v1.4.3</span> <small>\u00b7 '+t.relago+'</small></div><small class="clamp">'+t.note1+'</small></div><a class="btn dark" href="#">'+t.install+'</a></div></div>';
+  }
+  function versions(t,state){
+    function dot(c){return '<span class="dot'+(c?' '+c:'')+'"></span>';}
+    function li(a){return '<ul class="notes">'+a.map(function(x){return '<li>'+x+'</li>';}).join('')+'</ul>';}
+    var rows=
+      '<div class="vr">'+dot()+'<span class="who"><b>v1.4.3</b><span class="chipv new">'+t.newest+'</span><small>17 Nov · 2 d</small></span><span class="act"><span class="sub">'+t.notes(2)+'</span></span></div>'+li(t.n1)+
+      '<div class="vr">'+dot()+'<span class="who"><b>v1.4.2</b><span class="chipv run">'+t.running+'</span><small>'+t.installed+' 12 Oct</small></span><span class="act"><span class="sub">'+t.notes(1)+'</span></span></div>'+
+      '<div class="vr">'+dot('idle')+'<span class="who"><b>v1.4.1</b><small>28 Sep</small></span><span class="act"><a class="btn ghost2" href="#">'+t.rb+'</a></span></div>'+
+      '<div class="vr">'+dot('idle')+'<span class="who"><b>v1.4.0</b><small>3 Sep</small></span><span class="act"><a class="btn ghost2" href="#">'+t.rb+'</a></span></div>';
+    return '<div><p class="label">'+t.hist+'</p><div class="card vlist">'+rows+'</div></div>';
+  }
+  function body(t,state){
+    var head='<div class="pagehead"><a class="backl" href="#">'+ic('chev').replace('<svg','<svg style="transform:rotate(180deg)"')+t.back+'</a><h3 class="title">'+t.title+'</h3><span class="sub">'+t.forhw+'</span></div>';
+    var toast=state==='rolled'?'<div class="toastb">'+ic('info')+'<span>'+t.toast+'</span></div>':'';
+    return head+toast+ctaCard(t,state==='sched'?'sched':'avail')+versions(t,state);
+  }
+  function page(vp,t,o){
+    o=o||{};
+    var b=body(t,o.state);
+    if(vp==='phone')return phoneShell(t,b.replace('class="title"','class="title" style="font-size:34px"'),o.overlay);
+    return sidebar(t)+'<div class="main" style="left:240px"><div class="page2">'+b+'</div></div>'+(o.overlay||'');
+  }
+  function ov(c){return '<div class="scrim"></div><div class="dlg dlgd" role="alertdialog">'+c+'</div><div class="sheet sheetd" role="alertdialog"><span class="grab"></span>'+c+'</div>';}
+  function confirm(kind){return function(t){
+    return ov('<h4>'+(kind==='roll'?t.rT:t.cT)+'</h4><p>'+(kind==='roll'?t.rB:t.cB)+'</p><div class="row"><a class="btn" href="#">'+t.cNo+'</a><a class="btn dark" href="#">'+(kind==='roll'?t.rGo:t.cGo)+'</a></div>');};}
+  function fallbackPage(vp,t){
+    var card='<div class="card" style="padding:24px;display:flex;flex-direction:column;gap:14px;max-width:460px;width:100%"><h4 style="margin:0;font-size:22px">'+t.cT+'</h4><p style="margin:0;color:var(--muted)">'+t.cB+'</p><div class="row" style="display:flex;gap:10px"><a class="btn" style="flex:1" href="#">'+t.cNo+'</a><a class="btn dark" style="flex:1" href="#">'+t.cGo+'</a></div></div>';
+    return sidebar(t)+'<div class="main" style="left:240px"><div class="page2" style="justify-content:flex-start;padding-top:40px;align-items:flex-start">'+card+'</div></div>';
+  }
+  function mock(vp,caption,sub,builder){
+    var langs=['en','fr'].map(function(l){return '<div data-lang="'+l+'">'+builder(vp,S[l])+'</div>';}).join('');
+    return '<figure class="mock"><figcaption>'+caption+(sub?'<small>'+sub+'</small>':'')+'</figcaption>'+(vp==='desktop'?'<div class="scroller"><div data-viewport="desktop">'+langs+'</div></div>':'<div data-viewport="phone">'+langs+'</div>')+'</figure>';
+  }
+  function section(h,lead,body,extra){return '<section class="sec"><h2>'+h+'</h2><p class="lead">'+lead+'</p>'+body+(extra||'')+'</section>';}
+  var html='';
+  html+=section('1. The Versions page, with an update available (R16)',
+    'The page opened by the Firmware tile of the frame page. One card says what to do: <b>Update available</b>, the new version in mono, its release age and first note, and a single primary <b>Install</b>; its footer says what runs on the frame now. Below, the flat list of versions, one card, one row each: version in mono, a state chip (Newest, Running), the date, and either its notes or a quiet <b>Roll back</b>. Only the newest version has the accent button, so the page never offers two primary actions.',
+    '<div class="row2">'+mock('desktop','Update available','',function(v,t){return page(v,t);})+'</div>'+
+    '<div style="height:32px"></div><div class="row2">'+mock('phone','Update available (phone)','Scroll inside the phone',function(v,t){return page(v,t);})+mock('phone','Update scheduled (phone)','',function(v,t){return page(v,t,{state:'sched'});})+'</div>');
+  html+=section('2. What happens after Install or Roll back (R17)',
+    'Pressing Install or Roll back no longer jumps to a bare page. A dialog of the design system asks once, in plain words: a centred opaque card on desktop, a bottom sheet on phone. The same card is the server page used when scripts are off (below): a page of the console with the card, not a lone paragraph and a button.',
+    '<div class="row2">'+mock('desktop','Install, confirmation','',function(v,t){return page(v,t,{overlay:confirm('inst')(t)});})+mock('desktop','Roll back, confirmation','',function(v,t){return page(v,t,{overlay:confirm('roll')(t)});})+'</div>'+
+    '<div style="height:32px"></div><div class="row2">'+mock('phone','Install, as a bottom sheet','',function(v,t){return page(v,t,{overlay:confirm('inst')(t)});})+mock('desktop','The same question as a page (no script)','The server confirmation page, in the console shell',fallbackPage)+'</div>');
+  html+=section('3. After a rollback',
+    'When the frame rolled itself back after a failed trial boot, the page opens with a docked notice above the card, in the warning tone, naming the version that failed and the one it is back on.',
+    '<div class="row2">'+mock('desktop','Rolled back','',function(v,t){return page(v,t,{state:'rolled'});})+'</div>',
+    '<p class="note"><b>For the build plan:</b> the states (up to date, available, scheduled, installing, failed) use the same card with their own headline; the wording is the one the page has today. The Versions list and the card replace the markup of the older standalone <code>/update</code> page, if the owner agrees.</p>');
+  document.getElementById('app').innerHTML=html;
+  var r=document.documentElement;r.setAttribute('data-ui-lang','en');
+  document.querySelectorAll('#theme button').forEach(function(b){b.addEventListener('click',function(){
+    if(b.dataset.t==='auto')r.removeAttribute('data-ui-theme');else r.setAttribute('data-ui-theme',b.dataset.t);
+    document.querySelectorAll('#theme button').forEach(function(x){x.setAttribute('aria-pressed',String(x===b));});});});
+  document.querySelectorAll('#lang button').forEach(function(b){b.addEventListener('click',function(){
+    r.setAttribute('data-ui-lang',b.dataset.l);r.lang=b.dataset.l;
+    document.querySelectorAll('#lang button').forEach(function(x){x.setAttribute('aria-pressed',String(x===b));});});});
+})();
+</script>
+</html>

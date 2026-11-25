@@ -4,6 +4,7 @@ below the page, which iOS draws under the status bar and under a tab's toolbar a
 layer sized to the window cannot reach.
 
 Headless Chromium has no safe area, so the insets are forced the way the Location tests do."""
+import animation_settle
 import pytest
 
 from companion import auth
@@ -13,9 +14,7 @@ from place_map_support import SETTLED, Hosts, seed as _seed
 pytestmark = pytest.mark.browser
 
 READY = "() => document.documentElement.classList.contains('map-ready')"
-ANIMATIONS_DONE = (
-    "() => document.getAnimations().every("
-    "(a) => a.playState !== 'running' || a.effect.getComputedTiming().iterations === Infinity)")
+ANIMATIONS_DONE = animation_settle.ANIMATIONS_DONE
 SAFE = (
     "() => { const s = document.documentElement.style;"
     " s.setProperty('--safe-top', '59px'); s.setProperty('--safe-bottom', '34px'); }")
@@ -142,9 +141,9 @@ def test_the_open_sheet_dims_the_root_and_the_status_bar_tint_and_closing_restor
     context, page = _open(new_context, server, path, viewport, lang, scheme, iphone=True)
     try:
         before = page.evaluate(ROOT)
-        # The sky gradient is the root's ground everywhere but on Location, where it is the map's
-        # placeholder colour.
-        ground_layers = 0 if path == "/detection" else 1
+        # The root's ground is the sky gradient and the strip of its last colour that hangs below
+        # the box, everywhere but on Location, where it is the map's placeholder colour.
+        ground_layers = 0 if path == "/detection" else 2
         assert len(before["tints"]) == 2 and before["image"].count("gradient") == ground_layers, before
         page.locator(".tab-bar__more > summary").click()
         page.locator(".tab-bar__more-panel").wait_for(state="visible")
@@ -152,7 +151,8 @@ def test_the_open_sheet_dims_the_root_and_the_status_bar_tint_and_closing_restor
             "() => document.querySelector('meta[name=theme-color]').getAttribute('content')"
             " !== %r" % before["tints"][0], timeout=5000)
         opened = page.evaluate(ROOT)
-        assert opened["image"].count("gradient") == ground_layers + 1, opened
+        # Each ground layer sits under its own dim (one on Location, which has a single layer).
+        assert opened["image"].count("gradient") == (1 if ground_layers == 0 else 2 * ground_layers), opened
         assert opened["bodyImage"].count("gradient") == 1, opened
         ground = _rgb(opened["bg"])
         ink = _rgb(opened["text"])

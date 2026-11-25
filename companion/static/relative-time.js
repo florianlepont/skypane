@@ -195,11 +195,11 @@
   // elapsed: the server renders data-ring-next (the next update's instant)
   // and data-ring-interval (the cycle's length in seconds); the bar's
   // stroke-dashoffset is 100 x the share still to come. Set as an attribute
-  // (never a style, for the CSP). Its accessible name is the server's
-  // sentence with the same countdown wording the page shows.
-  var RING_DONE_CLASS = "is-ring-done";
-  var RING_JUMP = 0.1;
-  var lastRingProgress = null;
+  // (never a style, for the CSP). The ring is decorative: the sentence
+  // beside it is its text alternative. Under reduced motion the ring stays
+  // at the progress the server drew; the next refresh redraws it.
+  var REDUCED_MOTION = window.matchMedia
+    && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   function ringProgress(ring, nowMs) {
     var nextMs = new Date(ring.getAttribute("data-ring-next")).getTime();
@@ -210,26 +210,58 @@
     return Math.min(1, Math.max(0, 1 - (nextMs - nowMs) / cycleMs));
   }
 
+  // When the countdown reaches 100% the ring turns green for RING_DONE_MS
+  // and then returns to normal. The state is keyed on the next-update
+  // instant (data-ring-next), not on the element: a refresh that swaps in a
+  // fresh ring while the effect is running continues it as a static green
+  // state (is-ring-resumed, no second animation) and never replays it. The
+  // effect only fires for a cycle the page watched count down.
+  var RING_DONE_CLASS = "is-ring-done";
+  var RING_RESUMED_CLASS = "is-ring-resumed";
+  var RING_DONE_MS = 2000;
+  var armedKey = null;
+  var flashedKey = null;
+
+  function ringFlourish(ring, nowMs, progress) {
+    var key = ring.getAttribute("data-ring-next");
+    var sinceMs = nowMs - new Date(key).getTime();
+    var has = ring.classList.contains(RING_DONE_CLASS);
+    if (progress < 1) {
+      armedKey = key;
+    }
+    if (progress < 1 || armedKey !== key || sinceMs >= RING_DONE_MS) {
+      if (has) {
+        ring.classList.remove(RING_DONE_CLASS, RING_RESUMED_CLASS);
+      }
+      return;
+    }
+    if (has) {
+      return;
+    }
+    if (flashedKey === key) {
+      ring.classList.add(RING_RESUMED_CLASS);
+    }
+    flashedKey = key;
+    ring.classList.add(RING_DONE_CLASS);
+  }
+
   function repaintRing(ring, nowMs) {
     var progress = ringProgress(ring, nowMs);
-    var bar = ring.querySelector(".hero__ring-bar");
+    var bar = ring.querySelector(".home-ring__bar");
     if (progress === null || !bar) {
       return;
     }
+    ringFlourish(ring, nowMs, progress);
     var offset = (100 * (1 - progress)).toFixed(2);
     if (bar.getAttribute("stroke-dashoffset") !== offset) {
       bar.setAttribute("stroke-dashoffset", offset);
     }
-    var aheadS = Math.floor((new Date(ring.getAttribute("data-ring-next")).getTime() - nowMs) / 1000);
-    var when = aheadS > 0 ? distanceText(aheadS, true) : wording(WAITING_ATTR, WAITING_TEXT);
-    var label = (ring.getAttribute("data-ring-label") || "%s").replace("%s", when);
-    if (ring.getAttribute("aria-label") !== label) {
-      ring.setAttribute("aria-label", label);
-    }
-    lastRingProgress = progress;
   }
 
   function repaintRings(nowMs) {
+    if (REDUCED_MOTION) {
+      return;
+    }
     var rings = document.querySelectorAll(RING_SELECTOR);
     var i;
     for (i = 0; i < rings.length; i += 1) {
@@ -237,17 +269,8 @@
     }
   }
 
-  // A refresh that swaps in a fresh cycle (the progress fell back) gives
-  // the new ring its one small flourish.
+  // A refresh swaps in a freshly drawn ring and repaints at once.
   document.addEventListener("skypane-regions-swapped", function () {
-    var ring = document.querySelector(RING_SELECTOR);
-    var nowMs = Date.now();
-    if (ring && lastRingProgress !== null) {
-      var progress = ringProgress(ring, nowMs);
-      if (progress !== null && progress < lastRingProgress - RING_JUMP) {
-        ring.classList.add(RING_DONE_CLASS);
-      }
-    }
     repaintAll();
   });
 

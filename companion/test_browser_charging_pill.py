@@ -3,23 +3,26 @@ is visible and the personal Home never shows it; it stays on one line inside its
 360, 390 and 1280 px in both languages and both themes, and takes nothing from the controls
 around it; with a discharging battery it is absent; and a new on-battery reading removes it on
 the next load."""
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 import pytest
 
 from companion import auth, layout
+from companion.test_browser_battery_helpers import (
+    _seed_charging,
+    _seed_discharging,
+)
 from companion.test_browser_ux_helpers import (
     UI_THEMES_EXPLICIT,
     VIEWPORT_DESKTOP,
     VIEWPORT_MIN_SUPPORTED,
     VIEWPORT_PHONE,
+    _assert_health_rows_flat,
     _assert_no_page_overflow,
     _login,
-    _open_health_rows,
     _set_ui_theme,
-    seed_state_dir,
 )
-from server import device_config, history_db
+from server import history_db
 
 pytestmark = pytest.mark.browser
 
@@ -29,34 +32,7 @@ VIEWPORTS = (
     ("360", VIEWPORT_MIN_SUPPORTED),
 )
 WORDS = {"en": "Probably charging", "fr": "Probablement en charge"}
-HEALTH_PILL = "#health-row-battery > summary .charging-pill"
-# An hourly cadence keeps the readings fresh for two hours, so the shared,
-# read-only server below never outlives its fixture however slow the run.
-INTERVAL_S = 3600
-
-
-def _seed_readings(state_dir, mvs):
-    now = datetime.now(timezone.utc)
-    with history_db.open_db(state_dir) as conn:
-        for i, mv in enumerate(mvs):
-            ts = now - timedelta(seconds=10 + INTERVAL_S * (len(mvs) - 1 - i))
-            history_db.record_device_health(
-                conn, ts.isoformat(timespec="seconds"), battery_mv=mv,
-                fw_version="1.0.0", boot_reason="wake", rssi="-60")
-    device_config.save_device_config(
-        state_dir, wake_interval_s=INTERVAL_S, display_enabled=True, quiet_hours_enabled=False)
-
-
-def _seed_charging(state_dir):
-    seed_state_dir(state_dir)
-    _seed_readings(state_dir, [3700 + 12 * i for i in range(12)])
-
-
-def _seed_discharging(state_dir):
-    seed_state_dir(state_dir)
-    _seed_readings(state_dir, [4000 - 3 * i for i in range(12)])
-
-
+HEALTH_PILL = "#health-row-battery > .health-row__summary .charging-pill"
 @pytest.fixture(scope="module")
 def charging_server(module_app_server_factory):
     return module_app_server_factory(seed=_seed_charging, fake_providers=True)
@@ -110,22 +86,22 @@ def _assert_pill_fits(page, pill_selector, box_selector, where):
 
 @pytest.mark.parametrize("lang", ["en", "fr"])
 @pytest.mark.parametrize("viewport_name,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
-def test_home_shows_no_pill_and_no_battery_block_in_both_themes(
+def test_home_shows_the_pill_inside_the_battery_pill_in_both_themes(
         new_context, charging_server, lang, viewport_name, viewport):
-    """the personal Home shows no charging pill and no battery dial even while the battery is
-    charging (the pill lives on Console Health); its Battery row carries the hedged charging
-    wording in words and draws no pill, and nothing overflows, in light and dark"""
+    """while the battery is charging Home's battery pill carries the one hedged charging pill (the
+    same markup Health uses), draws no dial, repeats the wording nowhere else, and nothing
+    overflows, in light and dark"""
     context, page = _open(new_context, charging_server, layout.HOME_ROUTE, lang, viewport)
     try:
         page.locator(".home-state").wait_for(state="visible")
         for theme in UI_THEMES_EXPLICIT:
             _set_ui_theme(page, theme)
             where = "Home %s %s %s" % (lang, viewport_name, theme)
-            assert page.locator(".charging-pill").count() == 0, where
+            assert page.locator(".charging-pill").count() == 1, where
+            assert page.locator(".home-battery-pill .charging-pill").count() == 1, where
             assert page.locator(".home-battery").count() == 0, where
-            assert WORDS[lang] in page.locator(".frame-battery").inner_text(), where
-            assert WORDS[lang] not in page.locator("body").inner_text().replace(
-                page.locator(".frame-battery").inner_text(), ""), where
+            assert WORDS[lang] in page.locator(".home-battery-pill").inner_text(), where
+            assert page.locator("body").inner_text().count(WORDS[lang]) == 1, where
             assert _assert_no_page_overflow(page, where) == ""
     finally:
         context.close()
@@ -135,41 +111,40 @@ def test_home_shows_no_pill_and_no_battery_block_in_both_themes(
 @pytest.mark.parametrize("viewport_name,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
 def test_health_pill_is_visible_and_fits_in_both_themes(
         new_context, charging_server, lang, viewport_name, viewport):
-    """in Health's Battery row the pill is visible in the closed row's summary, whole inside it,
+    """in Health's Battery row the pill is visible in the row head, whole inside it,
     on one line, with no page overflow, in light and dark"""
-    context, page = _open(new_context, charging_server, "/fleet", lang, viewport)
+    context, page = _open(new_context, charging_server, "/fleet?frame=live&view=battery", lang, viewport)
     try:
         for theme in UI_THEMES_EXPLICIT:
             _set_ui_theme(page, theme)
             where = "Health %s %s %s" % (lang, viewport_name, theme)
             page.locator(HEALTH_PILL).wait_for(state="visible")
             assert page.locator(HEALTH_PILL).inner_text().strip() == WORDS[lang], where
-            _assert_pill_fits(page, HEALTH_PILL, "#health-row-battery > summary", where)
+            _assert_pill_fits(page, HEALTH_PILL, "#health-row-battery > .health-row__summary", where)
             assert _assert_no_page_overflow(page, where) == ""
     finally:
         context.close()
 
 
 def test_the_pill_costs_the_controls_around_it_nothing(new_context, charging_server):
-    """Home's two switches keep their 44px targets (with no pill on Home) and the Battery row's
-    summary stays one tappable disclosure, with the pill present, at the narrowest supported
-    width"""
+    """Home's Screen switch and Quiet hours pill keep their 44px targets (with the pill inside the
+    battery pill) and the Battery row head on Health keeps its 44px height, with the
+    pill present, at the narrowest supported width"""
     context, page = _open(
         new_context, charging_server, layout.HOME_ROUTE, "fr", VIEWPORT_MIN_SUPPORTED)
     try:
         page.locator(".home-state").wait_for(state="visible")
-        assert page.locator(".charging-pill").count() == 0
+        assert page.locator(".home-battery-pill .charging-pill").count() == 1
         for selector in ('form[action="/quick/display"] button[role="switch"]',
-                         'form[action="/quick/quiet-hours"] button[role="switch"]'):
+                         "a.home-pill--quiet", ".home-battery-pill"):
             box = page.locator(selector).bounding_box()
             assert box["height"] >= 44 and box["width"] >= 44, (selector, box)
-        page.goto(charging_server.base_url() + "/fleet")
-        summary = page.locator("#health-row-battery > summary")
+        page.goto(charging_server.base_url() + "/fleet?frame=live&view=battery")
+        summary = page.locator("#health-row-battery > .health-row__summary")
         summary.wait_for(state="visible")
         assert summary.bounding_box()["height"] >= 44
         assert summary.bounding_box()["width"] <= VIEWPORT_MIN_SUPPORTED["width"]
-        _open_health_rows(page)
-        assert page.locator("#health-row-battery").get_attribute("open") is not None
+        _assert_health_rows_flat(page)
         page.locator(HEALTH_PILL).wait_for(state="visible")
     finally:
         context.close()
@@ -177,7 +152,7 @@ def test_the_pill_costs_the_controls_around_it_nothing(new_context, charging_ser
 
 def test_a_discharging_battery_shows_no_pill(new_context, discharging_server):
     """with a falling battery neither page shows the pill"""
-    for route in (layout.HOME_ROUTE, "/fleet"):
+    for route in (layout.HOME_ROUTE, "/fleet?frame=live&view=battery"):
         context, page = _open(new_context, discharging_server, route, "en", VIEWPORT_PHONE)
         try:
             assert page.locator(".charging-pill").count() == 0, route
@@ -190,7 +165,7 @@ def test_the_pill_is_inside_a_region_the_freshness_loop_swaps(new_context, charg
     """on Health the pill sits inside one of the regions the page's refresh loop replaces in
     place, so it appears and disappears with its data and needs no reload"""
     swap_selectors = layout.REFRESH_SWAP_SELECTORS_BY_PAGE[layout.REFRESH_PAGE_FLEET]
-    context, page = _open(new_context, charging_server, "/fleet", "en", VIEWPORT_PHONE)
+    context, page = _open(new_context, charging_server, "/fleet?frame=live&view=battery", "en", VIEWPORT_PHONE)
     try:
         page.locator(HEALTH_PILL).first.wait_for(state="visible")
         inside = page.evaluate(
@@ -208,7 +183,7 @@ def test_a_new_reading_removes_the_pill_on_the_next_load(new_context, make_app_s
     the next load of the page no longer shows the pill (Health has no live refresh marker, so
     the personal Home that used to swap it in place is the only loop that ever did)"""
     server = make_app_server(seed=_seed_charging, fake_providers=True)
-    context, page = _open(new_context, server, "/fleet", "en", VIEWPORT_PHONE)
+    context, page = _open(new_context, server, "/fleet?frame=live&view=battery", "en", VIEWPORT_PHONE)
     try:
         page.locator(HEALTH_PILL).wait_for(state="visible")
         with history_db.open_db(server.state_dir) as conn:
@@ -217,7 +192,7 @@ def test_a_new_reading_removes_the_pill_on_the_next_load(new_context, make_app_s
                 battery_mv=3700 + 12 * 11 - 84, fw_version="1.0.0", boot_reason="wake",
                 rssi="-60")
         page.reload()
-        page.locator('details.health-row[id$="battery"]').wait_for(state="visible")
+        page.locator('div.health-row[id$="battery"]').wait_for(state="visible")
         assert page.locator(".charging-pill").count() == 0
     finally:
         context.close()

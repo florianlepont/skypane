@@ -259,14 +259,14 @@ def test_wake_interval_env_prefill_and_on_disk_precedence(make_app_server):
     cookie = login(server)
     base = server.base_url()
 
-    status, _headers, body = http_request(base + "/fleet", cookie=cookie)
+    status, _headers, body = http_request(base + "/fleet?frame=live", cookie=cookie)
     assert status == 200, "expected 200 for the env-only pre-fill case, got %d" % status
     assert re.search(rb'name="wake_interval_s"[^>]*value="900"', body), (
         "expected the Wake interval input to carry value=\"900\" pre-filled from "
         "SKYPANE_SLEEP_S=900 with nothing stored")
 
     device_config.save_device_config(server.state_dir, wake_interval_s=120)
-    status, _headers, body = http_request(base + "/fleet", cookie=cookie)
+    status, _headers, body = http_request(base + "/fleet?frame=live", cookie=cookie)
     assert status == 200, "expected 200 after storing wake_interval_s=120, got %d" % status
     assert re.search(rb'name="wake_interval_s"[^>]*value="120"', body), (
         "expected the stored wake_interval_s=120 to win over the SKYPANE_SLEEP_S=900 "
@@ -279,17 +279,16 @@ def test_wake_interval_below_floor_env_degrades_to_placeholder(make_app_server):
     """authenticated GET /fleet degrades a below-floor SKYPANE_SLEEP_S=30 (the shipped
     deploy/skypane.env.example value) to the placeholder empty state, never a value attribute
     the form could not submit"""
-    from companion.pages import config_page
     server = make_app_server(fake_providers=True, env_overrides={app_module.SLEEP_ENV_VAR: "30"})
     cookie = login(server)
-    status, _headers, body = http_request(server.base_url() + "/fleet", cookie=cookie)
+    status, _headers, body = http_request(server.base_url() + "/fleet?frame=live", cookie=cookie)
     assert status == 200, "expected 200, got %d" % status
-    assert b'name="wake_interval_s"' in body, "expected the Wake interval input to still be present"
-    assert not re.search(rb'name="wake_interval_s"[^>]*\bvalue="', body), (
+    assert b'name="wake_interval_min"' in body, "expected the Wake interval input to still be present"
+    assert not re.search(rb'name="wake_interval_min"[^>]*\bvalue="', body), (
         "expected no value attribute on the Wake interval input for a below-floor "
         "SKYPANE_SLEEP_S=30 — it must not render a number the form could not submit")
-    assert config_page.WAKE_INTERVAL_PLACEHOLDER_TEXT.encode() in body, (
-        "expected the placeholder text for a below-floor environment value")
+    assert b'name="wake_interval_s" value=""' in body, (
+        "expected the posted seconds to be empty for a below-floor environment value")
 
 
 def test_login_get_with_settings_next_carries_the_destination_on_the_link(app04b_server):
@@ -629,7 +628,7 @@ def test_illustration_manual_key_post_unregistered_then_registered(make_app_serv
     assert add_result == manual_resolutions.ADD_OK, (
         "expected add_entry() to succeed for a fresh entry, got %r" % (add_result,))
     status, headers, _body = http_request(
-        base + "/illustration/%s.png" % manual_key, method="POST", data=body,
+        base + "/illustration/%s.png?default_type=A320" % manual_key, method="POST", data=body,
         cookie=session, content_type=content_type)
     assert status == 303, "expected a 303 redirect once the key is registered, got %d" % status
     assert os.path.isfile(override_path), "expected the override file to now exist at %r" % (override_path,)
@@ -833,10 +832,10 @@ def test_illustration_upload_round_trip_replaces_served_bytes(make_app_server):
 # ==========================================================================
 
 
-def test_home_recent_flights_detail_names_a_direction_only_when_known(make_app_server):
-    """GET / lists each recorded runway event under Recent flights with an "<airline> · <route>"
-    detail line that ends in "Departing" or "Arriving" for those two states, and carries no
-    direction part (and no trailing separator) for any other stored state or none at all"""
+def test_home_recent_flights_caption_names_a_direction_only_when_known(make_app_server):
+    """GET / lists each recorded runway event in the Recent flights strip with a caption that
+    reads "Departure · <age>" or "Arrival · <age>" for those two states, and carries only the age
+    (no direction part and no leading separator) for any other stored state or none at all"""
     server = make_app_server(fake_providers=True)
     session_cookie = login(server)
     with history_db.open_db(server.state_dir) as conn:
@@ -852,14 +851,11 @@ def test_home_recent_flights_detail_names_a_direction_only_when_known(make_app_s
     status, _headers, body = http_request(server.base_url() + "/", cookie=session_cookie)
     assert status == 200, "expected 200 for GET /, got %d" % status
     details = {}
-    for item in parse_html(body.decode("utf-8")).select("li.recent-flight"):
-        callsign = item.select_one(".row__label").text()
-        # The detail leads with the clock; what follows is the airline, route and direction.
-        details[callsign] = item.select_one(".row__detail").text().partition(" · ")[2]
+    for tile in parse_html(body.decode("utf-8")).select("figure.home-strip__tile"):
+        caption = tile.select_one("figcaption")
+        details[caption.text().split(" ")[0]] = re.sub(
+            r" · \d+ \w+$|^\d+ \w+$", "", tile.select_one("figcaption span").text())
 
     assert details == {
-        "AFR1001": "Air France · ORY → TLS · Departing",
-        "AFR1002": "Air France · ORY → NCE · Arriving",
-        "AFR1003": "Air France · ORY → LYS",
-        "AFR1004": "Air France · ORY → BOD",
-    }, "unexpected Recent flights detail lines: %r" % (details,)
+        "AFR1001": "Departure", "AFR1002": "Arrival", "AFR1003": "", "AFR1004": "",
+    }, "unexpected Recent flights captions: %r" % (details,)

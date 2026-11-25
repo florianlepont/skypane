@@ -1,7 +1,8 @@
 """The Users page body: every user as one table row (email, a role select that
 saves on change, frame count, last sign-in, an Active switch and a "..." menu
 of rare actions; a card on a phone) plus the invite dialog the header button
-opens.
+opens, the invitation dialog that shows a new link once and the confirmations
+of a role change and a deletion.
 
 Pure markup: it takes a `UsersView` and reads nothing else. A row carries
 display facts only; the issuer and subject of a linked identity, session
@@ -10,6 +11,7 @@ The guard states are sentences shown in place of the role select, with the
 Active switch locked, for the signed-in administrator and for the last active
 administrator.
 """
+import dataclasses
 import datetime
 from typing import NamedTuple
 
@@ -42,18 +44,8 @@ _STATUS_ACTIVE = i18n.msg("admin_users.status_active", "Active")
 _CO_MANAGER_SUFFIX = i18n.msg("admin_users.co_manager_suffix", "co-manager")
 _SELF_LOCK = i18n.msg(
     "admin_users.self_lock", "You cannot disable or demote yourself.")
-_COPY_INVITE = i18n.msg("admin_users.copy_invitation", "Copy invitation message")
 _COPIED = i18n.msg("admin_users.copied", "Copied")
-_COL_INVITATION = i18n.msg("admin_users.col_invitation", "Invitation message")
-_INVITATION_MESSAGE = i18n.msg(
-    "admin_users.invitation_message",
-    "Hello, you have been invited to SkyPane. Open {url} and sign in with "
-    "{email}.")
-_INVITATION_MESSAGE_NO_URL = i18n.msg(
-    "admin_users.invitation_message_no_url",
-    "Hello, you have been invited to SkyPane. Open the app and sign in with "
-    "{email}.")
-_COL_EMAIL = i18n.msg("admin_users.email", "Email")
+_COL_EMAIL = i18n.msg("admin_users.email", "Email address")
 _COL_ROLE = i18n.msg("admin_users.role", "Role")
 _ROLE_NAME_USER = i18n.msg("admin_users.role_user", "User")
 _ROLE_NAME_ADMIN = i18n.msg("admin_users.role_administrator", "Administrator")
@@ -101,22 +93,94 @@ _DELETE_TITLE = i18n.msg("admin_users.delete_user_title", "Delete this user?")
 _DELETE_KEEP = i18n.msg("admin_users.delete_user_keep", "Keep this user")
 _DELETE_WHAT = i18n.msg(
     "admin_users.delete_user_what",
-    "%s is removed from SkyPane. Their sign-in sessions are closed, they lose "
-    "access to the frames they co-manage and their record is deleted. The "
-    "audit log keeps their address. This cannot be undone.")
-_DELETE_OWNER_RULE = i18n.msg(
-    "admin_users.delete_user_owner_rule",
-    "Someone who owns a frame cannot be deleted: reassign or retire the "
-    "frame first.")
+    "%s is removed from SkyPane and loses access to their frames. This cannot "
+    "be undone.")
+_RENEW_BUTTON = i18n.msg("admin_users.send_new_invitation", "Send a new invitation")
 
 _INVITE_BUTTON = i18n.msg("admin_users.invite_a_user_button", "+ Invite a user")
 _INVITE_TITLE = i18n.msg("admin_users.invite_a_user", "Invite a user")
-_BACK_TO_USERS = i18n.msg("admin_users.back_to_users", "Back to Users")
-_INVITE_PURPOSE = i18n.msg(
-    "admin_users.they_sign_in_with_this_email_through_auth0_skypane_does",
-    "They sign in with this email through Auth0. SkyPane does not send them a "
-    "message, so tell them to sign in.")
-_INVITE_SUBMIT = i18n.msg("admin_users.invite_user", "Invite user")
+_CANCEL = i18n.msg("admin_users.cancel", "Cancel")
+_INVITE_SUBMIT = i18n.msg("admin_users.invite_user", "Invite")
+_DONE = i18n.msg("admin_users.done", "Done")
+_COPY = i18n.msg("admin_users.copy", "Copy")
+_READY_TITLE = i18n.msg("admin_users.invitation_ready", "Invitation ready")
+_READY_SEND_TO = i18n.msg("admin_users.send_this_link_to", "Send this link to %s")
+_READY_HINT = i18n.msg(
+    "admin_users.invitation_hint",
+    "It is shown only once. Treat it as a secret: it expires in {ttl}. They "
+    "choose their password, then open {url} and sign in.")
+_READY_HINT_NO_URL = i18n.msg(
+    "admin_users.invitation_hint_no_url",
+    "It is shown only once. Treat it as a secret: it expires in {ttl}. They "
+    "choose their password, then open the app and sign in.")
+_TTL_DAYS = i18n.msg("admin_users.ttl_days", "%d days")
+_TTL_HOURS = i18n.msg("admin_users.ttl_hours", "%d hours")
+_LINK_MESSAGE = i18n.msg(
+    "admin_users.invitation_link_message",
+    "Hello, you have been invited to SkyPane. Open this link to choose your "
+    "password (it expires in {ttl}): {link} Then open {url} and sign in with "
+    "{email}.")
+_LINK_MESSAGE_NO_URL = i18n.msg(
+    "admin_users.invitation_link_message_no_url",
+    "Hello, you have been invited to SkyPane. Open this link to choose your "
+    "password (it expires in {ttl}): {link} Then open the app and sign in "
+    "with {email}.")
+_FAILED_TITLE = i18n.msg(
+    "admin_users.invitation_not_created", "Invitation link not created")
+_FAILED_LEAD = i18n.msg(
+    "admin_users.invitation_not_created_lead",
+    "%s is invited, but no invitation link was created.")
+_FAILED_RETRY = i18n.msg("admin_users.try_again", "Try again")
+FAIL_BUSY = "busy"
+FAIL_GENERIC = "generic"
+FAIL_NOT_SET_UP = "not_set_up"
+FAIL_CONNECTION_ID = "connection_id"
+FAIL_CUSTOM_DOMAIN = "custom_domain"
+FAIL_PERMISSIONS = "permissions"
+FAIL_CONNECTION_NAME = "connection_name"
+FAIL_CREDENTIALS = "credentials"
+FAIL_RESULT_URL = "result_url"
+_FAILED_REASON = {
+    FAIL_BUSY: i18n.msg(
+        "admin_users.invitation_failed_busy",
+        "The sign-in service is busy. Try again in a moment."),
+    FAIL_GENERIC: i18n.msg(
+        "admin_users.invitation_failed_generic",
+        "The sign-in service did not accept the request. Try again; if it "
+        "keeps failing, check the Auth0 settings on the server."),
+    FAIL_NOT_SET_UP: i18n.msg(
+        "admin_users.invitation_failed_not_set_up",
+        "Automatic invitations are not set up on this server. Create their "
+        "account in Auth0 by hand."),
+    FAIL_CONNECTION_ID: i18n.msg(
+        "admin_users.invitation_failed_connection_id",
+        "A new invitation for someone who already has an Auth0 account needs "
+        "the Auth0 connection id on the server (SKYPANE_AUTH0_DB_CONNECTION_ID). "
+        "See the deployment guide."),
+    FAIL_CUSTOM_DOMAIN: i18n.msg(
+        "admin_users.invitation_failed_custom_domain",
+        "Auth0 answered with an address on another domain. Declare your custom "
+        "domain in SKYPANE_AUTH0_CUSTOM_DOMAIN on the server."),
+    FAIL_PERMISSIONS: i18n.msg(
+        "admin_users.invitation_failed_permissions",
+        "Auth0 refused the request. Give the Management API application the "
+        "create:users and create:user_tickets permissions."),
+    FAIL_CONNECTION_NAME: i18n.msg(
+        "admin_users.invitation_failed_connection_name",
+        "Auth0 could not create the account. Check that "
+        "SKYPANE_AUTH0_DB_CONNECTION is the exact name of the database connection."),
+    FAIL_CREDENTIALS: i18n.msg(
+        "admin_users.invitation_failed_credentials",
+        "Auth0 refused the server's credentials. Check SKYPANE_AUTH0_DOMAIN and "
+        "the Management API client id and secret."),
+    FAIL_RESULT_URL: i18n.msg(
+        "admin_users.invitation_failed_result_url",
+        "The address of this page could not be used as the return address. Check "
+        "that the web server passes the Host header unchanged."),
+}
+# Trying again changes nothing for these two: the server needs its settings
+# completed first.
+_NO_RETRY = (FAIL_NOT_SET_UP, FAIL_CONNECTION_ID)
 INVITE_EMAIL_ERROR = i18n.msg(
     "admin_users.enter_a_valid_email_address", "Enter a valid email address.")
 INVITE_DUPLICATE_ERROR = i18n.msg(
@@ -140,6 +204,24 @@ class UserRow(NamedTuple):
     co_managed_count: int = 0
 
 
+@dataclasses.dataclass(frozen=True)
+class Invitation:
+    """A link just created for `email`, valid for `ttl_sec` seconds. The link
+    is a one-time credential: it is rendered once into the response that
+    made it and held nowhere else, and it never appears in a repr."""
+    email: str
+    link: str = dataclasses.field(repr=False)
+    ttl_sec: int
+
+
+@dataclasses.dataclass(frozen=True)
+class InviteFailure:
+    """A person invited locally for whom no link could be made; `kind` is
+    one of the FAIL_ constants."""
+    email: str
+    kind: str
+
+
 class UsersView(NamedTuple):
     """Everything the page renders; the invite fields carry the state of a
     refused submission."""
@@ -153,6 +235,8 @@ class UsersView(NamedTuple):
     app_url: str = ""
     # (user id, new role) of a role change waiting for its confirmation.
     role_change: tuple | None = None
+    invitation: Invitation | None = None
+    invite_failure: InviteFailure | None = None
 
 
 def role_name(role):
@@ -187,11 +271,10 @@ def _t(message):
     return _esc(i18n.t(message))
 
 
-def _pill(label_html, tone="", attrs=""):
-    css = "banner__pill users-pill"
-    if tone:
-        css += " users-pill--" + tone
-    return '<span class="%s"%s>%s</span>' % (css, attrs, label_html)
+def _pill(text, tone, attrs=""):
+    """A status or "You" badge, built by the catalogue's pill helper (the
+    text is escaped there)."""
+    return _ui().pill_html(text, None, "users-pill users-pill--" + tone, attrs=attrs)
 
 
 _STATUS_LABELS = {
@@ -211,9 +294,9 @@ def _status_pill(row):
         spoken = "%s. %s" % (i18n.t(_STATUS_INVITED), i18n.t(_STATUS_INVITED_HELP))
         help_attrs = ' title="%s" aria-label="%s"' % (_esc(spoken), _esc(spoken))
     return (
-        _pill(_t(_STATUS_LABELS[enabled]), enabled,
+        _pill(i18n.t(_STATUS_LABELS[enabled]), enabled,
               (" hidden" if off else "") + " data-quick-state-on" + help_attrs)
-        + _pill(_t(_STATUS_DISABLED), STATUS_DISABLED,
+        + _pill(i18n.t(_STATUS_DISABLED), STATUS_DISABLED,
                 ("" if off else " hidden") + " data-quick-state-off"))
 
 
@@ -278,25 +361,28 @@ def _guard_html(row):
 
 
 def _role_cell(row):
-    """The role select that sends its form on change (a Save button shows
-    only without script) and lands on the confirmation dialog, or the plain role and the guard sentences for the
-    signed-in administrator and the last active administrator."""
-    guard = _guard_html(row)
-    if guard:
+    """The role select, drawn as a bordered chip with a chevron, that sends
+    its form on change (a Save button shows only without script) and lands on
+    the confirmation dialog, or the plain role for the signed-in administrator
+    and the last active administrator (their guard sentences sit in the
+    person's cell, which every layout shows)."""
+    if row.is_self or row.is_last_admin:
         # The explanation is a tooltip and a hidden description of the role,
         # not text in the cell: the "You" pill already marks the row.
         explained = " ".join(
             _t(note) for flag, note in (
                 (row.is_self, _SELF_LOCK), (row.is_last_admin, _LAST_ADMIN)) if flag)
-        return '<span class="users-role-fixed" title="%s">%s</span>%s' % (
-            explained, _esc(role_name(row.role)), guard)
+        return '<span class="users-role-fixed" title="%s">%s</span>' % (
+            explained, _esc(role_name(row.role)))
     select_id = "role-%d" % row.user_id
     controls = (
         '<label class="visually-hidden" for="%s">%s</label>'
-        '<select id="%s" name="%s" data-autosubmit>%s</select>'
+        '<span class="users-role-chip"><select id="%s" name="%s" data-autosubmit>%s</select>'
+        '%s</span>'
         '<noscript><button type="submit" class="users-role-save">%s</button></noscript>' % (
             select_id, _esc(i18n.t(_ROLE_OF_ARIA) % row.email), select_id, ROLE_FIELD,
-            _role_options(row.role), _t(_SAVE_ROLE)))
+            _role_options(row.role), icon_html("icon-chevron-down", size=16),
+            _t(_SAVE_ROLE)))
     return _post_form(row, _routes().USER_ROLE_SUFFIX, "users-role-form", controls)
 
 
@@ -327,14 +413,13 @@ def delete_dialog_id(row):
 
 def _delete_dialog(row):
     """The confirmation the menu's Delete user item opens."""
-    body = '<p class="text-body">%s</p><p class="text-label">%s</p>' % (
-        _esc(i18n.t(_DELETE_WHAT) % row.email), _t(_DELETE_OWNER_RULE))
+    body = '<p class="modal__note">%s</p>' % _esc(i18n.t(_DELETE_WHAT) % row.email)
     return ui_modal.dialog_html(
         delete_dialog_id(row), i18n.t(_DELETE_TITLE),
         _action_path(row, _routes().USER_DELETE_SUFFIX),
         _ui().csrf_field(), body, i18n.t(_DELETE_BUTTON), i18n.t(_DELETE_KEEP),
         _routes().USERS_ROUTE, destructive=True, confirm_only=True,
-        subtitle=row.email)
+        variant="compact")
 
 
 def role_dialog_id(user_id):
@@ -359,60 +444,75 @@ def _role_dialog(view):
         '<input type="hidden" name="%s" value="%s">'
         '<input type="hidden" name="%s" value="%s">' % (
             ROLE_FIELD, _esc(role), CONFIRMED_FIELD, CONFIRMED_VALUE))
-    body = '<p class="text-body">%s</p>' % _esc(i18n.t(what) % row.email)
+    body = '<p class="modal__note">%s</p>' % _esc(i18n.t(what) % row.email)
     return ui_modal.dialog_html(
         role_dialog_id(user_id), i18n.t(title),
         _action_path(row, _routes().USER_ROLE_SUFFIX),
         _ui().csrf_field() + fields, body, i18n.t(submit), i18n.t(keep),
         _routes().USERS_ROUTE, destructive=not promote, confirm_only=True,
-        open_=True, subtitle=row.email, return_on_close=True,
-        return_focus_id="role-%d" % user_id)
+        open_=True, return_on_close=True, variant="compact",
+        return_focus_id="role-%d users-menu-%d" % (user_id, user_id))
+
+
+# A paper plane for "Send a new invitation", drawn inline: a new sprite symbol would change
+# the markup of every page.
+_SEND_ICON = (
+    '<svg class="icon" width="20" height="20" viewBox="0 0 20 20" aria-hidden="true" '
+    'focusable="false" fill="none" stroke="currentColor" stroke-width="1.6" '
+    'stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 9l15-6.5-6.5 15-2-6.5z"/></svg>')
+
+
+def _renew_form(row):
+    """The menu item that asks for a new invitation link: the invite form
+    with this person's address (the same route, no new one)."""
+    return (
+        '<form method="post" action="%s" class="users-menu__form">%s'
+        '<input type="hidden" name="%s" value="%s">'
+        '<button type="submit" class="row-menu__item">%s%s</button></form>' % (
+            _esc(_routes().USERS_INVITE_ROUTE), _ui().csrf_field(), EMAIL_FIELD,
+            _esc(row.email), _SEND_ICON, _t(_RENEW_BUTTON)))
+
+
+def _role_menu_item(row):
+    """The menu item that changes the role where the table's select is not
+    shown (a phone card): it posts the other role without the confirmed mark,
+    so it lands on the same confirmation dialog as the select. None for the
+    two rows whose role is locked."""
+    if row.is_self or row.is_last_admin:
+        return ""
+    promote = row.role != ROLE_ADMIN
+    return _post_form(
+        row, _routes().USER_ROLE_SUFFIX, "users-menu__form users-menu__role",
+        '<input type="hidden" name="%s" value="%s">'
+        '<button type="submit" class="row-menu__item">%s</button>' % (
+            ROLE_FIELD, ROLE_ADMIN if promote else ROLE_USER,
+            _t(_PROMOTE_SUBMIT if promote else _DEMOTE_SUBMIT)))
 
 
 def _menu_cell(row):
-    """The "..." menu: only the rare actions, the identity unlink of a user
-    who has signed in, then Delete user, which opens its confirmation. The
-    signed-in administrator's own row offers no Delete (the server refuses
-    it), and no menu at all when nothing else is left."""
-    unlink = ""
+    """The "..." menu: Send a new invitation to a person who has not signed
+    in yet, the role change (phone cards only), Reset sign-in for one who has,
+    then Delete user, which opens its confirmation. The signed-in administrator's own row offers no Delete
+    (the server refuses it), and no menu at all when nothing else is left."""
+    items = _renew_form(row) if status_of(row) == STATUS_INVITED else ""
+    items += _role_menu_item(row)
     if row.has_identity:
-        unlink = _post_form(
+        items += _post_form(
             row, _routes().USER_UNLINK_SUFFIX, "users-menu__form",
             '<button type="submit" class="row-menu__item row-menu__item--destructive" '
             'title="%s">%s</button>' % (_t(_UNLINK_HINT), _t(_UNLINK_BUTTON)))
     if not row.is_self:
-        unlink += ui_modal.trigger_html(
-            delete_dialog_id(row), _t(_DELETE_BUTTON),
+        items += ui_modal.trigger_html(
+            delete_dialog_id(row),
+            icon_html("icon-toast-trash") + _t(_DELETE_BUTTON),
             "row-menu__item row-menu__item--destructive")
-    if not unlink:
+    if not items:
         return ""
     return (
-        '<details class="row-menu"><summary class="row-menu__toggle" aria-label="%s">'
-        '%s</summary><div class="row-menu__panel">%s</div></details>' % (
-            _esc(i18n.t(_MORE_ARIA) % row.email), icon_html("icon-more-vertical", size=20),
-            unlink))
-
-
-def invitation_message(app_url, email):
-    """The sentence an administrator pastes to someone they invited: where to
-    go and which address to sign in with. It carries no secret."""
-    if app_url:
-        return i18n.t(_INVITATION_MESSAGE).format(url=app_url, email=email)
-    return i18n.t(_INVITATION_MESSAGE_NO_URL).format(email=email)
-
-
-def _invite_cell(row, app_url):
-    """The Copy invitation message button of a person who has not signed in
-    yet. The shared copy script writes the message with the Clipboard API and
-    falls back to a text selection; the button is hidden without script."""
-    if status_of(row) != STATUS_INVITED:
-        return ""
-    return (
-        '<button type="button" class="users-copy" data-copy-value="%s" '
-        'data-copied-text="%s">%s<span class="copy-btn__label">%s</span></button>'
-        '<span class="visually-hidden" role="status" data-copy-feedback></span>' % (
-            _esc(invitation_message(app_url, row.email)), _t(_COPIED),
-            icon_html("icon-copy"), _t(_COPY_INVITE)))
+        '<details class="row-menu"><summary class="row-menu__toggle" id="users-menu-%d" '
+        'aria-label="%s">%s</summary><div class="row-menu__panel">%s</div></details>' % (
+            row.user_id, _esc(i18n.t(_MORE_ARIA) % row.email),
+            icon_html("icon-more-vertical", size=20), items))
 
 
 def _breakable(email):
@@ -423,36 +523,33 @@ def _breakable(email):
 
 
 def _row_html(row, view):
-    you = _pill(_t(_YOU), "you") if row.is_self else ""
+    you = _pill(i18n.t(_YOU), "you") if row.is_self else ""
     return (
         '<tr class="users-row%s" id="user-%d" data-quick-region>'
         '<th scope="row" class="users-cell users-cell--user">'
         '<span class="users-avatar" aria-hidden="true">%s</span>'
         '<span class="users-who"><span class="users-email" title="%s">%s</span>'
         '<span class="users-status">%s</span>'
-        '<span class="users-pills">%s</span></span></th>'
+        '<span class="users-pills">%s</span>'
+        '<span class="users-meta">%s \u00b7 %s</span>%s</span></th>'
         '<td class="users-cell users-cell--role">%s</td>'
         '<td class="users-cell users-cell--frames">%s</td>'
         '<td class="users-cell users-cell--seen">%s</td>'
         '<td class="users-cell users-cell--active">%s</td>'
-        '<td class="users-cell users-cell--invite">%s</td>'
         '<td class="users-cell users-cell--menu">%s</td></tr>' % (
             " users-row--menu", row.user_id,
             _initial(row.email), _esc(row.email), _breakable(row.email), _status_pill(row), you,
+            _esc(role_name(row.role)), _frames_cell_html(row), _guard_html(row),
             _role_cell(row), _frames_cell_html(row),
-            _last_sign_in_html(row, view.now), _active_cell(row),
-            _invite_cell(row, view.app_url), _menu_cell(row)))
+            _last_sign_in_html(row, view.now), _active_cell(row), _menu_cell(row)))
 
 
 def _table_html(view):
     head = "".join(
-        '<th scope="col" class="users-col users-col--%s">%s</th>' % (
-            name, _t(label) if name != "invite" else (
-                '<span class="visually-hidden">%s</span>' % _t(label)))
+        '<th scope="col" class="users-col users-col--%s">%s</th>' % (name, _t(label))
         for name, label in (
             ("user", _COL_USER), ("role", _COL_ROLE), ("frames", _COL_FRAMES),
-            ("seen", _COL_LAST_SIGN_IN), ("active", _COL_ACTIVE),
-            ("invite", _COL_INVITATION)))
+            ("seen", _COL_LAST_SIGN_IN), ("active", _COL_ACTIVE)))
     return (
         '%s<table class="users-table"><caption class="visually-hidden">%s</caption>'
         '<thead><tr>%s<td class="users-col users-col--menu"></td></tr></thead>'
@@ -484,26 +581,102 @@ def _invite_dialog(view):
     email_attrs, email_error = _field_error("email", view.email_error)
     role_attrs, role_error = _field_error("role", view.role_error)
     body = (
-        '<p class="text-body">%s</p>'
         '<div class="modal__field"><label for="invite-email">%s</label>'
         '<input type="email" id="invite-email" name="%s" required maxlength="254" '
         'autocomplete="off" data-1p-ignore data-lpignore="true" data-bwignore="true" '
-        'data-form-type="other" spellcheck="false" value="%s"%s%s>%s</div>'
-        '<div class="modal__field"><label for="invite-role">%s</label>'
-        '<select id="invite-role" name="%s"%s>%s</select>%s</div>' % (
-            _t(_INVITE_PURPOSE), _t(_COL_EMAIL), EMAIL_FIELD, _esc(view.email_value),
-            email_attrs, ui_base.validation_attrs("email"), email_error, _t(_COL_ROLE), ROLE_FIELD, role_attrs,
-            _role_options(view.role_selected), role_error))
+        'data-form-type="other" spellcheck="false" placeholder="name@example.com" '
+        'value="%s"%s%s>%s</div>'
+        '<div><label class="modal__check" for="invite-role">'
+        '<input type="checkbox" id="invite-role" name="%s" value="%s"%s%s>'
+        '<span class="modal__check-box" aria-hidden="true"></span>%s</label>%s</div>' % (
+            _t(_COL_EMAIL), EMAIL_FIELD, _esc(view.email_value), email_attrs,
+            ui_base.validation_attrs("email"), email_error, ROLE_FIELD, ROLE_ADMIN,
+            " checked" if view.role_selected == ROLE_ADMIN else "", role_attrs,
+            _t(_ROLE_NAME_ADMIN), role_error))
     return ui_modal.dialog_html(
         INVITE_DIALOG_ID, i18n.t(_INVITE_TITLE), _routes().USERS_INVITE_ROUTE,
-        _ui().csrf_field(), body, i18n.t(_INVITE_SUBMIT), i18n.t(_BACK_TO_USERS),
-        _routes().USERS_ROUTE, open_=view.open_invite_dialog)
+        _ui().csrf_field(), body, i18n.t(_INVITE_SUBMIT), i18n.t(_CANCEL),
+        _routes().USERS_ROUTE, open_=view.open_invite_dialog, variant="compact-top")
+
+
+def ttl_text(ttl_sec):
+    """A link lifetime in words: whole days from two days up, else hours."""
+    if ttl_sec >= 2 * 86400 and ttl_sec % 86400 == 0:
+        return i18n.t(_TTL_DAYS) % (ttl_sec // 86400)
+    return i18n.t(_TTL_HOURS) % max(1, ttl_sec // 3600)
+
+
+def invitation_message(invitation, app_url):
+    """What the administrator sends: the link, how long it lasts, the
+    address to open afterwards and the e-mail to sign in with. The link is a
+    secret, so this text is built for the one response that shows it."""
+    template = _LINK_MESSAGE if app_url else _LINK_MESSAGE_NO_URL
+    return i18n.t(template).format(
+        link=invitation.link, ttl=ttl_text(invitation.ttl_sec), url=app_url,
+        email=invitation.email)
+
+
+def _invitation_dialog(invitation, app_url):
+    """The invitation, shown once: the link in a strip with its Copy button
+    (the button copies the whole message), and how long it lasts. The link is
+    text, not an anchor: opening it would use it up."""
+    hint = (_READY_HINT if app_url else _READY_HINT_NO_URL)
+    body = (
+        '<p>%s</p><div class="modal__linkbox"><code>%s</code>'
+        '<button type="button" class="btn btn--primary" data-copy-value="%s" '
+        'data-copied-text="%s">%s<span class="copy-btn__label">%s</span></button>'
+        '<span class="visually-hidden" role="status" data-copy-feedback></span></div>'
+        '<p class="modal__note">%s</p>' % (
+            _esc(i18n.t(_READY_SEND_TO)) % ("<strong>%s</strong>" % _esc(invitation.email)),
+            _esc(invitation.link), _esc(invitation_message(invitation, app_url)),
+            _t(_COPIED), icon_html("icon-copy"), _t(_COPY),
+            _esc(i18n.t(hint).format(
+                ttl=ttl_text(invitation.ttl_sec), url=app_url))))
+    return ui_modal.result_dialog_html(
+        "dlg-invitation-ready", i18n.t(_READY_TITLE), body, i18n.t(_DONE),
+        _routes().USERS_ROUTE, once=True)
+
+
+def _failure_dialog(failure):
+    """No link could be made: the person stays invited, and the dialog says
+    why in a sentence (never a provider message) and, where trying again can
+    help, offers to."""
+    body = '<p class="modal__note">%s</p><p class="modal__note">%s</p>' % (
+        _esc(i18n.t(_FAILED_LEAD) % failure.email),
+        _t(_FAILED_REASON[failure.kind]))
+    retry = ""
+    if failure.kind not in _NO_RETRY:
+        retry = (
+            '<form method="post" action="%s">%s<input type="hidden" name="%s" '
+            'value="%s"><button type="submit" class="btn btn--primary" autofocus>%s<span>%s</span>'
+            '</button></form>'
+            % (_esc(_routes().USERS_INVITE_ROUTE), _ui().csrf_field(), EMAIL_FIELD,
+               _esc(failure.email), icon_html("icon-refresh"), _t(_FAILED_RETRY)))
+    return ui_modal.result_dialog_html(
+        "dlg-invitation-failed", i18n.t(_FAILED_TITLE), body, i18n.t(_DONE),
+        _routes().USERS_ROUTE, retry_form_html=retry)
+
+
+def _result_dialog(view):
+    if view.invitation is not None:
+        return _invitation_dialog(view.invitation, view.app_url)
+    if view.invite_failure is not None:
+        return _failure_dialog(view.invite_failure)
+    return ""
+
 
 def header_action_html():
-    """The page header's "+ Invite a user" trigger (opens the invite dialog)."""
+    """The page header's invite trigger (opens the invite dialog): the words on
+    a wide screen, a square plus button on a phone."""
+    # A phone shows the plus alone in a square button; the words stay in the
+    # markup as the accessible name.
     trigger = ui_modal.trigger_html(
-        INVITE_DIALOG_ID, _t(_INVITE_BUTTON), "page-header__action")
-    return '<div class="page-header__actions page-header__actions--stack">%s</div>' % trigger
+        INVITE_DIALOG_ID,
+        '<span class="page-header__action-icon" aria-hidden="true">%s</span>'
+        '<span class="page-header__action-label">%s</span>' % (
+            icon_html("icon-plus"), _t(_INVITE_BUTTON)),
+        "page-header__action")
+    return '<div class="page-header__actions">%s</div>' % trigger
 
 
 def render(view):
@@ -512,5 +685,6 @@ def render(view):
         '<section class="users-section" aria-label="%s">%s</section>' % (
             _t(_USERS_TEXT), _table_html(view))
         + _invite_dialog(view)
+        + _result_dialog(view)
         + _role_dialog(view)
         + "".join(_delete_dialog(row) for row in view.rows if not row.is_self))

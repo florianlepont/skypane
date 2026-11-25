@@ -139,22 +139,27 @@ def test_a_signed_in_user_never_shows_invited_and_a_never_signed_in_one_does(rig
     assert "Invited" in _row_html(body, seed.user_id)
 
 
-def test_the_header_opens_an_invite_dialog_with_role_defaulting_to_user(rig):
+def test_the_header_opens_a_short_invite_dialog_with_administrator_unticked(rig):
     server, seed, cookie = rig
     body = fx.get(server, cookie, "/users")[2]
     assert re.search(
         r'<a href="#dlg-invite-user" class="page-header__action" data-modal-open>'
-        r'\+ Invite a user</a>', body)
-    dialog = re.search(r'<dialog class="modal" id="dlg-invite-user".*?</dialog>', body, re.S)
+        r'<span class="page-header__action-icon" aria-hidden="true">.*?</span>'
+        r'<span class="page-header__action-label">\+ Invite a user</span></a>', body, re.S)
+    dialog = re.search(
+        r'<dialog class="modal modal--compact modal--top" id="dlg-invite-user".*?</dialog>',
+        body, re.S)
     assert dialog and " open" not in dialog.group(0).split(">", 1)[0]
     html = dialog.group(0)
     assert 'action="/users/invite"' in html and 'name="csrf_token"' in html
     assert 'type="email"' in html and "required" in html and 'maxlength="254"' in html
-    assert re.search(r'<option value="user" selected>User</option>', html)
-    assert "<option value=\"admin\" selected" not in html
-    assert ">Invite user</button>" in html and "Send invitation" not in body
-    assert "SkyPane does not send them a message, so tell them to sign in." in html
-    assert ">Back to Users</a>" in html
+    assert re.search(
+        r'<input type="checkbox" id="invite-role" name="role" value="admin"[^>]*>', html)
+    assert " checked" not in re.search(r'<input type="checkbox"[^>]*>', html).group(0)
+    assert "<select" not in html and ">Administrator</label>" in html
+    assert ">Invite</button>" in html and "Send invitation" not in body
+    assert "SkyPane does not send them a message" not in html
+    assert ">Cancel</a>" in html and "Back to Users" not in html
 
 
 def test_a_hostile_email_is_escaped_and_the_row_is_not_monospace(rig):
@@ -166,7 +171,7 @@ def test_a_hostile_email_is_escaped_and_the_row_is_not_monospace(rig):
     css = served_stylesheet(server)
     declared = declarations_for(css, ".users-email")
     assert "monospace" not in str(declared)
-    assert declared.get("overflow-wrap") == "anywhere" and "text-overflow" not in declared
+    assert declared.get("text-overflow") == "ellipsis" and "overflow-wrap" in declared
 
 
 def test_own_row_shows_the_guard_in_place_of_the_role_select_and_locks_the_switch(rig):
@@ -248,11 +253,11 @@ def test_a_refused_invite_rerenders_the_page_with_the_dialog_open(rig):
     status, _headers, body = fx.post(
         server, cookie, "/users/invite", {"email": "not-an-email", "role": "admin"})
     assert status == 400
-    head = re.search(r'<dialog class="modal" id="dlg-invite-user"[^>]*>', body).group(0)
+    head = re.search(r'<dialog class="modal modal--compact modal--top" id="dlg-invite-user"[^>]*>', body).group(0)
     assert " open" in head
     assert 'value="not-an-email"' in body and "Enter a valid email address." in body
     assert 'aria-invalid="true"' in body and "dlg-invite-user-email-error" in body
-    assert re.search(r'<option value="admin" selected>Administrator</option>', body)
+    assert re.search(r'<input type="checkbox" id="invite-role" name="role" value="admin" checked', body)
 
 
 def test_page_is_admin_only_and_anonymous_is_sent_to_sign_in(rig):
@@ -270,7 +275,7 @@ def test_french_page_uses_the_catalogue(rig):
     assert status == 200
     from companion import i18n_fr
     assert "Inviter" in body and "+ Inviter un utilisateur" in body
-    assert "Retour aux utilisateurs" in body and "Gérer" not in body
+    assert ">Annuler</a>" in body and "Retour aux utilisateurs" not in body
     for heading in ("Utilisateur", "Rôle", "Cadres", "Dernière connexion", "Actif"):
         assert ">%s</th>" % heading in body
     assert "0 cadre" in body and "Vous" in body and "Jamais connecté" in body
@@ -293,9 +298,9 @@ def test_the_paths_match_the_console_route_constants():
 
 def test_invite_creates_an_active_unlinked_user_and_one_audit_row(rig):
     server, seed, cookie = rig
-    status, headers, _ = fx.post(
+    status, headers, body = fx.post(
         server, cookie, "/users/invite", {"email": "New.Person@Example.test", "role": "admin"})
-    assert status == 303 and headers["Location"] == "/users"
+    assert status == 200 and 'id="dlg-invitation-failed"' in body
     row = _sql(server.state_dir,
                "SELECT id, role, disabled, iss, sub FROM users WHERE email = ?",
                ("new.person@example.test",))[0]
@@ -303,9 +308,7 @@ def test_invite_creates_an_active_unlinked_user_and_one_audit_row(rig):
     rows = _audit(server.state_dir, "user.invite")
     assert len(rows) == 1 and rows[0]["target_id"] == str(row[0])
     assert rows[0]["target_type"] == "user" and rows[0]["outcome"] == "ok"
-    page = _flash_text(server, cookie, headers)
-    assert "Invited" in page
-    assert "Tell new.person@example.test to sign in with this address." in page
+    assert "new.person@example.test is invited, but no invitation link was created." in body
 
 
 @pytest.mark.parametrize("email", ["", "not-an-email", "a b@example.test", "x" * 300 + "@e.test"])
@@ -321,7 +324,7 @@ def test_invite_with_an_invalid_email_is_a_field_error(rig, email):
 
 def test_invite_with_an_unknown_role_is_a_field_error(rig):
     server, seed, cookie = rig
-    for role in ("", "owner", "ADMIN"):
+    for role in ("owner", "ADMIN"):
         status, _headers, body = fx.post(
             server, cookie, "/users/invite", {"email": "x@example.test", "role": role})
         assert status == 400 and "Choose a role." in body
@@ -330,6 +333,7 @@ def test_invite_with_an_unknown_role_is_a_field_error(rig):
 
 def test_invite_of_an_existing_email_is_refused_case_insensitively(rig):
     server, seed, cookie = rig
+    _link(server.state_dir, seed.user_id)
     status, _headers, body = fx.post(
         server, cookie, "/users/invite", {"email": fx.USER_EMAIL.upper(), "role": "admin"})
     assert status == 400 and "That email is already invited." in body
@@ -342,7 +346,7 @@ def test_an_invited_email_can_sign_in_and_another_cannot(auth0_rig):
     admin = fx.admin_cookie(rig.state_dir)
     status, _headers, _body = fx.post(
         rig.server, admin, "/users/invite", {"email": "invited@example.test", "role": "user"})
-    assert status == 303
+    assert status == 200
     ok = login_via_auth0(
         rig.server, rig.fake, sub="auth0|fake-invited", email="invited@example.test")
     assert ok.status == 200 and ok.session_cookie is not None
@@ -361,11 +365,11 @@ def test_an_invited_email_can_sign_in_and_another_cannot(auth0_rig):
     ("en", "user", "admin", "Make this person an administrator?", "Make administrator",
      "Keep as user"),
     ("fr", "user", "admin", "Nommer cette personne administrateur\u00a0?",
-     "Nommer administrateur", "Laisser utilisateur"),
+     "Nommer administrateur", "Garder utilisateur"),
     ("en", "admin2", "user", "Remove administrator rights?", "Remove rights",
      "Keep as administrator"),
     ("fr", "admin2", "user", "Retirer les droits d’administrateur\u00a0?",
-     "Retirer les droits", "Laisser administrateur"),
+     "Retirer les droits", "Garder administrateur"),
 ])
 def test_a_role_change_asks_first_and_changes_nothing_until_confirmed(
         rig, lang, target, role, title, submit, keep):
@@ -383,18 +387,20 @@ def test_a_role_change_asks_first_and_changes_nothing_until_confirmed(
     assert _user(server.state_dir, user_id) == before
     assert _audit(server.state_dir, "user.role") == []
     dialog = re.search(
-        r'<dialog class="modal" id="dlg-role-user-%d"[^>]* open.*?</dialog>' % user_id,
+        r'<dialog class="modal modal--compact" id="dlg-role-user-%d"[^>]* open.*?</dialog>'
+        % user_id,
         page, re.S)
     assert dialog is not None, "no open confirmation dialog"
     text = html.unescape(re.sub(r"<[^>]+>", " ", dialog.group(0)))
     for wanted in (title, submit, keep, email):
         assert wanted in text, (wanted, text)
+    assert "modal__subtitle" not in dialog.group(0) and "modal__close" not in dialog.group(0)
     form = dialog.group(0)
     assert 'action="/users/%d/role"' % user_id in form
     assert 'name="role" value="%s"' % role in form
     assert 'name="confirmed" value="1"' in form
     # Enter never confirms: the way out holds the focus.
-    assert re.search(r'<a class="modal__dismiss" href="/users"[^>]* autofocus', form)
+    assert re.search(r'<a class="modal__dismiss modal__dismiss--button" href="/users"[^>]* autofocus', form)
     # The row still shows the stored role.
     assert re.search(
         r'<option value="%s" selected' % before[0], _row_html(page, user_id))
@@ -675,7 +681,8 @@ def _french(cookie):
 
 
 def test_a_duplicate_invite_is_refused_in_the_language_of_the_page(rig):
-    server, _seed, cookie = rig
+    server, seed, cookie = rig
+    _link(server.state_dir, seed.user_id)
     status, _headers, body = fx.post(
         server, _french(cookie), "/users/invite", {"email": fx.USER_EMAIL, "role": "user"})
     assert status == 400

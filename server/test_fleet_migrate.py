@@ -31,8 +31,23 @@ def _run(seeded, *extra, owner=OWNER):
     return fleet_migrate.main(args)
 
 
+# What the default-type migration writes on a run: every airline with pictures gets a default.
+_DEFAULT_TYPE_OUTPUTS = (
+    "airline_default_types.json", "airline_default_types_set.json",
+    "airline_default_types_set_migration.json")
+
+
 def _db_files(snap):
-    return {k: v for k, v in snap.items() if not k.startswith("fleet.db")}
+    return {k: v for k, v in snap.items()
+            if not k.startswith("fleet.db") and k not in _DEFAULT_TYPE_OUTPUTS}
+
+
+def _forget_default_type_migration(root):
+    """Start the default-type migration over, as on a deploy that has not run it."""
+    for name in _DEFAULT_TYPE_OUTPUTS:
+        path = os.path.join(root, name)
+        if os.path.exists(path):
+            os.unlink(path)
 
 
 def _without_wal_sides(snap):
@@ -227,10 +242,7 @@ def test_second_run_with_orphan_token_is_a_noop(seeded, capsys):
     _add_stray_token(seeded)
     assert _run(seeded) == 0
     capsys.readouterr()
-    legacy_before = {
-        k: v for k, v in live.snapshot_dir(seeded.state_dir).items()
-        if not k.startswith("fleet.db")
-    }
+    legacy_before = _db_files(live.snapshot_dir(seeded.state_dir))
     main_before = _db_main(seeded.state_dir)
     assert _run(seeded) == 0
     out = capsys.readouterr().out
@@ -294,10 +306,7 @@ def test_second_run_with_upper_case_token_key_is_a_noop(seeded, capsys):
            {"tokens": {seeded.mac: seeded.token, UPPER_MAC: UPPER_TOKEN}})
     assert _run(seeded) == 0
     capsys.readouterr()
-    legacy_before = {
-        k: v for k, v in live.snapshot_dir(seeded.state_dir).items()
-        if not k.startswith("fleet.db")
-    }
+    legacy_before = _db_files(live.snapshot_dir(seeded.state_dir))
     main_before = _db_main(seeded.state_dir)
     assert _run(seeded) == 0
     out = capsys.readouterr().out
@@ -444,3 +453,325 @@ def test_pending_schema_is_previewed_applied_and_idempotent(seeded, capsys):
         conn.close()
     assert _run(seeded) == 0
     assert "nothing to do" in capsys.readouterr().out
+
+
+# ---- per-frame airline registry merge -------------------------------------
+
+def _seed_frames_with_a_conflict(state_dir):
+    from server import device_dirs
+    older, newer = "2026-01-01T00:00:00+00:00", "2026-02-01T00:00:00+00:00"
+    for device_id, entries in (
+            ("d_0000000a", {"OCN": {"airline_name": "Oceanic", "created_at": older}}),
+            ("d_0000000b", {"OCN": {"airline_name": "Oceanic Airways", "created_at": newer},
+                            "ZZZ": {"airline_name": "Zed Air", "created_at": older}})):
+        directory = device_dirs.provision_device_dir(state_dir, device_id, 800, 480)
+        _write(os.path.join(directory, "manual_resolutions.json"), entries)
+
+
+def test_registry_merge_dry_run_writes_nothing_then_real_run_applies_then_is_idempotent(seeded, capsys):
+    _run(seeded)
+    _seed_frames_with_a_conflict(seeded.state_dir)
+    capsys.readouterr()
+    before = _without_wal_sides(live.snapshot_dir(seeded.state_dir))
+
+    assert _run(seeded, "--dry-run") == 0
+    out = capsys.readouterr().out
+    assert "airline names: would merge 2 per-frame file(s)" in out
+    assert "conflict manual_resolutions OCN: keep 'Oceanic Airways'" in out
+    assert _without_wal_sides(live.snapshot_dir(seeded.state_dir)) == before
+
+    assert _run(seeded) == 0
+    out = capsys.readouterr().out
+    assert "airline names: merged 2 per-frame file(s)" in out
+    root = json.load(open(os.path.join(seeded.state_dir, "manual_resolutions.json")))
+    assert {k: v["airline_name"] for k, v in root.items()} == {"OCN": "Oceanic Airways", "ZZZ": "Zed Air"}
+    after = _without_wal_sides(live.snapshot_dir(seeded.state_dir))
+    assert {k: v for k, v in after.items() if k.startswith("devices")} == {
+        k: v for k, v in before.items() if k.startswith("devices")}
+
+    assert _run(seeded) == 0
+    assert "airline names: nothing to do" in capsys.readouterr().out
+    assert _without_wal_sides(live.snapshot_dir(seeded.state_dir)) == after
+
+
+def test_registry_merge_is_silent_without_per_frame_files(seeded, capsys):
+    assert _run(seeded) == 0
+    assert "airline names" not in capsys.readouterr().out
+    assert not os.path.exists(os.path.join(seeded.state_dir, "airline_registry_migration.json"))
+
+
+def test_registry_merge_is_reported_when_fleet_db_is_already_migrated(seeded, capsys):
+    assert _run(seeded) == 0
+    _seed_frames_with_a_conflict(seeded.state_dir)
+    capsys.readouterr()
+    assert _run(seeded) == 0
+    out = capsys.readouterr().out
+    assert "nothing to do" in out and "airline names: merged 2 per-frame file(s)" in out
+
+
+def test_a_registry_write_failure_exits_1(seeded, monkeypatch, capsys):
+    _run(seeded)
+    _seed_frames_with_a_conflict(seeded.state_dir)
+    monkeypatch.setattr(fleet_migrate.fleet_registries, "apply_merge",
+                        lambda *a, **k: (_ for _ in ()).throw(OSError("disk full")))
+    assert _run(seeded) == 1
+    assert "OSError" in capsys.readouterr().err
+
+
+PENDING_MAC = "02:00:00:00:60:01"
+PENDING_SECRET = "ab" * 32
+
+
+def _legacy_with_extra_mac(seeded, mac=PENDING_MAC):
+    path = os.path.join(seeded.state_dir, fleet_migrate.LEGACY_REGISTRY_FILE)
+    with open(path, encoding="utf-8") as fh:
+        doc = json.load(fh)
+    doc["devices"][mac] = {"secret_sha256": PENDING_SECRET}
+    _write(path, doc)
+
+
+def _make_pending(seeded, mac=PENDING_MAC):
+    conn = fleet_db.connect(seeded.state_dir)
+    try:
+        fleet_db.register_pending(conn, mac, PENDING_SECRET, hardware.LEGACY_KEY, None)
+    finally:
+        conn.close()
+
+
+def _macs(seeded, table):
+    conn = fleet_db.connect_readonly(seeded.state_dir)
+    try:
+        return sorted(r["mac"] for r in conn.execute(f"SELECT mac FROM {table}"))
+    finally:
+        conn.close()
+
+
+def test_pending_legacy_mac_is_skipped_in_dry_run_and_real_run(seeded, capsys):
+    _legacy_with_extra_mac(seeded)
+    _make_pending(seeded)
+    legacy_files = _db_files(live.snapshot_dir(seeded.state_dir))
+    capsys.readouterr()
+
+    assert _run(seeded, "--dry-run") == 0
+    out = capsys.readouterr().out
+    assert f"skip device {PENDING_MAC}: already a pending frame" in out
+    assert f"add device {PENDING_MAC}" not in out
+    assert f"would add device {seeded.mac}" in out
+
+    assert _run(seeded) == 0
+    out = capsys.readouterr().out
+    assert f"skip device {PENDING_MAC}: already a pending frame" in out
+    assert _macs(seeded, "devices") == [seeded.mac]
+    assert _macs(seeded, "pending_devices") == [PENDING_MAC]
+    after = live.snapshot_dir(seeded.state_dir)
+    assert _db_files(after) == legacy_files
+
+
+def test_second_run_with_pending_legacy_mac_is_a_noop(seeded, capsys):
+    _legacy_with_extra_mac(seeded)
+    _make_pending(seeded)
+    assert _run(seeded) == 0
+    capsys.readouterr()
+    main_before = _db_main(seeded.state_dir)
+    logical = _logical(seeded.state_dir)
+    assert _run(seeded) == 0
+    assert "nothing to do" in capsys.readouterr().out
+    assert _db_main(seeded.state_dir) == main_before
+    assert _logical(seeded.state_dir) == logical
+
+
+def test_non_pending_legacy_mac_is_still_added_beside_a_pending_one(seeded):
+    _legacy_with_extra_mac(seeded)
+    _legacy_with_extra_mac(seeded, "02:00:00:00:60:02")
+    _make_pending(seeded)
+    assert _run(seeded) == 0
+    assert _macs(seeded, "devices") == sorted([seeded.mac, "02:00:00:00:60:02"])
+    assert _macs(seeded, "pending_devices") == [PENDING_MAC]
+
+
+def test_pending_frame_paired_later_is_not_re_added_or_resynced(seeded, capsys):
+    _legacy_with_extra_mac(seeded)
+    _make_pending(seeded)
+    assert _run(seeded) == 0
+    conn = fleet_db.connect(seeded.state_dir)
+    try:
+        owner = fleet_db.meta_get(conn, fleet_db.META_BOOTSTRAP_OWNER)
+        conn.execute("DELETE FROM pending_devices WHERE mac = ?", (PENDING_MAC,))
+        fleet_db.add_device(
+            conn, PENDING_MAC, PENDING_SECRET, hardware.LEGACY_KEY, int(owner),
+            state_path="auto",
+        )
+    finally:
+        conn.close()
+    capsys.readouterr()
+    assert _run(seeded) == 0
+    assert "nothing to do" in capsys.readouterr().out
+    assert PENDING_MAC in _macs(seeded, "devices")
+
+
+def test_mac_in_devices_and_pending_does_not_crash(seeded, capsys):
+    assert _run(seeded) == 0
+    conn = fleet_db.connect(seeded.state_dir)
+    try:
+        conn.execute(
+            "INSERT INTO pending_devices (id, mac, secret_sha256, hardware_type, "
+            "status, created_at) VALUES ('p_00000001', ?, ?, ?, 'pending', 'x')",
+            (seeded.mac, PENDING_SECRET, hardware.LEGACY_KEY),
+        )
+    finally:
+        conn.close()
+    capsys.readouterr()
+    assert _run(seeded, "--dry-run") == 0
+    assert _run(seeded) == 0
+    assert _macs(seeded, "devices") == [seeded.mac]
+
+
+# ---- per-frame artwork merge ----------------------------------------------
+
+def _png_bytes(shade):
+    import io
+
+    from PIL import Image
+    buffer = io.BytesIO()
+    Image.new("RGBA", (1200, 400), (shade, 30, 30, 128)).save(buffer, format="PNG")
+    return buffer.getvalue()
+
+
+def _put_picture(directory, name, data, mtime):
+    folder = os.path.join(directory, "illustration_overrides")
+    os.makedirs(folder, exist_ok=True)
+    path = os.path.join(folder, name)
+    with open(path, "wb") as fh:
+        fh.write(data)
+    os.utime(path, (mtime, mtime))
+
+
+def _seed_frames_with_pictures(state_dir):
+    from server import device_dirs
+    a = device_dirs.provision_device_dir(state_dir, "d_0000000a", 800, 480)
+    b = device_dirs.provision_device_dir(state_dir, "d_0000000b", 800, 480)
+    _put_picture(a, "ocn.png", _png_bytes(1), 1_700_000_000)
+    _put_picture(b, "ocn.png", _png_bytes(2), 1_710_000_000)
+    _put_picture(b, "zzz.png", b"x" * (5 * 1024 * 1024), 1_700_000_000)
+    _put_picture(state_dir, "ryr.png", _png_bytes(3), 1_700_000_000)
+
+
+def test_artwork_merge_dry_run_writes_nothing_then_real_run_applies_then_is_idempotent(seeded, capsys):
+    _run(seeded)
+    _seed_frames_with_pictures(seeded.state_dir)
+    capsys.readouterr()
+    before = _without_wal_sides(live.snapshot_dir(seeded.state_dir))
+
+    assert _run(seeded, "--dry-run") == 0
+    out = capsys.readouterr().out
+    assert "artwork: would merge 2 picture(s) from 2 frame(s)" in out
+    assert "artwork: conflict ocn.png: keep [frame d_0000000b," in out
+    assert "artwork: skipped zzz.png of frame d_0000000b: over the" in out
+    assert _without_wal_sides(live.snapshot_dir(seeded.state_dir)) == before
+    assert not os.path.exists(os.path.join(seeded.state_dir, "illustration_conflicts"))
+    assert not os.path.exists(os.path.join(seeded.state_dir, "illustration_migration.json"))
+
+    assert _run(seeded) == 0
+    out = capsys.readouterr().out
+    assert "artwork: merged 2 picture(s)" in out
+    root_dir = os.path.join(seeded.state_dir, "illustration_overrides")
+    assert sorted(os.listdir(root_dir)) == ["ocn.png", "ryr.png"]
+    with open(os.path.join(root_dir, "ocn.png"), "rb") as fh:
+        assert fh.read() == _png_bytes(2)
+    after = _without_wal_sides(live.snapshot_dir(seeded.state_dir))
+    assert {k: v for k, v in after.items() if k.startswith("devices")} == {
+        k: v for k, v in before.items() if k.startswith("devices")}
+
+    assert _run(seeded) == 0
+    out = capsys.readouterr().out
+    assert "artwork: nothing to do" in out
+    assert _without_wal_sides(live.snapshot_dir(seeded.state_dir)) == after
+
+
+def test_artwork_merge_is_silent_without_per_frame_pictures(seeded, capsys):
+    assert _run(seeded) == 0
+    assert "artwork" not in capsys.readouterr().out
+    assert not os.path.exists(os.path.join(seeded.state_dir, "illustration_migration.json"))
+
+
+def test_registry_and_artwork_merges_share_one_report_and_work_alone(seeded, capsys):
+    _run(seeded)
+    _seed_frames_with_a_conflict(seeded.state_dir)
+    _seed_frames_with_pictures(seeded.state_dir)
+    capsys.readouterr()
+    assert _run(seeded) == 0
+    out = capsys.readouterr().out
+    assert "airline names: merged 2 per-frame file(s)" in out and "artwork: merged 2 picture(s)" in out
+    assert _run(seeded) == 0
+    out = capsys.readouterr().out
+    assert "airline names: nothing to do" in out and "artwork: nothing to do" in out
+
+
+def test_an_artwork_write_failure_exits_1(seeded, monkeypatch, capsys):
+    _run(seeded)
+    _seed_frames_with_pictures(seeded.state_dir)
+    monkeypatch.setattr(fleet_migrate.fleet_artwork, "apply_merge",
+                        lambda *a, **k: (_ for _ in ()).throw(OSError("disk full")))
+    assert _run(seeded) == 1
+    assert "OSError" in capsys.readouterr().err
+
+
+def test_default_types_without_a_picture_are_cleared_once(seeded, capsys):
+    _run(seeded)
+    root = seeded.state_dir
+    _forget_default_type_migration(root)
+    with open(os.path.join(root, "airline_default_types.json"), "w") as fh:
+        json.dump({"air-france": "B738", "transavia-france": "A320"}, fh)
+    capsys.readouterr()
+    before = _without_wal_sides(live.snapshot_dir(root))
+
+    assert _run(seeded, "--dry-run") == 0
+    out = capsys.readouterr().out
+    assert "airline default types: would clear 1" in out
+    assert "airline default types: would clear air-france: B738" in out
+    assert "airline default types: would set air-france: A320 (rule a)" in out
+    assert not any("transavia-france" in line and "would set" in line for line in out.splitlines())
+    assert _without_wal_sides(live.snapshot_dir(root)) == before
+
+    assert _run(seeded) == 0
+    out = capsys.readouterr().out
+    assert "airline default types: cleared 1" in out
+    stored = json.load(open(os.path.join(root, "airline_default_types.json")))
+    # Air France lost its default for lack of a picture and gets its airframe back by rule a.
+    assert stored["transavia-france"] == "A320" and stored["air-france"] == "A320"
+    assert "airline default types: set air-france: A320 (rule a)" in out
+    cleared = json.load(open(os.path.join(root, "airline_default_types_cleared.json")))
+    assert [(r["airline_key"], r["type"]) for r in cleared] == [("air-france", "B738")]
+    after = _without_wal_sides(live.snapshot_dir(root))
+
+    assert _run(seeded) == 0
+    assert capsys.readouterr().out.count("airline default types: nothing to do") == 2
+    assert _without_wal_sides(live.snapshot_dir(root)) == after
+
+
+def test_every_airline_with_pictures_and_no_default_gets_one_once(seeded, capsys):
+    _run(seeded)
+    root = seeded.state_dir
+    _forget_default_type_migration(root)
+    capsys.readouterr()
+    before = _without_wal_sides(live.snapshot_dir(root))
+
+    assert _run(seeded, "--dry-run") == 0
+    out = capsys.readouterr().out
+    assert "airline default types: would set air-france: A320 (rule a)" in out
+    assert "airline default types: would set tap-portugal: A321 (rule a)" in out
+    assert _without_wal_sides(live.snapshot_dir(root)) == before
+    assert not os.path.exists(os.path.join(root, "airline_default_types.json"))
+
+    assert _run(seeded) == 0
+    out = capsys.readouterr().out
+    assert "airline default types: set air-france: A320 (rule a)" in out
+    stored = json.load(open(os.path.join(root, "airline_default_types.json")))
+    archive = json.load(open(os.path.join(root, "airline_default_types_set.json")))
+    assert sorted(record["airline_key"] for record in archive) == sorted(stored)
+    assert os.path.isfile(os.path.join(root, "airline_default_types_set_migration.json"))
+    after = _without_wal_sides(live.snapshot_dir(root))
+
+    assert _run(seeded) == 0
+    assert "airline default types: nothing to do" in capsys.readouterr().out
+    assert _without_wal_sides(live.snapshot_dir(root)) == after

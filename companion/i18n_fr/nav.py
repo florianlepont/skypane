@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """French strings for the nav labels and the nav-footer switches.
 
-The nav labels are fixed: Accueil, Historique des vols, Lieu et détection,
-Style, Airlines, État, Appareil, Versions. "FR"/"EN" are identifiers, not
+The nav labels are fixed: Accueil, Vols, Airlines,
+Style, Lieu, État, Appareil, Versions. "FR"/"EN" are identifiers, not
 translated, and therefore have no entry here.
 
 Copy follows sentence case, the typographic apostrophe (U+2019,
@@ -22,29 +22,24 @@ only carries each id's French translation.
 
 MESSAGES = {
     "nav.home": "Accueil",
-    "nav.flight_history": "Historique des vols",
-    "nav.flights_short": "Vols",
-    "nav.detection": "Lieu et détection",
-    "nav.detection_short": "Lieu",
+    "nav.flight_history": "Vols",
+    "nav.detection": "Lieu",
     "nav.personalisation": "Style",
     "nav.airline_collection": "Airlines",
     "nav.airline_editor": "Éditeur de compagnies",
     "nav.frame_tools": "Outils du cadre",
-    "nav.health": "État",
     "nav.device": "Appareil",
     "nav.update": "Versions",
-    "nav.locations": "Lieux",
 
     # The bottom tab bar's fifth cell; its <details> sheet holds the
     # destinations that do not fit in the bar.
     "nav.more": "Plus",
 
-    # The Console bar's short label for the Audit log page, and the space
+    # The Console bar's short labels, and the space
     # switch between the Console and the administrator's own views.
-    "nav.audit_short": "Journal",
     "nav.airlines_short": "Éditeur",
     "nav.users_short": "Équipe",
-    "nav.my_frame": "Mon cadre",
+    "nav.my_frames": "Mes cadres",
     "nav.console": "Console",
     "nav.settings": "Réglages",
     "nav.console_subtitle": "Flotte, utilisateurs, audit",
@@ -52,8 +47,8 @@ MESSAGES = {
     "nav.switch_to_personal": "Passer aux pages de votre cadre",
     "nav.switch_to_console": "Passer à la console d’administration",
 
-    # The strip an administrator sees on a personal page of someone else's frame.
-    "nav.frame_notice_viewing": "Cadre de %s en consultation",
+    # The marker an administrator sees on a personal page of someone else's frame.
+    "nav.frame_notice_viewing": "Vous consultez le cadre de %s",
     "nav.frame_notice_back": "Retour à la flotte",
 
     "nav.language": "Langue",

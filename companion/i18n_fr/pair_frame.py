@@ -5,12 +5,14 @@ for each id is declared in companion/pages/pair_frame_page.py."""
 
 MESSAGES = {
     "pair_frame.add_a_frame": "Ajouter un cadre",
-    "pair_frame.enter_the_code_shown_on_your_frame_s_screen":
-        "Saisissez le code affiché sur l’écran de votre cadre. Le cadre sera à vous.",
+    "pair_frame.enter_the_code_shown_by_the_frame":
+        "Saisissez le code affiché par le cadre",
+    "pair_frame.no_code_on_screen": "Pas de code à l’écran\u00a0?",
     "pair_frame.pairing_code": "Code d’association",
     "pair_frame.the_code_stays_valid_for_about_35_minutes":
-        "Le code reste valable environ 35\u00a0minutes\u00a0; un nouveau s’affiche ensuite "
-        "sur le cadre.",
+        "Valable 35\u00a0minutes.",
+    "pair_frame.if_your_frame_shows_no_code_press_its_reset_button":
+        "Appuyez sur son bouton Reset.",
     "pair_frame.add_frame": "Ajouter le cadre",
     "pair_frame.cancel": "Annuler",
     "pair_frame.your_frames_will_appear_here": "Vos cadres apparaîtront ici",

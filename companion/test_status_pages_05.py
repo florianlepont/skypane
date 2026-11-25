@@ -137,7 +137,7 @@ def test_23_06_home_declares_the_regions_it_actually_renders(tmp_path):
         "a region that silently never refreshes" % (missing,))
     home_list = registry[layout.REFRESH_PAGE_HOME]
     for needle in (
-            "preview-frame", "home-flights", "home-facts", "home-frame-state",
+            "home-flight", "home-flights", "home-facts", "home-frame-state",
             "page-header__freshness"):
         assert any(needle in selector for selector in home_list), (
             "expected Home's swap regions to cover %r, got %r" % (needle, home_list))
@@ -271,41 +271,36 @@ def test_stat_tile_caption_title_is_escaped():
 
 
 def test_health_rows_read_in_plain_language(tmp_path):
-    """Health's rows read in plain language: 'Corroboration', 'Single-source (uncorroborated)',
-    'pipeline last ran' and 'ADS-B pipeline' are all absent from visible text, and every row is
-    named by its plain-language subject"""
+    """the Battery page and the System view read in plain language: 'Corroboration',
+    'Single-source (uncorroborated)', 'pipeline last ran' and 'ADS-B pipeline' are all absent from
+    visible text, and every row or card is named by its plain-language subject"""
     tmp = str(tmp_path)
     now = shp.now()
     shp.seed_device_health(tmp, [(shp.iso(now), 4200)])
     from server import history_db
     shp.seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: shp.iso(now)})
     shp.seed_runway_events(tmp, [{"ts": shp.iso(now), "hex": "abc123", "corroborated": True}])
-    rendered = health_page_composition.render(shp.ctx(tmp, shp.iso(now)))
+    battery = health_page_composition.render(shp.ctx(tmp, shp.iso(now)))
+    system = health_page.system_html(shp.ctx(tmp, shp.iso(now)))
 
-    visible = _visible_text_outside_title_attributes(rendered)
-    for banned in ("Corroboration", "Single-source (uncorroborated)", "pipeline last ran", "ADS-B pipeline"):
-        assert banned not in visible, (
-            "expected %r to be absent from visible text (outside a title attribute)" % banned)
+    for rendered in (battery, system):
+        visible = _visible_text_outside_title_attributes(rendered)
+        for banned in ("Corroboration", "Single-source (uncorroborated)", "pipeline last ran", "ADS-B pipeline"):
+            assert banned not in visible, (
+                "expected %r to be absent from visible text (outside a title attribute)" % banned)
 
-    names = [name.text() for name in parse_html(rendered).select(".health-row__name")]
-    assert names == [
-        health_page.ROW_CONNECTION_NAME, health_page.ROW_BATTERY_NAME,
+    names = [name.text() for name in parse_html(battery).select(".health-row__name")]
+    assert names == [health_page.ROW_BATTERY_NAME]
+    labels = [label.text() for label in parse_html(system).select(".sys-card__label")]
+    assert labels[:3] == [
         health_page.ROW_FLIGHT_DATA_NAME, health_page.ROW_SOURCES_NAME,
         health_page.STATS_SECTION_HEADING]
 
 
-@pytest.mark.parametrize(
-    ("lang", "connection_help", "identification_heading"),
-    (
-        ("en", "This is when the frame last contacted the server.", "Flight identification"),
-        ("fr", "Moment où le cadre a contacté le serveur pour la dernière fois.",
-         "Identification des vols"),
-    ),
-)
-def test_health_keeps_status_primary_and_explains_details_on_request(
-        tmp_path, lang, connection_help, identification_heading):
-    """Health keeps optional technical explanations out of the primary scan: they live in each
-    row's body, behind a row that renders closed while it reads healthy."""
+@pytest.mark.parametrize("lang", ("en", "fr"))
+def test_health_keeps_status_primary_and_explains_details_on_request(tmp_path, lang):
+    """the Battery page and the System view keep optional technical explanations out of the primary
+    scan: they live in each card's body, never in its header, and the readings stay closed by default."""
     state_dir = str(tmp_path)
     now = shp.now()
     shp.seed_device_health(state_dir, [(shp.iso(now), 4200)])
@@ -317,42 +312,34 @@ def test_health_keeps_status_primary_and_explains_details_on_request(
     try:
         prefs.set_request_prefs(lang=lang)
         rendered = health_page_composition.render(shp.ctx(state_dir, shp.iso(now)))
+        system = health_page.system_html(shp.ctx(state_dir, shp.iso(now)))
     finally:
         prefs.set_request_prefs(lang="en")
 
     assert "data-loaded-at" not in rendered
     assert "data-refresh-pill" not in rendered
-    doc = parse_html(rendered)
-    connection = doc.select_one("#health-row-connection")
-    assert connection_help in connection.select_one(".health-row__body").text()
-    assert connection_help not in connection.select_one("summary").text()
-    assert identification_heading in doc.select_one("#health-row-identification").select_one(
-        ".health-row__name").text()
-    sources = doc.select_one("#health-row-sources")
+    sources = parse_html(system).select_one("#system-card-sources")
     explanations = [
         i18n.t_lang(explanation, lang)
         for _key, _label, _status, explanation in health_page._CORROBORATION_ROWS]
     for explanation in explanations:
-        assert explanation in sources.select_one(".health-row__body").text()
-        assert explanation not in sources.select_one("summary").text()
-    for row in doc.select("details.health-row"):
-        assert "open" not in row.attrs, (
-            "a healthy page renders every row closed, got %r open" % row.attrs["id"])
-    assert "readings-disclosure" in _battery_row_html(rendered), (
-        "the raw-readings action stays available inside the Battery row, closed by default")
-    assert "readings-disclosure\" open" not in rendered
+        assert explanation in sources.text()
+        assert explanation not in sources.select_one(".sys-card__head").text()
+    assert 'class="battery-readings"' in _battery_row_html(rendered), (
+        "the raw readings are shown inside the Battery row, open")
+    assert "readings-disclosure" not in rendered
     assert "page-section--warn" not in rendered
 
 
 def _battery_row_html(rendered):
     start = rendered.index('id="health-row-battery"')
-    return rendered[start:rendered.index('<h2 id="%s"' % health_page.SERVER_DATA_SECTION_ID, start)]
+    return rendered[start:]
 
 
 def test_health_registry_and_stats_prose_has_no_adsbdb_or_requirement_id(tmp_path):
-    """a full Health render with a non-empty unresolved registry and stats rows (every
-    branch rendered) contains no 'adsbdb' and no CFG-\\d requirement id outside a title
-    attribute"""
+    """a full System view with a non-empty unresolved registry and stats rows (every
+    branch rendered) has no 'adsbdb' in its identification card and no CFG-\\d requirement id
+    outside a title attribute"""
     tmp = str(tmp_path)
     now = shp.now()
     from server import history_db
@@ -366,12 +353,13 @@ def test_health_registry_and_stats_prose_has_no_adsbdb_or_requirement_id(tmp_pat
     for source in ("fresh_hit", "cache_hit", "airline_only", "miss", "manual"):
         events.append({"ts": shp.iso(now), "hex": "abc123", "route_source": source})
     shp.seed_runway_events(tmp, events)
-    rendered = health_page_composition.render(shp.ctx(tmp, shp.iso(now)))
+    rendered = health_page.system_html(shp.ctx(tmp, shp.iso(now)))
 
-    assert health_page.STATS_SECTION_HEADING in rendered and "% of flights identified" in rendered, (
-        "fixture gap: expected the identification row to actually render")
-    assert "data-table--prose" in rendered, "fixture gap: expected the breakdown table to render"
-    assert "adsbdb" not in rendered
+    card = parse_html(rendered).select_one("#system-card-identification")
+    assert health_page.STATS_SECTION_HEADING in card.text() and "% of flights identified" in card.text().replace(
+        "\u00a0", " "), "fixture gap: expected the identification card to actually render"
+    assert card.select(".sys-card__table"), "fixture gap: expected the breakdown table to render"
+    assert "adsbdb" not in card.text()
     visible = _visible_text_outside_title_attributes(rendered)
     assert not re.search(r"CFG-\d", visible), "expected no requirement id (CFG-\\d) in visible text"
 
@@ -386,16 +374,16 @@ def test_health_registry_and_stats_prose_has_no_adsbdb_or_requirement_id(tmp_pat
 # ==========================================================================
 
 
-def test_exactly_52_vendored_illustration_files_are_registered():
-    """all 52 vendored illustrations normalize to the exact same pixel dimensions
+def test_exactly_70_vendored_illustration_files_are_registered():
+    """all 70 vendored illustrations normalize to the exact same pixel dimensions
     (illustration_normalize.ILLUSTRATION_TARGET_SIZE)"""
-    assert len(_VENDORED_ILLUSTRATION_FILENAMES) == 52, (
-        "expected 52 vendored illustration files, got %d" % len(_VENDORED_ILLUSTRATION_FILENAMES))
+    assert len(_VENDORED_ILLUSTRATION_FILENAMES) == 70, (
+        "expected 70 vendored illustration files, got %d" % len(_VENDORED_ILLUSTRATION_FILENAMES))
 
 
 @pytest.mark.parametrize("filename", _VENDORED_ILLUSTRATION_FILENAMES)
 def test_all_illustrations_normalize_to_identical_pixel_dimensions(filename):
-    """all 52 vendored illustrations normalize to the exact same pixel dimensions
+    """all 70 vendored illustrations normalize to the exact same pixel dimensions
     (illustration_normalize.ILLUSTRATION_TARGET_SIZE)"""
     path = os.path.join(illustrations.ILLUSTRATION_DIR, filename)
     png_bytes = illustration_normalize.normalized_png_bytes(path)
@@ -407,7 +395,7 @@ def test_all_illustrations_normalize_to_identical_pixel_dimensions(filename):
 
 @pytest.mark.parametrize("filename", _VENDORED_ILLUSTRATION_FILENAMES)
 def test_all_illustrations_serve_well_under_the_byte_ceiling(filename):
-    """all 52 vendored illustrations normalize and serve well under 65536 bytes per file,
+    """all 70 vendored illustrations normalize and serve well under 65536 bytes per file,
     the weight fix — a regression that got the dimensions right but left the served
     bytes unchanged would defeat this check"""
     path = os.path.join(illustrations.ILLUSTRATION_DIR, filename)
@@ -419,7 +407,7 @@ def test_all_illustrations_serve_well_under_the_byte_ceiling(filename):
 
 @pytest.mark.parametrize("filename", _VENDORED_ILLUSTRATION_FILENAMES)
 def test_all_illustrations_are_centred_and_unclipped(filename):
-    """all 52 vendored illustrations normalize with their painted content centred within
+    """all 70 vendored illustrations normalize with their painted content centred within
     1px on both axes and never clipped"""
     target_w, target_h = illustration_normalize.ILLUSTRATION_TARGET_SIZE
     path = os.path.join(illustrations.ILLUSTRATION_DIR, filename)
@@ -501,8 +489,8 @@ def test_shell_has_no_theme_or_language_form_and_account_has_both_in_order():
 
 
 def test_french_shell_nav_reads_the_locked_french_labels():
-    """under lang='fr' the personal nav reads Accueil/Historique des vols/Lieu et détection/
-    Style/Compagnies and the Console nav reads Flotte/Utilisateurs/
+    """under lang='fr' the personal nav reads Accueil/Vols/Lieu/
+    Style/Airlines and the Console nav reads Flotte/Utilisateurs/
     Éditeur (the page itself is titled Éditeur de compagnies)"""
     try:
         prefs.set_request_prefs(lang="fr")
@@ -510,7 +498,7 @@ def test_french_shell_nav_reads_the_locked_french_labels():
         console = layout.page_shell(title="Fleet", active="fleet", body="", ui_theme="auto")
     finally:
         prefs.set_request_prefs(lang="en")
-    for label in ("Accueil", "Historique des vols", "Lieu et détection", "Style",
+    for label in ("Accueil", "Vols", "Lieu", "Style",
                   "Airlines"):
         assert label in personal, "expected the French nav label %r in the personal shell" % (label,)
     for label in ("Flotte", "Utilisateurs", "Éditeur"):
@@ -527,7 +515,7 @@ def test_console_nav_copies_carry_the_airline_editor_and_the_status_dot_on_fleet
     assert str(layout.FRAME_TOOLS_LABEL) not in sidebar
     bar_start = rendered.index('<nav class="tab-bar"')
     bar = rendered[bar_start:rendered.index("</nav>", bar_start)]
-    for route in (layout.HEALTH_ROUTE, layout.DEVICE_ROUTE):
+    for route in ("/health", layout.DEVICE_ROUTE):
         assert ('href="%s"' % route) not in sidebar
         assert ('href="%s"' % route) not in bar
     assert 'href="%s"' % layout.AIRLINE_EDITOR_ROUTE in sidebar
@@ -620,7 +608,7 @@ def test_health_page_no_longer_defines_section_intro_html():
 
 def test_device_timestamp_only_carries_no_verdict_text():
     """_device_timestamp_only() emits no widget-verdict class and no DEVICE_STATE_TEXT
-    value, while the Frame connection row still carries exactly one"""
+    value, while the Connection tile still carries exactly one, in its verdict and not in its lines"""
     now = shp.iso(shp.now())
     ts = shp.ago(120)
     detail_only = health_page._device_timestamp_only({"ts": ts}, now)
@@ -629,13 +617,12 @@ def test_device_timestamp_only_carries_no_verdict_text():
         assert verdict_text not in detail_only
     state = {
         "inputs": {"device_health": {"ts": ts}}, "device_state": "ok",
-        "next_wake_clock": None, "wake_interval_s": None}
-    full_row = health_page._connection_row(state, now)
-    verdict_occurrences = sum(
-        1 for verdict_text in health_page.DEVICE_STATE_TEXT.values() if verdict_text in full_row)
-    assert verdict_occurrences == 1, (
-        "expected the connection row to carry exactly one DEVICE_STATE_TEXT verdict, "
-        "got %d" % verdict_occurrences)
+        "next_wake_clock": "14:32", "wake_interval_s": None}
+    tile = health_page._connection_tile(state, now)
+    assert tile.verdict == i18n.t(health_page.DEVICE_STATE_TEXT["ok"])
+    for verdict_text in health_page.DEVICE_STATE_TEXT.values():
+        assert i18n.t(verdict_text) not in tile.age_html
+    assert "14:32" in tile.age_html
 
 
 def test_compute_health_state_carries_device_detail_html(tmp_path):

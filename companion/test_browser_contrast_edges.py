@@ -5,6 +5,7 @@ bar whose shadow is bounded so nothing it paints reaches beyond the gap under it
 import io
 import re
 
+import animation_settle
 import pytest
 from companion_app_server import session_cookie_for_state_dir
 from PIL import Image, ImageChops
@@ -19,8 +20,7 @@ from server import fleet_db
 
 pytestmark = pytest.mark.browser
 
-_SETTLED = """() => document.readyState === 'complete' && document.getAnimations().every(
-  (a) => a.playState !== 'running' || a.effect.getComputedTiming().iterations === Infinity)"""
+_SETTLED = animation_settle.SETTLED
 
 THEMES = ["light", "dark"]
 
@@ -122,7 +122,7 @@ def _seed_fleet(state_dir):
 
 
 @pytest.mark.parametrize("scheme", THEMES)
-def test_the_reactivate_menu_item_sits_on_an_opaque_panel_with_readable_ink(
+def test_the_retired_pages_action_and_the_list_text_have_readable_ink(
         new_context, module_app_server_factory, scheme):
     server = module_app_server_factory(seed=_seed_fleet)
     context = _cookie_context(
@@ -133,14 +133,26 @@ def test_the_reactivate_menu_item_sits_on_an_opaque_panel_with_readable_ink(
         page.locator("main").wait_for(state="visible")
         page.evaluate("t => document.documentElement.setAttribute('data-ui-theme', t)", scheme)
         page.wait_for_function(_SETTLED)
-        item = page.locator(".fleet-block--others a.row-menu__item", has_text="Re-activate").first
-        item.evaluate(
-            "el => { for (let d = el.closest('details'); d;"
-            " d = d.parentElement && d.parentElement.closest('details')) d.open = true; }")
-        item.wait_for(state="visible")
-        ink = item.evaluate("el => getComputedStyle(el).color")
-        panel = item.locator("xpath=ancestor::*[contains(@class,'row-menu__panel')][1]")
-        fill = panel.evaluate("el => getComputedStyle(el).backgroundColor")
+        # The list's owner and status line sits on the solid group.
+        detail = page.locator(".fleet-frame-row .row__detail").first
+        # The ink is a translucent mix: composite it over the group's solid fill.
+        ink, fill = detail.evaluate(
+            "el => { const g = el.closest('ul.group');"
+            " const bg = getComputedStyle(g).backgroundColor;"
+            " const x = document.createElement('canvas').getContext('2d');"
+            " x.fillStyle = bg; x.fillRect(0, 0, 1, 1);"
+            " const solid = [...x.getImageData(0, 0, 1, 1).data];"
+            " x.fillStyle = getComputedStyle(el).color; x.fillRect(0, 0, 1, 1);"
+            " const mixed = [...x.getImageData(0, 0, 1, 1).data];"
+            " const css = (d) => 'rgb(' + d.slice(0, 3).join(', ') + ')';"
+            " return [css(mixed), css(solid)]; }")
+        assert contrast_ratio(_css_hex(ink), _css_hex(fill)) >= WCAG_AA_NORMAL_TEXT
+        page.locator("#fleet-list-retired").locator("xpath=..").locator("a").first.click()
+        button = page.locator(".fleet-other a.fleet-action-button")
+        button.wait_for(state="visible")
+        page.wait_for_function(_SETTLED)
+        ink = button.evaluate("el => getComputedStyle(el).color")
+        fill = button.evaluate("el => getComputedStyle(el).backgroundColor")
         assert fill.startswith("rgb(") and not fill.startswith("rgba("), fill
         assert contrast_ratio(_css_hex(ink), _css_hex(fill)) >= WCAG_AA_NORMAL_TEXT
     finally:

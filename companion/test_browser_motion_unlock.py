@@ -7,6 +7,7 @@ per user (not again on reload), shows flipped under reduced motion and without s
 State is always waited for, never read right after an input."""
 from datetime import datetime, timedelta, timezone
 
+import animation_settle
 import pytest
 
 import companion.test_view_pages_helpers as vp
@@ -55,7 +56,7 @@ def _open_picture(page):
     page.locator(THUMB).first.click()
     page.wait_for_function(
         "s => { const d = document.querySelector(s); return d.open"
-        " && document.getAnimations().every(a => a.playState !== 'running'); }",
+        " && " + animation_settle.DONE_EXPR + "; }",
         arg=DIALOG, timeout=10000)
 
 

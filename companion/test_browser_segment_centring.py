@@ -56,7 +56,7 @@ def test_segment_and_chip_labels_are_centred(new_context, server, viewport, lang
                 " === Infinity)", timeout=10000)
             rows = page.evaluate(_OFF_CENTRE, SEGMENTS)
             assert any("filter-chip__box" in row[0] for row in rows) or path in (
-                "/display", "/account"), path
+                "/airlines", "/display", "/account"), path
             off = [row for row in rows if abs(row[2]) > MAX_OFFSET or abs(row[3]) > MAX_OFFSET]
             if off:
                 raise AssertionError("%s at %dpx: labels off centre %r" % (
@@ -68,7 +68,7 @@ def test_segment_and_chip_labels_are_centred(new_context, server, viewport, lang
 _BAR = (
     "() => { const box = (sel) => document.querySelector(sel).getBoundingClientRect();"
     " const track = box('.filter-bar__chips'); const search = box('.filter-bar__search');"
-    " const title = box('.page-header');"
+    " const title = box('.filter-controls__row');"
     " return {track: [track.height, (track.top + track.bottom) / 2],"
     "  search: [search.height, (search.top + search.bottom) / 2],"
     "  title: [title.height, (title.top + title.bottom) / 2],"
@@ -78,10 +78,10 @@ _BAR = (
 @pytest.mark.parametrize("lang", ["en", "fr"])
 @pytest.mark.parametrize("viewport", [VIEWPORT_MIN_SUPPORTED, VIEWPORT_PHONE_390],
                          ids=["360", "390"])
-def test_the_flights_direction_track_and_title_row_search_are_both_44px(
+def test_the_flights_chips_and_the_search_row_are_both_44px(
         new_context, server, viewport, lang):
-    """the segmented track and the collapsed search button in the title row are both 44px tall,
-    the button sits on the title row's centre line, and every segment is a 44px target"""
+    """the chip row and the search field are both 44px tall (the field is the search row's own
+    height and sits on its centre line), and every chip is a 44px target"""
     context = new_context(viewport=viewport)
     context.add_cookies([{
         "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": server.base_url()}])
@@ -94,8 +94,8 @@ def test_the_flights_direction_track_and_title_row_search_are_both_44px(
             "(a) => a.playState !== 'running' || a.effect.getComputedTiming().iterations"
             " === Infinity)", timeout=10000)
         bar = page.evaluate(_BAR)
-        assert abs(bar["track"][0] - 44) <= 0.5 and abs(bar["search"][0] - 44) <= 0.5, bar
-        assert abs(bar["title"][0] - 44) <= 0.5 or bar["title"][0] > 44, bar
+        assert bar["track"][0] >= 44 - 0.5 and abs(bar["search"][0] - 44) <= 0.5, bar
+        assert abs(bar["title"][0] - 44) <= 0.5, bar
         assert abs(bar["search"][1] - bar["title"][1]) <= 0.5, bar
         assert all(height >= 44 - 0.5 for height in bar["chips"]), bar
     finally:

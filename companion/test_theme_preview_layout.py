@@ -92,6 +92,7 @@ def test_cache_bounds_fit_every_theme_state_size_and_layout():
 
 
 def test_frame_preview_src_adds_layout_only_when_given():
-    """the page-side URL is unchanged without a layout"""
+    """the page-side URL has no layout parameter without a layout; the content address always
+    closes it"""
     assert "layout" not in theme_preview.frame_preview_src("white")
-    assert theme_preview.frame_preview_src("white", layout="b").endswith("&layout=b")
+    assert "&layout=b&v=" in theme_preview.frame_preview_src("white", layout="b")

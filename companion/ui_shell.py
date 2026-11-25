@@ -9,6 +9,7 @@ ui_time for the relative-time `<body>` wordings, companion.ui_nav for
 the sidebar/tab-bar/preferences renderers, and companion.ui_components
 for the quick-switch failure toast; nothing here imports a page module.
 """
+import urllib.parse
 from types import SimpleNamespace
 
 import companion.device_scope as device_scope
@@ -64,6 +65,9 @@ from companion.ui_base import (
     PLACE_CARD_SCRIPT_SRC,
     PLACE_AIRPORT_LIST_SCRIPT_SRC,
     AIRLINE_TYPES_SCRIPT_SRC,
+    AIRLINE_SUGGEST_SCRIPT_SRC,
+    UPDATE_QUESTION_SCRIPT_SRC,
+    FLEET_ANCHORS_SCRIPT_SRC,
     escape_html,
     nav_slug,
 )
@@ -94,6 +98,7 @@ from companion.ui_nav import (
     space_switch_html,
     user_brand_href,
 )
+import companion.ui_components as ui_components
 from companion.ui_components import TOAST_TONE_ERROR, split_toast_message, toast_html
 from companion.ui_time import relative_age_text, relative_copy_attrs
 
@@ -182,6 +187,9 @@ SHELL_SCRIPT_ORDER = (
     PLACE_CARD_SCRIPT_SRC,
     PLACE_AIRPORT_LIST_SCRIPT_SRC,
     AIRLINE_TYPES_SCRIPT_SRC,
+    AIRLINE_SUGGEST_SCRIPT_SRC,
+    UPDATE_QUESTION_SCRIPT_SRC,
+    FLEET_ANCHORS_SCRIPT_SRC,
     PREFETCH_SCRIPT_SRC,
 )
 
@@ -320,6 +328,14 @@ PAGE_END_HTML = '<span id="%s" hidden></span>' % PAGE_END_ID
 # nothing here can fail beyond what the server's own flash already
 # reports. No literal "{" or "}" appears below other than the named
 # slots themselves.
+SIDEBAR_ASIDE_TEMPLATE = (
+    '<aside class="dashboard-sidebar">\n'
+    '<span class="brand">{brand_inner_sidebar}</span>\n'
+    "{sidebar_switch}{sidebar}\n"
+    "{sidebar_footer}\n"
+    "</aside>\n"
+)
+
 PAGE_SHELL_TEMPLATE = (
     "<!DOCTYPE html>\n"
     '<html lang="{lang}" data-ui-theme="{ui_theme}">\n'
@@ -338,18 +354,15 @@ PAGE_SHELL_TEMPLATE = (
     "{icon_defs}\n"
     "{splash}\n"
     "{tab_bar}\n"
-    '<div class="dashboard-shell">\n'
-    '<aside class="dashboard-sidebar">\n'
-    '<span class="brand">{brand_inner_sidebar}</span>\n'
-    "{sidebar_switch}{sidebar}\n"
-    "{sidebar_footer}\n"
-    "</aside>\n"
+    "{frame_notice}"
+    '<div class="dashboard-shell{shell_modifier}">\n'
+    "{sidebar_aside}"
     '<header class="site-header">\n'
     '<span class="brand">{brand_inner_header}</span>\n'
     "{frame_menu}"
     "</header>\n"
     '<main class="page-content dashboard-main" id="{main_id}" tabindex="-1" data-page-open>\n'
-    "{frame_notice}{flash}\n{banner}\n{body}\n{page_end}"
+    "{flash}\n{banner}\n{body}\n{page_end}"
     "</main>\n"
     "</div>\n"
     '<div class="toast-region toast-region--live" {quick_toast_attr} role="alert"></div>\n'
@@ -370,11 +383,6 @@ _DEVICE_DEFAULT_NAME_TEXT = i18n.msg("nav.device_default_name", "Orly frame")
 _UNNAMED_FRAME_TEXT = i18n.msg("admin_fleet.unnamed_frame", "Unnamed frame")
 _TILE_SEEN_TEXT = i18n.msg("nav.frame_tile_seen", "Seen %s")
 
-# The strip shown to an administrator on a personal page of a frame they
-# neither own nor co-manage.
-_FRAME_NOTICE_VIEWING_TEXT = i18n.msg("nav.frame_notice_viewing", "Viewing %s\u2019s frame")
-_FRAME_NOTICE_BACK_TEXT = i18n.msg("nav.frame_notice_back", "Back to Fleet")
-FRAME_NOTICE_CLASS = "frame-notice"
 _MY_FRAMES_HREF = "/account#account-frames"
 _FLEET_HREF = "/fleet"
 
@@ -461,24 +469,26 @@ def _sheet_entries(active, now):
     return device_scope.switcher_entries()
 
 
+def _fleet_return_href():
+    """The Fleet link back to the frame being viewed: the id comes from this
+    request's own device scope (a frame the principal may see), never from
+    the request text; "/fleet" when the scope holds no device."""
+    device = device_scope.current_device()
+    if device is None:
+        return _FLEET_HREF
+    return "%s?frame=%s" % (_FLEET_HREF, urllib.parse.quote(str(device.id), safe=""))
+
+
 def frame_notice_html(active, console_page=False):
-    """The Viewing-owner strip with a Back to Fleet link, or "" unless an
-    administrator is on a personal page (not a Console page) of a frame they
-    neither own nor co-manage. The owner email is escaped; the link is the
-    fixed Fleet route."""
+    """The foreign-frame marker, or "" unless an administrator is on a
+    personal page (not a Console page) of a frame they neither own nor
+    co-manage. The Back to Fleet link targets the viewed frame."""
     if console_page or _device_page_path(active) is None:
         return ""
     email = device_scope.foreign_frame_owner_email()
     if email is None:
         return ""
-    return (
-        '<div class="%(cls)s"><span class="%(cls)s__text">%(text)s</span>'
-        '<a class="text-link %(cls)s__link" href="%(href)s">%(back)s</a></div>\n') % {
-            "cls": FRAME_NOTICE_CLASS,
-            "text": escape_html(i18n.t(_FRAME_NOTICE_VIEWING_TEXT) % email),
-            "href": _FLEET_HREF,
-            "back": escape_html(i18n.t(_FRAME_NOTICE_BACK_TEXT)),
-        }
+    return ui_components.frame_notice_markup(email, _fleet_return_href())
 
 
 def _device_scoped_title(title, active):
@@ -497,10 +507,33 @@ def _expect_link(marker_id, wanted):
     return '<link rel="expect" href="#%s" blocking="render">\n' % marker_id if wanted else ""
 
 
+def _sidebar_aside_html(active, frame_notice, brand_inner, sidebar_html, footer_html):
+    """The sidebar block. Consulting someone else's frame, the only way out is
+    the notice's Back to Fleet: the space switch would be a second, ambiguous
+    one."""
+    return SIDEBAR_ASIDE_TEMPLATE.format_map({
+        "brand_inner_sidebar": brand_inner,
+        "sidebar_switch": "" if frame_notice else space_switch_html(active),
+        "sidebar": sidebar_html,
+        "sidebar_footer": footer_html})
+
+
+def _splash_preload(active, bare, device_config):
+    """The addresses the splash fetches while it plays: every file the
+    destinations this page's own navigation links to need and it does not
+    already load. A page with no navigation lists none."""
+    if bare or not active:
+        return ()
+    # Imported here: preload_assets imports the page modules, which import this one.
+    from companion import preload_assets
+    return preload_assets.preload_urls(
+        active, prefs.current_request_path() or "", device_config)
+
+
 def page_shell(
         title, active, body, ui_theme="auto", flash=None, banner=None,
         health_alert=None, lang=None, device_config=None, scripts=(),
-        refresh_token=None, console_page=False, styles=(), no_tab=False):
+        refresh_token=None, console_page=False, styles=(), no_tab=False, bare=False):
     """Return a complete HTML5 document wrapping `body` in the shared shell.
 
     `title` and nav labels are escaped here. `body`, `flash` and `banner` are
@@ -535,15 +568,20 @@ def page_shell(
 
     `no_tab` (default `False`) is set by the error pages: they are in no tab, so
     the bottom bar selects no cell, not even More.
+
+    `bare` (default `False`) drops every piece of navigation: no sidebar, no
+    tab bar, no space switch, no frame button and no wordmark link. The page
+    itself then holds its only way out.
     """
     script_tags_html = _script_tags_html(scripts)
+    frame_notice = frame_notice_html(active, console_page)
     resolved_theme = ui_theme if ui_theme in UI_THEME_CHOICES else "auto"
     resolved_lang = lang if lang in prefs.LANG_CHOICES else prefs.current_lang()
-    sidebar_html = sidebar_nav(
+    sidebar_html = "" if bare else sidebar_nav(
         active, health_alert=health_alert, device_config=device_config)
-    tab_bar_html = _tab_bar_html(
+    tab_bar_html = "" if bare else _tab_bar_html(
         active, health_alert=health_alert, device_config=device_config,
-        ui_theme=resolved_theme, no_tab=no_tab)
+        ui_theme=resolved_theme, no_tab=no_tab, consulting=bool(frame_notice))
     body_attrs = _body_attrs_html(active, tab_bar_html, refresh_token)
     flash_html = flash or ""
     banner_html = banner or ""
@@ -568,8 +606,8 @@ def page_shell(
     brand_inner_header = (
         '{brand_mark}<span class="site-title">{site_title}</span>'
     ).format(brand_mark=brand_mark_html, site_title=escaped_site_title)
-    if is_user_principal() or (
-            is_admin_principal() and current_space(active) == PERSONAL_SPACE):
+    if not bare and (is_user_principal() or (
+            is_admin_principal() and current_space(active) == PERSONAL_SPACE)):
         # The wordmark leads to the frame's Home when the viewer can open it,
         # else to Account; an administrator's personal pages match a user's.
         brand_link = (
@@ -588,20 +626,19 @@ def page_shell(
             for href in (page_styles.area_hrefs(prefs.current_request_path()) if active else ())
             + tuple(styles)),
         # Decorative: the adjacent site-title text stays the accessible name.
-        "brand_inner_sidebar": brand_inner_sidebar,
         "brand_inner_header": brand_inner_header,
         "body_attrs": body_attrs,
         "skip_link": skip_link_html,
         "icon_defs": ICON_DEFS_HTML,
-        "splash": ui_splash.splash_html(),
+        "splash": ui_splash.splash_html(_splash_preload(active, bare, device_config)),
         "splash_boot_src": SPLASH_BOOT_SCRIPT_SRC,
         "splash_src": SPLASH_SCRIPT_SRC,
-        "sidebar": sidebar_html,
-        "sidebar_footer": sidebar_footer_html,
-        "sidebar_switch": space_switch_html(active),
+        "shell_modifier": " dashboard-shell--bare" if bare else "",
+        "sidebar_aside": "" if bare else _sidebar_aside_html(
+            active, frame_notice, brand_inner_sidebar, sidebar_html, sidebar_footer_html),
         "main_id": SKIP_LINK_TARGET_ID,
-        "frame_notice": frame_notice_html(active, console_page),
-        "frame_menu": frame_menu.header_menu_html(active),
+        "frame_notice": frame_notice,
+        "frame_menu": "" if frame_notice or bare else frame_menu.header_menu_html(active),
         "flash": flash_html,
         "banner": banner_html,
         "body": body,

@@ -189,15 +189,14 @@ def _assert_no_markup(value, path):
 
 
 def test_health_signals_builds_no_markup(tmp_path, monkeypatch):
-    """health_signals() never calls a markup builder: with every row builder,
+    """health_signals() never calls a markup builder: with the battery row builder,
     _battery_section and *_timestamp_only helper monkeypatched to raise, it still
     returns successfully, and none of its values carries a '<' character."""
     def _boom(*_args, **_kwargs):
         raise AssertionError("health_signals() must never call a markup builder")
 
     for name in (
-        "_connection_row", "_flight_data_row", "_battery_row", "_sources_row",
-        "_identification_row", "_backup_row", "_battery_section",
+        "_battery_row", "_battery_section",
         "_device_timestamp_only", "_pipeline_timestamp_only",
     ):
         monkeypatch.setattr(health_page, name, _boom)

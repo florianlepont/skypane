@@ -186,11 +186,9 @@ def _cta(html):
 
 
 def _rows(html):
-    """The `<details class="update-row">` nodes keyed by their version."""
-    rows = {}
-    for details in parse_html(html).select("details.update-row"):
-        rows[details.select_one(".update-row__version .mono").text()] = details
-    return rows
+    """The `<li class="update-item">` rows keyed by their version."""
+    return {row.select_one(".update-item__version").text(): row
+            for row in parse_html(html).select("li.update-item")}
 
 
 def _forms(node):
@@ -204,6 +202,8 @@ def _forms(node):
 
 
 QUIET = update_page._QUIET_BUTTON_CLASS
+PRIMARY = update_page._PRIMARY_BUTTON_CLASS
+TEXT = update_page._TEXT_BUTTON_CLASS
 
 
 def _running_view(extra_releases=(), installed_at=None, running="fw-v1.0.0"):
@@ -284,7 +284,7 @@ def test_no_reported_version_card_says_so_and_offers_nothing():
 def test_newer_release_gets_the_call_to_action_with_the_one_primary_install_button():
     """a release newer than the running one is offered in the card with the accent primary
     Install button (no quiet class), worded with its version, through the same guarded
-    form (data-confirm, hidden version, no confirm field)"""
+    form (question attributes, hidden version, no confirm field)"""
     newer = _release("fw-v1.1.0", notes=["Fixes the panel refresh"],
                      published_at="2026-09-29T09:00:00+00:00")
     html = update_page.update_page(_ctx(), _running_view([newer]), "")
@@ -293,28 +293,30 @@ def test_newer_release_gets_the_call_to_action_with_the_one_primary_install_butt
     assert card.select_one(".mono").text() == "fw-v1.1.0"
     assert "Fixes the panel refresh" in card.text()
     assert len(card.select("time[data-relative]")) == 1
-    assert _forms(card) == [("fw-v1.1.0", "", "Install fw-v1.1.0")]
+    assert _forms(card) == [("fw-v1.1.0", PRIMARY, "Install fw-v1.1.0")]
     form = card.select_one("form")
-    assert form.attrs["method"] == "post" and "data-confirm" in form.attrs
+    assert form.attrs["method"] == "post" and "data-question-title" in form.attrs
+    assert form.attrs["data-question-title"] == "Install firmware fw-v1.1.0?"
+    assert form.attrs["data-question-go"] == "Install" and form.attrs["data-question-cancel"] == "Cancel"
     assert not form.select('input[name="confirm"]')
     fr_card = _cta(_fr_html(_running_view([newer])))
     assert fr_card.select_one("h2").text() == "Mise à jour disponible"
-    assert _forms(fr_card) == [("fw-v1.1.0", "", "Installer fw-v1.1.0")]
+    assert _forms(fr_card) == [("fw-v1.1.0", PRIMARY, "Installer fw-v1.1.0")]
+    assert fr_card.select_one("form").attrs["data-question-go"] == "Installer"
 
 
-def test_an_offer_still_names_what_the_frame_runs_and_when_it_was_installed():
-    """while an update is on offer, scheduled or installing, the card's footer names the
-    running version and its install time; the up-to-date card does not repeat it"""
+def test_the_card_has_no_footer_naming_the_running_version():
+    """whatever the card is about, it carries no "On the frame" footer: the running
+    release is named by the up-to-date card and by the list's Running chip"""
     newer = _release("fw-v1.1.0", published_at="2026-09-29T09:00:00+00:00")
-    card = _cta(update_page.update_page(
-        _ctx(), _running_view([newer], installed_at=["2026-09-28T11:00:00+00:00"]), ""))
-    footer = card.select_one(".update-cta__on")
-    assert footer.select_one(".mono").text() == "fw-v1.0.0"
-    assert footer.text().startswith("On the frame: fw-v1.0.0")
-    assert footer.select_one("time[data-relative]").attrs["title"] == "28 Sep 13:00"
-    fr_footer = _cta(_fr_html(_running_view([newer]))).select_one(".update-cta__on")
-    assert fr_footer.text().startswith("Sur le cadre : fw-v1.0.0")
-    assert not _cta(update_page.update_page(_ctx(), _running_view(), "")).select(".update-cta__on")
+    view = _running_view([newer], installed_at=["2026-09-28T11:00:00+00:00"])
+    html = update_page.update_page(_ctx(), view, "")
+    assert "On the frame" not in html and not _cta(html).select(".update-cta__on")
+    assert "Sur le cadre" not in _fr_html(view)
+    running = _rows(html)["fw-v1.0.0"]
+    assert [chip.text() for chip in running.select(".banner__pill")] == ["Running"]
+
+
 
 
 def test_the_card_offers_the_newest_installable_release_not_an_older_one():
@@ -327,27 +329,34 @@ def test_the_card_offers_the_newest_installable_release_not_an_older_one():
 
 
 def test_older_release_is_worded_as_a_rollback_on_a_quiet_button():
-    """an older release reads "Roll back to <version>" ("Revenir à ...") on the quiet
-    button, through the same confirmation form; the card does not offer it"""
+    """an older release reads "Revert" ("Revenir") on the text button of its row, named
+    by its version for assistive technology, through the same confirmation form with the
+    rollback's own question; the card does not offer it"""
     view = _view(
         releases=[_release("fw-v1.0.0", published_at="2026-09-10T09:00:00+00:00"),
                   _release("fw-v1.1.0", installed_at=[_NOW])],
         device_entry=_device("fw-v1.1.0"))
-    html = update_page.update_page(_ctx(), view, "")
+    html = update_page.update_page(_ctx(), view, "08:14")
     assert not _cta(html).select("form")
     row = _rows(html)["fw-v1.0.0"]
-    assert _forms(row) == [("fw-v1.0.0", QUIET, "Roll back to fw-v1.0.0")]
+    assert _forms(row) == [("fw-v1.0.0", TEXT, "Revert")]
     form = row.select_one("form")
-    assert form.attrs["action"] == update_page.INSTALL_ROUTE and "data-confirm" in form.attrs
+    assert form.attrs["action"] == update_page.INSTALL_ROUTE and "data-question-title" in form.attrs
+    assert form.select_one("button").attrs["aria-label"] == "Revert to fw-v1.0.0"
+    assert form.attrs["data-question-title"] == "Revert to fw-v1.0.0?"
+    assert "back to fw-v1.0.0 at its next wake, around 08:14" in form.attrs["data-question-body"]
+    assert form.attrs["data-question-go"] == "Revert"
     assert not form.select('input[name="confirm"]')
     fr_row = _rows(_fr_html(view))["fw-v1.0.0"]
-    assert _forms(fr_row) == [("fw-v1.0.0", QUIET, "Revenir à fw-v1.0.0")]
-    assert "Installer" not in fr_row.select_one("form").text()
+    assert _forms(fr_row) == [("fw-v1.0.0", TEXT, "Revenir")]
+    assert fr_row.select_one("form button").attrs["aria-label"] == "Revenir à fw-v1.0.0"
+
+
 
 
 def test_the_accent_primary_button_is_only_for_installing_a_newer_release():
-    """with an older and a newer release beside the running one, every Install form of the
-    newer release is the accent primary and every other one is the quiet button"""
+    """with an older and a newer release beside the running one, the card's Install of the
+    newer release is the one accent primary button and every other action is a text button"""
     view = _view(
         releases=[_release("fw-v1.0.0", published_at="2026-09-10T09:00:00+00:00"),
                   _release("fw-v1.1.0", installed_at=[_NOW], published_at="2026-09-15T09:00:00+00:00"),
@@ -355,69 +364,71 @@ def test_the_accent_primary_button_is_only_for_installing_a_newer_release():
         device_entry=_device("fw-v1.1.0"))
     html = update_page.update_page(_ctx(), view, "")
     forms = _forms(parse_html(html))
-    primary = {version for version, button_class, _text in forms if not button_class}
-    quiet = {version for version, button_class, _text in forms if button_class == QUIET}
-    assert primary == {"fw-v1.2.0"} and quiet == {"fw-v1.0.0"}
-    assert len(forms) == 3, "the card and the row each carry the newer release's form"
+    primary = {version for version, button_class, _text in forms if button_class == PRIMARY}
+    other = {version for version, button_class, _text in forms if button_class != PRIMARY}
+    assert primary == {"fw-v1.2.0"} and other == {"fw-v1.0.0"}
+    assert len(forms) == 2, "the offered release has its one button in the card, not in the list"
+
+
 
 
 def test_a_row_install_button_is_named_by_its_version_for_assistive_technology():
-    newer = _release("fw-v1.1.0", published_at="2026-09-29T09:00:00+00:00")
-    html = update_page.update_page(_ctx(), _running_view([newer]), "")
+    releases = [_release("fw-v1.1.0", published_at="2026-09-29T09:00:00+00:00"),
+                _release("fw-v1.2.0", published_at="2026-09-30T09:00:00+00:00")]
+    html = update_page.update_page(_ctx(), _running_view(releases), "")
     button = _rows(html)["fw-v1.1.0"].select_one("button")
     assert button.text() == "Install"
     assert button.attrs["aria-label"] == "Install fw-v1.1.0"
 
 
+
+
 def test_every_release_is_listed_in_newest_first_order():
-    """the version list holds the whole history, no cut-off, newest published first, with
-    its count beside the heading"""
+    """the version list holds the whole history, no cut-off, newest published first, under
+    the Versions label"""
     releases = [
         _release("fw-v1.%d.0" % n, published_at="2026-09-%02dT09:00:00+00:00" % (n + 1))
         for n in range(12)]
     view = _view(releases=releases, device_entry=_device("fw-v1.5.0"))
     html = update_page.update_page(_ctx(), view, "")
     doc = parse_html(html)
-    versions = [row.select_one(".update-row__version .mono").text()
-                for row in doc.select("details.update-row")]
-    assert versions == ["fw-v1.%d.0" % n for n in range(11, -1, -1)]
-    assert doc.select_one(".update-versions__count").text() == "12"
-    assert doc.select_one("section.update-versions-group h2").text() == "Versions 12"
-    assert len(doc.select("details.update-row.update-row--running")) == 1
+    assert list(_rows(html)) == ["fw-v1.%d.0" % n for n in range(11, -1, -1)]
+    assert doc.select_one("section.update-versions h2").text() == "Versions"
+    assert len(doc.select("li.update-item.update-item--running")) == 1
 
 
-def test_rows_are_native_closed_details_with_one_relative_date_and_the_absolute_inside():
-    """each row is a native closed <details>; its summary carries one relative date whose
-    title is the absolute local date and time, and the opened body repeats the absolute
-    date as a plain <time> that never ticks"""
-    release = _release("fw-v1.0.0", notes=["First", "Second"], installed_at=[_NOW],
+
+
+def test_rows_are_native_closed_details_with_the_absolute_date_and_one_relative_age():
+    """a row with notes is a native closed <details>; its date line carries the absolute
+    local date and time as a plain <time> that never ticks and one relative age whose title
+    is the same moment"""
+    release = _release("fw-v1.0.0", notes=["First", "Second"],
                        published_at="2026-09-20T09:00:00+00:00")
     release["released_at"] = "2026-09-20T09:00:00+00:00"
-    view = _view(releases=[release], device_entry=_device("fw-v1.0.0"))
+    view = _view(releases=[release])
     row = _rows(update_page.update_page(_ctx(), view, ""))["fw-v1.0.0"]
-    assert row.tag == "details" and "open" not in row.attrs
-    summary = row.select_one("summary")
-    times = summary.select("time[data-relative]")
-    assert len(times) == 1 and times[0].attrs["title"] == "20 Sep 11:00"
-    assert times[0].attrs["datetime"].startswith("2026-09-20T11:00:00")
-    body_times = row.select_one(".update-row__body").select("time")
-    assert body_times and all("data-relative" not in time.attrs for time in body_times)
-    assert body_times[0].text() == "20 Sep 11:00"
-    assert "Released" in row.select_one(".update-row__body").text()
+    details = row.select_one("details")
+    assert "open" not in details.attrs
+    meta = row.select_one(".update-item__meta")
+    absolute = [t for t in meta.select("time") if "data-relative" not in t.attrs]
+    relative = meta.select("time[data-relative]")
+    assert [t.text() for t in absolute] == ["20 Sep 11:00"]
+    assert len(relative) == 1 and relative[0].attrs["title"] == "20 Sep 11:00"
+    assert row.select_one(".update-item__count").text() == "Notes (2)"
 
 
-def test_a_previously_installed_release_shows_its_last_installation_in_the_opened_row():
+
+
+def test_a_row_beside_a_rollback_action_counts_its_notes_on_its_own_line():
     view = _running_view([_release(
-        "fw-v1.1.0", installed_at=["2026-09-28T11:00:00+00:00"],
-        published_at="2026-09-29T09:00:00+00:00")])
-    row = _rows(update_page.update_page(_ctx(), view, ""))["fw-v1.1.0"]
-    meta = [p.text() for p in row.select(".update-row__meta")]
-    assert "Last installed 28 Sep 13:00" in meta
-    fr_html = _fr_html(view)
-    fr_meta = [p.text() for p in _rows(fr_html)["fw-v1.1.0"].select(".update-row__meta")]
-    assert "Dernière installation : 28 sept. 13:00" in fr_meta
-    assert "Dernière installation%s: " % _NBSP in fr_html
-    assert "Last installed" not in fr_html
+        "fw-v0.9.0", notes=["Older note"], published_at="2026-09-01T09:00:00+00:00")])
+    row = _rows(update_page.update_page(_ctx(), view, ""))["fw-v0.9.0"]
+    assert row.select_one(".update-item__count").text() == "Notes (1)"
+    assert not row.select(".update-item__notes-label")
+    assert _rows(_fr_html(view))["fw-v0.9.0"].select_one(".update-item__count").text() == "Notes (1)"
+
+
 
 
 def test_the_running_row_says_installed_and_a_never_installed_row_does_not():
@@ -425,27 +436,31 @@ def test_the_running_row_says_installed_and_a_never_installed_row_does_not():
         [_release("fw-v1.1.0", published_at="2026-09-29T09:00:00+00:00")],
         installed_at=["2026-09-28T11:00:00+00:00"])
     rows = _rows(update_page.update_page(_ctx(), view, ""))
-    running_meta = [p.text() for p in rows["fw-v1.0.0"].select(".update-row__meta")]
-    assert "Installed 28 Sep 13:00" in running_meta
-    never_meta = [p.text() for p in rows["fw-v1.1.0"].select(".update-row__meta")]
-    assert not any("nstalled" in text for text in never_meta)
+    assert "Installed 28 Sep 13:00" in rows["fw-v1.0.0"].select_one(".update-item__meta").text()
+    assert "nstalled" not in rows["fw-v1.1.0"].select_one(".update-item__meta").text()
 
 
-def test_running_badge_is_on_the_running_row_only_and_reads_en_cours_in_french():
+
+
+def test_running_chip_is_on_the_running_row_only_and_reads_en_cours_in_french():
     view = _running_view([_release("fw-v1.1.0", published_at="2026-09-29T09:00:00+00:00")])
     rows = _rows(update_page.update_page(_ctx(), view, ""))
-    assert [badge.text() for badge in rows["fw-v1.0.0"].select(".update-row__badge")] == ["Running"]
-    assert not rows["fw-v1.1.0"].select(".update-row__badge")
-    assert "update-row--running" in rows["fw-v1.0.0"].attrs["class"].split()
+    assert [chip.text() for chip in rows["fw-v1.0.0"].select(".banner__pill")] == ["Running"]
+    assert [chip.text() for chip in rows["fw-v1.1.0"].select(".banner__pill")] == ["Newest"]
+    assert "update-item--running" in rows["fw-v1.0.0"].attrs["class"].split()
     fr_rows = _rows(_fr_html(view))
-    assert [badge.text() for badge in fr_rows["fw-v1.0.0"].select(".update-row__badge")] == ["En cours"]
+    assert [chip.text() for chip in fr_rows["fw-v1.0.0"].select(".banner__pill")] == ["En cours"]
 
 
-def test_no_running_badge_without_a_reported_version():
+
+
+def test_no_running_chip_without_a_reported_version():
     view = _view(releases=[_release("fw-v1.0.0", installed_at=[_NOW])])
     html = update_page.update_page(_ctx(), view, "")
-    assert not parse_html(html).select(".update-row__badge")
-    assert not parse_html(html).select("details.update-row--running")
+    assert not parse_html(html).select("li.update-item--running")
+    assert "Running" not in parse_html(html).text()
+
+
 
 
 def test_the_running_release_row_offers_no_action_and_a_below_floor_row_has_no_button():
@@ -465,8 +480,8 @@ def test_the_running_release_row_offers_no_action_and_a_below_floor_row_has_no_b
 
 def test_bench_releases_are_never_offered_but_a_running_bench_build_is_named():
     """a bench release is absent from the list and the card (no Install form for it) while a
-    normal release stays; when the frame runs the bench build the card still names it with
-    the Bench badge"""
+    normal release stays; when the frame runs the bench build and nothing newer is on offer
+    the card still names it with the Bench pill"""
     view = _view(releases=[
         _release("fw-v1.1.0-bench1", bench=True),
         _release("fw-v1.2.0", bench=False),
@@ -478,14 +493,15 @@ def test_bench_releases_are_never_offered_but_a_running_bench_build_is_named():
     assert i18n.t(update_page.BENCH_BADGE_TEXT) not in html
 
     running = _view(
-        releases=[_release("fw-v1.1.0-bench1", bench=True), _release("fw-v1.2.0")],
+        releases=[_release("fw-v1.1.0-bench1", bench=True)],
         device_entry=_device("fw-v1.1.0-bench1"))
     running_html = update_page.update_page(_ctx(), running, "")
-    on_frame = _cta(running_html).select_one(".update-cta__on")
-    assert on_frame.select_one(".mono").text() == "fw-v1.1.0-bench1"
-    assert on_frame.select_one(".update-cta__bench").text() == i18n.t(update_page.BENCH_BADGE_TEXT)
-    assert "fw-v1.1.0-bench1" not in [
-        row.select_one(".mono").text() for row in parse_html(running_html).select("details.update-row")]
+    card = _cta(running_html)
+    assert card.select_one(".mono").text() == "fw-v1.1.0-bench1"
+    assert card.select_one(".banner__pill").text() == i18n.t(update_page.BENCH_BADGE_TEXT)
+    assert "fw-v1.1.0-bench1" not in _rows(running_html)
+
+
 
 
 def test_scheduled_bench_build_is_named_truthfully_but_not_offered():
@@ -495,8 +511,7 @@ def test_scheduled_bench_build_is_named_truthfully_but_not_offered():
     html = update_page.update_page(_ctx(), view, "08:14")
     card = _cta(html)
     assert card.select_one(".mono").text() == "fw-v1.1.0-bench1"
-    assert "fw-v1.1.0-bench1" not in [
-        row.select_one(".mono").text() for row in parse_html(html).select("details.update-row")]
+    assert "fw-v1.1.0-bench1" not in _rows(html)
 
 
 def test_scheduled_state_shows_the_next_wake_sentence_a_quiet_cancel_and_tags_its_row():
@@ -549,7 +564,7 @@ def test_failed_state_names_the_release_the_frame_stays_on_and_offers_a_retry():
     assert card.select_one("h2").text() == "Install failed"
     assert "fw-v1.0.0 could not be installed." in card.text()
     assert "The frame stays on fw-v0.9.0." in card.text()
-    assert _forms(card) == [("fw-v1.0.0", "", "Install fw-v1.0.0")]
+    assert _forms(card) == [("fw-v1.0.0", PRIMARY, "Install fw-v1.0.0")]
 
 
 def test_scheduled_sentence_swaps_to_quiet_hours_wording_in_the_card():
@@ -568,27 +583,30 @@ def test_a_rollback_outcome_toast_sits_above_the_card():
     assert html.index("update-rollback") < html.index("update-cta")
 
 
-def test_notes_summarise_in_the_row_and_list_in_full_when_opened():
-    """the closed row shows the first note on its own line; the opened body lists every
-    note; a release with no notes renders an empty summary line, never a stray bullet list"""
+def test_notes_list_in_full_behind_one_disclosure_and_a_row_without_notes_has_none():
+    """the opened row lists every note; a release with no notes has no disclosure and
+    never a stray bullet list"""
     notes = ["First note", "Second note", "Third note"]
     view = _view(releases=[_release("fw-v1.0.0", notes=notes), _release(
         "fw-v1.1.0", notes=[], published_at="2026-09-29T09:00:00+00:00")])
     rows = _rows(update_page.update_page(_ctx(), view, ""))
     row = rows["fw-v1.0.0"]
-    assert row.select_one("summary .update-row__note").text() == "First note"
-    assert [li.text() for li in row.select(".update-row__notes li")] == notes
+    assert len(row.select("details > summary")) == 1
+    assert [li.text() for li in row.select(".update-item__notes li")] == notes
     empty = rows["fw-v1.1.0"]
-    assert empty.select_one("summary .update-row__note").text() == ""
-    assert not empty.select(".update-row__notes")
+    assert not empty.select(".update-item__notes") and not empty.select("details")
+
+
 
 
 def test_a_long_note_is_kept_whole_for_the_opened_row():
     note = " ".join(["wordy"] * 60)
     view = _view(releases=[_release("fw-v1.0.0", notes=[note])])
     row = _rows(update_page.update_page(_ctx(), view, ""))["fw-v1.0.0"]
-    assert row.select_one(".update-row__notes li").text() == note
+    assert row.select_one(".update-item__notes li").text() == note
     assert "…" not in row.text(), "truncation is the stylesheet's job, never the markup's"
+
+
 
 
 def test_notes_and_versions_are_escaped_and_versions_are_monospace():
@@ -597,8 +615,8 @@ def test_notes_and_versions_are_escaped_and_versions_are_monospace():
     html = update_page.update_page(
         _ctx(), _view(releases=[_release("fw-v1.0.0", notes=notes)]), "")
     assert "<script>" not in html and 'onmouseover="alert' not in html
-    assert html.count("&lt;script&gt;alert(1)&lt;/script&gt;") == 2
-    assert '<span class="mono">fw-v1.0.0</span>' in html
+    assert html.count("&lt;script&gt;alert(1)&lt;/script&gt;") == 1
+    assert _rows(html)["fw-v1.0.0"].select_one(".update-item__version.mono")
 
 
 def test_cleaned_release_notes_render_as_plain_sentences():
@@ -606,14 +624,14 @@ def test_cleaned_release_notes_render_as_plain_sentences():
     notes = ["Refuse to USB-flash an unsigned image", "Report the Wi-Fi RSSI with every check-in"]
     view = _view(releases=[_release("fw-v1.0.0", notes=notes)])
     row = _rows(update_page.update_page(_ctx(), view, ""))["fw-v1.0.0"]
-    assert [li.text() for li in row.select(".update-row__notes li")] == notes
+    assert [li.text() for li in row.select(".update-item__notes li")] == notes
 
 
 def test_empty_registry_shows_the_no_releases_empty_state_and_no_list():
     html = update_page.update_page(_ctx(), _view(), "")
     assert i18n.t(update_page.EMPTY_RELEASES_HEADING_TEXT) in html
-    assert not parse_html(html).select("ul.update-rows")
-    assert not parse_html(html).select(".update-versions__count")
+    assert not parse_html(html).select("ul.update-hist__list")
+    assert parse_html(html).select(".update-hist__empty")
 
 
 def test_french_render_translates_every_new_string():
@@ -695,44 +713,55 @@ def test_get_update_without_a_session_redirects_to_login(module_app_server_facto
 
 
 def test_get_fleet_end_to_end_renders_the_scheduled_state(module_app_server_factory):
-    """a real GET /fleet, seeded through firmware_registry's own write API plus a
-    hand-written device_report.json, serves the Scheduled state with a Cancel form"""
+    """a real GET of the frame's Versions page, seeded through firmware_registry's own write
+    API plus a hand-written device_report.json, serves the Scheduled state with a Cancel form;
+    the frame's own page shows the firmware tile saying so"""
     server = module_app_server_factory(seed=_seed_update_state)
     cookie = login(server)
-    status, _headers, body = get(server, "/fleet", cookie=cookie)
+    status, headers, _body = get(server, "/update", cookie=cookie)
+    assert status == 303 and headers["Location"].endswith("&view=versions")
+    status, _headers, body = get(server, headers["Location"], cookie=cookie)
     assert status == 200
     text = body.decode("utf-8")
     assert i18n.t(update_page.STATE_LABELS["scheduled"]) in text
     assert 'action="%s"' % update_page.CANCEL_ROUTE in text
     assert "fw-v1.0.0" in text
+    frame = headers["Location"].replace("&view=versions", "")
+    _status, _headers, overview = get(server, frame, cookie=cookie)
+    tile = re.search(r'<a class="fleet-tile[^"]*"[^>]*href="[^"]*view=versions">.*?</a>', overview.decode("utf-8"), re.S)
+    assert tile and i18n.t(update_page.CTA_SCHEDULED_TEXT) in tile.group(0)
 
 # ==========================================================================
 # Task 1: navigation entry, icon and French nav label
 # ==========================================================================
 
 
-def test_frame_tools_group_lists_health_device_update_in_order():
-    """layout.NAV_GROUPS' labelled group holds Health, Device, Update, in that order"""
+def test_frame_tools_group_lists_update_alone():
+    """layout.NAV_GROUPS' labelled group holds Update alone: the Health and Device pages are gone"""
     assert layout.NAV_GROUPS[1][0] == layout.FRAME_TOOLS_LABEL
     group_routes = [route for route, _label in layout.NAV_GROUPS[1][1]]
-    assert group_routes == [layout.HEALTH_ROUTE, layout.DEVICE_ROUTE, layout.UPDATE_ROUTE]
+    assert group_routes == [layout.UPDATE_ROUTE]
 
 
 def test_console_sidebar_holds_fleet_users_editor_and_audit_and_no_per_frame_entries():
-    """the Console sidebar lists Fleet, Users, the Airline editor and Audit log: Health, Device
-    and Releases are folded into the Fleet view, and the personal sidebar offers none of them"""
+    """the Console sidebar lists Fleet, Users, the Airline editor, Audit log and the System view:
+    Health, Device and Releases are folded into the Fleet view, and the personal sidebar offers
+    none of them"""
     markup = layout.sidebar_nav("fleet")
     hrefs = re.findall(r'<a class="[^"]*" href="([^"]+)"', markup)
-    assert hrefs == ["/fleet", "/users", "/airlines/manage", "/audit", layout.ACCOUNT_ROUTE]
+    assert hrefs == [
+        "/fleet", "/users", "/airlines/manage", "/audit", "/fleet?view=system",
+        layout.ACCOUNT_ROUTE]
     assert "nav-group--frame-tools" not in markup
     personal = layout.sidebar_nav("flights")
-    for route in (layout.HEALTH_ROUTE, layout.DEVICE_ROUTE, layout.UPDATE_ROUTE):
+    for route in ("/health", layout.DEVICE_ROUTE, layout.UPDATE_ROUTE):
         assert ('href="%s"' % route) not in personal
 
 
 def test_tab_bar_more_sheets_list_the_overflow_destinations():
-    """the personal More sheet holds Account alone (the space switch aside), as does the Console
-    More sheet; the personal bar has five destination cells and the Console bar four of its own"""
+    """the personal More sheet holds Account alone (the space switch aside), while the Console
+    More sheet holds Account and the Audit log; the personal bar has five destination cells and
+    the Console bar four of its own (Fleet, Users, Editor, System)"""
     device_cfg = {"display_enabled": True, "quiet_hours_enabled": False}
     doc = layout.page_shell(
         title="T", active="flights", body="<p>b</p>", device_config=device_cfg)
@@ -753,9 +782,9 @@ def test_tab_bar_more_sheets_list_the_overflow_destinations():
     console_bar = console_bar[:console_bar.index("</nav>")]
     console_sheet = console_bar[console_bar.index('<div class="tab-bar__more-panel">'):]
     assert re.findall(r'<a class="mobile-nav__link[^"]*" href="([^"]+)"', console_sheet) == [
-        layout.ACCOUNT_ROUTE]
+        layout.ACCOUNT_ROUTE, "/audit"]
     assert re.findall(r'<a class="tab-bar__link[^"]*" href="([^"]+)"', console_bar) == [
-        "/fleet", "/users", "/airlines/manage", "/audit"]
+        "/fleet", "/users", "/airlines/manage", "/fleet?view=system"]
 
 
 def test_update_page_marks_fleet_as_the_current_destination_and_has_no_update_link():
@@ -826,8 +855,8 @@ def test_update_route_moves_to_fleet_and_is_no_console_entry_end_to_end(
 
 
 # ==========================================================================
-# The one-hardware-type page is the page the owner has always had: a
-# recorded render of every state, compared byte for byte.
+# The one-hardware-type page is the approved page: a recorded render of
+# every state, compared byte for byte.
 # ==========================================================================
 
 ONE_TYPE_GOLDEN_PATH = os.path.join(
@@ -838,7 +867,7 @@ def one_type_golden_pages():
     """Served Update-page bodies for a single-type registry, keyed by state
     and language: idle (up to date), an install on offer, a schedule with
     its Cancel form, an install in progress, a failed install, no
-    releases at all, and the install confirmation page."""
+    releases at all, and the install and rollback confirmation pages."""
     newer = _release("fw-v1.1.0", published_at="2026-09-29T09:00:00+00:00")
     views = {
         "up_to_date": _running_view(installed_at=[_NOW]),
@@ -864,6 +893,8 @@ def one_type_golden_pages():
                     _ctx(), view, "08:14")
             pages["confirm.%s" % lang] = update_page.update_install_confirm_page(
                 _ctx(), "fw-v1.1.0", "08:14")
+            pages["confirm_rollback.%s" % lang] = update_page.update_install_confirm_page(
+                _ctx(), "fw-v0.9.0", "08:14", rollback=True)
         finally:
             prefs.set_request_prefs(lang="en")
     return pages
@@ -871,7 +902,8 @@ def one_type_golden_pages():
 
 def test_one_type_page_is_byte_identical_to_the_recorded_render():
     """with a single hardware type every state of the Update page renders exactly the
-    recorded bytes: no heading, field, link or text was added for the type feature"""
+    bytes recorded from the approved render: no heading, field, link or text was added for
+    the type feature"""
     with open(ONE_TYPE_GOLDEN_PATH, encoding="utf-8") as fh:
         golden = json.load(fh)
     pages = one_type_golden_pages()
@@ -906,14 +938,14 @@ def test_the_fleet_versions_are_a_flat_list_with_the_action_always_in_view():
     assert rows["fw-v1.0.0"].select_one("time") is not None
     chips = {version: [c.text() for c in row.select(".banner__pill")]
              for version, row in rows.items()}
-    assert chips == {"fw-v1.0.0": [], "fw-v1.1.0": ["Installed"], "fw-v1.2.0": ["Newest"]}
+    assert chips == {"fw-v1.0.0": [], "fw-v1.1.0": ["Running"], "fw-v1.2.0": ["Newest"]}
     old = rows["fw-v1.0.0"].select_one("form button")
-    assert old.text() == "Roll back" and old.attrs["aria-label"] == "Roll back to fw-v1.0.0"
+    assert old.text() == "Revert" and old.attrs["aria-label"] == "Revert to fw-v1.0.0"
     assert "btn--ghost" in old.attrs["class"]
     assert not rows["fw-v1.2.0"].select("form") and not rows["fw-v1.1.0"].select("form")
     install_forms = doc.select('form[action="/update/install"]')
     assert len(install_forms) == 2
-    offer = doc.select_one(".update-offer")
+    offer = doc.select_one(".update-cta")
     assert offer.select_one("form button").text() == "Install fw-v1.2.0"
     assert "update-item--running" in rows["fw-v1.1.0"].attrs["class"]
     assert [li.text() for li in rows["fw-v1.0.0"].select(".update-item__notes li")] == [
@@ -921,9 +953,9 @@ def test_the_fleet_versions_are_a_flat_list_with_the_action_always_in_view():
     assert not rows["fw-v1.1.0"].select("details")
     fr = parse_html(_embedded(view, "fr"))
     assert [c.text() for r in fr.select("li.update-item") for c in r.select(".banner__pill")] == [
-        "Plus récente", "Installée"]
+        "Plus récente", "En cours"]
     assert "Revenir à fw-v1.0.0" in str(_embedded(view, "fr"))
-    assert fr.select_one(".update-sum__label").text() == "Sur le cadre"
+    assert not doc.select(".update-sum") and "Sur le cadre" not in fr.text()
 
 
 def test_a_frame_with_no_known_next_wake_gets_a_sentence_without_a_time():

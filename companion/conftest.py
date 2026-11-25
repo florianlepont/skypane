@@ -165,6 +165,28 @@ def auth0_rig(tmp_path):
     fake.stop()
 
 
+MGMT_TEST_CLIENT_ID = "mgmt-client-id"
+MGMT_TEST_CLIENT_SECRET = "mgmt-secret-placeholder-value"
+MGMT_TEST_CONNECTION = "test-db-connection"
+MGMT_TEST_CONNECTION_ID = "con_testplaceholder1"
+
+
+@pytest.fixture
+def invitation_auth0(app_server_in_process):
+    """A loopback fake Auth0 with the Management API on, wired into the
+    in-process companion, so the Users page creates real invitation links
+    against the fake. Function-scoped; `fake.mgmt.client_secret` is the
+    planted secret a test can assert appears in no output.
+    """
+    fake = _build_fake(app_server_in_process.base_url())
+    fake.enable_management(
+        MGMT_TEST_CLIENT_ID, MGMT_TEST_CLIENT_SECRET, MGMT_TEST_CONNECTION,
+        MGMT_TEST_CONNECTION_ID)
+    app_server_in_process.apply_env(fake.mgmt_env())
+    yield fake
+    fake.stop()
+
+
 @pytest.fixture
 def auth0_subprocess_rig(tmp_path):
     """The same wiring against a real companion subprocess, for output

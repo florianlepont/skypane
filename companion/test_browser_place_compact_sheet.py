@@ -7,6 +7,7 @@ the share of the window the owner asked for, and nothing the card shares the win
 
 Both external hosts are answered by `page.route`; waits are on the page's own state.
 """
+import animation_settle
 import pytest
 
 from companion import auth
@@ -21,9 +22,7 @@ PHONES = [
 ]
 READY = "() => document.documentElement.classList.contains('map-ready')"
 TILES_LOADED = "() => document.querySelectorAll('#place-map .leaflet-tile-loaded').length >= 1"
-ANIMATIONS_DONE = (
-    "() => document.getAnimations().every("
-    "(a) => a.playState !== 'running' || a.effect.getComputedTiming().iterations === Infinity)")
+ANIMATIONS_DONE = animation_settle.ANIMATIONS_DONE
 BAR_SHOWN = (
     "() => { const b = document.querySelector('.place-panel > .dirty-bar');"
     " return !!b && !b.hidden && getComputedStyle(b).display !== 'none'"

@@ -3,6 +3,7 @@ the bottom of the viewport (above the floating tab bar on a phone, inside the co
 on a desktop), is as wide as that column, says "Unsaved changes" with Cancel and Save, keeps
 44px targets, never overlaps the tab bar and, at the end of the page, never covers a card.
 Also the wake interval card: one visible label, the value in minutes beside the seconds."""
+import animation_settle
 import pytest
 
 import fleet_console_support as fx
@@ -17,9 +18,7 @@ PHONE = {"width": 390, "height": 844}
 SHORT_DESKTOP = {"width": 1280, "height": 520}
 WORDS = {"en": ("Unsaved changes", "Cancel", "Save"),
          "fr": ("Modifications non enregistrées", "Annuler", "Enregistrer")}
-_SETTLED = (
-    "() => document.readyState === 'complete' && document.getAnimations().every("
-    "a => !a.effect || a.effect.getTiming().iterations === Infinity || a.playState !== 'running')")
+_SETTLED = animation_settle.SETTLED
 _OWNS_CENTRE = (
     "sel => { const el = document.querySelector(sel); if (!el) return false;"
     " const r = el.getBoundingClientRect();"
@@ -48,12 +47,12 @@ def _open(new_context, server, viewport, lang):
 
 def _reveal(page):
     """The wake interval field: inline on the page, in the Settings tab on a phone."""
-    page.locator("#wake-interval-s").wait_for(state="visible")
+    page.locator("#wake-interval-m").wait_for(state="visible")
 
 
 def _make_dirty(page):
     """Change the interval; the page's unsaved-changes bar takes over."""
-    page.locator("#wake-interval-s").fill("900")
+    page.locator("#wake-interval-m").fill("15")
     page.locator(BAR).wait_for(state="visible")
     page.wait_for_function(_SETTLED, timeout=15000)
     for selector in (BAR + " .dirty-bar__save", BAR + " .dirty-bar__cancel"):
@@ -78,7 +77,12 @@ def test_the_bar_is_docked_inside_the_viewport_and_never_overlaps_the_tab_bar(
         main = page.evaluate(_RECT, "main")
         if viewport["width"] >= 960:
             assert bar["bottom"] > bar["vh"] - 48, bar
-            assert bar["width"] >= 600, bar
+            # Under the frame column (the list of frames is a column of its own beside it).
+            title = page.evaluate(_RECT, ".fleet-head__title")
+            listing = page.evaluate(_RECT, ".fleet-split__list")
+            assert bar["width"] >= 560, bar
+            assert abs(bar["left"] - title["left"]) <= 2 and bar["left"] >= listing["right"], (
+                bar, title, listing)
             assert bar["left"] >= main["left"] - 1 and bar["right"] <= main["right"] + 1, (bar, main)
         else:
             tab_bar = page.evaluate(_RECT, ".tab-bar")
@@ -114,32 +118,32 @@ def test_at_the_end_of_the_page_the_bar_covers_no_card(
 def test_cancel_hides_the_bar_and_restores_the_value(new_context, app_server_in_process):
     context, page = _open(new_context, app_server_in_process, VIEWPORT_DESKTOP, "en")
     try:
-        before = page.locator("#wake-interval-s").input_value()
+        before = page.locator("#wake-interval-m").input_value()
         _make_dirty(page)
         page.locator(BAR + " .dirty-bar__cancel").click()
         page.locator(BAR).wait_for(state="hidden")
         page.wait_for_function(
-            "v => document.querySelector('#wake-interval-s').value === v", arg=before)
+            "v => document.querySelector('#wake-interval-m').value === v", arg=before)
     finally:
         context.close()
 
 
-@pytest.mark.parametrize("lang,unit,minutes", [("en", "seconds", "15 min"), ("fr", "secondes", "15 mn")])
-def test_the_wake_interval_card_has_one_visible_label_and_shows_minutes(
-        new_context, app_server_in_process, lang, unit, minutes):
+@pytest.mark.parametrize("lang,unit", [("en", "min"), ("fr", "min")])
+def test_the_wake_interval_tile_has_one_visible_label_and_shows_minutes(
+        new_context, app_server_in_process, lang, unit):
     context, page = _open(new_context, app_server_in_process, VIEWPORT_DESKTOP, lang)
     try:
-        field = page.locator("#wake-interval-s")
-        assert page.locator("label[for='wake-interval-s']").evaluate(
+        field = page.locator("#wake-interval-m")
+        assert page.locator("label[for='wake-interval-m']").evaluate(
             "el => el.classList.contains('visually-hidden')")
-        card = page.locator(".theme-status:has(#wake-interval-s)")
-        assert card.locator("h2").count() == 1
-        assert unit in card.inner_text()
-        assert "10 min" in card.inner_text().replace("mn", "min")
-        field.fill("900")
+        tile = page.locator(".fleet-tile:has(#wake-interval-m)")
+        assert tile.locator(".fleet-tile__label").count() == 1
+        assert unit in tile.inner_text()
+        assert "10 min" in tile.locator(".fleet-tile__value").inner_text()
+        field.fill("15")
         page.wait_for_function(
-            "m => document.querySelector('.theme-status:has(#wake-interval-s)')"
-            ".innerText.includes(m)", arg=minutes, timeout=10000)
+            "() => document.querySelector('.fleet-tile:has(#wake-interval-m) .fleet-tile__value')"
+            ".innerText.includes('15 min')", timeout=10000)
         assert field.evaluate(
             "el => getComputedStyle(el).appearance") in ("textfield", "none")
     finally:

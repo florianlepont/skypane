@@ -7,28 +7,32 @@ Pure markup: it reads nothing but its arguments. The typed code is
 re-rendered only into the input of the form (a lockout response, or the next
 showing after a refusal) and is
 capped; it never appears in a link, a flash or an attribute other than the
-input's value. The page has no owner field: the frame always belongs to the
-person who submits the form.
+input's value. Only an administrator's view carries an Owner field (the
+other people's page has none: their frame always belongs to them).
 """
 from typing import NamedTuple
 
 from companion import i18n, layout, ui_components
 from companion.pages import fleet_page
-from companion.ui_base import validation_attrs
+from companion.ui_base import icon_html, validation_attrs
 
 PAIR_FRAME_ROUTE = "/pair-frame"
 CODE_FIELD = fleet_page.CODE_FIELD
+OWNER_FIELD = fleet_page.OWNER_FIELD
 # The flash key the paired frame's Home resolves (companion/flash.py).
 FLASH_FRAME_PAIRED = "frame_paired"
 
 PAIR_TITLE = i18n.msg("pair_frame.add_a_frame", "Add a frame")
-PAIR_PURPOSE = i18n.msg(
-    "pair_frame.enter_the_code_shown_on_your_frame_s_screen",
-    "Enter the code shown on your frame's screen. The frame will be yours.")
+_CARD_HEADING = i18n.msg(
+    "pair_frame.enter_the_code_shown_by_the_frame", "Enter the code shown by the frame")
+_NO_CODE_TITLE = i18n.msg("pair_frame.no_code_on_screen", "No code on screen?")
 _CODE_LABEL = i18n.msg("pair_frame.pairing_code", "Pairing code")
 _CODE_HELP = i18n.msg(
     "pair_frame.the_code_stays_valid_for_about_35_minutes",
-    "The code stays valid for about 35 minutes; a new one then appears on the frame.")
+    "Valid for 35 minutes.")
+_NO_CODE_HELP = i18n.msg(
+    "pair_frame.if_your_frame_shows_no_code_press_its_reset_button",
+    "Press its Reset button.")
 _SUBMIT = i18n.msg("pair_frame.add_frame", "Add frame")
 _CANCEL = i18n.msg("pair_frame.cancel", "Cancel")
 
@@ -50,10 +54,15 @@ ADD_LINK_CLASS = "pair-link"
 
 class PairView(NamedTuple):
     """The state of a refused submission: the (capped) typed code, the
-    docked refusal or lockout toast and the code field's error."""
+    docked refusal or lockout toast and the code field's error. `owners` is
+    the administrator's (id, label) Owner choices (empty: no Owner field),
+    `owner_selected` the chosen id and `owner_error` the Owner field's error."""
     code_value: str = ""
     toast_html: str = ""
     code_error: str = ""
+    owners: tuple = ()
+    owner_selected: str = ""
+    owner_error: str = ""
 
 
 def _esc(value):
@@ -79,31 +88,71 @@ def empty_state_html():
         + '<p class="pair-actions">%s</p>' % primary_link_html())
 
 
+# A circled exclamation mark: the refusal alert's own icon (the shared sprite
+# has the toast cross and the plain warning triangle only).
+_ALERT_ICON = (
+    '<svg class="pair-alert__icon" width="20" height="20" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">'
+    '<circle cx="10" cy="10" r="7.5"/><path d="M10 6v5M10 13.6v.01"/></svg>')
+
+
+def _refusal_html(error_id, message):
+    """The refused-code alert: the sentence in bold under an error icon, the
+    validity line under it, in one tinted box the field points at."""
+    return (
+        '<div class="pair-alert" id="%s" role="alert">%s<div class="pair-alert__text">'
+        '<p class="field-error pair-alert__title">%s</p><p class="text-label">%s</p></div></div>'
+    ) % (error_id, _ALERT_ICON, _esc(message), _t(_CODE_HELP))
+
+
 def _code_field(view):
-    attrs, error = "", ""
+    attrs, below = "", '<p class="text-label">%s</p>' % _t(_CODE_HELP)
     if view.code_error:
         error_id = "pair-code-error"
         attrs = ' aria-invalid="true" aria-describedby="%s"' % error_id
-        error = '<p class="field-error" id="%s">%s</p>' % (error_id, _esc(view.code_error))
+        below = _refusal_html(error_id, view.code_error)
     return (
         '<div class="modal__field"><label for="pair-code">%s</label>'
         '<input type="text" id="pair-code" name="%s" class="mono" autocomplete="off" '
         'data-1p-ignore data-lpignore="true" data-bwignore="true" data-form-type="other" '
         'autocapitalize="characters" spellcheck="false" inputmode="text" '
-        'maxlength="12" placeholder="XXXX-XXXX" value="%s" required%s autofocus%s>%s'
-        '<p class="text-label">%s</p></div>') % (
-            _t(_CODE_LABEL), CODE_FIELD, _esc(view.code_value), validation_attrs("text"), attrs, error,
-            _t(_CODE_HELP))
+        'maxlength="12" placeholder="XXXX-XXXX" value="%s" required%s autofocus%s>%s</div>') % (
+            _t(_CODE_LABEL), CODE_FIELD, _esc(view.code_value), validation_attrs("text"), attrs, below)
+
+
+def _owner_field(view):
+    """The administrator's Owner choice; "" for everyone else."""
+    if not view.owners:
+        return ""
+    attrs, error = "", ""
+    if view.owner_error:
+        attrs = ' aria-invalid="true" aria-describedby="pair-owner-error"'
+        error = '<p class="field-error" id="pair-owner-error">%s</p>' % _esc(view.owner_error)
+    options = "".join(
+        '<option value="%s"%s>%s</option>' % (
+            _esc(value), " selected" if value == view.owner_selected else "", _esc(label))
+        for value, label in view.owners)
+    return (
+        '<div class="modal__field"><label for="pair-owner">%s</label>'
+        '<select id="pair-owner" name="%s" required%s>%s</select>%s</div>') % (
+            _t(fleet_page.PAIR_OWNER_LABEL), OWNER_FIELD, attrs, options, error)
 
 
 def render(view=PairView()):
     """The Add a frame page body."""
+    # One card: heading, code field with its validity line and
+    # the actions, then a tinted footer carrying the Reset hint (left out after
+    # a refusal: the frame did show a code, it was typed wrong).
+    footer = "" if view.code_error else (
+        '<div class="pair-card__help">%s<p class="text-label"><b>%s</b><br>%s</p></div>'
+        % (icon_html("icon-info", size=20), _t(_NO_CODE_TITLE), _t(_NO_CODE_HELP)))
     form = (
-        '<form class="%s" method="post" action="%s">%s%s%s'
+        '<form class="%s pair-card reveal" method="post" action="%s">%s'
+        '<div class="pair-card__main"><h2 class="text-heading pair-card__heading">%s</h2>'
+        '%s%s%s'
         '<div class="pair-form__actions"><button type="submit">%s</button>'
-        '<a class="pair-form__cancel" href="/account">%s</a></div></form>') % (
+        '<a class="pair-form__cancel" href="/account">%s</a></div></div>%s</form>') % (
             FORM_CLASS, PAIR_FRAME_ROUTE, ui_components.csrf_field(),
-            view.toast_html, _code_field(view), _t(_SUBMIT), _t(_CANCEL))
-    return (
-        layout.page_header(i18n.t(PAIR_TITLE), purpose=i18n.t(PAIR_PURPOSE))
-        + '<section class="page-section">%s</section>' % form)
+            _t(_CARD_HEADING), view.toast_html, _code_field(view), _owner_field(view),
+            _t(_SUBMIT), _t(_CANCEL), footer)
+    return layout.page_header(i18n.t(PAIR_TITLE)) + form

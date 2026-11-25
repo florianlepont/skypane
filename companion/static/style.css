@@ -205,14 +205,10 @@
   --motion-toast-dwell: 6s;
   --motion-toast-dwell-long: 12s;
   --motion-dot-pulse: 3.2s;
-  /* Home's two slow ambient loops, content-neutral (the frame may show any
-   * picture): --motion-breathe is the ~6s breathing of the status dot and
-   * of the glow behind the picture, --motion-glint the 12s cycle of which
-   * the soft glass glint across the picture spends a short part. Only the
-   * rules that carry those animations may spend them; reduced motion turns
-   * both off outright. */
+  /* Home's slow ambient loop, content-neutral: --motion-breathe is the ~6s
+   * breathing of the status dot. Only the rule that carries that animation
+   * may spend it; reduced motion turns it off outright. */
   --motion-breathe: 6s;
-  --motion-glint: 12s;
   /* Home's plane flies in once along its trail; only that animation spends
    * this duration. */
 
@@ -275,6 +271,9 @@
    * its worst-case contrast on light surfaces is 5.16:1 (up from 3.96),
    * safe as text. Enforced by test_contrast_check.py's separation section. */
   --color-status-error: #BE123C;
+  /* The edge drawn round the light-yellow look tile on screen: the panel's
+   * yellow is too close to white to show the tile's shape. */
+  --color-yellow-tile-edge: #7A6D1D;
   /* The switch thumb: white on light surfaces, a light grey on dark ones
    * so an unchecked thumb stays visible on its dark track. */
   --color-switch-thumb: #FFFFFF;
@@ -304,10 +303,12 @@
   /* Without color-scheme, the browser paints native form-control chrome
    * (e.g. <input type="time">) using its own light/dark heuristic
    * instead of following the OS scheme this default case follows. */
+  --rarity-tint: 10%;
   color-scheme: light dark;
 }
 @media (prefers-color-scheme: dark) {
   :root {
+    --rarity-tint: 28%;
     --sky-top: #12151D;
     --sky-mid: #161A24;
     --sky-bottom: #1A1F2B;
@@ -340,6 +341,7 @@
      * dark. Was too close to the dark accent (dE76 22.3/16.9°, worse
      * than the accent-vs-warn gap); now dE76 32.2/25.6°. */
     --color-status-error: #FB7185;
+    --color-yellow-tile-edge: #D9C24A;
     --color-switch-thumb: #E6E9EE;
     --color-switch-off: #6B7589;
     --color-switch-thumb-on: #14171F;
@@ -390,6 +392,9 @@ html[data-ui-theme="light"] {
   --color-status-ok: #16A34A;
   --color-status-warn: #D97706;
   --color-status-error: #BE123C;
+  /* The edge drawn round the light-yellow look tile on screen: the panel's
+   * yellow is too close to white to show the tile's shape. */
+  --color-yellow-tile-edge: #7A6D1D;
   --color-switch-thumb: #FFFFFF;
   --color-switch-off: #7C8799;
   --color-switch-thumb-on: #FFFFFF;
@@ -405,10 +410,12 @@ html[data-ui-theme="light"] {
   --color-toast-warning: #FBBF24;
   --color-toast-error: #FB7185;
   --color-toast-pending: #FF9A70;
+  --rarity-tint: 10%;
   color-scheme: light;
 }
 
 html[data-ui-theme="dark"] {
+  --rarity-tint: 28%;
   --sky-top: #12151D;
   --sky-mid: #161A24;
   --sky-bottom: #1A1F2B;
@@ -438,6 +445,7 @@ html[data-ui-theme="dark"] {
   --color-status-ok: #4ADE80;
   --color-status-warn: #FBBF24;
   --color-status-error: #FB7185;
+  --color-yellow-tile-edge: #D9C24A;
   --color-switch-thumb: #E6E9EE;
   --color-switch-off: #6B7589;
   --color-switch-thumb-on: #14171F;
@@ -453,6 +461,9 @@ html[data-ui-theme="dark"] {
   --color-toast-warning: #92400E;
   --color-toast-error: #BE123C;
   --color-toast-pending: #B13F16;
+  --color-map-ground: #16140F;
+  --map-control-bg: #2B3345;
+  --map-control-edge: rgba(241, 243, 246, 0.55);
   color-scheme: dark;
 }
 @media (prefers-reduced-motion: reduce) {
@@ -521,7 +532,7 @@ html[data-ui-theme="dark"] {
     animation-timing-function: var(--ease-out);
   }
 
-  /* A strip whose segments change page (the Style and Fleet sections, the
+  /* A strip whose segments change page (the Style sections, the
    * Audit categories) hands its selection to the page change: the selected
    * segment of the page that is left glides to the selected segment of the
    * page that opens, inside the page change itself. No script slides the
@@ -700,13 +711,20 @@ html[data-ui-theme="dark"] {
  * the colour, the Safari bars and the overscroll area show the same sky. The
  * flat colour under the gradient is its first stop, the colour of the
  * theme-color tags: a browser that tints its top bar from the flat colour
- * rather than the gradient image shows no lighter band above the page. */
+ * rather than the gradient image shows no lighter band above the page.
+ * The second layer is a strip of the last stop's colour that starts at the
+ * bottom of <html> and hangs below it: on a phone the visible window can be
+ * taller than the box (the browser's toolbars retract, the page is short), and
+ * the canvas there would otherwise show the flat top colour as a band. */
 html {
   min-height: 100%;
   background-color: var(--sky-top);
-  background-image: linear-gradient(180deg, var(--sky-top) 0%, var(--sky-mid) 45%, var(--sky-bottom) 100%);
+  background-image:
+    linear-gradient(180deg, var(--sky-top) 0%, var(--sky-mid) 45%, var(--sky-bottom) 100%),
+    linear-gradient(var(--sky-bottom), var(--sky-bottom));
   background-repeat: no-repeat;
-  background-size: 100% 100%;
+  background-size: 100% 100%, 100% 200px;
+  background-position: 0 0, 0 calc(100% + 200px);
 }
 
 body {
@@ -824,6 +842,7 @@ h3 {
 
 .page-header__purpose {
   margin: 0 0 var(--space-lg);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
 /* Block-level by element choice (a <p>), keeping .page-header's
@@ -878,12 +897,12 @@ h3 {
   stroke: var(--color-accent);
 }
 
-/* The login card's mark, centred above the heading. */
+/* The login card's mark, at the start of the heading's line. */
 .login-card .logo-mark {
   display: block;
   width: 40px;
   height: 40px;
-  margin: 0 auto var(--space-md);
+  margin: 0 0 var(--space-md);
 }
 
 .site-title {
@@ -986,6 +1005,10 @@ a:hover {
 /* The sidebar's segments are too narrow for check, space glyph and label
  * together: the space glyph gives way there, the check (the non-colour cue
  * for the current space) and the label stay. */
+.dashboard-sidebar .space-switch {
+  padding-inline: var(--space-xs);
+}
+
 .dashboard-sidebar .space-switch__segment {
   padding: 0 2px;
   gap: 2px;
@@ -1021,8 +1044,6 @@ a:hover {
   }
 
   .home-state__dot--pulse,
-  .hero__picture::before,
-  .hero__glass::after,
   .is-breathing {
     animation: none !important;
   }
@@ -1356,7 +1377,7 @@ select.visually-hidden {
    * the left instead of filling the bordered container as one control. */
   flex: 1 1 0;
   min-width: 0;
-  padding: 0 4px;
+  padding: 0 var(--space-xs);
   white-space: nowrap;
   /* A label wider than its equal-width segment is clipped with an
    * ellipsis inside its own box; it can never paint over a neighbour. */
@@ -1784,26 +1805,6 @@ select.visually-hidden {
   animation-play-state: paused;
 }
 
-.toast__pills {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-left: var(--space-sm);
-  vertical-align: middle;
-}
-
-.toast__pill {
-  display: inline-flex;
-  align-items: center;
-  height: 22px;
-  padding: 0 9px;
-  border-radius: var(--radius-pill);
-  font-size: var(--font-caption-size);
-  font-weight: var(--weight-semibold);
-  background: color-mix(in srgb, var(--color-toast-fg) 12%, transparent);
-  color: color-mix(in srgb, var(--color-toast-fg) 88%, transparent);
-}
-
 /* The flash region: in flow under the page title by default. */
 .toast-region--flash {
   margin: 0 0 var(--space-lg);
@@ -1843,11 +1844,6 @@ select.visually-hidden {
   .toast__title,
   .toast__detail {
     display: block;
-  }
-
-  .toast__pills {
-    display: flex;
-    margin: var(--space-xs) 0 0;
   }
 
   .toast__title + .visually-hidden + .toast__detail::before {
@@ -1963,7 +1959,7 @@ select.visually-hidden {
   display: inline-flex;
   align-items: center;
   height: 20px;
-  padding: 0 8px;
+  padding: 0 var(--space-sm);
   border-radius: var(--radius-pill);
   font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
@@ -2204,8 +2200,6 @@ select.visually-hidden {
 }
 
 .fleet-group .page-section,
-.fleet-group .update-cta,
-.fleet-group .update-versions,
 .fleet-group .theme-status,
 .fleet-group .data-card,
 .fleet-group .data-cards,
@@ -2239,41 +2233,111 @@ select.visually-hidden {
   font-weight: var(--weight-semibold);
 }
 
-/* The strip an administrator sees on a personal page of someone else's frame:
- * who owns it and the way back to Fleet. Wraps rather than overflows. */
+/* The foreign-frame marker: a full-width accent slab (graphite in light,
+ * ivory in dark) with an amber edge, shown to an administrator on a personal
+ * page of a frame that is not theirs. It is the first element of the page,
+ * above the sidebar and the app bar, flush with the top and side edges of the
+ * screen (its padding clears the status bar and the notch), and stays there
+ * while the page scrolls. It wraps (a long address is never cut) rather than
+ * overflows. Accent on its inverse is the contrast pair of every filled
+ * control. --notice-h is its height when it holds one line: what the
+ * desktop sidebar leaves clear above itself. */
+body:has(> .frame-notice) {
+  --notice-h: calc(63px + var(--safe-top) + var(--app-bar-drop));
+}
+
+/* The shell's own top edge, under the marker, is where an app bar laid over
+ * the page (Location's map) starts. */
+body:has(> .frame-notice) .dashboard-shell {
+  position: relative;
+}
+
 .frame-notice {
+  position: sticky;
+  top: 0;
+  z-index: 40;
   box-sizing: border-box;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  column-gap: var(--space-md);
-  min-height: 44px;
-  margin: 0 0 var(--space-md);
-  padding: var(--space-sm) var(--space-md);
-  background: var(--color-secondary);
-  color: var(--color-text);
-  border-radius: var(--radius-card);
-  font-size: var(--font-label-size);
+  gap: var(--space-sm) var(--space-md);
+  min-height: 56px;
+  margin: 0;
+  padding: calc(var(--space-sm) + var(--safe-top) + var(--app-bar-drop)) max(var(--space-lg), var(--safe-right)) var(--space-sm) max(var(--space-lg), var(--safe-left));
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  border-bottom: 3px solid var(--color-status-warn);
+  font-size: var(--font-body-size);
+  line-height: 1.3;
   overflow-wrap: anywhere;
+}
+
+.frame-notice__msg {
+  flex: 1 1 220px;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.frame-notice__msg > svg {
+  flex: none;
 }
 
 .frame-notice__text {
   min-width: 0;
 }
 
+.frame-notice__text strong {
+  font-weight: var(--weight-title);
+}
+
 .frame-notice__link {
+  flex: none;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  gap: 6px;
   min-height: 44px;
+  padding: 0 var(--space-md);
+  background: var(--color-on-accent);
+  color: var(--color-accent);
+  border-radius: var(--radius-control);
   font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
+  text-align: center;
+  text-decoration: none;
+}
+
+.frame-notice__link:hover {
+  color: var(--color-accent);
+}
+
+.frame-notice__link:focus-visible {
+  outline: 2px solid var(--color-on-accent);
+  outline-offset: 2px;
+}
+
+/* Shown as a catalogue sample: inside its box, not stuck to the page. */
+.components-state__sample > .frame-notice {
+  position: static;
+  flex: 1 1 100%;
+  margin: 0;
+  padding: var(--space-sm) var(--space-md);
+}
+
+@media (min-width: 960px) {
+  .frame-notice {
+    padding-inline: var(--space-3xl);
+  }
 }
 
 .refresh-pill {
   display: inline-flex;
   align-items: center;
   height: 20px;
-  padding: 0 8px;
-  gap: 4px;
+  padding: 0 var(--space-sm);
+  gap: var(--space-xs);
   border-radius: var(--radius-pill);
   font-size: var(--font-caption-size);
   font-weight: var(--weight-regular);
@@ -2303,7 +2367,7 @@ select.visually-hidden {
  * beside a title, not a property of the pill itself. */
 .page-header .refresh-pill {
   position: absolute;
-  top: 8px;
+  top: var(--space-sm);
   right: 0;
 }
 
@@ -2450,7 +2514,7 @@ button:not(.value-control__handle):active {
 }
 
 .dirty-bar > .btn {
-  padding: 0 var(--space-lg);
+  padding-inline: var(--space-lg);
 }
 @media (max-width: 959.98px) {
   :root {
@@ -2470,7 +2534,7 @@ button:not(.value-control__handle):active {
   }
 
   .dirty-bar--inline > .btn {
-    padding: 0 var(--space-sm);
+    padding-inline: var(--space-sm);
   }
 
   .dirty-bar--inline .dirty-bar__message {
@@ -2976,10 +3040,6 @@ table.data-table--readings {
   border-bottom: 1px solid var(--glass-hairline);
 }
 
-.data-table--flights td {
-  height: 56px;
-}
-
 /* The users phone cards: the solid glass base outside @supports. */
 .users-row {
   background: var(--glass-solid);
@@ -3003,14 +3063,6 @@ table.data-table--readings {
   --audit-columns: 11rem minmax(0, 1fr) minmax(0, 1.4fr) 7rem 20px;
 }
 
-/* Scoped to Flights' own table only. Tokens only (no literal px), so
- * this rule tracks --space-sm/--space-md automatically if either token
- * ever changes. */
-table.data-table--flights td,
-table.data-table--flights th {
-  padding: var(--space-sm) var(--space-sm);
-}
-
 /* .data-table's own min-width: max-content sizes every column to its
  * widest UNWRAPPED line, so inline primary+secondary spans blow through
  * the column budget. Making them block-level (stacked) makes each
@@ -3023,50 +3075,6 @@ table.data-table--flights .cell-secondary {
 
 table.data-table--flights .cell-inline-sep {
   display: none;
-}
-
-/* Fixed column widths: with automatic widths every row that streams in
- * re-divides the table between its columns, so the cells jump after the
- * first paint. The cells wrap inside their column instead. */
-table.data-table--flights {
-  table-layout: fixed;
-  min-width: 0;
-}
-
-table.data-table--flights .col-when {
-  width: 20%;
-}
-
-table.data-table--flights .col-flight {
-  width: 22%;
-}
-
-table.data-table--flights .col-route {
-  width: 22%;
-}
-
-table.data-table--flights .col-state {
-  width: 14%;
-}
-
-table.data-table--flights .col-picture {
-  /* Wide enough for the picture button at its natural width. */
-  width: 9rem;
-}
-
-.update-cta__icon .icon {
-  width: 22px;
-  height: 22px;
-}
-
-.update-cta .mono {
-  white-space: nowrap;
-}
-
-.update-row__version .mono {
-  font-size: var(--font-body-size);
-  font-weight: var(--weight-semibold);
-  white-space: nowrap;
 }
 
 /* 70% muted strength, matching .section-caption/.data-table th. color,
@@ -3269,112 +3277,11 @@ table.data-table--flights .col-picture {
   color: var(--seg-selected-fg);
 }
 
-/* The search lives in the page header's title row (.filter-bar--title).
- * Without a script it is a plain field beside the title. With one, a phone
- * shows a 44px magnifier at the row's right edge that opens over the whole
- * row, in place: the title keeps its box under the field, so nothing below
- * moves. From 960px the field is always open at the right. */
-.page-header:has(> .filter-bar--title) {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-xs) var(--space-md);
-  min-height: 44px;
-}
-
-.page-header:has(> .filter-bar--title) > .page-title {
-  margin: 0;
-}
-
-.filter-bar--title {
-  flex: 1 1 280px;
-  margin: 0 0 0 auto;
-  max-width: 560px;
-}
-
-:is(.js, .js-early) .filter-bar--title {
-  position: absolute;
-  top: 0;
-  right: 0;
-  z-index: 2;
-  width: 44px;
-  max-width: none;
-  margin: 0;
-}
-
-:is(.js, .js-early) .filter-bar--title .filter-bar__search input {
-  padding: 0;
-  cursor: pointer;
-}
-
-:is(.js, .js-early) .filter-bar--title .filter-bar__search input::placeholder {
-  color: transparent;
-}
-
-:is(.js, .js-early) .filter-bar--title:focus-within,
-:is(.js, .js-early) .filter-bar--title[data-filter-active] {
-  width: 100%;
-}
-
-:is(.js, .js-early) .filter-bar--title:focus-within input,
-:is(.js, .js-early) .filter-bar--title[data-filter-active] input {
-  padding: 0 52px 0 46px;
-  cursor: text;
-}
-
-:is(.js, .js-early) .filter-bar--title:focus-within input::placeholder,
-:is(.js, .js-early) .filter-bar--title[data-filter-active] input::placeholder {
-  color: color-mix(in srgb, var(--color-text) 55%, transparent);
-}
 @media (min-width: 960px) {
-
   .filter-bar--chips .filter-chip {
     flex: 0 0 auto;
   }
-
-  /* In the title row, after the title and clear of the frame button (the
-   * header keeps that space free); it wraps under the title when the row is
-   * too narrow for both. */
-  :is(.js, .js-early) .filter-bar--title,
-  :is(.js, .js-early) .filter-bar--title:focus-within,
-  :is(.js, .js-early) .filter-bar--title[data-filter-active] {
-    position: relative;
-    top: auto;
-    right: auto;
-    flex: 0 1 360px;
-    width: 360px;
-    max-width: 100%;
-    margin: 0;
-  }
-
-  :is(.js, .js-early) .filter-bar--title .filter-bar__search input,
-  :is(.js, .js-early) .filter-bar--title:focus-within input {
-    padding: 0 52px 0 46px;
-    cursor: text;
-  }
-
-  :is(.js, .js-early) .filter-bar--title .filter-bar__search input::placeholder {
-    color: color-mix(in srgb, var(--color-text) 55%, transparent);
-  }
 }
-
-@media (min-width: 1280px) {
-  .page-header:has(> .filter-bar--title) {
-    flex-wrap: nowrap;
-  }
-
-  .page-header:has(> .filter-bar--title) > .page-title {
-    flex: none;
-  }
-
-  :is(.js, .js-early) .filter-bar--title,
-  :is(.js, .js-early) .filter-bar--title:focus-within,
-  :is(.js, .js-early) .filter-bar--title[data-filter-active] {
-    min-width: 260px;
-    margin-left: auto;
-  }
-}
-
 
 /* The empty state: a soft card with a search glyph in a halo and its
  * own Clear action. Sets no display, so [hidden] still hides it. */
@@ -3626,10 +3533,11 @@ details[open] > summary::before {
 /* (0,2,1) specificity, deliberately: out-specifies any bare
  * .sparkline__canvas class rule, since the canvas size must be declared
  * HERE ONLY. No viewBox: every point battery_sparkline_svg() emits is a
- * PERCENTAGE OF THIS HEIGHT, so it must never vary inside a media query. */
+ * PERCENTAGE OF THIS HEIGHT, so a taller canvas only stretches the plot; the
+ * Battery page's wide layout does that once, in style-admin.css. */
 .battery-trend-section svg:not(.icon) {
   width: 100%;
-  height: 160px;
+  height: 192px;
   overflow: visible;
   display: block;
 }
@@ -3759,45 +3667,19 @@ a.airline-card {
 
 /* Interactive battery-trend chart hit targets and readout line. */
 
-/* auto first column: the browser measures the real rendered width of
- * the widest Y-axis label and reserves exactly that, replacing a
- * Python-side width estimate. */
+/* The chart is one canvas, its labels drawn inside it; the caption for an
+ * off-range threshold sits under it. */
 .sparkline {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  column-gap: var(--space-sm);
-  row-gap: var(--space-xs);
-}
-
-.sparkline__y {
-  grid-column: 1;
-  grid-row: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  align-items: flex-end;
-}
-
-.sparkline__x {
-  grid-column: 2;
-  display: flex;
-  justify-content: space-between;
-}
-
-/* Never receives pointer events, or it would steal them from the
- * larger .sparkline-hit target painted at the same coordinates. */
-.sparkline-dot {
-  fill: currentColor;
-  pointer-events: none;
+  display: block;
 }
 
 .sparkline-legend {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-xs);
-  font-size: 12px;
+  gap: var(--space-sm);
+  font-size: var(--font-caption-size);
   font-weight: var(--weight-regular);
-  line-height: 1.2;
+  line-height: 1.3;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
@@ -3942,6 +3824,13 @@ a.airline-card {
   stroke-linecap: round;
 }
 
+/* The low-battery tick crossing the track. */
+.drawing-arc-tick {
+  stroke: var(--color-text);
+  stroke-width: 2.5;
+  stroke-linecap: butt;
+}
+
 /* width/height: auto restores draw.unit_canvas()'s own intrinsic
  * attributes over the chart's own svg:not(.icon) sizing rule.
  * :not(.icon) filters nothing here — it exists only to add a class so
@@ -3951,35 +3840,45 @@ a.airline-card {
   height: auto;
 }
 
-/* Percentage / Voltage control above the battery chart: a two-button
- * group of native buttons. The selected one is marked by weight, a
- * stronger border and a tinted wash, never by colour alone. Shipped
- * [hidden] and revealed by battery-trend.js, so the explicit [hidden]
- * rule is required: this display would otherwise beat the UA rule. */
+/* Percentage / Voltage switch: one segmented track (the shared segmented
+ * tokens), two 44px radio segments, the selected one a filled pill. Shipped
+ * [hidden] and revealed by battery-trend.js, so the explicit [hidden] rule
+ * in style-c-console.css is required: this display would otherwise beat the
+ * UA rule. */
 .battery-unit {
   display: inline-flex;
   gap: var(--space-xs);
-  margin: 0 0 var(--space-sm);
+  margin: 0;
+  padding: var(--space-xs);
+  border-radius: var(--radius-card);
+  background: var(--color-secondary);
+  box-shadow: inset 0 0 0 1px var(--seg-edge);
 }
 
 .battery-unit__option {
   min-height: 44px;
   min-width: 44px;
   padding: 0 var(--space-md);
+  border: 0;
+  border-radius: var(--radius-control);
+  background: none;
+  color: var(--seg-idle-fg);
+  font-size: var(--font-label-size);
   font-weight: var(--weight-regular);
+  transition: background-color var(--motion-fast) ease, color var(--motion-fast) ease;
 }
 
-.battery-unit__option[aria-pressed="true"] {
+.battery-unit__option[aria-checked="true"] {
+  background: var(--seg-selected-bg);
+  box-shadow: var(--shadow-control);
+  color: var(--seg-selected-fg);
   font-weight: var(--weight-semibold);
-  border-color: var(--color-text);
-  background: color-mix(in srgb, var(--color-text) 12%, transparent);
 }
 
-/* Health rows: one hairline card, a group band per section, one native
- * <details> row per subsystem. The card is one width at every viewport
- * (no max-width cap), and nothing on it lifts: the rows are read-only, so
- * the only pointer response is a faint wash on the summary, which is the
- * one control a row has. Colour comes from the three status tokens and
+/* Health rows: one hairline card, a group band per section, one
+ * always-open row per subsystem. The card is one width at every viewport
+ * (no max-width cap), and nothing on it lifts: the rows are read-only and
+ * carry no control of their own. Colour comes from the three status tokens and
  * never carries the state alone (each state has its own icon shape and a
  * visually hidden word). The grid is on the 8px scale: a 32px icon, a
  * 16px gutter, a 208px name column, a 64px row. */
@@ -3993,15 +3892,14 @@ a.airline-card {
   margin-bottom: var(--space-lg);
 }
 
-/* A phone row stacks name over verdict over value beside the icon; the
- * chevron is the shared summary marker, moved to the trailing edge. */
+/* A phone row stacks name over verdict over value beside the icon. */
 .health-row__summary {
   display: grid;
-  grid-template-columns: 32px minmax(0, 1fr) 16px;
+  grid-template-columns: 32px minmax(0, 1fr);
   grid-template-areas:
-    "icon name chevron"
-    "icon verdict chevron"
-    "icon value chevron";
+    "icon name"
+    "icon verdict"
+    "icon value";
   column-gap: var(--space-md);
   row-gap: var(--space-xs);
   align-items: center;
@@ -4009,13 +3907,6 @@ a.airline-card {
   padding: var(--space-md);
   color: var(--color-text);
   font-weight: var(--weight-regular);
-}
-
-.health-row__summary::before {
-  grid-area: chevron;
-  justify-self: end;
-  margin: 0;
-  color: color-mix(in srgb, var(--color-text) 60%, transparent);
 }
 
 .health-row__icon {
@@ -4064,52 +3955,6 @@ a.airline-card {
   margin: 0;
 }
 
-.health-row__facts {
-  display: grid;
-  gap: var(--space-xs);
-}
-
-.health-row__facts > div {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-}
-
-.health-row__facts dt {
-  font-size: var(--font-label-size);
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
-.health-row__facts dd {
-  margin: 0;
-}
-
-.health-row__note {
-  margin: 0;
-  font-size: var(--font-label-size);
-  line-height: 1.4;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
-.health-row__outcomes {
-  display: grid;
-  gap: var(--space-sm);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.health-row__outcome {
-  display: flex;
-  align-items: center;
-  margin: 0;
-}
-
-.health-row__outcome .tnum {
-  margin-left: auto;
-  padding-left: var(--space-md);
-  font-weight: var(--weight-semibold);
-}
-
 /* The battery chart's wrapper keeps its class (the chart rules and
  * battery-trend.js key off it) but is not a card here: the row is the
  * container. Declared after the card's own hover rule at equal
@@ -4134,21 +3979,17 @@ a.airline-card {
   border-color: var(--color-border);
   box-shadow: none;
 }
-@container health-rows (min-width: 600px) {
-
-  .health-row__facts > div {
-    grid-template-columns: 160px minmax(0, 1fr);
-    column-gap: var(--space-md);
-    align-items: baseline;
-  }
-}
-
 @media (min-width: 960px) {
   .dashboard-shell {
     display: grid;
     grid-template-columns: calc(240px + var(--space-md)) minmax(0, 1fr);
     column-gap: var(--space-xl);
     align-items: start;
+  }
+
+  /* A page with no navigation has no sidebar column. */
+  .dashboard-shell--bare {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   /* position: sticky needs .dashboard-shell's align-items: start above
@@ -4158,7 +3999,7 @@ a.airline-card {
     display: flex;
     flex-direction: column;
     gap: var(--space-lg);
-    min-height: calc(100dvh - var(--space-md) * 2);
+    min-height: calc(100dvh - var(--space-md) * 2 - var(--notice-h, 0px));
     margin: var(--space-md) 0 var(--space-md) var(--space-md);
     padding: var(--space-lg) var(--space-md);
     background: var(--color-secondary);
@@ -4166,7 +4007,7 @@ a.airline-card {
     border-radius: var(--radius-pill);
     box-shadow: var(--shadow-glass);
     position: sticky;
-    top: var(--space-md);
+    top: calc(var(--space-md) + var(--notice-h, 0px));
   }
 
   .sidebar-footer {
@@ -4332,6 +4173,15 @@ a.airline-card {
 
 .login-card a.login-signin:hover {
   background: var(--color-accent-hover);
+}
+
+/* The first-visit hint: one small muted centred line under the button. */
+.login-card .login-card__first {
+  margin: var(--space-sm) 0 0;
+  text-align: center;
+  font-size: var(--font-caption-size);
+  text-wrap: balance;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
 /* A standalone text link inside the card keeps a 44px hit height. */
@@ -5097,7 +4947,11 @@ html:not(.map-ready) .place-details__close {
 .quiet-timezone-note a::after {
   content: "";
   position: absolute;
-  inset: -13px -4px;
+  top: 50%;
+  left: 50%;
+  width: max(calc(100% + 8px), 44px);
+  height: max(calc(100% + 26px), 44px);
+  transform: translate(-50%, -50%);
 }
 
 /* Without the battery dial (a plain user's Home) the status zone and the
@@ -5490,6 +5344,45 @@ input[name="radius_km"] {
   padding: 0;
 }
 
+/* Text centring in a button, chip or pill. A line box centres the font's
+ * content area (its ascent plus descent), and that area is not symmetric
+ * about the capitals for every system font, so a label sat 1 to 2px high or
+ * low in its box depending on the platform. Trimming the text block to the
+ * cap height (baseline to capital top) and padding by the box's own height
+ * puts the capitals on the box's exact middle whatever the font. Only a
+ * box whose text is its own block can be trimmed (a flex or grid container
+ * cannot), so these are inline-block with the padding standing in for the
+ * old flex centring; a button with an icon or a nested element keeps its
+ * flex layout. A browser without text-box or the cap unit keeps the flex
+ * centring above. */
+@supports (text-box: trim-both cap alphabetic) and (padding: 1cap) {
+  .btn:not(:has(> *)) {
+    display: inline-block;
+    padding-block: calc((44px - 1cap) / 2 - var(--btn-border, 1px));
+    text-box: trim-both cap alphabetic;
+  }
+
+  .btn.btn--ghost {
+    --btn-border: 0px;
+  }
+
+  .airline-card__chip:not(:has(> *)),
+  .airlines-gap__prefix:not(:has(> *)) {
+    display: inline-block;
+    box-sizing: border-box;
+    height: var(--pill-h);
+    padding-block: calc((var(--pill-h) - 1cap) / 2 - var(--pill-bw, 0px));
+    text-align: center;
+    text-box: trim-both cap alphabetic;
+    white-space: nowrap;
+  }
+
+  .airline-card__chip { --pill-h: 20px; --pill-bw: 1px; }
+  .airlines-gap__prefix { --pill-h: 32px; }
+  .filter-chip__text,
+  .filter-chip__count { text-box: trim-both cap alphabetic; }
+}
+
 /* The highlighted link card (ui_components.link_card_html): a tinted card with
  * an accent border, an accent icon tile, a title over an optional subtitle that
  * wraps rather than being cut, and an accent chevron. */
@@ -5575,6 +5468,17 @@ a.btn[aria-disabled="true"] {
   display: inline-flex;
   align-items: center;
   min-height: 44px;
+}
+
+/* The way back above the title: a chevron and the label, semibold. */
+.credits-back--top {
+  margin: 0 0 var(--space-sm);
+}
+
+.credits-back--top .text-link {
+  gap: var(--space-xs);
+  font-weight: var(--weight-semibold);
+  text-decoration: none;
 }
 
 .theme-form input[type="radio"] + label {
@@ -5903,13 +5807,20 @@ a.btn[aria-disabled="true"] {
    * zones an iPhone draws under the status bar and the bottom toolbar), so
    * while the sheet is open it carries the same dim. The body then paints the
    * ground itself, so the scrim dims it once and the zones outside the window
-   * match what is inside it. */
+   * match what is inside it. The four layers mirror the page's own two (the
+   * sky and the strip hanging below the box), each under its own dim. */
   html:has(.tab-bar__more[open]) {
     background-image:
       linear-gradient(
         color-mix(in srgb, var(--color-text) 55%, transparent),
         color-mix(in srgb, var(--color-text) 55%, transparent)),
-      linear-gradient(180deg, var(--sky-top) 0%, var(--sky-mid) 45%, var(--sky-bottom) 100%);
+      linear-gradient(
+        color-mix(in srgb, var(--color-text) 55%, transparent),
+        color-mix(in srgb, var(--color-text) 55%, transparent)),
+      linear-gradient(180deg, var(--sky-top) 0%, var(--sky-mid) 45%, var(--sky-bottom) 100%),
+      linear-gradient(var(--sky-bottom), var(--sky-bottom));
+    background-size: 100% 100%, 100% 200px, 100% 100%, 100% 200px;
+    background-position: 0 0, 0 calc(100% + 200px), 0 0, 0 calc(100% + 200px);
   }
 
   body:has(.tab-bar__more[open]) {
@@ -5918,13 +5829,15 @@ a.btn[aria-disabled="true"] {
     background-size: 100% 100%;
   }
 
+  /* The visible handle: a 44px by 5px pill, decorative. The sheet closes from
+   * the keyboard (Escape), from the More cell and from a tap outside it. */
   .tab-bar__grab {
     flex: none;
     align-self: center;
-    width: 40px;
-    height: 4px;
+    width: 44px;
+    height: 5px;
     margin-bottom: var(--space-xs);
-    border-radius: 2px;
+    border-radius: 3px;
     background: var(--color-border);
   }
 
@@ -6011,10 +5924,27 @@ a.btn[aria-disabled="true"] {
   }
 }
 
+/* On the narrowest phones the sheet's rows, label column and segments give up
+ * some padding, so the three theme segments keep their whole words
+ * (French "Auto", "Clair", "Sombre") instead of being cut to an ellipsis. */
+@media (max-width: 359.98px) {
+  .tab-bar__prefs .group > .row.tab-bar__pref {
+    padding-inline: var(--space-sm);
+  }
+
+  .tab-bar__prefs .group .row .row__main {
+    flex-basis: 6.25rem;
+  }
+
+  .tab-bar__pref .theme-form .theme-option {
+    padding-inline: 2px;
+  }
+}
+
 
 .look-frame__picture {
   position: relative;
-  padding: 8px;
+  padding: var(--space-sm);
   border-radius: var(--radius-control);
   background: linear-gradient(145deg, var(--color-frame-bezel-hi), var(--color-frame-bezel));
   box-shadow: 0 14px 30px -14px var(--color-shadow-strong);
@@ -6123,7 +6053,7 @@ a.form-back {
   .look-sheet::before {
     content: "";
     position: absolute;
-    top: 8px;
+    top: var(--space-sm);
     left: 50%;
     width: 40px;
     height: 4px;
@@ -6214,8 +6144,13 @@ dialog.modal.is-modal[open] {
   overflow-wrap: anywhere;
 }
 
-a.modal__close {
+a.modal__close,
+dialog.modal button.modal__close {
   display: grid;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
   flex: none;
   place-items: center;
   width: 44px;
@@ -6256,12 +6191,44 @@ a.modal__close {
   background: var(--color-dominant);
 }
 
+/* A short confirmation question: the sentence sits close to the title block
+ * above it and to the buttons below it. */
+.modal__question {
+  margin: 0;
+}
+
+dialog.modal:has(.modal__question) .modal__body {
+  margin-top: 6px;
+}
+
+dialog.modal:has(.modal__question) .modal__actions {
+  gap: 6px;
+  margin-top: var(--space-sm);
+}
+
 dialog.modal button {
   height: auto;
   min-height: 44px;
   min-width: 44px;
   padding: var(--space-sm) var(--space-md);
   font-size: var(--font-label-size);
+}
+
+/* The question with two answers (ui_modal.choice_dialog_html): both answers
+ * are the same 48px tall and as wide as each other, side by side from 700px
+ * up and stacked below it, and the bar of unsaved changes behind the unsaved
+ * question is hidden so only the question speaks. */
+dialog.modal--choice .modal__actions {
+  align-items: stretch;
+}
+
+dialog.modal--choice .modal__actions > .btn {
+  flex: 1 1 0;
+  min-height: 48px;
+}
+
+body:has(dialog[data-leave-dialog][open]) .dirty-bar {
+  visibility: hidden;
 }
 
 a.modal__dismiss {
@@ -6286,8 +6253,9 @@ a.modal__dismiss {
   .modal:target:not(.is-modal),
   .modal[open]:not(.is-modal) {
     position: fixed;
-    inset: auto 0 0;
+    inset: auto 0 var(--keyboard-inset, 0px);
     width: 100%;
+    max-height: min(88svh, calc(100svh - var(--keyboard-inset, 0px) - 12px));
     margin: 0;
     padding: 22px max(var(--space-md), var(--safe-right)) 0 max(var(--space-md), var(--safe-left));
     border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
@@ -6308,13 +6276,32 @@ a.modal__dismiss {
   dialog.modal::before {
     content: "";
     position: absolute;
-    top: 8px;
+    top: var(--space-sm);
     left: 50%;
     width: 40px;
     height: 4px;
     margin-left: -20px;
     border-radius: var(--radius-control);
     background: var(--color-border);
+  }
+
+  /* With the keyboard up the sheet floats above it, and iOS leaves its
+   * autofill bar transparent: this fixed strip carries the sheet's own surface
+   * from the sheet's bottom edge down to the bottom of the viewport. Fixed, so
+   * it is not clipped by the sheet's scroll and adds no page height; it is
+   * zero tall while no keyboard lifts the sheet. */
+  dialog.modal::after {
+    content: "";
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    height: var(--keyboard-inset, 0px);
+    background: inherit;
+  }
+
+  dialog.modal[open] {
+    border-bottom-width: 0;
   }
 }
 
@@ -6359,6 +6346,222 @@ a.modal__dismiss {
   }
 }
 
+
+/* Compact dialogs (ui_modal variant "compact"): the Users page's invite,
+ * invitation and confirmation dialogs. Every rule hangs on .modal--compact, so
+ * no other dialog changes. The title, the content and the buttons sit 14px
+ * apart on every edge; the two buttons share one row, dismiss first. */
+dialog.modal.modal--compact {
+  width: min(420px, 88%);
+  padding: 20px 20px 0;
+}
+
+dialog.modal.modal--compact[open],
+.modal--compact form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.modal--compact .modal__body {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+dialog.modal--compact[open] > *,
+.modal--compact form > * {
+  min-width: 0;
+}
+
+.modal--compact .modal__body p {
+  margin: 0;
+}
+
+.modal--compact .modal__actions {
+  flex-direction: row-reverse;
+  justify-content: stretch;
+  gap: 10px;
+  margin: 0;
+  padding: 0 0 20px;
+}
+
+.modal--compact .modal__actions > * {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+/* The dismiss link carries the same 1px border as the submit button on every
+ * page (not only where the admin sheet adds it), so the two buttons share the
+ * row at exactly equal widths. */
+.modal--compact .modal__actions > a.modal__dismiss {
+  box-sizing: border-box;
+  background: var(--glass-solid);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  font-weight: var(--weight-semibold);
+  text-decoration: none;
+}
+
+.modal--compact .modal__actions > form {
+  display: contents;
+}
+
+.modal--compact .modal__actions > form > button {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.modal--compact .modal__note {
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  font-size: var(--font-label-size);
+}
+
+.modal--compact .modal__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.modal--compact .modal__field > label {
+  margin: 0;
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
+}
+
+.modal--compact .modal__field input:not([type="hidden"]) {
+  min-height: 48px;
+}
+
+/* A labelled checkbox: a 26px rounded box and its words on one 48px line.
+ * The native input is transparent and covers the whole line, so its hit area
+ * is the line (48px tall); the box is drawn beside it. */
+.modal__check {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  margin: 0;
+  font-size: var(--font-body-size);
+}
+
+.modal__check input[type="checkbox"] {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  min-height: 48px;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.modal__check-box {
+  display: grid;
+  flex: none;
+  place-content: center;
+  box-sizing: border-box;
+  width: 26px;
+  height: 26px;
+  border: 2px solid color-mix(in srgb, var(--color-text) 70%, transparent);
+  border-radius: 8px;
+}
+
+.modal__check input:checked + .modal__check-box {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.modal__check input:checked + .modal__check-box::after {
+  content: "";
+  width: 6px;
+  height: 12px;
+  margin-top: -2px;
+  border: solid var(--color-on-accent);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.modal__check input:focus-visible + .modal__check-box {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* The invitation link and its Copy button, on one rounded strip. The link is
+ * text to select, never an anchor: opening it would use it up. */
+.modal__linkbox {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 6px 6px 6px 12px;
+  background: var(--color-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+}
+
+.modal__linkbox code {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-caption-size);
+  user-select: all;
+}
+
+.modal__linkbox .btn {
+  flex: none;
+}
+
+.modal__linkbox .copy-btn__label {
+  display: inline;
+  position: static;
+  transform: none;
+  margin: 0;
+  font-size: inherit;
+}
+
+/* A confirmation to delete: the destructive button is a solid error colour. */
+.modal--compact .btn.btn--danger {
+  background: var(--color-status-error);
+  border-color: var(--color-status-error);
+  color: var(--color-on-accent);
+}
+
+@media (min-width: 700px) {
+  dialog.modal.modal--top {
+    margin: 16svh auto auto;
+  }
+}
+
+/* On a phone the dialog is a bottom sheet with a 44px grabber. The on-screen
+ * keyboard shrinks the visual viewport but not the layout viewport the sheet
+ * is anchored to: modal.js sets --keyboard-inset to the covered height on
+ * every open sheet, so the sheet, and the field in it, stay above the
+ * keyboard (the base sheet rule above lifts the others the same way). */
+@media (max-width: 699.98px) {
+  dialog.modal.modal--compact {
+    inset: auto 0 var(--keyboard-inset, 0px);
+    width: 100%;
+    max-height: min(85svh, calc(100svh - var(--keyboard-inset, 0px) - 12px));
+    padding: 33px max(16px, var(--safe-right)) 0 max(16px, var(--safe-left));
+  }
+
+  dialog.modal.modal--compact::before {
+    top: 12px;
+    width: 44px;
+    height: 5px;
+    margin-left: -22px;
+  }
+
+  .modal--compact .modal__actions {
+    padding-bottom: calc(var(--space-lg) + var(--safe-bottom));
+  }
+}
 
 /* A dialog that opens on its heading: the heading is a focus target, not a
  * control, so it draws no ring. */
@@ -6695,9 +6898,8 @@ a.entity-row__button:hover {
 
 
 /* Airline collection: a header with the page title at the standard size, then
- * the progress on one line (count, a thin bar, the next goal, a compact
- * "earned/total" badge pill), one sticky control bar and a calm grid of
- * larger picture cards. A card that has not been seen is only dimmed. */
+ * the next goal with a compact "earned/total" badge pill, one sticky
+ * control bar and a calm grid of larger picture cards. */
 .page-header:has(> .collection-head__status) {
   margin-bottom: var(--space-md);
 }
@@ -6750,12 +6952,6 @@ a.entity-row__button:hover {
   color: var(--color-text);
 }
 
-/* Not seen yet: the whole card is calmer, with no text of its own. */
-.collection-card--unseen {
-  box-shadow: none;
-  background: color-mix(in srgb, var(--color-dominant) 55%, transparent);
-}
-
 /* The detail sheet fits the viewport: the head with its close button and
  * the Close foot stay in place and only the body scrolls. */
 dialog.collection-sheet[open],
@@ -6765,15 +6961,21 @@ dialog.access-sheet[open],
   display: flex;
   flex-direction: column;
   max-height: 85vh;
-  max-height: 85dvh;
+  max-height: min(85dvh, calc(100dvh - var(--keyboard-inset, 0px) - 12px));
   overflow: hidden;
 }
 
 /* Users table ----------------------------------------------------------
- * One <table> of users. Below 79.5rem every row is a card: avatar and
- * email with the "..." menu on top, the role select and the Active switch
- * under it, frames and last sign-in at the bottom. */
-.users-table,
+ * One <table> of users. Below 79.5rem the table is one card and every row
+ * is a person in it: avatar, address and status with "Role . frames" under
+ * them, the Active switch and the "..." menu on the right. */
+.users-table {
+  display: block;
+  background: var(--glass-solid);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+}
+
 .users-table tbody {
   display: block;
 }
@@ -6790,10 +6992,30 @@ button.row-menu__item {
   text-align: left;
   color: var(--color-text);
 }
+
+/* The invite trigger is the words on a wide screen and a square plus button
+ * beside the title on a phone. */
+.page-header__action-icon {
+  display: none;
+}
+
 @media (max-width: 699.98px) {
-  .page-header:has(> .page-header__actions--stack) {
-    grid-template-columns: minmax(0, 1fr);
-    row-gap: var(--space-md);
+  .page-header__action-icon {
+    display: inline-flex;
+  }
+
+  .page-header__action-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  a.page-header__action:has(> .page-header__action-icon) {
+    width: 44px;
+    padding: 0;
   }
 }
 
@@ -6804,9 +7026,6 @@ button.row-menu__item {
     width: 100%;
     border-collapse: separate;
     border-spacing: 0;
-    background: var(--glass-solid);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-card);
   }
 
   .users-table tbody {
@@ -6911,14 +7130,17 @@ button.row-menu__item {
 .reveal-appended,
 .reveal-replay,
 .dashboard-main[data-page-open] .reveal,
-.dashboard-main[data-page-open] .group-block:not(.history-day):nth-child(-n + 6),
+.dashboard-main[data-page-open] .group-block:not(.history-day):not(.fleet-list-group):nth-child(-n + 6),
 .dashboard-main[data-page-open] .history-day:nth-child(-n + 3),
 .dashboard-main[data-page-open] .page-section:not(.group-block .page-section):nth-child(-n + 6),
 .dashboard-main[data-page-open] .personalisation-look,
 .dashboard-main[data-page-open] .personalisation > .layout-card,
 .dashboard-main[data-page-open] .personalisation > .personalisation-nav,
-.dashboard-main[data-page-open] .fleet-frame > .fleet-detail-head,
-.dashboard-main[data-page-open] .fleet-frame > .fleet-tabs {
+.dashboard-main[data-page-open] .fleet-frame > .fleet-head,
+.dashboard-main[data-page-open] .fleet-split__main > .fleet-head,
+.dashboard-main[data-page-open] .fleet-split__main > .fleet-empty,
+.dashboard-main[data-page-open] .fleet-frame > .fleet-anchors,
+.dashboard-main[data-page-open] .fleet-tiles--system {
   animation:
     skypane-reveal var(--motion-enter) steps(12, end) backwards,
     skypane-reveal-fade var(--motion-enter) var(--ease-out) backwards;
@@ -6983,6 +7205,11 @@ button.row-menu__item {
 .dashboard-main[data-page-open] > .airlines-table {
   animation: skypane-reveal-fade var(--motion-enter) var(--ease-out) backwards;
   animation-delay: calc(2 * var(--motion-stagger));
+}
+
+/* The editor table that follows the gaps table enters one step after it. */
+.dashboard-main[data-page-open] > .airlines-table--gaps ~ .airlines-table {
+  animation-delay: calc(3 * var(--motion-stagger));
 }
 
 /* A filter that only hides rows replays a fade of its list, nothing else:
@@ -7071,6 +7298,28 @@ button.row-menu__item {
   --reveal-index: 5;
 }
 
+/* The System tiles are the first block under the header; the topic blocks
+ * after them count on from there. */
+.dashboard-main[data-page-open] ul.fleet-tiles--system {
+  --reveal-index: 1;
+}
+
+.dashboard-main[data-page-open] .system-topics > .group-block:nth-child(1) {
+  --reveal-index: 2;
+}
+
+.dashboard-main[data-page-open] .system-topics > .group-block:nth-child(2) {
+  --reveal-index: 3;
+}
+
+.dashboard-main[data-page-open] .system-topics > .group-block:nth-child(3) {
+  --reveal-index: 4;
+}
+
+.dashboard-main[data-page-open] .system-topics > .group-block:nth-child(n + 4) {
+  --reveal-index: 5;
+}
+
 /* Where controls or other blocks always come first, the blocks count on from
  * them: the Flights days follow the filter bar, the Style and Fleet blocks
  * follow the two rows above them. */
@@ -7090,19 +7339,61 @@ button.row-menu__item {
   --reveal-index: 4;
 }
 
-/* A phone shows the blocks of one Fleet tab: they count among themselves,
- * after the frame's header row and the tabs. */
-@media (max-width: 959px) {
-  .dashboard-main[data-page-open] .fleet-blocks > .fleet-block--state:nth-child(2 of .fleet-block--state),
-  .dashboard-main[data-page-open] .fleet-blocks > .fleet-block--settings:nth-child(2 of .fleet-block--settings),
-  .dashboard-main[data-page-open] .fleet-blocks > .fleet-block--access:nth-child(2 of .fleet-block--access) {
-    --reveal-index: 4;
+/* The Fleet page has no page header: the list's title row, or the title of the
+ * frame or view in the main column, opens the page below 1200px and the
+ * blocks count on from it. */
+@media (max-width: 1199px) {
+  .dashboard-main[data-page-open] .fleet-list__head {
+    animation: skypane-reveal-fade var(--motion-enter) var(--ease-out) backwards;
   }
 
-  .dashboard-main[data-page-open] .fleet-blocks > .fleet-block--state:nth-child(n + 3 of .fleet-block--state),
-  .dashboard-main[data-page-open] .fleet-blocks > .fleet-block--settings:nth-child(n + 3 of .fleet-block--settings),
-  .dashboard-main[data-page-open] .fleet-blocks > .fleet-block--access:nth-child(n + 3 of .fleet-block--access) {
-    --reveal-index: 5;
+  .dashboard-main[data-page-open] .fleet-list-group:nth-child(-n + 6) {
+    animation:
+      skypane-reveal var(--motion-enter) steps(12, end) backwards,
+      skypane-reveal-fade var(--motion-enter) var(--ease-out) backwards;
+    animation-delay: calc(var(--reveal-index, 0) * var(--motion-stagger));
+  }
+
+  .dashboard-main[data-page-open] .fleet-split .fleet-frame > :nth-child(1),
+  .dashboard-main[data-page-open] .fleet-split__main > .fleet-head {
+    --reveal-index: 0;
+  }
+
+  .dashboard-main[data-page-open] .fleet-frame > :nth-child(2) {
+    --reveal-index: 1;
+  }
+}
+
+/* A phone stacks State, Settings and Access under the frame's header row and
+ * the anchors: they count on from them, one step each. */
+@media (max-width: 959px) {
+  .dashboard-main[data-page-open] .fleet-frame .fleet-blocks > .group-block:nth-child(1) {
+    --reveal-index: 2;
+  }
+
+  .dashboard-main[data-page-open] .fleet-frame .fleet-blocks > .group-block:nth-child(2) {
+    --reveal-index: 3;
+  }
+
+  .dashboard-main[data-page-open] .fleet-frame .fleet-blocks > .group-block:nth-child(3) {
+    --reveal-index: 4;
+  }
+}
+
+/* From 1200px the list is one block that fades in as the header does (its rows
+ * and title take no entrance of their own), and the frame follows it. */
+@media (min-width: 1200px) {
+  .dashboard-main[data-page-open] .fleet-split__list {
+    animation: skypane-reveal-fade var(--motion-enter) var(--ease-out) backwards;
+  }
+
+  .dashboard-main[data-page-open] .fleet-split__main > .fleet-head,
+  .dashboard-main[data-page-open] .fleet-split__main > .fleet-empty {
+    --reveal-index: 1;
+  }
+
+  .dashboard-main[data-page-open] .fleet-split__main > .fleet-other > .group-block {
+    --reveal-index: 2;
   }
 }
 
@@ -7125,6 +7416,26 @@ button.row-menu__item {
 .dashboard-main[data-page-open] .personalisation > :nth-child(1),
 .dashboard-main[data-page-open] .fleet-frame > :nth-child(1) {
   --reveal-index: 1;
+}
+
+/* Between 960px and 1200px the tabs are gone but the list is not beside the
+ * frame: the frame's title opens the page and its blocks follow one step apart. */
+@media (min-width: 960px) and (max-width: 1199px) {
+  .dashboard-main[data-page-open] .fleet-split .fleet-frame .fleet-blocks > .group-block:nth-child(1) {
+    --reveal-index: 1;
+  }
+
+  .dashboard-main[data-page-open] .fleet-split .fleet-frame .fleet-blocks > .group-block:nth-child(2) {
+    --reveal-index: 2;
+  }
+
+  .dashboard-main[data-page-open] .fleet-split .fleet-frame .fleet-blocks > .group-block:nth-child(3) {
+    --reveal-index: 3;
+  }
+
+  .dashboard-main[data-page-open] .fleet-split .fleet-frame .fleet-blocks > .group-block:nth-child(n + 4) {
+    --reveal-index: 4;
+  }
 }
 
 /* The content of a Style view takes its wrapper's place. */
@@ -7203,8 +7514,7 @@ button.row-menu__item {
   .runway-card,
   .space-switch,
   .place-modes,
-  .map-ready .place-modes,
-  .frame-notice {
+  .map-ready .place-modes {
     --filter-track-edge: var(--glass-border);
     background: var(--glass-bg);
     border-color: var(--glass-border);
@@ -7295,11 +7605,11 @@ button.row-menu__item {
   opacity: 1;
 }
 
-/* Grouped lists: section label, group, row, hero ----------------------------
+/* Grouped lists: section label, group, row -----------------------------------
  * The building blocks of every page (companion/ui_groups.py). A group is one
  * glass surface holding rows separated by hairlines; a row is at least 54px
- * tall and, when it acts, a link or button across its whole width. The hero
- * has no surface at all. Nothing nests: a group never holds another group. */
+ * tall and, when it acts, a link or button across its whole width. Nothing
+ * nests: a group never holds another group. */
 .group-block {
   min-width: 0;
   margin: 0 0 var(--space-lg);
@@ -7463,163 +7773,20 @@ button.row-menu__item {
   inset: 0;
 }
 
-/* The hero: no surface. The picture sits beside a prominent status line in
- * the display face, with secondary lines beneath it. */
-.hero {
-  --home-tone: var(--color-status-ok);
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--space-md) var(--space-lg);
-  align-items: center;
-  margin: 0 0 var(--space-lg);
-}
-
-.hero:has(.hero__picture) {
-  grid-template-columns: minmax(96px, 36%) minmax(0, 1fr);
-}
-@media (min-width: 700px) {
-  .hero:has(.hero__picture) {
-    grid-template-columns: 212px minmax(0, 1fr);
-  }
-}
-
-
-/* The cycle ring sits 5px outside the picture; the margin keeps it, and its
- * stroke, inside the page column instead of hanging out beside the cards. */
-.hero__picture {
-  position: relative;
-  min-width: 0;
-  margin: 6px;
-}
-
-/* The picture sits above the glow behind it. */
-.hero__picture .preview-frame {
-  position: relative;
-}
-
-/* A soft glow of the state's tone behind the picture, breathing on the
- * dot's period. Only opacity and a transform move; it is a pseudo-element,
- * so it takes no room. */
-.hero__picture::before {
-  content: "";
-  position: absolute;
-  inset: -14px;
-  border-radius: calc(var(--radius-control) + 14px);
-  pointer-events: none;
-  background: radial-gradient(closest-side, color-mix(in srgb, var(--home-tone) 26%, transparent), transparent);
-  opacity: 0.25;
-  animation: skypane-picture-breathe var(--motion-breathe) ease-in-out infinite;
-}
-
-/* A glint of glass crossing the picture, clipped to its rounded box. The
- * band rests off to the left for most of its cycle. */
-.hero__glass {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  border-radius: var(--radius-control);
-  pointer-events: none;
-}
-
-.hero__glass::after {
-  content: "";
-  position: absolute;
-  top: -10%;
-  bottom: -10%;
-  left: 0;
-  width: 50%;
-  opacity: 0;
-  transform: translateX(-140%) skewX(-18deg);
-  background: linear-gradient(
-    90deg,
-    transparent,
-    color-mix(in srgb, var(--color-text) 15%, transparent) 30%,
-    var(--glass-highlight) 50%,
-    color-mix(in srgb, var(--color-text) 15%, transparent) 70%,
-    transparent
-  );
-  animation: skypane-glint var(--motion-glint) cubic-bezier(0.45, 0, 0.3, 1) infinite;
-}
-
-/* The frame cycle (wake, poll, display, sleep) as a thin ring around the
- * picture: the bar's stroke-dashoffset is the share of the cycle already
- * elapsed (it steps once a second; no transition, so the page never has a
- * running animation to wait out), the four dots mark the quarters. It sits 5px outside the box and
- * takes no room. */
-.hero__ring {
-  position: absolute;
-  inset: -5px;
-  width: calc(100% + 10px);
-  height: calc(100% + 10px);
-  overflow: visible;
-  pointer-events: none;
-  transform-origin: 50% 50%;
-}
-
-.hero__ring rect {
-  fill: none;
-}
-
-.hero__ring-track {
-  stroke: color-mix(in srgb, var(--color-text) 14%, transparent);
-  stroke-width: 1;
-}
-
-.hero__ring-ticks {
-  stroke: color-mix(in srgb, var(--color-text) 38%, transparent);
-  stroke-width: 4;
-  stroke-linecap: round;
-}
-
-.hero__ring-bar {
-  stroke: var(--color-accent);
-  stroke-width: 2;
-  stroke-linecap: round;
-}
-
-.hero__ring-done {
-  stroke: var(--home-tone);
-  stroke-width: 3;
-  opacity: 0;
-}
-
-/* The small flourish when a refresh starts a new cycle: the ring lights up
- * once and gives a quick spring. */
-.hero__ring.is-ring-done {
-  animation: skypane-ring-pop var(--motion-spring-duration) var(--motion-spring);
-}
-
 /* After a minute without a touch (motion.js sets data-ambient="rest") the
  * ambient loops stop, so a wall tablet's compositor is idle. */
 html[data-ambient="rest"] .home-state__dot--pulse,
-html[data-ambient="rest"] .hero__picture::before,
-html[data-ambient="rest"] .hero__glass::after,
 html[data-ambient="rest"] .is-breathing {
   animation-iteration-count: 0;
 }
 
-/* The same while the More sheet is open: nothing repaints under its blurred
- * scrim. */
+/* The same while the More sheet or any modal dialog is open: nothing
+ * repaints under a blurred scrim. */
 html:has(.tab-bar__more[open]) .home-state__dot--pulse,
-html:has(.tab-bar__more[open]) .hero__picture::before,
-html:has(.tab-bar__more[open]) .hero__glass::after,
-html:has(.tab-bar__more[open]) .is-breathing {
+html:has(.tab-bar__more[open]) .is-breathing,
+html:has(dialog[open]) .home-state__dot--pulse,
+html:has(dialog[open]) .is-breathing {
   animation-iteration-count: 0;
-}
-
-.hero__ring.is-ring-done .hero__ring-done {
-  animation: skypane-ring-glow var(--motion-spring-duration) ease-out;
-}
-
-@keyframes skypane-picture-breathe {
-  0%, 100% {
-    opacity: 0.12;
-    transform: scale(0.98);
-  }
-  50% {
-    opacity: 0.5;
-    transform: scale(1.03);
-  }
 }
 
 @keyframes skypane-dot-breathe {
@@ -7629,58 +7796,6 @@ html:has(.tab-bar__more[open]) .is-breathing {
   50% {
     transform: scale(1.14);
   }
-}
-
-@keyframes skypane-glint {
-  0%, 34% {
-    opacity: 0;
-    transform: translateX(-140%) skewX(-18deg);
-  }
-  38%, 46% {
-    opacity: 0.85;
-  }
-  50%, 100% {
-    opacity: 0;
-    transform: translateX(330%) skewX(-18deg);
-  }
-}
-
-@keyframes skypane-ring-pop {
-  30% {
-    transform: scale(1.045);
-  }
-}
-
-@keyframes skypane-ring-glow {
-  25% {
-    opacity: 1;
-  }
-}
-
-.hero__picture .preview-frame__image {
-  width: 100%;
-  max-height: none;
-  margin: 0;
-  border-radius: var(--radius-control);
-  box-shadow: var(--shadow-glass);
-}
-
-.hero__body {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-sm);
-  min-width: 0;
-}
-
-.hero__body > p {
-  margin: 0;
-}
-
-.hero__status {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
 }
 
 /* The frame's name as the page title, with its quiet icon action beside it on
@@ -7798,17 +7913,6 @@ html:has(.tab-bar__more[open]) .is-breathing {
   transform: rotate(45deg);
 }
 
-/* Two fixed lines: the airline, then the route (a line is reserved when a
- * flight has none). Each line is cut with an ellipsis instead of wrapping, so
- * every card has the one height the Flights sheet declares. */
-.history-card .row__label {
-  display: block;
-  overflow: visible;
-  min-height: calc(var(--font-body-size) * 2.6);
-  white-space: normal;
-  font-weight: var(--weight-semibold);
-}
-
 /* The one lead control of a row with a render: its 40px thumbnail (inside a 44px target)
  * opens the render. */
 .history-card__thumb {
@@ -7856,6 +7960,32 @@ html:has(.tab-bar__more[open]) .is-breathing {
 dialog.modal:focus,
 dialog.modal:focus-visible {
   outline: none;
+}
+
+/* The 404 card: the empty frame drawn in the page ink, one muted line under it. */
+.not-found .group--panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-lg);
+}
+
+.not-found__art {
+  width: 100%;
+  max-width: 260px;
+  height: auto;
+  color: var(--color-text);
+}
+
+.not-found__screen {
+  fill: var(--color-border);
+}
+
+.not-found__caption {
+  margin: 0;
+  text-align: center;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
 /* The one onward link of the error pages: a real primary button. */

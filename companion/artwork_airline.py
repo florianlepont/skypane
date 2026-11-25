@@ -10,20 +10,10 @@ from server.plane import illustrations, manual_resolutions, name_overrides
 QUERY_PARAM = "artwork"
 
 
-def _type_slugs():
-    return tuple(illustrations.SHAPE_SLUGS) + tuple(illustrations._TYPE_VARIANT_SLUGS.values())
-
-
 def base_key(key):
     """The airline's own artwork key for `key`: a per-type picture
     (`{airline}-{type slug}`) belongs to its airline's row."""
-    if not isinstance(key, str):
-        return ""
-    for slug in _type_slugs():
-        suffix = "-" + slug
-        if key.endswith(suffix) and len(key) > len(suffix):
-            return key[:-len(suffix)]
-    return key
+    return illustrations.airline_key_of_artwork(key)
 
 
 def _names(state_dir):

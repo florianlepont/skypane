@@ -43,7 +43,7 @@ def _open(new_context, app, path, lang="en", **context_args):
     page = context.new_page()
     page.goto(base + path)
     page.locator("main").wait_for(state="visible")
-    if context_args.get("java_script_enabled", True):
+    if context_args.get("java_script_enabled", True) and not path.startswith("/fleet"):
         wait_for_button(page)
     return context, page
 
@@ -54,7 +54,7 @@ def _live_path(app, route):
 
 @pytest.mark.parametrize("route", ["/display", "/flights", "/"])
 def test_choosing_a_row_keeps_the_page_for_the_other_frame(new_context, app, route):
-    """on Personalisation, Flight history and Home the other frame's row goes to the same page
+    """on Personalisation, Flights and Home the other frame's row goes to the same page
     of that frame, and the current row carries aria-current and the check"""
     other = app.fleet.dev_a.id
     context, page = _open(
@@ -79,8 +79,7 @@ def test_choosing_a_row_keeps_the_page_for_the_other_frame(new_context, app, rou
 
 def test_the_add_row_is_last_and_opens_the_pairing_flow(new_context, app):
     """a user's popover (and an administrator's on a personal page) ends with an Add a frame
-    row to the Add a frame page; on a Console page an administrator's leads to the Fleet
-    pairing dialog"""
+    row to the Add a frame page; so does the Fleet page's Add a frame button"""
     context, page = _open(
         new_context, app, _live_path(app, "/display"), viewport=VIEWPORT_DESKTOP)
     try:
@@ -90,10 +89,8 @@ def test_the_add_row_is_last_and_opens_the_pairing_flow(new_context, app):
         assert last.inner_text().strip().endswith("Add a frame")
         assert page.locator(ADD).get_attribute("href") == "/pair-frame"
         page.goto(app.server.base_url() + "/fleet")
-        open_menu(page)
-        page.locator(ADD).click()
-        page.wait_for_function(
-            "() => document.querySelector('dialog#dlg-add-frame').open")
+        page.locator(".fleet-add-button").click()
+        page.wait_for_url("**/pair-frame")
     finally:
         context.close()
 
@@ -245,16 +242,19 @@ def test_the_personal_list_has_no_fleet_entry_system_row_or_owner_line(new_conte
         context.close()
 
 
-def test_a_console_popover_lists_every_frame_with_the_owner_email(new_context, app):
+def test_the_fleet_page_has_no_frame_button_and_lists_every_frame_with_its_owner(
+        new_context, app):
     context, page = _open(
         new_context, app, "/fleet", viewport=VIEWPORT_DESKTOP)
     try:
-        open_menu(page)
+        assert page.locator(MENU).count() == 0
         fleet = app.fleet
         for device in (fleet.live, fleet.dev_a, fleet.dev_b, fleet.landscape):
             assert page.locator(
-                '%s[href="/fleet?frame=%s"]' % (FRAMES, device.id)).count() == 1
-        notes = page.locator(FRAMES + " .frame-row__note").all_inner_texts()
+                '.fleet-list li.fleet-frame-row > a[href="/fleet?frame=%s"]' % device.id
+            ).count() == 1
+        notes = page.locator(
+            "section[aria-labelledby=fleet-list-live] .row__detail").all_inner_texts()
         assert notes and all("@" in note for note in notes)
     finally:
         context.close()

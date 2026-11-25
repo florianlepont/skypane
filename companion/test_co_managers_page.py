@@ -74,9 +74,12 @@ def test_the_dialog_carries_the_frame_name_the_title_and_the_done_dismissal():
     assert dismiss.text() == "Done"
     assert dismiss.attrs["href"] == "/fleet"
     assert dialog.attrs["class"] == "modal access-sheet"
-    assert tree.select_one("h2.section-label").text() == "Co-managers"
-    # One group, no second surface inside it, and no long purpose paragraph.
-    assert len(tree.select("ul.group")) == 1
+    labels = [h.text() for h in tree.select("h2.section-label")]
+    assert labels == ["Owner", "Co-managers", "Add a co-manager"]
+    # Three labelled sections, no second surface inside one, no long purpose
+    # paragraph; the Add button is the short "Add".
+    assert len(tree.select("section.group-block")) == 3
+    assert tree.select_one(".row__form button").text() == "Add"
     for stale in (".data-card", ".data-cards", ".row--purpose"):
         assert not tree.select(stale)
 
@@ -121,7 +124,7 @@ def test_an_owner_types_an_email_in_a_required_bounded_field():
     (form,) = _forms_to(tree, card.ADD_ROUTE)
     assert form.attrs["action"] == PREFIX + card.ADD_ROUTE
     assert _hidden(form)["return_to"] == "/account"
-    assert form.select_one('button[type="submit"]').text() == "Add co-manager"
+    assert form.select_one('button[type="submit"]').text() == "Add"
     assert not tree.select("select")
 
 
@@ -148,7 +151,7 @@ def test_an_admin_picks_from_the_eligible_people_with_the_email_as_the_value():
     assert not tree.select('input[type="email"]')
     assert tree.select_one('label[for="%s"]' % select.attrs["id"]).text() == "Invited person"
     (form,) = _forms_to(tree, card.ADD_ROUTE)
-    assert form.select_one('button[type="submit"]').text() == "Add co-manager"
+    assert form.select_one('button[type="submit"]').text() == "Add"
 
 
 def test_an_admin_with_nobody_left_to_add_sees_a_line_and_no_control():
@@ -216,8 +219,8 @@ def test_the_french_dialogs_use_the_french_catalogue():
     prefs.set_request_prefs(lang="fr")
     text = _tree(_view(is_admin_viewer=True, candidates=("a@example.test",))).text()
     for expected in (
-            "Gérer l’accès", "Co-gestionnaires", "Propriétaire", "Retirer",
-            "Personne invitée", "Choisir une personne", "Ajouter un co-gestionnaire",
+            "Gérer l’accès", "Cogestionnaires", "Propriétaire", "Retirer",
+            "Personne invitée", "Choisir une personne", "Ajouter un cogestionnaire",
             "Terminé"):
         assert expected in text
     assert "Co-managers" not in text and "Remove" not in text and "Done" not in text
@@ -331,8 +334,8 @@ def rig(tmp_path):
 
 def test_fleet_shows_the_access_section_inline_not_behind_a_menu_or_dialog(rig):
     tree, _body = rig.fleet(query="?frame=" + rig.seed.owned_id)
-    assert [a.text() for a in tree.select("div.fleet-detail-head a")] == [
-        "Open personal view", "Rename"]
+    assert [a.attrs["aria-label"] for a in tree.select("div.fleet-head a.fleet-icon-button")] == [
+        "Open the personal view of Kitchen", "Rename Kitchen"]
     assert not tree.select("dialog#dlg-access-%s" % rig.seed.owned_id.replace("_", "-"))
     section = tree.select("section.fleet-block--access")[0]
     emails = [n.text() for n in section.select("span.co-manager__email")]
@@ -356,7 +359,7 @@ def test_the_admin_add_dialog_offers_the_invited_people_and_the_section_the_remo
 
 def test_access_query_selects_the_frame_and_its_access_tab_without_a_dialog(rig):
     tree, _body = rig.fleet(query="?access=" + rig.seed.owned_id)
-    assert tree.select_one("div.fleet-blocks").attrs["data-fleet-tab"] == "access"
+    assert tree.select_one("div.fleet-blocks").attrs["data-fleet-focus"] == "access"
     assert not [d for d in tree.select("dialog") if "open" in d.attrs]
     section = tree.select("section.fleet-block--access")[0]
     assert fx.OWNER_EMAIL in section.text()
@@ -483,8 +486,39 @@ def test_a_french_request_renders_the_access_section_in_french(rig):
         extra_headers={"Accept-Language": "fr"})
     text = html.unescape(body.decode("utf-8"))
     assert status == 200
-    assert "Accès" in text and "Co-gestionnaires" in text
-    assert "Réattribuer" in text and "Retirer ce cadre" in text
+    assert "Accès" in text and "Réattribuer" in text and "Retirer ce cadre" in text
+
+
+_REMOVED_ACCESS_TEXT = {
+    "en": (
+        "People who can change this frame's settings alongside the owner",
+        "No co-managers yet", "Choose an invited person to let them manage this frame too",
+        "Add someone by e-mail address", "The person must already be invited"),
+    "fr": (
+        "Les personnes qui peuvent modifier les réglages de ce cadre",
+        "Aucun cogestionnaire pour l’instant", "Choisissez une personne invitée",
+        "Ajoutez quelqu’un par adresse e-mail", "La personne doit déjà être invitée")}
+
+
+@pytest.mark.parametrize("lang", ["en", "fr"])
+def test_the_access_section_carries_the_people_and_the_actions_only(rig, lang):
+    """the introduction, the empty-state text and the helper line are gone; the owner (with
+    Reassign), one Add control and Retire with its one-line hint remain"""
+    status, _headers, body = http_request(
+        rig.server.url("/fleet?frame=" + rig.seed.owned_id), cookie=rig.cookies["admin"],
+        extra_headers={"Accept-Language": lang})
+    assert status == 200
+    tree = parse_html(body.decode("utf-8"))
+    section = html.unescape(tree.select("section.fleet-block--access")[0].text())
+    for removed in _REMOVED_ACCESS_TEXT[lang]:
+        assert removed not in section, removed
+    assert fx.OWNER_EMAIL in section
+    assert len(tree.select("section.fleet-block--access .access-add")) == 1
+    assert len(tree.select("section.fleet-block--access .fleet-retire")) == 1
+    assert len(tree.select("section.fleet-block--access .row-action")) == 1
+    assert len(tree.select("section.fleet-block--access .fleet-retire .row__detail")) == 1
+    for removed in _REMOVED_ACCESS_TEXT[lang]:
+        assert removed not in html.unescape(body.decode("utf-8")), removed
 
 
 def _check_in(rig, frame_id, age_hours):
@@ -499,7 +533,7 @@ def _check_in(rig, frame_id, age_hours):
 
 def _fleet_word(rig, name):
     tree, _body = rig.fleet()
-    row = [r for r in tree.select("a.frame-row") if name in r.text()][0]
+    row = [r for r in tree.select("li.fleet-frame-row") if name in r.text()][0]
     return row.select_one('[role="img"]').attrs["aria-label"]
 
 
@@ -589,8 +623,8 @@ def test_account_marks_each_frame_owner_or_co_manager_and_the_role_row_counts_sh
 
 def test_the_french_account_marks_and_counts_in_french(rig):
     co = parse_html(_account(rig, "co", language="fr"))
-    assert co.select_one(".account-frame__role").text() == "Co-gestionnaire"
-    assert "Co-gestionnaire de 1 cadre" in _role_row_text(co)
+    assert co.select_one(".account-frame__role").text() == "Cogestionnaire"
+    assert "Cogestionnaire de 1 cadre" in _role_row_text(co)
     owner = parse_html(_account(rig, "owner", language="fr"))
     assert owner.select_one(".account-frame__role").text() == "Propriétaire"
 
@@ -611,7 +645,8 @@ def test_a_co_managed_frame_says_who_shared_it_and_offers_leave_not_manage_acces
     assert "Shared by %s" % fx.OWNER_EMAIL in row.text()
     assert row.select_one("a.row__main").attrs["href"] == rig.path
     (action,) = row.select("a[data-modal-open]")
-    assert (action.text(), action.attrs["href"]) == ("Leave frame", "#" + _leave_id(rig))
+    assert (action.attrs["aria-label"].split(":")[0], action.attrs["href"]) == (
+        "Leave frame", "#" + _leave_id(rig))
     assert tree.select_one("dialog#" + _leave_id(rig)) is not None
     assert not tree.select("dialog#" + _access_id(rig))
     assert "Manage access" not in tree.text()
@@ -629,8 +664,10 @@ def test_an_owned_frame_offers_manage_access_with_the_owner_dialog(rig):
     tree = parse_html(_account(rig, "owner"))
     row = _row_of(tree, "Kitchen")
     assert "Shared by" not in row.text()
-    (action,) = row.select("a[data-modal-open]")
-    assert (action.text(), action.attrs["href"]) == ("Manage access", "#" + _access_id(rig))
+    rename, action = row.select("a[data-modal-open]")
+    assert rename.attrs["aria-label"].split(":")[0] == "Rename"
+    assert (action.attrs["aria-label"].split(":")[0], action.attrs["href"]) == (
+        "Manage access", "#" + _access_id(rig))
     dialog = tree.select_one("dialog#" + _access_id(rig))
     assert "open" not in dialog.attrs
     assert [n.text() for n in dialog.select("span.co-manager__email")] == [
@@ -662,9 +699,11 @@ def test_an_admin_sees_manage_access_only_on_frames_they_own(rig):
     rig.db(lambda c: fleet_db.add_co_manager(c, rig.seed.owned_id, admin_id, None))
     tree = parse_html(_account(rig, "admin"))
     kitchen = _row_of(tree, "Kitchen")
-    assert [a.text() for a in kitchen.select("a[data-modal-open]")] == ["Leave frame"]
+    assert [a.attrs["aria-label"].split(":")[0] for a in kitchen.select("a[data-modal-open]")] == [
+        "Leave frame"]
     own = _row_of(tree, "Orly frame")
-    assert [a.text() for a in own.select("a[data-modal-open]")] == ["Manage access"]
+    assert [a.attrs["aria-label"].split(":")[0] for a in own.select("a[data-modal-open]")] == [
+        "Rename", "Manage access"]
 
 
 def test_adding_from_account_returns_to_account_with_the_dialog_open_and_a_toast(rig):

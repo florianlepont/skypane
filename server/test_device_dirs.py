@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Tests for server/device_dirs.py: state_path shape checks, containment
 and idempotent provisioning."""
+import json
 import os
 
 import pytest
@@ -75,10 +76,26 @@ def test_provision_seeds_config_and_white_panel_only(tmp_path):
     assert d == os.path.join(str(tmp_path), "devices", DEV)
     assert sorted(os.listdir(d)) == ["device_config.json", "panel.bin"]
     with open(os.path.join(d, "device_config.json")) as fh:
-        assert fh.read().strip() == "{}"
+        assert json.load(fh) == {"wake_interval_s": 900}
     white = (panel_format.WHITE << 4) | panel_format.WHITE
     with open(os.path.join(d, "panel.bin"), "rb") as fh:
         assert fh.read() == bytes([white]) * ((8 // 2) * 4)
+
+
+def test_a_new_frame_wakes_every_fifteen_minutes_and_an_existing_one_keeps_its_value(tmp_path):
+    from server import device_config, wake
+    root = str(tmp_path)
+    fresh = device_dirs.provision_device_dir(root, DEV, 8, 4)
+    assert device_config.load_device_config(fresh)["wake_interval_s"] == 900
+    assert wake.effective_wake_interval_s(device_config.load_device_config(fresh)) == 900
+    device_config.save_device_config(fresh, wake_interval_s=300)
+    device_dirs.provision_device_dir(root, DEV, 8, 4)
+    assert device_config.load_device_config(fresh)["wake_interval_s"] == 300
+    legacy = tmp_path / "devices" / "d_00000009"
+    legacy.mkdir(parents=True)
+    (legacy / "device_config.json").write_text("{}\n")
+    device_dirs.provision_device_dir(root, "d_00000009", 8, 4)
+    assert device_config.load_device_config(str(legacy))["wake_interval_s"] is None
 
 
 def test_provision_never_touches_live_root_files(tmp_path):
@@ -153,3 +170,37 @@ def test_wipe_refuses_a_symlinked_directory_and_spares_the_target(tmp_path):
     with pytest.raises(ValueError):
         device_dirs.wipe_device_dir(str(tmp_path), "devices/" + DEV)
     assert (outside / "keep.txt").read_text() == "keep"
+
+
+@pytest.mark.parametrize("state_dir", [
+    "/s/devices/d_0123abcd/",
+    "/s/devices/d_0123abcd",
+])
+def test_fleet_root_of_a_frame_directory_is_the_state_root(state_dir):
+    assert device_dirs.fleet_root_for(state_dir) == "/s"
+
+
+def test_fleet_root_of_a_root_or_relative_path():
+    assert device_dirs.fleet_root_for("/s") == "/s"
+    assert device_dirs.fleet_root_for("devices/d_0123abcd") == "."
+    assert device_dirs.fleet_root_for("x/devices/d_0123abcd") == "x"
+    assert device_dirs.fleet_root_for("/devices/d_0123abcd") == "/"
+
+
+@pytest.mark.parametrize("state_dir", [
+    "",
+    "/s/devices/not-an-id",
+    "/s/devices/d_0123ABCD",
+    "/s/devices/d_0123abcd/extra",
+    "/s/other/d_0123abcd",
+    "/s/d_0123abcd",
+    "/s/devices",
+])
+def test_fleet_root_leaves_every_other_shape_alone(state_dir):
+    assert device_dirs.fleet_root_for(state_dir) == state_dir
+
+
+def test_fleet_root_never_touches_the_filesystem(tmp_path):
+    missing = str(tmp_path / "gone" / "devices" / DEV)
+    assert device_dirs.fleet_root_for(missing) == str(tmp_path / "gone")
+    assert not (tmp_path / "gone").exists()

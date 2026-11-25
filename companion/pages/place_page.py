@@ -3,7 +3,7 @@
 With the map running the map fills the page. One search field floats at its
 top (an airport code or name picks that airport, anything else is looked up
 as an address), and one panel carries the rest: a bottom sheet on a phone,
-a card at the left of the map from 960px. The mode switch (Airport / My
+a card at the left of the map from 960px. The mode switch (Airport / By
 position) is chips under the search on a phone and the top of the card on a
 wide screen; My position is the first switch and the default for a frame
 with no saved detection setting. The panel shows the runway choice in Airport
@@ -38,6 +38,7 @@ from companion import device_scope, i18n, layout, page_context, prefs
 from companion.detection_summary import (
     LEGACY_PILL, LEGACY_PILL_NUMBER, display_id_for, is_fail_safe)
 from companion.layout import escape_html
+from companion.ui_components import icon_button_html, pill_html
 from companion.pages import detection_page as dp
 from companion.settings import quiet_hours
 from companion.settings.form import (
@@ -64,7 +65,7 @@ PAGE_STYLES = (layout.LEAFLET_STYLE_HREF,)
 # Airports a browser without scripts lists when no search term narrows it.
 NOSCRIPT_AIRPORTS = 20
 
-PAGE_TITLE = i18n.msg("nav.detection", "Location and detection")
+PAGE_TITLE = i18n.msg("nav.detection", "Location")
 PAGE_PURPOSE = i18n.msg(
     "detection.page_purpose",
     "Detection follows your place: choose an airport to follow a runway, or drop "
@@ -180,7 +181,7 @@ FILTER_LABEL = i18n.msg("detection.filter_airports", "Filter airports")
 FILTER_COUNT_TEMPLATE = i18n.msg("health.of_shown", "%d of %d shown")
 
 MODE_RUNWAY_CARD = i18n.msg("detection.mode_runway", "Airport")
-MODE_AREA_CARD = i18n.msg("detection.mode_area", "My position")
+MODE_AREA_CARD = i18n.msg("detection.mode_area", "By position")
 MODE_SWITCH_LABEL = i18n.msg("detection.mode_switch_label", "What the frame follows")
 AREA_HEADING = i18n.msg("detection.area_heading", "Detection around this point")
 RUNWAY_LABEL = i18n.msg("detection.runway_label", "Runway to follow")
@@ -492,17 +493,21 @@ def _credits_html():
 
 
 def _locate_html():
-    """The round locate button and the message it reports in (visible, so a
-    refusal is never silent)."""
+    """The two round map buttons and the message a refusal is reported in. A
+    found position is not written here: the pin moving is the feedback and the
+    spoken equivalent goes to the visually hidden `place-status` region."""
     return (
         '<div class="place-tools">'
         '<p id="place-message" class="place-message text-label" role="status" '
         'aria-live="polite" hidden></p>'
-        '<button type="button" class="place-france js-gate" id="place-france">%s</button>'
+        '%s'
         '<button type="button" class="place-locate detection-search js-gate" '
         'id="place-locate">%s<span class="place-locate__label">%s</span></button></div>'
     ) % (
-        escape_html(i18n.t(SHOW_FRANCE)),
+        icon_button_html(
+            "icon-fit", i18n.t(SHOW_FRANCE), variant="ghost",
+            attrs=' id="place-france" title="%s"' % escape_html(i18n.t(SHOW_FRANCE)),
+            extra_class="place-france js-gate"),
         layout.icon_html("icon-locate", 20), escape_html(i18n.t(LOCATE_BUTTON)))
 
 
@@ -726,8 +731,7 @@ def _runway_card_html(view, airport, runway):
     display_id = display_id_for(airport.icao, runway.designator)
     number = LEGACY_PILL_NUMBER.get(display_id)
     pill = (
-        ' <span class="banner__pill">%s</span>' % escape_html(
-            i18n.t(LEGACY_PILL) % {"number": number}) if number else "")
+        " " + pill_html(i18n.t(LEGACY_PILL) % {"number": number}) if number else "")
     current = (
         airport.icao == view.saved_airport and runway.designator == view.saved_runway
         and view.saved_mode == dp.MODE_RUNWAY)

@@ -2,17 +2,18 @@
 light and dark, English and French: no overflow, labels centred in segmented controls and buttons,
 selected against unselected contrast in every segmented control, 44px tap targets, a switch knob
 inside its track with distinct on and off colours, and no overlap between siblings."""
+import animation_settle
 import pytest
 
 import fleet_console_support as fx
 from companion import auth
 from companion_app_server import session_cookie_for_state_dir
+from server import fleet_db
 
 pytestmark = pytest.mark.browser
 
 VIEWPORTS = {"360": {"width": 360, "height": 740}, "1280": {"width": 1280, "height": 900}}
-SETTLED = """() => document.readyState === 'complete' && document.getAnimations().every(
-  (a) => a.playState !== 'running' || a.effect.getComputedTiming().iterations === Infinity)"""
+SETTLED = animation_settle.SETTLED
 
 # Page-side helpers: colours go through a 1x1 canvas so any CSS colour syntax (color-mix results
 # included) becomes plain RGBA; a background is the stack of translucent layers up to the root.
@@ -55,6 +56,10 @@ OVERFLOW = """() => {
     for (const el of state.querySelectorAll('*')) {
       if (!c.visible(el) || el.closest('.data-table-wrap, details[open] > .row-menu__panel, .row-menu__panel')) continue;
       const r = el.getBoundingClientRect();
+      // a one-line chip track scrolls sideways on a phone: a chip past its edge is clipped by
+      // the track, so only the track itself has to stay inside the card
+      const track = el.parentElement && el.parentElement.closest('.filter-bar__chips');
+      if (track && state.contains(track) && ['auto', 'scroll'].includes(getComputedStyle(track).overflowX)) continue;
       if (r.right > box.right + 1 || r.left < box.left - 1) bad.push(el.className + ' ' + Math.round(r.left) + '-' + Math.round(r.right) + ' in ' + Math.round(box.left) + '-' + Math.round(box.right));
     }
   }
@@ -263,6 +268,22 @@ def test_a_dialog_opens_inside_the_viewport_with_forty_four_pixel_actions(compon
     assert box["bad"] == [], box
 
 
+def test_the_short_dialog_opens_inside_the_viewport_with_forty_four_pixel_actions(components):
+    components.locator('a[data-modal-open][href="#components-compact"]').click()
+    components.wait_for_function(
+        "() => { const d = document.getElementById('components-compact'); return d && d.open; }")
+    components.wait_for_function(SETTLED)
+    box = components.evaluate(
+        "() => { const d = document.getElementById('components-compact').getBoundingClientRect();"
+        " const w = document.documentElement.clientWidth; const h = window.innerHeight;"
+        " const bad = [...document.querySelectorAll('#components-compact button,"
+        " #components-compact a.modal__dismiss, #components-compact input:not([type=hidden])')]"
+        ".filter((e) => e.getBoundingClientRect().height < 43.5).map((e) => e.className);"
+        " return {inside: d.left >= 0 && d.right <= w && d.top >= 0 && d.bottom <= h, bad}; }")
+    assert box["inside"], box
+    assert box["bad"] == [], box
+
+
 # --- Pages that use the shared components (the audit's component-driven findings) -----------
 
 @pytest.fixture(scope="module")
@@ -283,38 +304,51 @@ def _admin_page(new_context, server, path, lang="fr", width=390):
     return context, page
 
 
-def test_the_rename_field_fills_its_card_and_the_page_has_a_visible_save(
+def test_the_rename_field_fills_its_dialog_and_the_dialog_has_a_visible_save(
         new_context, fleet_server):
-    context, page = _admin_page(new_context, fleet_server, "/frame/name")
+    conn = fleet_db.connect(fleet_server.state_dir)
     try:
-        page.locator("#frame-name").fill("Another name")
-        page.locator(".dirty-bar").wait_for(state="visible")
+        owned = conn.execute("SELECT id FROM devices WHERE name = 'Kitchen'").fetchone()[0]
+    finally:
+        conn.close()
+    context, page = _admin_page(
+        new_context, fleet_server, "/fleet?frame=" + owned, width=1280)
+    try:
+        page.locator(".fleet-head a.fleet-icon-button[data-modal-open]").click()
+        page.locator("dialog[id^='dlg-rename-'][open]").wait_for(state="visible")
         geometry = page.evaluate(
-            "() => { const i = document.querySelector('#frame-name').getBoundingClientRect();"
-            " const c = document.querySelector('.page-section').getBoundingClientRect();"
-            " const b = document.querySelector('.dirty-bar .btn--primary');"
-            " return {gap: c.right - i.right, left: i.left - c.left, button: b ? b.getBoundingClientRect().height : 0}; }")
+            "() => { const d = document.querySelector('dialog[id^=\\'dlg-rename-\\']');"
+            " const i = d.querySelector('input[name=name]').getBoundingClientRect();"
+            " const c = d.querySelector('.modal__body').getBoundingClientRect();"
+            " const b = d.querySelector('button[type=submit]').getBoundingClientRect();"
+            " return {gap: c.right - i.right, left: i.left - c.left, button: b.height}; }")
         assert abs(geometry["gap"] - geometry["left"]) <= 2, geometry
         assert geometry["button"] >= 43.5, geometry
     finally:
         context.close()
 
 
-def test_the_wake_interval_field_is_wide_enough_for_its_placeholder(new_context, fleet_server):
-    context, page = _admin_page(new_context, fleet_server, "/device")
+def test_the_wake_interval_field_is_wide_enough_for_its_widest_value(new_context, fleet_server):
+    conn = fleet_db.connect(fleet_server.state_dir)
+    try:
+        owned = conn.execute("SELECT id FROM devices WHERE name = 'Kitchen'").fetchone()[0]
+    finally:
+        conn.close()
+    context, page = _admin_page(
+        new_context, fleet_server, "/fleet?frame=%s&tab=settings" % owned)
     try:
         field = page.evaluate(
-            "() => { const i = document.querySelector('#wake-interval-s');"
+            "() => { const i = document.querySelector('#wake-interval-m');"
             " const c = document.createElement('canvas').getContext('2d');"
             " const s = getComputedStyle(i); c.font = s.fontSize + ' ' + s.fontFamily;"
             " const pad = parseFloat(s.paddingLeft) + parseFloat(s.paddingRight);"
-            " return {width: i.getBoundingClientRect().width - pad, text: c.measureText(i.placeholder).width}; }")
+            " return {width: i.getBoundingClientRect().width - pad, text: c.measureText('60').width}; }")
         assert field["width"] >= field["text"], field
     finally:
         context.close()
 
 
-def test_the_empty_flights_search_keeps_plain_chips_and_a_standard_clear(
+def test_the_empty_flights_search_keeps_its_chips_and_a_standard_clear(
         new_context, module_app_server_factory):
     import companion.test_view_pages_helpers as vp
     server = module_app_server_factory(seed=vp.seed_flight_card_variety, fake_providers=True)
@@ -323,7 +357,7 @@ def test_the_empty_flights_search_keeps_plain_chips_and_a_standard_clear(
         result = page.evaluate(
             "() => ({labels: [...document.querySelectorAll('.filter-chip')].map(e => e.textContent.trim()),"
             " clear: document.querySelector('[data-flights-empty] .btn--secondary').getBoundingClientRect().height})")
-        assert result["labels"] == ["All", "Departures", "Arrivals"], result
+        assert result["labels"] == ["All0", "Departures0", "Arrivals0"], result
         assert result["clear"] >= 43.5, result
     finally:
         context.close()

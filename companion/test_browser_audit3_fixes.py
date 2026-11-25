@@ -1,6 +1,7 @@
 """Real-browser checks of the third audit's visual fixes: a long frame name next to the logo,
 the Flights picture dialog as one panel, the phone tab bar, a single-line entity row's dot,
 the Users table's addresses and the quiet-hours times in a 12-hour browser."""
+import animation_settle
 import pytest
 import fleet_console_support as fx
 from companion_app_server import session_cookie_for_state_dir
@@ -15,9 +16,7 @@ pytestmark = pytest.mark.browser
 
 LONG_NAME = "Maison de campagne chez Tante Marguerite-Louise"
 _COMPLETE = "() => document.readyState === 'complete'"
-_ANIMATIONS_DONE = (
-    "() => document.getAnimations().every(a => !a.effect || "
-    "a.effect.getComputedTiming().iterations === Infinity || a.playState !== 'running')")
+_ANIMATIONS_DONE = animation_settle.ANIMATIONS_DONE
 
 
 def _seed(fleet):
@@ -65,21 +64,15 @@ def test_a_long_frame_name_never_covers_the_logo_and_wraps_inside_the_title_colu
             ".getBoundingClientRect();"
             " const name = document.querySelector('.frame-menu__name');"
             " const title = document.querySelector('.title-action__text').getBoundingClientRect();"
-            " const pencil = document.querySelector('.title-action .btn--icon')"
-            ".getBoundingClientRect();"
-            " const body = document.querySelector('.hero__body').getBoundingClientRect();"
+            " const body = document.querySelector('.home-state').getBoundingClientRect();"
             " return {brandRight: brand.right, menuLeft: menu.left, menuRight: menu.right,"
             " cut: name.scrollWidth > name.clientWidth,"
             " titleRight: title.right, titleTop: title.top, titleBottom: title.bottom,"
-            " pencilLeft: pencil.left, pencilRight: pencil.right, pencilTop: pencil.top,"
             " bodyRight: body.right, viewport: innerWidth}; }")
         assert geometry["brandRight"] <= geometry["menuLeft"] + 0.5, geometry
         assert geometry["menuRight"] <= geometry["viewport"], geometry
         assert geometry["cut"], geometry
-        # The long name wraps inside its own column; the pencil stays beside it, in view.
-        assert geometry["pencilLeft"] >= geometry["titleRight"] - 0.5, geometry
-        assert geometry["pencilTop"] < geometry["titleBottom"], geometry
-        assert geometry["pencilRight"] <= geometry["viewport"], geometry
+        # The long name wraps inside its own column.
         assert geometry["titleRight"] <= geometry["bodyRight"] + 0.5, geometry
     finally:
         context.close()
@@ -90,7 +83,7 @@ def test_the_flights_picture_dialog_is_one_panel_holding_the_picture_caption_and
     context, page = _open(
         new_context, app, "/devices/LIVE/flights", {"width": 1280, "height": 900}, theme="dark")
     try:
-        page.locator(".flight-picture-link").first.click()
+        page.locator("tr .flight-picture-link").first.click()
         page.wait_for_function(
             "() => { const d = document.querySelector('dialog.lightbox--picture');"
             " return d.open && getComputedStyle(d).opacity === '1'; }", timeout=10000)
@@ -137,18 +130,19 @@ def test_the_phone_tab_bar_more_dots_are_centred_and_every_label_is_whole(
 
 @pytest.mark.parametrize("viewport", [{"width": 1280, "height": 900}, {"width": 390, "height": 844}],
                          ids=["1280", "390"])
-def test_a_single_line_frame_row_centres_its_status_dot_on_the_title(new_context, app, viewport):
-    context, page = _open(new_context, app, "/fleet?frame=LIVE", viewport)
+def test_a_frame_row_centres_its_status_dot_on_the_row(new_context, app, viewport):
+    context, page = _open(new_context, app, "/fleet", viewport)
     try:
-        page.locator("li.entity-row").first.wait_for(state="attached")
+        page.locator("li.fleet-frame-row").first.wait_for(state="attached")
         dots = page.evaluate(
-            "() => [...document.querySelectorAll('li.entity-row')].map(row => {"
-            " const d = row.querySelector('.entity-row__dot').getBoundingClientRect();"
-            " const t = row.querySelector('.entity-row__title').getBoundingClientRect();"
-            " return [d.top + d.height / 2, t.top + t.height / 2]; })")
+            "() => [...document.querySelectorAll('li.fleet-frame-row')]"
+            ".filter(row => row.querySelector('.dot') && row.getClientRects().length).map(row => {"
+            " const d = row.querySelector('.dot').getBoundingClientRect();"
+            " const r = row.getBoundingClientRect();"
+            " return [d.top + d.height / 2, r.top + r.height / 2]; })")
         assert dots
-        for dot, title in dots:
-            assert abs(dot - title) < 2.5, dots
+        for dot, row in dots:
+            assert abs(dot - row) < 2.5, dots
     finally:
         context.close()
 
@@ -270,12 +264,13 @@ def test_back_after_two_typed_and_entered_searches_returns_to_the_first(new_cont
 
 def test_without_scripts_every_artwork_upload_form_has_a_visible_44px_submit_button(
         new_context, make_app_server):
-    """with scripts off, once a row's menu is opened each per-illustration upload form offers a
-    visible Upload button (the file input alone only sends on change, which needs a script)"""
+    """with scripts off, once the aircraft-type rows are in the page (an airline has no picture of
+    its own: its type rows carry the upload forms) each per-type upload form offers a visible
+    Upload button (the file input alone only sends on change, which needs a script)"""
     from companion.test_browser_ux_helpers import _no_js_page
     server = make_app_server(seed=seed_state_dir, fake_providers=True)
     with _no_js_page(
-            new_context, server.base_url(), "/airlines/manage",
+            new_context, server.base_url(), "/airlines/manage?types=all",
             viewport={"width": 1280, "height": 900}, reduced_motion="reduce") as page:
         page.locator("form.airlines-art").first.wait_for(state="attached")
         page.evaluate("() => document.querySelectorAll('details').forEach(d => { d.open = true; })")

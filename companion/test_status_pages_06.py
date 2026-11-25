@@ -8,6 +8,7 @@ calls companion.pages.airlines_page/companion.layout directly, in-process.
 """
 import os
 import re
+import shutil
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -43,6 +44,15 @@ def _card_slice(rendered, airline_name):
     assert name_index >= 0, airline_name
     card_start = rendered.rindex('<tbody class="airline-group"', 0, name_index)
     return rendered[card_start:rendered.index("</tbody>", card_start)]
+
+
+def _known_slice(rendered, airline_name):
+    """The list of `airline_name` in the missing-illustrations section: its header and its rows."""
+    marker = 'airlines-missing__name">%s<' % layout.escape_html(airline_name)
+    index = rendered.find(marker)
+    assert index >= 0, airline_name
+    start = rendered.rindex('<ul class="airlines-missing__airline"', 0, index)
+    return rendered[start:rendered.index("</ul>", index)]
 
 
 def _grid_section(rendered):
@@ -138,7 +148,7 @@ def test_cache_buster_absent_with_no_state_dir_and_keyed_on_mtime_with_an_overri
     override_path.write_bytes(b"not a real png - only this file's own mtime matters to this check")
     mtime = int(os.stat(override_path).st_mtime)
 
-    rendered = airlines_page.render(shp.ctx(tmp))
+    rendered = airlines_page.render(shp.ctx(tmp) | {"types_open": "all"})
     expected_busted_url = "%s%s.png?v=%d" % (airlines_page.ILLUSTRATION_ROUTE_PREFIX, key, mtime)
     expected_unbusted_url = "%s%s.png" % (airlines_page.ILLUSTRATION_ROUTE_PREFIX, key)
     img_srcs = re.findall(r'<img class="airlines-thumb__image" src="([^"]+)"', rendered)
@@ -176,7 +186,7 @@ def test_replace_control_escapes_hostile_airline_name(monkeypatch):
         rendered, re.DOTALL)
     assert form_match, "expected to find the lightbox replace form's own markup"
     assert "script" not in form_match.group(0).lower()
-    assert '<span class="airlines-name airlines-name--fixed">%s</span>' % (
+    assert '<span class="airlines-missing__name">%s</span>' % (
         layout.escape_html(hostile_name)) in rendered
 
 
@@ -229,8 +239,7 @@ def test_replace_control_retired_from_every_surface(css_text, tmp_path):
 def test_replace_zone_icon_comes_from_the_shared_sprite(tmp_path):
     """the framed zone's upload glyph comes from layout.ICON_DEFS_HTML via
     layout.icon_html() - 'icon-upload' is a member of ICON_IDS, the rendered
-    page carries exactly two matching <use> references (the framed zone's
-    own and the dialog's own resolve-upload form's copy), and
+    page carries exactly one matching <use> reference (the replace zone's), and
     REPLACE_ICON_CLASS appears in the rendered icon's class attribute.
 
     Dropped in place (rubric S): the legacy check also opened `companion/
@@ -243,11 +252,10 @@ def test_replace_zone_icon_comes_from_the_shared_sprite(tmp_path):
     assert "icon-upload" in layout.ICON_IDS
     tmp = str(tmp_path)
     rendered = airlines_page.render(shp.ctx(tmp))
-    # The shared dialog now also renders its own resolve-upload form's
-    # file input, reusing the identical icon-upload glyph, so two
-    # occurrences are expected, not one.
+    # The replace zone is the only place the glyph shows now: the add-illustration form is
+    # one drop zone without it.
     use_tag = "<use href=" + '"#icon-upload"'
-    assert rendered.count(use_tag) == 2
+    assert rendered.count(use_tag) == 1
     icon_svg_match = re.search(
         r'<svg[^>]*class="[^"]*%s[^"]*"[^>]*>' % re.escape(airlines_page.REPLACE_ICON_CLASS), rendered)
     assert icon_svg_match
@@ -302,43 +310,45 @@ def test_replace_zone_markup_and_styling_contract(css_text, tmp_path):
 # FORMS THAT DID NOT CHANGE.
 # =============================================================================
 
-def test_upload_forms_native_controls_are_unchanged_by_the_drop_zone():
-    """all three upload-form renderings (the no-JS fallback's, the dialog's
-    copy, and the lightbox replace form) keep their <input type="file" ...
-    accept="image/png" required>, their single shared submit button,
-    their hint paragraph, their method/enctype/action and exactly one
-    <form> byte-identical to their pre-25-07 output - each now also
-    carrying its own id and, as the form's LAST child after the submit
-    button, a drop zone naming the very input it writes into (D19,
-     Task 1)"""
+def test_upload_forms_keep_their_native_controls_and_carry_a_drop_zone():
+    """all three upload-form renderings (the no-JS fallback's, the dialog's copy, and the
+    lightbox replace form) keep their <input type="file" ... accept="image/png" required>,
+    their method/enctype/action and exactly one <form>, each carrying its own id and a drop
+    zone naming the very input it writes into; the two add-illustration forms also carry the
+    compact list of constraints and one submit button only in the no-JS fallback (the dialog's
+    Upload sits in its action row, re-attached by form=), the replace form its hint and its
+    one submit button"""
     renderings = (
         ("the no-JS fallback upload form",
          airlines_page._resolve_upload_form_html("/illustration/demo.png", ""),
          airlines_page.MANUAL_UPLOAD_INPUT_ID,
          airlines_page.MANUAL_UPLOAD_FORM_ID,
-         'action="/illustration/demo.png"'),
+         'action="/illustration/demo.png"', 1),
         ("the dialog's copy of the upload form",
          airlines_page._resolve_upload_form_html("", "-dialog"),
          airlines_page.MANUAL_UPLOAD_INPUT_ID + "-dialog",
          airlines_page.MANUAL_UPLOAD_FORM_ID + "-dialog",
-         'action=""'),
+         'action=""', 0),
         ("the lightbox replace form",
          airlines_page._lightbox_replace_form_html(),
          airlines_page.REPLACE_INPUT_ID,
          airlines_page.REPLACE_FORM_ID,
-         'action=""'),
+         'action=""', 1),
     )
     hint_html = '<p class="%s">%s</p>' % (
         airlines_page.REPLACE_HINT_CLASS,
         airlines_page.i18n.t(airlines_page.REPLACE_HINT_TEXT))
-    for label, markup, input_id, form_id, action_attr in renderings:
+    for label, markup, input_id, form_id, action_attr, buttons in renderings:
         expected_input = (
             '<input type="file" id="%s" name="image" accept="image/png" required>' % input_id)
         assert markup.count(expected_input) == 1, label
-        assert markup.count('<button type="submit" class="btn btn--secondary">') == 1, label
-        assert markup.count("<button") == 1, label
-        assert markup.count(hint_html) == 1, label
+        assert markup.count("<button") == buttons, label
         assert markup.count("<form") == 1, label
+        if "replace" in label:
+            assert markup.count(hint_html) == 1, label
+        else:
+            assert markup.count('<ul class="upload-constraints">') == 1, label
+            assert markup.count("<li>") == len(airlines_page.UPLOAD_CONSTRAINTS), label
         form_tag = re.search(r"<form\b[^>]*>", markup)
         assert form_tag, label
         for required in ('method="post"', 'enctype="multipart/form-data"', action_attr,
@@ -346,8 +356,8 @@ def test_upload_forms_native_controls_are_unchanged_by_the_drop_zone():
             assert required in form_tag.group(0), "%s: expected %r in %r" % (label, required, form_tag.group(0))
         drop_at = markup.find(airlines_page.UPLOAD_DROP_ATTR)
         assert drop_at != -1, "%s: renders no drop zone at all" % (label,)
-        assert drop_at > markup.index('<button type="submit" class="btn btn--secondary">'), (
-            "%s: the drop zone renders BEFORE the submit button" % (label,))
+        assert drop_at > markup.index(expected_input), (
+            "%s: the drop zone renders BEFORE its file input" % (label,))
         expected_hook = '%s="%s"' % (airlines_page.UPLOAD_DROP_INPUT_ATTR, input_id)
         assert expected_hook in markup, label
 
@@ -493,26 +503,27 @@ def _gap_group(row, index=0):
 
 
 def test_gap_row_markup_shape_and_form_vocabulary():
-    """an unidentified prefix is a highlighted table row resolved in place: one form posting
-    the prefix to the resolve route with a name field, a default aircraft type select,
-    Validate and Ignore, zero <img> tags and no dialog trigger"""
+    """an unidentified prefix is one compact row with a Name it button; its dialog holds the one
+    form posting the prefix to the resolve route with a name field and Validate; no aircraft-type
+    select, no Ignore, zero <img> tags and no lightbox trigger"""
     row = ("XYZ", 5, "t1", "t2", "XYZ123")
     group_html = _gap_group(row)
     assert "<img" not in group_html and "data-view-panel" not in group_html
     assert group_html.startswith('<tbody class="airline-group airline-group--gap"')
     assert 'class="airlines-row airlines-row--gap"' in group_html
-    form = re.search(r'<form class="airlines-resolve"[^>]*>', group_html).group(0)
-    assert 'method="post"' in form and 'action="/airlines/resolve"' in form
+    assert 'data-filter-kind="unidentified"' in group_html
+    assert re.search(r'<a href="#name-prefix-0"[^>]*data-modal-open>Name it</a>', group_html)
+    form = re.search(r'<form method="post" action="/airlines/resolve">', group_html)
+    assert form and group_html.count("<form") == 1
     assert '<input type="hidden" name="prefix" value="XYZ">' in group_html
     assert '<input type="hidden" name="inline" value="1">' in group_html
-    field = re.search(r'<input type="text" name="airline_name"[^>]*>', group_html).group(0)
+    field = re.search(r'<input [^>]*name="airline_name"[^>]*>', group_html).group(0)
     assert 'list="airlines-known-names"' in field and "required" in field
     assert 'aria-label="Airline name for the prefix XYZ"' in field
-    assert '<select name="default_type" aria-label="Default aircraft type for XYZ">' in group_html
-    # Validate and Ignore are the shared buttons: a primary submit and a bordered reset.
-    assert '<button type="submit" class="btn btn--primary">Validate</button>' in group_html
-    assert '<button type="reset" class="btn btn--secondary">Ignore</button>' in group_html
-    assert '<span class="mono">XYZ123</span>' in group_html
+    assert "<select" not in group_html and "Ignore" not in group_html
+    assert ">Validate</button>" in group_html and ">Cancel</a>" in group_html
+    assert '<span class="airlines-gap__prefix mono">XYZ</span>' in group_html
+    assert "XYZ123" in group_html
 
 
 def test_gap_row_filter_group_never_collides_with_curated_integer_groups(tmp_path):
@@ -538,13 +549,13 @@ def test_gap_row_filter_group_never_collides_with_curated_integer_groups(tmp_pat
 def test_gap_overflow_html_renders_only_when_the_cap_bites():
     """_gap_overflow_html() returns the empty string when the cap does not
     bite, and otherwise the exact templated line naming the overflow
-    count, with <a href="/health"> wrapping only MANUAL_OVERFLOW_LINK_TEXT
+    count, with <a href="/fleet?view=system"> wrapping only MANUAL_OVERFLOW_LINK_TEXT
     and the trailing period sitting outside the anchor"""
     assert airlines_page._gap_overflow_html(0) == ""
     overflow_html = airlines_page._gap_overflow_html(3)
     assert overflow_html.startswith('<p class="text-label section-caption">')
     assert "3 other unresolved prefixes" in overflow_html
-    link_match = re.search(r'<a href="/health">([^<]+)</a>', overflow_html)
+    link_match = re.search(r'<a href="/fleet\?view=system">([^<]+)</a>', overflow_html)
     assert link_match
     assert link_match.group(1) == airlines_page.MANUAL_OVERFLOW_LINK_TEXT
     assert overflow_html.endswith("</a>.</p>")
@@ -572,7 +583,7 @@ def test_plain_airline_row_has_a_link_enlarge_trigger_and_no_manual_state(tmp_pa
     """an airline with no sheet-independent manual history carries one thumbnail
     "Enlarge the artwork of ..." trigger: a real link to the picture (never a resolve link), mode="art", with every
     manual/resolve-prefix attribute empty and no status chip"""
-    rendered = airlines_page.render(shp.ctx(str(tmp_path)))
+    rendered = airlines_page.render(shp.ctx(str(tmp_path)) | {"types_open": "all"})
     card = _card_slice(rendered, "Air France")
     assert 'class="airlines-thumb" data-view-panel-src="/illustration/air-france.png"' in card
     assert 'data-view-panel-mode="art"' in card
@@ -589,7 +600,7 @@ def test_active_manual_states_render_expected_attributes_and_no_chip(tmp_path):
     tmp = str(tmp_path)
     manual_resolutions.add_entry(tmp, "OLD", "Air France", now="2026-01-01T00:00:00+00:00")
     manual_resolutions.add_entry(tmp, "XQZ", "Totally Novel Airline", now="2026-01-01T00:00:00+00:00")
-    rendered = airlines_page.render(shp.ctx(tmp))
+    rendered = airlines_page.render(shp.ctx(tmp) | {"types_open": "all"})
     card_art = _card_slice(rendered, "Air France")
     assert 'data-view-panel-mode="art"' in card_art
     assert 'data-view-panel-manual="active"' in card_art
@@ -599,16 +610,12 @@ def test_active_manual_states_render_expected_attributes_and_no_chip(tmp_path):
     assert "Delete my name" in card_art
     assert "airline-card__chip" not in card_art
 
-    card_needs = _card_slice(rendered, "Totally Novel Airline")
-    expected_open = '<a href="%s?%s=XQZ" class="airlines-thumb"' % (
-        airlines_page.MANAGE_ROUTE, airlines_page.RESOLVE_QUERY_PARAM)
-    assert expected_open in card_needs
-    assert 'data-view-panel-mode="needs-artwork"' in card_needs
-    expected_heading = airlines_page.STEP_B_HEADING_TEMPLATE % "Totally Novel Airline"
-    assert ('data-view-panel-heading="%s"' % expected_heading) in card_needs
-    assert 'data-view-panel-upload-action="/illustration/totally-novel-airline.png"' in card_needs
-    assert "airline-card__chip" not in card_needs
-    assert 'class="airline-card__placeholder"' in card_needs
+    assert "Totally Novel Airline" not in _grid_section(rendered)
+    known = _known_slice(rendered, "Totally Novel Airline")
+    assert 'aria-label="Add an illustration for Totally Novel Airline, type to choose"' in known
+    assert 'data-view-panel-upload-action="/illustration/totally-novel-airline.png"' in known
+    assert 'action="%s"' % airlines_page._manual_delete_action("XQZ") in known
+    assert ">XQZ<" in known and "airline-card__chip" not in known
 
 
 def test_needs_artwork_sighting_context_conditional_on_live_gap(tmp_path):
@@ -629,15 +636,13 @@ def test_needs_artwork_sighting_context_conditional_on_live_gap(tmp_path):
     })
     for tmp in (tmp_live, tmp_cleared):
         manual_resolutions.add_entry(tmp, "XQZ", "Totally Novel Airline", now="2026-01-01T00:00:00+00:00")
-    card_live = _card_slice(airlines_page.render(shp.ctx(tmp_live)), "Totally Novel Airline")
-    assert re.search(r'data-view-panel-first-seen="[^"]+"', card_live)
-    assert re.search(r'data-view-panel-last-seen="[^"]+"', card_live)
-    assert 'data-view-panel-count="5"' in card_live
-
-    card_cleared = _card_slice(airlines_page.render(shp.ctx(tmp_cleared)), "Totally Novel Airline")
-    assert 'data-view-panel-first-seen=""' in card_cleared
-    assert 'data-view-panel-last-seen=""' in card_cleared
-    assert 'data-view-panel-count=""' in card_cleared
+    fields = {}
+    for name, tmp in (("live", tmp_live), ("cleared", tmp_cleared)):
+        fields[name] = airlines_page._airline_card_manual_fields(
+            ("XQZ", False, True), "Totally Novel Airline", "totally-novel-airline", tmp,
+            "2026-01-03T00:00:00+00:00")
+    assert all(fields["live"][9:12]) and fields["live"][11] == "5"
+    assert fields["cleared"][9:12] == ("", "", "")
 
 
 def test_airline_row_html_superseded_shows_built_in_state_never_operator_upload(tmp_path):
@@ -648,7 +653,7 @@ def test_airline_row_html_superseded_shows_built_in_state_never_operator_upload(
     originally-stored name, the prefix and the built-in name"""
     tmp = str(tmp_path)
     manual_resolutions.add_entry(tmp, "AFR", "Some Other Airline", now="2026-01-01T00:00:00+00:00")
-    rendered = airlines_page.render(shp.ctx(tmp))
+    rendered = airlines_page.render(shp.ctx(tmp) | {"types_open": "all"})
     card = _card_slice(rendered, "Air France")
     assert 'data-view-panel-manual="superseded"' in card
     assert "airline-card__chip" not in card
@@ -673,9 +678,15 @@ def test_render_grid_injection_adds_exactly_one_novel_row_and_none_for_supersede
     os.makedirs(tmp_none)
     manual_resolutions.add_entry(tmp_novel, "XQZ", "Totally Novel Airline", now="2026-01-01T00:00:00+00:00")
     rendered_novel = airlines_page.render(shp.ctx(tmp_novel))
-    novel_count = _grid_section(rendered_novel).count(
-        '<span class="airlines-name airlines-name--fixed">Totally Novel Airline</span>')
-    assert novel_count == 1
+    assert "Totally Novel Airline" not in _grid_section(rendered_novel)
+    assert rendered_novel.count('<span class="airlines-missing__name">Totally Novel Airline</span>') == 1
+    key_path = illustrations.override_path_for_key("totally-novel-airline", tmp_novel)
+    os.makedirs(os.path.dirname(key_path), exist_ok=True)
+    shutil.copy(os.path.join(illustrations.ILLUSTRATION_DIR, "vueling-airlines.png"), key_path)
+    rendered_art = airlines_page.render(shp.ctx(tmp_novel))
+    assert _grid_section(rendered_art).count(
+        '<span class="airlines-name airlines-name--fixed">Totally Novel Airline</span>') == 1
+    assert "airlines-missing__name\">Totally Novel Airline" not in rendered_art
 
     manual_resolutions.add_entry(tmp_none, "AFR", "Some Other Airline", now="2026-01-01T00:00:00+00:00")
     manual_resolutions.add_entry(tmp_none, "OLD", "Air France", now="2026-01-01T00:00:00+00:00")
@@ -923,7 +934,7 @@ def test_manual_section_supersession_symbols_retired_and_chip_still_renders(tmp_
         assert not hasattr(airlines_page, name), "expected airlines_page to no longer expose %r" % (name,)
     tmp = str(tmp_path)
     manual_resolutions.add_entry(tmp, "AFR", "Some Other Airline", now="2026-01-01T00:00:00+00:00")
-    rendered = airlines_page.render(shp.ctx(tmp))
+    rendered = airlines_page.render(shp.ctx(tmp) | {"types_open": "all"})
     assert 'data-view-panel-manual-note="Your name “Some Other Airline” for prefix AFR' in rendered
     assert "airline-card__chip" not in _grid_section(rendered)
     assert ">Superseded<" not in rendered
@@ -957,7 +968,7 @@ def test_manual_section_seed_helper_end_to_end(tmp_path):
         ("AFR", "Legacy Air France Ops"),
         ("XQZ", "Totally Novel Airline"),
     ])
-    rendered = airlines_page.render(shp.ctx(tmp))
+    rendered = airlines_page.render(shp.ctx(tmp) | {"types_open": "all"})
     assert "Legacy Air France Ops" in rendered
     assert "Totally Novel Airline" in rendered
 
@@ -1428,9 +1439,8 @@ def test_airlines_page_drops_decorative_labels_and_explains_owner_actions(tmp_pa
         assert retired not in rendered
     assert 'aria-label="Airline name: Air France"' in card
     assert ">Replace artwork</" not in card
-    novel = _card_slice(rendered, "Totally Novel Airline")
-    assert 'aria-label="Add artwork: Totally Novel Airline"' in novel
-    assert 'class="airline-card__placeholder"' in novel
+    novel = _known_slice(rendered, "Totally Novel Airline")
+    assert 'aria-label="Add an illustration for Totally Novel Airline, type to choose"' in novel
     assert "airline-card__chip" not in novel
     assert "Resolved by hand" not in novel
     assert ">Add artwork</" not in novel

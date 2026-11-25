@@ -97,8 +97,15 @@
     }
     if (!target && dialog) {
       // A dialog the address opened names the control it came from.
-      var named = dialog.getAttribute("data-modal-return-focus");
-      target = named ? document.getElementById(named) : null;
+      // Several ids may be named, the first one on screen wins (a phone card
+      // hides the select a wide table shows, and has its menu instead).
+      var named = (dialog.getAttribute("data-modal-return-focus") || "").split(" ");
+      for (var n = 0; n < named.length && !target; n += 1) {
+        var candidate = named[n] ? document.getElementById(named[n]) : null;
+        if (candidate && candidate.getClientRects().length > 0) {
+          target = candidate;
+        }
+      }
     }
     if (target && document.body.contains(target)) {
       var menu = closestMenu(target);
@@ -147,8 +154,13 @@
     resetSheet(dialog);
     resetForms(dialog);
     clearHash();
+    hideStaleTarget(dialog);
     forgetQuestion(dialog);
     returnFocus(dialog);
+    // A dialog that carries a one-time value leaves the page with it.
+    if (dialog.hasAttribute("data-modal-once") && dialog.parentNode) {
+      dialog.parentNode.removeChild(dialog);
+    }
   }
 
   // A dialog the address itself opened (one pending confirmation) names the
@@ -160,8 +172,18 @@
     }
   }
 
-  function openModal(dialog) {
-    if (dialog.hasAttribute("open")) {
+  // Clearing the fragment does not update :target, so a dialog the address
+  // opened would show again as the scripts-blocked in-page card once closed.
+  function hideStaleTarget(dialog) {
+    if (dialog.matches && dialog.matches(":target")) {
+      dialog.style.setProperty("display", "none");
+    }
+  }
+
+  function openModal(dialog, onLoad) {
+    dialog.style.removeProperty("display");
+    var wasOpen = dialog.hasAttribute("open");
+    if (wasOpen) {
       dialog.setAttribute("data-reopening", "");
       dialog.close();
     }
@@ -171,6 +193,35 @@
     dialog.addEventListener("close", onClosed);
     dialog.showModal();
     focusTitleIfAsked(dialog);
+    // A dialog the page opened on load (server-rendered open, or targeted by
+    // the address) has used up its autofocus, and the browser parks the focus
+    // on the dialog itself a moment after showing it: for the first second the
+    // focus is sent on to the dialog's autofocus control (the invalid field of
+    // a refused form), so a field the person has already reached stays.
+    if (onLoad || wasOpen) {
+      sendFocusOn(dialog);
+    }
+  }
+
+  function sendFocusOn(dialog) {
+    var wanted = dialog.querySelector("[autofocus]");
+    if (!wanted) {
+      return;
+    }
+    function redirect(evt) {
+      if (evt.target === dialog) {
+        wanted.focus();
+      }
+    }
+    dialog.addEventListener("focusin", redirect);
+    window.setTimeout(function () {
+      dialog.removeEventListener("focusin", redirect);
+    }, 1000);
+    window.setTimeout(function () {
+      if (dialog.open && document.activeElement === dialog) {
+        wanted.focus();
+      }
+    }, 0);
   }
 
   // For a script that opens a dialog itself (no opener link): `returnTo` is
@@ -186,6 +237,50 @@
       return true;
     }
   };
+
+  // The on-screen keyboard shrinks the visual viewport but not the layout
+  // viewport a bottom sheet is anchored to. Every open sheet is lifted by the
+  // covered height (a CSS custom property, set through the CSSOM) so its
+  // field stays above the keyboard; a small difference is browser chrome,
+  // not a keyboard.
+  var KEYBOARD_MIN_PX = 80;
+
+  function keyboardInset() {
+    var vv = window.visualViewport;
+    if (!vv) {
+      return 0;
+    }
+    var covered = Math.round(window.innerHeight - vv.height - vv.offsetTop);
+    return covered > KEYBOARD_MIN_PX ? covered : 0;
+  }
+
+  function liftSheets() {
+    var sheets = document.querySelectorAll("dialog.modal[open]");
+    var inset = keyboardInset() + "px";
+    for (var i = 0; i < sheets.length; i += 1) {
+      sheets[i].style.setProperty("--keyboard-inset", inset);
+    }
+  }
+
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", liftSheets);
+    window.visualViewport.addEventListener("scroll", liftSheets);
+  }
+
+  // A focused field of a dialog is kept in view: the sheet is lifted first,
+  // then the field is scrolled into the dialog's visible part.
+  document.addEventListener("focusin", function (evt) {
+    var field = evt.target;
+    var dialog = closestTag(field, "dialog");
+    if (!dialog || !dialog.classList.contains("modal") ||
+        !field.matches || !field.matches(HOLD_SELECTOR)) {
+      return;
+    }
+    liftSheets();
+    if (field.scrollIntoView) {
+      field.scrollIntoView({block: "nearest"});
+    }
+  });
 
   // A dialog marked data-focus-title opens on its heading, so no field
   // raises the keyboard or a native picker unasked.
@@ -237,13 +332,14 @@
   }
 
   // A click on the backdrop lands on the dialog element itself, outside
-  // its box. A dialog holding fields ignores it so typed text is not lost.
+  // its box. A dialog holding fields ignores it so typed text is not lost,
+  // unless it says a tap outside discards (data-scrim-close).
   function onBackdropClick(evt) {
     var dialog = evt.target;
     if (!isModalDialog(dialog) || !dialog.classList.contains("is-modal")) {
       return;
     }
-    if (dialog.querySelector(HOLD_SELECTOR)) {
+    if (dialog.querySelector(HOLD_SELECTOR) && !hasAttr(dialog, "data-scrim-close")) {
       return;
     }
     var box = dialog.getBoundingClientRect();
@@ -568,7 +664,7 @@
     var upgraded = false;
     for (var i = 0; i < rendered.length; i += 1) {
       if (isModalDialog(rendered[i]) && !rendered[i].classList.contains("is-modal")) {
-        openModal(rendered[i]);
+        openModal(rendered[i], true);
         upgraded = true;
       }
     }
@@ -577,7 +673,7 @@
     }
     var targeted = document.getElementById(window.location.hash.slice(1));
     if (isModalDialog(targeted) && !hasAttr(targeted, "open")) {
-      openModal(targeted);
+      openModal(targeted, true);
     }
   }
 
@@ -645,5 +741,50 @@
     }
   }, true);
 
+  // A form whose submit button carries data-needs-choice stays disabled until
+  // its select [data-gate-select] has a value; the hint paragraph
+  // [data-gate-hint] shows meanwhile. Without script the button is enabled and
+  // the server refuses an empty choice.
+  function syncChoiceGate(form) {
+    var select = form.querySelector("select[data-gate-select]");
+    var button = form.querySelector("button[data-needs-choice]");
+    if (!select || !button) {
+      return;
+    }
+    var waiting = select.value === "";
+    button.disabled = waiting;
+    button.setAttribute("aria-disabled", waiting ? "true" : "false");
+    var hint = form.querySelector("[data-gate-hint]");
+    if (hint) {
+      hint.hidden = !waiting;
+    }
+  }
+
+  function syncAllChoiceGates() {
+    var selects = document.querySelectorAll("select[data-gate-select]");
+    for (var i = 0; i < selects.length; i += 1) {
+      var form = selects[i].form;
+      if (form) {
+        syncChoiceGate(form);
+      }
+    }
+  }
+
+  document.addEventListener("change", function (evt) {
+    var el = evt.target;
+    if (el && el.form && el.hasAttribute && el.hasAttribute("data-gate-select")) {
+      syncChoiceGate(el.form);
+    }
+  });
+
+  document.addEventListener("submit", function (evt) {
+    var select = evt.target && evt.target.querySelector &&
+      evt.target.querySelector("select[data-gate-select]");
+    if (select && select.value === "") {
+      evt.preventDefault();
+    }
+  }, true);
+
+  syncAllChoiceGates();
   upgradeOnLoad();
 })();

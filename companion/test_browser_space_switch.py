@@ -30,14 +30,14 @@ _SEGMENTS = (
 
 _VIEWPORTS = (("phone", VIEWPORT_MIN_SUPPORTED), ("desktop", VIEWPORT_DESKTOP))
 _DESKTOP = (("desktop", VIEWPORT_DESKTOP),)
-_OTHER_SPACE = {"console": {"en": "My frame", "fr": "Mon cadre"}, "personal": {"en": "Console", "fr": "Console"}}
+_OTHER_SPACE = {"console": {"en": "My frames", "fr": "Mes cadres"}, "personal": {"en": "Console", "fr": "Console"}}
 _BAR_SWITCH = (
     "() => { const a = document.querySelector('.tab-bar__more-panel .tab-bar__space-link');"
     " if (!a) return null; const links = [...document.querySelectorAll('.tab-bar__more-panel a')];"
     " const b = a.getBoundingClientRect(); const label = a.querySelector('.link-card__title');"
     " const hit = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2);"
     " const range = document.createRange(); range.selectNodeContents(label);"
-    " return {second: links[1] === a, text: label.textContent.trim(), w: b.width, h: b.height,"
+    " return {last: links[links.length - 1] === a, text: label.textContent.trim(), w: b.width, h: b.height,"
     " left: b.left, right: b.right, hit: !!hit && a.contains(hit), href: a.getAttribute('href'),"
     " sw: label.scrollWidth, cw: label.clientWidth,"
     " lines: new Set([...range.getClientRects()].map(r => Math.round(r.top))).size,"
@@ -46,8 +46,17 @@ _BAR_SWITCH = (
     " inBar: !!document.querySelector('.tab-bar > .tab-bar__link--switch')}; }")
 
 
+def _wait_more_panel_closed(page):
+    """The new page's More panel is closed. Right after a link click the predicate also runs
+    against the document that is still loading, whose tab bar is not parsed yet."""
+    page.wait_for_function(
+        "() => { const more = document.querySelector('.tab-bar__more');"
+        " return !!more && !more.open; }")
+
+
 def _check_bar_switch(page, lang, space, where):
     """The switch row of the More panel, opened and read once it owns its centre."""
+    page.locator(".tab-bar__more").wait_for(state="attached")
     if not page.evaluate("() => document.querySelector('.tab-bar__more').open"):
         page.locator(".tab-bar__more > summary").click()
     page.wait_for_function(
@@ -58,7 +67,8 @@ def _check_bar_switch(page, lang, space, where):
         " const hit = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2);"
         " return !!hit && a.contains(hit); }")
     cell = page.evaluate(_BAR_SWITCH)
-    assert cell["second"], (where, cell)
+    # The switch is the last row of the panel (after Account and, in the Console, System).
+    assert cell["last"], (where, cell)
     assert cell["text"] == _OTHER_SPACE[space][lang], (where, cell)
     assert cell["h"] >= MIN_TAP_PX and cell["w"] >= MIN_TAP_PX, (where, cell)
     assert cell["hit"] and cell["icon"] and cell["aria"], (where, cell)
@@ -67,7 +77,7 @@ def _check_bar_switch(page, lang, space, where):
     assert not cell["big"] and not cell["inBar"], (where, cell)
     assert not _assert_no_page_overflow(page, where, page.viewport_size["width"])
     return cell
-_LABELS = {"en": ("Console", "My frame"), "fr": ("Console", "Mon cadre")}
+_LABELS = {"en": ("My frames", "Console"), "fr": ("Mes cadres", "Console")}
 
 
 def _visible_switch(page):
@@ -127,7 +137,7 @@ def test_the_sidebar_switch_shows_both_spaces_and_marks_the_current_one(
     context, page = _admin_page(
         new_context, app_server_in_process, path, viewport, lang, scheme)
     try:
-        current = _LABELS[lang][0 if space == "console" else 1]
+        current = _LABELS[lang][1 if space == "console" else 0]
         _check_switch(page, lang, current, "%s/%s/%s/%s" % (space, name, lang, scheme))
         first = page.locator(".dashboard-sidebar > *:not(.brand)").first
         assert "space-switch" in first.get_attribute("class")
@@ -159,13 +169,13 @@ def test_one_tap_on_the_sidebar_switch_moves_between_the_two_spaces(
     context, page = _admin_page(new_context, app_server_in_process, "/fleet", VIEWPORT_DESKTOP)
     try:
         _visible_switch(page)
-        page.locator(".space-switch__segment:visible", has_text="My frame").click()
+        page.locator(".space-switch__segment:visible", has_text="My frames").click()
         page.wait_for_function(
             "() => !location.pathname.endsWith('/fleet')"
             " && !!document.querySelector('.space-switch__segment[aria-current=page]')"
             " && document.querySelector('.space-switch__segment[aria-current=page]')"
-            ".textContent.includes('My frame')")
-        _check_switch(page, "en", "My frame", "personal/desktop")
+            ".textContent.includes('My frames')")
+        _check_switch(page, "en", "My frames", "personal/desktop")
         page.locator(".space-switch__segment:visible", has_text="Console").click()
         page.wait_for_function(
             "() => location.pathname === '/fleet'"
@@ -186,11 +196,11 @@ def test_one_tap_on_the_more_panel_switch_moves_between_the_two_spaces(
         _check_bar_switch(page, "en", "console", "console/phone")
         page.locator(".tab-bar__space-link").click()
         page.wait_for_function("() => !location.pathname.endsWith('/fleet')")
-        page.wait_for_function("() => !document.querySelector('.tab-bar__more').open")
+        _wait_more_panel_closed(page)
         _check_bar_switch(page, "en", "personal", "personal/phone")
         page.locator(".tab-bar__space-link").click()
         page.wait_for_function("() => location.pathname === '/fleet'")
-        page.wait_for_function("() => !document.querySelector('.tab-bar__more').open")
+        _wait_more_panel_closed(page)
         _check_bar_switch(page, "en", "console", "console/phone-again")
     finally:
         context.close()

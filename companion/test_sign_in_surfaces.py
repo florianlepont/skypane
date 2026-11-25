@@ -221,11 +221,14 @@ def test_new_login_surfaces_render_the_approved_french():
 
 # --- Defaults are unchanged -------------------------------------------
 
+# The pinned digests cover the shared sprite (icon-fit, icon-eye, icon-chevron-left,
+# icon-departure, icon-arrival, icon-spark, icon-picture-add, icon-picture-edit) and the shared nav names and order
+# (Home, Flights, Airlines, Style, Location; French Vols, Airlines, Lieu).
 _LOGIN_BASELINE = {
     "en": {
-        "nf": "5f0b7763d76a75591c0f52177e561d75c0ec015eaf7340162049733509e8aff7",
-        "nf2": "5f0b7763d76a75591c0f52177e561d75c0ec015eaf7340162049733509e8aff7",
-        "forb": "bd38768ad4922d2c88d3730af285d2f8cb5e61019125d6f936488dbc19ff2718",
+        "nf": "5fc64c46a831c3d5498afd3f4ed9fad92fa44ab09e1611d0ef6ebf9073cc1df4",
+        "nf2": "5fc64c46a831c3d5498afd3f4ed9fad92fa44ab09e1611d0ef6ebf9073cc1df4",
+        "forb": "fa742bf0353b5a4cc72d84f6802cf07843c43db80a7f5031f38259452d97016f",
     },
 }
 
@@ -257,7 +260,7 @@ def test_account_page_shows_identity_preferences_frames_and_sign_out():
     assert doc.select_one("h1.page-title").text() == "Account"
     cards = [c for c in doc.select("section.group-block") if c.select("h2")]
     assert [c.select_one("h2").text() for c in cards] == [
-        "My frames", "Identity", "Preferences"]
+        "My frames", "Identity", "Preferences", "About"]
     identity = cards[1].text()
     assert "ada@example.com" in identity
     assert "User" in identity
@@ -275,7 +278,7 @@ def test_account_page_shows_identity_preferences_frames_and_sign_out():
     logout = doc.select_one("form[action=\"/logout\"]")
     assert logout.attrs["method"] == "post"
     assert logout.select_one("button").text() == "Sign out"
-    assert [a.attrs["href"] for a in doc.select("a")] == ["/pair-frame"]
+    assert [a.attrs["href"] for a in doc.select("a")] == ["/pair-frame", "/credits"]
 
 
 def test_account_page_role_labels_and_escaping():
@@ -294,7 +297,7 @@ def test_account_page_renders_in_french():
     doc = _doc(account_page.render(account_page.Identity("a@b.fr", "user")))
     assert doc.select_one("h1.page-title").text() == "Compte"
     assert [c.select_one("h2").text() for c in doc.select("section.group-block") if c.select("h2")] == [
-        "Mes cadres", "Identité", "Préférences"]
+        "Mes cadres", "Identité", "Préférences", "À propos"]
     assert "Vos cadres apparaîtront ici" in doc.text()
     assert "Ajouter votre cadre" in doc.text()
     assert "Utilisateur" in doc.text()
@@ -343,8 +346,10 @@ def test_unrecognised_principal_clears_to_default():
     assert prefs.current_principal() is None
 
 
+# The digest of the personal pages and the Update page. The Health and Device pages were removed, so
+# their two shells left the list; every remaining shell is byte-identical to before the removal.
 _SHELL_BASELINE_DIGEST = (
-    "6820f287c9803b5d828d3d3910459e95ec66ef24483b34b63728d87406cdc7e7")
+    "4800c901e44c72557270a099145771029af37edbeb114f4b4f0eb2f061c9c407")
 
 
 def test_shell_without_a_principal_is_byte_identical_to_before():
@@ -352,8 +357,7 @@ def test_shell_without_a_principal_is_byte_identical_to_before():
     for lang in ("en", "fr"):
         prefs.set_request_prefs(lang)
         for active in (
-                "home", "display", "flights", "airlines", "health", "device",
-                "update", ""):
+                "home", "display", "flights", "airlines", "update", ""):
             for device_config in (None, {"a": 1}):
                 for alert in (None, "warn"):
                     html = layout.page_shell(

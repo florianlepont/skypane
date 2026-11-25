@@ -16,12 +16,12 @@ import companion.app as app
 import companion.test_status_pages_helpers as shp
 from companion import airline_display, i18n, illustration_normalize, layout, prefs
 from companion.i18n_fr import health as i18n_fr_health
-from companion.pages import airlines_page, health_page, history_page
+from companion.pages import airline_families, airlines_page, health_page, history_page
 import health_page_composition
 from companion_app_server import served_stylesheet
 from companion_markup import css_rules, declarations_for, parse_html, rules_with_selector
 from server import history_db
-from server.plane import illustrations
+from server.plane import enrich, illustrations, manual_resolutions
 
 _RELATIVE_ELEMENT_RE = re.compile(r'<time datetime="([^"]*)" data-relative>([^<]*)</time>')
 
@@ -58,9 +58,28 @@ def _card_slice(rendered, airline_name):
 def _sub_rows(card_slice):
     """The type label and the artwork-upload action of every sub-row of one airline."""
     rows = re.findall(r'<tr class="airlines-subrow">(.*?)</tr>', card_slice)
-    return [(re.search(r'<span class="airlines-type">([^<]*)</span>', row).group(1),
+    return [(re.search(r'<span class="airlines-type"[^>]*>([^<]*)</span>', row).group(1),
              (re.search(r'<form class="airlines-art"[^>]* action="([^"]+)"', row) or [None, None])[1])
             for row in rows]
+
+
+def _family_or_code(code):
+    """The label of a type row: its family name, or the designator for a slot with no family."""
+    return airline_families.family_label(illustrations.type_slug(code)) or code
+
+
+def _expected_type_rows(airline_name, shapes):
+    """The type rows of a curated airline with no sightings, by code: its primary picture's
+    airframe (the legacy picture) and each curated variant, each uploading to its own key
+    and naming its type."""
+    key = illustrations.normalise_airline_key(airline_name)
+    rows = {}
+    primary = illustrations.aircraft_label(airline_name)
+    rows[primary] = "/illustration/%s.png?default_type=%s" % (key, primary)
+    for shape in shapes:
+        label = illustrations.aircraft_label(airline_name, shape)
+        rows[label] = "/illustration/%s-%s.png?default_type=%s" % (key, shape, label)
+    return [(layout.escape_html(_family_or_code(code)), rows[code]) for code in sorted(rows)]
 
 
 def _rendered_pages_with_search_inputs(tmp_path):
@@ -241,8 +260,8 @@ def test_concise_timestamp_htmls_relative_half_is_now_an_element():
 
 
 def test_health_page_renders_in_french(tmp_path):
-    """health_page_composition.render() under lang='fr' carries the French page title and at least three
-    other French strings, and none of a short list of English source strings with distinct
+    """the Battery page and the System view under lang='fr' carry the French page title and at least
+    three other French strings, and none of a short list of English source strings with distinct
     French forms """
     tmp = str(tmp_path)
     now = shp.now()
@@ -251,35 +270,39 @@ def test_health_page_renders_in_french(tmp_path):
         "ts": shp.ago(300), "callsign": "AFR1234", "icao24": "abc123", "corroborated": "True"}])
     try:
         prefs.set_request_prefs(lang="fr")
-        rendered = health_page_composition.render(shp.ctx(tmp, shp.iso(now)))
+        battery = health_page_composition.render(shp.ctx(tmp, shp.iso(now)))
+        system = health_page.system_html(shp.ctx(tmp, shp.iso(now)))
+        connection = health_page.frame_tiles(shp.ctx(tmp, shp.iso(now))).connection
     finally:
         prefs.set_request_prefs(lang="en")
-    assert "État" in rendered, "expected the French page title (État, via the shared nav catalogue)"
-    for french_text in ("Écran", "Serveur et données", "Se connecte normalement"):
-        assert french_text in rendered, "expected the French string %r in the rendered page" % (french_text,)
-    for english_text in (
-            _battery_section_heading("en"), "Checking in normally", "Server & data"):
-        assert english_text not in rendered, (
+    assert "Batterie" in battery, "expected the French page title (Batterie, via the shared catalogue)"
+    for french_text in ("Données de vol", "Sources de données", "Identification"):
+        assert french_text in system, "expected the French string %r in the rendered page" % (french_text,)
+    assert connection.verdict == "Se connecte normalement"
+    for english_text in (_battery_section_heading("en"), "Checking in normally", "Server & data"):
+        assert english_text not in battery + system, (
             "expected no English source string %r to leak into the French render" % (english_text,))
 
 
 def test_health_page_renders_byte_identical_in_english(tmp_path):
-    """health_page_composition.render() under lang='en' (the default) is byte-for-byte unchanged for a
-    seeded state — pinned representative substrings """
+    """the Battery page and the System view under lang='en' (the default) are byte-for-byte
+    unchanged for a seeded state — pinned representative substrings """
     tmp = str(tmp_path)
     now = shp.now()
     shp.seed_device_health(tmp, [(shp.ago(120), 3800)])
     try:
         prefs.set_request_prefs(lang="en")
-        rendered = health_page_composition.render(shp.ctx(tmp, shp.iso(now)))
+        battery = health_page_composition.render(shp.ctx(tmp, shp.iso(now)))
+        system = health_page.system_html(shp.ctx(tmp, shp.iso(now)))
+        connection = health_page.frame_tiles(shp.ctx(tmp, shp.iso(now))).connection
     finally:
         prefs.set_request_prefs(lang="en")
-    for english_text in (
-            health_page.SCREEN_SECTION_HEADING,
-            layout.escape_html(health_page.SERVER_DATA_SECTION_HEADING),
-            _battery_section_heading(), health_page.DEVICE_STATE_TEXT["ok"], "Health"):
-        assert english_text in rendered, "expected the unchanged English string %r under lang='en'" % (
+    for english_text in (_battery_section_heading(), "Battery"):
+        assert english_text in battery, "expected the unchanged English string %r under lang='en'" % (
             english_text,)
+    for english_text in (health_page.ROW_FLIGHT_DATA_NAME, health_page.ROW_SOURCES_NAME):
+        assert layout.escape_html(english_text) in system
+    assert connection.verdict == health_page.DEVICE_STATE_TEXT["ok"]
 
 
 def test_health_page_device_and_pipeline_timestamps_fully_localise_under_french(tmp_path):
@@ -373,43 +396,44 @@ def test_every_card_image_source_passes_route_membership_test(tmp_path):
 
 
 def test_air_caraibes_row_lists_every_known_type(tmp_path):
-    """with no sightings stored, the Air Caraïbes group has one sub-row per secondary type
-    (A330, A350-1000, ATR72), each with its own artwork upload to that type's own key, and
-    the airline's own row carries the chevron that expands them"""
+    """with no sightings stored, the Air Caraïbes group has one sub-row per type it has a
+    picture of (A330, A350-1000, ATR72 and the A350 of its legacy picture), each with its own
+    artwork upload to that picture's key naming the type, and the airline's own row carries
+    the chevron that expands them"""
     rendered = airlines_page.render(shp.ctx(str(tmp_path)) | {"types_open": "all"})
     card_slice = _card_slice(rendered, "Air Caraïbes")
     assert 'class="airlines-expand"' in card_slice
     assert _sub_rows(card_slice) == [
-        ("A330", "/illustration/air-caraibes-a330.png"),
-        ("A350-1000", "/illustration/air-caraibes-a350-1000.png"),
-        ("ATR72", "/illustration/air-caraibes-atr72.png"),
+        ("Airbus A330", "/illustration/air-caraibes-a330.png?default_type=A330"),
+        ("Airbus A350", "/illustration/air-caraibes.png?default_type=A350"),
+        ("A350-1000", "/illustration/air-caraibes-a350-1000.png?default_type=A350-1000"),
+        ("ATR 42 / 72", "/illustration/air-caraibes-atr72.png?default_type=ATR72"),
     ]
     assert "Any aircraft" not in card_slice
 
 
 def test_every_airline_lists_each_of_its_types_as_text(tmp_path):
-    """every airline's group carries one sub-row per secondary type, labelled with that
-    type's designator and uploading to that type's own key; Transavia reads A320"""
+    """every airline's group carries one sub-row per type it has a picture of (its legacy
+    picture's airframe and each secondary type), labelled with that type's designator and
+    uploading to that picture's own key; Transavia reads A320 and B737"""
     rendered = airlines_page.render(shp.ctx(str(tmp_path)) | {"types_open": "all"})
     for airline_name, shapes in illustrations.target_variants_by_airline():
         card_slice = _card_slice(rendered, airline_name)
-        key = illustrations.normalise_airline_key(airline_name)
-        expected = [
-            (layout.escape_html(illustrations.aircraft_label(airline_name, shape)),
-             "/illustration/%s-%s.png" % (key, shape))
-            for shape in shapes]
-        assert _sub_rows(card_slice) == expected, airline_name
-    assert [label for label, _action in _sub_rows(_card_slice(rendered, "Transavia France"))] == ["A320"]
-    assert [label for label, _action in _sub_rows(_card_slice(rendered, "Royal Air Maroc"))] == ["E190"]
+        assert _sub_rows(card_slice) == _expected_type_rows(airline_name, shapes), airline_name
+    assert [label for label, _action in _sub_rows(_card_slice(rendered, "Transavia France"))] == [
+        "Airbus A320", "Boeing 737"]
+    assert [label for label, _action in _sub_rows(_card_slice(rendered, "Royal Air Maroc"))] == [
+        "Boeing 737", "Embraer E-Jet"]
 
 
-def test_primary_only_airline_renders_no_sub_row_and_no_chevron(tmp_path):
-    """an airline with no variant entries and no sightings (Air France) renders its one row:
-    no sub-row, no chevron, no chip of any kind"""
-    rendered = airlines_page.render(shp.ctx(str(tmp_path)))
+def test_primary_only_airline_renders_its_one_type_row_with_its_airframe(tmp_path):
+    """an airline with no variant entries and no sightings (Air France) renders its row and
+    one type row, its legacy picture's airframe (A320), behind the chevron; no chip of any
+    kind"""
+    rendered = airlines_page.render(shp.ctx(str(tmp_path)) | {"types_open": "all"})
     card_slice = _card_slice(rendered, "Air France")
-    assert _sub_rows(card_slice) == []
-    assert 'class="airlines-expand"' not in card_slice
+    assert _sub_rows(card_slice) == [("Airbus A320", "/illustration/air-france.png?default_type=A320")]
+    assert 'class="airlines-expand"' in card_slice
     assert "airline-card__chip" not in card_slice
 
 
@@ -453,7 +477,12 @@ def test_gallery_filter_bar_carries_all_four_contract_markers_exactly_once(tmp_p
     assert rendered.count("data-filter-clear") == 3, (
         "expected two Clear buttons, the second one also carrying data-filter-clear-all")
     assert 'data-filter-clear-all' in rendered
-    assert "filter-chip" not in rendered, "expected the plain search pill, no chips, on Airlines"
+    labels = re.findall(r'<span class="filter-chip__text">([^<]*)</span>', rendered)
+    assert labels == [
+        "All", "Unidentified", "Missing illustrations", "Seen", "Not seen yet"]
+    counts = re.findall(r'<span class="filter-chip__count">([^<]*)</span>', rendered)
+    known = len(enrich.names_without_artwork())
+    assert counts == [str(36 + known), "0", str(known), "0", "36"]
 
 
 def test_gallery_filter_clear_controls_are_real_buttons(tmp_path):
@@ -546,7 +575,7 @@ def test_gallery_filter_count_and_empty_body_name_the_real_total(tmp_path):
     """the gallery filter bar's count text and empty-state body both name the real (36) card
     total"""
     rendered = airlines_page.render(shp.ctx(str(tmp_path)))
-    total = len(illustrations.target_airline_names())
+    total = len(illustrations.target_airline_names()) + len(enrich.names_without_artwork())
     count_text = "%d of %d shown" % (total, total)
     assert count_text in rendered
     empty_body = airlines_page._FILTER_EMPTY_BODY_TEMPLATE % total
@@ -572,13 +601,15 @@ def test_every_row_carries_distinct_filter_text_and_group(tmp_path):
 
 
 def test_airlines_page_reads_the_poll_state_and_only_reads_history():
-    """companion/pages/airlines_page.py reads the poll state through its single owner,
-    state_store, and reaches the history database only through the read-only airline
-    collection read model (no history_db write helper is bound in the module)"""
+    """companion/pages/airlines_page.py reads the poll states of the frames in scope through
+    the fleet merge, which reads them through their single owner, state_store, and reaches
+    the history database only through the read-only airline collection read model (no
+    history_db write helper is bound in the module)"""
     import server.state_store as state_store_module
-    from companion import airline_collection
-    assert vars(airlines_page).get("state_store") is state_store_module, (
-        "expected airlines_page to read the poll state through its single owner, state_store")
+    from companion import airline_collection, fleet_unresolved
+    assert vars(fleet_unresolved).get("state_store") is state_store_module, (
+        "expected the fleet merge to read the poll state through its single owner, state_store")
+    assert vars(airlines_page).get("fleet_unresolved") is fleet_unresolved
     assert vars(airlines_page).get("airline_collection") is airline_collection
 
 
@@ -592,13 +623,13 @@ def test_airlines_page_no_longer_renders_registry_or_stats_headers(tmp_path):
 
 
 def test_health_page_renders_the_statistics_headers_and_no_registry_headers(tmp_path):
-    """the rendered Health page keeps the resolution-statistics column headers and no longer
-    renders the unresolved-prefix registry's (those prefixes are named in the Airlines table)"""
+    """the System view keeps the resolution-statistics column headers and does not
+    render the unresolved-prefix registry's (those prefixes are named in the Airlines table)"""
     tmp = str(tmp_path)
     registry = {"ABC": {"count": 1, "first_seen": "t1", "last_seen": "t2", "example_callsign": "ABC123"}}
     shp.seed_unresolved_prefixes(tmp, registry)
     shp.seed_runway_events(tmp, [{"ts": shp.iso(shp.now()), "hex": "abc123", "route_source": "fresh_hit"}])
-    rendered = health_page_composition.render(shp.ctx(tmp))
+    rendered = health_page.system_html(shp.ctx(tmp))
     for header in ("Source", "Description"):
         assert ("<th>%s</th>" % header) in rendered, header
     for header in ("Prefix", "First seen", "Last seen", "Example callsign"):
@@ -621,26 +652,27 @@ def test_airlines_page_module_exposes_no_deleted_diagnostics_symbol():
 # ==========================================================================
 
 
-def test_enlarge_menu_item_opens_the_lightbox_on_the_row_artwork(tmp_path):
-    """each airline row's artwork thumbnail is the "Enlarge the artwork of ..." trigger whose
-    data-view-panel-src is the row's own picture, whose caption and heading are the airline
+def test_enlarge_menu_item_opens_the_lightbox_on_the_type_row_artwork(tmp_path):
+    """each type row's artwork thumbnail is the "Enlarge the artwork of ..." trigger whose
+    data-view-panel-src is the type's own picture, whose caption and heading are the airline
     name, in art mode with the upload route as replace action; it is a plain link to the
     picture without a script"""
-    rendered = airlines_page.render(shp.ctx(str(tmp_path)))
-    for airline_name in ("Air Caraïbes", "Air France"):
+    rendered = airlines_page.render(shp.ctx(str(tmp_path)) | {"types_open": "all"})
+    for airline_name, label in (("Air Caraïbes", "A350"), ("Air France", "A320")):
         card_slice = _card_slice(rendered, airline_name)
-        trigger = re.search(r"<a\b[^>]*data-view-panel-src[^>]*>", card_slice).group(0)
+        shown = airline_display.shown_name(airline_name)
+        trigger = re.search(
+            r'<a\b[^>]*aria-label="Enlarge the artwork of %s, %s"[^>]*>' % (
+                re.escape(layout.escape_html(shown)), label), card_slice).group(0)
         assert 'class="airlines-thumb"' in trigger
-        img_src = re.search(r'<img class="airlines-thumb__image" src="([^"]+)"', card_slice).group(1)
         src_attr = re.search(r'data-view-panel-src="([^"]+)"', trigger).group(1)
         # The row shows the small WebP; the link and the lightbox open the full picture.
-        assert img_src == src_attr + "?w=264", (airline_name, src_attr, img_src)
+        assert 'src="%s?w=264"' % src_attr in card_slice, (airline_name, src_attr)
         assert 'href="%s"' % src_attr in trigger
-        escaped = layout.escape_html(airline_name)
-        assert re.search(r'data-view-panel-caption="([^"]+)"', trigger).group(1) == escaped
-        assert re.search(r'data-view-panel-heading="([^"]+)"', trigger).group(1) == escaped
+        escaped = layout.escape_html(shown)
+        assert re.search(r'data-view-panel-caption="([^"]+)"', trigger).group(1) == "%s, %s" % (
+            escaped, label)
         assert 'data-view-panel-mode="art"' in trigger
-        assert 'aria-label="Enlarge the artwork of %s"' % escaped in trigger
 
 
 def test_lightbox_dialog_renders_once_wide_with_own_note_text(tmp_path):
@@ -735,19 +767,25 @@ def test_replace_form_action_matches_trigger_attribute_membership(tmp_path):
     rendered = airlines_page.render(shp.ctx(str(tmp_path)) | {"types_open": "all"})
     form_count = rendered.count('<form class="%s"' % airlines_page.LIGHTBOX_REPLACE_FORM_CLASS)
     assert form_count == 1, "expected exactly one lightbox replace form, got %d" % form_count
-    targets = set(illustrations.target_filenames())
+    known_names = enrich.names_without_artwork()
+    targets = set(illustrations.target_filenames()) | {
+        manual_resolutions.illustration_key_for_name(name) + ".png" for _prefix, name in known_names}
     prefix = airlines_page.ILLUSTRATION_ROUTE_PREFIX
     actions = re.findall(r'data-view-panel-replace-action="([^"]+)"', rendered)
-    expected = len(illustrations.target_variants_by_airline())
+    expected = len(illustrations.target_variants_by_airline()) + len(known_names)
     typed_with_art = sum(
         1 for name, shapes in illustrations.target_variants_by_airline() for shape in shapes
         if illustrations.illustration_path_for_key(
             "%s-%s" % (illustrations.normalise_airline_key(name), shape)))
     assert len(actions) == expected + typed_with_art
     uploads = re.findall(r'<form class="airlines-art"[^>]* action="([^"]+)"', rendered)
-    assert len(uploads) == expected + sum(
-        len(shapes) for _name, shapes in illustrations.target_variants_by_airline())
+    # One per type row: the legacy picture's airframe and each secondary type.
+    # Plus the plain upload form of each row of the missing-illustrations section.
+    assert len(uploads) == sum(
+        len(shapes) + 1 for _name, shapes in illustrations.target_variants_by_airline()
+    ) + rendered.count('class="airlines-missing__item"')
     for action in actions + uploads:
+        action = action.split("?", 1)[0]
         assert action.startswith(prefix) and action.endswith(".png"), (
             "expected every upload action to be %s{key}.png, got %r" % (prefix, action))
         filename = action[len(prefix):]
@@ -769,3 +807,22 @@ def test_replace_form_declares_post_multipart_enctype_and_present_action(tmp_pat
         "silently send the file as a filename string" % (form_tag,))
     assert 'action=""' in form_tag, (
         "expected a literally present action=\"\" placeholder in %r" % (form_tag,))
+
+
+@pytest.mark.parametrize("lang", ("en", "fr"))
+def test_an_unidentified_prefix_row_has_its_date_and_no_relative_age(tmp_path, lang):
+    """the row of an unidentified prefix reads callsign, views and the local date and time; the
+    relative age ("il y a 83 j", "83 d ago") is not served, and no ticker element is left in it"""
+    shp.seed_unresolved_prefixes(str(tmp_path), {
+        "DEFGM": {"count": 4, "first_seen": "2020-09-03T08:00:00+00:00",
+                  "last_seen": "2020-09-03T08:00:00+00:00", "example_callsign": "DEFGM12"}})
+    try:
+        prefs.set_request_prefs(lang=lang)
+        rendered = airlines_page.render(shp.ctx(str(tmp_path)))
+    finally:
+        prefs.set_request_prefs(lang="en")
+    start = rendered.index("airline-group--gap")
+    meta = re.search(r'<span class="airlines-gap__meta">(.*?)</span></span>', rendered[start:], re.S)
+    text = re.sub(r"<[^>]+>", "", meta.group(1))
+    assert "DEFGM12" in text and "10:00" in text
+    assert "il y a" not in text and " ago" not in text and "data-relative" not in meta.group(1)

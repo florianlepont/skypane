@@ -23,18 +23,12 @@ EXPECTED_DEVICE_SCOPED = {
     ("GET", "/display/calendar/connect"),
     ("GET", "/display/calendar-look"),
     ("GET", "/display/arrivals"),
-    ("GET", "/display/layout"),
     ("GET", "/display/calendar"),
-    ("GET", "/display/screen"),
     ("GET", "/detection"),
-    ("GET", "/device"),
     ("GET", "/flights"),
-    ("GET", "/health"),
     ("GET", "/airlines"),
     ("GET", "/airlines/manage"),
     ("GET", "/settings"),
-    ("GET", "/history"),
-    ("GET", "/preview"),
     ("GET", ("/gallery/", "")),
     ("GET", ("/illustration/", ".png")),
     ("GET", ("/theme-preview/", ".png")),
@@ -47,9 +41,12 @@ EXPECTED_DEVICE_SCOPED = {
     ("POST", "/quick/led"),
     ("POST", "/airlines/resolve"),
     ("POST", "/airlines/rename"),
+    ("POST", "/airlines/rename/manual"),
     ("POST", "/airlines/rename/reset"),
     ("POST", "/airlines/artwork/delete"),
     ("POST", "/airlines/default-type"),
+    ("POST", "/airlines/suggest"),
+    ("POST", "/airlines/suggest/reject"),
     ("POST", ("/airlines/manual-resolutions/", "/delete")),
     ("POST", ("/illustration/", ".png")),
     ("POST", "/settings/rules/add"),
@@ -84,7 +81,7 @@ def _spec_of(route):
 class TestPrefixMatching:
     def test_flagged_routes_equal_the_explicit_list(self):
         flagged = {(r.method, _spec_of(r)) for r in routes.ROUTES if r.device_scoped}
-        assert len(EXPECTED_DEVICE_SCOPED) == 47
+        assert len(EXPECTED_DEVICE_SCOPED) == 44
         assert flagged == EXPECTED_DEVICE_SCOPED
 
     @pytest.mark.parametrize("method,spec", sorted(EXPECTED_DEVICE_SCOPED, key=str))
@@ -109,7 +106,7 @@ class TestPrefixMatching:
             assert matched.path == "/"
 
     def test_query_is_carried_through(self):
-        _, matched = routes.match("GET", PREFIX + "/health", "a=1")
+        _, matched = routes.match("GET", PREFIX + "/flights", "a=1")
         assert matched.query == "a=1"
 
     @pytest.mark.parametrize("method,path", [
@@ -125,15 +122,9 @@ class TestPrefixMatching:
         assert routes.match(method, path, "") is not None
         assert routes.match(method, PREFIX + path, "") is None
 
-    def test_the_retired_update_page_alone_answers_under_a_prefix(self):
-        """A frame-prefixed Update address matches the one global route and
-        carries the frame id, so an administrator is moved to that frame's
-        Fleet view; no other method or path under the prefix matches."""
-        route, matched = routes.match("GET", PREFIX + "/update", "")
-        assert route is routes.match("GET", "/update", "")[0]
-        assert matched.device_id == DEVICE_ID
-        assert routes.match("POST", PREFIX + "/update", "") is None
-        assert routes.match("GET", PREFIX + "/update/", "") is None
+    @pytest.mark.parametrize("path", ["/update", "/health", "/device", "/history", "/preview"])
+    def test_a_removed_or_global_page_does_not_answer_under_a_prefix(self, path):
+        assert routes.match("GET", PREFIX + path, "") is None
 
     @pytest.mark.parametrize("bad_prefix", [
         "/devices/d_1a2b3c4",
@@ -155,7 +146,7 @@ class TestPrefixMatching:
         assert routes.match("GET", PREFIX + "/health\n", "") is None
 
     def test_unprefixed_match_has_no_device(self):
-        _, matched = routes.match("GET", "/health", "")
+        _, matched = routes.match("GET", "/flights", "")
         assert matched.device_id is None
         assert matched.device is None
 
@@ -308,7 +299,8 @@ class TestPrefixCrawl:
         for method, url, in_selector in addresses:
             where = "%s -> %s %s" % (_page_path(prefix, page), method, url)
             if method == "RETURN_TO":
-                assert "/devices/" not in url, where
+                # The Rename dialog on Home returns to its own frame's Home, never another's.
+                assert "/devices/" not in url or url == prefix + "/", where
                 continue
             if in_selector:
                 continue

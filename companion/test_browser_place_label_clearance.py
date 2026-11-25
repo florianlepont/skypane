@@ -2,6 +2,7 @@
 """Browser check that an airport's code label never pokes out from under, or over, the details
 card, the sheet or a control floating on the Location map, on a wide screen and a phone, and that
 a label returns once it clears them."""
+import animation_settle
 import pytest
 
 from companion import auth
@@ -12,9 +13,7 @@ pytestmark = pytest.mark.browser
 
 READY = "() => document.documentElement.classList.contains('map-ready')"
 TILES = "() => document.querySelectorAll('#place-map .leaflet-tile-loaded').length >= 1"
-IDLE = (
-    "() => document.getAnimations().every((a) => a.playState !== 'running'"
-    " || a.effect.getComputedTiming().iterations === Infinity)")
+IDLE = animation_settle.ANIMATIONS_DONE
 PHONE = {"width": 390, "height": 844}
 DESKTOP = {"width": 1280, "height": 800}
 

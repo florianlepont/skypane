@@ -73,21 +73,42 @@ def _record_prefetches(page):
     return seen
 
 
+# The splash's own safety cap (see test_browser_splash.py): a splash held by a slow first
+# drawing of the preloaded pictures still ends by then.
+SPLASH_SAFETY_CAP_MS = 10000
+
+
+def _prime_server(new_context, server):
+    """An earlier visit, so the server has already drawn (and kept) the Style pictures the
+    splash preloads: what follows measures the splash, not the first drawing (the same priming
+    test_browser_splash.py uses)."""
+    context, page = _home(new_context, server, splash=True, viewport=VIEWPORT_PHONE)
+    try:
+        page.goto(server.base_url() + layout.HOME_ROUTE)
+        page.wait_for_function(SPLASH_DONE, timeout=15000)
+        page.wait_for_function(
+            "() => window.skypaneSplash.warm.settled === window.skypaneSplash.warm.queued",
+            timeout=15000)
+    finally:
+        context.close()
+
+
 def test_the_splash_plays_at_each_opening_and_not_on_in_app_navigation(new_context, server):
     """a second tab (a new opening of the site) plays the splash although the first one already
     did; moving between pages inside a tab does not"""
+    _prime_server(new_context, server)
     context, page = _home(new_context, server, splash=True, viewport=VIEWPORT_PHONE)
     try:
         page.goto(server.base_url() + layout.HOME_ROUTE, wait_until="commit")
         page.wait_for_function(SPLASH_ON, timeout=5000)
-        page.wait_for_function(SPLASH_DONE, timeout=6000)
+        page.wait_for_function(SPLASH_DONE, timeout=SPLASH_SAFETY_CAP_MS + 4000)
         page.goto(server.base_url() + "/flights")
         page.wait_for_function("() => document.readyState === 'complete'")
         assert page.evaluate(SPLASH_ON) is False
         second = context.new_page()
         second.goto(server.base_url() + layout.HOME_ROUTE, wait_until="commit")
         second.wait_for_function(SPLASH_ON, timeout=5000)
-        second.wait_for_function(SPLASH_DONE, timeout=6000)
+        second.wait_for_function(SPLASH_DONE, timeout=SPLASH_SAFETY_CAP_MS + 4000)
         assert second.evaluate(
             "() => document.querySelectorAll('[inert]').length") == 0
     finally:
@@ -300,7 +321,7 @@ def test_quiet_hours_dialog_shows_the_saved_window_when_it_opens_again(new_conte
     try:
         page.goto(server.base_url() + layout.HOME_ROUTE)
         page.wait_for_function("() => document.readyState === 'complete'")
-        opener = page.locator("a.home-switch__window")
+        opener = page.locator("a.home-pill--quiet")
         field = "#quiet-window-start"
         opener.click()
         page.wait_for_function(

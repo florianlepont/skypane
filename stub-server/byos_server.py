@@ -1402,7 +1402,8 @@ _BAD_LENGTH = object()
 # the live battery_state.json, poll_state.json or per-device directories.
 _PENDING_IMG_PATH_RE = re.compile(r"\A/img/(p_[0-9a-f]{8})/([0-9a-f]{64})\.bin\Z")
 PAIRING_PANEL = "panel.bin"
-RETIRED_PANEL = "retired.bin"
+RETIRED_PANEL = "retired-r%d.bin" % pairing_image.RETIRED_SCREEN_REVISION
+LEGACY_RETIRED_PANEL = "retired.bin"
 
 
 def _read_panel(path, expected_bytes):
@@ -1413,6 +1414,13 @@ def _read_panel(path, expected_bytes):
     except OSError:
         return None
     return image if len(image) == expected_bytes else None
+
+
+def _remove_quietly(path):
+    try:
+        os.remove(path)
+    except OSError:
+        pass
 
 
 def _write_pairing_panel(directory, name, image):
@@ -1460,6 +1468,7 @@ def _pending_panel(state_dir, row, profile, now, battery_mv, fw_version):
                 if image is None:
                     image = pairing_image.render_retired_image(profile)
                     _write_pairing_panel(directory, RETIRED_PANEL, image)
+                    _remove_quietly(os.path.join(directory, LEGACY_RETIRED_PANEL))
                 return image, pairing_code.RETIRED_SLEEP_S
             expires_at = current["code_expires_at"]
             image = None

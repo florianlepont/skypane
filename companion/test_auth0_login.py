@@ -274,9 +274,9 @@ def test_an_admin_lands_on_a_whitelisted_next(auth0_rig):
     rig = auth0_rig
     rig.invite("admin@example.test", "admin")
     result = login_via_auth0(
-        rig.server, rig.fake, next_route="/health", sub="auth0|a",
+        rig.server, rig.fake, next_route="/airlines/manage", sub="auth0|a",
         email="admin@example.test")
-    assert _landing_path(result.body) == "/health"
+    assert _landing_path(result.body) == "/airlines/manage"
 
 
 @pytest.mark.parametrize("hostile", [
@@ -298,16 +298,16 @@ def test_a_known_page_keeps_its_plain_query_through_sign_in(auth0_rig):
     rig = auth0_rig
     rig.invite("admin@example.test", "admin")
     result = login_via_auth0(
-        rig.server, rig.fake, next_route="/health?x=1", sub="auth0|a",
+        rig.server, rig.fake, next_route="/airlines/manage?x=1", sub="auth0|a",
         email="admin@example.test")
     assert result.status == 200
-    assert _landing_path(result.body) == "/health?x=1"
+    assert _landing_path(result.body) == "/airlines/manage?x=1"
 
 
 def test_a_user_ignores_an_admin_only_next(auth0_rig):
     rig = auth0_rig
     rig.invite("user@example.test", "user")
-    result = login_via_auth0(rig.server, rig.fake, next_route="/health")
+    result = login_via_auth0(rig.server, rig.fake, next_route="/airlines/manage")
     assert _landing_path(result.body) == "/account"
 
 

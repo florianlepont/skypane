@@ -8,6 +8,7 @@ companion.prefs and companion.auth's theme-cookie name; no import from
 ui_components or ui_shell.
 """
 from typing import NamedTuple
+from urllib.parse import parse_qs
 
 import companion.console_routes as console_routes
 import companion.device_scope as device_scope
@@ -27,7 +28,6 @@ from companion.ui_base import (
     HOME_ROUTE,
     NAV_ICON_IDS,
     NAV_NOTIFICATION_CLASS,
-    NAV_SHORT_LABELS,
     NAV_TABS,
     UI_THEME_CHOICES,
     _DEFAULT_STATUS_DOT_CLASS,
@@ -56,13 +56,10 @@ USER_NAV = (
 
 USER_ROLE = "user"
 
-# The personal space's frame pages, in order: the sidebar lists all of them
-# and the phone bar carries the same five, in its own order, before More. One
-# table serves an administrator and a user alike. Health and Device are
-# Console pages and never appear here.
-_PERSONAL_SIDEBAR_PAGES = (
-    HOME_ROUTE, FLIGHTS_ROUTE, DETECTION_ROUTE, DISPLAY_ROUTE, AIRLINES_ROUTE)
-_PERSONAL_BAR_PAGES = (
+# The personal space's frame pages, in order: the sidebar and the phone bar
+# both list them from this one table, so the two can never disagree. Health
+# and Device are Console pages and never appear here.
+_PERSONAL_PAGES = (
     HOME_ROUTE, FLIGHTS_ROUTE, AIRLINES_ROUTE, DISPLAY_ROUTE, DETECTION_ROUTE)
 
 
@@ -86,12 +83,13 @@ def is_admin_principal():
 CONSOLE_SPACE = "console"
 PERSONAL_SPACE = "personal"
 
-_AUDIT_BAR_LABEL = i18n.msg("nav.audit_short", "Audit")
 _AIRLINES_BAR_LABEL = i18n.msg("nav.airlines_short", "Editor")
 _USERS_BAR_LABEL = i18n.msg("nav.users_short", "Users")
 _CONSOLE_BAR_LABELS = {
-    "editor": _AIRLINES_BAR_LABEL, "audit": _AUDIT_BAR_LABEL, "users": _USERS_BAR_LABEL}
-_PERSONAL_LABEL = i18n.msg("nav.my_frame", "My frame")
+    "editor": _AIRLINES_BAR_LABEL, "users": _USERS_BAR_LABEL}
+_CONSOLE_BAR_KEYS = ("fleet", "users", "editor", "system")
+_PERSONAL_SHORTCUT_LABEL = i18n.msg("nav.my_frames", "My frames")
+_PERSONAL_LABEL = _PERSONAL_SHORTCUT_LABEL
 _CONSOLE_LABEL = i18n.msg("nav.console", "Console")
 _SETTINGS_TEXT = i18n.msg("nav.settings", "Settings")
 _CONSOLE_SUBTITLE = i18n.msg("nav.console_subtitle", "Fleet, users, audit")
@@ -105,18 +103,15 @@ _CONSOLE_ICON_IDS = {
     "users": "icon-corroboration",
     "audit": "icon-nav-history",
     "releases": "icon-nav-update",
-    "health": "icon-nav-health",
-    "device": "icon-nav-device",
     "editor": "icon-nav-airlines",
+    "system": "icon-nav-health",
 }
-# The Console destinations that act on one frame: their hrefs carry the
-# frame in view. The airline editor lists every frame's airlines, so its link
-# carries none.
-_CONSOLE_FRAME_KEYS = frozenset(("health", "device"))
-# Health, Device and Releases no longer have navigation entries: their
-# content lives in the Fleet view, so their pages mark Fleet as current.
-_FLEET_FOLDED_SLUGS = frozenset(("health", "device", "update"))
-_CONSOLE_SLUGS = frozenset(
+# Releases has no navigation entry: its content lives in the Fleet view, so
+# its page marks Fleet as current. So does the device settings form, redrawn
+# in place when a save is refused.
+_FLEET_FOLDED_SLUGS = frozenset(("device", "update"))
+_FLEET_SLUG = nav_slug(console_routes.FLEET_ROUTE)
+_CONSOLE_SLUGS = _FLEET_FOLDED_SLUGS | frozenset(
     nav_slug(path) for _key, path, _label in console_routes.CONSOLE_NAV_ENTRIES)
 
 
@@ -143,7 +138,7 @@ def current_space(active):
     # page outside both spaces (the not-found page of an unknown address) is
     # then shown in the Console, the only space with pages to go to.
     if (active != ACCOUNT_NAV_SLUG and is_admin_principal()
-            and not _personal_routes(_PERSONAL_SIDEBAR_PAGES)):
+            and not _personal_routes(_PERSONAL_PAGES)):
         return CONSOLE_SPACE
     return PERSONAL_SPACE
 
@@ -162,13 +157,26 @@ def _account_entry(active):
         _ACCOUNT_ICON_ID, ACCOUNT_NAV_SLUG == active)
 
 
+def _on_system_view():
+    """True when this request is the Fleet page's System view (`view=system`
+    exactly); that view marks the System entry, not Fleet, as current."""
+    values = parse_qs(prefs.current_request_query()).get(console_routes.SYSTEM_VIEW_QUERY)
+    return values == [console_routes.SYSTEM_VIEW_VALUE]
+
+
 def _console_entries(active):
     """The Console destinations whose GET page exists, by key."""
     entries = {}
     for key, path, label in console_routes.available_nav_entries():
         slug = nav_slug(path)
-        href = device_scope.scoped(path) if key in _CONSOLE_FRAME_KEYS else path
-        is_active = slug == active or (key == "fleet" and active in _FLEET_FOLDED_SLUGS)
+        href = path
+        if key == "system":
+            is_active = active == _FLEET_SLUG and _on_system_view()
+        elif key == "fleet":
+            is_active = active in _FLEET_FOLDED_SLUGS or (
+                slug == active and not _on_system_view())
+        else:
+            is_active = slug == active
         # One full name per page (its title); the sidebar and the tab bar name
         # the editor with the same single word, so it never wraps.
         entries[key] = _Entry(
@@ -178,10 +186,12 @@ def _console_entries(active):
 
 
 _SPACE_NAV_LABEL = i18n.msg("nav.space", "Space")
+# The administrator's own frames first, then the Console.
 _SPACE_SEGMENTS = (
-    (CONSOLE_SPACE, console_routes.ADMIN_TAB_ROUTE, _CONSOLE_LABEL, _SWITCH_TO_CONSOLE_TEXT, "icon-shield"),
     (PERSONAL_SPACE, HOME_ROUTE, _PERSONAL_LABEL, _SWITCH_TO_PERSONAL_TEXT,
      "icon-device"),
+    (CONSOLE_SPACE, console_routes.ADMIN_TAB_ROUTE, _CONSOLE_LABEL, _SWITCH_TO_CONSOLE_TEXT,
+     "icon-shield"),
 )
 
 
@@ -189,7 +199,7 @@ def _switch_target(space):
     """(href, label, aria-label) of the link leading out of `space`, or None
     when the destination page does not exist."""
     if space == CONSOLE_SPACE:
-        return (HOME_ROUTE, _PERSONAL_LABEL, _SWITCH_TO_PERSONAL_TEXT)
+        return (HOME_ROUTE, _PERSONAL_SHORTCUT_LABEL, _SWITCH_TO_PERSONAL_TEXT)
     if console_routes.available_nav_entries():
         return (console_routes.ADMIN_TAB_ROUTE, _CONSOLE_LABEL, _SWITCH_TO_CONSOLE_TEXT)
     return None
@@ -299,6 +309,19 @@ def _personal_routes(pages):
     return [route for route in pages if _user_can_open(route)]
 
 
+def space_destinations(active):
+    """The routes the space of page `active` offers, whoever the viewer is:
+    the personal pages (when the scope holds a frame) or the Console pages,
+    then Account. Empty without a signed-in principal."""
+    if prefs.current_principal() is None:
+        return []
+    if current_space(active) == CONSOLE_SPACE:
+        routes = [path.partition("?")[0] for _key, path, _label in console_routes.available_nav_entries()]
+    else:
+        routes = _personal_routes(_PERSONAL_PAGES)
+    return routes + [ACCOUNT_ROUTE]
+
+
 def user_brand_href():
     """Where a user's wordmark leads: the request-scope frame's Home when
     the user can open it, else Account."""
@@ -349,7 +372,7 @@ def _console_sidebar_parts(active, health_alert):
             for key in keys if key in entries]
 
     parts = [_group_html(links("fleet", "users"), eyebrow, " nav-group--console")]
-    parts.append(_group_html(links("editor", "audit")))
+    parts.append(_group_html(links("editor", "audit", "system")))
     parts.append(_group_html([_sidebar_link_html(_account_entry(active))]))
     return parts
 
@@ -359,7 +382,7 @@ def _personal_sidebar_parts(active):
     reachable frame pages, then the Account footer group. No Health dot."""
     links = [
         _sidebar_link_html(_frame_entry(route, active))
-        for route in _personal_routes(_PERSONAL_SIDEBAR_PAGES)]
+        for route in _personal_routes(_PERSONAL_PAGES)]
     return links + [_group_html([_sidebar_link_html(_account_entry(active))])]
 
 
@@ -494,11 +517,6 @@ REFRESH_PENDING_ATTR = "data-pending"
 # permanently dead (it captures its DOM once). The registry card and its
 # filter bar are excluded for list-filter.js's sake.
 
-# `a[href$="/health"]`, not a ".dot" selector, is the nav-severity target
-# (an ends-with match, so the prefixed link on a device page is found too):
-# the severity dot only exists in the DOM for "warn"/"error", so a
-# dot-only selector would have nothing to replace when severity clears.
-
 # HOME: the regions that change between polls, plus the silent refresh
 # marker. The recent-flights SECTION, not its <ul>, is the target so the
 # empty-state-to-list transition is covered too. The frame-state card is
@@ -525,11 +543,10 @@ REFRESH_PENDING_ATTR = "data-pending"
 REFRESH_SWAP_SELECTORS_BY_PAGE = {
     REFRESH_PAGE_HOME: (
         ".page-header__freshness",
-        "figure.preview-frame",
-        'section[aria-labelledby="home-flights"]',
-        'section[aria-labelledby="home-detection"]',
         'section[aria-labelledby="home-frame-state"]',
+        'section[aria-labelledby="home-flight"]',
         'section[aria-labelledby="home-frame-controls"]',
+        'section[aria-labelledby="home-flights"]',
         ".home-facts",
     ),
     REFRESH_PAGE_DISPLAY: (
@@ -538,6 +555,7 @@ REFRESH_SWAP_SELECTORS_BY_PAGE = {
     ),
     REFRESH_PAGE_FLEET: (
         ".health-row__summary",
+        ".sys-card__head",
         "div." + HEALTH_ANOMALY_CLASS,
         "section." + HEALTH_SOURCE_FAULT_CLASS,
         'a[href$="/fleet"]',
@@ -565,15 +583,16 @@ def _tab_bar_cell_link(entry, label=None, extra_html=""):
 
 def _console_bar(active, health_alert):
     """(cells, sheet entries) of the Console bar: Fleet (carrying the severity
-    dot), Users, the airline editor and the audit log, with Account and the
-    switch back to the personal space in More."""
+    dot), Users, the airline editor and System, with Account and the audit log
+    in More, followed by the switch back to the personal space."""
     entries = _console_entries(active)
     cells = [
         _tab_bar_cell_link(
             entries[key], _CONSOLE_BAR_LABELS.get(key),
             extra_html=_health_dot(health_alert) if key == "fleet" else "")
-        for key in ("fleet", "users", "editor", "audit") if key in entries]
-    return cells, [_account_entry(active)]
+        for key in _CONSOLE_BAR_KEYS if key in entries]
+    audit = [entries["audit"]] if "audit" in entries else []
+    return cells, [_account_entry(active)] + audit
 
 
 def _personal_bar(active):
@@ -581,9 +600,8 @@ def _personal_bar(active):
     administrator and a user: Home, Flights, Airlines, Style and Place, with
     Account in More."""
     cells = [
-        _tab_bar_cell_link(
-            _frame_entry(route, active), NAV_SHORT_LABELS.get(nav_slug(route)))
-        for route in _personal_routes(_PERSONAL_BAR_PAGES)]
+        _tab_bar_cell_link(_frame_entry(route, active))
+        for route in _personal_routes(_PERSONAL_PAGES)]
     return cells, [_account_entry(active)]
 
 
@@ -610,6 +628,23 @@ def _account_sheet_link(entry):
             icon_html("icon-chevron-right", 20, "tab-bar__account-chevron")))
 
 
+def _sheet_page_link(entry):
+    """A More sheet row for a page of the current space, drawn like the Account
+    row: the page's glyph in the round tile, its name, a chevron."""
+    css_class = "mobile-nav__link tab-bar__account"
+    aria_current = ""
+    if entry.is_active:
+        css_class += " mobile-nav__link--active"
+        aria_current = ' aria-current="page"'
+    return (
+        '<a class="%s" href="%s"%s><span class="tab-bar__avatar" aria-hidden="true">%s</span>'
+        '<span class="tab-bar__account-text"><span class="tab-bar__account-name">%s</span>'
+        "</span>%s</a>" % (
+            css_class, escape_html(entry.href), aria_current, icon_html(entry.icon, 22),
+            escape_html(i18n.t(entry.label)),
+            icon_html("icon-chevron-right", 20, "tab-bar__account-chevron")))
+
+
 def _sheet_preference_row(label, icon_id, form_html):
     """One Settings row: a small glyph and the label at the start, the
     segmented control at the end."""
@@ -618,13 +653,16 @@ def _sheet_preference_row(label, icon_id, form_html):
         i18n.t(label), lead_html=lead, trailing_html=form_html, extra_class="tab-bar__pref")
 
 
-def _more_panel_html(active, sheet, ui_theme, space):
+def _more_panel_html(active, sheet, ui_theme, space, consulting=False):
     """The More sheet, top to bottom: the Account row and, for an
     administrator, the row that switches to the other space; theme and
     language (one tap each, plain POST forms); Sign out.
     The Account page already carries all of its own controls, so there the
     sheet holds the links alone and a second Sign out never appears."""
-    links = "".join(_account_sheet_link(entry) for entry in sheet) + _switch_row_html(space)
+    links = (
+        _account_sheet_link(sheet[0])
+        + "".join(_sheet_page_link(entry) for entry in sheet[1:])
+        + ("" if consulting else _switch_row_html(space)))
     links_html = '<div class="tab-bar__links">%s</div>' % links
     grab = '<span class="tab-bar__grab" aria-hidden="true"></span>'
     if active == ACCOUNT_NAV_SLUG:
@@ -642,7 +680,9 @@ def _more_panel_html(active, sheet, ui_theme, space):
             icon_html("icon-sign-out", 18), escape_html(i18n.t(_SIGN_OUT_TEXT))))
 
 
-def _tab_bar_html(active, health_alert=None, device_config=None, ui_theme="auto", no_tab=False):
+def _tab_bar_html(
+        active, health_alert=None, device_config=None, ui_theme="auto", no_tab=False,
+        consulting=False):
     """Bottom tab bar shown below 960px, the sub-960px nav.
 
     The destination cells and a "More" overflow are chosen by the caller's
@@ -651,6 +691,8 @@ def _tab_bar_html(active, health_alert=None, device_config=None, ui_theme="auto"
     overflow. The overflow uses a native <details>/<summary>
     so it works with scripts blocked. The Fleet severity dot is drawn on the
     Fleet cell, never on More.
+    `consulting` (an administrator on someone else's frame) drops the row that
+    switches space: the page's own Back to Fleet is the way out.
     `no_tab` marks a page that is in no tab and is not reached through More
     either (an error page): no cell is selected there.
     Returns "" when there is no session context: no device_config and no
@@ -697,7 +739,7 @@ def _tab_bar_html(active, health_alert=None, device_config=None, ui_theme="auto"
         % (alone, summary_class,
            _tab_bar_cell_body(
                TAB_BAR_MORE_ICON_ID, escape_html(i18n.t(TAB_BAR_MORE_LABEL))),
-           _more_panel_html(active, sheet, ui_theme, space)))
+           _more_panel_html(active, sheet, ui_theme, space, consulting)))
     return _tab_bar_nav_html(cells)
 
 

@@ -259,28 +259,47 @@ def resolve_quiet_hours_enabled(form, errors):
     return {"quiet_hours_enabled": quiet_hours_enabled}
 
 
+def _posted_wake_seconds(form, errors):
+    """The wake interval the form posted as seconds, or `FAILED`; `None` for
+    an empty field. The minutes field (`wake_interval_min`) wins over the
+    seconds field when it names a different number of minutes, so a form
+    posted without script (where only the minutes field can change) still
+    saves what the person typed; the same minutes as the seconds field keep
+    the seconds exactly (an interval on disk that is not a whole minute)."""
+    seconds_text = form.get("wake_interval_s")
+    minutes_text = form.get("wake_interval_min")
+    try:
+        seconds = int(seconds_text) if seconds_text not in (None, "") else None
+        if minutes_text is None:
+            return seconds
+        minutes_text = str(minutes_text).strip()
+        if minutes_text == "":
+            return None
+        minutes = int(minutes_text)
+    except ValueError:
+        _note_error(errors, "wake_interval_s", ERROR_WAKE_INTERVAL_RANGE)
+        return FAILED
+    if seconds is not None and -(-seconds // 60) == minutes:
+        return seconds
+    return minutes * 60
+
+
 def resolve_wake_interval(form, errors):
     """Wake interval group: the string-to-int conversion, range check
     and resolve step, combined (as the unmodified code had them)."""
-    submitted_wake_interval = form.get("wake_interval_s")
-    if submitted_wake_interval is None or submitted_wake_interval == "":
-        wake_interval_s = None
-    else:
-        try:
-            wake_interval_s = int(submitted_wake_interval)
-        except ValueError:
-            _note_error(errors, "wake_interval_s", ERROR_WAKE_INTERVAL_RANGE)
-            return FAILED
-        # A syntactically valid but out-of-range value would otherwise
-        # only surface via save_device_config()'s own generic
-        # ValueError; checked here to report it at this field.
-        if not (
-            device_config.WAKE_INTERVAL_MIN_S
-            <= wake_interval_s
-            <= device_config.WAKE_INTERVAL_MAX_S
-        ):
-            _note_error(errors, "wake_interval_s", ERROR_WAKE_INTERVAL_RANGE)
-            return FAILED
+    wake_interval_s = _posted_wake_seconds(form, errors)
+    if wake_interval_s is FAILED:
+        return FAILED
+    # A syntactically valid but out-of-range value would otherwise
+    # only surface via save_device_config()'s own generic
+    # ValueError; checked here to report it at this field.
+    if wake_interval_s is not None and not (
+        device_config.WAKE_INTERVAL_MIN_S
+        <= wake_interval_s
+        <= device_config.WAKE_INTERVAL_MAX_S
+    ):
+        _note_error(errors, "wake_interval_s", ERROR_WAKE_INTERVAL_RANGE)
+        return FAILED
     return {"wake_interval_s": wake_interval_s}
 
 

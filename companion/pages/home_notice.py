@@ -182,7 +182,8 @@ def notification_html(facts, status, contact):
         return ""
     tone = (layout.TOAST_TONE_ERROR if status.dot_state == frame_status.STATUS_ERROR
             else layout.TOAST_TONE_WARNING)
-    lines = _LINES[status.key](facts)
+    # The title block already says when contact was lost.
+    lines = [] if status.key == frame_status.KEY_NO_CONTACT else _LINES[status.key](facts)
     extra = _lines_html(lines, i18n.t(_TIPS[status.key]))
     address = usable_address(contact)
     action = (layout.toast_link_action_html(
@@ -190,4 +191,4 @@ def notification_html(facts, status, contact):
         if address else "")
     return layout.toast_html(
         i18n.t(_EXPLANATIONS[status.key]), tone=tone, role="", docked=True,
-        extra_html=extra, action_html=action, extra_class="home-notice")
+        extra_html=extra, action_html=action, glyph="icon-warning", extra_class="home-notice")

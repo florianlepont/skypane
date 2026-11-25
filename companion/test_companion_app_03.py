@@ -210,7 +210,8 @@ def test_panel_lookup_optional_replace_lookup_stays_outside_mandatory_guard(app0
     required) appears exactly once and never mentions the optional
     replace-form lookup on its own line, that lookup's first occurrence in the source comes
     after the guard's, it appears exactly once, and the action-attribute setAttribute write
-    appears exactly 3 times — pinning the
+    appears exactly 4 times (the replace, upload and delete forms, plus the
+    artwork dialog type field written on submit, itself guarded) — pinning the
     single line that keeps History's lightbox alive"""
     src = served_asset(app03_server, "/static/panel-lookup.js")
     guard_needle = "if (!image || !caption)"
@@ -226,8 +227,8 @@ def test_panel_lookup_optional_replace_lookup_stays_outside_mandatory_guard(app0
     assert src.index(lookup_needle) > src.index(guard_needle), (
         "expected the optional replace-form lookup's first occurrence after the mandatory "
         "guard's")
-    assert src.count('setAttribute("action"') == 3, (
-        "expected the action-attribute setAttribute write exactly 3 times, got %d"
+    assert src.count('setAttribute("action"') == 4, (
+        "expected the action-attribute setAttribute write exactly 4 times, got %d"
         % src.count('setAttribute("action"'))
 
 
@@ -372,15 +373,15 @@ def test_theme_preview_script_tag_exactly_once_and_no_bare_inline_script():
         pytest.fail("expected no inline <script> without a src, found %r" % match.group(0))
 
 
-def test_twenty_six_deferred_scripts_before_closing_body():
+def test_twenty_nine_deferred_scripts_before_closing_body():
     """Per-page scripts: a bare page_shell() call emits only
     GLOBAL_PAGE_SCRIPTS' 9 tags before the closing body tag (the splash gate in the head is a
     plain, synchronous script and is not one of them); asking for
     every other SHELL_SCRIPT_ORDER script via `scripts=` still emits all
-    twenty-six together, including panel-lookup.js, flash-cleanup.js, toast.js,
+    twenty-nine together, including panel-lookup.js, flash-cleanup.js, toast.js,
     confirm-submit.js, theme-preview.js,
     submit-guard.js, relative-time.js, quick-switch.js,
-    value-controls.js, calendar-connect.js, modal.js, motion.js, session-guard.js, prefetch.js, place-card.js, place-search.js, place-start.js, place-airport-list.js and airline-types.js — and none of submit-guard.js/relative-time.js/
+    value-controls.js, calendar-connect.js, modal.js, motion.js, session-guard.js, prefetch.js, place-card.js, place-search.js, place-start.js, place-airport-list.js, airline-types.js, airline-suggest.js, update-question.js and fleet-anchors.js — and none of submit-guard.js/relative-time.js/
     quick-switch.js/value-controls.js on the login shell, which emits no script"""
     bare_doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
     bare_count = bare_doc[:bare_doc.index("</body>")].count(' defer></script>')
@@ -397,7 +398,7 @@ def test_twenty_six_deferred_scripts_before_closing_body():
     body_close = doc.index("</body>")
     head = doc[:body_close]
     count = head.count(' defer></script>')
-    assert count == 26, "expected exactly 26 deferred <script src= tags before </body>, got %d" % count
+    assert count == 29, "expected exactly 29 deferred <script src= tags before </body>, got %d" % count
     for src_const in (
             layout.PANEL_LOOKUP_SCRIPT_SRC, layout.FLASH_CLEANUP_SCRIPT_SRC,
             layout.TOAST_SCRIPT_SRC,
@@ -409,7 +410,8 @@ def test_twenty_six_deferred_scripts_before_closing_body():
             layout.MOTION_SCRIPT_SRC,
             layout.SESSION_GUARD_SCRIPT_SRC, layout.PREFETCH_SCRIPT_SRC,
             layout.PLACE_CARD_SCRIPT_SRC, layout.PLACE_AIRPORT_LIST_SCRIPT_SRC,
-            layout.AIRLINE_TYPES_SCRIPT_SRC):
+            layout.AIRLINE_TYPES_SCRIPT_SRC, layout.AIRLINE_SUGGEST_SCRIPT_SRC,
+            layout.FLEET_ANCHORS_SCRIPT_SRC):
         expected_tag = '<script src="%s" defer></script>' % src_const
         assert expected_tag in doc, "expected a deferred <script> tag for %r" % src_const
     login_doc = layout.login_shell("<p>login</p>")
@@ -1271,13 +1273,13 @@ _NO_JS_CONTROL_REGISTRY = (
     # for the argument. Kept out of this registry rather than repointed at markup that introduces
     # no `layout.JS_GATE_CLASS`-wrapped element at all.
     {
-        "control": "the wake-interval slider (D18)",
-        "plan": "25-05-PLAN.md Task 2",
-        "wrapper_attr": layout.VALUE_CONTROL_ATTR,
-        "field": config_page.WAKE_INTERVAL_FIELD_NAME,
+        "control": "the wake-interval step buttons",
+        "plan": "wake-interval tile",
+        "wrapper_attr": "data-minutes-step",
+        "field": "wake_interval_min",
         "form": config_page.SETTINGS_FORM_ID,
         "form_assoc": "enclosing",
-        "page_route": "/fleet",
+        "page_route": "/fleet?frame=live",
         "render": lambda: config_page.wake_interval_group(600),
     },
     {
@@ -1394,7 +1396,7 @@ def test_no_js_control_contract_holds_for_every_registered_control(make_app_serv
             "control": "fixture", "plan": "25-01-PLAN.md Task 4",
             "wrapper_attr": gate_attr, "field": field,
             "form": config_page.SETTINGS_FORM_ID, "form_assoc": "enclosing",
-            "page_route": "/fleet", "render": render,
+            "page_route": "/fleet?frame=live", "render": render,
         }
 
     good = fixture(lambda: real_group + wrapper_ok)

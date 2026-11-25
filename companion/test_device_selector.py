@@ -95,7 +95,7 @@ def _rows(page):
         if "frame-row--add" not in a.attrs.get("class", "")]
 
 
-def test_single_device_lists_one_frame_and_the_add_row(single_app):
+def test_single_device_consulted_by_an_administrator_has_no_frame_selector(single_app):
     server, cookie = single_app
     # The signed-in administrator owns no frame, so the un-prefixed page
     # moves to the account page; the frame is reached by its own id.
@@ -109,9 +109,10 @@ def test_single_device_lists_one_frame_and_the_add_row(single_app):
     for route in SCOPED_PAGES:
         status, _, page = _get(server, cookie, prefix + route)
         assert status == 200
-        _root, rows = _rows(page)
-        assert len(rows) == 1
-        assert page.count("frame-row--add") == 1
+        # The administrator consults the owner's frame: the notice replaces the
+        # frame selector, which would switch away from the frame being viewed.
+        assert "frame-notice" in page
+        assert "frame-menu" not in page and "frame-row--add" not in page
         assert 'name="device"' not in page
 
 
@@ -179,13 +180,11 @@ def test_live_frame_is_current_by_default_with_its_default_name(fleet_app):
     assert current[0].select_one(".frame-row__name").text().strip() == "Orly frame"
 
 
-def test_add_tile_for_an_administrator_opens_the_pairing_dialog_on_the_fleet_page(fleet_app):
+def test_the_fleet_page_has_no_frame_button_and_adds_a_frame_from_its_list(fleet_app):
     _, _, page = _fleet_get(fleet_app, "/fleet")
-    _, switcher = _switcher(page)
-    add = switcher.select("a.frame-row--add")
-    assert [(a.attrs["href"], a.text().strip()[-12:]) for a in add] == [
-        ("#dlg-add-frame", "+Add a frame")]
-    assert "All frames" not in page
+    assert "frame-menu" not in page
+    assert re.findall(r'<a class="fleet-add-button" href="(/pair-frame)">', page)
+    assert "dlg-add-frame" not in page
 
 
 def test_each_tile_reads_a_last_seen_word_from_the_shared_status(fleet_app):
@@ -222,10 +221,10 @@ def test_document_title_names_the_frame_on_every_device_page(fleet_app):
     fleet = fleet_app.fleet
     _, _, live_page = _live_get(fleet_app, "/flights")
     assert re.search(r"<title>(.*?)</title>", live_page).group(1) == (
-        "Flight history - Orly frame - SkyPane")
+        "Flights - Orly frame - SkyPane")
     _, _, page = _fleet_get(fleet_app, "/devices/%s/flights" % fleet.dev_a.id)
     title = re.search(r"<title>(.*?)</title>", page).group(1)
-    assert title == "Flight history - sim-1 - SkyPane"
+    assert title == "Flights - sim-1 - SkyPane"
 
 
 def test_landmark_counts_are_unchanged(fleet_app):

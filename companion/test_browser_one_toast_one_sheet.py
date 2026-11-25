@@ -6,10 +6,10 @@ the Quiet hours dialog opens without a field focused and its 12-hour times are n
 
 Focus, layout and DOM state is always waited for, never read straight after a key or a navigation.
 """
+import animation_settle
 import pytest
 
 import fleet_console_support as fx
-from frame_menu_support import click_add
 from companion import auth
 from companion.test_browser_ux_helpers import (
     VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED, VIEWPORT_PHONE, _login, seed_state_dir)
@@ -19,19 +19,15 @@ from server.plane import calendar_rules
 pytestmark = pytest.mark.browser
 
 INVITE = "#dlg-invite-user"
-ADD = "#dlg-add-frame"
 CALENDAR = "#disconnect-calendar"
 CALENDAR_OPENER = "a.form-page__danger[data-modal-open]"
 TOAST = ".toast-region--flash .toast"
 QUIET_DIALOG = "dialog#dlg-quiet-hours"
-QUIET_LINK = "a.home-switch__window"
+QUIET_LINK = "a.home-pill--quiet"
 START = "#quiet-window-start"
 END = "#quiet-window-end"
 
-_SETTLED = (
-    "() => document.readyState === 'complete' && document.getAnimations().every("
-    "(a) => (a.effect && a.effect.getComputedTiming().iterations === Infinity)"
-    " || a.playState !== 'running')")
+_SETTLED = animation_settle.SETTLED
 
 
 def _context(new_context, server, viewport, lang="en"):
@@ -55,23 +51,27 @@ def _top(page, selector):
         "s => document.querySelector(s).getBoundingClientRect().top", selector)
 
 
+def _role_change_url(server, seed):
+    return "%s/users?role_change=%d&role=admin" % (server.base_url(), seed.user_id)
+
+
 @pytest.mark.parametrize("viewport", [VIEWPORT_MIN_SUPPORTED, VIEWPORT_PHONE], ids=["360", "390"])
-def test_the_invite_result_is_a_floating_toast_that_does_not_move_the_list(
+def test_a_users_result_is_a_floating_toast_that_does_not_move_the_list(
         new_context, app_server_in_process, viewport):
-    """after Invite user the confirmation floats above the tab bar (fixed, out of flow) and the
-    Users list stays exactly where it was"""
+    """after a confirmed role change the confirmation floats above the tab bar (fixed, out of
+    flow) and the Users list stays exactly where it was"""
     server = app_server_in_process
-    fx.seed_users(server.state_dir)
+    seed = fx.seed_users(server.state_dir)
     context, page = _context(new_context, server, viewport)
     try:
         page.goto(server.base_url() + "/users")
         page.locator("table.users-table").wait_for(state="attached")
         page.wait_for_function(_SETTLED, timeout=10000)
         before = _top(page, "table.users-table")
-        page.locator("a.page-header__action").click()
-        page.locator(INVITE + ".is-modal[open]").wait_for(state="visible")
-        page.fill("#invite-email", "toast.person@example.test")
-        page.locator(INVITE + " button[type=submit]").click()
+        page.goto(_role_change_url(server, seed))
+        dialog = "#dlg-role-user-%d" % seed.user_id
+        page.locator(dialog + ".is-modal[open]").wait_for(state="visible")
+        page.locator(dialog + " button[type=submit]").click()
         page.locator(TOAST).wait_for(state="visible")
         page.wait_for_function("() => document.readyState === 'complete'")
         assert page.locator(".toast-region--flash").evaluate(
@@ -87,27 +87,26 @@ def test_the_invite_result_is_a_floating_toast_that_does_not_move_the_list(
         page.wait_for_function(
             "b => Math.abs(document.querySelector('table.users-table')"
             ".getBoundingClientRect().top - b) <= 0.5", arg=before, timeout=3000)
-        assert "toast.person@example.test" in page.locator(TOAST).inner_text()
+        assert fx.USER_EMAIL in page.locator(TOAST).inner_text()
     finally:
         context.close()
 
 
-def test_the_invite_result_stays_in_flow_with_scripts_blocked(new_context, app_server_in_process):
+def test_a_users_result_stays_in_flow_with_scripts_blocked(new_context, app_server_in_process):
     """without script the same confirmation is still rendered, in its own region"""
     server = app_server_in_process
-    fx.seed_users(server.state_dir)
+    seed = fx.seed_users(server.state_dir)
     context = new_context(viewport=VIEWPORT_PHONE, java_script_enabled=False)
     context.add_cookies([{
         "name": auth.UI_LANG_COOKIE_NAME, "value": "en", "url": server.base_url()}])
     page = context.new_page()
     try:
         _login(page, server.base_url())
-        page.goto(server.base_url() + "/users#dlg-invite-user")
-        page.fill("#invite-email", "plain.person@example.test")
+        page.goto(_role_change_url(server, seed))
         with page.expect_navigation():
-            page.locator(INVITE + " button[type=submit]").click()
+            page.locator("#dlg-role-user-%d button[type=submit]" % seed.user_id).click()
         assert page.locator(TOAST).count() == 1
-        assert "plain.person@example.test" in page.locator(TOAST).inner_text()
+        assert fx.USER_EMAIL in page.locator(TOAST).inner_text()
     finally:
         context.close()
 
@@ -151,25 +150,25 @@ def test_the_calendar_disconnect_dialog_is_centred_on_a_wide_screen(new_context,
 
 
 def test_a_refused_pairing_code_is_shown_once(new_context, app_server_in_process):
-    """one error element, beside the field: no toast and no repeated sentence in the dialog"""
+    """one error element, beside the field: no toast and no repeated sentence on the page"""
     server = app_server_in_process
     seed = fx.seed_fleet(server.state_dir)
     fx.issue_code(server.state_dir, seed.pending_id)
     context, page = _context(new_context, server, VIEWPORT_PHONE)
     try:
-        page.goto(server.base_url() + "/fleet?frame=" + seed.owned_id)
+        page.goto(server.base_url() + "/fleet")
         page.locator("main").wait_for(state="visible")
         page.wait_for_function(_SETTLED, timeout=10000)
-        click_add(page)
+        page.locator(".fleet-add-button").click()
         page.fill("#pair-code", "kkkk-2222")
         page.select_option("#pair-owner", label=fx.OWNER_EMAIL)
-        page.locator(ADD + " button[type=submit]").click()
-        page.locator(ADD + ".is-modal[open]").wait_for(state="visible")
-        page.locator(ADD + " .field-error").wait_for(state="visible")
-        assert page.locator(ADD + " .field-error").count() == 1
-        assert page.locator(ADD + " .toast").count() == 0
-        assert page.locator(ADD).inner_text().count("Code not recognised") == 1
-        assert page.locator(ADD).inner_text().count("Check the code and try again.") == 1
+        card = page.locator("form.pair-form")
+        card.locator("button[type=submit]").click()
+        card.locator(".field-error").wait_for(state="visible")
+        assert card.locator(".field-error").count() == 1
+        assert page.locator(".toast").count() == 0
+        assert card.inner_text().count("Code not recognised") == 1
+        assert card.inner_text().count("Check the code and try again.") == 1
     finally:
         context.close()
 

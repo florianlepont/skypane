@@ -1,16 +1,16 @@
 """Real-browser checks of the Users page rows: an email cut with an ellipsis instead of broken
 mid-word, a status pill (Active, Invited) and a You mark with readable ink, an explained disabled
-switch on the signed-in administrator's own row, a co-manager's frame count, and the Copy
-invitation message button (Clipboard API, selection fallback, hidden without script)."""
+switch on the signed-in administrator's own row and a co-manager's frame count."""
 import io
 
+import animation_settle
 import pytest
 from PIL import Image
 
 import fleet_console_support as fx
 from companion import auth
 from companion.test_browser_ux_helpers import (
-    VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED, _assert_no_page_overflow, _no_js_page)
+    VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED, _assert_no_page_overflow)
 from companion_app_server import session_cookie_for_state_dir
 from server import fleet_db
 from skypane_contrast_check import WCAG_AA_NORMAL_TEXT, contrast_ratio
@@ -20,8 +20,7 @@ pytestmark = pytest.mark.browser
 LONG_EMAIL = "a" * 46 + "@example.test"
 ACTIVE_EMAIL = "signed.in@example.test"
 
-_SETTLED = """() => document.readyState === 'complete' && document.getAnimations().every(
-  (a) => a.playState !== 'running' || a.effect.getComputedTiming().iterations === Infinity)"""
+_SETTLED = animation_settle.SETTLED
 _OWNS_CENTRE = (
     "s => { const e = document.querySelector(s); if (!e) return false;"
     " const r = e.getBoundingClientRect();"
@@ -88,8 +87,7 @@ def _rgb(css):
 @pytest.mark.parametrize("lang", ["en", "fr"])
 def test_a_long_email_stays_inside_its_cell_and_keeps_its_full_value_as_the_title(
         new_context, server, viewport, lang):
-    """A phone card wraps the address; the table keeps it on one line that ends in an
-    ellipsis."""
+    """At every width the address is one line that ends in an ellipsis."""
     context, page = _open(new_context, server, viewport, lang)
     try:
         email = _row(page, LONG_EMAIL).locator(".users-email")
@@ -99,11 +97,7 @@ def test_a_long_email_stays_inside_its_cell_and_keeps_its_full_value_as_the_titl
                       client: el.clientWidth, title: el.title, text: el.textContent,
                       cell: el.closest('.users-cell').getBoundingClientRect().right,
                       right: el.getBoundingClientRect().right}; }""")
-        if viewport["width"] >= 1272:
-            assert facts["over"] == "ellipsis" and facts["scroll"] > facts["client"], facts
-        else:
-            assert facts["over"] != "ellipsis" and facts["wrap"] == "anywhere"
-            assert facts["scroll"] <= facts["client"] + 1, "the address must wrap, not overflow"
+        assert facts["over"] == "ellipsis" and facts["scroll"] > facts["client"], facts
         assert facts["right"] <= facts["cell"] + 0.5
         assert facts["title"] == facts["text"] == LONG_EMAIL
         assert not _assert_no_page_overflow(page, "users")
@@ -168,7 +162,7 @@ def test_the_own_switch_is_disabled_and_says_why(new_context, server):
 
 @pytest.mark.parametrize("lang,expected,none", [
     ("en", "1 frame · co-manager", "0 frames"),
-    ("fr", "1 cadre · co-gestionnaire", "0 cadres")])
+    ("fr", "1 cadre · cogestionnaire", "0 cadres")])
 def test_a_co_manager_shows_the_frame_they_manage(new_context, server, lang, expected, none):
     context, page = _open(new_context, server, VIEWPORT_MIN_SUPPORTED, lang)
     try:
@@ -180,76 +174,13 @@ def test_a_co_manager_shows_the_frame_they_manage(new_context, server, lang, exp
         context.close()
 
 
-def _expected_message(server, email, lang):
-    url = server.base_url()
-    if lang == "fr":
-        return ("Bonjour, vous êtes invité(e) sur SkyPane. Ouvrez %s et connectez-vous "
-                "avec l’adresse %s." % (url, email))
-    return "Hello, you have been invited to SkyPane. Open %s and sign in with %s." % (url, email)
-
-
-@pytest.mark.parametrize("lang", ["en", "fr"])
-def test_copy_invitation_message_writes_the_clipboard(new_context, server, lang):
-    context, page = _open(
-        new_context, server, VIEWPORT_MIN_SUPPORTED, lang,
-        permissions=["clipboard-read", "clipboard-write"])
+def test_the_desktop_table_has_no_invitation_column_and_keeps_the_pill_in_its_cell(
+        new_context, server):
+    context, page = _open(new_context, server, VIEWPORT_DESKTOP)
     try:
         row = _row(page, LONG_EMAIL)
-        button = row.locator("button.users-copy")
-        assert button.bounding_box()["height"] >= 44
-        assert _row(page, ACTIVE_EMAIL).locator("button.users-copy").count() == 0
-        button.click()
-        want = _expected_message(server, LONG_EMAIL, lang)
-        page.wait_for_function(
-            "w => navigator.clipboard.readText().then((t) => t === w)", arg=want)
-        page.wait_for_function(
-            "([el, t]) => el.querySelector('.copy-btn__label').textContent === t",
-            arg=[button.element_handle(), "Copied" if lang == "en" else "Copié"])
-        assert button.locator(".copy-btn__label").is_visible()
-        assert "secret" not in want and "token" not in want
-    finally:
-        context.close()
-
-
-def test_copy_falls_back_to_a_text_selection_when_the_clipboard_api_refuses(
-        new_context, server):
-    context, page = _open(new_context, server, VIEWPORT_MIN_SUPPORTED)
-    try:
-        page.add_init_script(
-            """Object.defineProperty(navigator, 'clipboard', {value: {
-                 writeText: () => Promise.reject(new Error('refused'))}});
-               window.__copied = null;
-               const original = document.execCommand.bind(document);
-               document.execCommand = function (name) {
-                 if (name === 'copy') {
-                   window.__copied = document.getSelection().toString(); return true; }
-                 return original.apply(document, arguments); };""")
-        page.reload()
-        page.wait_for_function(_SETTLED)
-        page.wait_for_function(_OWNS_CENTRE, arg="a.page-header__action", timeout=10000)
-        _row(page, LONG_EMAIL).locator("button.users-copy").click()
-        want = _expected_message(server, LONG_EMAIL, "en")
-        page.wait_for_function("w => window.__copied === w", arg=want)
-    finally:
-        context.close()
-
-
-def test_the_copy_button_is_hidden_without_script(new_context, server):
-    with _no_js_page(new_context, server.base_url(), "/users", VIEWPORT_MIN_SUPPORTED) as page:
-        assert page.locator("button.users-copy").count() >= 1
-        assert not page.locator("button.users-copy").first.is_visible()
-        assert page.locator(".users-row").first.is_visible()
-
-
-def test_the_desktop_table_keeps_the_pills_and_the_copy_button_in_their_columns(
-        new_context, server):
-    context, page = _open(new_context, server, VIEWPORT_DESKTOP, permissions=["clipboard-read"])
-    try:
-        row = _row(page, LONG_EMAIL)
-        box = row.locator(".users-cell--invite").bounding_box()
-        button = row.locator("button.users-copy").bounding_box()
-        assert button["x"] >= box["x"] - 0.5
-        assert button["x"] + button["width"] <= box["x"] + box["width"] + 0.5
+        assert page.locator(".users-cell--invite, .users-col--invite, button.users-copy").count() == 0
+        assert page.locator("th.users-col").count() == 5
         assert row.locator(".users-status .users-pill:visible").inner_text() == "Invited, not signed in yet"
         _assert_no_page_overflow(page, "users")
     finally:

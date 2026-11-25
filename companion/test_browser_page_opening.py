@@ -10,11 +10,12 @@ including the ones that belong to no bar cell.
 """
 import json
 
+import animation_settle
 import pytest
 
 import fleet_console_support as fx
 import companion.test_view_pages_helpers as vp
-from companion import auth
+from companion import auth, device_scope
 from companion.pages import history_page
 from companion.test_browser_ux_helpers import (
     VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED, _login, seed_state_dir)
@@ -39,6 +40,7 @@ PAGES = (
     ("/display/calendar", False),
     ("/fleet", False),
     ("/fleet?view=system", False),
+    ("/fleet?frame={live}&view=battery", False),
     ("/update", False),
     ("/users", True),
     ("/audit", True),
@@ -49,6 +51,8 @@ PAGES = (
     ("/credits", True),
     ("/not-a-page", False),
 )
+# A frame's own page (it redirects to the live frame): a phone opens /fleet on the list of frames.
+FRAME_PAGE = "/fleet?frame={live}&tab=settings"
 TALL_LIMIT = 6
 PAGE_LIMIT = 8
 
@@ -79,9 +83,7 @@ new MutationObserver((records, observer) => {
 """
 _OPENING_OVER = "() => !document.querySelector('main[data-page-open]')"
 
-_SETTLED_PAGE = (
-    "() => document.readyState === 'complete' && document.getAnimations().every("
-    "(a) => a.playState !== 'running' || a.effect.getComputedTiming().iterations === Infinity)")
+_SETTLED_PAGE = animation_settle.SETTLED
 
 _KEYFRAME_PROPERTIES = """(names) => {
   const found = [];
@@ -96,6 +98,15 @@ _KEYFRAME_PROPERTIES = """(names) => {
   }
   return found;
 }"""
+
+
+# The Fleet page has no page header: its list (a block of its own from 960 px, a title row on a
+# phone) or the title of the frame or view it shows opens the page instead.
+_OPENING_HEADERS = ("page-header", "fleet-split__list", "fleet-list__head", "fleet-head")
+
+
+def _is_header(cls):
+    return any(name in cls for name in _OPENING_HEADERS)
 
 
 def _seed(state_dir):
@@ -121,7 +132,8 @@ def _admin_context(new_context, server, viewport, **options):
 
 
 def _open(page, server, path):
-    page.goto(server.base_url() + path)
+    live = device_scope.live_device(server.state_dir).id
+    page.goto(server.base_url() + path.replace("{live}", live))
     page.locator("main").wait_for(state="visible")
     page.wait_for_function(_SETTLED_PAGE, timeout=15000)
 
@@ -140,7 +152,7 @@ def test_every_page_opens_with_the_shared_entrance(new_context, server, path, ta
         page.wait_for_function(_OPENING_OVER, timeout=10000)
         events = page.evaluate("() => window.__anim")
         entering = [e for e in events if e["name"] == "skypane-reveal-fade"]
-        assert any("page-header" in e["cls"] for e in entering), (path, events)
+        assert any(_is_header(e["cls"]) for e in entering), (path, events)
         assert not [e for e in entering if e["row"]], (path, "a row animates", entering)
         limit = TALL_LIMIT if tall else PAGE_LIMIT
         assert len(entering) <= limit, (path, len(entering), entering)
@@ -236,7 +248,7 @@ def test_the_blocks_of_a_page_enter_one_step_after_another(new_context, server, 
         blocks = page.evaluate("() => window.__blocks")
         step = page.evaluate("() => window.__step")
         assert step == 60, step
-        assert blocks and "page-header" in blocks[0]["cls"] and blocks[0]["delay"] == 0, blocks
+        assert blocks and _is_header(blocks[0]["cls"]) and blocks[0]["delay"] == 0, blocks
         assert not [b for b in blocks if b["nested"]], blocks
         first_screen = [b for b in blocks[1:] if b["top"] < viewport["height"] and b["height"]]
         assert first_screen, blocks
@@ -247,27 +259,21 @@ def test_the_blocks_of_a_page_enter_one_step_after_another(new_context, server, 
         context.close()
 
 
-def test_each_fleet_tab_opens_in_the_same_order_on_a_phone(new_context, server):
-    """Whatever tab a phone shows, the frame's header row, the tabs and then that tab's own
-    blocks enter one step apart: blocks of the hidden tabs take no place in the count."""
+def test_the_sections_of_a_frame_enter_in_order_on_a_phone(new_context, server):
+    """A phone stacks State, Settings and Access under the frame's header row and the anchors:
+    all of them enter one step apart, in page order."""
     context = _admin_context(new_context, server, VIEWPORT_MIN_SUPPORTED,
                              reduced_motion="no-preference")
     context.add_init_script(_BLOCKS_AT_OPEN)
     try:
         page = context.new_page()
-        _open(page, server, "/fleet")
-        hrefs = page.evaluate(
-            "() => [...document.querySelectorAll('[data-tabs=\"fleet\"] a')]"
-            ".map((a) => a.getAttribute('href'))")
-        assert len(hrefs) == 3, hrefs
-        for href in hrefs:
-            _open(page, server, href)
-            page.wait_for_function("() => window.__blocks !== undefined", timeout=10000)
-            blocks = [b for b in page.evaluate("() => window.__blocks") if b["height"]]
-            delays = [b["delay"] for b in blocks]
-            assert len(delays) >= 4, (href, blocks)
-            assert delays == [min(k, 5) * 60 for k in range(len(delays))], (
-                href, [(b["cls"][:50], b["delay"]) for b in blocks])
+        _open(page, server, FRAME_PAGE)
+        page.wait_for_function("() => window.__blocks !== undefined", timeout=10000)
+        blocks = [b for b in page.evaluate("() => window.__blocks") if b["height"]]
+        delays = [b["delay"] for b in blocks]
+        assert len(delays) >= 5, blocks
+        assert delays == [min(k, 5) * 60 for k in range(len(delays))], (
+            [(b["cls"][:50], b["delay"]) for b in blocks])
     finally:
         context.close()
 
@@ -277,7 +283,7 @@ def test_each_fleet_tab_opens_in_the_same_order_on_a_phone(new_context, server):
 _TAKING_PART = (
     ("/display", VIEWPORT_MIN_SUPPORTED, (".layout-card", ".personalisation-nav"), ()),
     ("/display", VIEWPORT_DESKTOP, (".layout-card", ".personalisation-nav"), ()),
-    ("/fleet", VIEWPORT_MIN_SUPPORTED, (".fleet-detail-head", ".fleet-tabs"), ()),
+    (FRAME_PAGE, VIEWPORT_MIN_SUPPORTED, (".fleet-head", ".fleet-anchors"), ()),
     ("/audit", VIEWPORT_MIN_SUPPORTED, (), (".filter-bar__count", ".audit-cards")),
     ("/audit", VIEWPORT_DESKTOP, (), (".filter-bar__count", ".audit-cards")),
     ("/airlines", VIEWPORT_MIN_SUPPORTED, (), ("#collection-grid",)),
@@ -403,22 +409,6 @@ def test_the_audit_chips_carry_the_selection_through_the_page_change(
         assert _thumb_matches_current(page, strip)
         probe = _follow(page, strip + " a.filter-chip:not(.filter-chip--current) >> nth=1")
         assert "category" in page.url
-        _assert_carried(page, probe, strip)
-    finally:
-        context.close()
-
-
-def test_the_fleet_tabs_carry_the_selection_through_the_page_change(new_context, server):
-    """on a phone the State, Settings and Access tabs hand the selection over like the Style
-    tabs"""
-    context = _strip_context(new_context, server, VIEWPORT_MIN_SUPPORTED)
-    try:
-        page = context.new_page()
-        _open(page, server, "/fleet")
-        strip = '[data-tabs="fleet"]'
-        assert _thumb_matches_current(page, strip)
-        probe = _follow(page, strip + " a:not([aria-current]) >> nth=0")
-        assert "tab=" in page.url
         _assert_carried(page, probe, strip)
     finally:
         context.close()
@@ -580,23 +570,6 @@ def test_the_style_tabs_do_not_slide_under_reduced_motion(new_context, server):
         context.close()
 
 
-def test_the_airlines_chips_slide_the_thumb_and_reload_with_the_opening(new_context, server):
-    context = _admin_context(new_context, server, VIEWPORT_MIN_SUPPORTED,
-                             reduced_motion="no-preference")
-    try:
-        page = context.new_page()
-        _open(page, server, "/airlines")
-        strip = '[data-tabs="airlines"]'
-        assert _thumb_matches_current(page, strip)
-        page.locator(strip + " label.filter-chip:not(:has(input:checked))").first.click()
-        page.wait_for_function("() => location.search.indexOf('show') >= 0", timeout=10000)
-        page.wait_for_function(_SETTLED_PAGE, timeout=10000)
-        _wait_sliding(page, strip)
-        assert _entered_since(page, 0)
-    finally:
-        context.close()
-
-
 # --- Flights: chips swap the list in place; Load more enters only the new items ----------
 
 LIMIT = history_page.HISTORY_ROW_LIMIT
@@ -629,23 +602,21 @@ def _flights_page(new_context, server, viewport):
 
 
 @pytest.mark.parametrize("viewport", VIEWPORTS)
-def test_the_flights_chips_slide_the_thumb_and_the_swapped_list_enters(
+def test_the_flights_chips_swap_the_list_in_place_and_the_swapped_list_enters(
         new_context, flights, viewport):
-    """choosing Departures swaps the list in place (no navigation): the thumb slides to the new
-    chip and the list enters again, as the first three days or the table, never row by row"""
+    """choosing Departures swaps the list in place (no navigation): the chips stay in the form
+    and the list enters again, as the first three days or the table, never row by row"""
     context, page = _flights_page(new_context, flights, viewport)
     try:
-        strip = '[data-tabs="flights"]'
-        assert _thumb_matches_current(page, strip)
         page.evaluate("() => { window.__same = 'document'; }")
         mark = page.evaluate("() => window.__anim.length")
-        page.locator(strip + " label.filter-chip").nth(1).click()
+        page.locator(".filter-controls label.filter-chip").nth(1).click()
         page.wait_for_function(
             "(m) => window.__anim.slice(m).some((e) => e.name === 'skypane-reveal-fade')",
             arg=mark, timeout=10000)
         page.wait_for_function(_SETTLED_PAGE, timeout=10000)
         assert page.evaluate("() => window.__same") == "document"
-        _wait_sliding(page, strip)
+        assert page.locator(".filter-controls input[value=departing]").is_checked()
         entered = _entered_since(page, mark)
         assert entered and not [e for e in entered if e["row"]], entered
         assert len(entered) <= 3
@@ -673,7 +644,7 @@ def test_a_filter_change_on_the_desktop_table_fades_without_moving_it(new_contex
     try:
         page.wait_for_function(_OPENING_OVER, timeout=10000)
         mark = page.evaluate("() => window.__anim.length")
-        page.locator('[data-tabs="flights"] label.filter-chip').nth(1).click()
+        page.locator(".filter-controls label.filter-chip").nth(1).click()
         page.wait_for_function(
             "(m) => window.__anim.slice(m).some((e) => e.name === 'skypane-reveal-fade')",
             arg=mark, timeout=10000)
@@ -908,7 +879,7 @@ def test_map_tiles_do_not_fade_in_under_reduced_motion(new_context, place_server
 # --- The bottom tab bar's pill ---------------------------------------------------------------
 
 
-@pytest.mark.parametrize("path", ["/credits", "/components", "/", "/account"])
+@pytest.mark.parametrize("path", ["/components", "/", "/account"])
 def test_the_tab_bar_pill_is_on_every_page(new_context, server, path):
     """the sliding pill sits under an active cell on every page but the error pages: a page that
     belongs to no bar cell is reached through More, which carries the pill there"""
@@ -955,8 +926,8 @@ def test_the_style_page_opens_on_a_wide_screen_without_the_picture_moving(
 @pytest.mark.parametrize("width", [768, 1024])
 @pytest.mark.parametrize("motion", ["reduce", "no-preference"])
 def test_the_flights_filter_bar_opens_in_its_final_layout(new_context, server, width, motion):
-    """the search field and the chips beside it are placed before the first paint: opening
-    Flights at tablet and small desktop widths shifts nothing by more than 0.01"""
+    """the search row and the chips row are placed before the first paint: opening Flights at
+    tablet and small desktop widths shifts nothing by more than 0.01"""
     context = _admin_context(
         new_context, server, {"width": width, "height": 900}, reduced_motion=motion)
     context.add_init_script(_SHIFT_RECORDER)
@@ -976,15 +947,16 @@ def test_the_flights_table_columns_do_not_depend_on_the_rows_that_arrive(
         new_context, server, width):
     """the browser paints a streamed table before its last row has been parsed, so the columns
     keep their widths whatever a row brings: adding a row with a long cell, as a late chunk
-    of the page would, moves no column"""
+    of the page would, moves no column (the header row is not drawn, so the first row's cells
+    are what is measured)"""
     context = _admin_context(
         new_context, server, {"width": width, "height": 900}, reduced_motion="reduce")
     try:
         page = context.new_page()
         page.goto(server.base_url() + "/flights")
         page.wait_for_function(_SETTLED_PAGE, timeout=10000)
-        read = ("() => Array.from(document.querySelectorAll("
-                "'table.data-table--flights thead th')).map("
+        read = ("() => Array.from(document.querySelector("
+                "'table.data-table--flights tbody tr[data-flight-row]').cells).map("
                 "(h) => Math.round(h.getBoundingClientRect().width))")
         before = page.evaluate(read)
         assert len(before) == 5 and min(before) > 40, before
@@ -1001,35 +973,10 @@ def test_the_flights_table_columns_do_not_depend_on_the_rows_that_arrive(
         context.close()
 
 
-def test_a_disclosure_row_fades_its_content_in_when_it_opens(new_context, server):
-    """what a row disclosure reveals (a health row's body, the readings list) arrives with the
-    short fade instead of appearing in one frame"""
-    context = _admin_context(new_context, server, {"width": 390, "height": 844},
-                             reduced_motion="no-preference")
-    try:
-        page = context.new_page()
-        _open(page, server, "/fleet")
-        page.wait_for_function(_SETTLED_PAGE, timeout=10000)
-        first = page.evaluate("""() => {
-          const out = [];
-          for (const sel of ['details.health-row:not([open])', 'details.readings-disclosure:not([open])']) {
-            const d = document.querySelector(sel);
-            if (!d) { out.push([sel, 'missing']); continue; }
-            d.open = true;
-            const body = d.querySelector(':scope > :not(summary)');
-            out.push([sel, getComputedStyle(body).animationName,
-                      parseFloat(getComputedStyle(body).opacity)]); }
-          return out; }""")
-        for sel, name, opacity in first:
-            assert name == "skypane-fade-in" and opacity < 0.5, first
-    finally:
-        context.close()
-
-
 def test_the_administrators_not_found_page_keeps_the_console_navigation_on_a_desktop(
         new_context, server):
     """with no frame in scope the Console is the administrator's only space: the sidebar lists
-    its destinations and the space switch marks the Console, not 'My frame'"""
+    its destinations and the space switch marks the Console, not 'My frames'"""
     context = _admin_context(new_context, server, {"width": 1280, "height": 900},
                              reduced_motion="no-preference")
     try:

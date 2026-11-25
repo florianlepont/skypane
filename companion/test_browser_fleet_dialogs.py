@@ -1,12 +1,13 @@
-"""Real-browser flows of the Fleet dialogs: pair a frame in four actions,
-refuse a wrong code with the dialog reopened, retire in two actions (the one
+"""Real-browser flows of the Fleet dialogs and of the Add a frame page they lead
+to: pair a frame in four actions, refuse a wrong code with the page shown
+again, retire in two actions (the one
 confirmation dialog), reassign from the owner row's button with one confirmation, re-activate; initial focus, Tab containment, Esc and focus return; and
 the same forms through plain hash links with scripts blocked. Dialog geometry
 holds at 360 and 1280px, in English and French, in both themes."""
+import animation_settle
 import pytest
 
 import fleet_console_support as fx
-from frame_menu_support import BUTTON, click_add, open_menu
 from companion import auth
 from companion.test_browser_ux_helpers import (
     VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED, _assert_hit_target,
@@ -16,7 +17,6 @@ from server import fleet_db
 pytestmark = pytest.mark.browser
 
 MIN_TAP_PX = 44
-ADD = "#dlg-add-frame"
 
 _ACTIVE = "() => document.activeElement.textContent.trim()"
 # Tab past the last control may leave the document for the browser's own
@@ -38,8 +38,8 @@ def _seed(server):
 
 
 def _open(new_context, server, viewport=VIEWPORT_DESKTOP, lang="en", scheme="light"):
-    """The Fleet page with the Kitchen frame selected (its detail header
-    carries the actions menu)."""
+    """The Fleet page with the Kitchen frame selected (its Access section holds
+    Reassign and Retire; the list of frames holds Add a frame)."""
     seed = _seed(server)
     context = new_context(viewport=viewport, color_scheme=scheme)
     context.add_cookies([{
@@ -52,17 +52,17 @@ def _open(new_context, server, viewport=VIEWPORT_DESKTOP, lang="en", scheme="lig
     return context, page, seed
 
 
-_HEADER = ".fleet-detail-head"
 _RETIRE_LINK = "a.fleet-retire__link"
-_OTHERS = ".fleet-block--others"
+_ADD_BUTTON = ".fleet-add-button"
 
 
-def _open_menu_item(page, label, scope):
-    """Two actions: the actions menu button of `scope` (a row of the Other frames
-    section), then the named item."""
-    holder = page.locator(scope).first
-    holder.locator("summary.row-menu__toggle").click()
-    holder.locator("a.row-menu__item", has_text=label).click()
+def click_add(page):
+    """Choose Add a frame in the list of frames (a phone shows the list on /fleet only);
+    it leads to the Add a frame page."""
+    if not page.locator(_ADD_BUTTON).is_visible():
+        page.goto(page.url.split("/fleet")[0] + "/fleet")
+        page.locator(_ADD_BUTTON).wait_for(state="visible")
+    page.locator(_ADD_BUTTON).click()
 
 
 def _device(server, device_id):
@@ -78,11 +78,12 @@ def test_pair_a_frame_in_four_actions(new_context, app_server_in_process):
     context, page, seed = _open(new_context, server)
     try:
         click_add(page)  # 1
-        dialog = page.locator(ADD)
-        assert dialog.evaluate("d => d.open")
-        page.keyboard.type(fx.FAKE_CODE)  # 2: focus starts on the code field
+        page.wait_for_url("**/pair-frame")
+        # Focus starts on the code field; wait for it so the keystrokes cannot start before it.
+        page.wait_for_function("() => document.activeElement && document.activeElement.id === 'pair-code'")
+        page.keyboard.type(fx.FAKE_CODE)  # 2
         page.select_option("#pair-owner", label=fx.OWNER_EMAIL)  # 3
-        dialog.locator("button[type=submit]").click()  # 4
+        page.locator("form.pair-form button[type=submit]").click()  # 4
         page.wait_for_url("**/fleet")
         page.locator(".toast, [role=status], [role=alert]").first.wait_for()
         assert "Frame paired" in page.locator("main").inner_text() + page.locator(
@@ -93,14 +94,13 @@ def test_pair_a_frame_in_four_actions(new_context, app_server_in_process):
         finally:
             conn.close()
         assert device is not None and device["owner_user_id"] == seed.owner_id
-        open_menu(page)
         assert page.locator(
-            "a.frame-row[href='/fleet?frame=%s']" % device["id"]).count() == 1
+            ".fleet-list a[href='/fleet?frame=%s']" % device["id"]).count() == 1
     finally:
         context.close()
 
 
-def test_a_wrong_code_reopens_the_dialog_with_the_typed_value(
+def test_a_wrong_code_shows_the_page_again_with_the_typed_value_and_owner(
         new_context, app_server_in_process):
     server = app_server_in_process
     context, page, _seed_rows = _open(new_context, server)
@@ -108,29 +108,34 @@ def test_a_wrong_code_reopens_the_dialog_with_the_typed_value(
         click_add(page)
         page.fill("#pair-code", "kkkk-2222")
         page.select_option("#pair-owner", label=fx.OWNER_EMAIL)
-        page.locator(ADD + " button[type=submit]").click()
-        page.locator(ADD + ".is-modal[open]").wait_for(state="visible")
+        page.locator("form.pair-form button[type=submit]").click()
+        page.wait_for_url("**/pair-frame?refused=1*")
         assert page.input_value("#pair-code") == "KKKK-2222"
         assert page.locator("#pair-code").get_attribute("aria-invalid") == "true"
-        assert "Code not recognised" in page.locator(ADD).inner_text()
-        assert page.evaluate(_ACTIVE_IN, page.locator(ADD).element_handle())
-        page.keyboard.press("Escape")
-        assert not page.locator(ADD).evaluate("d => d.open")
+        assert "Code not recognised" in page.locator("form.pair-form").inner_text()
+        assert page.locator("#pair-owner option:checked").inner_text().startswith(
+            fx.OWNER_EMAIL)
     finally:
         context.close()
 
 
-def test_missing_owner_reopens_the_dialog_with_a_field_error(
+def test_an_owner_who_became_unavailable_is_a_field_error(
         new_context, app_server_in_process):
     server = app_server_in_process
     context, page, _seed_rows = _open(new_context, server)
     try:
         click_add(page)
         page.fill("#pair-code", fx.FAKE_CODE)
-        page.locator(ADD + " button[type=submit]").click()
-        page.locator(ADD + ".is-modal[open]").wait_for(state="visible")
-        assert page.locator("#pair-owner").get_attribute("aria-invalid") == "true"
-        assert "Choose an owner." in page.locator(ADD).inner_text()
+        page.select_option("#pair-owner", label=fx.OWNER_EMAIL)
+        conn = fleet_db.connect(server.state_dir)
+        try:
+            fleet_db.set_user_disabled(conn, fx.OWNER_EMAIL, True)
+        finally:
+            conn.close()
+        page.locator("form.pair-form button[type=submit]").click()
+        page.locator("#pair-owner[aria-invalid=true]").wait_for(state="visible")
+        assert "That user is no longer available." in page.locator(
+            "form.pair-form").inner_text()
     finally:
         context.close()
 
@@ -150,8 +155,8 @@ def test_retire_in_two_actions_with_focus_on_the_dismiss_control(
         page.wait_for_url("**/fleet")
         assert _device(server, seed.owned_id) is None
         page.wait_for_function(
-            "() => document.querySelector('.fleet-block--others > h2').textContent"
-            ".trim().endsWith('(3)')", timeout=10000)
+            "() => document.querySelector('#fleet-list-retired').textContent"
+            ".trim().endsWith('2')", timeout=10000)
     finally:
         context.close()
 
@@ -178,10 +183,11 @@ def test_escape_closes_the_retire_confirmation_and_returns_focus_to_its_link(
 def test_tab_stays_inside_the_dialog_and_escape_returns_focus_to_the_trigger(
         new_context, app_server_in_process):
     server = app_server_in_process
-    context, page, _seed_rows = _open(new_context, server)
+    context, page, seed = _open(new_context, server)
     try:
-        click_add(page)
-        handle = page.locator(ADD).element_handle()
+        dialog_id = "#dlg-retire-%s" % _slug(seed.owned_id)
+        page.locator(_RETIRE_LINK).click()
+        handle = page.locator(dialog_id).element_handle()
         for _ in range(12):
             page.keyboard.press("Tab")
             assert page.evaluate(_ACTIVE_IN, handle)
@@ -189,9 +195,9 @@ def test_tab_stays_inside_the_dialog_and_escape_returns_focus_to_the_trigger(
             page.keyboard.press("Shift+Tab")
             assert page.evaluate(_ACTIVE_IN, handle)
         page.keyboard.press("Escape")
-        assert not page.locator(ADD).evaluate("d => d.open")
+        assert not page.locator(dialog_id).evaluate("d => d.open")
         page.wait_for_function(
-            "() => document.activeElement.classList.contains('frame-menu__button')",
+            "() => document.activeElement.classList.contains('fleet-retire__link')",
             timeout=5000)
     finally:
         context.close()
@@ -250,35 +256,130 @@ def test_the_reassign_sheet_is_short_with_a_cancel_button(
         context.close()
 
 
-def test_reactivate_from_the_other_frames_section(new_context, app_server_in_process):
+def test_a_long_owner_address_wraps_inside_the_reassign_sheet(
+        new_context, app_server_in_process):
+    """An unbreakable address in the effects list must not widen the sheet
+    (it would scroll sideways and hide the left padding)."""
+    server = app_server_in_process
+    context, page, seed = _open(new_context, server, viewport=_PHONE)
+    try:
+        page.locator(".fleet-block--access li.row", has_text=fx.OWNER_EMAIL).first.locator(
+            "a.row-action").click()
+        dialog = page.locator("#dlg-reassign-%s" % _slug(seed.owned_id))
+        page.wait_for_function("d => d.open", arg=dialog.element_handle(), timeout=10000)
+        dialog.evaluate(
+            "d => { d.querySelector('.modal__effect span').textContent ="
+            " 'owner.with.a.very.long.address.that.never.breaks.anywhere@example.test'; }")
+        fit = dialog.evaluate(_FIT)
+        assert fit["sw"] <= fit["cw"]
+        box = dialog.locator("select").bounding_box()
+        sheet = dialog.bounding_box()
+        assert box["x"] >= sheet["x"] + 8
+        assert box["x"] + box["width"] <= sheet["x"] + sheet["width"] - 8
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("lang", ["en", "fr"])
+def test_the_reassign_confirm_waits_for_an_owner_and_lists_two_effects(
+        lang, new_context, app_server_in_process):
+    server = app_server_in_process
+    context, page, seed = _open(new_context, server, viewport=_PHONE, lang=lang)
+    try:
+        page.locator(".fleet-block--access li.row", has_text=fx.OWNER_EMAIL).first.locator(
+            "a.row-action").click()
+        dialog = page.locator("#dlg-reassign-%s" % _slug(seed.owned_id))
+        page.wait_for_function("d => d.open", arg=dialog.element_handle(), timeout=10000)
+        submit = dialog.locator("button[type=submit]")
+        hint = dialog.locator("[data-gate-hint]")
+        assert submit.is_disabled() and hint.is_visible()
+        assert submit.get_attribute("aria-disabled") == "true"
+        assert dialog.locator(".modal__effects li").count() == 2
+        dialog.locator("select").select_option(index=1)
+        assert submit.is_enabled() and not hint.is_visible()
+        dialog.locator("select").select_option(index=0)
+        assert submit.is_disabled() and hint.is_visible()
+        dialog.locator("a.modal__dismiss").click()
+        assert _device(server, seed.owned_id)["owner_user_id"] == seed.owner_id
+    finally:
+        context.close()
+
+
+def test_reactivate_from_the_retired_frames_page(new_context, app_server_in_process):
     server = app_server_in_process
     context, page, seed = _open(new_context, server)
     try:
-        _open_menu_item(page, "Re-activate", _OTHERS + " li.entity-row:has-text('Attic')")
+        page.locator(".fleet-list a[href='/fleet?frame=%s']" % seed.retired_id).click()
+        page.locator(".fleet-other a.fleet-action-button").click()
         dialog = page.locator("#dlg-reactivate-%s" % _slug(seed.retired_id))
         assert dialog.evaluate("d => d.open")
         assert page.evaluate(_ACTIVE) == "Keep retired"
         dialog.locator("button[type=submit]").click()
         page.wait_for_url("**/fleet")
-        assert "Attic" not in page.locator(_OTHERS).text_content()
+        assert "Attic" not in page.locator(".fleet-list").inner_text()
     finally:
         context.close()
 
 
-def test_the_add_dialog_pairs_through_the_hash_link_without_script(
+_REACTIVATED = {
+    "en": ("Frame re-activated", "Press Reset on the frame", "up to 24 hours from now"),
+    "fr": ("Cadre réactivé", "appuyez sur Reset", "24\u00a0h au plus"),
+}
+_GAPS = """d => {
+  const box = s => d.querySelector(s).getBoundingClientRect();
+  const sub = box('.modal__subtitle'), q = box('.modal__question'),
+        ok = box('button[type=submit]');
+  return {above: q.top - sub.bottom, below: ok.top - q.bottom, margin: getComputedStyle(
+    d.querySelector('.modal__question')).marginTop};
+}"""
+
+
+@pytest.mark.parametrize("lang", ["en", "fr"])
+@pytest.mark.parametrize("viewport", [VIEWPORT_MIN_SUPPORTED, VIEWPORT_DESKTOP],
+                         ids=["360", "1280"])
+def test_the_reactivation_question_sits_close_and_the_confirmation_explains_the_wake(
+        new_context, app_server_in_process, viewport, lang):
+    server = app_server_in_process
+    context, page, seed = _open(new_context, server, viewport=viewport, lang=lang)
+    try:
+        page.goto(server.base_url() + "/fleet?frame=" + seed.retired_id)
+        page.locator("main").wait_for(state="visible")
+        page.locator(".fleet-other a.fleet-action-button").click()
+        dialog = page.locator("#dlg-reactivate-%s" % _slug(seed.retired_id))
+        assert dialog.evaluate("d => d.open")
+        animation_settle.wait_settled(page, "#dlg-reactivate-%s" % _slug(seed.retired_id))
+        gaps = dialog.evaluate(_GAPS)
+        assert gaps["margin"] == "0px"
+        assert 0 <= gaps["above"] <= 12 and 0 <= gaps["below"] <= 28, gaps
+        for selector in ("button[type=submit]", "a.modal__dismiss"):
+            _assert_hit_target(page, "#dlg-reactivate-%s %s" % (_slug(seed.retired_id), selector),
+                               "the re-activation dialog")
+        fit = dialog.evaluate(_FIT)
+        assert fit["sw"] <= fit["cw"]
+        dialog.locator("button[type=submit]").click()
+        toast = page.locator(".toast").first
+        toast.wait_for(state="visible")
+        text = toast.inner_text()
+        for part in _REACTIVATED[lang]:
+            assert part in text, (part, text)
+        box = toast.bounding_box()
+        assert box["x"] >= 0 and box["x"] + box["width"] <= viewport["width"]
+        assert _assert_no_page_overflow(page, "Fleet after re-activation") == ""
+    finally:
+        context.close()
+
+
+def test_the_add_button_leads_to_the_page_that_pairs_without_script(
         new_context, app_server_in_process):
     server = app_server_in_process
     seed = _seed(server)
     with _no_js_page(new_context, server.base_url(), "/fleet",
                      viewport=VIEWPORT_MIN_SUPPORTED) as page:
-        assert not page.locator(ADD).is_visible()
-        page.locator(BUTTON).click()
-        page.locator("a.frame-row--add").click()
-        dialog = page.locator(ADD)
-        assert dialog.is_visible()
+        page.locator(_ADD_BUTTON).click()
+        page.wait_for_url("**/pair-frame")
         page.fill("#pair-code", fx.FAKE_CODE)
         page.select_option("#pair-owner", label=fx.OWNER_EMAIL)
-        dialog.locator("button[type=submit]").click()
+        page.locator("form.pair-form button[type=submit]").click()
         page.wait_for_url("**/fleet")
         conn = fleet_db.connect(server.state_dir)
         try:
@@ -317,16 +418,12 @@ def test_dialogs_fit_and_every_control_is_44px(
     context, page, seed = _open(new_context, server, viewport, lang, scheme)
     where = "dialogs/%d/%s/%s" % (viewport["width"], lang, scheme)
     try:
-        for opener, dialog_id, controls in (
-                ("add", "dlg-add-frame", (
-                    "#pair-code", "#pair-owner", "button[type=submit]",
-                    "a.modal__dismiss", "a.modal__close")),
-                (None, "dlg-retire-%s" % _slug(seed.owned_id), (
-                    "button[type=submit]", "a.modal__dismiss", "a.modal__close"))):
-            if opener:
-                click_add(page)
-            else:
-                page.locator(_RETIRE_LINK).click()
+        for dialog_id, controls in (
+                ("dlg-retire-%s" % _slug(seed.owned_id), (
+                    "button[type=submit]", "a.modal__dismiss", "a.modal__close")),):
+            if not page.locator(_RETIRE_LINK).is_visible():
+                page.goto(server.base_url() + "/fleet?tab=access&frame=" + seed.owned_id)
+            page.locator(_RETIRE_LINK).click()
             dialog = page.locator("#" + dialog_id)
             assert dialog.evaluate("d => d.open"), where
             fit = dialog.evaluate(_FIT)
@@ -338,5 +435,13 @@ def test_dialogs_fit_and_every_control_is_44px(
             assert "mono" not in title.lower()
             page.keyboard.press("Escape")
             assert not dialog.evaluate("d => d.open")
+        page.goto(server.base_url() + "/fleet")
+        click_add(page)
+        page.wait_for_url("**/pair-frame")
+        assert not _assert_no_page_overflow(page, where, viewport["width"])
+        for control in (
+                "#pair-code", "#pair-owner", "form.pair-form button[type=submit]",
+                "a.pair-form__cancel"):
+            _assert_hit_target(page, control, where)
     finally:
         context.close()

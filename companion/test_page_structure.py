@@ -81,7 +81,9 @@ def test_the_special_looks_title_reads_page_then_section_then_frame(rig):
     assert title == "Special looks - Style - Kitchen - SkyPane"
 
 
-def test_the_rename_page_title_names_the_frame(rig):
+def test_the_rename_route_opens_the_dialog_on_the_page_it_came_from_instead_of_a_page(rig):
     server, cookie, frame = rig
-    title = _title(_page(server, cookie, frame + "/frame/name"))
-    assert "Kitchen" in title and title.startswith("Rename frame")
+    status, headers, _body = http_request(
+        server.url(frame + "/frame/name"), cookie=cookie)
+    assert status == 303 and headers["Location"] == "/account#dlg-rename-%s" % (
+        frame.rsplit("/", 1)[-1].replace("_", "-"))

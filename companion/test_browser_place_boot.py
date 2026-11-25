@@ -8,6 +8,7 @@ Both external map hosts are answered by `page.route`; waits are on the page's ow
 """
 import os
 
+import animation_settle
 import pytest
 
 from companion import auth
@@ -21,9 +22,7 @@ VIEWPORT_PHONE = {"width": 390, "height": 844}
 VIEWPORT_MIN = {"width": 360, "height": 740}
 READY = "() => document.documentElement.classList.contains('map-ready')"
 TILES_LOADED = "() => document.querySelectorAll('#place-map .leaflet-tile-loaded').length >= 1"
-ANIMATIONS_DONE = (
-    "() => document.getAnimations().every("
-    "(a) => a.playState !== 'running' || a.effect.getComputedTiming().iterations === Infinity)")
+ANIMATIONS_DONE = animation_settle.ANIMATIONS_DONE
 SHOTS = os.environ.get("PLACE_BOOT_SHOTS", "")
 
 # What shows of the plain form and of the loading state.
@@ -107,7 +106,8 @@ def test_the_map_covers_the_whole_phone_viewport_with_no_pale_band(
             " return {map: map.backgroundColor, html: html.backgroundColor, image: html.backgroundImage}; }")
         # The page behind the map is the theme's secondary surface (a placeholder colour, never
         # the sky); the fixed map box itself shows the tile ground colour.
-        assert page_colours["map"] == "rgb(242, 239, 233)", page_colours
+        assert page_colours["map"] == (
+            "rgb(22, 20, 15)" if theme == "dark" else "rgb(242, 239, 233)"), page_colours
         assert page_colours["html"] == page.evaluate(
             "() => { const p = document.createElement('i'); p.style.color = 'var(--color-secondary)';"
             " document.body.appendChild(p); const c = getComputedStyle(p).color; p.remove(); return c; }"

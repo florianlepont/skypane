@@ -41,14 +41,17 @@ _EXPECTED_REDUCED_MOTION_NO_PREFERENCE_BLOCKS = 1
 # The selectors that spend the card entrance: the one shared definition.
 ENTRANCE_SELECTORS = (".reveal-appended", ".reveal-replay",
     ".dashboard-main[data-page-open] .reveal",
-    ".dashboard-main[data-page-open] .group-block:not(.history-day):nth-child(-n + 6)",
+    ".dashboard-main[data-page-open] .group-block:not(.history-day):not(.fleet-list-group):nth-child(-n + 6)",
     ".dashboard-main[data-page-open] .history-day:nth-child(-n + 3)",
     ".dashboard-main[data-page-open] .page-section:not(.group-block .page-section):nth-child(-n + 6)",
     ".dashboard-main[data-page-open] .personalisation-look",
     ".dashboard-main[data-page-open] .personalisation > .layout-card",
     ".dashboard-main[data-page-open] .personalisation > .personalisation-nav",
-    ".dashboard-main[data-page-open] .fleet-frame > .fleet-detail-head",
-    ".dashboard-main[data-page-open] .fleet-frame > .fleet-tabs")
+    ".dashboard-main[data-page-open] .fleet-frame > .fleet-head",
+    ".dashboard-main[data-page-open] .fleet-split__main > .fleet-head",
+    ".dashboard-main[data-page-open] .fleet-split__main > .fleet-empty",
+    ".dashboard-main[data-page-open] .fleet-frame > .fleet-anchors",
+    ".dashboard-main[data-page-open] .fleet-tiles--system")
 # A table or an empty state straight on the sky opens like a card, in its place in the order.
 OPENING_CARD_SELECTORS = (
     ".dashboard-main[data-page-open] > .empty-state",
@@ -61,6 +64,9 @@ OPENING_LIST_SELECTORS = (
 OPENING_GRID_SELECTORS = (
     ".dashboard-main[data-page-open] > .collection-grid",
     ".dashboard-main[data-page-open] > .airlines-table")
+# The editor table that follows the gaps table opens one step after it.
+OPENING_AFTER_GAPS_SELECTORS = (
+    ".dashboard-main[data-page-open] > .airlines-table--gaps ~ .airlines-table",)
 # The page header only fades in.
 OPENING_HEADER_SELECTORS = (".dashboard-main[data-page-open] > .page-header",)
 # The controls and blocks that follow the page header enter in their place in the page.
@@ -72,6 +78,13 @@ OPENING_BLOCK_SELECTORS = (
     ".dashboard-main[data-page-open] > .components-index",
     ".dashboard-main[data-page-open] > .error-actions",
     ".dashboard-main[data-page-open] .personalisation__view > .form-view")
+
+# The Fleet page has no page header: below 1200px its list title row only fades in, and each
+# group of the list enters like a card; from 1200px the list is one block that fades in.
+OPENING_FLEET_LIST_HEAD_SELECTORS = (".dashboard-main[data-page-open] .fleet-list__head",)
+OPENING_FLEET_LIST_GROUP_SELECTORS = (
+    ".dashboard-main[data-page-open] .fleet-list-group:nth-child(-n + 6)",)
+OPENING_FLEET_LIST_SELECTORS = (".dashboard-main[data-page-open] .fleet-split__list",)
 
 # The two motion durations, plus the one documented exception: the
 # toast's two dwells (how long a success/info toast and a pending toast
@@ -102,13 +115,9 @@ _DOT_PULSE_TOKEN = "--motion-dot-pulse"
 _DOT_PULSE_KEYFRAMES = "skypane-dot-halo"
 _DOT_PULSE_SELECTOR = ".home-state__dot--pulse::after"
 
-# Home's two ambient loop periods (the ~6s breathing of the dot and of the glow behind the
-# picture, the 12s cycle of the glass glint) and the rules allowed to spend them.
+# Home's ambient loop period (the ~6s breathing of the dot) and the rule allowed to spend it.
 _AMBIENT_TOKENS = {
-    "--motion-breathe": (
-        ((".home-state__dot--pulse",), "skypane-dot-breathe"),
-        ((".hero__picture::before",), "skypane-picture-breathe")),
-    "--motion-glint": (((".hero__glass::after",), "skypane-glint"),),
+    "--motion-breathe": (((".home-state__dot--pulse",), "skypane-dot-breathe"),),
 }
 
 _ANIMATION_VALUE_KEYWORDS = frozenset((
@@ -248,12 +257,10 @@ def test_every_transition_takes_its_duration_from_a_motion_token(served_css):
     assert not offenders, offenders
 
 
-# Entrances and exits all share the one --ease-out curve. The three below are loops or
-# flourishes that keep the plain keyword: the status halo's decay, the switch ring's glow and
-# a press.
+# Entrances and exits all share the one --ease-out curve. The two below are loops or
+# flourishes that keep the plain keyword: the status halo's decay and a press.
 _PLAIN_EASE_OUT_RULES = frozenset((
-    ".home-state__dot--pulse::after", ".hero__ring.is-ring-done .hero__ring-done",
-    ".sidebar-link:active"))
+    ".home-state__dot--pulse::after", ".sidebar-link:active"))
 
 
 def test_every_entrance_and_exit_shares_the_one_ease_out_token(served_css):
@@ -311,7 +318,10 @@ def test_motion_tokens_are_two_durations_plus_the_documented_exceptions(served_c
         (OPENING_BLOCK_SELECTORS, "animation"),
         (OPENING_CARD_SELECTORS, "animation"),
         (OPENING_LIST_SELECTORS, "animation"),
-        (OPENING_GRID_SELECTORS, "animation")], (
+        (OPENING_GRID_SELECTORS, "animation"),
+        (OPENING_FLEET_LIST_HEAD_SELECTORS, "animation"),
+        (OPENING_FLEET_LIST_GROUP_SELECTORS, "animation"),
+        (OPENING_FLEET_LIST_SELECTORS, "animation")], (
         "--motion-enter must drive only the card entrance animation, got %r" % (entrance,))
     stagger = [
         (selectors, prop) for selectors, prop, _value in _spenders(served_css, "--motion-stagger")]
@@ -320,7 +330,9 @@ def test_motion_tokens_are_two_durations_plus_the_documented_exceptions(served_c
         (OPENING_BLOCK_SELECTORS, "animation-delay"),
         (OPENING_CARD_SELECTORS, "animation-delay"),
         (OPENING_LIST_SELECTORS, "animation-delay"),
-        (OPENING_GRID_SELECTORS, "animation-delay")], (
+        (OPENING_GRID_SELECTORS, "animation-delay"),
+        (OPENING_AFTER_GAPS_SELECTORS, "animation-delay"),
+        (OPENING_FLEET_LIST_GROUP_SELECTORS, "animation-delay")], (
         "--motion-stagger must scale only the card entrance delay, got %r" % (stagger,))
     # The placeholder sweep and the blur-up are each spent by one animation, on the rule that
     # marks the loading container and the one that fades the arrived picture in.
@@ -389,17 +401,17 @@ def test_login_post_is_not_a_route(app04_server):
 
 
 def test_deep_link_return_is_carried_into_the_sign_in_link(make_app_server):
-    """an unauthenticated GET /health redirects with ?next=%2Fhealth, and the login page
+    """an unauthenticated GET /flights redirects with ?next=%2Fflights, and the login page
     carries that destination on the Auth0 start link"""
     server = make_app_server(fake_providers=True)
     base = server.base_url()
-    status, headers, _ = http_request(base + "/health")
-    assert status == 303, "expected 303 for GET /health, got %d" % status
-    assert headers.get("Location") == "/login?next=%2Fhealth", (
-        "expected Location /login?next=%%2Fhealth, got %r" % headers.get("Location"))
-    status, _headers, body = http_request(base + "/login?next=%2Fhealth")
+    status, headers, _ = http_request(base + "/flights")
+    assert status == 303, "expected 303 for GET /flights, got %d" % status
+    assert headers.get("Location") == "/login?next=%2Fflights", (
+        "expected Location /login?next=%%2Fflights, got %r" % headers.get("Location"))
+    status, _headers, body = http_request(base + "/login?next=%2Fflights")
     assert status == 200
-    assert b'href="/login/auth0?next=/health"' in body
+    assert b'href="/login/auth0?next=/flights"' in body
 
 
 @pytest.mark.parametrize("crafted_next", ["https://evil.example", "//evil.example"])
@@ -471,7 +483,7 @@ def test_both_shells_agree_on_document_language():
 
 @pytest.mark.parametrize(
     "tab_path,heading",
-    [("/", "Home"), ("/display", "Style"), ("/flights", "Flight history"),
+    [("/", "Home"), ("/display", "Style"), ("/flights", "Flights"),
      ("/airlines", "Airlines"), ("/fleet", "Fleet")])
 def test_authenticated_tab_returns_200_with_its_own_heading(app04_server, session_cookie, tab_path, heading):
     """authenticated GET %s returns 200 and contains its own %r heading"""
@@ -481,17 +493,15 @@ def test_authenticated_tab_returns_200_with_its_own_heading(app04_server, sessio
     assert heading.encode() in body, "expected the %r heading in the response body" % heading
 
 
-def test_preview_redirects_to_flights(app04_server, session_cookie):
-    """authenticated GET /preview (the retired Preview page route) redirects to /flights"""
-    status, headers, body = http_request(
-        app04_server.base_url() + "/preview", cookie=session_cookie)
-    assert status == 303, "expected a 303 redirect, got %d" % status
-    assert headers.get("Location") == "/flights", (
-        "expected a redirect to /flights exactly, got %r" % headers.get("Location"))
-    assert not body, "expected an empty redirect body, got %d bytes of content" % len(body)
+@pytest.mark.parametrize("path", ["/preview", "/history", "/preview?next=/settings&evil=https://evil.example"])
+def test_removed_page_routes_are_the_not_found_page(app04_server, session_cookie, path):
+    """authenticated GET of the removed Preview and History addresses is the ordinary 404"""
+    status, headers, _body = http_request(app04_server.base_url() + path, cookie=session_cookie)
+    assert status == 404, "expected 404, got %d" % status
+    assert not headers.get("Location")
 
 
-@pytest.mark.parametrize("legacy,target", [("/settings", "/display"), ("/history", "/flights")])
+@pytest.mark.parametrize("legacy,target", [("/settings", "/display")])
 def test_legacy_page_route_redirects_with_a_fixed_literal_target(app04_server, session_cookie, legacy, target):
     """authenticated GET %s (a pre-phase-18 page route) redirects to %s with a fixed literal
     target"""
@@ -501,19 +511,6 @@ def test_legacy_page_route_redirects_with_a_fixed_literal_target(app04_server, s
     assert headers.get("Location") == target, (
         "expected %s to redirect to %s exactly, got %r" % (legacy, target, headers.get("Location")))
     assert not body, "expected an empty redirect body"
-
-
-def test_preview_redirect_ignores_query_string(app04_server, session_cookie):
-    """authenticated GET /preview carrying an arbitrary query string (including a next=-shaped
-    and an https://evil.example-shaped value) still redirects to the identical /flights location
-    — no request value influences the target"""
-    status, headers, _body = http_request(
-        app04_server.base_url() + "/preview?next=/settings&evil=https://evil.example",
-        cookie=session_cookie)
-    assert status == 303, "expected a 303 redirect, got %d" % status
-    assert headers.get("Location") == "/flights", (
-        "expected the redirect location to stay /flights regardless of an arbitrary query "
-        "string, got %r" % headers.get("Location"))
 
 
 def test_old_settings_path_404s_authenticated(app04_server, session_cookie):
@@ -577,21 +574,22 @@ def test_rejected_settings_save_rerenders_200_with_input_and_error_persists_noth
 
 def test_home_page_renders_widgets(app04_server, session_cookie):
     """authenticated GET / renders the approved frame-signal-first Home page:
-    its hero (the current image beside the state), the recent-flights group, then the Frame group
-    carrying the screen and quiet-hours POST controls, and one compact battery fact, while retired
+    its title block (the name and the state), the flight card (the current image beside its
+    flight), the pills (the screen POST control, the quiet-hours opener, the place and the
+    battery) and the recent-flights strip, while retired
     configuration, healthy diagnostics, and activity-band dashboard material stay absent."""
     status, _headers, body = http_request(app04_server.base_url() + "/", cookie=session_cookie)
     assert status == 200, "expected 200 for GET /, got %d" % status
     text = body.decode("utf-8", errors="replace")
     for needle in (
             '<div class="title-action">',
-            'class="hero home-state ',
-            'class="group-block home-section"',
+            'class="home-state home-state--',
+            'class="home-strip reveal"',
             "Recent flights", 'href="/flights"',
             'class="nav-group"',
             'aria-labelledby="home-frame-state"',
             'action="%s"' % app_module.QUICK_DISPLAY_ROUTE,
-            'action="%s"' % app_module.QUICK_QUIET_HOURS_ROUTE,
+            'href="#dlg-quiet-hours"',
             "data-loaded-at="):
         assert needle in text, "expected %r in the Home page" % needle
     assert 'class="home-battery' not in text and 'class="home-action' not in text, (
@@ -763,9 +761,9 @@ def test_quick_routes_answer_204_for_a_fetch_and_303_for_a_form(make_app_server)
 
 def test_quick_led_route_saves_redirects_and_negotiates(make_app_server):
     """POST /quick/led stores one explicit led_enabled keyword and carries every other flag
-    forward, redirects to /device with its own flash for a form post, answers 204 with an empty
+    forward, redirects to the frame's Fleet settings tab with its own flash for a form post, answers 204 with an empty
     body for a fetch, redirects with the generic failure flash and writes nothing for a crafted
-    state, falls back to /device for every non-member return_to, and is not reachable by GET at
+    state, always returns to that tab whatever return_to says, and is not reachable by GET at
     all"""
     server = make_app_server(fake_providers=True)
     session_cookie = login(server)
@@ -776,8 +774,8 @@ def test_quick_led_route_saves_redirects_and_negotiates(make_app_server):
     status, headers, _ = http_request(
         base + app_module.QUICK_LED_ROUTE, method="POST", cookie=session_cookie,
         data=with_csrf(session_cookie, {"state": "off", "return_to": "/device"}))
-    assert status == 303 and headers.get("Location") == "/device?flash=%s" % app_module.FLASH_KEY_LED_OFF, (
-        "expected a 303 to /device?flash=led_off, got %d/%r" % (status, headers.get("Location")))
+    assert status == 303 and headers.get("Location") == "/fleet?frame=live&tab=settings&flash=%s" % app_module.FLASH_KEY_LED_OFF, (
+        "expected a 303 to the settings tab with flash=led_off, got %d/%r" % (status, headers.get("Location")))
     on_disk = device_config.load_device_config(server.state_dir)
     assert on_disk["led_enabled"] is False, "expected led_enabled False on disk, got %r" % (on_disk["led_enabled"],)
     assert on_disk["display_enabled"] is True and on_disk["quiet_hours_enabled"] is True, (
@@ -796,7 +794,7 @@ def test_quick_led_route_saves_redirects_and_negotiates(make_app_server):
     status, headers, _ = http_request(
         base + app_module.QUICK_LED_ROUTE, method="POST", cookie=session_cookie,
         data=with_csrf(session_cookie, {"state": "toggle", "return_to": "/device"}))
-    assert status == 303 and headers.get("Location") == "/device?flash=%s" % app_module.FLASH_KEY_QUICK_FAILED, (
+    assert status == 303 and headers.get("Location") == "/fleet?frame=live&tab=settings&flash=%s" % app_module.FLASH_KEY_QUICK_FAILED, (
         "expected a crafted state value to redirect with the generic quick_failed flash, got "
         "%d/%r" % (status, headers.get("Location")))
     assert device_config.load_device_config(server.state_dir)["led_enabled"] is True, (
@@ -807,8 +805,8 @@ def test_quick_led_route_saves_redirects_and_negotiates(make_app_server):
         status, headers, _ = http_request(
             base + app_module.QUICK_LED_ROUTE, method="POST", cookie=session_cookie,
             data=with_csrf(session_cookie, {"state": "on", "return_to": hostile}))
-        assert status == 303 and headers.get("Location") == "/device?flash=%s" % app_module.FLASH_KEY_LED_ON, (
-            "return_to=%r: expected a fall back to /device, got %d/%r"
+        assert status == 303 and headers.get("Location") == "/fleet?frame=live&tab=settings&flash=%s" % app_module.FLASH_KEY_LED_ON, (
+            "return_to=%r: expected the settings tab, got %d/%r"
             % (hostile, status, headers.get("Location")))
 
     device_config.save_device_config(server.state_dir, led_enabled=False)
@@ -902,7 +900,7 @@ def test_display_page_and_fleet_settings_split_the_groups(app04_server, session_
     base = app04_server.base_url()
     _s, _h, display_body = http_request(base + "/display", cookie=session_cookie)
     _s, _h, special_body = http_request(base + "/display/special-looks/new", cookie=session_cookie)
-    _s, _h, device_body = http_request(base + "/fleet", cookie=session_cookie)
+    _s, _h, device_body = http_request(base + "/fleet?frame=live", cookie=session_cookie)
     display_text = display_body.decode("utf-8", errors="replace")
     special_text = special_body.decode("utf-8", errors="replace")
     device_text = device_body.decode("utf-8", errors="replace")

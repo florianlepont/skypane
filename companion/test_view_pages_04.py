@@ -22,7 +22,9 @@ import companion.i18n as i18n
 import companion.layout as layout
 import companion.test_view_pages_helpers as vp
 import companion.wake as wake
-from companion.pages import airlines_page, health_page, history_page, home_page
+from companion.pages import (
+    airlines_page, health_page, history_page, home_battery_row, home_flight_card, home_page,
+    home_recent_strip)
 import health_page_composition
 from companion_app_server import get, login, served_stylesheet
 from companion_markup import declarations_for, parse_html, rules_with_selector
@@ -175,9 +177,9 @@ def test_home_attention_row_is_reserved_for_actionable_state(tmp_path):
     assert "toast--error" in parse_html(errored).select_one(".home-action").attrs["class"].split()
 
 
-def test_home_recent_flight_time_one_line_no_mono_class(tmp_path):
-    """the recent-flight row carries the clock in its detail line and the relative age as its
-    value, with no monospace class on either (B18)"""
+def test_home_flight_times_are_plain_text_and_the_detected_age_is_live(tmp_path):
+    """the flight card carries the detection age as a live relative time and the strip tile's
+    caption is plain text, with no monospace class on either (B18)"""
     with history_db.open_db(tmp_path) as conn:
         history_db.record_runway_event(
             conn, ts="2026-08-27T11:35:00+00:00", hex="3c6444", callsign="AFR1380",
@@ -187,15 +189,13 @@ def test_home_recent_flight_time_one_line_no_mono_class(tmp_path):
         "state_dir": str(tmp_path), "now": "2026-08-27T12:00:00+00:00", "gallery_entries": [],
         "health_state": {}, "device_config": {},
     }
-    rendered = home_page.render(ctx)
-    start = rendered.index('class="row__text"', rendered.index("recent-flight"))
-    end = rendered.index("</li>", start)
-    cell = rendered[start:end]
-    detail = cell[cell.index('class="row__detail"'):]
-    value = cell[cell.index('class="row__value"'):]
-    assert "mono" not in detail and "mono" not in value
-    assert "12:35" not in detail and detail.startswith('class="row__detail">')
-    assert "<time" in value and "data-relative" in value
+    doc = parse_html(home_page.render(ctx))
+    detected = doc.select_one(".home-flight__detected")
+    assert detected.select_one("time[data-relative]") is not None
+    assert "mono" not in detected.text()
+    caption = doc.select_one("figure.home-strip__tile figcaption")
+    assert caption.text() == "AFR1380 Departure · 25 min"
+    assert "mono" not in str(caption.attrs) and not caption.select(".mono")
 
 
 # --- CSS-only checks: the served stylesheet's parsed rules, never a disk
@@ -286,7 +286,8 @@ def test_home_page_render_degrades_with_nothing():
     """home_page.render({}) degrades to its empty states without raising, battery.battery_percent()
     clamps and rejects bad input, """
     rendered = home_page.render({})
-    for needle in (home_page.NO_FLIGHTS_HEADING, home_page.DEVICE_NO_IMAGE_HEADING, home_page.NO_READING_TEXT):
+    for needle in (home_recent_strip.NO_FLIGHTS_HEADING, home_flight_card.DEVICE_NO_IMAGE_HEADING,
+                   home_battery_row.NONE_TEXT):
         assert needle in rendered, "expected %r for an empty ctx" % needle
     assert (
         battery.battery_percent(battery.BATTERY_FULL_MV) == 100
@@ -620,17 +621,18 @@ def test_health_reads_no_per_day_check_in_rows_for_a_band(tmp_path):
 
 # --- Health's drawings are the shared emitters' ---
 
-def test_health_carries_one_ring_and_no_grid_and_home_carries_neither(tmp_path):
-    """Health holds exactly one battery ring and no check-in regularity grid; Home draws neither (its one drawing is the battery's open arc dial, not the ring)
-    and no activity band"""
+def test_health_carries_one_gauge_and_no_grid_and_home_carries_neither(tmp_path):
+    """Health holds exactly one battery gauge (an open arc) and no ring or check-in regularity grid; Home
+    draws neither and no activity band (its battery is a pill, and its statistics are plain SVG of its own)"""
     now = "2026-08-27T12:00:00+00:00"
     ctx = _health_band_ctx(tmp_path / "health", now, [
         "2026-08-27T06:00:00+00:00",
         "2026-08-27T10:00:00+00:00",
     ])
     health_rendered = health_page_composition.render(ctx)
-    assert health_rendered.count('class="%s"' % draw.DRAWING_RING_VALUE_CLASS) == 1, (
-        "expected exactly one battery ring value arc on Health")
+    assert health_rendered.count('class="%s"' % draw.DRAWING_ARC_VALUE_CLASS) == 1, (
+        "expected exactly one battery gauge value arc on Health")
+    assert health_rendered.count(draw.DRAWING_RING_VALUE_CLASS) == 0
     doc = parse_html(health_rendered)
     assert not doc.select(".check-in-grid"), "Health must not draw a regularity grid"
     assert not doc.find_all("rect", cls=draw.DRAWING_CELL_CLASS), "Health must not draw regularity cells"
@@ -639,12 +641,12 @@ def test_health_carries_one_ring_and_no_grid_and_home_carries_neither(tmp_path):
     for needle in (draw.DRAWING_RING_VALUE_CLASS, draw.DRAWING_RING_TRACK_CLASS,
                    draw.DRAWING_CANVAS_CLASS, draw.DRAWING_CELL_CLASS, "day-band"):
         assert needle not in home_rendered, "Home must not draw %r" % (needle,)
-    assert home_rendered.count(draw.DRAWING_FIGURE_CLASS) == 1
-    assert home_rendered.count('class="%s"' % draw.DRAWING_ARC_TRACK_CLASS) == 1
+    assert home_rendered.count(draw.DRAWING_FIGURE_CLASS) == 0
+    assert home_rendered.count('class="%s"' % draw.DRAWING_ARC_TRACK_CLASS) == 0
 
 
 def test_health_drawings_use_only_the_shared_emitters_classes(tmp_path):
-    """the classes Health's battery ring emits are computed from the markup rather than listed;
+    """the classes Health's battery gauge emits are computed from the markup rather than listed;
     every one is a constant companion/draw.py itself names"""
     now = "2026-08-27T12:00:00+00:00"
     ctx = _health_band_ctx(tmp_path / "health", now, [
@@ -654,11 +656,11 @@ def test_health_drawings_use_only_the_shared_emitters_classes(tmp_path):
     rendered = health_page_composition.render(ctx)
     figures = re.findall(
         r'<svg class="%s[^"]*"[^>]*>(.*?)</svg>' % re.escape(draw.DRAWING_FIGURE_CLASS), rendered, re.S)
-    assert len(figures) == 1, "expected the ring alone, got %d aspect-locked figures" % len(figures)
+    assert len(figures) == 1, "expected the gauge alone, got %d aspect-locked figures" % len(figures)
     classes = [set(re.findall(r'class="([^"]*)"', figure)) for figure in figures]
-    ring = next((c for c in classes if draw.DRAWING_RING_TRACK_CLASS in c), None)
-    assert ring, "found no ring on Health"
-    for class_name in sorted(ring):
+    gauge = next((c for c in classes if draw.DRAWING_ARC_TRACK_CLASS in c), None)
+    assert gauge, "found no gauge on Health"
+    for class_name in sorted(gauge):
         for token in class_name.split():
             assert token in draw.DRAWING_CLASSES, (
                 "Health emits the drawing class %r, which companion/draw.py does not name — "
@@ -667,7 +669,7 @@ def test_health_drawings_use_only_the_shared_emitters_classes(tmp_path):
 
 def test_breaking_a_shared_emitter_breaks_health_and_leaves_home_untouched(tmp_path):
     """breaking a shared emitter breaks Health's drawing: the class constant inside
-    companion/draw.py's ring emitter is replaced at check time and
+    companion/draw.py's arc gauge emitter is replaced at check time and
     Health changes each time, neither keeping the original string (a page built from its own
     copy would); Home draws neither and stays byte-identical, proving the mutation is targeted
     rather than a global perturbation; and both pages return to their pre-mutation markup"""
@@ -694,7 +696,7 @@ def test_breaking_a_shared_emitter_breaks_health_and_leaves_home_untouched(tmp_p
         finally:
             setattr(draw, attr, original)
 
-    for attr in ("DRAWING_RING_VALUE_CLASS",):
+    for attr in ("DRAWING_ARC_VALUE_CLASS",):
         original, health_after, home_after = _mutated(attr)
         assert sentinel in health_after, (
             "a change inside the shared %s emitter did not reach Health — it draws its own "
@@ -984,8 +986,8 @@ def _seed_view_pages_e2e_fixture(state_dir):
 
 
 def test_history_preview_and_gallery_round_trip_over_http(make_app_server):
-    """GET /flights returns 200 with its own heading, GET /preview redirects (303) to
-    /flights, GET /preview.png now returns 404 (the route is retired), and GET
+    """GET /flights returns 200 with its own heading, GET /preview is the not-found page,
+    GET /preview.png now returns 404 (the route is retired), and GET
     /gallery/{name}.png returns 200 image/png with a real PNG signature — proving the route
     the per-row View-panel lightbox now links to genuinely serves full-resolution bytes,
     against a real running service"""
@@ -994,11 +996,10 @@ def test_history_preview_and_gallery_round_trip_over_http(make_app_server):
 
     status, _headers, body = get(server, "/flights", cookie=session_cookie)
     assert status == 200, "expected 200 for /flights, got %d" % status
-    assert b"Flight history" in body, "expected the 'Flight history' heading in /flights's response body"
+    assert b"Flights" in body, "expected the 'Flights' heading in /flights's response body"
 
-    status, headers, _body = get(server, "/preview", cookie=session_cookie)
-    assert status == 303, "expected a 303 redirect for /preview, got %d" % status
-    assert headers.get("Location") == "/flights", "expected /preview to redirect to /flights, got %r" % headers.get("Location")
+    status, _headers, _body = get(server, "/preview", cookie=session_cookie)
+    assert status == 404, "expected 404 for the removed /preview address, got %d" % status
 
     status, _headers, _body = get(server, "/preview.png", cookie=session_cookie)
     assert status == 404, "expected 404 for the retired /preview.png route, got %d" % status

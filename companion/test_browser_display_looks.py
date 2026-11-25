@@ -7,6 +7,7 @@ traps focus, closes on Escape and returns focus to its opener; on the Special lo
 special look" is a page whose choices post a real rule, and each rule has an Edit page."""
 from urllib.parse import urlsplit
 
+import animation_settle
 import pytest
 
 from companion import auth, layout
@@ -419,8 +420,7 @@ def test_the_new_special_look_page_fits_a_phone(new_context, make_app_server, vi
     try:
         page.locator("form#special-look-form label.look-pick__card").first.wait_for(state="visible")
         page.wait_for_function(
-            "() => document.readyState === 'complete' && document.getAnimations().every("
-            "a => a.playState !== 'running')", timeout=10000)
+            animation_settle.SETTLED, timeout=10000)
         assert page.locator(".form-page__preview, .form-page__caption").count() == 0
         card = page.locator(".form-page__card").bounding_box()
         first = page.locator("form#special-look-form label.look-pick__card").first.bounding_box()

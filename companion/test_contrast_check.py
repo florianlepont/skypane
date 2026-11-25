@@ -216,11 +216,11 @@ def test_charging_pill_text_on_its_tint_meets_wcag_aa_normal_text(
         % (theme, surface_token, text, background, ratio, WCAG_AA_NORMAL_TEXT))
 
 
-@pytest.mark.parametrize("selector", (".toast__detail", ".toast__pill"))
+@pytest.mark.parametrize("selector", (".toast__detail",))
 @pytest.mark.parametrize("theme", ("light", "dark"))
 def test_muted_toast_text_on_toast_surface_meets_wcag_aa_normal_text(
         theme, selector, theme_tokens, served_css):
-    """the toast's muted detail and its pill text (each a `color-mix()` of --color-toast-fg)
+    """the toast's muted detail (a `color-mix()` of --color-toast-fg)
     still clear WCAG AA once composited over the toast surface"""
     percentage = _color_mix_percentage(declarations_for(served_css, selector)["color"])
     surface = theme_tokens[theme]["--color-toast-bg"]
@@ -322,6 +322,19 @@ def test_status_error_meets_ui_component_contrast_on_every_surface(theme, theme_
         assert ratio >= WCAG_AA_UI_COMPONENT, (
             "%s: contrast_ratio(error, %s) = %.2f, below "
             "WCAG_AA_UI_COMPONENT (%.1f)" % (theme, bg_token, ratio, WCAG_AA_UI_COMPONENT))
+
+
+# The edge drawn round the light-yellow look tile is a non-text graphic that
+# must show against every surface the tile sits on; the panel yellow itself
+# measures about 1.12:1 against white paper, which is why the edge exists.
+@pytest.mark.parametrize("theme", ("light", "dark"))
+def test_yellow_tile_edge_meets_ui_component_contrast_on_every_surface(theme, theme_tokens):
+    edge = theme_tokens[theme]["--color-yellow-tile-edge"]
+    for bg_token in ("--color-canvas", "--color-dominant", "--color-secondary"):
+        ratio = contrast_ratio(edge, theme_tokens[theme][bg_token])
+        assert ratio >= WCAG_AA_UI_COMPONENT, (
+            "%s: contrast_ratio(yellow tile edge, %s) = %.2f, below %.1f" % (
+                theme, bg_token, ratio, WCAG_AA_UI_COMPONENT))
 
 
 # ==========================================================================

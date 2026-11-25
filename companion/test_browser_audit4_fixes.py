@@ -2,6 +2,7 @@
 only on a change, user cards (e-mail wrapping, role select), the sidebar (one line per item, a
 focus ring hugging its item), the System column, the hero ring, the tab strip insets, the picture
 placeholders and the colour dots. Every read waits for a settled page first."""
+import animation_settle
 import pytest
 
 import fleet_console_support as fx
@@ -12,9 +13,7 @@ from server import device_config
 
 pytestmark = pytest.mark.browser
 
-_SETTLED = (
-    "() => document.readyState === 'complete' && document.getAnimations().every("
-    "a => !a.effect || a.effect.getTiming().iterations === Infinity || a.playState !== 'running')")
+_SETTLED = animation_settle.SETTLED
 
 
 def _open(new_context, server, path, viewport, lang="en", who="admin", theme="light",
@@ -43,8 +42,7 @@ def _bar_hidden(page):
 
 
 @pytest.mark.parametrize("path,field,who", [
-    ("/devices/{owned}/frame/name", "#frame-name", "owner"),
-    ("/display/special-looks/new", "[name=rule_key]", "admin")], ids=["rename", "special-look"])
+    ("/display/special-looks/new", "[name=rule_key]", "admin")], ids=["special-look"])
 def test_a_form_page_bar_appears_only_once_a_field_changed(
         new_context, app_server_in_process, path, field, who):
     server = app_server_in_process
@@ -66,7 +64,7 @@ def test_a_form_page_bar_appears_only_once_a_field_changed(
 def test_a_form_page_bar_is_in_the_page_without_script(new_context, app_server_in_process):
     server = app_server_in_process
     context, page, _seed = _open(
-        new_context, server, "/devices/{owned}/frame/name", VIEWPORT_PHONE, who="owner",
+        new_context, server, "/display/special-looks/new", VIEWPORT_PHONE, who="admin",
         js_enabled=False)
     try:
         assert page.locator(".dirty-bar button.dirty-bar__save").is_visible()
@@ -95,13 +93,13 @@ def test_user_cards_wrap_addresses_at_separators_and_show_the_whole_role(
                 previous = text[offset]; previousTop = rect.top; offset += 1; } }
             return bad; })""")
         assert breaks and all(not bad for bad in breaks), breaks
-        clipped = page.evaluate("""() => [...document.querySelectorAll('.users-role-form select')].map(s => {
-            const c = document.createElement('canvas').getContext('2d'); const cs = getComputedStyle(s);
-            c.font = cs.fontWeight + ' ' + cs.fontSize + ' ' + cs.fontFamily;
-            const widest = Math.max(...[...s.options].map(o => c.measureText(o.text).width));
-            return s.getBoundingClientRect().width - widest - parseFloat(cs.paddingLeft)
-              - parseFloat(cs.paddingRight); })""")
-        assert clipped and min(clipped) >= 8, clipped
+        # A phone card has no select: its detail line starts with the whole role name, uncut.
+        roles = page.evaluate("""() => [...document.querySelectorAll('.users-meta')].map(m => ({
+            text: m.textContent, cut: m.scrollWidth > m.clientWidth + 1,
+            shown: m.getClientRects().length > 0}))""")
+        names = ("Administrator", "User") if lang == "en" else ("Administrateur", "Utilisateur")
+        assert roles and all(r["shown"] and not r["cut"] and r["text"].startswith(names)
+                             for r in roles), roles
         assert not page.evaluate(
             "() => document.documentElement.scrollWidth > document.documentElement.clientWidth")
     finally:
@@ -206,20 +204,36 @@ def test_the_picture_dialog_caption_uses_the_body_font(new_context, app_server_i
 
 
 def test_a_hand_named_airline_keeps_its_row_one_line_tall(new_context, app_server_in_process):
-    from server.plane import manual_resolutions
+    """With artwork the airline is a row of the table, like the others; without it, the
+    header of the missing-illustrations section, as tall and as aligned as the other headers."""
+    import os
+    import shutil
+    from server.plane import illustrations, manual_resolutions
     server = app_server_in_process
-    manual_resolutions.add_entry(
-        server.state_dir, "RYR", "Ryanair", now="2026-01-01T00:00:00+00:00")
+    for prefix, name in (("RYR", "Ryanair"), ("ZPH", "Zephyr Air")):
+        manual_resolutions.add_entry(server.state_dir, prefix, name, now="2026-01-01T00:00:00+00:00")
+    override = illustrations.override_path_for_key(
+        manual_resolutions.illustration_key_for_name("Ryanair"), server.state_dir)
+    os.makedirs(os.path.dirname(override), exist_ok=True)
+    shutil.copyfile(os.path.join(illustrations.ILLUSTRATION_DIR, "vueling-airlines.png"), override)
     context, page, _seed = _open(
         new_context, server, "/airlines/manage", VIEWPORT_DESKTOP, "fr", theme="dark")
     try:
         sizes = page.evaluate("""() => { const rows = [...document.querySelectorAll('tr.airlines-row')];
             const mine = rows.find(r => r.textContent.includes('Ryanair'));
-            const other = rows.find(r => r.querySelector('.airlines-name input'));
+            const other = rows.find(r => !r.textContent.includes('Ryanair') && r.querySelector('.airlines-name'));
             const left = el => el.querySelector('.airlines-name').getBoundingClientRect().left;
             return [mine.getBoundingClientRect().height, other.getBoundingClientRect().height,
                     left(mine), left(other)]; }""")
         assert abs(sizes[0] - sizes[1]) <= 2 and abs(sizes[2] - sizes[3]) <= 1, sizes
+        known = page.evaluate("""() => { const rows = [...document.querySelectorAll(
+                '.airlines-missing__head')];
+            const zephyr = rows.find(r => r.textContent.includes('Zephyr Air'));
+            const other = rows.find(r => !r.textContent.includes('Zephyr Air'));
+            const left = el => el.querySelector('.airlines-missing__name').getBoundingClientRect().left;
+            return [zephyr.getBoundingClientRect().height, other.getBoundingClientRect().height,
+                    left(zephyr), left(other)]; }""")
+        assert abs(known[0] - known[1]) <= 2 and abs(known[2] - known[3]) <= 1, known
     finally:
         context.close()
 
@@ -245,37 +259,20 @@ def test_the_first_and_last_choice_of_a_tab_strip_keep_the_same_inset(
         context.close()
 
 
-def test_the_back_link_sits_the_same_way_on_the_rename_and_special_look_pages(
-        new_context, app_server_in_process):
-    server = app_server_in_process
-    device_config.save_device_config(server.state_dir, layout="classic")
-    gaps = []
-    seed = None
-    for path, who in (("/devices/{owned}/frame/name", "owner"), ("/display/special-looks/new", "admin")):
-        context, page, seed = _open(new_context, server, path, VIEWPORT_PHONE, who=who, seed=seed)
-        try:
-            gaps.append(page.evaluate("""() => { const back = document.querySelector('.form-back');
-                const after = back.nextElementSibling.getBoundingClientRect();
-                const me = back.getBoundingClientRect();
-                return [0, Math.round(after.top - me.bottom), Math.round(me.left)]; }"""))
-        finally:
-            context.close()
-    assert gaps[0][2] == gaps[1][2] and abs(gaps[0][1] - gaps[1][1]) <= 4, gaps
-
-
 @pytest.mark.parametrize("viewport", [VIEWPORT_PHONE, VIEWPORT_DESKTOP], ids=["390", "1280"])
-def test_the_hero_picture_leaves_room_for_its_ring_inside_the_page_column(
+def test_the_flight_card_picture_sits_inside_its_card_and_the_page_column(
         new_context, app_server_in_process, viewport):
     server = app_server_in_process
     context, page, _seed = _open(
         new_context, server, "/devices/{owned}/", viewport, who="owner")
     try:
-        # The ring sits 5px outside the picture and strokes 2px: 6px of margin keeps
-        # its outer edge on the column instead of beside the cards.
-        gap = page.evaluate("""() => { const picture = document.querySelector('.hero__picture');
-            const hero = picture.closest('.hero');
-            return picture.getBoundingClientRect().left - hero.getBoundingClientRect().left; }""")
-        assert gap >= 6, gap
+        # The picture keeps the card's padding on every side, so it never touches the card's edge
+        # or reaches past the column.
+        gap = page.evaluate("""() => { const picture = document.querySelector('.home-flight__picture');
+            const card = picture.closest('.home-flight');
+            const p = picture.getBoundingClientRect(), c = card.getBoundingClientRect();
+            return {left: p.left - c.left, top: p.top - c.top, right: c.right - p.right}; }""")
+        assert gap["left"] >= 12 and gap["top"] >= 12 and gap["right"] >= 12, gap
     finally:
         context.close()
 

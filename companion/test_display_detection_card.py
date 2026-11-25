@@ -1,5 +1,5 @@
-"""The Display page holds none of the Location and detection controls (no
-card, no location picker, no time zone select), the Location and detection
+"""The Display page holds none of the Location controls (no
+card, no location picker, no time zone select), the Location
 page carries them, the Device page and the removed Runway card stay absent,
 saving Display never changes the stored place, zone or detection, and the
 history pages tolerate the newer runway ids, over a real in-process server.
@@ -123,7 +123,7 @@ def _save_position(rig, radius="9"):
 def _assert_display_has_no_place_controls(page):
     assert "detection-card" not in page
     assert 'id="location-detection' not in page
-    assert "Location and detection</h2>" not in page
+    assert "Location</h2>" not in page
     assert not re.search(r"<select\b[^>]*name=\"(location_id|timezone)\"", page)
     assert 'id="location-picker"' not in page and 'id="quiet-hours-timezone"' not in page
     assert "Change airport, runway or position" not in page
@@ -147,7 +147,7 @@ def test_display_serves_none_of_the_moved_controls_in_french(rig):
     status, page = rig.get("owner", rig.scope() + "/display", lang="fr")
     assert status == 200
     _assert_display_has_no_place_controls(page)
-    assert "Lieu et détection</h2>" not in page and "Avions à moins de" not in _text(page)
+    assert "Lieu</h2>" not in page and "Avions à moins de" not in _text(page)
 
 
 def test_the_four_views_are_all_there_and_quiet_hours_are_not_on_display(rig):
@@ -181,7 +181,7 @@ def test_the_fleet_settings_carry_no_detection_card(rig):
     status, page = rig.get("admin", "/fleet?frame=%s" % rig.fleet.owner_device)
     assert status == 200
     assert "detection-card" not in page
-    assert "Location and detection" not in page
+    assert "Location" not in page
     assert "Charles de Gaulle" not in _text(page)
     assert page.index("Diagnostic LED") > 0
 

@@ -138,6 +138,9 @@ files = [
     "server/screen_layouts.py",
     "server/net/safe_fetch.py",
     "server/plane/calendar_rules/ics.py",
+    "server/plane/fleet_registries.py",
+    "server/plane/fleet_artwork.py",
+    "server/plane/fleet_set_defaults.py",
     "server/plane/calendar_rules/match.py",
     "server/wake.py",
     "server/panel_format.py",
@@ -181,6 +184,8 @@ files = [
     # annotated, but the orchestration steps over CycleContext stay
     # partially annotated.
     "server/poll_cycle.py",
+    "companion/auth0_management.py",
+    "server/plane/airline_suggest.py",
 ]
 
 # mypy's own `strict` preset is a global-only switch; these per-flag
@@ -216,6 +221,8 @@ module = [
     "server.detection",
     "server.wake_stats",
     "server.check_interval",
+    "companion.auth0_management",
+    "server.plane.airline_suggest",
 ]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true

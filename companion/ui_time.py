@@ -539,3 +539,18 @@ def refresh_marker_html(now):
         '<span class="refresh-pill" data-refresh-pill data-loaded-at="%s" hidden>%s%s</span>'
         "</p>"
     ) % (escape_html(now), icon_html("icon-refresh"), escape_html(i18n.t(REFRESH_PILL_TEXT)))
+
+
+def local_timestamp_html(ts, now_ts, fallback="", lang=None):
+    """`<span class="tnum" title="<D Mon HH:MM local>"><local clock></span>`:
+    the concise timestamp without its parenthesised relative age (a day-qualified
+    clock text for an older instant). Returns the escaped `fallback` for a falsy
+    `ts`, and the raw value in both slots for one that does not parse."""
+    if not ts:
+        return escape_html(fallback)
+    parsed = parse_iso(ts)
+    if parsed is None or age_seconds(ts, now_ts) is None:
+        return '<span class="tnum" title="%s">%s</span>' % (escape_html(ts), escape_html(ts))
+    return '<span class="tnum" title="%s">%s</span>' % (
+        escape_html(local_clock_text(parsed, _FULL_TIMESTAMP_SENTINEL_NOW, lang=lang)),
+        escape_html(local_clock_text(parsed, parse_iso(now_ts), lang=lang)))

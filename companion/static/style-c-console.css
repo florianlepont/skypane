@@ -16,8 +16,6 @@
 }
 
 .fleet-group__item .page-section,
-.fleet-group__item .update-cta,
-.fleet-group__item .update-versions,
 .fleet-group__item .theme-status,
 .fleet-group__item .data-card {
   padding: 0;
@@ -71,53 +69,82 @@ html.js-early .dirty-bar[data-dirty-wait] {
   display: none;
 }
 
-/* 0.14 fill-opacity is a measured floor: the lowest opacity that
- * visibly separates the area from the card in both themes (dark mode is
- * the binding case). currentColor keeps it in step with the line's own
- * colour; no gradient, since the emitter never emits a url() reference. */
+/* The area under the line fades out downwards: a mask on the nested layer,
+ * never a gradient reference in the markup. currentColor keeps it in step
+ * with the line's own colour. */
 .sparkline-area {
   fill: currentColor;
-  fill-opacity: 0.14;
+  fill-opacity: 0.18;
+}
+
+.sparkline__area {
+  -webkit-mask-image: linear-gradient(to bottom, var(--color-text), transparent);
+  mask-image: linear-gradient(to bottom, var(--color-text), transparent);
 }
 
 /* One <line> per point pair, not a <polyline>: percentages are not
  * permitted inside a polyline's points list. */
 .sparkline-line {
   stroke: currentColor;
-  stroke-width: 2;
+  stroke-width: 2.5;
   stroke-linecap: round;
   fill: none;
 }
 
+/* The light grid: hairline rects in the border colour. */
 .sparkline-axis {
   fill: var(--color-border);
 }
 
-/* r is a presentation attribute from a Python-side radius constant; a
- * CSS declaration of any specificity would beat and flatten it. No
- * pointer-events here either — it's inherited from the sibling
- * .sparkline-dot; this mark simply paints on top of it (measured). */
+/* The newest point's marker: ringed in the card colour so it reads on the
+ * line. r is a presentation attribute from a Python-side constant. */
 .sparkline-mark {
   fill: currentColor;
+  stroke: var(--color-dominant);
+  stroke-width: 3;
   pointer-events: none;
 }
 
+/* The low-battery line: dashed (so it is not colour alone) and the zone
+ * below it tinted. */
 .sparkline-threshold {
-  fill: var(--color-status-warn);
+  stroke: var(--color-status-warn);
+  stroke-width: 2;
+  stroke-dasharray: 7 5;
 }
 
-/* grid-column: 1 / -1 is load-bearing, not tidy: without it the label
- * auto-places into the auto-sized Y-axis column, which then grows to
- * fit a sentence — measured: the canvas dropped from 230px to ~109px
- * inside the same 278px grid, with no other visible signal. */
+.sparkline-zone {
+  fill: var(--color-status-warn);
+  fill-opacity: 0.1;
+}
+
+/* SVG text of the chart: axis, date and threshold labels at 13px, the
+ * latest value and the threshold label emphasised. A halo in the card
+ * colour keeps a label legible over the line. */
+.sparkline-text {
+  fill: color-mix(in srgb, var(--color-text) 70%, transparent);
+  font-size: var(--font-caption-size);
+  paint-order: stroke;
+  stroke: var(--color-dominant);
+  stroke-width: 4px;
+  stroke-linejoin: round;
+}
+
+.sparkline-text--strong {
+  fill: var(--color-text);
+  font-size: 14px;
+  font-weight: var(--weight-semibold);
+}
+
 .sparkline__legend {
-  grid-column: 1 / -1;
+  margin-top: var(--space-sm);
 }
 
 .sparkline-swatch {
-  width: 12px;
-  height: 1px;
-  background: var(--color-status-warn);
+  flex: none;
+  width: 20px;
+  height: 0;
+  border-top: 2px dashed var(--color-status-warn);
 }
 
 /* A transparent SVG fill is still hit-testable, which is why this
@@ -136,17 +163,6 @@ html.js-early .dirty-bar[data-dirty-wait] {
 .sparkline-hit:focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 1px;
-}
-
-/* HTML <span>, not SVG text: color sets the ink, not fill. 12px is the
- * smallest text this file sets. line-height: 1.2 is required,
- * not decorative: health_page.py's vertical-inset math assumes this
- * exact, non-inherited line-height. */
-.sparkline-axis-label {
-  font-size: 12px;
-  font-weight: var(--weight-regular);
-  line-height: 1.2;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
 .drawing--ok {
@@ -178,14 +194,6 @@ html.js-early .dirty-bar[data-dirty-wait] {
 .battery-unit[hidden],
 .battery-chart__view[hidden] {
   display: none;
-}
-
-.health-row__summary:hover {
-  background: color-mix(in srgb, var(--color-text) 3.5%, transparent);
-}
-
-.health-row__summary:focus-visible {
-  outline-offset: -2px;
 }
 
 .health-row__name {
@@ -540,25 +548,13 @@ button.row-menu__item--destructive,
 button.row-menu__item--destructive:hover {
   color: var(--color-status-error);
 }
-@media (max-width: 699.98px) {
-
-  .page-header__actions--stack {
-    grid-column: 1;
-    grid-row: 2;
-  }
-
-  .page-header__actions--stack a.page-header__action {
-    display: flex;
-    width: 100%;
-  }
-}
 
 @container health-rows (min-width: 420px) {
   .health-row__summary {
-    grid-template-columns: 32px minmax(0, 1fr) minmax(0, max-content) 16px;
+    grid-template-columns: 32px minmax(0, 1fr) minmax(0, max-content);
     grid-template-areas:
-      "icon name value chevron"
-      "icon verdict value chevron";
+      "icon name value"
+      "icon verdict value";
     min-height: 64px;
     padding: var(--space-sm) var(--space-md);
   }
@@ -581,10 +577,6 @@ button.row-menu__item--destructive:hover {
 
 .group .row--danger .row__main {
   color: var(--color-status-error);
-  font-weight: var(--weight-semibold);
-}
-
-.group > .row--purpose .row__label {
   font-weight: var(--weight-semibold);
 }
 

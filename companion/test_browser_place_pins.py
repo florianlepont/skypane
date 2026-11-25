@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Browser checks for the airport pins, the tap-to-place hint and the typed suggestions of the
-Location and detection page, with both external hosts answered by `page.route`
+Location page, with both external hosts answered by `page.route`
 (test-support/place_map_support.py): a fresh page draws a tappable pin for every airport of
 the catalogue and tapping one selects it; My position mode draws none and a tap places the
 pin; typing lists airports from the page's own catalogue without any request, a submitted
 address is looked up once and listed, and the list is a keyboard-operable listbox."""
+import animation_settle
 import pytest
 
 from companion import auth
@@ -19,9 +20,7 @@ pytestmark = pytest.mark.browser
 PHONE = {"width": 390, "height": 844}
 READY = "() => document.documentElement.classList.contains('map-ready')"
 TILES = "() => document.querySelectorAll('#place-map .leaflet-tile-loaded').length >= 1"
-IDLE = (
-    "() => document.getAnimations().every((a) => a.playState !== 'running'"
-    " || a.effect.getComputedTiming().iterations === Infinity)")
+IDLE = animation_settle.ANIMATIONS_DONE
 SEARCH = "#place-search"
 OPTIONS = "#place-results button[role='option']"
 AREA = "label.place-mode:has(#place-mode-area)"

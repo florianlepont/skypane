@@ -13,8 +13,6 @@ import time
 import pytest
 
 import fleet_console_support as fx
-from frame_menu_support import click_add, click_add_without_script, open_menu
-from locations_page_support import open_locations_page
 from companion import auth, legacy_pages
 from companion.test_browser_ux_helpers import (
     VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED, _in_both_themes, _login,
@@ -34,7 +32,7 @@ import byos_server  # noqa: E402
 MIN_TAP_PX = 44
 CONSOLE_PATHS = ("/fleet", "/users", "/audit")
 ADMIN_ONLY_PATHS = (
-    "/fleet", "/users", "/audit", "/update", "/device", "/health", "/airlines/manage")
+    "/fleet", "/users", "/audit", "/update", "/airlines/manage")
 ADMIN_ONLY_CONTROLS = (
     "wake_interval_s", "led_enabled", "tracked_runway", "Poll now")
 
@@ -66,7 +64,7 @@ _ADD_EXISTING_BUTTONS = (
     "  const pill = document.createElement('span');"
     "  pill.className = 'banner__pill users-pill users-pill--' + tone; pill.textContent = 'x';"
     "  document.querySelector('main').appendChild(pill); } }")
-REFERENCE_PATHS = ("/", "/display", "/health", "/flights", "/airlines", "/airlines/manage", "/update", "/account")
+REFERENCE_PATHS = ("/", "/display", "/fleet?frame=live&view=battery", "/flights", "/airlines", "/airlines/manage", "/update", "/account")
 def _no_sideways_scroll(page):
     return page.evaluate(
         "document.documentElement.scrollWidth <= document.documentElement.clientWidth")
@@ -98,6 +96,12 @@ def _user_context(new_context, server, viewport=None):
         "name": name, "value": value, "url": server.base_url(), "httpOnly": True,
         "sameSite": "Strict"}])
     return context, seed
+
+
+def click_add(page):
+    """Choose Add a frame in the Fleet list (it leads to the Add a frame page)."""
+    page.locator(".fleet-add-button").click()
+    page.wait_for_url("**/pair-frame")
 
 
 def _flash(page):
@@ -163,25 +167,21 @@ def test_forms_and_confirm_controls_meet_the_touch_target(
     server = app_server_in_process
     context, page = _admin_page(new_context, server, "/fleet", VIEWPORT_MIN_SUPPORTED)
     try:
-        assert _height(page, "summary.frame-menu__button") >= MIN_TAP_PX
-        assert _height(page, "li.entity-row .row-menu__toggle") >= MIN_TAP_PX
-        open_menu(page)
-        assert _height(page, "a.frame-row--add") >= MIN_TAP_PX
-        page.locator("a.frame-row--add").click()
+        assert _height(page, ".fleet-add-button") >= MIN_TAP_PX
+        assert _height(page, "li.fleet-frame-row > a") >= MIN_TAP_PX
+        click_add(page)
         for selector in (
-                "#pair-code", "#pair-owner", 'form[action="/fleet/pair"] button'):
+                "#pair-code", "#pair-owner", 'form.pair-form button[type=submit]'):
             assert _height(page, selector) >= MIN_TAP_PX, selector
         page.goto(server.base_url() + "/users")
         assert _height(page, "a.page-header__action") >= MIN_TAP_PX
-        assert _height(page, "tr.users-row select") >= MIN_TAP_PX
+        # A phone card has no select: the role changes from the person's menu.
+        page.locator("tr.users-row .row-menu__toggle").first.click()
+        assert _height(page, "tr.users-row .users-menu__role .row-menu__item") >= MIN_TAP_PX
+        page.keyboard.press("Escape")
         page.locator("a.page-header__action").click()
         for selector in (
-                "#invite-email", "#invite-role", 'form[action="/users/invite"] button'):
-            assert _height(page, selector) >= MIN_TAP_PX, selector
-        open_locations_page(page, server.base_url())
-        for selector in (
-                "#new-name", "#new-lat", "#new-lon", "#new-tz",
-                'form[action="/locations/add"] button'):
+                "#invite-email", "#invite-role", '#dlg-invite-user button[type=submit]'):
             assert _height(page, selector) >= MIN_TAP_PX, selector
     finally:
         context.close()
@@ -220,23 +220,16 @@ def test_console_works_with_scripts_blocked(new_context, app_server_in_process):
         _login(page, server.base_url())
 
         page.goto(server.base_url() + "/fleet")
-        summary = page.locator("details.row-menu > summary:visible").first
-        summary.click()
-        assert page.locator("details.row-menu[open]:visible").count() == 1
-        summary.click()
-        assert page.locator("details.row-menu[open]").count() == 0
+        page.locator("li.fleet-frame-row > a[href*='frame=']").first.click()
+        page.wait_for_url("**/fleet?frame=*")
+        assert page.locator(".fleet-head__title").is_visible()
 
         page.goto(server.base_url() + "/users")
         page.click("a.page-header__action")
         page.fill("#invite-email", "invited@example.test")
-        page.click('form[action="/users/invite"] button')
-        page.wait_for_url("**/users")
-        assert _flash(page).is_visible()
+        page.click('#dlg-invite-user button[type=submit]')
+        page.locator("#dlg-invitation-failed").wait_for(state="visible")
         assert "invited@example.test" in page.content()
-
-        # The Locations list is gone: its address is a plain redirect to Fleet.
-        page.goto(server.base_url() + "/locations")
-        assert page.url.endswith("/fleet")
     finally:
         context.close()
 
@@ -252,10 +245,10 @@ def test_pair_form_posts_and_redirects_with_scripts_blocked(
         page = context.new_page()
         _login(page, server.base_url())
         page.goto(server.base_url() + "/fleet")
-        click_add_without_script(page)
+        click_add(page)
         page.fill("#pair-code", code)
         page.select_option("#pair-owner", str(seed.user_id))
-        page.click('form[action="/fleet/pair"] button')
+        page.click('form.pair-form button[type=submit]')
         page.wait_for_url("**/fleet")
         assert "Frame paired" in _flash(page).inner_text()
     finally:
@@ -290,7 +283,7 @@ def test_console_renders_in_french(new_context, app_server_in_process):
         page.goto(server.base_url() + "/fleet")
         nav = page.locator("nav.sidebar-nav").inner_text()
         assert page.locator("nav.space-switch:visible").inner_text().split() == [
-            "Console", "Mon", "cadre"]
+            "Mes", "cadres", "Console"]
         for label in ("Flotte", "Utilisateurs", "Journal d’audit"):
             assert label in nav, label
         assert "Lieux" not in nav
@@ -365,6 +358,16 @@ def test_console_pages_ship_no_confirm_and_dialogs_only_where_planned(
             assert "<dialog" not in script and "confirm(" not in script, src
 
 
+# The opened Audit event is a tinted panel in the approved Audit mockup: the page ink at 5 %
+# for its ground and at 80 % for its terms. They are counted as already in use, resolved in the
+# theme being checked, because a reference page cannot show an opened event.
+_ADD_AUDIT_PANEL_PAINT = (
+    "() => { const panel = document.createElement('div');"
+    " panel.style.background = 'color-mix(in srgb, var(--color-text) 5%, transparent)';"
+    " panel.style.color = 'color-mix(in srgb, var(--color-text) 80%, transparent)';"
+    " panel.textContent = 'x'; document.querySelector('main').appendChild(panel); }")
+
+
 def _resolved_values(page, server, paths, probe=False):
     colours, motion = set(), set()
     for path in paths:
@@ -372,6 +375,7 @@ def _resolved_values(page, server, paths, probe=False):
         page.locator("main").wait_for(state="visible")
         if probe:
             page.evaluate(_ADD_EXISTING_BUTTONS)
+            page.evaluate(_ADD_AUDIT_PANEL_PAINT)
         seen = page.evaluate(_STYLE_VALUES)
         colours.update(seen["colours"])
         motion.update(seen["motion"])
@@ -415,7 +419,7 @@ def test_pairing_flow_in_the_browser(new_context, app_server_in_process, monkeyp
         page.goto(server.base_url() + "/fleet")
         click_add(page)
         page.fill("#pair-code", wrong)
-        page.click('form[action="/fleet/pair"] button')
+        page.click('form.pair-form button[type=submit]')
         first_text = _refusal_text(page)
         assert first_text
 
@@ -425,14 +429,14 @@ def test_pairing_flow_in_the_browser(new_context, app_server_in_process, monkeyp
             other = pairing_code.generate_code()
         click_add(page)
         page.fill("#pair-code", other)
-        page.click('form[action="/fleet/pair"] button')
+        page.click('form.pair-form button[type=submit]')
         assert _strip_codes(first_text, wrong) == _strip_codes(_refusal_text(page), other)
 
         page.goto(server.base_url() + "/fleet")
         click_add(page)
         page.fill("#pair-code", code)
         page.select_option("#pair-owner", str(_owner_id(server.state_dir)))
-        page.click('form[action="/fleet/pair"] button')
+        page.click('form.pair-form button[type=submit]')
         page.wait_for_url("**/fleet")
         assert "Frame paired" in _flash(page).inner_text()
         conn = fleet_db.connect(server.state_dir)

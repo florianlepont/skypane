@@ -67,6 +67,15 @@ def normalized_png_bytes(path):
     offset = ((target_w - painted_w) // 2, (target_h - painted_h) // 2)
     canvas.paste(painted, offset, painted)
 
+    # Pasting through the picture's own alpha squares that alpha, so soft edge
+    # pixels can fall under the paint threshold and the painted box shrinks
+    # unevenly. Re-centre what is actually painted in the output.
+    out_bbox = panel_render._opaque_bbox(canvas)
+    if out_bbox is not None:
+        placed = canvas.crop(out_bbox)
+        canvas = Image.new("RGBA", ILLUSTRATION_TARGET_SIZE, (0, 0, 0, 0))
+        canvas.paste(placed, ((target_w - placed.size[0]) // 2, (target_h - placed.size[1]) // 2))
+
     buffer = io.BytesIO()
     canvas.save(buffer, format="PNG")
     return buffer.getvalue()

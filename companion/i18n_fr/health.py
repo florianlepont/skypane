@@ -66,7 +66,7 @@ MESSAGES = {
 
     # --- Anomaly banner --------------------------------------------
     "health.something_needs_attention_check_the_tiles_below":
-        "Quelque chose nécessite votre attention — consultez les lignes ci-dessous.",
+        "Quelque chose demande votre attention — vérifiez les lignes ci-dessous.",
     "health.warning": "avertissement",
     "health.error": "erreur",
     "health.issue": "problème",
@@ -75,10 +75,11 @@ MESSAGES = {
         "Base de données de la flotte indisponible\u00a0: les fichiers "
         "d’appareils historiques sont utilisés.",
     "health.flight_data_is_stale": "Données de vol anciennes.",
+    "health.battery_level_is_low": "Niveau de batterie bas.",
     "health.battery_dropped_abnormally":
         "Baisse anormale de batterie.",
     "health.data_sources_disagreed_recently":
-        "Sources en désaccord récemment.",
+        "Les sources ont divergé récemment.",
     "health.some_airlines_are_unidentified": "Compagnies non identifiées.",
     "health.all_data_sources_failed": "Toutes les sources ont échoué.",
 
@@ -90,8 +91,6 @@ MESSAGES = {
         "il s’agit d’une panne de source de données, pas d’un problème matériel.",
 
     # --- Frame connection / flight data / sources rows ------------------
-    "health.device_connection_help":
-        "Moment où le cadre a contacté le serveur pour la dernière fois.",
     "health.last_aircraft_detected": "Dernier avion détecté",
     "health.checking_in_normally": "Se connecte normalement",
     "health.has_not_checked_in_for_a_while": "N’a pas répondu depuis un moment",
@@ -107,30 +106,19 @@ MESSAGES = {
     "health.the_frame_has_not_reported_a_flight_since_it":
         "Le cadre n’a signalé aucun vol depuis son démarrage.",
     "health.sources_agree": "Les sources concordent",
-    "health.sources_disagreed_recently": "Les sources se sont contredites récemment",
+    "health.sources_disagreed_recently": "Les sources ont divergé récemment",
     "health.nothing_to_compare_yet": "Rien à comparer pour l’instant",
     "health.this_appears_once_the_frame_has_recorded_at":
         "Ceci apparaît une fois que le cadre a enregistré au moins un vol.",
     "health.both_agree": "Les deux concordent",
-    "health.both_flight_data_sources_on_the_frame_picked":
-        "Les deux sources de données de vol du cadre ont identifié le même avion.",
     "health.only_one_saw_it": "Une seule l’a vu",
-    "health.only_one_of_the_two_sources_returned_an":
-        "Une seule des deux sources a renvoyé un avion ce cycle — ce n’est "
-        "pas un désaccord, il n’y avait simplement rien à comparer du "
-        "côté de l’autre source.",
     "health.they_disagree": "Elles se contredisent",
-    "health.the_two_sources_named_different_aircraft_so":
-        "Les deux sources ont identifié des avions différents, donc rien "
-        "n’a été affiché ce cycle — l’écran a conservé l’image précédente.",
 
     # --- Flight identification row ---------------------------------------
-    "health.over_the_last_days_events": "au cours des %d derniers jours, %d événements",
     # The singular sibling of the line above. A window holding
     # exactly one detection reads "1 events" in English and
     # "1 événements" here; only the noun loses its "s" (the day count
     # is a fixed 30, so it never needs a singular form of its own).
-    "health.over_the_last_days_event": "au cours des %d derniers jours, %d événement",
 
     # --- Battery trend section -------------------------------------------
     "health.battery": "Batterie",
@@ -138,7 +126,8 @@ MESSAGES = {
     "health.battery_unit_group": "Unité du graphique de batterie",
     "health.battery_unit_percent": "Pourcentage",
     "health.battery_unit_voltage": "Tension",
-    "health.last_3_months_daily_average": "3 derniers mois, moyenne quotidienne",
+    "health.battery_last_90_days": "90 derniers jours",
+    "health.battery_daily_averages": "Moyennes quotidiennes",
     "health.daily_average_reading": "%s — moyenne quotidienne (%d relevé)",
     "health.daily_average_readings": "%s — moyenne quotidienne (%d relevés)",
     "health.daily_average": "%s — moyenne quotidienne",
@@ -152,9 +141,21 @@ MESSAGES = {
     "health.no_battery_telemetry_recorded_yet_check_back":
         "Aucune télémétrie de batterie enregistrée pour l’instant — "
         "revenez après la prochaine vérification de l’appareil.",
-    "health.timestamp": "Horodatage",
-    "health.battery_mv": "Batterie (mV)",
-    "health.view_reading": "Voir %d relevé%s",
+    # The Battery card (companion/battery_card.py).
+    "health.battery_low": "Le niveau est bas",
+    "health.battery_level_group": "Niveau et tension de la batterie",
+    "health.battery_last_reading": "Dernier relevé",
+    "health.battery_col_time": "Heure",
+    "health.battery_col_level": "Niveau",
+    "health.battery_latest": "Dernier",
+    "health.battery_chart_empty": "Pas encore assez de relevés pour une courbe",
+    "health.battery_chart_empty_body":
+        "La courbe apparaît à partir de %d relevés. %d pour l’instant.",
+    "health.low_battery_off_range":
+        "Batterie faible\u00a0: %d mV (\u2248 %d\u00a0%%), sous la plage affichée",
+    "health.low_battery_off_range_pct":
+        "Batterie faible\u00a0: %d\u00a0%%, sous la plage affichée",
+    "health.battery_readings_heading": "Relevés (%d)",
 
     # --- Health rows (companion/health_rows.py, health_page.py) ----------
     # The four state words are spoken, never shown: each row's icon shape
@@ -163,7 +164,6 @@ MESSAGES = {
     "health.row_state_warn": "À surveiller",
     "health.row_state_error": "Problème",
     "health.row_state_off": "Neutre",
-    "health.row_connection": "Connexion du cadre",
     "health.row_battery": "Batterie",
     "health.row_flight_data": "Données de vol",
     "health.row_sources": "Sources de données",
@@ -174,21 +174,37 @@ MESSAGES = {
     "health.row_no_readings": "Aucun relevé pour l’instant",
     "health.row_no_check_in": "Aucune connexion pour l’instant",
     "health.row_unavailable": "Indisponible",
-    "health.row_last_check_in": "Dernière connexion",
+    "health.row_last_check_in": "Dernier contact",
     "health.row_next_wake": "Prochain réveil",
     "health.row_last_run": "Dernière exécution",
+    "health.tile_server": "Serveur",
     # Real U+00A0 between each figure and its unit or sign.
     "health.row_battery_value": "%d\u00a0%% · %d\u00a0mV",
     "health.row_no_disagreement": "Aucun désaccord",
     "health.row_one_disagreement": "1\u00a0désaccord",
     "health.row_n_disagreements": "%d\u00a0désaccords",
-    "health.row_identified": "%s\u00a0%% des vols identifiés",
     "health.row_to_resolve": "%d à résoudre",
+    # System page cards. Real U+00A0 before "%" and before the colon.
+    "health.sys_last_detection": "Dernière détection",
+    "health.sys_both_note":
+        "Les deux sources de données de vol du cadre ont choisi le même avion.",
+    "health.sys_only_one_note":
+        "Une seule des deux sources a renvoyé un avion à ce cycle.",
+    "health.sys_disagree_note": "Les deux sources ont choisi des avions différents.",
+    "health.sys_identified": "%s\u00a0%% des vols identifiés",
+    "health.sys_identified_short": "%s\u00a0%% identifiés",
+    "health.sys_window": "%d derniers jours\u00a0: %d vols",
+    "health.sys_window_one": "%d derniers jours\u00a0: 1 vol",
+    "health.sys_src_fresh": "Trajet trouvé à l’instant",
+    "health.sys_src_cached": "Trajet repris d’une recherche précédente",
+    "health.sys_src_airline": "Seule la compagnie est connue",
+    "health.sys_src_manual": "Nommée par le propriétaire",
+    "health.sys_src_miss": "Rien trouvé",
+    "health.sys_src_other": "Autres cas",
     "health.row_nothing_to_resolve": "Rien à résoudre",
 
     # --- Screen / Server & data group headings ---------------------------
     "health.screen": "Écran",
-    "health.server_data": "Serveur et données",
 
     # --- Unresolved-prefix registry / filter bar --------------------------
     "health.airlines_we_could_not_name": "Compagnies non identifiées",
@@ -206,7 +222,7 @@ MESSAGES = {
     "health.example_callsign": "Exemple d’indicatif",
 
     # --- Resolution-statistics table --------------------------------------
-    "health.how_well_we_name_flights": "Identification des vols",
+    "health.how_well_we_name_flights": "Identification",
     # Kept as an unformatted "%d" template, exactly like the English
     # source constant.
     "health.no_flights_in_the_last_days": "Aucun vol depuis %d jours",
@@ -262,12 +278,33 @@ MESSAGES = {
         "consultez les journaux du service companion.",
 
     # --- A selected device other than the live frame ---------------------
-    "health.device_unreachable":
-        "Aucun signal depuis {time} \u2014 Dernières données connues affichées.",
     "health.device_empty_heading": "Ce cadre ne s’est pas encore connecté",
     "health.device_empty_body":
-        "L’état apparaîtra après son premier réveil. Vérifiez qu’il est allumé "
-        "et à portée du Wi-Fi.",
+        "Les relevés de batterie apparaîtront après son premier réveil. Vérifiez "
+        "qu’il est allumé et à portée du Wi-Fi.",
     "health.device_battery_empty_heading": "Aucune mesure de batterie",
     "health.device_battery_empty_body": "Affichée après la première connexion.",
+
+    # Route directories (Health page). Real U+00A0 before "%" and before
+    # the colon.
+    "health.rd_directories": "Annuaires de routes",
+    "health.rd_answered_by": "Répondu par",
+    "health.rd_vrs_name": "Données VRS",
+    "health.rd_vrs_role": "Interrogées en premier",
+    "health.rd_adsbdb_role": "Utilisé quand le premier n’a pas de route",
+    "health.rd_reachable": "Joignable",
+    "health.rd_not_reachable": "Injoignable",
+    "health.rd_no_request": "Aucune requête pour l’instant",
+    "health.rd_no_request_note":
+        "Affichée après la première recherche envoyée à cet annuaire.",
+    "health.rd_last_answer": "Dernière réponse",
+    "health.rd_last_24h": "Dernières 24\u00a0h",
+    "health.rd_lookups": "Recherches %d",
+    "health.rd_found": "Route trouvée",
+    "health.rd_failed": "En échec",
+    "health.rd_percent": "%d\u00a0%%",
+    "health.rd_never": "jamais",
+    "health.rd_no_answers": "Aucune route d’un annuaire sur les %d derniers jours",
+    "health.rd_no_answers_note":
+        "Affichée dès qu’un vol reçoit sa route de l’un des annuaires.",
 }

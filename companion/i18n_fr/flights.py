@@ -27,7 +27,7 @@ MESSAGES = {
     # --- Table column headers ---------------------------------------------
     "flights.when": "Quand",
     "flights.route": "Trajet",
-    "flights.state": "Sens",
+    "flights.aircraft": "Avion",
     "flights.recent_flights_table_scrollable": "Tableau des vols récents, défilable",
 
     # --- The table's filter bar -----------------------------------------
@@ -50,8 +50,11 @@ MESSAGES = {
     "flights.sort_airline": "Compagnie",
     "flights.sort_direction": "Sens",
     "flights.apply_filters": "Appliquer",
-    "flights.matches_many": "%d vols correspondent",
-    "flights.matches_one": "1 vol correspond",
+    "flights.count_of_total": "%d sur %d vols",
+    "flights.info_label": "À propos de cette liste",
+    "flights.info_directions":
+        "Les départs ont décollé de la piste, les arrivées s’y sont posées.",
+    "flights.info_folded": "Un avion vu deux fois de suite n’apparaît qu’une fois.",
     "flights.matches_none": "Aucun vol ne correspond",
     "flights.count_many": "%d vols",
     "flights.count_one": "1 vol",
@@ -78,9 +81,8 @@ MESSAGES = {
     "flights.today": "Aujourd’hui",
     "flights.yesterday": "Hier",
 
-    # The row-level picture link: visible label, hidden column header and
-    # the per-row accessible name.
-    "flights.view_picture": "Voir l’image",
+    # The row-level picture link: hidden column header and the per-row
+    # accessible name.
     "flights.picture": "Image",
     "flights.view_picture_of": "Voir l’image de %s",
     # The phone card's placeholder where an airline has no artwork.

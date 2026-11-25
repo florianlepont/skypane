@@ -105,7 +105,6 @@ _OFFLINE = i18n.msg("components.sample_offline", "Offline")
 _COL_AIRLINE = i18n.msg("components.sample_col_airline", "Airline")
 _COL_FLIGHTS = i18n.msg("components.sample_col_flights", "Flights")
 _COL_LAST = i18n.msg("components.sample_col_last", "Last seen")
-_HERO_LINE = i18n.msg("components.sample_hero_line", "A320 landing on runway 3")
 _MENU_RENAME = i18n.msg("components.sample_menu_rename", "Rename")
 _MENU_REMOVE = i18n.msg("components.sample_menu_remove", "Remove")
 _MENU_LABEL = i18n.msg("components.sample_menu_label", "Row actions")
@@ -153,6 +152,14 @@ _M_STATE_BUTTONS = i18n.msg("components.state_buttons", "Buttons that post")
 _M_STATE_LINKS = i18n.msg("components.state_links", "Links to pages")
 _M_STATE_CHIPS = i18n.msg("components.state_chips", "Filter chips")
 _M_STATE_CHIP_LINKS = i18n.msg("components.state_chip_links", "Filter chips as links")
+_M_STATE_CHIPS_SCROLL = i18n.msg(
+    "components.state_chips_scroll", "Filter chips on one scrolling row")
+_M_STATE_CONTROLS = i18n.msg(
+    "components.state_filter_controls", "Filter controls: search, sort, info and chips")
+_M_SAMPLE_INFO = i18n.msg("components.sample_info", "About this list")
+_M_SAMPLE_INFO_BODY = i18n.msg(
+    "components.sample_info_body", "The info button opens a short explanation of the list.")
+_M_SAMPLE_APPLY = i18n.msg("components.sample_apply", "Apply")
 _M_STATE_NUMBER = i18n.msg("components.state_number", "Number")
 _M_SAMPLE_NUMBER_HINT = i18n.msg("components.sample_number_hint", "Default")
 _M_STATE_SEARCH = i18n.msg("components.state_search", "Search")
@@ -164,7 +171,6 @@ _M_STATE_SECTION_LABEL = i18n.msg("components.state_section_label", "Section lab
 _M_STATE_SECTION_INTRO = i18n.msg("components.state_section_intro", "Section introduction")
 _M_STATE_TILES = i18n.msg("components.state_tiles", "Tiles by status")
 _M_STATE_STATUS_ROWS = i18n.msg("components.state_status_rows", "Status rows")
-_M_STATE_HERO = i18n.msg("components.state_hero", "Hero")
 _M_STATE_LINK_CARD = i18n.msg("components.state_link_card", "Link card")
 _M_STATE_LINK_CARD_PLAIN = i18n.msg("components.state_link_card_plain", "Link card, title only")
 _SAMPLE_LINK_CARD_SUB = i18n.msg("components.sample_link_card_subtitle", "Fleet, users, audit")
@@ -183,9 +189,14 @@ _M_STATE_TOAST_OFFLINE = i18n.msg(
     "components.state_toast_offline", "List not updated (no connection)")
 _M_STATE_BANNER_ERROR = i18n.msg("components.state_banner_error", "Banner, error")
 _M_STATE_BANNER_WARN = i18n.msg("components.state_banner_warn", "Banner, warning")
+_M_STATE_FRAME_NOTICE = i18n.msg(
+    "components.state_frame_notice", "Foreign-frame marker")
+_SAMPLE_OWNER_EMAIL = "camille.durand@example.test"
 _M_STATE_EMPTY_COMPACT = i18n.msg("components.state_empty_compact", "Compact, inside a card")
 _M_STATE_EMPTY_SEARCH = i18n.msg("components.state_empty_search", "Search with no match")
 _M_STATE_DIALOGS = i18n.msg("components.state_dialogs", "Dialogs (open them)")
+_M_STATE_COMPACT_DIALOG = i18n.msg(
+    "components.state_compact_dialog", "Short dialog (open it)")
 _M_STATE_SAVE_BAR = i18n.msg("components.state_save_bar", "Save bar")
 _M_STATE_SAVE_BAR_INLINE = i18n.msg(
     "components.state_save_bar_inline", "Save bar, inline in a card (phones)")
@@ -201,7 +212,7 @@ _M_FAMILY_SEGMENTED = i18n.msg("components.family_segmented", "Segmented control
 _M_FAMILY_SEGMENTED_DESC = i18n.msg("components.family_segmented_desc", "One track, one selected pill. Radios inside a form, buttons that post, links "
                         "between pages and filter chips all share it.")
 _M_FAMILY_INPUTS = i18n.msg("components.family_inputs", "Inputs and search")
-_M_FAMILY_INPUTS_DESC = i18n.msg("components.family_inputs_desc", "A labelled field runs the full width of its card; search opens from the title row.")
+_M_FAMILY_INPUTS_DESC = i18n.msg("components.family_inputs_desc", "A labelled field runs the full width of its card; search is a field with an inline clear.")
 _M_FAMILY_MENUS = i18n.msg("components.family_menus", "Menus and sort")
 _M_FAMILY_MENUS_DESC = i18n.msg("components.family_menus_desc", "The sort menu and the row actions menu.")
 _M_FAMILY_CARDS = i18n.msg("components.family_cards", "Cards, groups and tiles")
@@ -368,6 +379,17 @@ def _segmented():
                   "components-chips-search", _t(_SAMPLE_SEARCH), _t(_SAMPLE_PLACEHOLDER),
                   "%d of %d", 42, 42, _t(_SAMPLE_FILTER_EMPTY), _t(_SAMPLE_FILTER_EMPTY_BODY),
                   chips=chips, chips_legend=_t(_INDEX_LABEL), search_in_bar=False)),
+        # Its own form: the chip radios share one group name, so a second chip
+        # row outside a form would uncheck the first one's selection.
+        State(_M_STATE_CHIPS_SCROLL,
+              '<form method="get" action="%s">%s</form>' % (
+                  COMPONENTS_ROUTE, ui_filter.filter_bar_html(
+                      "components-scroll-chips-search", _t(_SAMPLE_SEARCH),
+                      _t(_SAMPLE_PLACEHOLDER), "%d of %d", 42, 42,
+                      _t(_SAMPLE_FILTER_EMPTY), _t(_SAMPLE_FILTER_EMPTY_BODY),
+                      chips=chips, chips_legend=_t(_INDEX_LABEL), search_in_bar=False,
+                      chips_scroll=True))),
+        State(_M_STATE_CONTROLS, _filter_controls_sample()),
         State(_M_STATE_CHIP_LINKS,
               ui_filter.chip_links_html(
                   [("#components-segmented", _t(label), index == 0)
@@ -377,17 +399,33 @@ def _segmented():
     ]
 
 
+def _filter_controls_sample():
+    """The shared filter controls with the sample chips and a sort menu."""
+    values = (("newest", _SORT_NEWEST), ("oldest", _SORT_OLDEST), ("airline", _SORT_AIRLINE))
+    chips = [("", _t(_ALL), 42), ("departing", _t(_DEPARTURES), 25), ("arriving", _t(_ARRIVALS), 17)]
+    return ui_filter.controls_html(
+        COMPONENTS_ROUTE,
+        ui_filter.server_search_html(
+            "components-controls-search", _t(_SAMPLE_SEARCH), _t(_SAMPLE_PLACEHOLDER),
+            "q", "", COMPONENTS_ROUTE),
+        ui_filter.sort_menu_html("components_controls_sort", values, "newest", _SORT),
+        ui_filter.info_menu_html(
+            _M_SAMPLE_INFO, "<p class=\"text-body\">%s</p>" % _esc(_t(_M_SAMPLE_INFO_BODY))),
+        ui_filter.chips_row_html(
+            chips, _t(_INDEX_LABEL), ("components_kind", "", "")),
+        _t(_M_SAMPLE_APPLY))
+
+
 # --- Inputs ------------------------------------------------------------------
 
 def _inputs():
     field = ui_components.text_field_html
     error = ui_modal.field_error_html("components", "name", _t(_SAMPLE_ERROR))
-    search = ui_filter.filter_title_search_html(
-        "components-title-search", _t(_SAMPLE_SEARCH), _t(_SAMPLE_PLACEHOLDER))
-    search_form = ui_filter.filter_title_search_form_html(
+    search = ui_filter.named_search_html(
+        "components-title-search", _t(_SAMPLE_SEARCH), _t(_SAMPLE_PLACEHOLDER), "q", "", 60)
+    search_form = ui_filter.server_search_html(
         "components-search-form-field", _t(_SAMPLE_SEARCH),
-        _t(_SAMPLE_PLACEHOLDER), "components-search-form", COMPONENTS_ROUTE, "q",
-        _t(_SAMPLE_VALUE), COMPONENTS_ROUTE)
+        _t(_SAMPLE_PLACEHOLDER), "q", _t(_SAMPLE_VALUE), COMPONENTS_ROUTE)
     return [
         State(_DEFAULT, field(
             "components-name", "name", _t(_SAMPLE_NAME), _t(_SAMPLE_VALUE), _t(_SAMPLE_HELP))),
@@ -405,9 +443,11 @@ def _inputs():
             input_attrs=' min="30" max="3600" placeholder="%s"' % _esc(
                 _t(_M_SAMPLE_NUMBER_HINT)))),
         State(_M_STATE_SEARCH,
-              '<div class="page-header">%s</div>' % search),
+              '<form class="filter-bar" method="get" action="%s">%s</form>' % (
+                  COMPONENTS_ROUTE, search)),
         State(_M_STATE_SEARCH_VALUE,
-              '<div class="page-header">%s</div>' % search_form),
+              '<form class="filter-bar" method="get" action="%s">%s</form>' % (
+                  COMPONENTS_ROUTE, search_form)),
     ]
 
 
@@ -464,8 +504,6 @@ def _cards():
         State(_M_STATE_TILES,
               '<div class="components-tiles">%s</div>' % tiles),
         State(_M_STATE_STATUS_ROWS, status_rows),
-        State(_M_STATE_HERO,
-              ui_groups.hero(_esc(_t(_HERO_LINE)))),
         State(_M_STATE_LINK_CARD,
               ui_components.link_card_html(
                   COMPONENTS_ROUTE, "icon-shield", _t(_SAMPLE_CARD),
@@ -543,8 +581,7 @@ def _names():
     rows = []
     for _group, entries in ui_base.NAV_GROUPS:
         for route, label in entries:
-            short = ui_base.NAV_SHORT_LABELS.get(ui_base.nav_slug(route), label)
-            rows.append([_t(short), _t(label)])
+            rows.append([_t(label), _t(label)])
     return [State(_M_STATE_NAMES, ui_components.data_table(
         [_t(_COL_TAB), _t(_COL_PAGE)], rows))]
 
@@ -597,6 +634,8 @@ def _messages():
               ui_components.anomaly_banner(_t(_BANNER))),
         State(_M_STATE_BANNER_WARN,
               ui_components.anomaly_banner(_t(_BANNER), "warn")),
+        State(_M_STATE_FRAME_NOTICE,
+              ui_components.frame_notice_markup(_SAMPLE_OWNER_EMAIL, COMPONENTS_ROUTE)),
     ]
 
 
@@ -636,6 +675,11 @@ def _dialogs():
     choice = ui_modal.choice_dialog_html(
         "components-choice", _t(_SAMPLE_CHOICE_TITLE), _t(_SAMPLE_CHOICE_TEXT),
         _t(_CHOICE_PRIMARY), _t(_CHOICE_SECONDARY), _t(_CHOICE_QUIET), "components-choice")
+    compact = ui_modal.dialog_html(
+        "components-compact", _t(_SAMPLE_DIALOG), COMPONENTS_ROUTE, ui_components.csrf_field(),
+        ui_components.text_field_html(
+            "components-compact-name", "name", _t(_SAMPLE_NAME), _t(_SAMPLE_VALUE), ""),
+        _t(_SAVE), _t(_CANCEL), COMPONENTS_ROUTE, variant="compact")
     triggers = (
         ui_modal.trigger_html(
             "components-dialog", _esc(_t(_OPEN_DIALOG)), "btn btn--secondary")
@@ -666,6 +710,11 @@ def _dialogs():
         State(_M_STATE_DIALOGS,
               '<div class="components-triggers">%s</div>%s%s%s%s%s' % (
                   triggers, dialog, confirm, choice, sections, leave)),
+        State(_M_STATE_COMPACT_DIALOG,
+              '<div class="components-triggers">%s</div>%s' % (
+                  ui_modal.trigger_html(
+                      "components-compact", _esc(_t(_OPEN_DIALOG)), "btn btn--secondary"),
+                  compact)),
         State(_M_STATE_SAVE_BAR,
               '<div class="components-save-bar">%s</div>' % bar),
         State(_M_STATE_SAVE_BAR_INLINE,
@@ -709,18 +758,19 @@ CATALOGUE = (
            _M_FAMILY_SEGMENTED_DESC,
            ("ui_segmented.segmented_radios_html", "ui_segmented.segmented_buttons_html",
             "ui_segmented.segmented_links_html", "ui_filter.filter_bar_html",
-            "ui_filter.chip_links_html"), _segmented),
+            "ui_filter.chip_links_html", "ui_filter.controls_html", "ui_filter.chips_row_html",
+            "ui_filter.info_menu_html"), _segmented),
     Family("inputs", _M_FAMILY_INPUTS,
            _M_FAMILY_INPUTS_DESC,
            ("ui_components.text_field_html", "ui_modal.field_error_html",
-            "ui_filter.filter_title_search_html", "ui_filter.filter_title_search_form_html"), _inputs),
+            "ui_filter.named_search_html", "ui_filter.server_search_html"), _inputs),
     Family("menus", _M_FAMILY_MENUS,
            _M_FAMILY_MENUS_DESC,
            ("ui_filter.sort_menu_html", "ui_entity_list.row_menu_html"), _menus),
     Family("cards", _M_FAMILY_CARDS,
            _M_FAMILY_CARDS_DESC,
            ("ui_groups.group", "ui_groups.group_panel", "ui_groups.row", "ui_groups.section_label",
-            "ui_groups.chip_html", "ui_groups.hero", "ui_components.section_intro_html",
+            "ui_groups.chip_html", "ui_components.section_intro_html",
             "ui_components.stat_tile", "ui_components.status_row",
             "ui_components.link_card_html"), _cards),
     Family("lists", _M_FAMILY_LISTS,
@@ -735,7 +785,7 @@ CATALOGUE = (
            _M_FAMILY_MESSAGES_DESC,
            ("ui_components.toast_html", "ui_components.toast_link_action_html",
             "ui_components.toast_post_action_html", "ui_filter.list_offline_template_html",
-            "ui_components.anomaly_banner"), _messages),
+            "ui_components.anomaly_banner", "ui_components.frame_notice_markup"), _messages),
     Family("empty", _M_FAMILY_EMPTY,
            _M_FAMILY_EMPTY_DESC,
            ("ui_components.empty_state", "ui_filter.filter_empty_html"), _empty_states),
@@ -761,7 +811,9 @@ EXEMPT = {
     "ui_components.toast_dismiss_html": "a part of toast_html",
     "ui_components.toast_icon_html": "a part of toast_html",
     "ui_components.toast_text_html": "a part of toast_html",
+    "ui_filter.search_field_html": "the search field of the filter bar above, used on its own by the Fleet list",
     "ui_modal.error_id": "an id builder for field_error_html",
+    "ui_modal.result_dialog_html": "the outcome dialog of the Users invitation (built on the compact variant of dialog_html); it carries a one-time link, so it is shown only by the page that makes one",
     "ui_modal.validated_slug": "a slug check used by the dialog helpers",
 }
 

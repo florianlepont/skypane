@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>P16 Tokenise spacing and radii</title>
+<style>
+:root{
+  --space-xs:4px;--space-sm:8px;--space-md:16px;--space-lg:24px;--space-xl:32px;--space-2xl:48px;
+  --radius-control:14px;--radius-card:22px;--radius-sheet:28px;--radius-pill:32px;
+  --font-caption-size:13px;--font-label-size:15px;--font-body-size:16px;--font-heading-size:22px;--font-card-title-size:17px;
+  --ease-out:cubic-bezier(.22,1,.36,1);--motion-spring:cubic-bezier(.34,1.56,.64,1);
+  --motion-fast:180ms;--motion-enter:400ms;--motion-reveal:900ms;
+}
+.t-light{
+  --sky-top:#E7EEF7;--sky-mid:#F1F3F6;--sky-bottom:#EDF1F6;
+  --glass-bg:rgba(255,255,255,.72);--glass-border:rgba(255,255,255,.85);--glass-highlight:rgba(255,255,255,.9);--glass-solid:#FFFFFF;
+  --glass-hairline:rgba(23,25,31,.1);
+  --shadow-glass:inset 0 1px 0 var(--glass-highlight),0 1px 2px rgba(18,21,27,.06),0 14px 32px -16px rgba(18,21,27,.22);
+  --bar-bg:rgba(255,255,255,.66);--bar-border:#AEB8C8;
+  --color-canvas:#F1F3F6;--color-secondary:#E9EEF5;--color-border:#DAE1EB;
+  --color-accent:#1F2430;--color-on-accent:#FFFFFF;--color-text:#17191F;
+  --color-status-ok:#16A34A;--color-status-warn:#D97706;--color-status-error:#BE123C;
+  --color-control-wash:rgba(23,25,31,.045);--seg-edge:rgba(23,25,31,.2);
+  color-scheme:light}
+.t-dark{
+  --sky-top:#12151D;--sky-mid:#161A24;--sky-bottom:#1A1F2B;
+  --glass-bg:rgba(255,255,255,.09);--glass-border:rgba(255,255,255,.16);--glass-highlight:rgba(255,255,255,.18);--glass-solid:#1C222D;
+  --glass-hairline:rgba(255,255,255,.1);
+  --shadow-glass:inset 0 1px 0 var(--glass-highlight),0 1px 2px rgba(0,0,0,.3),0 14px 32px -16px rgba(0,0,0,.55);
+  --bar-bg:rgba(20,24,34,.86);--bar-border:#46506A;
+  --color-canvas:#161A24;--color-secondary:#1C222D;--color-border:#2A3040;
+  --color-accent:#F2EFE9;--color-on-accent:#14171F;--color-text:#F1F3F6;
+  --color-status-ok:#4ADE80;--color-status-warn:#FBBF24;--color-status-error:#FB7185;
+  --color-control-wash:rgba(23,25,31,.045);--seg-edge:rgba(241,243,246,.2);
+  color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:#E4E9F0;color:#17191F;font:16px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif;padding:24px 0 64px}header.doc,.stage{padding:0 16px}@media (max-width:392px){.stage{padding:0}.stage figcaption{padding:0 16px}}
+header.doc{max-width:1500px;margin:0 auto 24px}
+header.doc h1{margin:0 0 8px;font-size:26px;letter-spacing:-.02em}
+header.doc p{margin:0 0 6px;max-width:80ch;color:#4A5160;font-size:15px}
+.stage{display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start;max-width:1500px;margin:0 auto}
+figure{margin:0}
+figcaption{font-size:13px;color:#4A5160;margin:0 0 8px}
+.phone{position:relative;width:360px;min-height:640px;overflow:hidden;border-radius:28px;border:1px solid var(--color-border);
+  background:linear-gradient(180deg,var(--sky-top) 0%,var(--sky-mid) 45%,var(--sky-bottom) 100%);
+  color:var(--color-text);padding:16px 16px 96px}
+.wide{width:min(760px,100%)}
+.phone h1{margin:8px 0 16px;font-size:32px;line-height:1.1;font-weight:700;letter-spacing:-.03em}
+.phone h2{margin:0 0 8px;font-size:22px;font-weight:600}
+.phone h3{margin:0;font-size:17px;font-weight:600}
+.cap{font-size:13px;color:color-mix(in srgb,var(--color-text) 70%,transparent)}
+.sec{font-size:15px;color:color-mix(in srgb,var(--color-text) 70%,transparent)}
+.glass{background:var(--glass-bg);border:1px solid var(--glass-border);box-shadow:var(--shadow-glass);border-radius:var(--radius-card);padding:16px;margin-bottom:16px}
+.btn{min-height:44px;padding:0 16px;border-radius:var(--radius-control);border:1px solid var(--color-border);background:var(--glass-solid);color:var(--color-text);font:inherit;font-size:15px;cursor:pointer}
+.btn.pri{background:var(--color-accent);color:var(--color-on-accent);border-color:transparent;font-weight:600}
+.btn.bad{color:var(--color-status-error)}
+.row{display:flex;align-items:center;gap:12px;min-height:44px}
+.grow{flex:1;min-width:0}
+.pill{display:inline-flex;align-items:center;min-height:32px;padding:0 12px;border-radius:var(--radius-pill);background:var(--glass-bg);border:1px solid var(--glass-border);font-size:13px}
+.seg{display:flex;gap:4px;padding:4px;border:1px solid var(--seg-edge);border-radius:var(--radius-pill);margin-bottom:16px}
+.seg span{flex:1;min-height:36px;display:flex;align-items:center;justify-content:center;border-radius:var(--radius-pill);font-size:15px;color:color-mix(in srgb,var(--color-text) 70%,transparent)}
+.seg span.on{background:var(--color-accent);color:var(--color-on-accent);font-weight:600}
+input.f{width:100%;min-height:44px;border-radius:var(--radius-control);border:1px solid var(--color-border);background:var(--glass-solid);color:var(--color-text);font:inherit;padding:0 12px}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--color-status-ok);flex:none}
+.tabbar{position:absolute;left:8px;right:8px;bottom:6px;height:68px;border-radius:var(--radius-pill);background:var(--bar-bg);border:1px solid var(--bar-border);display:flex}
+.tabbar span{flex:1;display:flex;align-items:flex-end;justify-content:center;padding-bottom:8px;font-size:11px;color:color-mix(in srgb,var(--color-text) 70%,transparent)}
+.tabbar span.on{color:var(--color-text);font-weight:600}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+a.lnk{color:var(--color-text);text-decoration:underline}
+.scrim{position:absolute;inset:0;background:rgba(10,12,18,.45)}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:var(--glass-solid);border-radius:var(--radius-sheet) var(--radius-sheet) 0 0;padding:16px;box-shadow:0 -10px 28px -12px rgba(18,21,27,.4)}
+.sheet .grab{width:36px;height:4px;border-radius:2px;background:var(--color-border);margin:0 auto 12px}
+
+.scale{display:grid;gap:6px;margin:0}
+.scale .r{display:grid;grid-template-columns:96px 1fr 36px;align-items:center;gap:8px;min-height:24px;font-size:13px}
+.scale .b{height:12px;border-radius:3px;background:var(--color-accent)}
+.scale .b.off{background:repeating-linear-gradient(45deg,var(--color-status-warn) 0 4px,transparent 4px 7px);border:1px solid var(--color-status-warn)}
+.scale .n{text-align:right}
+.scale .t{white-space:nowrap}
+.fcard{background:var(--glass-solid);border:1px solid var(--color-border);margin:0 0 12px}
+.fcard .nm{font-weight:600;font-size:17px}
+.fcard .chips{display:flex;flex-wrap:wrap}
+.fcard .chip{display:inline-flex;align-items:center;min-height:44px;border:1px solid var(--color-border);background:var(--glass-bg);font-size:13px}
+.fcard .act{display:flex}
+.fcard .act span{display:inline-flex;align-items:center;min-height:44px;border:1px solid var(--color-border);font-size:15px}
+.before{padding:12px;border-radius:10px}
+.before .chips{gap:6px;margin:10px 0}
+.before .chip{padding:0 14px;border-radius:10px}
+.before .act{gap:10px}
+.before .act span{padding:0 12px;border-radius:10px}
+.after{padding:var(--space-md);border-radius:var(--radius-control)}
+.after .chips{gap:var(--space-sm);margin:var(--space-sm) 0 var(--space-md)}
+.after .chip{padding:0 var(--space-md);border-radius:var(--radius-control)}
+.after .act{gap:var(--space-sm)}
+.after .act span{padding:0 var(--space-md);border-radius:var(--radius-control)}
+.opts{margin:0;padding:0;list-style:none;display:grid;gap:8px;font-size:13px}
+.opts li{padding:8px 12px;border-radius:12px;border:1px solid var(--color-border);background:var(--glass-bg)}
+.opts b{font-size:15px}
+.tag{display:inline-block;padding:0 8px;border-radius:var(--radius-pill);border:1px solid var(--color-text);font-size:11px}
+</style>
+<header class="doc"><h1>P16 Put spacing and radii on tokens</h1><p>The stylesheets hold 153 spacing findings and 14 radius findings that bypass a token (scan_token_bypass.py, see 68.1-PROPOSALS.md). 23 spacing literals equal an existing token; 130 equal none. None of the 14 radius literals equals a token. Below: the scale with the values that sit between tokens, and one card before and after snapping.</p><p>Standalone review mockup (Phase 68.1 proposal). Sample data is invented. Nothing here is built; tokens are copied from companion/static/style.css.</p></header>
+<div class="stage">
+<figure><figcaption>Light</figcaption><div class="phone t-light"><h1>Spacing scale</h1>
+<div class="glass"><h3>Tokens and literals</h3><p class="cap" style="margin:4px 0 12px">Bars drawn x8. Solid: a token. Hatched: a literal with no token, with its number of uses.</p><div class="scale"><div class="r"><span class="t">--space-xs</span><span class="b" style="width:32px"></span><span class="n">4px</span></div><div class="r"><span class="t">literal 6</span><span class="b off" style="width:48px"></span><span class="n">28</span></div><div class="r"><span class="t">--space-sm</span><span class="b" style="width:64px"></span><span class="n">8px</span></div><div class="r"><span class="t">literal 10</span><span class="b off" style="width:80px"></span><span class="n">9</span></div><div class="r"><span class="t">literal 12</span><span class="b off" style="width:96px"></span><span class="n">20</span></div><div class="r"><span class="t">literal 14</span><span class="b off" style="width:112px"></span><span class="n">12</span></div><div class="r"><span class="t">--space-md</span><span class="b" style="width:128px"></span><span class="n">16px</span></div></div></div>
+<div class="glass"><h3>One card, before and after (option C)</h3>
+<p class="cap" style="margin:4px 0 8px">Before: 12px padding, 6px and 10px gaps, 10px radius, 14px chip padding. After: tokens 16 and 8, 14px control radius. Every target stays 44px.</p>
+<div class="cap">Before</div>
+<div class="fcard before"><div class="nm">Kitchen frame</div><div class="chips"><span class="chip">Online</span><span class="chip">Battery 82%</span></div><div class="act"><span>Open</span><span>Pair</span></div></div>
+<div class="cap">After</div>
+<div class="fcard after"><div class="nm">Kitchen frame</div><div class="chips"><span class="chip">Online</span><span class="chip">Battery 82%</span></div><div class="act"><span>Open</span><span>Pair</span></div></div></div></div></figure>
+<figure><figcaption>Dark</figcaption><div class="phone t-dark"><h1>Spacing scale</h1>
+<div class="glass"><h3>Tokens and literals</h3><p class="cap" style="margin:4px 0 12px">Bars drawn x8. Solid: a token. Hatched: a literal with no token, with its number of uses.</p><div class="scale"><div class="r"><span class="t">--space-xs</span><span class="b" style="width:32px"></span><span class="n">4px</span></div><div class="r"><span class="t">literal 6</span><span class="b off" style="width:48px"></span><span class="n">28</span></div><div class="r"><span class="t">--space-sm</span><span class="b" style="width:64px"></span><span class="n">8px</span></div><div class="r"><span class="t">literal 10</span><span class="b off" style="width:80px"></span><span class="n">9</span></div><div class="r"><span class="t">literal 12</span><span class="b off" style="width:96px"></span><span class="n">20</span></div><div class="r"><span class="t">literal 14</span><span class="b off" style="width:112px"></span><span class="n">12</span></div><div class="r"><span class="t">--space-md</span><span class="b" style="width:128px"></span><span class="n">16px</span></div></div></div>
+<div class="glass"><h3>One card, before and after (option C)</h3>
+<p class="cap" style="margin:4px 0 8px">Before: 12px padding, 6px and 10px gaps, 10px radius, 14px chip padding. After: tokens 16 and 8, 14px control radius. Every target stays 44px.</p>
+<div class="cap">Before</div>
+<div class="fcard before"><div class="nm">Kitchen frame</div><div class="chips"><span class="chip">Online</span><span class="chip">Battery 82%</span></div><div class="act"><span>Open</span><span>Pair</span></div></div>
+<div class="cap">After</div>
+<div class="fcard after"><div class="nm">Kitchen frame</div><div class="chips"><span class="chip">Online</span><span class="chip">Battery 82%</span></div><div class="act"><span>Open</span><span>Pair</span></div></div></div></div></figure>
+<figure><figcaption>Options</figcaption><div class="phone wide t-light" style="min-height:0;padding-bottom:16px"><h1>Four options</h1><ul class="opts">
+<li><b>A Swap equal literals</b> <span class="tag">no visual change</span><br>23 spacing literals already equal 4, 8 or 24: write the token. Pixels identical.</li>
+<li><b>B Add tokens</b> <span class="tag">no visual change</span><br>One token each for 6, 10, 12, 14 (69 uses, 5 files). The off-scale values get names; nothing moves.</li>
+<li><b>C Snap near values</b> <span class="tag">OWNER-DECISION</span><br>6 to 8 (or 4), 10 and 12 to 8 or 16, 14 to 16. Visible: up to 4px per edge, so cards grow.</li>
+<li><b>D Leave as is</b><br>Record why: most literals sit in dense, fitted controls (chips, pills, menus) and about 1100 spacing uses already use tokens.</li></ul></div></figure>
+</div>

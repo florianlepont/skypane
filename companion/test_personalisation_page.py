@@ -227,14 +227,13 @@ def test_tapping_a_look_then_save_persists_it_and_the_page_names_it(rig):
         r.attrs["value"] for r in root.select('input[name="theme"][checked]')] == ["black"]
 
 
-def test_the_retired_screen_address_redirects_to_the_departures_view(rig):
-    status, response, _body = http_request(
+def test_the_removed_screen_address_is_not_found(rig):
+    status, _response, _body = http_request(
         rig.server.url(rig.scope() + "/display/screen"), cookie=rig.cookies["owner"])
-    assert status == 303
-    assert response["Location"] == rig.scope() + "/display"
-    status, response, _body = http_request(
+    assert status == 404
+    status, _response, _body = http_request(
         rig.server.url("/display/screen"), cookie=rig.cookies["admin"])
-    assert status == 303 and response["Location"] == "/display"
+    assert status == 404
     status, _body = rig.get("owner", rig.scope() + "/display/arrivals")
     assert status == 200
     _status, body = rig.get("owner", rig.scope() + "/display")

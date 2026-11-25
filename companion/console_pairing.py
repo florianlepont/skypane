@@ -1,7 +1,10 @@
 """Admin console routes for the pairing area: the Fleet page, frame
-registration and the pairing-code claim.
+registration, and the shared pairing-code claim.
 
 Security invariants:
+- Pairing by code is served by companion/user_pairing.py (the one Add a
+  frame page); this module keeps what it shares: claim_code, the throttles
+  and the audit of a refusal.
 - The typed pairing code is a guess until proven. It is never stored, put
   in an audit row, a cookie, a URL, a log line or a flash; it is re-rendered
   only into the input of the immediate (no-store) refusal response.
@@ -16,16 +19,18 @@ import re
 import sqlite3
 
 from companion import (
-    audit, co_managers, console_fleet_view, console_flash, device_scope, frame_state, i18n,
-    route_types, throttle, wake)
+    audit, co_managers, console_fleet_view, console_flash, device_scope, frame_state,
+    i18n, route_types, throttle, wake)
 from companion.pages import co_managers_card, fleet_page
-from server import device_config, device_dirs, fleet_db, fleet_ops, hardware, state_store
+from server import (
+    device_config, device_dirs, fleet_db, fleet_ops, hardware, pairing_code, state_store)
 
-# Same literals as companion/console_routes.py (which imports this module, so
-# it cannot be imported here); a test pins that the two agree.
+# Same literals as companion/console_routes.py and the Add a frame page (both
+# import this module, so they cannot be imported here); a test pins that they
+# agree.
 FLEET_PATH = "/fleet"
 REGISTER_PATH = "/fleet/register"
-PAIR_PATH = "/fleet/pair"
+PAIR_FRAME_PATH = "/pair-frame"
 
 SESSION_LIMIT = 5
 SESSION_LOCKOUT_S = 300
@@ -33,7 +38,6 @@ GLOBAL_LIMIT = 20
 GLOBAL_LOCKOUT_S = 900
 _GLOBAL_KEY = "pairing-claim"
 _SESSION_KEY_HEX = 16
-_MAX_ECHOED_CODE = 32
 
 SESSION_THROTTLE = throttle.LockoutThrottle(limit=SESSION_LIMIT, lockout_s=SESSION_LOCKOUT_S)
 GLOBAL_THROTTLE = throttle.LockoutThrottle(limit=GLOBAL_LIMIT, lockout_s=GLOBAL_LOCKOUT_S)
@@ -134,6 +138,18 @@ def _device_rows(state_dir, device_rows, now):
     return rows
 
 
+def _epoch(value):
+    """`value` as epoch seconds when the column holds a number, else None."""
+    return value if isinstance(value, int) and not isinstance(value, bool) else None
+
+
+def _code_issued_at(row):
+    """When the pairing code now stored for a pending frame was issued: the
+    expiry minus the fixed code lifetime; None while no code is stored."""
+    expires = _epoch(row["code_expires_at"])
+    return None if expires is None else expires - pairing_code.CODE_TTL_S
+
+
 def _pending_rows(pending_rows, emails):
     rows = []
     for row in pending_rows:
@@ -153,7 +169,9 @@ def _pending_rows(pending_rows, emails):
             last_seen=row["last_seen_at"],
             battery_percent=_percent(
                 row["battery_mv"], _stored_type_curve(str(row["hardware_type"]))),
-            is_live_frame=False, offline=False))
+            is_live_frame=False, offline=False,
+            retired_at=_epoch(row["retired_at"]) if retired else None,
+            code_issued_at=None if retired else _code_issued_at(row)))
     return rows
 
 
@@ -178,6 +196,24 @@ def _access_views(state_dir, principal):
     return tuple(views)
 
 
+def owner_options(users, first_id=None):
+    """(id, label) of every enabled user; the user `first_id` leads."""
+    options = [
+        (str(row["id"]), fleet_page.owner_label(row["email"], row["role"]))
+        for row in users if not row["disabled"]]
+    options.sort(key=lambda option: option[0] != str(first_id))
+    return tuple(options)
+
+
+def pairing_owners(state_dir, first_id):
+    """The Owner choices of the administrator's Add a frame page."""
+    conn = fleet_db.connect(state_dir)
+    try:
+        return owner_options(fleet_db.list_users(conn), first_id)
+    finally:
+        conn.close()
+
+
 def build_view(state_dir, principal=None, **state):
     """The `FleetView` for the current database plus the form state of a
     refused submission (`state` overrides the form fields)."""
@@ -186,39 +222,44 @@ def build_view(state_dir, principal=None, **state):
     emails = {row["id"]: row["email"] for row in users}
     rows = _device_rows(state_dir, device_rows, now)
     rows += _pending_rows(pending_rows, emails)
-    owners = tuple(
-        (str(row["id"]), fleet_page.owner_label(row["email"], row["role"]))
-        for row in users if not row["disabled"])
+    owners = owner_options(users)
     return fleet_page.FleetView(
         rows=tuple(fleet_page.sort_rows(rows)), owners=owners,
-        has_pending=any(
-            row["status"] == fleet_db.PENDING_STATUS_PENDING for row in pending_rows),
         now=now, access=_access_views(state_dir, principal), **state)
 
 
 def _page_body(h, query, state):
     view = build_view(h.args.state_dir, principal=h._safe_principal(), **state)
-    return (
-        console_fleet_view.page_html(h, query, view)
-        + fleet_page.render(view))
+    page = console_fleet_view.page_html(h, query, view)
+    return page if _is_system(query) else page + fleet_page.render(view)
+
+
+def _is_system(query):
+    """The System view is a page of its own: no frames list and none of the
+    Fleet page's dialogs."""
+    return query.get(console_fleet_view.VIEW_QUERY) == [console_fleet_view.VIEW_SYSTEM]
 
 
 def _render(h, status=200, query=None, **state):
     from companion import console_routes
+    system = _is_system(query or {})
     return h._console_page(
-        console_routes.FLEET_ROUTE, None,
+        console_routes.FLEET_ROUTE,
+        console_fleet_view.SYSTEM_HEADING if system else None,
         lambda: _page_body(h, query or {}, state),
-        None, status=status,
+        console_fleet_view.SYSTEM_SUB if system else None, status=status,
         page_flash=console_fleet_view.query_flash_html(h, query or {}),
-        scripts=console_fleet_view.page_scripts(
-            (query or {}).get(console_fleet_view.VIEW_QUERY) == [console_fleet_view.VIEW_SYSTEM]))
+        omit_title=not system, scripts=console_fleet_view.page_scripts(system))
 
 
 def handle_fleet_get(h, m):
     from urllib.parse import parse_qs, urlsplit
     query = parse_qs(urlsplit(h.path).query)
+    if query.get(fleet_page.PAIR_QUERY_FLAG) == ["1"]:
+        # The old Add a frame address: the dialog became the page.
+        return h.redirect(PAIR_FRAME_PATH)
     return _render(
-        h, query=query, open_add_dialog=query.get(fleet_page.PAIR_QUERY_FLAG) == ["1"],
+        h, query=query,
         open_access=(query.get(co_managers_card.ACCESS_QUERY) or [""])[0])
 
 
@@ -273,13 +314,13 @@ def docked_toast(tone, title_msg, detail_msg):
         i18n.t(title_msg), i18n.t(detail_msg), tone=tone, docked=True)
 
 
-def _owner_choice(raw):
+def owner_choice(raw):
     """The chosen owner id, or None when it is not a plain integer."""
     text = raw.strip()
     return int(text) if text.isascii() and text.isdigit() and len(text) < 10 else None
 
 
-def _owner_is_active(state_dir, owner_id):
+def owner_is_active(state_dir, owner_id):
     conn = fleet_db.connect(state_dir)
     try:
         row = conn.execute(
@@ -287,10 +328,6 @@ def _owner_is_active(state_dir, owner_id):
     finally:
         conn.close()
     return row is not None and not row["disabled"]
-
-
-def _echoed_code(raw):
-    return raw.strip().upper()[:_MAX_ECHOED_CODE]
 
 
 def audit_refusal(h, transitioned):
@@ -320,22 +357,6 @@ def is_locked(key):
     return SESSION_THROTTLE.locked_for(key) or GLOBAL_THROTTLE.locked_for(_GLOBAL_KEY)
 
 
-def _refuse_claim(h, code, owner_raw, transitioned):
-    """The one answer for a refused code; audits the failure (reason enum
-    only) and a lockout transition once."""
-    audit_refusal(h, transitioned)
-    return _render(
-        h, status=200, open_add_dialog=True, code_value=_echoed_code(code),
-        owner_selected=owner_raw.strip(),
-        code_error=fleet_page.claim_refused_error())
-
-
-def _field_failure(h, code, owner_raw, **errors):
-    return _render(
-        h, status=400, open_add_dialog=True, code_value=_echoed_code(code),
-        owner_selected=owner_raw.strip(), **errors)
-
-
 def claim_code(h, code, owner_id):
     """(device id, frame name, owner email) of the frame the typed `code`
     turns into a device of `owner_id`. Raises fleet_ops.ClaimRefused or
@@ -355,51 +376,10 @@ def claim_code(h, code, owner_id):
     return result.device_id, frame, owner["email"] if owner is not None else ""
 
 
-def handle_pair(h, m):
-    form = h.read_form()
-    code = form.get(fleet_page.CODE_FIELD, "")
-    owner_raw = form.get(fleet_page.OWNER_FIELD, "")
-    owner_id = _owner_choice(owner_raw)
-    errors = {}
-    if not code.strip():
-        errors["code_error"] = i18n.t(fleet_page.CLAIM_EMPTY_CODE)
-    if owner_id is None:
-        errors["owner_error"] = i18n.t(fleet_page.CLAIM_EMPTY_OWNER)
-    if errors:
-        return _field_failure(h, code, owner_raw, **errors)
-    key = session_key(h)
-    if is_locked(key):
-        return _render(
-            h, status=429, open_add_dialog=True, code_value=_echoed_code(code),
-            owner_selected=owner_raw.strip(), claim_toast_html=docked_toast(
-                "warning", fleet_page.CLAIM_THROTTLED_TITLE,
-                fleet_page.CLAIM_THROTTLED_DETAIL))
-    if not _owner_is_active(h.args.state_dir, owner_id):
-        return _field_failure(
-            h, code, owner_raw, owner_error=i18n.t(fleet_page.CLAIM_OWNER_GONE))
-    try:
-        _device_id, frame, email = claim_code(h, code, owner_id)
-    except fleet_ops.ClaimRefused:
-        # Both counters always advance (no short-circuit).
-        started_session = SESSION_THROTTLE.record_failure(key)
-        started_global = GLOBAL_THROTTLE.record_failure(_GLOBAL_KEY)
-        return _refuse_claim(h, code, owner_raw, started_session or started_global)
-    except fleet_ops.OwnerUnavailable:
-        return _field_failure(
-            h, code, owner_raw, owner_error=i18n.t(fleet_page.CLAIM_OWNER_GONE))
-    SESSION_THROTTLE.record_success(key)
-    return h.redirect(
-        FLEET_PATH, set_cookie=console_flash.queue_flash(
-            FLASH_PAIRED, frame=frame, email=email))
-
-
 ROUTES = (
     route_types.Route(
         "GET", route_types.Exact(FLEET_PATH), handle_fleet_get, route_types.ADMIN_ONLY),
     route_types.Route(
         "POST", route_types.Exact(REGISTER_PATH), handle_register,
-        route_types.ADMIN_ONLY, csrf=True),
-    route_types.Route(
-        "POST", route_types.Exact(PAIR_PATH), handle_pair,
         route_types.ADMIN_ONLY, csrf=True),
 )

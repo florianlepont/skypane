@@ -5,6 +5,7 @@ instead of the legacy beige fill, Home is a hero plus two or three groups that l
 390 and 1440px in English and French, and the Console Fleet State rows never overlap."""
 from datetime import datetime, timedelta, timezone
 
+import animation_settle
 import pytest
 
 import companion.test_view_pages_helpers as vp
@@ -18,10 +19,7 @@ pytestmark = pytest.mark.browser
 VIEWPORTS = (("360", {"width": 360, "height": 800}), ("390", {"width": 390, "height": 844}),
              ("1440", {"width": 1440, "height": 900}))
 THEMES = ("light", "dark")
-FINITE_ANIMATIONS_DONE = (
-    "() => document.readyState === 'complete' && document.getAnimations().every("
-    "(a) => (a.effect && a.effect.getComputedTiming().iterations === Infinity)"
-    " || a.playState !== 'running')")
+FINITE_ANIMATIONS_DONE = animation_settle.SETTLED
 
 
 @pytest.fixture(scope="module")
@@ -59,39 +57,47 @@ def _home(new_context, server, viewport, lang, scheme):
     return _open(new_context, server, "/", viewport, lang, scheme)
 
 
+def _rows_page(new_context, server, viewport, lang, scheme):
+    """A page made of list groups (Home is no longer one)."""
+    return _open(new_context, server, "/account", viewport, lang, scheme)
+
+
 @pytest.mark.parametrize("scheme", THEMES)
 @pytest.mark.parametrize("lang", ("en", "fr"))
 @pytest.mark.parametrize("vp_name,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
-def test_home_is_a_hero_over_a_few_groups_and_fits(new_context, server, vp_name, viewport, lang, scheme):
+def test_home_is_a_column_of_blocks_and_fits(new_context, server, vp_name, viewport, lang, scheme):
     context, page = _home(new_context, server, viewport, lang, scheme)
     try:
         where = "home/%s/%s/%s" % (vp_name, lang, scheme)
         assert not _assert_no_page_overflow(page, where, viewport["width"])
         geometry = page.evaluate(
             """() => {
-                const hero = document.querySelector('.hero').getBoundingClientRect();
-                const groups = [...document.querySelectorAll('main .group')]
-                    .map(g => g.getBoundingClientRect());
-                const status = getComputedStyle(document.querySelector('.hero h1'));
-                return {hero: [hero.top, hero.bottom], groups: groups.map(g => [g.top, g.bottom]),
-                        nested: document.querySelectorAll('.group .group').length,
-                        size: parseFloat(status.fontSize), weight: status.fontWeight,
-                        cards: document.querySelectorAll('main .page-section').length};
+                const top = s => document.querySelector(s).getBoundingClientRect();
+                const title = getComputedStyle(document.querySelector('.home-state h1'));
+                const blocks = ['.home-state', '.home-flight', '.home-pills', '.home-stats',
+                                '.home-strip'].map(s => [top(s).top, top(s).bottom]);
+                return {blocks, groups: document.querySelectorAll('main .group').length,
+                        size: parseFloat(title.fontSize), weight: title.fontWeight};
             }""")
-        assert 2 <= len(geometry["groups"]) <= 3, geometry
-        assert geometry["nested"] == 0 and geometry["cards"] == 0, geometry
-        assert all(g[0] >= geometry["hero"][1] - 1 for g in geometry["groups"]), geometry
-        # The hero's title is the frame name: 24px under 380px, 28px on a phone, 48px beyond.
+        # One column of blocks, each below the one before; no list group on Home any more.
+        assert geometry["groups"] == 0, geometry
+        for earlier, later in zip(geometry["blocks"], geometry["blocks"][1:]):
+            assert later[0] >= earlier[1] - 1, geometry
+        # The title is the frame name: 24px under 380px, 32px on a phone, 44px beyond.
         assert 24 <= geometry["size"] <= 48 and geometry["weight"] == "700", geometry
-        for row in page.evaluate(_ROWS):
-            assert row["h"] >= 54 - 0.5 and row["mh"] >= 44, (where, row)
     finally:
         context.close()
 
 
 def test_a_row_shows_a_focus_ring_and_a_long_value_truncates(new_context, server):
-    context, page = _home(new_context, server, VIEWPORTS[0][1], "en", "light")
+    context, page = _rows_page(new_context, server, VIEWPORTS[0][1], "en", "light")
     try:
+        # Home is no longer a list group, so give the shared row a link of its own to focus.
+        page.evaluate(
+            """() => { const group = document.querySelector('.group');
+              const row = document.createElement('div'); row.className = 'row';
+              row.innerHTML = '<a class="row__main" href="#probe"><span class="row__text">x</span></a>';
+              group.appendChild(row); }""")
         link = page.locator(".group a.row__main").first
         link.focus()
         page.keyboard.press("Tab")
@@ -139,18 +145,19 @@ _VALUE_CONTRAST = """() => {
 
 @pytest.mark.parametrize("scheme", THEMES)
 def test_row_value_text_reads_over_the_glass(new_context, server, scheme):
-    context, page = _home(new_context, server, VIEWPORTS[1][1], "en", scheme)
+    context, page = _rows_page(new_context, server, VIEWPORTS[1][1], "en", scheme)
     try:
         page.wait_for_function(FINITE_ANIMATIONS_DONE)
         ratios = page.evaluate(_VALUE_CONTRAST)
-        assert ratios, "no row value or detail on Home"
+        assert ratios, "no row value or detail on the Account page"
         assert min(ratios) >= 4.5, (scheme, min(ratios))
     finally:
         context.close()
 
 
 _SURFACES = """(glass) => { const bad = [];
-  for (const sel of ['.space-switch', '.filter-bar__chips', '.personalisation-nav',
+  for (const sel of ['.space-switch', '.filter-bar__chips:not(.filter-bar__chips--scroll)',
+      '.personalisation-nav',
       '.look-seg', '.place-modes', '.tab-bar__more-panel', '.users-table',
       '.dashboard-main > .data-table-wrap']) {
     for (const el of document.querySelectorAll(sel)) {
@@ -158,6 +165,8 @@ _SURFACES = """(glass) => { const bad = [];
       const bg = getComputedStyle(el).backgroundColor;
       if (bg !== glass) bad.push(sel + ' ' + bg);
     } } return bad; }"""
+# The scrolling chip row (Flights, Airlines) is separate pills on the sky, each with its own solid
+# fill, so it has no glass track to check.
 # The Location card over the map is deliberately not on this list: it is opaque so its text stays
 # legible over the map (checked in test_browser_round8_fixes.py).
 _PAGES = (("/display", "look-seg"), ("/flights", "filter-bar__chips"),
@@ -192,7 +201,8 @@ _STATE_ROWS = """() => [...document.querySelectorAll('.fleet-block .health-row__
     const hit = (a, b) => a.left < b.right - 0.5 && b.left < a.right - 0.5
         && a.top < b.bottom - 0.5 && b.top < a.bottom - 0.5;
     return {overlap: hit(name, value) || hit(verdict, value) || hit(name, verdict),
-            verdictW: verdict.width, rowW: s.getBoundingClientRect().width,
+            verdictW: verdict.width, battery: !!s.closest('#health-row-battery'),
+            rowW: s.getBoundingClientRect().width,
             valueW: value.width, beside: value.left >= verdict.right - 0.5}; })"""
 
 
@@ -216,15 +226,16 @@ def fleet_server(module_app_server_factory):
 @pytest.mark.parametrize("width", (360, 1000, 1280, 1440))
 def test_fleet_state_rows_never_overlap(new_context, fleet_server, width, lang, scheme):
     context, page = _open(
-        new_context, fleet_server, "/fleet?frame=%s" % fleet_server.frame_id,
+        new_context, fleet_server, "/fleet?frame=%s&view=battery" % fleet_server.frame_id,
         {"width": width, "height": 900}, lang, scheme)
     try:
         page.locator(".fleet-block .health-row__summary").first.wait_for(state="visible")
         rows = page.evaluate(_STATE_ROWS)
-        assert rows, "the State block shows no health row"
+        assert rows, "the Health page shows no health row"
         for row in rows:
             assert not row["overlap"], (width, lang, row)
-            assert row["verdictW"] >= 100, (width, lang, row)
+            # The Battery row states its verdict in its body (a status pill), not in its head.
+            assert row["battery"] or row["verdictW"] >= 100, (width, lang, row)
             if row["beside"]:
                 assert row["valueW"] <= row["rowW"] * 0.5 + 1, (width, lang, row)
         assert not _assert_no_page_overflow(page, "fleet/%d" % width, width)

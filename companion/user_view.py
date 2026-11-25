@@ -85,14 +85,16 @@ def sanitise_settings_form(form, role):
 
 def frame_only_anomalies(
         device_state, pipeline_state, battery_state, disagreement_warn,
-        coverage_state="ok", source_fault=False, offbox=None, fleet_fault=False):
+        coverage_state="ok", source_fault=False, offbox=None, fleet_fault=False,
+        battery_low=False):
     """Anomaly strings built from the frame's own signals only (check-in
     staleness and battery). The platform inputs are accepted so a caller
     can pass a full snapshot; they never contribute.
     """
     return health_signals.collect_anomalies(
         device_state, "ok", battery_state, False,
-        coverage_state="ok", source_fault=False, offbox=None, fleet_fault=False)
+        coverage_state="ok", source_fault=False, offbox=None, fleet_fault=False,
+        battery_low=battery_low)
 
 
 def frame_only_severity(
@@ -122,5 +124,6 @@ def reduce_signals(signals):
         severity=frame_only_severity(
             signals["device_state"], "ok", signals["battery_state"], False),
         anomalies=frame_only_anomalies(
-            signals["device_state"], "ok", signals["battery_state"], False))
+            signals["device_state"], "ok", signals["battery_state"], False,
+            battery_low=signals.get("battery_low", False)))
     return reduced

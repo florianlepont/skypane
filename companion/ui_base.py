@@ -83,12 +83,8 @@ DISPLAY_SPECIAL_LOOK_EDIT_ROUTE = DISPLAY_SPECIAL_LOOKS_ROUTE + "/edit"
 DISPLAY_CALENDAR_CONNECT_ROUTE = DISPLAY_CALENDAR_ROUTE + "/connect"
 DISPLAY_CALENDAR_LOOK_ROUTE = DISPLAY_ROUTE + "/calendar-look"
 DISPLAY_ARRIVALS_ROUTE = DISPLAY_ROUTE + "/arrivals"
-DISPLAY_LAYOUT_ROUTE = DISPLAY_ROUTE + "/layout"
-# No longer a view: the address still answers, with a redirect to DISPLAY_ROUTE.
-DISPLAY_SCREEN_ROUTE = DISPLAY_ROUTE + "/screen"
 FLIGHTS_ROUTE = "/flights"
 AIRLINES_ROUTE = "/airlines"
-HEALTH_ROUTE = "/health"
 DEVICE_ROUTE = "/device"
 # The Update page (Releases in the Console): reviewing and installing
 # firmware releases.
@@ -103,20 +99,12 @@ DETECTION_ROUTE = "/detection"
 # NAV_TABS are the one source of these labels for every renderer.
 _NAV_LABEL_HOME = i18n.msg("nav.home", "Home")
 _NAV_LABEL_DISPLAY = i18n.msg("nav.personalisation", "Style")
-_NAV_LABEL_FLIGHTS = i18n.msg("nav.flight_history", "Flight history")
-_NAV_LABEL_DETECTION = i18n.msg("nav.detection", "Location and detection")
+_NAV_LABEL_FLIGHTS = i18n.msg("nav.flight_history", "Flights")
+_NAV_LABEL_DETECTION = i18n.msg("nav.detection", "Location")
 _NAV_LABEL_AIRLINES = i18n.msg("nav.airline_collection", "Airlines")
-# The short forms the phone tab bar uses where the full label would not fit
-# one of six equal cells.
-NAV_SHORT_LABELS = {
-    "flights": i18n.msg("nav.flights_short", "Flights"),
-    "detection": i18n.msg("nav.detection_short", "Location"),
-}
 # The Console-only destination for editing airlines.
 AIRLINE_EDITOR_ROUTE = "/airlines/manage"
 AIRLINE_EDITOR_LABEL = i18n.msg("nav.airline_editor", "Airline editor")
-_NAV_LABEL_HEALTH = i18n.msg("nav.health", "Health")
-_NAV_LABEL_DEVICE = i18n.msg("nav.device", "Device")
 _NAV_LABEL_UPDATE = i18n.msg("nav.update", "Releases")
 
 NAV_GROUPS = (
@@ -128,16 +116,12 @@ NAV_GROUPS = (
         (AIRLINES_ROUTE, _NAV_LABEL_AIRLINES),
     )),
     (FRAME_TOOLS_LABEL, (
-        (HEALTH_ROUTE, _NAV_LABEL_HEALTH),
-        (DEVICE_ROUTE, _NAV_LABEL_DEVICE),
         (UPDATE_ROUTE, _NAV_LABEL_UPDATE),
     )),
 )
 
 # Ordered (route, label) pairs, flattened from NAV_GROUPS in display order.
-# Login is deliberately absent, as above. The old "/settings" and
-# "/history" routes are not tabs any more — companion/app.py keeps both as
-# fixed 303 redirects so a stale bookmark still lands somewhere useful.
+# Login is deliberately absent, as above.
 NAV_TABS = tuple(
     (route, label) for _group_label, entries in NAV_GROUPS for route, label in entries)
 
@@ -268,6 +252,12 @@ PLACE_START_SCRIPT_SRC = "/static/place-start.js"
 PLACE_AIRPORT_LIST_SCRIPT_SRC = "/static/place-airport-list.js"
 # Opens an airline's aircraft-type rows in the airline editor.
 AIRLINE_TYPES_SCRIPT_SRC = "/static/airline-types.js"
+# Asks for the pending airline-name suggestions in the airline editor.
+AIRLINE_SUGGEST_SCRIPT_SRC = "/static/airline-suggest.js"
+# Asks the Install and Revert question in the shared dialog.
+UPDATE_QUESTION_SCRIPT_SRC = "/static/update-question.js"
+# Marks the section in view among the phone anchors of a frame's page.
+FLEET_ANCHORS_SCRIPT_SRC = "/static/fleet-anchors.js"
 LEAFLET_STYLE_HREF = "/static/vendor/leaflet/leaflet.css"
 
 # The registration seam value-controls.js reads, defined here so a page
@@ -557,7 +547,6 @@ _CARD_STATUS_SUFFIXES = {
 # site for every icon in the app.
 ICON_IDS = (
     "icon-device",
-    "icon-pipeline",
     "icon-corroboration",
     # "icon-battery" has no consumer anywhere in the app today. Retained on
     # purpose: pruning it would also require a matching <symbol> deletion and
@@ -625,6 +614,8 @@ ICON_IDS = ICON_IDS + (
     "icon-toast-trash",
     "icon-close",
     "icon-undo",
+    "icon-departure",
+    "icon-arrival",
 )
 
 # One more icon, for the estimated "probably charging" pill: a lightning
@@ -698,6 +689,14 @@ ICON_IDS = ICON_IDS + (
 ICON_IDS = ICON_IDS + (
     "icon-picture",
     "icon-plane",
+    "icon-picture-add",
+    "icon-picture-edit",
+)
+
+# A four-point sparkle with a small one beside it: marks a suggestion made
+# for the person to check (the Airlines editor's "Suggestion" tag).
+ICON_IDS = ICON_IDS + (
+    "icon-spark",
 )
 
 # The SkyPane brand mark (32x32 viewBox, unlike the 20x20 glyphs): an "S"
@@ -708,10 +707,30 @@ ICON_IDS = ICON_IDS + (
 ICON_IDS = ICON_IDS + (
     "icon-globe",
     "icon-sign-out",
+    "icon-fit",
 )
 
 ICON_IDS = ICON_IDS + (
     "icon-logo",
+)
+
+# The foreign-frame marker's two glyphs: an eye (looking at someone else's
+# frame) and a back chevron on its Back to Fleet button.
+ICON_IDS = ICON_IDS + (
+    "icon-eye",
+    "icon-chevron-left",
+)
+
+# The System page's server, broadcast (radio) and cloud-upload glyphs.
+ICON_IDS = ICON_IDS + (
+    "icon-server",
+    "icon-radio",
+    "icon-cloud-upload",
+)
+
+# The key of an owned frame's Manage access button on Account.
+ICON_IDS = ICON_IDS + (
+    "icon-key",
 )
 
 # The brand mark's geometry on a 32x32 box, shared by the `icon-logo` sprite
@@ -750,13 +769,6 @@ ICON_DEFS_HTML = (
     'stroke-linejoin="round">'
     '<rect x="5" y="2" width="10" height="16" rx="2"/>'
     '<path d="M7.5 10l2 2 4-4.5"/>'
-    "</symbol>"
-    '<symbol id="icon-pipeline" viewBox="0 0 20 20" fill="none" '
-    'stroke="currentColor" stroke-width="1.5" stroke-linecap="round" '
-    'stroke-linejoin="round">'
-    '<path d="M10 16v-3"/>'
-    '<path d="M6.5 11.5a5 5 0 0 1 7 0"/>'
-    '<path d="M4 8.5a9 9 0 0 1 12 0"/>'
     "</symbol>"
     '<symbol id="icon-corroboration" viewBox="0 0 20 20" fill="none" '
     'stroke="currentColor" stroke-width="1.5" stroke-linecap="round" '
@@ -913,6 +925,32 @@ ICON_DEFS_HTML = (
     'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
     '<path d="M8 5l5 5-5 5"/>'
     "</symbol>"
+    '<symbol id="icon-eye" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M1.7 10S4.7 4.2 10 4.2 18.3 10 18.3 10 15.3 15.8 10 15.8 1.7 10 1.7 10z"/>'
+    '<circle cx="10" cy="10" r="2.5"/>'
+    "</symbol>"
+    '<symbol id="icon-chevron-left" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M12 5l-5 5 5 5"/>'
+    "</symbol>"
+    '<symbol id="icon-server" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
+    '<rect x="2.5" y="3.5" width="15" height="5" rx="1.5"/>'
+    '<rect x="2.5" y="11.5" width="15" height="5" rx="1.5"/>'
+    '<path d="M5.8 6h.01M5.8 14h.01"/>'
+    "</symbol>"
+    '<symbol id="icon-radio" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
+    '<circle cx="10" cy="10" r="1.7"/>'
+    '<path d="M6.5 6.5a5 5 0 0 0 0 7M13.5 6.5a5 5 0 0 1 0 7'
+    'M4.1 4.1a8.3 8.3 0 0 0 0 11.8M15.9 4.1a8.3 8.3 0 0 1 0 11.8"/>'
+    "</symbol>"
+    '<symbol id="icon-cloud-upload" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M5.8 15a3.75 3.75 0 0 1-.5-7.47A5 5 0 0 1 15 8.75 3.2 3.2 0 0 1 14.6 15z"/>'
+    '<path d="M10 13.3V9M8.2 10.7L10 8.8l1.8 1.9"/>'
+    "</symbol>"
     '<symbol id="icon-pencil" viewBox="0 0 20 20" fill="none" '
     'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
     '<path d="M13.5 3.5l3 3L7 16H4v-3z"/><path d="M11.5 5.5l3 3"/>'
@@ -980,10 +1018,43 @@ ICON_DEFS_HTML = (
     '<rect x="2.5" y="3.5" width="15" height="13" rx="2"/><circle cx="7.5" cy="8.5" r="1.5"/>'
     '<path d="M17.5 13.5l-4.5-4.5-8 7.5"/>'
     "</symbol>"
+    # A picture with a plus (add) or a pencil (change) badge at its lower right
+    # corner, for the airline editor's icon-only buttons. The badge sits in a
+    # disc (class icon-ko, filled with `--ko`, the colour of the button behind the
+    # glyph) so it reads apart from the frame without a thicker stroke.
+    '<symbol id="icon-picture-add" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
+    '<rect x="2.5" y="3.5" width="13.5" height="11.5" rx="2"/><circle cx="7" cy="8" r="1.4"/>'
+    '<path d="M16 11l-3.5-3.5L5 14.5"/>'
+    '<circle cx="15" cy="15" r="4.7" class="icon-ko"/>'
+    '<path d="M15 12.4v5.2M12.4 15h5.2"/>'
+    "</symbol>"
+    '<symbol id="icon-picture-edit" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
+    '<rect x="2.5" y="3.5" width="13.5" height="11.5" rx="2"/><circle cx="7" cy="8" r="1.4"/>'
+    '<path d="M16 11l-3.5-3.5L5 14.5"/>'
+    '<circle cx="14.8" cy="14.8" r="5.2" class="icon-ko"/>'
+    '<g transform="translate(8.45 8.6) scale(.62)" stroke-width="2.6">'
+    '<path d="M13.5 3.5l3 3L7 16H4v-3z"/><path d="M11.5 5.5l3 3"/></g>'
+    "</symbol>"
     # Points right (east), the direction the route line reads in.
     '<symbol id="icon-plane" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="0">'
     '<path fill="currentColor" d="M18.5 10c0-.7-.6-1.2-1.3-1.2h-4.4L8.6 2.5H6.9l2 6.3H4.6L3 6.8H1.6'
     'l1 3.2-1 3.2H3l1.6-2h4.3l-2 6.3h1.7l4.2-6.3h4.4c.7 0 1.3-.5 1.3-1.2z"/>'
+    "</symbol>"
+    # The Flights direction glyphs: an arrow leaving (up and to the right) or
+    # arriving (down and to the right) over a runway line.
+    '<symbol id="icon-departure" viewBox="0 0 24 24" fill="none" '
+    'stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M4 20h16M6 15l12-8M11 7h7v7"/>'
+    "</symbol>"
+    '<symbol id="icon-arrival" viewBox="0 0 24 24" fill="none" '
+    'stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M4 20h16M6 5l12 8M18 6v7h-7"/>'
+    "</symbol>"
+    '<symbol id="icon-spark" viewBox="0 0 24 24" fill="none" '
+    'stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM18 15l.8 2.2L21 18l-2.2.8L18 21l-.8-2.2L15 18l2.2-.8z"/>'
     "</symbol>"
     '<symbol id="icon-undo" viewBox="0 0 20 20" fill="none" '
     'stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'
@@ -1016,9 +1087,17 @@ ICON_DEFS_HTML = (
     'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
     '<circle cx="10" cy="10" r="7.5"/><path d="M2.5 10h15M10 2.5c2.6 2.8 2.6 12.2 0 15M10 2.5c-2.6 2.8-2.6 12.2 0 15"/>'
     "</symbol>"
+    '<symbol id="icon-fit" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M3.5 7.5v-4h4M16.5 7.5v-4h-4M3.5 12.5v4h4M16.5 12.5v4h-4"/>'
+    "</symbol>"
     '<symbol id="icon-sign-out" viewBox="0 0 20 20" fill="none" '
     'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
     '<path d="M8 3.5H4.5v13H8M13 6.5l3.5 3.5-3.5 3.5M16.5 10H8"/>'
+    "</symbol>"
+    '<symbol id="icon-key" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
+    '<circle cx="6.5" cy="13" r="3.3"/><path d="M9 10.5l7.5-7.5M13.5 6.5l2.5 2.5M11.5 8.5l1.8 1.8"/>'
     "</symbol>"
     '<symbol id="icon-logo" viewBox="0 0 32 32">%s</symbol>'
     "</defs>"
@@ -1050,8 +1129,6 @@ NAV_ICON_IDS = {
     "detection": "icon-locate",
     "flights": "icon-nav-history",
     "airlines": "icon-nav-airlines",
-    "health": "icon-nav-health",
-    "device": "icon-nav-device",
     "update": "icon-nav-update",
 }
 

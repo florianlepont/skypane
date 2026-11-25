@@ -20,7 +20,7 @@ from PIL import Image
 import companion.device_scope as device_scope
 import companion.i18n as i18n
 from server import atomic_io, device_config, hardware, panel_format, screen_layouts
-from server.plane import render
+from server.plane import illustrations, render
 
 THEME_PREVIEW_ROUTE_PREFIX = "/theme-preview/"
 THEME_PREVIEW_ALT_TEMPLATE = i18n.msg(
@@ -180,12 +180,14 @@ def _live_flight_route_state(live_event):
     return flight, route, state
 
 
-def preview_png_bytes(theme_id, live_event=None, layout=None, profile=None):
+def preview_png_bytes(theme_id, live_event=None, layout=None, profile=None, state_dir=None):
     """Render the fixed scene, or `live_event` (a `runway_events` row)
     when given, through `render.build_canvas()`, crop, downscale, and
     return PNG bytes. A live render omits the previous-flight card.
     `layout` is a screen layout id (`None` is classic). `profile` is the
     frame's hardware profile (`None` is the legacy portrait frame).
+    `state_dir` is the frame's state directory: an illustration override
+    uploaded for the fleet is drawn in place of the vendored picture.
 
     `.convert("RGB")` happens before crop/resize, deliberately:
     `build_canvas()` returns a "P"-mode image, and resizing a "P"-mode
@@ -202,12 +204,14 @@ def preview_png_bytes(theme_id, live_event=None, layout=None, profile=None):
             theme_id=theme_id,
             layout=layout_key(layout),
             profile=_canvas_profile(profile),
+            state_dir=state_dir,
         )
     else:
         flight, route, state = _live_flight_route_state(live_event)
         canvas = render.build_canvas(
             flight, state, route=route, theme_id=theme_id,
             layout=layout_key(layout), profile=_canvas_profile(profile),
+            state_dir=state_dir,
         )
     rgb = canvas.convert("RGB")
     cropped = rgb.crop(chip_crop_box(profile))
@@ -217,7 +221,47 @@ def preview_png_bytes(theme_id, live_event=None, layout=None, profile=None):
     return buffer.getvalue()
 
 
-def preview_signature(theme_id, live_event_id=None, layout=None, profile=None):
+def artwork_stamp(state_dir, scenes):
+    """What the pictures a preview draws are made of: for each `(route,
+    flight)` scene, the file `illustrations.select_illustration()` resolves
+    (an uploaded override first, else the vendored one) with its size and,
+    for an override, its modification time. Replacing, adding or removing an illustration changes
+    the stamp, so a cached preview of the old artwork is never served for the
+    new one. Never raises; a scene with no readable file stamps as `None`."""
+    stamp = []
+    for route, flight in scenes:
+        try:
+            path = illustrations.select_illustration(
+                route, (flight or {}).get("aircraft_type"), state_dir=state_dir)
+            info = os.stat(path) if path else None
+        except (OSError, TypeError, ValueError):
+            info = path = None
+        if info is None:
+            stamp.append(None)
+        elif os.path.dirname(path) == illustrations.override_dir_for_state_dir(state_dir):
+            stamp.append((os.path.basename(path), info.st_size, info.st_mtime_ns))
+        else:
+            # A vendored picture changes with a deploy, whose checkout times
+            # say nothing about the picture: name and size stand for it.
+            stamp.append((os.path.basename(path), info.st_size))
+    return tuple(stamp)
+
+
+def _fixed_scenes():
+    """The two flights the fixed scene draws, whichever state it shows."""
+    return (
+        (THEME_PREVIEW_ROUTE, THEME_PREVIEW_FLIGHT),
+        (THEME_PREVIEW_PREVIOUS_ROUTE, THEME_PREVIEW_PREVIOUS_FLIGHT))
+
+
+def _chip_scenes(live_event):
+    if not isinstance(live_event, dict):
+        return _fixed_scenes()
+    flight, route, _state = _live_flight_route_state(live_event)
+    return ((route, flight),)
+
+
+def preview_signature(theme_id, live_event_id=None, layout=None, profile=None, artwork=None):
     """A 12-hex-character cache-key discriminator for `theme_id`.
     Folds in the theme's palette (so a real-glass ink re-tune is a
     cache miss, not a stale image forever), the crop/size constants,
@@ -226,7 +270,8 @@ def preview_signature(theme_id, live_event_id=None, layout=None, profile=None):
     `live_event_id` (opaque digest input, never a path component) and
     the layout, so one theme's pictures for two layouts never collide. A
     non-legacy `profile` adds its key (and its own crop box); the legacy
-    profile leaves the digest as it always was.
+    profile leaves the digest as it always was. `artwork` is an
+    `artwork_stamp()`: a different stamp is a different picture.
     """
     parts = (
         device_config.THEMES[theme_id],
@@ -240,6 +285,8 @@ def preview_signature(theme_id, live_event_id=None, layout=None, profile=None):
     segment = _profile_segment(profile)
     if segment:
         parts += (segment, chip_crop_box(profile))
+    if artwork:
+        parts += (artwork,)
     digest_input = repr(parts).encode("utf-8")
     return hashlib.sha256(digest_input).hexdigest()[:12]
 
@@ -254,7 +301,7 @@ def cache_dir(state_dir):
     return os.path.join(state_dir, THEME_PREVIEW_CACHE_DIRNAME)
 
 
-def cache_path(state_dir, theme_id, live_event_id=None, layout=None, profile=None):
+def cache_path(state_dir, theme_id, live_event_id=None, layout=None, profile=None, live_event=None):
     """The on-disk cache path for `theme_id`'s preview, or `None` when
     `state_dir` is falsy or `theme_id` is not a real THEMES key —
     validated at the boundary itself, never trusting an upstream check.
@@ -264,7 +311,8 @@ def cache_path(state_dir, theme_id, live_event_id=None, layout=None, profile=Non
 
     `live_event_id` is coerced to `int()`; any failure degrades to the
     fixed literal `"sample"`, so no string field from a `runway_events`
-    row can ever reach a path component.
+    row can ever reach a path component. `live_event` is the row itself,
+    read only for the illustration it draws (the cache key's artwork stamp).
     """
     layout_id = layout_key(layout)
     segment = _profile_segment(profile)
@@ -275,7 +323,9 @@ def cache_path(state_dir, theme_id, live_event_id=None, layout=None, profile=Non
         event_id = int(live_event_id)
     except (TypeError, ValueError):
         event_id = None
-    signature = preview_signature(theme_id, event_id, layout_id, profile)
+    signature = preview_signature(
+        theme_id, event_id, layout_id, profile,
+        artwork=artwork_stamp(state_dir, _chip_scenes(live_event)))
     directory = cache_dir(state_dir)
     filename = "%s-%s-%s-%s%s.png" % (
         theme_id, event_id if event_id is not None else "sample", layout_id,
@@ -405,13 +455,15 @@ def frame_preview_pixel_size(profile, size):
     return (profile.width // factor, profile.height // factor)
 
 
-def frame_preview_png_bytes(theme_id, state, size, layout=None, profile=None):
+def frame_preview_png_bytes(theme_id, state, size, layout=None, profile=None, state_dir=None):
     """The whole canvas for `theme_id` with the fixed scene's main flight
     in `state`, box-reduced to `size`, as PNG bytes. The arriving
     variant swaps the two fixture flights, so each picture shows a
     flight that really arrives at (or leaves) Orly. `layout` is a screen
     layout id (`None` is classic). `profile` is the frame's hardware
-    profile (`None` is the legacy portrait frame).
+    profile (`None` is the legacy portrait frame). `state_dir` is the
+    frame's state directory: an uploaded illustration override is drawn in
+    place of the vendored picture.
     """
     if state == FRAME_PREVIEW_STATE_ARRIVING:
         main_flight, main_route = THEME_PREVIEW_PREVIOUS_FLIGHT, THEME_PREVIEW_PREVIOUS_ROUTE
@@ -426,6 +478,7 @@ def frame_preview_png_bytes(theme_id, state, size, layout=None, profile=None):
         previous_flight=previous_flight, previous_route=previous_route,
         previous_state=previous_state, theme_id=theme_id,
         layout=layout_key(layout), profile=_canvas_profile(profile),
+        state_dir=state_dir,
     )
     # RGB before reducing, for the same reason preview_png_bytes() gives.
     reduced = canvas.convert("RGB").reduce(frame_preview_reduce_factor(profile, size))
@@ -434,7 +487,7 @@ def frame_preview_png_bytes(theme_id, state, size, layout=None, profile=None):
     return buffer.getvalue()
 
 
-def frame_preview_signature(theme_id, state, size, layout=None, profile=None):
+def frame_preview_signature(theme_id, state, size, layout=None, profile=None, artwork=None):
     """Like `preview_signature()`, for one full-frame variant."""
     parts = (
         device_config.THEMES[theme_id],
@@ -447,6 +500,8 @@ def frame_preview_signature(theme_id, state, size, layout=None, profile=None):
     segment = _profile_segment(profile)
     if segment:
         parts += (segment, frame_preview_reduce_factor(profile, size))
+    if artwork:
+        parts += (artwork,)
     digest_input = repr(parts).encode("utf-8")
     return hashlib.sha256(digest_input).hexdigest()[:12]
 
@@ -467,7 +522,9 @@ def frame_cache_path(state_dir, theme_id, state, size, layout=None, profile=None
     filename = "%s-%s-%s-%s-%s%s.png" % (
         theme_id, state, size, layout_id,
         "%s-" % segment if segment else "",
-        frame_preview_signature(theme_id, state, size, layout_id, profile))
+        frame_preview_signature(
+            theme_id, state, size, layout_id, profile,
+            artwork_stamp(state_dir, _fixed_scenes())))
     return os.path.join(state_dir, FRAME_PREVIEW_CACHE_DIRNAME, filename)
 
 
@@ -487,9 +544,10 @@ def cached_frame_preview_bytes(state_dir, theme_id, state, size, layout=None, pr
     directory = os.path.dirname(path)
     os.makedirs(directory, exist_ok=True)
     if _is_legacy_profile(profile):
-        payload = frame_preview_png_bytes(theme_id, state, size, layout)
+        payload = frame_preview_png_bytes(theme_id, state, size, layout, state_dir=state_dir)
     else:
-        payload = frame_preview_png_bytes(theme_id, state, size, layout, profile)
+        payload = frame_preview_png_bytes(
+            theme_id, state, size, layout, profile, state_dir=state_dir)
     atomic_io.atomic_write(path, payload)
     _prune_preview_cache(directory, path, max_files=FRAME_PREVIEW_CACHE_MAX_FILES)
     return payload
@@ -513,7 +571,32 @@ def frame_preview_src(theme_id, state=FRAME_PREVIEW_STATE_DEPARTING, size=FRAME_
     url = "%s%s.png?state=%s&size=%s" % (FRAME_PREVIEW_ROUTE_PREFIX, theme_id, state, size)
     if layout is not None:
         url += "&layout=%s" % layout
+    version = frame_preview_version(theme_id, state, size, layout)
+    if version:
+        url += "&v=%s" % version
     return device_scope.scoped(url)
+
+
+def frame_preview_version(theme_id, state, size, layout=None, profile=None, state_dir=None):
+    """The content address of one full-frame variant: the signature of every input
+    that changes its pixels, for the current frame's profile unless `profile` is
+    given, and the artwork of `state_dir` (the current frame's unless given). `None` for a placeholder or unknown value, which gets no address. The
+    route answers a URL whose `v` matches with a cache entry that never expires,
+    so an unchanged preview is not fetched again when the owner moves between tabs.
+    """
+    if (theme_id not in device_config.THEMES or state not in FRAME_PREVIEW_STATES
+            or size not in FRAME_PREVIEW_SIZES or layout_key(layout) is None):
+        return None
+    device = device_scope.current_device()
+    if profile is None:
+        profile = device_scope.profile_for(device)
+    if _profile_segment(profile) is False:
+        return None
+    if state_dir is None and device is not None:
+        state_dir = device.state_dir
+    return frame_preview_signature(
+        theme_id, state, size, layout, profile,
+        artwork_stamp(state_dir, _fixed_scenes()) if state_dir else None)
 
 
 def cached_preview_bytes(state_dir, theme_id, live_event=None, layout=None, profile=None):
@@ -529,7 +612,7 @@ def cached_preview_bytes(state_dir, theme_id, live_event=None, layout=None, prof
     prunes. `OSError` propagates to the caller uncaught.
     """
     live_event_id = live_event.get("id") if isinstance(live_event, dict) else None
-    path = cache_path(state_dir, theme_id, live_event_id, layout, profile)
+    path = cache_path(state_dir, theme_id, live_event_id, layout, profile, live_event)
     if path is None:
         return None
     try:
@@ -540,9 +623,9 @@ def cached_preview_bytes(state_dir, theme_id, live_event=None, layout=None, prof
     directory = cache_dir(state_dir)
     os.makedirs(directory, exist_ok=True)
     if _is_legacy_profile(profile):
-        payload = preview_png_bytes(theme_id, live_event, layout)
+        payload = preview_png_bytes(theme_id, live_event, layout, state_dir=state_dir)
     else:
-        payload = preview_png_bytes(theme_id, live_event, layout, profile)
+        payload = preview_png_bytes(theme_id, live_event, layout, profile, state_dir=state_dir)
     atomic_io.atomic_write(path, payload)
     _prune_preview_cache(directory, path)
     return payload

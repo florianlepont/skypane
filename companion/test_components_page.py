@@ -58,6 +58,30 @@ def test_the_page_is_in_french_when_the_reader_chose_french(rig):
     assert "Composants" in html and "Contrôles segmentés" in html
 
 
+def test_the_foreign_frame_marker_is_on_the_page_in_english_and_french(rig):
+    cookie = fx.admin_cookie(rig.state_dir)
+    _status, _headers, html = fx.get(rig, cookie, "/components")
+    assert "Foreign-frame marker" in html
+    assert "You are viewing <strong>camille.durand@example.test</strong>" in html
+    assert "Back to Fleet" in html
+    _status, _headers, html = fx.get(rig, cookie + "; sp_ui_lang=fr", "/components")
+    assert "Repère de cadre étranger" in html
+    assert "Vous consultez le cadre de <strong>camille.durand@example.test</strong>" in html
+    assert "Retour à la flotte" in html
+
+
+def test_the_scrolling_chip_row_and_the_short_dialog_are_on_the_page_in_english_and_french(rig):
+    cookie = fx.admin_cookie(rig.state_dir)
+    _status, _headers, html = fx.get(rig, cookie, "/components")
+    assert "Filter chips on one scrolling row" in html
+    assert "filter-bar__chips--scroll" in html
+    assert "Short dialog (open it)" in html
+    assert 'id="components-compact"' in html and "modal--compact" in html
+    _status, _headers, html = fx.get(rig, cookie + "; sp_ui_lang=fr", "/components")
+    assert "Filtres sur une ligne qui défile" in html
+    assert "Boîte de dialogue courte (à ouvrir)" in html
+
+
 def _resolve(dotted):
     module_name, function_name = dotted.split(".")
     module = importlib.import_module("companion." + module_name)
@@ -107,3 +131,20 @@ def test_the_pill_is_catalogued_in_each_status_tone(rig):
     _status, _headers, html = fx.get(rig, fx.admin_cookie(rig.state_dir), "/components")
     for tone in ("ok", "info", "warn"):
         assert 'class="banner__pill banner__pill--%s"' % tone in html
+
+
+def test_the_catalogue_pill_carries_a_tone_a_page_hook_and_a_status_dot():
+    from companion import ui_components
+    assert ui_components.pill_html("Ok", "ok") == '<span class="banner__pill banner__pill--ok">Ok</span>'
+    assert ui_components.pill_html("a<b") == '<span class="banner__pill">a&lt;b</span>'
+    hooked = ui_components.pill_html("Check", extra_class="calendar-status__pill", dot_class="dot--warn")
+    assert hooked == ('<span class="banner__pill calendar-status__pill">'
+                      '<span class="dot dot--warn" aria-hidden="true"></span>Check</span>')
+
+
+def test_the_credits_source_card_builds_its_pill_with_the_catalogue_helper():
+    from companion import credits_page
+    html = credits_page._source_card_html(
+        {"id": "x", "name": "X", "description": {"en": "d", "fr": "d"}, "licence": "ODbL",
+         "citation_required": True, "url": "https://example.org/"}, "en")
+    assert html.count('class="banner__pill"') == 1

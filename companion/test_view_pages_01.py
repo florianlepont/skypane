@@ -146,7 +146,7 @@ def test_history_opens_with_shared_page_header(tmp_path):
     doc = parse_html(rendered)
     h1s = doc.select("h1")
     assert any(
-        h.attrs.get("class") == "page-title" and h.text() == "Flight history" for h in h1s)
+        h.attrs.get("class") == "page-title" and h.text() == "Flights" for h in h1s)
     assert not doc.select('[class="text-heading"]')
 
 
@@ -165,7 +165,7 @@ def test_history_table_is_wrapped_for_horizontal_scroll(tmp_path):
 
 
 def test_five_columns_named_and_ordered(tmp_path):
-    """History renders exactly the 4 data headers in history_page._HEADERS plus a fifth, visually-hidden 'Picture' column header, in order, with no Corroboration, Hex, Runway or Details column"""
+    """History renders a first, visually-hidden 'Picture' column header followed by the 4 data headers in history_page._HEADERS, in order, with no Corroboration, Hex, Runway or Details column"""
     vp.seed_runway_events(tmp_path, [
         {"ts": "2026-08-27T10:00:00+00:00", "hex": "d6", "callsign": "SEVEN1"},
     ])
@@ -175,9 +175,9 @@ def test_five_columns_named_and_ordered(tmp_path):
     # <th scope="colgroup"> is a whole-row caption, not a column header.
     ths = [th for th in doc.select("th") if not th.attrs]
     assert len(ths) == 5, "expected exactly 5 <th> cells (4 data + 1 picture)"
-    for th, header in zip(ths[:4], history_page._HEADERS):
+    for th, header in zip(ths[1:], history_page._HEADERS):
         assert th.text() == header
-    picture_th = ths[4]
+    picture_th = ths[0]
     assert picture_th.select('[class="visually-hidden"]')
     assert picture_th.text() == "Picture"
     header_text = " ".join(th.text() for th in ths)
@@ -235,13 +235,13 @@ def test_desktop_when_cell_clock_primary_relative_age_secondary(tmp_path):
     assert tr_block is not None
     assert not any(n.attrs.get("title") == raw_ts for n in tr_block.select("*"))
     assert "5m ago" in tr_block.text()
-    when_cell = tr_block.select("td")[0]
+    when_cell = tr_block.select("td")[4]
     assert when_cell.select_one('[class="cell-primary"]').text() == "12:00"
     assert when_cell.select_one('[class="cell-secondary"]').text() == "5m ago"
 
 
 def test_merged_flight_cell_carries_callsign_airline_and_type(tmp_path):
-    """the Flight cell's callsign and its airline/aircraft-type secondary line both appear inside the same <td>, and the hex value is not visible in the desktop table"""
+    """the Flight cell shows the airline over the callsign inside one <td>, the aircraft type has its own cell, and the hex value is not visible in the desktop table"""
     vp.seed_runway_events(tmp_path, [
         {
             "ts": "2026-08-27T10:00:00+00:00", "hex": "39d301",
@@ -257,7 +257,8 @@ def test_merged_flight_cell_carries_callsign_airline_and_type(tmp_path):
     tbody_tds = doc.select("tbody td")
     flight_td = next(td for td in tbody_tds if "AFR123" in td.text())
     assert expected_airline_label in flight_td.text()
-    assert expected_type_label in flight_td.text()
+    assert expected_type_label not in flight_td.text()
+    assert any(td.text() == expected_type_label for td in tbody_tds)
     assert "39d301" not in flight_td.text()
 
 
@@ -411,7 +412,7 @@ def test_when_and_flight_cells_each_carry_one_primary_one_secondary(tmp_path):
     assert tr_block is not None
     tds = tr_block.select("td")
     assert len(tds) >= 2
-    when_cell, flight_cell = tds[0], tds[1]
+    flight_cell, when_cell = tds[1], tds[4]
     for cell in (when_cell, flight_cell):
         assert len(cell.find_all(cls="cell-primary")) == 1
         assert len(cell.find_all(cls="cell-secondary")) == 1
@@ -429,10 +430,10 @@ def test_data_table_wrap_scroll_edge_affordance_css(served_css):
 
 
 def test_the_search_is_one_named_form_the_chips_and_sort_join(tmp_path):
-    """Flights' search is one GET form with one named, valued field and a link-shaped clear; the
-    direction chips and the sort are fields of that same form (form="..."), so one Enter or one
-    Apply sends them together; no list-filter.js marker (data-filter-input, -empty, -clear) is
-    left on the page for the script to drive the list client-side"""
+    """Flights' controls are one GET form with one named, valued search field and a link-shaped
+    clear; the direction chips, the sort and the Apply button are inside that same form, so one
+    Enter or one Apply sends them together; no list-filter.js marker (data-filter-input, -empty,
+    -clear) is left on the page for the script to drive the list client-side"""
     vp.seed_runway_events(tmp_path, [
         {"ts": "2026-08-27T10:00:00+00:00", "hex": "fb01", "callsign": "FB1"},
     ])
@@ -447,8 +448,9 @@ def test_the_search_is_one_named_form_the_chips_and_sort_join(tmp_path):
     clears = form.select("[data-flights-clear]")
     assert len(clears) == 1 and clears[0].tag == "a" and clears[0].attrs["href"] == "/flights"
     assert clears[0].attrs.get("aria-label") == "Clear search"
-    joined = [n for n in doc.select("input") + doc.select("select") + doc.select("button")
-              if n.attrs.get("form") == form.attrs["id"]]
+    joined = [n for n in form.select("input") + form.select("select") + form.select("button")
+              if n.attrs.get("type") != "search"
+              and not (n.tag == "button" and n.attrs.get("type") != "submit")]
     assert {n.attrs.get("name") for n in joined} == {"kind", "sort", None}
     assert len([n for n in joined if n.attrs.get("name") == "kind"]) == 3
     assert [n.tag for n in joined if n.attrs.get("name") is None] == ["button"]
@@ -470,8 +472,8 @@ def test_filter_input_carries_safari_autofill_suppression_attributes(tmp_path):
 
 
 def test_the_match_count_reads_in_english_and_french(tmp_path):
-    """with a search typed, Flights tells screen readers how many flights match it, in English
-    and French (singular, plural and none); without a search it counts the flights listed"""
+    """Flights prints how many flights it lists under the controls, in English and French: the
+    whole history's number, "N of M" once a search narrows it, and "No flight matches" for none"""
     vp.seed_runway_events(tmp_path, [
         {"ts": "2026-08-27T10:00:00+00:00", "hex": "fc01", "callsign": "FC1", "airline": "Air France"},
         {"ts": "2026-08-27T09:00:00+00:00", "hex": "fc02", "callsign": "FC2", "airline": "Air France"},
@@ -488,12 +490,12 @@ def test_the_match_count_reads_in_english_and_french(tmp_path):
         node = doc.select_one("[data-filter-count]")
         return node.text(), "visually-hidden" in node.attrs["class"]
 
-    assert count("en", "air france") == ("2 flights match", True)
-    assert count("en", "other") == ("1 flight matches", True)
-    assert count("fr", "air france") == ("2 vols correspondent", True)
-    assert count("fr", "other") == ("1 vol correspond", True)
-    assert count("en", "") == ("3 flights", True)
-    assert count("en", "zzz") == ("No flight matches", True)
+    assert count("en", "air france") == ("2 of 3 flights", False)
+    assert count("en", "other") == ("1 of 3 flights", False)
+    assert count("fr", "air france") == ("2 sur 3 vols", False)
+    assert count("fr", "other") == ("1 sur 3 vols", False)
+    assert count("en", "") == ("3 flights", False)
+    assert count("en", "zzz") == ("No flight matches", False)
 
 
 def test_the_filter_bar_meta_group_keeps_one_page_agnostic_rule(served_css):
@@ -568,8 +570,8 @@ def test_filter_text_covers_airline_airport_and_type_but_not_the_fallback(tmp_pa
 
 def test_rows_carry_the_direction_kind_the_chips_filter_on(tmp_path):
     """each row (desktop <tr> and phone <li>) carries data-filter-kind equal to its confirmed
-    runway direction, only for the two values the detector writes, and the chips
-    carry no number"""
+    runway direction, only for the two values the detector writes, and each chip
+    carries the number of flights it lists"""
     vp.seed_runway_events(tmp_path, [
         {"ts": "2026-08-27T10:00:00+00:00", "hex": "k1", "callsign": "K1", "confirmed_state": "departing"},
         {"ts": "2026-08-27T09:00:00+00:00", "hex": "k2", "callsign": "K2", "confirmed_state": "departing"},
@@ -581,7 +583,7 @@ def test_rows_carry_the_direction_kind_the_chips_filter_on(tmp_path):
         kinds = [n.attrs["data-filter-kind"] for n in doc.select("%s[data-filter-kind]" % tag)]
         assert kinds == ["departing", "departing", "arriving", ""], (tag, kinds)
     assert [c.text().strip() for c in doc.select(".filter-chip")] == [
-        "All", "Departures", "Arrivals"]
+        "All4", "Departures2", "Arrivals1"]
 
 
 def test_filter_text_attribute_on_both_representations(tmp_path):
@@ -621,13 +623,13 @@ def test_each_flight_has_one_picture_link_on_desktop_and_card(tmp_path):
             assert len(links) == 1
             link = links[0]
             assert link.attrs["href"] == "/gallery/" + entries[0]
-            # The table link shows its label; the card's is icon-only and
-            # named by its aria-label alone.
-            assert link.text() == ("View picture" if tag == "tr" else "")
+            # Both are icon-only thumbnails named by their aria-label alone.
+            assert link.text() == ""
             assert link.attrs["aria-label"] == "View picture of " + callsign
     doc = parse_html(rendered)
     assert not doc.select("[aria-expanded]")
     assert not [node for node in doc.select("summary")
-                if "collection-sort__toggle" not in node.attrs.get("class", "")]
+                if "collection-sort__toggle" not in node.attrs.get("class", "")
+                and node.parent.attrs.get("class") != "row-menu filter-info"]
 
 

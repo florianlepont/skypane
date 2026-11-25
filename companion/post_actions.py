@@ -32,6 +32,8 @@ from companion.flash import (
     FLASH_KEY_CALENDAR_DISCONNECTED,
     FLASH_KEY_CALENDAR_SYNC_DEFERRED,
     FLASH_KEY_CALENDAR_SYNC_FAILED,
+    FLASH_KEY_ARTWORK_TYPE_INVALID,
+    FLASH_KEY_DEFAULT_TYPE_FAILED,
     FLASH_KEY_ILLUSTRATION_REJECTED,
     FLASH_KEY_ILLUSTRATION_REPLACE_FAILED,
     FLASH_KEY_ILLUSTRATION_NOT_PNG,
@@ -69,7 +71,8 @@ from companion.settings import form_post
 from companion.pages.airlines_page import unresolved_row_for_prefix
 from server import atomic_io, device_config
 from server.plane import (
-    airline_default_types, calendar_rules, colour_rules, enrich, illustrations, manual_resolutions, name_overrides,
+    airline_default_types, airline_suggest, calendar_rules, colour_rules, enrich, illustrations,
+    manual_resolutions, name_overrides,
 )
 import server.poll_cycle as poll_cycle
 
@@ -80,6 +83,7 @@ import server.poll_cycle as poll_cycle
 # also imports it from there lazily.
 MAX_ILLUSTRATION_UPLOAD_BYTES = upload_form.MAX_UPLOAD_BYTES
 ARTWORK_QUERY_PARAM = artwork_airline.QUERY_PARAM
+DEFAULT_TYPE_QUERY_PARAM = airlines_page.DEFAULT_TYPE_QUERY_PARAM
 _REFUSAL_FLASH = {
     illustrations.PROBLEM_NOT_PNG: FLASH_KEY_ILLUSTRATION_NOT_PNG,
     illustrations.PROBLEM_TOO_LARGE: FLASH_KEY_ILLUSTRATION_TOO_LARGE,
@@ -97,6 +101,10 @@ def _illustration_filenames(state_dir=None):
     since that manual state is mutable.
     """
     filenames = set(illustrations.target_filenames())
+    for _prefix, name in enrich.names_without_artwork():
+        key = manual_resolutions.illustration_key_for_name(name)
+        if key:
+            filenames.add(key + ".png")
     if state_dir:
         for entry in manual_resolutions.load_manual_resolutions(state_dir).values():
             key = manual_resolutions.illustration_key_for_name(entry["airline_name"])
@@ -106,16 +114,40 @@ def _illustration_filenames(state_dir=None):
     return frozenset(filenames)
 
 
-def _record_resolution(handler, state_dir, key, default_type):
+def _record_resolution(handler, state_dir, key, default_type, suggestion=""):
     """The side effects of naming an airline: the optional default aircraft
-    type chosen in the same row, and the audit row."""
+    type chosen in the same row, and the audit row, which says when the name
+    came from a suggestion (`accepted`) or started from one (`edited`).
+    Returns whether the chosen default type was refused (no picture for it)."""
     if not key:
         return
     chosen = airline_default_types.normalise_code(default_type)
-    if chosen:
-        airline_default_types.set_default_type(state_dir, key, chosen)
+    refused = bool(chosen) and airline_default_types.set_default_type(
+        state_dir, key, chosen) != airline_default_types.SET_OK
+    detail = {"type": chosen} if chosen else {}
+    if suggestion:
+        detail["suggestion"] = suggestion
+    airline_actions.record(handler, airline_actions.ACTION_RESOLVE, key, detail or None)
+    return refused
+
+
+def _make_first_type_the_default(handler, state_dir, key, code):
+    """After a picture was stored under `key` for the aircraft type `code`:
+    an airline with no default type gets this type as its default, through
+    `set_default_type` (so the livery rule holds), fleet-wide, audited like the
+    other default-type changes. An airline that already has an effective
+    default type (a stored one with a picture, or the airframe of its legacy
+    picture) keeps it.
+    Returns False only when a default was to be set and was refused."""
+    airline_key = artwork_airline.base_key(key)
+    if illustrations.effective_default_type(airline_key, state_dir):
+        return True
+    if airline_default_types.set_default_type(
+            state_dir, airline_key, code, livery_key=key) != airline_default_types.SET_OK:
+        return False
     airline_actions.record(
-        handler, airline_actions.ACTION_RESOLVE, key, {"type": chosen} if chosen else None)
+        handler, airline_actions.ACTION_DEFAULT_TYPE, airline_key, {"type": code, "automatic": True})
+    return True
 
 
 def type_slugs():
@@ -155,31 +187,10 @@ def _renamed_illustration_filenames(state_dir):
 
 
 def _carry_artwork_to_new_name(state_dir, from_name, to_name, shapes):
-    """Best-effort copy of the artwork flights use under `from_name` to the
-    key `to_name` resolves to, so renaming does not blank the airline's
-    pictures on new flights. Copies, never moves, and only when `to_name`
-    has no artwork at all (it may be another airline's name); the old
-    key's files stay, so a reset (and every older picture) still finds them.
-    """
-    from_key = illustrations.normalise_airline_key(from_name)
-    to_key = illustrations.normalise_airline_key(to_name)
-    if not from_key or not to_key or from_key == to_key:
-        return
-    suffixes = [""] + ["-" + shape for shape in shapes]
-    if any(illustrations.resolved_illustration_path(to_key + suffix, state_dir) for suffix in suffixes):
-        return
-    for suffix in suffixes:
-        source = illustrations.resolved_illustration_path(from_key + suffix, state_dir)
-        target = illustrations.override_path_for_key(to_key + suffix, state_dir)
-        if source is None or target is None:
-            continue
-        try:
-            with open(source, "rb") as fh:
-                data = fh.read()
-            os.makedirs(os.path.dirname(target), exist_ok=True)
-            atomic_io.atomic_write(target, data)
-        except OSError as exc:
-            print("airline rename: could not carry artwork %s: %s" % (suffix or "base", exc))
+    """Carry a built-in airline's artwork to its new name through the one
+    function both renames share."""
+    airline_actions.carry_artwork_to_new_name(
+        state_dir, from_name, to_name, [""] + ["-" + shape for shape in shapes])
 
 
 _RENAME_FLASH_BY_RESULT = {
@@ -250,8 +261,11 @@ class SettingsActionsMixin:
         """
         # Airlines unless the action URL names an allow-listed page that
         # opened the dialog (Health).
-        back = resolve_dialog.return_route(
-            parse_qs(urlsplit(self.path).query).get(resolve_dialog.RETURN_FIELD, [None])[0])
+        query_values = parse_qs(urlsplit(self.path).query, keep_blank_values=True)
+        back = resolve_dialog.return_route(query_values.get(resolve_dialog.RETURN_FIELD, [None])[0])
+        # Sent by the add-first-artwork dialog only: the aircraft type the
+        # artwork is for. Validated before anything is stored.
+        asked_type = query_values.get(DEFAULT_TYPE_QUERY_PARAM, [None])[0]
         filename = key + ".png"
         if not illustration_filename_known(filename, device.state_dir):
             return self.send_html(404, self._not_found_page())
@@ -264,6 +278,18 @@ class SettingsActionsMixin:
                 resolve_dialog.with_query(back, query), artwork_airline.base_key(key)))
 
         raw = self._read_upload_body()
+        if asked_type is None and raw is not None:
+            # The script-free form sends the chosen type next to the file.
+            asked_type = upload_form.parse_upload_type(self.headers.get("Content-Type"), raw)
+        default_type = None if asked_type is None else airline_default_types.normalise_code(asked_type)
+        if asked_type is not None and default_type is None:
+            return refused(FLASH_KEY_ARTWORK_TYPE_INVALID)
+        # A first picture of an airline always says which aircraft type it
+        # shows: an airline has no picture of its own, only its types do.
+        if default_type is None and artwork_airline.base_key(key) == key \
+                and not illustrations.has_pictures(key, device.state_dir):
+            return refused(FLASH_KEY_ARTWORK_TYPE_INVALID)
+
         if raw is None:
             # Over the size cap, or a body that could not be read at all.
             too_large = request_body.parse_content_length(self.headers) > MAX_ILLUSTRATION_UPLOAD_BYTES
@@ -290,6 +316,16 @@ class SettingsActionsMixin:
         # which owns its own unique temp name and cleans it up on any
         # failure.
         raw_tmp_path = None
+
+        def discard_raw_tmp():
+            # Called before every answer is sent: the client must never see
+            # the response while the raw upload still sits in the directory.
+            if raw_tmp_path is not None:
+                try:
+                    os.unlink(raw_tmp_path)
+                except OSError:
+                    pass
+
         try:
             raw_tmp_fd, raw_tmp_path = tempfile.mkstemp(
                 dir=override_dir, prefix="." + key + ".upload.", suffix=".tmp")
@@ -303,6 +339,7 @@ class SettingsActionsMixin:
             if problems:
                 for problem in problems:
                     print("illustration replace rejected for %r: %s" % (key, problem))
+                discard_raw_tmp()
                 return refused(_REFUSAL_FLASH.get(
                     illustrations.problem_category(problems), FLASH_KEY_ILLUSTRATION_REJECTED))
 
@@ -310,19 +347,21 @@ class SettingsActionsMixin:
                 rgba = img.convert("RGBA")
                 buffer = io.BytesIO()
                 rgba.save(buffer, format="PNG")
+            discard_raw_tmp()
 
             override_path = illustrations.override_path_for_key(key, state_dir)
             atomic_io.atomic_write(override_path, buffer.getvalue())
+            flash_key = FLASH_KEY_ILLUSTRATION_REPLACED
+            if default_type and not _make_first_type_the_default(
+                    self, state_dir, key, default_type):
+                flash_key = FLASH_KEY_DEFAULT_TYPE_FAILED
             return self._scoped_redirect(
-                resolve_dialog.with_query(back, "flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REPLACED)))
+                resolve_dialog.with_query(back, "flash=%s" % quote(flash_key)))
         except Exception:
+            discard_raw_tmp()
             return refused(FLASH_KEY_ILLUSTRATION_REPLACE_FAILED)
         finally:
-            if raw_tmp_path is not None:
-                try:
-                    os.unlink(raw_tmp_path)
-                except OSError:
-                    pass
+            discard_raw_tmp()
 
     def _handle_manual_resolve_post(self, device):
         """POST /airlines/resolve — Step A of the two-step resolve flow.
@@ -340,7 +379,9 @@ class SettingsActionsMixin:
         back = resolve_dialog.return_route(form.get(resolve_dialog.RETURN_FIELD))
 
         row = unresolved_row_for_prefix(state_dir, form.get("prefix"))
-        if row is None:
+        # A prefix named on another frame since this row was drawn is stale
+        # too: the registry is fleet-wide and must not be overwritten here.
+        if row is None or row[0] in manual_resolutions.load_manual_resolutions(state_dir):
             return self._scoped_redirect(
                 resolve_dialog.with_query(back, "flash=%s" % quote(FLASH_KEY_MANUAL_PREFIX_STALE)))
         prefix = row[0]
@@ -351,16 +392,19 @@ class SettingsActionsMixin:
             registry = manual_resolutions.load_manual_resolutions(state_dir)
             entry = registry.get(prefix) or {}
             key = manual_resolutions.illustration_key_for_name(entry.get("airline_name"))
-            _record_resolution(self, state_dir, key, form.get("default_type"))
+            outcome = airline_suggest.record_outcome(
+                self.args.state_dir, prefix, entry.get("airline_name") or "")
+            refused = _record_resolution(self, state_dir, key, form.get("default_type"), outcome)
+            flash_key = FLASH_KEY_DEFAULT_TYPE_FAILED if refused else FLASH_KEY_MANUAL_RESOLVED
             # The editor's inline row stays on the table: artwork is added
             # from the row itself, not from a second step.
             if form.get("inline") or (
                     key and illustrations.resolved_illustration_path(key, state_dir) is not None):
                 return self._scoped_redirect(
-                    resolve_dialog.with_query(back, "flash=%s" % quote(FLASH_KEY_MANUAL_RESOLVED)))
+                    resolve_dialog.with_query(back, "flash=%s" % quote(flash_key)))
             return self._scoped_redirect(
                 resolve_dialog.with_query(back, "resolve=%s&flash=%s" % (
-                    quote(prefix, safe=""), quote(FLASH_KEY_MANUAL_RESOLVED))))
+                    quote(prefix, safe=""), quote(flash_key))))
 
         if result == manual_resolutions.ADD_REJECTED_PREFIX:
             flash_key = FLASH_KEY_MANUAL_NAME_EMPTY

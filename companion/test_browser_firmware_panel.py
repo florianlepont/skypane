@@ -23,7 +23,7 @@ from skypane_fw_image import build_image
 
 pytestmark = pytest.mark.browser
 
-FLEET_ROUTE = "/fleet"
+FLEET_ROUTE = "/fleet?frame=live&view=versions"
 WIDTHS = (360, 1280)
 THEMES = ("light", "dark")
 LANGS = ("en", "fr")
@@ -96,7 +96,7 @@ def open_panel(new_context, server, width, lang, theme):
     _login(page, base_url)
     page.goto(base_url + FLEET_ROUTE)
     page.wait_for_function("document.readyState === 'complete'")
-    page.wait_for_selector(".fleet-block--device")
+    page.wait_for_selector(".fleet-versions")
     return context, page
 
 
@@ -108,43 +108,44 @@ def no_horizontal_overflow(page):
 @pytest.mark.parametrize("theme", THEMES)
 @pytest.mark.parametrize("lang", LANGS)
 @pytest.mark.parametrize("width", WIDTHS)
-def test_summary_names_what_is_on_the_frame_and_its_state(
+def test_the_card_names_the_state_the_version_and_the_hardware(
         new_context, servers, width, lang, theme):
-    """The panel opens with what the frame runs (label, large monospace version, when it was
-    installed and the model) and one state chip on the right: an update is on offer, or the
-    frame is up to date. The model is no longer a row of its own."""
+    """The panel opens with one card (no line naming the hardware): its headline names the state (an
+    update is on offer, or the frame is up to date), the version is large monospace, and the
+    list marks the release the frame runs with the Running chip. There is no footer
+    naming the running version under the card."""
     labels = {
-        "en": ("On the frame", "Update available", "Up to date", "Installed"),
-        "fr": ("Sur le cadre", "Mise à jour disponible", "À jour", "Installée"),
+        "en": ("Update available", "The frame is up to date", "Running", "On the frame"),
+        "fr": ("Mise à jour disponible", "Le cadre est à jour", "En cours", "Sur le cadre"),
     }[lang]
-    for scenario, chip_text in (("update", labels[1]), ("current", labels[2])):
+    for scenario, headline, version_text in (
+            ("update", labels[0], "fw-v1.0.4"), ("current", labels[1], "fw-v1.0.4")):
         context, page = open_panel(new_context, servers[scenario], width, lang, theme)
         try:
             where = "%s %dpx/%s/%s" % (scenario, width, lang, theme)
-            summary = page.locator(".fleet-block--device .update-sum")
-            assert summary.count() == 1 and summary.is_visible(), where
-            assert summary.locator(".update-sum__label").text_content().strip() == labels[0]
-            version = summary.locator(".update-sum__version")
-            assert version.inner_text().strip() == (
-                "fw-v1.0.3" if scenario == "update" else "fw-v1.0.4")
+            block = page.locator(".fleet-versions")
+            assert block.locator(".update-for").count() == 0, where
+            assert "XIAO" not in block.inner_text(), where
+            card = block.locator(".update-cta")
+            assert card.count() == 1 and card.is_visible(), where
+            assert card.locator("h2").inner_text().strip() == headline, where
+            version = card.locator(".update-cta__detail .mono").first
+            assert version.inner_text().strip() == version_text, where
             style = version.evaluate(
                 "el => { const s = getComputedStyle(el);"
                 " return [parseFloat(s.fontSize), s.fontFamily]; }")
-            assert style[0] >= 19, "version too small at %s: %r" % (where, style)
+            assert style[0] >= 17, "version too small at %s: %r" % (where, style)
             assert "mono" in style[1].lower(), "version not monospace at %s" % where
-            meta = summary.locator(".update-sum__meta").inner_text()
-            assert labels[3] in meta and "XIAO" in meta, "%s: %r" % (where, meta)
-            chip = summary.locator(".banner__pill")
-            assert chip.inner_text().strip() == chip_text, where
-            version_box, chip_box = version.bounding_box(), chip.bounding_box()
-            if width >= 1280:
-                assert chip_box["x"] > version_box["x"] + version_box["width"], where
-            assert page.locator(".fleet-block__fact").count() == 0, where
-            assert no_horizontal_overflow(page), "overflow at %s" % where
-            colours = chip.evaluate(
+            assert labels[3] not in block.inner_text(), where
+            assert block.locator(".update-sum").count() == 0, where
+            running = block.locator("li.update-item--running .banner__pill")
+            assert running.count() == 1 and running.inner_text().strip() == labels[2], where
+            colours = running.evaluate(
                 "el => { const s = getComputedStyle(el);"
                 " return [s.color, s.backgroundColor]; }")
             assert colours[0] != colours[1], where
+            assert page.locator(".fleet-block__fact").count() == 0, where
+            assert no_horizontal_overflow(page), "overflow at %s" % where
         finally:
             context.close()
 
@@ -163,12 +164,12 @@ def test_one_update_card_with_one_install_button_when_an_update_is_offered(
     context, page = open_panel(new_context, servers["update"], width, lang, theme)
     try:
         where = "%dpx/%s/%s" % (width, lang, theme)
-        card = page.locator(".fleet-block--device .update-offer")
+        card = page.locator(".fleet-versions .update-cta")
         assert card.count() == 1 and card.is_visible(), where
-        title = card.locator(".update-offer__title")
+        title = card.locator(".update-cta__detail").first
         assert "fw-v1.0.4" in title.inner_text() and released in title.inner_text(), where
         assert card.locator("time").count() == 1, where
-        note = card.locator(".update-offer__note").inner_text()
+        note = card.locator(".update-cta__note").inner_text()
         assert note == "Plane screen design exploration", (where, note)
         assert "DRAFT" not in card.inner_text(), where
         buttons = page.locator(
@@ -189,14 +190,14 @@ def test_one_update_card_with_one_install_button_when_an_update_is_offered(
     for scenario in ("current", "single"):
         context, page = open_panel(new_context, servers[scenario], width, lang, theme)
         try:
-            assert page.locator(".fleet-block--device .update-offer").count() == 0
+            assert page.locator(".fleet-versions .update-cta form").count() == 0
             assert page.locator("main form[action='/update/install']").count() == (
                 0 if scenario == "single" else 4)
         finally:
             context.close()
 
 
-_PROBE_ROWS = """() => [...document.querySelectorAll('.fleet-block--device .update-item')].map((li) => {
+_PROBE_ROWS = """() => [...document.querySelectorAll('.fleet-versions .update-item')].map((li) => {
   const rect = (el) => { const r = el.getBoundingClientRect(); return [r.x, r.y, r.width, r.height]; };
   const version = li.querySelector('.update-item__version');
   const range = document.createRange();
@@ -208,6 +209,7 @@ _PROBE_ROWS = """() => [...document.querySelectorAll('.fleet-block--device .upda
     cls: li.className,
     versionLines: new Set([...range.getClientRects()].map((r) => Math.round(r.top))).size,
     meta: li.querySelector('.update-item__meta').textContent.replace(/\\s+/g, ' ').trim(),
+    text: li.textContent.replace(/\\s+/g, ' ').trim(),
     chip: (li.querySelector('.banner__pill') || {textContent: ''}).textContent.trim(),
     button: button ? {text: button.textContent.trim(), rect: rect(button),
       bg: getComputedStyle(button).backgroundColor} : null,
@@ -223,19 +225,19 @@ _PROBE_ROWS = """() => [...document.querySelectorAll('.fleet-block--device .upda
 @pytest.mark.parametrize("width", WIDTHS)
 def test_history_is_a_flat_list_with_status_chips_and_a_quiet_revert(
         new_context, servers, width, lang, theme):
-    """The history is a flat list, no table and no card inside the card: a status dot, the
-    version in monospace and a date, age and notes line per row; "Newest" and "Installed"
+    """The history is a flat list, no table: a status dot, the
+    version in monospace and a date and age line per row; "Newest" and "Running"
     chips; a quiet text-style Revert (still a 44px target) on every older version."""
     words = {
-        "en": ("Versions", "Newest", "Installed", "Roll back", "Notes (4)"),
-        "fr": ("Versions", "Plus récente", "Installée", "Revenir", "Notes (4)"),
+        "en": ("Versions", "Newest", "Running", "Revert", "Notes (4)", "Installed"),
+        "fr": ("Versions", "Plus récente", "En cours", "Revenir", "Notes (4)", "Installée"),
     }[lang]
     context, page = open_panel(new_context, servers["update"], width, lang, theme)
     try:
         where = "%dpx/%s/%s" % (width, lang, theme)
-        assert page.locator(".fleet-block--device table").count() == 0, where
-        head = page.locator(".fleet-block--device .update-hist__head")
-        assert words[0] in head.text_content() and "5" in head.locator(".banner__pill").inner_text()
+        assert page.locator(".fleet-versions table").count() == 0, where
+        head = page.locator(".fleet-versions .update-hist__title")
+        assert head.inner_text().strip() == words[0], where
         rows = page.evaluate(_PROBE_ROWS)
         assert [row["version"] for row in rows] == [
             "fw-v1.0.4", "fw-v1.0.3", "fw-v1.0.2", "fw-v1.0.1", "fw-v1.0.0"], where
@@ -246,14 +248,14 @@ def test_history_is_a_flat_list_with_status_chips_and_a_quiet_revert(
         for row in rows:
             assert row["versionLines"] == 1, "version wrapped at %s: %r" % (where, row)
             assert row["shadow"] == "none", where
-            assert row["dotShape"][0] == 10, where
+            assert row["dotShape"][0] == 8, where
             assert row["box"][0] >= -0.5 and row["box"][0] + row["box"][2] <= width + 0.5, where
         newest, installed, *older = rows
         assert newest["chip"] == words[1] and newest["button"] is None, (where, newest)
         assert installed["chip"] == words[2] and installed["button"] is None, (where, installed)
         assert "update-item--running" in installed["cls"], where
-        assert words[4] in installed["meta"], (where, installed["meta"])
-        assert installed["meta"].count("·") == 2, (where, installed["meta"])
+        assert words[4] in installed["text"], (where, installed["text"])
+        assert installed["meta"].startswith(words[5]), (where, installed["meta"])
         for row in older:
             assert row["chip"] == "", where
             button = row["button"]
@@ -273,8 +275,7 @@ def test_a_single_version_is_a_list_of_one_row_without_an_action(new_context, se
     try:
         rows = page.evaluate(_PROBE_ROWS)
         assert [row["version"] for row in rows] == ["fw-v1.0.4"]
-        assert rows[0]["chip"] == "Installed" and rows[0]["button"] is None
-        assert "1" in page.locator(".update-hist__head .banner__pill").inner_text()
+        assert rows[0]["chip"] == "Running" and rows[0]["button"] is None
     finally:
         context.close()
 

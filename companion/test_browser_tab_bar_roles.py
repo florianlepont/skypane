@@ -30,9 +30,10 @@ def _bar_labels(role, lang):
 
 _SWITCH_LABEL = {
     "personal": {"en": "Console", "fr": "Console"},
-    "console": {"en": "My frame", "fr": "Mon cadre"},
+    "console": {"en": "My frames", "fr": "Mes cadres"},
 }
 _ACCOUNT_LABEL = {"en": "Account", "fr": "Compte"}
+_AUDIT_LABEL = {"en": "Audit log", "fr": "Journal d’audit"}
 _CELLS = (
     "() => [...document.querySelectorAll('.tab-bar > a, .tab-bar > details')].map(e => ({"
     " label: e.querySelector('.tab-bar__label').textContent.trim(),"
@@ -126,7 +127,7 @@ def test_at_1280_the_bar_is_not_shown_and_the_sidebar_carries_the_pages(
         assert not page.locator(".tab-bar").is_visible()
         names = page.locator(".dashboard-sidebar .sidebar-link").all_inner_texts()
         assert [n.strip() for n in names[:5]] == [
-            "Home", "Flight history", "Location and detection", "Style", "Airlines"], names
+            "Home", "Flights", "Airlines", "Style", "Location"], names
     finally:
         context.close()
 
@@ -142,8 +143,9 @@ def test_an_administrators_plus_panel_holds_the_space_switch_beside_account(
         _settled_cells(page)
         panel = _open_panel(page)
         texts = [link["text"] for link in panel["links"]]
-        assert texts == [_ACCOUNT_LABEL[lang], _SWITCH_LABEL[space][lang]], panel
-        switch = panel["links"][1]
+        audit = [_AUDIT_LABEL[lang]] if space == "console" else []
+        assert texts == [_ACCOUNT_LABEL[lang], *audit, _SWITCH_LABEL[space][lang]], panel
+        switch = panel["links"][-1]
         assert switch["space"] and switch["href"] == ("/fleet" if space == "personal" else "/"), panel
         assert switch["aria"], panel
         assert all(link["h"] >= MIN_TAP_PX and link["hit"] for link in panel["links"]), panel
@@ -191,7 +193,7 @@ def test_the_switch_row_in_the_panel_moves_between_the_spaces(
         page.wait_for_function("() => location.pathname === '/fleet'")
         _settled_cells(page)
         panel = _open_panel(page)
-        assert panel["links"][1]["text"] == "My frame", panel
+        assert panel["links"][-1]["text"] == "My frames", panel
         page.locator(".tab-bar__space-link").click()
         page.wait_for_function("() => location.pathname !== '/fleet'")
     finally:

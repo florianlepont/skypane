@@ -18,7 +18,7 @@ from server import device_config
 from companion.test_browser_ux_helpers import (
     VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED, VIEWPORT_PHONE,
     _bar_text, _click_control, _commit_field,
-    _guard_armed, _login, _no_js_page, _open_health_rows, _save_via_bar, _wait_for_bar,
+    _assert_health_rows_flat, _guard_armed, _login, _no_js_page, _save_via_bar, _wait_for_bar,
     _wait_for_bar_hidden, seed_state_dir,
 )
 
@@ -248,25 +248,25 @@ def test_airlines_filter_bar_is_a_16px_search_pill_with_a_visible_quiet_count_at
 
 
 def test_the_no_js_floor_holds_for_the_fleet_state_and_system_views(new_context, server):
-    """With scripts blocked the Fleet page's State block renders in full: every health row with
-    its icon/name/verdict/value slots each exactly once and its evidence reachable through the
-    native disclosure; its System view carries no unresolved-prefix table (those prefixes are
+    """With scripts blocked the frame's Battery page renders its row in full, with its
+    icon/name/verdict/value slots each exactly once and its evidence visible without a tap; the
+    System view renders its cards and carries no unresolved-prefix table (those prefixes are
     named in the Airlines table).
     """
-    with _no_js_page(new_context, server.base_url(), "/fleet") as page:
-        rows = page.eval_on_selector_all("details.health-row", "els => els.length")
-        if rows < 3:
+    with _no_js_page(new_context, server.base_url(), "/fleet?frame=live&view=battery") as page:
+        rows = page.eval_on_selector_all("div.health-row", "els => els.length")
+        if rows != 1:
             raise AssertionError(
-                "expected the health rows to render with scripts blocked, "
-                "got %d" % (rows,))
+                "expected the battery row to render with scripts blocked, "
+                "got %d rows" % (rows,))
         # Every row must be complete, not merely present.
         slots = page.eval_on_selector_all(
-            "details.health-row",
+            "div.health-row",
             "els => els.map(el => ["
-            "  el.querySelectorAll(':scope > summary > .health-row__icon').length,"
-            "  el.querySelectorAll(':scope > summary > .health-row__name').length,"
-            "  el.querySelectorAll(':scope > summary > .health-row__verdict').length,"
-            "  el.querySelectorAll(':scope > summary > .health-row__value').length,"
+            "  el.querySelectorAll('.health-row__summary > .health-row__icon').length,"
+            "  el.querySelectorAll('.health-row__summary > .health-row__name').length,"
+            "  el.querySelectorAll('.health-row__summary > .health-row__verdict').length,"
+            "  el.querySelectorAll('.health-row__summary > .health-row__value').length,"
             "  el.querySelectorAll(':scope > .health-row__body').length])")
         for index, slot in enumerate(slots):
             if slot != [1, 1, 1, 1, 1]:
@@ -274,16 +274,18 @@ def test_the_no_js_floor_holds_for_the_fleet_state_and_system_views(new_context,
                     "expected row %d to render its icon/name/verdict/value/body slots "
                     "exactly once each with scripts blocked, got %r"
                     % (index, slot))
-        _open_health_rows(page)
+        _assert_health_rows_flat(page)
         hidden = page.eval_on_selector_all(
             ".health-row__body",
             "els => els.filter(el => el.getBoundingClientRect().height === 0).length")
         if hidden:
             raise AssertionError(
-                "expected every row body to be visible once its summary was activated with "
-                "scripts blocked, %d stayed empty" % (hidden,))
+                "expected every row body to be visible with scripts blocked, %d stayed empty" % (hidden,))
     with _no_js_page(new_context, server.base_url(), "/fleet?view=system") as page:
-        _open_health_rows(page)
+        cards = page.eval_on_selector_all(".sys-card .sys-card__head", "els => els.length")
+        if cards < 4:
+            raise AssertionError(
+                "expected the System cards to render with scripts blocked, got %d" % (cards,))
         # Unidentified prefixes are named in the Airlines table, not listed here.
         for selector in (".filter-bar [data-filter-input]", "[data-filter-clear]",
                          'a[href^="/airlines/manage?resolve="]'):
@@ -324,12 +326,12 @@ def test_display_reveal_and_persist_across_all_field_kinds(page, make_app_server
             "expected the theme chip's committed value to reach disk, got %r"
             % (on_disk()["theme"],))
 
-    # 2. The Runway card and the Location and detection card are gone: the Location page owns
+    # 2. The Runway card and the Location card are gone: the Location page owns
     # the runway and the place, and Display carries no pointer to it.
     if page.locator('input[name="tracked_runway"]').count():
         raise AssertionError("Display still renders a tracked_runway control")
     if page.locator(".detection-card").count():
-        raise AssertionError("Display still renders the Location and detection card")
+        raise AssertionError("Display still renders the Location card")
     # The Quiet hours card left Display as well (Home's dialog owns the schedule), so Display
     # has neither the time fields nor the note that pointed from them to the Location page.
     if page.locator('input[name="quiet_hours_start"], .quiet-timezone-note').count():
@@ -345,16 +347,16 @@ def test_device_reveal_and_persist_stays_in_step_with_display(page, make_app_ser
     server = make_app_server(seed=seed_state_dir, fake_providers=True)
     base_url = server.base_url()
     _login(page, base_url)
-    page.goto(base_url + "/fleet")
-    wake_sel = 'input[name="wake_interval_s"]'
+    page.goto(base_url + "/fleet?frame=live")
+    wake_sel = 'input[name="wake_interval_min"]'
     before = page.eval_on_selector(wake_sel, "el => el.value")
-    target = "1800" if before != "1800" else "3600"
+    target = "30" if before != "30" else "60"
     page.fill(wake_sel, target)
     _commit_field(page, wake_sel)
     _wait_for_bar(page)
     _save_via_bar(page)
     stored = device_config.load_device_config(server.tmpdir)["wake_interval_s"]
-    if str(stored) != target:
+    if stored != int(target) * 60:
         raise AssertionError(
             "expected the edited wake interval to reach disk, got %r" % (stored,))
     # The LED switch, which is not part of that form, must be unmoved by the save.
@@ -423,15 +425,15 @@ def test_leave_guard_arms_on_uncommitted_edit_and_stays_armed_through_commit(pag
     # shares the module's read-only server.
     base_url = server.base_url()
     _login(page, base_url)
-    page.goto(base_url + "/fleet")
+    page.goto(base_url + "/fleet?frame=live")
 
     # a. Fresh load: disarmed.
     if _guard_armed(page):
         raise AssertionError("expected the leave-guard to start disarmed on a clean page load")
 
-    wake_sel = 'input[name="wake_interval_s"]'
+    wake_sel = 'input[name="wake_interval_min"]'
     before = page.eval_on_selector(wake_sel, "el => el.value")
-    target = "1800" if before != "1800" else "3600"
+    target = "30" if before != "30" else "60"
 
     # Type without committing: `input` fires per keystroke; `change` does not fire until
     # focus leaves the field.
@@ -466,7 +468,7 @@ def test_leave_guard_arms_on_uncommitted_edit_and_stays_armed_through_commit(pag
             "Enregistrer, not the retired auto-save contract where a commit "
             "disarmed the guard because it was already persisted")
     stored = device_config.load_device_config(server.tmpdir)["wake_interval_s"]
-    if str(stored) == target:
+    if stored == int(target) * 60:
         raise AssertionError(
             "the committed value already reached disk with no Save click — "
             "this check's own premise (unsaved-but-committed) does not hold")

@@ -6,6 +6,7 @@ keeps its row with a pill and no separate list exists; "Delete my name" in its r
 name, with and without scripts. Renaming an airline works end to end.
 
 State is always waited for (settled page, owned centres, focus), never read right after an input."""
+import animation_settle
 import pytest
 
 import fleet_console_support as fx
@@ -19,14 +20,15 @@ from server.plane import manual_resolutions
 pytestmark = pytest.mark.browser
 
 VIEWPORTS = (("360", VIEWPORT_MIN_SUPPORTED), ("1280", VIEWPORT_DESKTOP))
-ROW = "tbody.airline-group:has(.airlines-pill)"
-DELETE_LINK = ROW + " .airlines-row .row-menu__toggle"
-FRANCE_NAME = '.airlines-name input[name="airline_name"][value="Air France"]'
+ROW = '.airlines-missing__airline:has(form[action*="manual-resolutions/"])'
+DELETE_LINK = ROW + " .airlines-missing__head .row-menu__toggle"
+FRANCE = "#airline-air-france"
+FRANCE_NAME = FRANCE + " .airlines-name"
+FRANCE_MENU = FRANCE + " .airlines-row .row-menu__toggle"
+FRANCE_DIALOG = FRANCE + " dialog"
+FRANCE_FIELD = FRANCE_DIALOG + ' input[name="airline_name"]'
 
-_SETTLED = (
-    "() => document.readyState === 'complete'"
-    " && document.getAnimations().every(a => a.effect && a.effect.getTiming().iterations !== Infinity"
-    " ? a.playState !== 'running' : true)")
+_SETTLED = animation_settle.SETTLED
 _OWNS_CENTRE = (
     "sel => { const el = document.querySelector(sel); if (!el) return false;"
     " const r = el.getBoundingClientRect();"
@@ -82,7 +84,7 @@ def test_the_editor_is_a_console_page_without_a_frame_strip_and_with_usable_cont
         for _paint in _in_both_themes(page):
             page.wait_for_function(_SETTLED, timeout=15000)
             assert not _assert_no_page_overflow(page, "editor", viewport["width"])
-            for selector in (FRANCE_NAME, DELETE_LINK):
+            for selector in (FRANCE_MENU, DELETE_LINK):
                 _settle(page, selector)
                 _assert_hit_target(page, selector, "editor %s %s" % (name, lang))
     finally:
@@ -106,7 +108,10 @@ def test_the_editor_is_reached_from_the_console_bar_on_a_phone(new_context, serv
 
 
 def test_the_editor_is_reached_from_the_sidebar_on_desktop(new_context, server):
-    context, page = _open(new_context, server, VIEWPORT_DESKTOP, path="/fleet", ready="main h1")
+    # On a wide screen the Fleet landing's visible h1 is the neutral pane's heading (the list
+    # title h1 before it is for a phone and is hidden here).
+    context, page = _open(
+        new_context, server, VIEWPORT_DESKTOP, path="/fleet", ready="h1.fleet-empty__title")
     try:
         link = page.locator('nav.sidebar-nav a[href$="/airlines/manage"]')
         link.wait_for(state="visible")
@@ -119,16 +124,15 @@ def test_the_editor_is_reached_from_the_sidebar_on_desktop(new_context, server):
         context.close()
 
 
-def test_a_hand_named_airline_stays_in_the_table_and_its_menu_deletes_the_name(
+def test_a_hand_named_airline_keeps_its_header_and_its_menu_deletes_the_name(
         new_context, make_app_server):
-    """no separate manual-resolutions table: the two owner-named airlines keep a row with the
-    "Named by hand" pill, and "Delete my name" in the row menu removes the name"""
+    """no separate manual-resolutions table: the two owner-named airlines keep a header in the missing-illustrations section, and "Delete my name" in its menu removes the name"""
     server = make_app_server(seed=_seed, fake_providers=True)
     context, page = _open(new_context, server, VIEWPORT_DESKTOP)
     try:
         assert page.locator(".manual-resolutions").count() == 0
         assert page.locator(ROW).count() == 2
-        assert page.locator(ROW + " .airlines-pill").first.inner_text() == "Named by hand"
+        assert "Named by hand" not in page.locator(ROW).first.inner_text()
         _settle(page, DELETE_LINK)
         page.locator(DELETE_LINK).first.click()
         item = page.locator(ROW + " .row-menu__panel button.row-menu__item").first
@@ -150,7 +154,8 @@ def test_without_scripts_the_menu_opens_and_deleting_the_name_works(
         new_context, make_app_server):
     server = make_app_server(seed=_seed, fake_providers=True)
     context, page = _open(
-        new_context, server, VIEWPORT_MIN_SUPPORTED, java_script_enabled=False)
+        new_context, server, VIEWPORT_MIN_SUPPORTED, java_script_enabled=False,
+        reduced_motion="reduce")
     try:
         page.locator(DELETE_LINK).first.click()
         item = page.locator(ROW + " .row-menu__panel button.row-menu__item").first
@@ -175,19 +180,70 @@ def test_renaming_an_airline_through_the_editor_works_end_to_end(new_context, ma
             link.click()
         taps += 1
         page.wait_for_url("**/airlines/manage")
-        _settle(page, FRANCE_NAME)
-        field = page.locator(FRANCE_NAME)
-        field.click()
+        _settle(page, FRANCE_MENU)
+        page.locator(FRANCE_MENU).click()
         taps += 1
+        page.locator(FRANCE + " .airlines-row .row-menu__panel a.row-menu__item").click()
+        taps += 1
+        field = page.locator(FRANCE_FIELD)
+        field.wait_for(state="visible")
         field.fill("Skyline Air")
         with page.expect_navigation():
-            field.press("Enter")
+            page.locator(FRANCE_DIALOG + " button[type=submit]").click()
         taps += 1
         page.wait_for_function(
             "() => document.body.innerText.includes('Airline name saved')", timeout=15000)
         page.wait_for_function(_SETTLED, timeout=15000)
-        assert page.locator('.airlines-name input[value="Skyline Air"]').count() == 1
+        assert page.locator("#airline-skyline-air .airlines-name").inner_text() == "Skyline Air"
         print("STEP-COUNT A8 phone %d" % taps)
-        assert taps == 3
+        assert taps == 4
+    finally:
+        context.close()
+
+
+KNOWN_ROW = ".airlines-missing__item"
+KNOWN_ADD = KNOWN_ROW + " .airlines-missing__add"
+_CENTRED_TEXT = (
+    "el => { const glyph = el.querySelector('svg').getBoundingClientRect(); const box = el.getBoundingClientRect();"
+    " return Math.abs((glyph.top + glyph.height / 2) - (box.top + box.height / 2))"
+    " + Math.abs((glyph.left + glyph.width / 2) - (box.left + box.width / 2)); }")
+
+
+@pytest.mark.parametrize("lang", ("en", "fr"))
+@pytest.mark.parametrize("name,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
+def test_missing_illustrations_are_rows_with_an_illustration_button_and_a_chip(
+        new_context, server, name, viewport, lang):
+    context, page = _open(new_context, server, viewport, lang, ready=KNOWN_ROW)
+    try:
+        rows = page.locator(KNOWN_ROW)
+        assert rows.count() >= 4
+        assert rows.first.locator("input:visible, form:visible").count() == 0
+        for index in range(rows.count()):
+            button = page.locator(KNOWN_ADD).nth(index)
+            box = button.bounding_box()
+            assert box["height"] >= 44 and box["width"] >= 44
+            assert button.evaluate(_CENTRED_TEXT) <= 2
+        chip_text = "Missing illustrations" if lang == "en" else "Illustrations manquantes"
+        chips = page.locator(".filter-bar__chips")
+        assert chips.evaluate("el => getComputedStyle(el).flexWrap") == "nowrap" or viewport["width"] > 500
+        chip = page.locator(".filter-chip", has_text=chip_text)
+        chip.click()
+        page.wait_for_function(
+            "n => document.querySelectorAll('.airlines-missing__item:not([hidden])').length === n",
+            arg=rows.count())
+        assert page.locator("tbody.airline-group:not([hidden])").count() == 0
+        assert page.locator("tbody.airline-group--gap:not([hidden])").count() == 0
+        assert not _assert_no_page_overflow(page, "missing", viewport["width"])
+    finally:
+        context.close()
+
+
+def test_the_artwork_button_opens_the_shared_add_artwork_step(new_context, server):
+    context, page = _open(new_context, server, VIEWPORT_DESKTOP, ready=KNOWN_ROW)
+    try:
+        _settle(page, KNOWN_ADD)
+        page.locator(KNOWN_ADD).first.click()
+        page.locator("dialog[open]").wait_for(state="visible")
+        assert page.locator('dialog[open] input[type="file"]').count() >= 1
     finally:
         context.close()

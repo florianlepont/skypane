@@ -1,0 +1,369 @@
+<!--
+OWNER-APPROVED 2026-11-18 (Users and invitation, on the real shell). Covers R25 and R26 (decision D-28: automatic invitation through the sign-in provider's Management API, link shown once). Decisions:
+1. Dialogs follow the design system: an opaque card over a dimmed page on desktop, a bottom sheet with a grabber and 28 px top corners on phone. Text fields have a label above and run the full width.
+2. Invite dialog: title, labelled email field, one Administrator checkbox (unchecked by default), Cancel and Invite. No explanatory paragraph. The field comes first in the sheet so the keyboard never hides it.
+3. After Invite: "Invitation ready" shows the link once with a Copy button; it is never stored or logged. A lost link is replaced with "Send a new invitation" in the row menu (new link).
+4. The copy-link icon of the Active column is removed.
+5. Row menu: Send a new invitation, Reset sign-in, Delete user. The signed-in administrator's role shows as calm grey text, no select.
+6. Confirmations (make administrator, delete): title, one sentence of consequence, two buttons, even margins.
+-->
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SkyPane mockup: Users and invitation (Phase 68, plan 05)</title>
+<style>
+/* Standalone mockup, no external asset. Tokens follow companion/static/style.css (light and dark only).
+   Each mock sits in a [data-viewport] box, 390 px (phone) or 1440 px (desktop); every translated block is a
+   [data-lang] wrapper and the toggle at the top shows one language at a time. All names and addresses are invented. */
+:root{
+  --sky:linear-gradient(#E7EEF7,#F1F3F6 45%,#EDF1F6); --canvas:#F1F3F6; --stage:#E4E9F0;
+  --text:#17191F; --muted:#5B6372; --border:#DAE1EB; --chip:#E9EEF5; --card:#fff;
+  --accent:#1F2430; --on-accent:#fff; --glass:rgba(255,255,255,.78); --tab:#fff; --shadow:0 6px 20px rgba(20,30,50,.08);
+  --ok:#16A34A; --okbg:#DDF3E4; --warn:#D97706; --err:#BE123C;
+}
+@media (prefers-color-scheme:dark){:root:not([data-ui-theme="light"]){
+  --sky:linear-gradient(#12151D,#161A24 45%,#1A1F2B); --canvas:#161A24; --stage:#0E1117;
+  --text:#F1F3F6; --muted:#A3ABBB; --border:#2A3040; --chip:#232A38; --card:#1C222D;
+  --accent:#F2EFE9; --on-accent:#14171F; --glass:rgba(34,40,54,.82); --tab:#1C222D; --shadow:0 6px 20px rgba(0,0,0,.35);
+  --ok:#4ADE80; --okbg:#173225; --warn:#FBBF24; --err:#FB7185; color-scheme:dark}}
+:root[data-ui-theme="dark"]{
+  --sky:linear-gradient(#12151D,#161A24 45%,#1A1F2B); --canvas:#161A24; --stage:#0E1117;
+  --text:#F1F3F6; --muted:#A3ABBB; --border:#2A3040; --chip:#232A38; --card:#1C222D;
+  --accent:#F2EFE9; --on-accent:#14171F; --glass:rgba(34,40,54,.82); --tab:#1C222D; --shadow:0 6px 20px rgba(0,0,0,.35);
+  --ok:#4ADE80; --okbg:#173225; --warn:#FBBF24; --err:#FB7185; color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--stage);color:var(--text);font:16px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;padding:32px 16px 96px}
+button,input{font:inherit;color:inherit}
+a{color:inherit;text-decoration:none}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.num{font-variant-numeric:tabular-nums}
+.top{max-width:1500px;margin:0 auto 24px;display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between;align-items:flex-end}
+.top h1{margin:0 0 8px;font-size:34px;letter-spacing:-.03em}
+.top p{margin:0;color:var(--muted);max-width:75ch}
+.toggles{display:flex;gap:16px;flex-wrap:wrap}
+.seg{display:inline-flex;background:var(--chip);border-radius:32px;padding:4px;gap:4px}
+.seg button{border:0;background:none;min-height:44px;padding:0 16px;border-radius:32px;cursor:pointer;font-size:15px}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent)}
+.sec{max-width:1500px;margin:56px auto 0}
+.sec>h2{margin:0 0 4px;font-size:26px;letter-spacing:-.02em}
+.sec>p.lead{margin:0 0 24px;color:var(--muted);max-width:85ch}
+.row2{display:flex;flex-wrap:wrap;gap:32px;align-items:flex-start}
+.mock{margin:0;display:flex;flex-direction:column;gap:8px;min-width:0}
+.mock>figcaption{font-size:15px;font-weight:600}
+.mock>figcaption small{display:block;font-weight:400;color:var(--muted);font-size:13px}
+.scroller{max-width:100%;overflow-x:auto;padding-bottom:8px}
+[data-ui-lang="en"] [data-lang="fr"],[data-ui-lang="fr"] [data-lang="en"]{display:none}
+.note{margin:12px 0 0;padding:12px 16px;border:1px dashed var(--border);border-radius:14px;color:var(--muted);font-size:14px;max-width:85ch}
+.note b{color:var(--text)}
+
+[data-viewport]{position:relative;overflow:hidden;border:1px solid var(--border);background:var(--sky) var(--canvas);box-shadow:0 12px 40px rgba(20,30,50,.12)}
+[data-viewport="phone"]{width:390px;height:780px;border-radius:36px}
+[data-viewport="desktop"]{width:1440px;height:900px;border-radius:16px}
+[data-viewport] [data-lang]{height:100%;position:relative}
+
+/* shared pieces */
+.ic{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--ok);flex:none;display:inline-block}
+.dot.idle{background:var(--muted)}.dot.err{background:var(--err)}.dot.pend{background:var(--warn)}
+.label{margin:0 0 6px 16px;font-size:13px;font-weight:600;color:var(--muted)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:22px;box-shadow:var(--shadow);overflow:hidden}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 18px;border:1px solid var(--border);border-radius:14px;background:var(--card);font-size:15px;font-weight:600;cursor:pointer}
+.btn.dark{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.btn.sq{width:44px;padding:0}
+.field{display:flex;align-items:center;gap:8px;min-height:44px;padding:0 14px;border:1px solid var(--border);border-radius:14px;background:var(--card)}
+.field input{flex:1;min-width:0;border:0;background:none;min-height:42px;outline:0}
+.title{margin:0;font-size:40px;line-height:1.1;font-weight:700;letter-spacing:-.03em}
+.sub{color:var(--muted);font-size:15px}
+.state{margin:6px 0 0;display:flex;align-items:center;gap:8px;font-weight:600}
+
+/* rows */
+.item{display:flex;align-items:center;gap:12px;min-height:64px;padding:10px 16px;border-top:1px solid var(--border)}
+.item:first-child{border-top:0}
+.item .who{flex:1;min-width:0}
+.item .who small{display:block;color:var(--muted);font-size:13px}
+.item .who b{display:block;font-weight:600}
+.item .val{color:var(--muted);font-size:14px;white-space:nowrap}
+.ico{width:36px;height:36px;border-radius:50%;background:var(--chip);display:flex;align-items:center;justify-content:center;flex:none}
+.ico.ok{background:var(--okbg);color:var(--ok)}
+.sw{flex:none;width:51px;height:31px;border-radius:31px;background:#7C8696;position:relative;cursor:pointer}
+.sw::after{content:"";position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.sw.on{background:var(--accent)}.sw.on::after{left:22px}
+.badge{display:inline-flex;align-items:center;min-height:24px;padding:0 10px;border-radius:32px;border:1px solid var(--border);font-size:12px;color:var(--muted)}
+.range{height:6px;border-radius:6px;background:var(--border);position:relative;margin:14px 0 4px}
+.range i{position:absolute;left:0;top:0;bottom:0;width:26%;border-radius:6px;background:var(--accent)}
+.range b{position:absolute;left:26%;top:50%;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;background:var(--accent)}
+.section{display:flex;flex-direction:column}
+.danger b{color:var(--err)}
+
+/* frame list rows */
+.frow{display:flex;align-items:center;gap:12px;min-height:56px;padding:6px 14px;border-top:1px solid var(--border);cursor:pointer}
+.frow:first-child{border-top:0}
+.frow .who{flex:1;min-width:0}
+.frow .who b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.frow .who small{display:block;color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.frow .seen{font-size:13px;color:var(--muted);white-space:nowrap}
+.frow.retired{opacity:.8}
+.frow.sel{background:var(--chip)}
+.chev{color:var(--muted)}
+
+/* phone shell */
+.ptop{position:absolute;left:0;right:0;top:0;height:64px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;z-index:5}
+.brand{display:flex;align-items:center;gap:8px;font-size:22px;font-weight:700;letter-spacing:-.02em}
+.screen{position:absolute;inset:64px 0 0 0;overflow-y:auto;padding:8px 16px 120px;display:flex;flex-direction:column;gap:16px;scrollbar-width:none}
+.screen::-webkit-scrollbar{display:none}
+.screen>*{flex-shrink:0}
+.tabs{position:absolute;left:12px;right:12px;bottom:14px;display:flex;justify-content:space-around;padding:8px 6px;background:var(--tab);border:1px solid var(--border);border-radius:34px;box-shadow:0 8px 24px rgba(20,30,50,.14);z-index:6}
+.tab{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-width:60px;min-height:52px;border-radius:26px;font-size:11px;color:var(--text)}
+.tab.on{background:var(--accent);color:var(--on-accent);font-weight:600}
+.chips{display:flex;gap:8px;overflow-x:auto;margin:0 -16px;padding:0 16px 4px;scrollbar-width:none}
+.chip{flex:none;display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 14px;border-radius:32px;background:var(--card);border:1px solid var(--border);font-size:14px;white-space:nowrap}
+.chip[aria-current="page"]{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.chip.all{background:var(--chip)}
+.anchors{position:sticky;top:-8px;z-index:3;margin:0 -16px;padding:8px 16px;display:flex;gap:8px;background:var(--canvas)}
+.anchors button{flex:1;min-height:44px;border:1px solid var(--border);border-radius:32px;background:var(--card);font-size:14px;cursor:pointer}
+.anchors button[aria-current="true"]{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.blk{scroll-margin-top:72px}
+
+/* desktop shell */
+.side{position:absolute;left:0;top:0;bottom:0;width:240px;padding:24px 16px;background:var(--glass);border-right:1px solid var(--border);display:flex;flex-direction:column;gap:8px}
+.side .brand{padding:0 8px;margin-bottom:8px}
+.space{display:flex;gap:4px;padding:4px;border-radius:16px;background:var(--chip);margin-bottom:8px}
+.space span{flex:1;text-align:center;min-height:36px;display:flex;align-items:center;justify-content:center;border-radius:12px;font-size:14px;font-weight:600;color:var(--muted)}
+.space span.on{background:var(--accent);color:var(--on-accent)}
+.nlabel{margin:12px 8px 0;font-size:13px;font-weight:600;color:var(--muted)}
+.nav{display:flex;align-items:center;gap:12px;min-height:46px;padding:0 12px;border-radius:14px;font-size:15px}
+.nav.on{background:var(--accent);color:var(--on-accent);font-weight:600}
+.sep{height:1px;background:var(--border);margin:8px 0}
+.signout{margin-top:auto}
+.listp{position:absolute;left:240px;top:0;bottom:0;width:350px;background:var(--glass);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.listp .lhead{flex:none;padding:20px 16px 12px;display:flex;flex-direction:column;gap:12px;border-bottom:1px solid var(--border)}
+.listp .lbody{flex:1;min-height:0;overflow-y:auto;padding:12px 12px 20px;display:flex;flex-direction:column;gap:14px}
+.main{position:absolute;left:590px;right:0;top:0;bottom:0;overflow-y:auto;padding:32px 44px 64px}
+.dcol{display:flex;flex-direction:column;gap:24px;max-width:760px;margin-top:20px}
+.titlerow{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.iconbtns{display:flex;gap:8px;flex:none}
+.sparkline{display:block;width:100%;height:44px}
+.sub2{display:flex;flex-direction:column;gap:6px;width:100%;padding-left:48px;font-size:13px;color:var(--muted)}
+.item.wrap{flex-wrap:wrap}
+.tiles2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.tile2{display:flex;flex-direction:column;gap:6px;min-height:132px;padding:14px;border-radius:22px;background:var(--card);border:1px solid var(--border);box-shadow:var(--shadow);min-width:0}
+.tile2 .th{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+.tile2 .tv{font-size:19px;font-weight:700;letter-spacing:-.01em}
+.tile2 .tm{font-size:13px;color:var(--muted)}
+.tile2 .more{margin-top:auto;display:flex;align-items:center;gap:4px;font-size:13px;font-weight:600}
+.bigspark{display:block;width:100%;height:120px;color:var(--accent)}
+.kv{display:grid;grid-template-columns:1fr auto;gap:6px 16px;padding:12px 16px;border-top:1px solid var(--border);font-size:14px}
+.kv span:nth-child(odd){color:var(--muted)}
+.kv span:nth-child(even){text-align:right}
+.rtable{width:100%;border-collapse:collapse;font-size:14px}
+.rtable th{text-align:left;color:var(--muted);font-weight:600;font-size:13px;padding:8px 16px}
+.rtable td{padding:8px 16px;border-top:1px solid var(--border)}
+.rtable td:last-child,.rtable th:last-child{text-align:right}
+.banner{display:flex;flex-direction:column;gap:8px;padding:12px 16px;border-radius:18px;border:1px solid var(--warn);background:var(--card)}
+.banner b{font-weight:700}
+.pills{display:flex;flex-wrap:wrap;gap:6px}
+.pill{display:inline-flex;align-items:center;min-height:26px;padding:0 10px;border-radius:32px;background:var(--chip);font-size:13px}
+.pill.warn{background:var(--card);border:1px solid var(--warn)}
+.unit{display:inline-flex;gap:4px;padding:3px;border-radius:12px;background:var(--chip)}
+.unit span{min-height:32px;padding:0 12px;display:flex;align-items:center;border-radius:9px;font-size:13px}
+.unit span.on{background:var(--accent);color:var(--on-accent);font-weight:600}
+details.rd{border-top:1px solid var(--border)}
+details.rd summary{min-height:48px;display:flex;align-items:center;padding:0 16px;font-size:14px;font-weight:600;cursor:pointer}
+.outcomes{list-style:none;margin:0;padding:0}
+.outcomes li{padding:10px 16px;border-top:1px solid var(--border)}
+.outcomes p{margin:0;display:flex;align-items:center;gap:8px;font-weight:600}
+.outcomes p span.n{margin-left:auto}
+.outcomes small{display:block;color:var(--muted);font-size:13px;margin:2px 0 0 16px}
+.rtable.l td:last-child,.rtable.l th:last-child{text-align:left}
+.pagehead{display:flex;flex-direction:column;gap:6px;margin-bottom:8px}
+.backl{display:inline-flex;align-items:center;gap:6px;min-height:44px;font-size:15px;font-weight:600}
+.ring{width:64px;height:64px;border-radius:50%;background:conic-gradient(var(--ok) 0 47%,var(--border) 0);display:flex;align-items:center;justify-content:center;flex:none}
+.ring b{width:48px;height:48px;border-radius:50%;background:var(--card);display:flex;align-items:center;justify-content:center;font-size:14px}
+.vrow{display:flex;align-items:center;gap:12px;min-height:52px;padding:6px 16px;border-top:1px solid var(--border)}
+.vrow .who{flex:1}
+.btn.quiet{min-height:40px;font-weight:500;color:var(--muted)}
+
+@media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+
+.sw{display:inline-block;vertical-align:middle}
+.utable{width:100%;border-collapse:collapse}
+.utable th{text-align:left;color:var(--muted);font-weight:600;font-size:13px;padding:12px 14px;border-bottom:1px solid var(--border)}
+.utable td{padding:10px 14px;border-top:1px solid var(--border);vertical-align:middle}
+.utable tr:first-child td{border-top:0}
+.who2{display:flex;align-items:center;gap:12px;min-width:0}
+.who2 .em{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
+.chip2{display:inline-flex;align-items:center;min-height:22px;padding:0 8px;border-radius:32px;font-size:12px;font-weight:600;background:var(--chip);color:var(--muted)}
+.chip2.ok{background:var(--okbg);color:var(--ok)}
+.chip2.wait{background:rgba(217,119,6,.15);color:var(--warn)}
+.rolesel{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 12px;border-radius:12px;border:1px solid var(--border);background:var(--card);font-size:14px}
+.menu{position:absolute;right:12px;top:48px;z-index:8;min-width:250px;background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:0 12px 32px rgba(20,30,50,.2);padding:6px}
+.menu a{display:flex;align-items:center;gap:10px;min-height:44px;padding:0 12px;border-radius:10px;font-size:15px}
+.menu a.dg{color:var(--err)}
+.scrim{position:absolute;inset:0;background:rgba(10,14,22,.45);z-index:20}
+.dlg{position:absolute;left:50%;transform:translateX(-50%);z-index:21;width:min(420px,88%);background:var(--card);border:1px solid var(--border);border-radius:24px;padding:20px;display:flex;flex-direction:column;gap:14px;box-shadow:0 20px 50px rgba(20,30,50,.3)}
+.dlg.mid{top:50%;transform:translate(-50%,-50%)}
+.dlg.dtop{top:16%}
+[data-viewport="phone"] .dlg.dtop{top:72px}
+.dlg h4{margin:0;font-size:20px}
+.dlg .row{display:flex;gap:10px}
+.dlg .row .btn{flex:1}
+.dlg p{margin:0;color:var(--muted);font-size:15px}
+.sheet{position:absolute;left:0;right:0;bottom:0;z-index:21;background:var(--card);border-radius:28px 28px 0 0;padding:12px 16px 24px;display:flex;flex-direction:column;gap:14px;max-height:85%}
+.sheet .grab{width:44px;height:5px;border-radius:5px;background:var(--border);margin:0 auto 2px}
+.sheet h4{margin:0;font-size:20px}
+.sheet .row{display:flex;gap:10px}.sheet .row .btn{flex:1}
+.sheet p{margin:0;color:var(--muted);font-size:15px}
+[data-viewport="phone"] .dlgd{display:none}
+[data-viewport="desktop"] .sheetd{display:none}
+.cbx{display:flex;align-items:center;gap:12px;min-height:48px;font-size:16px}
+.cbx i{width:26px;height:26px;border-radius:8px;border:2px solid var(--muted);flex:none}
+.mfield{display:flex;flex-direction:column;gap:6px}
+.mfield>span{font-size:14px;font-weight:600}
+.segc{display:flex;gap:4px;padding:4px;border-radius:14px;background:var(--chip)}
+.segc span{flex:1;text-align:center;min-height:40px;display:flex;align-items:center;justify-content:center;border-radius:10px;font-size:14px;font-weight:600;color:var(--muted)}
+.segc span.on{background:var(--accent);color:var(--on-accent)}
+.linkbox{display:flex;align-items:center;gap:8px;padding:6px 6px 6px 12px;border:1px solid var(--border);border-radius:14px;background:var(--chip)}
+.linkbox code{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}
+.ucard{display:flex;align-items:center;gap:12px;min-height:76px;padding:10px 14px;border-top:1px solid var(--border)}
+.ucard:first-child{border-top:0}
+.ucard .grow{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.ucard small{color:var(--muted);font-size:13px}
+.ucard .acts{display:flex;align-items:center;gap:2px;flex:none}
+</style>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-logo" viewBox="0 0 24 24"><rect x="4" y="3" width="14" height="18" rx="3"/><path d="M9 10l2 2 4-4"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8v.5"/></symbol>
+  <symbol id="i-fleet" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="3"/><path d="M9 11l2 2 4-4"/></symbol>
+  <symbol id="i-team" viewBox="0 0 24 24"><circle cx="9" cy="12" r="5"/><circle cx="15" cy="12" r="5"/></symbol>
+  <symbol id="i-tag" viewBox="0 0 24 24"><path d="M3 12V4h8l10 10-8 8z"/><circle cx="8" cy="8" r="1.4"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></symbol>
+  <symbol id="i-battery" viewBox="0 0 24 24"><rect x="2" y="7" width="17" height="10" rx="2"/><path d="M22 11v2"/></symbol>
+  <symbol id="i-plane" viewBox="0 0 24 24"><path d="M2 14l8-2 3-8 2 1-1 7 6 2v2l-6-1-2 4-2-.5.5-3.5L2 16z"/></symbol>
+  <symbol id="i-chip" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/></symbol>
+  <symbol id="i-timer" viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M9 2h6"/></symbol>
+  <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z"/></symbol>
+  <symbol id="i-frame" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2.5"/><rect x="7" y="8" width="10" height="8" rx="1"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="M3 11l18-8-8 18-2-8z"/></symbol>
+</svg>
+<div class="top">
+  <div><h1>Users and invitation</h1><p>Mockup for the owner, on the real shell (CON-01: R25, R26). Sample data is invented. Use the toggles.</p></div>
+  <div class="toggles">
+    <div class="seg" id="theme" role="group" aria-label="Theme"><button type="button" data-t="auto" aria-pressed="true">Auto</button><button type="button" data-t="light" aria-pressed="false">Light</button><button type="button" data-t="dark" aria-pressed="false">Dark</button></div>
+    <div class="seg" id="lang" role="group" aria-label="Language"><button type="button" data-l="en" aria-pressed="true">English</button><button type="button" data-l="fr" aria-pressed="false">Fran&ccedil;ais</button></div>
+  </div>
+</div>
+<div id="app"></div>
+<script>
+(function(){
+  function nb(s){return s.replace(/ ([:;?!»])/g,' $1').replace(/« /g,'« ');}
+  var S={
+    en:{title:'Users',count:'4 users',invite:'+ Invite a user',colU:'User',colR:'Role',colF:'Frames',colL:'Last sign-in',colA:'Active',
+      admin:'Administrator',user:'User',you:'You',active:'Active',waiting:'Invited, not signed in yet',now:'just now',never:'Never signed in',frames:function(n){return n+(n===1?' frame':' frames');},
+      mReset:'Reset sign-in',mNew:'Send a new invitation',mDel:'Delete user',
+      invT:'Invite a user',email:'Email address',role:'Role',invGo:'Invite',cancel:'Cancel',
+      resT:'Invitation ready',resL:'Send this link to ',resH:'It is shown only once. They choose their password and sign in.',copy:'Copy',copied:'Copied',done:'Done',
+      proT:'Make this person an administrator?',proW:'user-a@example.test will be able to manage every frame, every user and every setting.',proGo:'Make administrator',proKeep:'Keep as user',
+      delT:'Delete this user?',delW:'user-b@example.test is removed from SkyPane and loses access to their frames. This cannot be undone.',delGo:'Delete user',delKeep:'Keep this user',
+      tabs:['Fleet','Team','Editor','Journal','More'],nav:['Fleet','Users','Editor','Audit log'],account:'Account',space:['Console','My frames'],adminl:'Administration',signout:'Sign out',more:'More actions'},
+    fr:{title:'Utilisateurs',count:'4 utilisateurs',invite:'+ Inviter un utilisateur',colU:'Utilisateur',colR:'Rôle',colF:'Cadres',colL:'Dernière connexion',colA:'Actif',
+      admin:'Administrateur',user:'Utilisateur',you:'Vous',active:'Actif',waiting:'Invité, pas encore connecté',now:'à l’instant',never:'Jamais connecté',frames:function(n){return n+(n===1?' cadre':' cadres');},
+      mReset:'Réinitialiser la connexion',mNew:'Envoyer une nouvelle invitation',mDel:'Supprimer l’utilisateur',
+      invT:'Inviter un utilisateur',email:'Adresse e-mail',role:'Rôle',invGo:'Inviter',cancel:'Annuler',
+      resT:'Invitation prête',resL:'Envoyez ce lien à ',resH:'Il n’est affiché qu’une fois. La personne choisit son mot de passe et se connecte.',copy:'Copier',copied:'Copié',done:'Terminé',
+      proT:'Nommer cette personne administrateur ?',proW:'user-a@example.test pourra gérer tous les cadres, tous les utilisateurs et tous les réglages.',proGo:'Nommer administrateur',proKeep:'Garder utilisateur',
+      delT:'Supprimer cet utilisateur ?',delW:'user-b@example.test est retiré de SkyPane et perd l’accès à ses cadres. Cette action est définitive.',delGo:'Supprimer l’utilisateur',delKeep:'Garder cet utilisateur',
+      tabs:['Flotte','Équipe','Éditeur','Journal','Plus'],nav:['Flotte','Utilisateurs','Éditeur','Journal d’audit'],account:'Compte',space:['Console','Mes cadres'],adminl:'Administration',signout:'Se déconnecter',more:'Plus d’actions'}
+  };
+  Object.keys(S.fr).forEach(function(k){var v=S.fr[k];if(typeof v==='string')S.fr[k]=nb(v);else if(Array.isArray(v))S.fr[k]=v.map(nb);});
+  function ic(n){return '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-'+n+'"/></svg>';}
+  function sw(on,dis){return '<span class="sw'+(on?' on':'')+'" style="'+(dis?'opacity:.4':'')+'" role="switch" aria-checked="'+on+'" tabindex="0"></span>';}
+  var USERS=[['admin@example.test','A','admin','act',2,'now',true],['user-a@example.test','U','user','act',2,'now',false],['user-b@example.test','U','user','inv',1,'never',false],['frameless@example.test','F','user','inv',0,'never',false]];
+  function sidebar(t){
+    var icons=['fleet','team','tag','clock'];
+    return '<div class="side"><span class="brand">'+ic('logo')+'SkyPane</span><div class="space"><span>'+t.space[1]+'</span><span class="on">'+ic('check')+t.space[0]+'</span></div><div class="sep"></div><div class="nlabel">'+t.adminl+'</div>'+
+      t.nav.map(function(x,i){return (i===2?'<div class="sep"></div>':'')+'<div class="nav'+(i===1?' on':'')+'">'+ic(icons[i])+x+'</div>';}).join('')+
+      '<div class="sep"></div><div class="nav">'+ic('user')+t.account+'</div><div class="signout"><a class="btn" href="#">'+t.signout+'</a></div></div>';
+  }
+  function phoneShell(t,inner,overlay){
+    var icons=['fleet','team','tag','clock','more'];
+    return '<div class="ptop"><span class="brand">'+ic('logo')+'SkyPane</span></div><div class="screen">'+inner+'</div><div class="tabs">'+t.tabs.map(function(x,i){return '<div class="tab'+(i===1?' on':'')+'">'+ic(icons[i])+x+'</div>';}).join('')+'</div>'+(overlay||'');
+  }
+  function statusChips(t,u){
+    var c=u[6]?'<span class="chip2 ok">'+t.active+'</span> <span class="chip2">'+t.you+'</span>':(u[3]==='act'?'<span class="chip2 ok">'+t.active+'</span>':'<span class="chip2 wait">'+t.waiting+'</span>');
+    return c;
+  }
+  function menu(t){return '<div class="menu" role="menu"><a href="#">'+ic('send')+t.mNew+'</a><a href="#">'+t.mReset+'</a><a href="#" class="dg">'+ic('trash')+t.mDel+'</a></div>';}
+  function table(t,withMenu){
+    var head='<tr><th>'+t.colU+'</th><th>'+t.colR+'</th><th>'+t.colF+'</th><th>'+t.colL+'</th><th>'+t.colA+'</th><th style="width:56px"></th></tr>';
+    var rows=USERS.map(function(u,i){
+      var role=u[2]==='admin'?'<span class="rolesel" style="background:transparent;border-color:transparent;color:var(--muted);padding-left:0">'+t.admin+'</span>':'<span class="rolesel">'+t.user+' '+ic('down')+'</span>';
+      var last=u[5]==='now'?t.now:t.never;
+      return '<tr><td><span class="who2"><span class="ico">'+u[1]+'</span><span style="min-width:0"><span class="em">'+u[0]+'</span>'+statusChips(t,u)+'</span></span></td><td>'+role+'</td><td class="num">'+t.frames(u[4])+'</td><td class="sub">'+last+'</td><td>'+sw(true,u[6])+'</td><td style="position:relative;text-align:right">'+(u[6]?'':'<span class="btn sq" style="border:0;background:none" aria-label="'+t.more+'">'+ic('more')+'</span>')+(withMenu&&i===2?menu(t):'')+'</td></tr>';
+    }).join('');
+    return '<div class="card" style="overflow:visible"><table class="utable">'+head+rows+'</table></div>';
+  }
+  function cards(t){
+    return '<div class="card">'+USERS.map(function(u){
+      var role=u[2]==='admin'?t.admin:t.user;
+      return '<div class="ucard"><span class="ico">'+u[1]+'</span><span class="grow"><span class="em" style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+u[0]+'</span><span>'+statusChips(t,u)+'</span><small>'+role+' · '+t.frames(u[4])+'</small></span><span class="acts">'+sw(true,u[6])+(u[6]?'':'<span class="btn sq" style="border:0;background:none" aria-label="'+t.more+'">'+ic('more')+'</span>')+'</span></div>';
+    }).join('')+'</div>';
+  }
+  function page(vp,t,o){
+    o=o||{};
+    var head=vp==='phone'
+      ?'<div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><h3 class="title" style="font-size:34px">'+t.title+'</h3><a class="btn dark" href="#" aria-label="'+t.invite+'">'+ic('plus')+'</a></div><span class="sub">'+t.count+'</span>'
+      :'<div style="display:flex;align-items:center;justify-content:space-between;gap:12px"><h3 class="title">'+t.title+'</h3><a class="btn dark" href="#">'+t.invite+'</a></div><span class="sub">'+t.count+'</span>';
+    var body=vp==='phone'?cards(t):table(t,o.menu);
+    if(vp==='phone')return phoneShell(t,head+body,o.overlay);
+    return sidebar(t)+'<div class="main" style="left:240px"><div style="max-width:1100px;display:flex;flex-direction:column;gap:14px">'+head+body+'</div></div>'+(o.overlay||'');
+  }
+  function ov(c,mid){return '<div class="scrim"></div><div class="dlg '+(mid?'mid':'dtop')+' dlgd" role="dialog">'+c+'</div><div class="sheet sheetd" role="dialog"><span class="grab"></span>'+c+'</div>';}
+  function invDlg(t){return ov('<h4>'+t.invT+'</h4><label class="mfield"><span>'+t.email+'</span><span class="field" style="min-height:48px"><input type="email" placeholder="name@example.com" aria-label="'+t.email+'" autofocus></span></label><label class="cbx"><i></i><span>'+t.admin+'</span></label><div class="row"><a class="btn" href="#">'+t.cancel+'</a><a class="btn dark" href="#">'+t.invGo+'</a></div>');}
+  function resDlg(t){return ov('<h4>'+t.resT+'</h4><span>'+t.resL+'<b>new.person@example.test</b></span><div class="linkbox"><code>https://skypane.example/invite/Qm9…9xA</code><a class="btn dark" href="#" style="min-height:40px">'+ic('copy')+t.copy+'</a></div><span class="sub">'+t.resH+'</span><div class="row"><a class="btn dark" href="#">'+t.done+'</a></div>');}
+  function confirmDlg(kind){return function(t){
+    var T=kind==='pro'?t.proT:t.delT,W=kind==='pro'?t.proW:t.delW,G=kind==='pro'?t.proGo:t.delGo,K=kind==='pro'?t.proKeep:t.delKeep;
+    return ov('<h4>'+T+'</h4><p>'+W+'</p><div class="row"><a class="btn" href="#">'+K+'</a><a class="btn '+(kind==='pro'?'dark':'')+'" href="#" style="'+(kind==='del'?'background:var(--err);color:#fff;border-color:var(--err)':'')+'">'+G+'</a></div>',true);};}
+  function mock(vp,caption,sub,builder){
+    var langs=['en','fr'].map(function(l){return '<div data-lang="'+l+'">'+builder(vp,S[l])+'</div>';}).join('');
+    return '<figure class="mock"><figcaption>'+caption+(sub?'<small>'+sub+'</small>':'')+'</figcaption>'+(vp==='desktop'?'<div class="scroller"><div data-viewport="desktop">'+langs+'</div></div>':'<div data-viewport="phone">'+langs+'</div>')+'</figure>';
+  }
+  function section(h,lead,body,extra){return '<section class="sec"><h2>'+h+'</h2><p class="lead">'+lead+'</p>'+body+(extra||'')+'</section>';}
+  var html='';
+  html+=section('1. Desktop: the Users page',
+    'Same real shell. The table keeps its columns. The copy-link icon in the Active column is gone (it copied a message, not a link, and was easy to misread). For a person who has not signed in yet, the row menu offers <b>Send a new invitation</b>, which creates a fresh link, plus Reset sign-in and Delete user.',
+    '<div class="row2">'+mock('desktop','Users','',function(v,t){return page(v,t);})+'</div>'+
+    '<div style="height:32px"></div><div class="row2">'+mock('desktop','Row menu','Send a new invitation, Reset sign-in, Delete user',function(v,t){return page(v,t,{menu:true});})+'</div>');
+  html+=section('2. The invitation (R25, R26)',
+    'The invite dialog follows the design system: an opaque card over a dimmed page on desktop, a bottom sheet with a grabber and 28 px top corners on phone. It is short: a title, the labelled email field, an <b>Administrator</b> checkbox, unchecked by default (almost every invitation is a plain user), and two buttons. No explanatory paragraph and no odd margins. The field is the first thing in the sheet, so it stays above the keyboard. After <b>Invite</b>, SkyPane creates the sign-in account and shows the invitation link <b>once</b> with a Copy button: the person opens it, chooses a password and signs in. Nothing is stored or logged; a lost link is replaced with &ldquo;Send a new invitation&rdquo;.',
+    '<div class="row2">'+mock('desktop','Invite dialog','',function(v,t){return page(v,t,{overlay:invDlg(t)});})+mock('desktop','Invitation ready','The link is shown once',function(v,t){return page(v,t,{overlay:resDlg(t)});})+'</div>'+
+    '<div style="height:32px"></div><div class="row2">'+mock('phone','Users (phone)','',function(v,t){return page(v,t);})+mock('phone','Invite, as a bottom sheet','Field first, above the keyboard',function(v,t){return page(v,t,{overlay:invDlg(t)});})+mock('phone','Invitation ready','',function(v,t){return page(v,t,{overlay:resDlg(t)});})+'</div>');
+  html+=section('3. Confirmations (R25)',
+    'Role change and deletion: a title, one sentence with the consequence, two buttons. Tight and even margins; the longer explanation that was above and below is gone.',
+    '<div class="row2">'+mock('desktop','Make administrator','',function(v,t){return page(v,t,{overlay:confirmDlg('pro')(t)});})+mock('phone','Delete user','',function(v,t){return page(v,t,{overlay:confirmDlg('del')(t)});})+'</div>',
+    '<p class="note"><b>For the build plan:</b> the invitation link depends on the sign-in provider: the plan checks what the provider returns before building and keeps the local invitation as the only access gate.</p>');
+  document.getElementById('app').innerHTML=html;
+  document.querySelectorAll('[data-lang]').forEach(function(root){root.querySelectorAll('.sw').forEach(function(s){s.addEventListener('click',function(){s.classList.toggle('on');});});});
+  var r=document.documentElement;r.setAttribute('data-ui-lang','en');
+  document.querySelectorAll('#theme button').forEach(function(b){b.addEventListener('click',function(){
+    if(b.dataset.t==='auto')r.removeAttribute('data-ui-theme');else r.setAttribute('data-ui-theme',b.dataset.t);
+    document.querySelectorAll('#theme button').forEach(function(x){x.setAttribute('aria-pressed',String(x===b));});});});
+  document.querySelectorAll('#lang button').forEach(function(b){b.addEventListener('click',function(){
+    r.setAttribute('data-ui-lang',b.dataset.l);r.lang=b.dataset.l;
+    document.querySelectorAll('#lang button').forEach(function(x){x.setAttribute('aria-pressed',String(x===b));});});});
+})();
+</script>
+</html>

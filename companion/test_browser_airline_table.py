@@ -1,18 +1,21 @@
 #!/usr/bin/env python3
 """Real-browser checks of the Console Airlines editor table: at 360 and 1280 px, in English and
-French and in both themes, nothing overflows and every control (the name field, the chevron, the
-artwork, the "..." menu, "Name it") is at least 44 px and owns its centre; the chevron expands
-the aircraft-type sub-rows (a type with its own artwork offers Replace, any other says it uses
-the airline's artwork); renaming saves on change through the real route and the "..." menu resets
-it; tapping a thumbnail enlarges it and "Change artwork" in the "..." menu uploads through the
-real routes; the "..." menu holds only its items and Escape closes it; the filter finds an airline by name, type or prefix; an unidentified prefix is
-a highlighted row at the top. With scripts blocked the chevron, the Save button and the Upload
-button still work.
+French and in both themes, nothing overflows and every control (the chevron, the artwork, the "..."
+menu, "Name it") is at least 44 px and owns its centre; the chevron expands the aircraft-type
+sub-rows (one upload entry per type: Add artwork, or Change artwork when a picture exists);
+"Rename" in the "..." menu opens a dialog (a bottom sheet on a phone, a centred card on a desktop)
+that saves through the real route, and the menu resets the name; an unidentified prefix is one
+compact row at the top named in a dialog, with no Ignore and no aircraft-type field; tapping a
+thumbnail enlarges it; the "..." menu holds only its items and Escape closes it; the filter finds
+an airline by name, type or prefix and its chips filter by kind. With scripts blocked the
+chevron, the Rename dialog and the Upload button still work.
 
 State is always waited for (settled page, owned centres, focus), never read right after an input.
 """
 import os
+import re
 
+import animation_settle
 import pytest
 
 from companion import auth
@@ -28,23 +31,29 @@ pytestmark = pytest.mark.browser
 VIEWPORTS = (("360", VIEWPORT_MIN_SUPPORTED), ("1280", VIEWPORT_DESKTOP))
 DIALOG = "#panel-lookup-dialog"
 GAP = "tbody.airline-group--gap"
-GAP_NAME = GAP + ' input[name="airline_name"]'
-FRANCE_NAME = '.airlines-name input[name="airline_name"][value="Air France"]'
-TRANSAVIA = 'tbody.airline-group:has(input[value="Transavia France"])'
+GAP_OPEN = GAP + " a[data-modal-open]"
+GAP_DIALOG = GAP + " dialog"
+GAP_NAME = GAP_DIALOG + ' input[name="airline_name"]'
+FRANCE = "#airline-air-france"
+FRANCE_NAME = FRANCE + " .airlines-name"
+FRANCE_MENU = FRANCE + " .airlines-row .row-menu__toggle"
+FRANCE_DIALOG = FRANCE + " dialog"
+IBERIA = "#airline-iberia-airlines"
+FRANCE_FIELD = FRANCE_DIALOG + ' input[name="airline_name"]'
+TRANSAVIA = "#airline-transavia-france"
 VISIBLE_GROUPS = "tbody.airline-group:not([hidden])"
 
-_SETTLED = (
-    "() => document.readyState === 'complete'"
-    " && document.getAnimations().every(a => a.effect && a.effect.getTiming().iterations !== Infinity"
-    " ? a.playState !== 'running' : true)")
+_SETTLED = animation_settle.SETTLED
 _OWNS_CENTRE = (
     "sel => { const el = document.querySelector(sel); if (!el) return false;"
     " const r = el.getBoundingClientRect();"
     " const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);"
-    " return !!hit && (hit === el || el.contains(hit) || hit.contains(el)); }")
+    " return !!hit && (hit === el || el.contains(hit) || hit.contains(el)"
+    " || hit.matches('details.airlines-expand > summary')); }")
 
 
 _seed = seed_airline_editor
+KNOWN_ROW = '.airlines-missing__airline:has(.airlines-missing__name:text-is("%s"))'
 
 
 @pytest.fixture(scope="module")
@@ -70,21 +79,43 @@ def _open(new_context, server, viewport, lang="en", **context_args):
     return context, page
 
 
-def test_the_resolve_fields_are_short_and_share_a_row_on_a_wide_screen(new_context, server):
-    """the inline resolve row keeps its name field near 280px and the type select near 180px
-    (never stretched across the row), the two side by side with the buttons after them"""
-    context, page = _open(new_context, server, VIEWPORTS[-1][1], "en")
+def _open_dialog(page, trigger, dialog):
+    _settle(page, trigger)
+    page.locator(trigger).click()
+    page.locator(dialog).wait_for(state="visible")
+    page.wait_for_function(_SETTLED, timeout=15000)
+
+
+def _open_rename(page):
+    _settle(page, FRANCE_MENU)
+    page.locator(FRANCE_MENU).click()
+    page.locator(FRANCE + " .airlines-row .row-menu__panel a.row-menu__item").click()
+    page.locator(FRANCE_DIALOG).wait_for(state="visible")
+    page.wait_for_function(_SETTLED, timeout=15000)
+
+
+@pytest.mark.parametrize("name,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
+def test_name_it_opens_a_sheet_on_a_phone_and_a_centred_card_on_a_desktop(
+        new_context, server, name, viewport):
+    """the name is typed in a dialog, not in the row: a bottom sheet on a phone (against the
+    bottom edge), a centred card on a desktop, with the name field focused and no aircraft-type
+    field"""
+    context, page = _open(new_context, server, viewport)
     try:
-        page.wait_for_function(_SETTLED, timeout=15000)
-        _settle(page, GAP_NAME)
-        boxes = page.evaluate("""args => {
-            const r = s => document.querySelector(s).getBoundingClientRect();
-            return {name: r(args[0]), select: r(args[1]), ok: r(args[2])};
-        }""", [GAP_NAME, GAP + " select", GAP + " .airlines-resolve__actions button[type=submit]"])
-        assert 200 <= boxes["name"]["width"] <= 281, boxes
-        assert 120 <= boxes["select"]["width"] <= 181, boxes
-        assert abs(boxes["name"]["top"] - boxes["select"]["top"]) < 2, boxes
-        assert boxes["select"]["right"] <= boxes["ok"]["left"] + 1, boxes
+        _open_dialog(page, GAP_OPEN, GAP_DIALOG)
+        box = page.locator(GAP_DIALOG).bounding_box()
+        width, height = viewport["width"], viewport["height"]
+        if width < 700:
+            assert box["y"] + box["height"] >= height - 1 and box["width"] >= width - 2, box
+        else:
+            assert abs(box["x"] + box["width"] / 2 - width / 2) < 2, box
+            assert abs(box["y"] + box["height"] / 2 - height / 2) < 4, box
+            assert 300 <= box["width"] <= 640, box
+        assert page.evaluate(
+            "sel => document.activeElement === document.querySelector(sel)", GAP_NAME)
+        assert page.locator(GAP_DIALOG + " select").count() == 0
+        page.keyboard.press("Escape")
+        page.locator(GAP_DIALOG).wait_for(state="hidden")
     finally:
         context.close()
 
@@ -97,60 +128,81 @@ def test_the_table_fits_and_every_control_is_a_44px_target_in_both_themes(
     try:
         wide = viewport["width"] >= 1120
         assert page.locator("thead").is_visible() == wide
+        # The airline's pictures are on its type rows.
+        _settle(page, TRANSAVIA + " .airlines-expand > summary")
+        page.locator(TRANSAVIA + " .airlines-expand > summary").click()
+        page.locator(TRANSAVIA + " .airlines-subrow").first.wait_for(state="visible")
         for _paint in _in_both_themes(page):
             page.wait_for_function(_SETTLED, timeout=15000)
             assert not _assert_no_page_overflow(page, "airlines", viewport["width"])
             for selector in (
-                    FRANCE_NAME, TRANSAVIA + " .airlines-expand > summary",
-                    TRANSAVIA + " .airlines-thumb", TRANSAVIA + " .airlines-row .row-menu__toggle",
-                    GAP_NAME, GAP + " select", GAP + " .airlines-resolve__actions button[type=submit]",
-                    GAP + " .airlines-resolve__actions button[type=reset]"):
+                    TRANSAVIA + " .airlines-expand > summary",
+                    TRANSAVIA + " .airlines-subrow a.airlines-thumb",
+                    TRANSAVIA + " .airlines-row .row-menu__toggle",
+                    GAP_OPEN):
                 _settle(page, selector)
                 _assert_hit_target(page, selector, "airlines %s %s" % (name, lang))
     finally:
         context.close()
 
 
-def test_the_unidentified_prefix_is_a_highlighted_row_on_top_resolved_in_place(
+def test_an_unidentified_row_is_one_compact_line_plus_its_button_on_a_phone(new_context, server):
+    context, page = _open(new_context, server, VIEWPORT_MIN_SUPPORTED)
+    try:
+        _settle(page, GAP_OPEN)
+        row = page.locator(GAP + " .airlines-gap").bounding_box()
+        button = page.locator(GAP_OPEN).bounding_box()
+        assert row["height"] <= 130, row
+        assert button["x"] + button["width"] <= VIEWPORT_MIN_SUPPORTED["width"], button
+        assert not _assert_no_page_overflow(page, "gap", VIEWPORT_MIN_SUPPORTED["width"])
+    finally:
+        context.close()
+
+
+def test_the_unidentified_prefix_is_a_compact_row_on_top_named_in_a_dialog(
         new_context, make_app_server):
-    """the prefix is named in its own row (name, aircraft type, Validate): saving turns it into
-    an identified, hand-named row and no dialog opens"""
+    """the prefix is one compact row (prefix, what was seen, a Name it button): the name is typed
+    in its dialog and Validate turns the row into an identified, hand-named one; no aircraft type
+    is asked or stored"""
     server = make_app_server(seed=_seed, fake_providers=True)
     context, page = _open(new_context, server, VIEWPORT_MIN_SUPPORTED)
     try:
         first = page.locator("tbody.airline-group").first
         assert "airline-group--gap" in first.get_attribute("class")
-        assert "XYZ" in first.inner_text()
-        assert page.locator("a.airlines-name-it").count() == 0
-        _settle(page, GAP_NAME)
+        assert "XYZ" in first.inner_text() and "5 views" in first.inner_text()
+        assert page.locator(GAP + " .airlines-gap input").count() == 0
+        assert page.locator(GAP_OPEN).inner_text() == "Name it"
+        _open_dialog(page, GAP_OPEN, GAP_DIALOG)
         page.locator(GAP_NAME).fill("Xyz Wings")
-        page.locator(GAP + " select").select_option("A320")
         with page.expect_navigation():
-            page.locator(GAP + " .airlines-resolve__actions button[type=submit]").click()
+            page.locator(GAP_DIALOG + " button[type=submit]").click()
         page.wait_for_function(
             "() => document.readyState === 'complete' && !document.querySelector("
             "'tbody.airline-group--gap')", timeout=15000)
         page.wait_for_function(_SETTLED, timeout=15000)
         assert page.locator(DIALOG + "[open]").count() == 0
-        row = 'tbody.airline-group:has(.airlines-name--fixed:text-is("Xyz Wings"))'
-        assert page.locator(row + " .airlines-pill").inner_text() == "Named by hand"
-        assert page.locator(row + " .airlines-pill").is_visible()
+        row = KNOWN_ROW % "Xyz Wings"
+        assert page.locator(row).count() == 1
+        assert page.locator(row + " .airlines-missing__prefix").inner_text() == "XYZ"
+        assert page.locator(row + " .airlines-star").count() == 0
+        assert "Named by hand" not in page.locator(row).inner_text()
         saved = manual_resolutions.load_manual_resolutions(server.state_dir)
         assert saved["XYZ"]["airline_name"] == "Xyz Wings"
-        assert airline_default_types.load_default_types(server.state_dir) == {"xyz-wings": "A320"}
+        assert airline_default_types.load_default_types(server.state_dir) == {}
     finally:
         context.close()
 
 
-def test_ignore_clears_the_row_without_saving(new_context, make_app_server):
+def test_there_is_no_ignore_action_on_an_unidentified_prefix(new_context, make_app_server):
     server = make_app_server(seed=_seed, fake_providers=True)
     context, page = _open(new_context, server, VIEWPORT_DESKTOP)
     try:
-        _settle(page, GAP_NAME)
+        _open_dialog(page, GAP_OPEN, GAP_DIALOG)
+        assert page.locator("body").inner_text().count("Ignore") == 0
+        assert page.locator(GAP + " button[type=reset]").count() == 0
         page.locator(GAP_NAME).fill("Never Saved Air")
-        page.locator(GAP + " .airlines-resolve__actions button[type=reset]").click()
-        page.wait_for_function(
-            "sel => document.querySelector(sel).value === ''", arg=GAP_NAME, timeout=5000)
+        page.locator(GAP_DIALOG + " a.modal__dismiss").click()
+        page.locator(GAP_DIALOG).wait_for(state="hidden")
         assert "XYZ" not in manual_resolutions.load_manual_resolutions(server.state_dir)
     finally:
         context.close()
@@ -158,9 +210,11 @@ def test_ignore_clears_the_row_without_saving(new_context, make_app_server):
 
 @pytest.mark.parametrize("name,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
 def test_the_chevron_expands_the_aircraft_type_sub_rows(new_context, server, name, viewport):
-    """one sub-row per type seen, every one editable: an A320 (a picture of its own: a tappable
-    thumbnail) and a B738 (the airline's picture by default, with a Customise action); each has
-    its own "..." menu; a mouse click and the keyboard both toggle it"""
+    """one sub-row per type seen or pictured, every one editable: an A320 (a picture of its own: a
+    tappable thumbnail, Change artwork), a B738 (the same picture slot as the airline's legacy
+    B737 picture: one row with that picture) and an A333 (seen, no picture of its own: the default
+    type's picture, Add artwork); a type with nothing to set or delete has no menu; a mouse click
+    and the keyboard both toggle it"""
     context, page = _open(new_context, server, viewport)
     try:
         chevron = TRANSAVIA + " .airlines-expand > summary"
@@ -170,24 +224,24 @@ def test_the_chevron_expands_the_aircraft_type_sub_rows(new_context, server, nam
         page.locator(chevron).click()
         page.locator(subrows).first.wait_for(state="visible")
         rows = page.locator(subrows)
-        assert rows.count() == 2
-        first, second = rows.nth(0), rows.nth(1)
-        # A type row keeps the height of the airline row: its picture column is one line,
-        # whether the type has its own picture or shows the airline's.
-        parent_art = page.locator(TRANSAVIA + " .airlines-row .airlines-cell--art")
-        limit = parent_art.bounding_box()["height"] + 8
-        for sub in (first, second):
-            art = sub.locator(".airlines-cell--art")
-            assert art.bounding_box()["height"] <= limit, (name, art.bounding_box(), limit)
-        assert first.locator("th").inner_text().startswith("A320")
+        assert rows.count() == 3
+        first, second, third = rows.nth(0), rows.nth(1), rows.nth(2)
+        # The airline's row carries no picture: only its type rows do.
+        assert page.locator(TRANSAVIA + " .airlines-row .airlines-thumb").count() == 0
+        assert first.locator("th").inner_text().startswith("Airbus A320")
         assert first.locator("a.airlines-thumb").is_visible()
         assert first.locator(".row-menu__toggle").is_visible()
-        assert second.locator(".row-menu__toggle").is_visible()
-        assert "Same as the airline" in second.inner_text()
-        assert second.locator(".airlines-act").inner_text() == "Customise"
-        assert "Own artwork" in first.inner_text()
-        assert second.locator("th").inner_text().startswith("B738")
-        assert "2 views" in first.inner_text() and "1 view" in second.inner_text()
+        assert "Uses the default" not in third.inner_text()
+        assert third.locator(".airlines-act:visible").get_attribute("data-tip") == "Add artwork"
+        assert first.locator(".airlines-act:visible").get_attribute("data-tip") == "Change artwork"
+        assert second.locator(".airlines-act:visible").get_attribute("data-tip") == "Change artwork"
+        assert "Own artwork" not in first.inner_text() + second.inner_text()
+        assert second.locator("th").inner_text().startswith("Boeing 737")
+        assert third.locator("th").inner_text().startswith("Airbus A330")
+        assert second.locator("a.airlines-thumb").is_visible()
+        if name == "1280":
+            # A phone's type card leaves the views out, like the approved mockup.
+            assert "2 views" in first.inner_text() and "1 view" in second.inner_text()
         page.locator(chevron).press("Enter")
         page.locator(subrows).first.wait_for(state="hidden")
         page.locator(chevron).press("Space")
@@ -196,56 +250,111 @@ def test_the_chevron_expands_the_aircraft_type_sub_rows(new_context, server, nam
         context.close()
 
 
-def test_renaming_saves_on_change_and_the_menu_resets_it(new_context, make_app_server):
+@pytest.mark.parametrize("name,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
+def test_an_opened_airline_does_not_overlap_the_next_row(new_context, server, name, viewport):
+    context, page = _open(new_context, server, viewport)
+    try:
+        chevron = TRANSAVIA + " .airlines-expand > summary"
+        _settle(page, chevron)
+        page.locator(chevron).click()
+        page.locator(TRANSAVIA + " .airlines-subrow").first.wait_for(state="visible")
+        page.wait_for_function(_SETTLED, timeout=15000)
+        overlaps = page.evaluate("""g => {
+            const rows = [...document.querySelectorAll(g + ' tr'), ...(
+                document.querySelector(g).nextElementSibling
+                    ? document.querySelector(g).nextElementSibling.querySelectorAll('tr') : [])];
+            const boxes = rows.map(r => r.getBoundingClientRect()).filter(b => b.height > 0);
+            const bad = [];
+            for (let i = 1; i < boxes.length; i++)
+                if (boxes[i].top < boxes[i - 1].bottom - 1) bad.push([i, boxes[i - 1], boxes[i]]);
+            return bad.length;
+        }""", TRANSAVIA)
+        assert overlaps == 0
+    finally:
+        context.close()
+
+
+def test_opening_an_airline_among_the_full_list_is_quick(new_context, server):
+    """with every airline of the list on the page (36 curated plus the named ones) the type rows
+    of one airline are fetched and shown within a generous bound, and only that airline's rows
+    were added to the page"""
+    context, page = _open(new_context, server, VIEWPORT_MIN_SUPPORTED)
+    try:
+        assert page.locator("tbody.airline-group").count() >= 36
+        before = page.locator(".airlines-subrow").count()
+        chevron = TRANSAVIA + " .airlines-expand > summary"
+        _settle(page, chevron)
+        started = page.evaluate("() => performance.now()")
+        page.locator(chevron).click()
+        page.locator(TRANSAVIA + " .airlines-subrow").first.wait_for(state="visible")
+        elapsed = page.evaluate("t => performance.now() - t", started)
+        assert elapsed < 1500, elapsed
+        assert page.locator(".airlines-subrow").count() == before + 3
+    finally:
+        context.close()
+
+
+def test_renaming_opens_a_dialog_and_the_menu_resets_the_name(new_context, make_app_server):
     server = make_app_server(seed=_seed, fake_providers=True)
     context, page = _open(new_context, server, VIEWPORT_MIN_SUPPORTED)
     try:
-        field = page.locator(FRANCE_NAME)
+        _open_rename(page)
+        field = page.locator(FRANCE_FIELD)
+        assert field.input_value() == "Air France"
         field.fill("Skyline Air")
         with page.expect_navigation():
             field.press("Enter")
         page.wait_for_function(
             "() => document.body.innerText.includes('Airline name saved')", timeout=15000)
         page.wait_for_function(_SETTLED, timeout=15000)
-        renamed = 'tbody.airline-group:has(input[value="Skyline Air"])'
+        renamed = "#airline-skyline-air"
+        assert page.locator(renamed + " .airlines-name").inner_text() == "Skyline Air"
         _settle(page, renamed + " .airlines-row .row-menu__toggle")
         page.locator(renamed + " .airlines-row .row-menu__toggle").click()
         items = page.locator(renamed + " .airlines-row .row-menu__panel .row-menu__item")
         items.first.wait_for(state="visible")
         assert items.all_inner_texts() == [
-            "Change artwork", "Back to the default", "Delete the illustration",
-            "Reset to the original name"]
+            "Rename", "Reset to the original name"]
         with page.expect_navigation():
-            items.nth(3).click()
+            items.nth(1).click()
         page.wait_for_function(
-            "() => document.readyState === 'complete' && document.querySelectorAll("
-            "'.airlines-name input[value=\"Skyline Air\"]').length === 0", timeout=15000)
+            "() => document.readyState === 'complete' && !document.querySelector("
+            "'#airline-skyline-air')", timeout=15000)
         page.wait_for_function(_SETTLED, timeout=15000)
-        assert page.locator(FRANCE_NAME).count() == 1
-        assert page.locator('.airlines-name input[value="Skyline Air"]').count() == 0
+        assert page.locator(FRANCE_NAME).inner_text() == "Air France"
     finally:
         context.close()
 
 
-def test_a_refused_name_returns_to_the_editor_with_focus_in_that_field(new_context, make_app_server):
+def test_a_refused_name_returns_with_the_dialog_open_on_that_airline(new_context, make_app_server):
     server = make_app_server(seed=_seed, fake_providers=True)
     context, page = _open(new_context, server, VIEWPORT_MIN_SUPPORTED)
     try:
-        page.evaluate("() => document.querySelector('%s').removeAttribute('maxlength')" % FRANCE_NAME)
-        field = page.locator(FRANCE_NAME)
+        _open_rename(page)
+        page.evaluate("() => document.querySelector('%s').removeAttribute('maxlength')" % FRANCE_FIELD)
+        field = page.locator(FRANCE_FIELD)
         field.fill("x" * 101)
         with page.expect_navigation():
             field.press("Enter")
         page.wait_for_function(
             "() => location.search.includes('sheet=air-france')", timeout=15000)
         page.wait_for_function(_SETTLED, timeout=15000)
-        page.locator(".toast").first.wait_for(state="visible")
+        page.locator(FRANCE_DIALOG).wait_for(state="visible")
         page.wait_for_function(
-            "sel => document.activeElement === document.querySelector(sel)", arg=FRANCE_NAME,
+            "sel => document.activeElement === document.querySelector(sel)", arg=FRANCE_FIELD,
             timeout=10000)
-        assert page.locator(FRANCE_NAME).input_value() == "Air France"
+        assert page.locator(FRANCE_FIELD).input_value() == "Air France"
+        assert page.locator(".toast").count() >= 1
     finally:
         context.close()
+
+
+def _open_types(page, group):
+    """Expand the aircraft-type rows of the airline `group`."""
+    chevron = group + " .airlines-expand > summary"
+    _settle(page, chevron)
+    page.locator(chevron).click()
+    page.locator(group + " .airlines-subrow").first.wait_for(state="visible")
 
 
 def test_the_artwork_uploads_through_the_real_routes_for_an_airline_and_a_type(
@@ -256,15 +365,17 @@ def test_the_artwork_uploads_through_the_real_routes_for_an_airline_and_a_type(
     requested = []
     page.on("request", lambda request: requested.append(request.url))
     try:
-        form = page.locator('form[action^="/illustration/air-france.png"]')
+        _open_types(page, IBERIA)
+        form = page.locator('form[action^="/illustration/iberia-airlines.png"]')
         assert "csrf_token" not in form.get_attribute("action")
+        assert form.get_attribute("action").endswith("?default_type=A320")
         assert form.locator('input[name="csrf_token"]').get_attribute("value")
         with page.expect_navigation():
             form.locator("input[type=file]").set_input_files(png)
         assert [url for url in requested if "csrf_token" in url] == []
         page.locator(".toast").first.wait_for(state="visible")
         assert os.path.isfile(os.path.join(
-            server.state_dir, illustrations.ILLUSTRATION_OVERRIDE_DIRNAME, "air-france.png"))
+            server.state_dir, illustrations.ILLUSTRATION_OVERRIDE_DIRNAME, "iberia-airlines.png"))
         page.wait_for_function(_SETTLED, timeout=15000)
         _settle(page, TRANSAVIA + " .airlines-expand > summary")
         page.locator(TRANSAVIA + " .airlines-expand > summary").click()
@@ -287,21 +398,22 @@ def test_a_refused_picture_names_its_airline_and_the_page_opens_on_that_row(
     bad.write_text("not an image")
     context, page = _open(new_context, server, VIEWPORT_MIN_SUPPORTED)
     try:
-        form = page.locator('form[action^="/illustration/transavia-france.png"]')
+        _open_types(page, IBERIA)
+        form = page.locator('form[action^="/illustration/iberia-airlines.png"]')
         with page.expect_navigation():
             form.locator("input[type=file]").set_input_files(str(bad))
         page.locator(".toast").first.wait_for(state="visible")
-        assert "Transavia France: Couldn't use that file" in page.locator(".toast").first.inner_text()
-        assert page.url.endswith("#airline-transavia-france")
+        assert "Iberia Airlines: Couldn't use that file" in page.locator(".toast").first.inner_text()
+        assert page.url.endswith("#airline-iberia-airlines")
         page.wait_for_function(
-            "() => { const r = document.querySelector('#airline-transavia-france')"
+            "() => { const r = document.querySelector('#airline-iberia-airlines')"
             ".getBoundingClientRect(); return r.bottom > 0 && r.top < innerHeight; }",
             timeout=10000)
     finally:
         context.close()
 
 
-def test_the_menu_holds_only_change_artwork_and_escape_closes_it(new_context, server):
+def test_the_menu_holds_only_its_items_and_escape_closes_it(new_context, server):
     context, page = _open(new_context, server, VIEWPORT_DESKTOP)
     try:
         group = TRANSAVIA + " .airlines-row"
@@ -310,65 +422,134 @@ def test_the_menu_holds_only_change_artwork_and_escape_closes_it(new_context, se
         page.locator(toggle).click()
         items = page.locator(group + " .row-menu__panel .row-menu__item")
         items.first.wait_for(state="visible")
-        assert items.all_inner_texts() == ["Change artwork"]
+        assert items.all_inner_texts() == ["Rename"]
         page.keyboard.press("Escape")
         page.wait_for_function(
             "sel => !document.querySelector(sel).open", arg=group + " details.row-menu", timeout=5000)
-        page.locator(toggle).click()
-        items.first.wait_for(state="visible")
-        with page.expect_file_chooser():
-            items.first.click()
     finally:
         context.close()
 
 
 @pytest.mark.parametrize("name,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
-def test_tapping_a_thumbnail_enlarges_the_artwork_of_the_airline_and_of_a_type(
+def test_the_menu_has_even_padding_and_44px_items(new_context, server, name, viewport):
+    context, page = _open(new_context, server, viewport)
+    try:
+        _settle(page, FRANCE_MENU)
+        page.locator(FRANCE_MENU).click()
+        items = page.locator(FRANCE + " .airlines-row .row-menu__panel .row-menu__item")
+        items.first.wait_for(state="visible")
+        page.wait_for_function(_SETTLED, timeout=15000)
+        measured = page.evaluate("""g => {
+            const panel = document.querySelector(g + ' .row-menu__panel').getBoundingClientRect();
+            const boxes = [...document.querySelectorAll(g + ' .row-menu__panel .row-menu__item')]
+                .map(e => e.getBoundingClientRect());
+            return {heights: boxes.map(b => b.height),
+                    top: boxes[0].top - panel.top, bottom: panel.bottom - boxes[boxes.length - 1].bottom,
+                    left: boxes[0].left - panel.left, right: panel.right - boxes[0].right};
+        }""", FRANCE + " .airlines-row")
+        assert all(h >= 43.5 for h in measured["heights"]), measured
+        edges = [measured[k] for k in ("top", "bottom", "left", "right")]
+        assert max(edges) - min(edges) <= 6, measured
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("name,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
+def test_tapping_a_thumbnail_enlarges_the_artwork_of_a_type(
         new_context, server, name, viewport):
     context, page = _open(new_context, server, viewport)
     try:
-        thumb = TRANSAVIA + " .airlines-row a.airlines-thumb"
-        _settle(page, thumb)
-        page.locator(thumb).click()
+        _open_types(page, TRANSAVIA)
+        thumbs = TRANSAVIA + " .airlines-subrow a.airlines-thumb"
         dialog = page.locator(DIALOG)
-        dialog.wait_for(state="visible")
-        assert "/illustration/transavia-france.png" in dialog.locator(".lightbox__image").get_attribute("src")
-        assert dialog.locator(".lightbox__heading").inner_text() == "Transavia France"
-        page.keyboard.press("Escape")
-        dialog.wait_for(state="hidden")
-        chevron = TRANSAVIA + " .airlines-expand > summary"
-        _settle(page, chevron)
-        page.locator(chevron).click()
-        sub_thumb = TRANSAVIA + " .airlines-subrow a.airlines-thumb"
-        _settle(page, sub_thumb)
-        page.locator(sub_thumb).click()
+        _settle(page, thumbs)
+        page.locator(thumbs).nth(0).click()
         dialog.wait_for(state="visible")
         assert "/illustration/transavia-france-a320.png" in dialog.locator(
             ".lightbox__image").get_attribute("src")
+        assert dialog.locator(".lightbox__heading").inner_text() == "Transavia France"
+        page.keyboard.press("Escape")
+        dialog.wait_for(state="hidden")
+        page.locator(thumbs).nth(1).click()
+        dialog.wait_for(state="visible")
+        assert "/illustration/transavia-france.png" in dialog.locator(
+            ".lightbox__image").get_attribute("src")
     finally:
         context.close()
+
+
+_NAMES = VISIBLE_GROUPS + " .airlines-row .airlines-name--fixed"
+
+
+def _visible_group_count_is(page, count):
+    page.wait_for_function(
+        "n => document.querySelectorAll("
+        "'tbody.airline-group:not([hidden]), .airlines-missing__item:not([hidden])').length === n",
+        arg=count, timeout=5000)
 
 
 def test_the_filter_finds_an_airline_by_name_type_or_prefix(new_context, server):
     context, page = _open(new_context, server, VIEWPORT_DESKTOP)
     try:
         field = page.locator("[data-filter-input]")
-        total = page.locator("tbody.airline-group").count()
-        names = (VISIBLE_GROUPS + " .airlines-name input[name=airline_name], "
-                 + VISIBLE_GROUPS + " .airlines-name--fixed")
-        for text, expected in (("tfv", ["Transavia France"]), ("b738", ["Transavia France"]),
-                               ("tap portugal", ["TAP Air Portugal"])):
+        tables = page.locator("tbody.airline-group").count()
+        total = tables + page.locator(".airlines-missing__item").count()
+        # "tfv" also finds Transavia's A330 row of the missing-illustrations section.
+        for text, expected, groups in (("tfv", ["Transavia France"], 2), ("b738", ["Transavia France"], 1),
+                                       ("tap portugal", ["TAP Air Portugal"], 1)):
             field.fill(text)
-            page.wait_for_function(
-                "n => document.querySelectorAll('tbody.airline-group:not([hidden])').length === n",
-                arg=len(expected), timeout=5000)
-            shown = page.locator(names).evaluate_all(
-                "els => els.map(e => e.tagName === 'INPUT' ? e.value : e.textContent.trim())")
-            assert shown == expected, text
+            _visible_group_count_is(page, groups)
+            assert page.locator(_NAMES).all_inner_texts() == expected, text
+        field.fill("zzzz-nothing")
+        _visible_group_count_is(page, 0)
+        page.locator("[data-filter-empty]").wait_for(state="visible")
         field.fill("")
-        page.wait_for_function(
-            "n => document.querySelectorAll('tbody.airline-group:not([hidden])').length === n",
-            arg=total, timeout=5000)
+        _visible_group_count_is(page, total)
+        page.locator("[data-filter-empty]").wait_for(state="hidden")
+    finally:
+        context.close()
+
+
+def _chip(page, label):
+    return page.locator("label.filter-chip", has_text=label).first
+
+
+@pytest.mark.parametrize("name,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
+def test_the_chips_filter_by_kind_and_clearing_restores_every_row(
+        new_context, server, name, viewport):
+    """the chips carry their counts: Unidentified shows the prefix rows, Missing illustrations
+    every airline x family row of the section below the table, Seen and Not seen yet split the
+    airlines of the table by sightings; All counts the three units and brings everything back"""
+    context, page = _open(new_context, server, viewport)
+    try:
+        tables = page.locator("tbody.airline-group").count()
+        total = tables + page.locator(".airlines-missing__item").count()
+        labels = page.locator(".filter-chip__text").all_inner_texts()
+        counts = [int(count) for count in page.locator(".filter-chip__count").all_inner_texts()]
+        assert labels[:2] == ["All", "Unidentified"], labels
+        assert counts[0] == total and counts[1] == 1, counts
+        known = counts[2]
+        seen, unseen = counts[3], counts[4]
+        assert len(counts) == 5 and known >= 1 and seen >= 1, counts
+        assert seen + unseen == tables - 1, counts
+        assert known == page.locator(".airlines-missing__item").count(), counts
+        assert labels[2] == "Missing illustrations", labels
+        _chip(page, "Unidentified").click()
+        _visible_group_count_is(page, 1)
+        assert page.locator(GAP).is_visible()
+        _chip(page, "Seen").click()
+        _visible_group_count_is(page, seen)
+        assert page.locator(TRANSAVIA).is_visible() and page.locator(GAP).is_hidden()
+        _chip(page, "Not seen yet").click()
+        _visible_group_count_is(page, unseen)
+        assert page.locator(TRANSAVIA).is_hidden()
+        _chip(page, "Missing illustrations").click()
+        _visible_group_count_is(page, known)
+        assert page.locator(".airlines-missing__item:not([hidden])").count() == known
+        assert "Lufthansa" in page.locator(
+            ".airlines-missing__head:not([hidden]) .airlines-missing__name").all_inner_texts()
+        _chip(page, "All").click()
+        _visible_group_count_is(page, total)
     finally:
         context.close()
 
@@ -376,19 +557,21 @@ def test_the_filter_finds_an_airline_by_name_type_or_prefix(new_context, server)
 def test_a_needs_artwork_airline_opens_the_add_artwork_step(new_context, server):
     context, page = _open(new_context, server, VIEWPORT_MIN_SUPPORTED)
     try:
-        link = 'a.airlines-thumb[href$="resolve=DLH"]'
-        _settle(page, link)
-        page.locator(link).click()
+        button = '.airlines-missing__item[data-filter-text^="lufthansa "] .airlines-missing__add'
+        _settle(page, button)
+        page.locator(button).click()
         dialog = page.locator(DIALOG)
         dialog.wait_for(state="visible")
-        assert dialog.locator(".lightbox__heading").inner_text() == "Add an illustration for Lufthansa"
+        assert "Lufthansa" in dialog.inner_text()
         assert dialog.locator(".resolve-upload-zone").is_visible()
-        assert dialog.locator("form.lightbox__delete").is_visible()
+        assert page.locator("#airline-lufthansa").count() == 1
+        assert page.locator("tbody.airline-group .airlines-name").filter(
+            has_text="Lufthansa").count() == 0
     finally:
         context.close()
 
 
-def test_without_scripts_the_chevron_the_save_button_and_the_upload_button_work(
+def test_without_scripts_the_chevron_the_rename_dialog_and_the_upload_button_work(
         new_context, make_app_server):
     server = make_app_server(seed=_seed, fake_providers=True)
     with _no_js_page(
@@ -403,23 +586,22 @@ def test_without_scripts_the_chevron_the_save_button_and_the_upload_button_work(
         _settle(page, chevron)
         page.locator(chevron).click()
         page.locator(TRANSAVIA + " .airlines-subrow").first.wait_for(state="visible")
-        save = 'form.airlines-name:has(input[value="Air France"]) .airlines-name__save'
-        upload = 'form[action^="/illustration/air-france.png"] .airlines-art__upload'
-        assert page.locator(save).is_visible()
-        assert page.locator(upload).is_hidden()
-        page.locator('tbody.airline-group:has(input[value="Air France"]) .airlines-row .row-menu__toggle').click()
+        upload = TRANSAVIA + ' form[action^="/illustration/transavia-france-a320.png"] .airlines-art__upload'
         assert page.locator(upload).is_visible()
-        page.locator(FRANCE_NAME).fill("Skyline Air")
+        page.locator(FRANCE_MENU).click()
+        page.locator(FRANCE + " .airlines-row .row-menu__panel a.row-menu__item").click()
+        page.locator(FRANCE_FIELD).wait_for(state="visible")
+        page.locator(FRANCE_FIELD).fill("Skyline Air")
         with page.expect_navigation():
-            page.locator(save).click()
+            page.locator(FRANCE_DIALOG + " button[type=submit]").click()
         page.wait_for_url("**/airlines/manage?flash=airline_renamed")
-        assert page.locator('.airlines-name input[value="Skyline Air"]').count() == 1
+        assert page.locator("#airline-skyline-air .airlines-name").inner_text() == "Skyline Air"
 
 
 _CLIPPED_NAMES = (
     "() => [...document.querySelectorAll('tbody.airline-group:not([hidden]) .airlines-row"
-    " .airlines-name input[name=\"airline_name\"]')]"
-    ".filter(i => i.scrollWidth > i.clientWidth + 1).map(i => i.value)")
+    " .airlines-name--fixed')]"
+    ".filter(n => n.scrollWidth > n.clientWidth + 1).map(n => n.textContent)")
 _WRAPPED_CELLS = (
     "() => [...document.querySelectorAll('.airlines-row .airlines-cell--views,"
     " .airlines-row .airlines-cell--seen')].filter(td => {"
@@ -446,7 +628,7 @@ def test_on_a_desktop_no_airline_name_is_clipped_and_counts_stay_on_one_line(
         context.close()
 
 
-B738_ROW = TRANSAVIA + " .airlines-subrow:nth-child(3)"  # the airline row, A320, then B738
+A333_ROW = TRANSAVIA + " .airlines-subrow:nth-child(5)"  # the airline row, the heading, A320, B738, then A333
 _PNG = os.path.join(illustrations.ILLUSTRATION_DIR, "vueling-airlines.png")
 
 
@@ -459,103 +641,157 @@ def _audit_actions(state_dir):
         conn.close()
 
 
+def _add_a333_artwork_through_the_dialog(page):
+    """"Add artwork" of the A333 row opens the add-illustration dialog with the type fixed
+    (a chip, no select); the picture is chosen there and Upload sends it."""
+    page.locator(A333_ROW + " .airlines-act:visible").click()
+    dialog = page.locator("#panel-lookup-dialog")
+    dialog.wait_for(state="visible")
+    assert dialog.locator(".lightbox__heading").inner_text() == "Add an illustration"
+    assert dialog.locator(".lightbox__caption").inner_text() == "Transavia France · A333"
+    assert dialog.locator("[data-upload-type-chip]").inner_text() == "Airbus A330"
+    assert dialog.locator("#airline_artwork_type").is_hidden()
+    upload = dialog.locator(".lightbox__upload")
+    assert upload.is_disabled()
+    dialog.locator("#manual-illustration-input-dialog").set_input_files(_PNG)
+    page.wait_for_function(
+        "() => !document.querySelector('.lightbox__upload').disabled", timeout=10000)
+    with page.expect_navigation():
+        upload.click()
+
+
 def _expand_transavia(page):
     chevron = TRANSAVIA + " .airlines-expand > summary"
     _settle(page, chevron)
     page.locator(chevron).click()
-    page.locator(B738_ROW).wait_for(state="visible")
+    page.locator(A333_ROW).wait_for(state="visible")
 
 
 @pytest.mark.parametrize("name,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
-def test_a_type_row_is_customised_then_deleted_back_to_the_default(
+def test_a_type_row_is_given_a_picture_then_its_artwork_is_deleted(
         new_context, make_app_server, name, viewport):
-    """a type that follows the airline's picture can be given one of its own; "Back to the
-    default" removes it again and the row returns to "Same as the airline"; both are audited"""
+    """a type that follows the default type's picture gets one through its one upload entry
+    (Add artwork, then Change artwork); "Delete the artwork" in its menu removes it again and the
+    row returns to the default type's picture; both are audited"""
     server = make_app_server(seed=_seed, fake_providers=True)
     context, page = _open(new_context, server, viewport)
     try:
         _expand_transavia(page)
         slot = os.path.join(
             server.state_dir, illustrations.ILLUSTRATION_OVERRIDE_DIRNAME,
-            "transavia-france-b737.png")
+            "transavia-france-a330.png")
         assert not os.path.exists(slot)
-        with page.expect_navigation():
-            page.locator(B738_ROW + " .airlines-act input[type=file]").set_input_files(_PNG)
+        # A type with no picture has no menu: it cannot be the default yet.
+        assert page.locator(A333_ROW + " .row-menu__toggle").count() == 0
+        _add_a333_artwork_through_the_dialog(page)
         page.wait_for_function(_SETTLED, timeout=15000)
         assert os.path.isfile(slot)
         _expand_transavia(page)
-        assert "Own artwork" in page.locator(B738_ROW).inner_text()
-        revert = B738_ROW + " .airlines-act"
-        _settle(page, revert)
-        assert page.locator(revert).inner_text() == "Back to the default"
+        assert page.locator(A333_ROW + " a.airlines-thumb").is_visible()
+        assert "Own artwork" not in page.locator(A333_ROW).inner_text()
+        assert page.locator(A333_ROW + " .airlines-act:visible").get_attribute("data-tip") == "Change artwork"
+        toggle = A333_ROW + " .row-menu__toggle"
+        _settle(page, toggle)
+        page.locator(toggle).click()
+        delete = page.locator(A333_ROW + " .row-menu__panel button.row-menu__item", has_text="Delete the artwork")
+        delete.wait_for(state="visible")
         with page.expect_navigation():
-            page.locator(revert).click()
+            delete.click()
         page.wait_for_function(_SETTLED, timeout=15000)
         assert not os.path.exists(slot)
         _expand_transavia(page)
-        assert "Same as the airline" in page.locator(B738_ROW).inner_text()
-        assert page.locator(B738_ROW + " .airlines-act").inner_text() == "Customise"
+        assert "Uses the default" not in page.locator(A333_ROW).inner_text()
+        assert page.locator(A333_ROW + " .airlines-act:visible").get_attribute("data-tip") == "Add artwork"
         assert "airline.artwork_delete" in _audit_actions(server.state_dir)
     finally:
         context.close()
 
 
-def test_the_menu_deletes_an_uploaded_artwork_and_stars_the_default_type(
+def test_the_type_menu_sets_the_default_type_and_deletes_only_an_uploaded_picture(
         new_context, make_app_server):
     server = make_app_server(seed=_seed, fake_providers=True)
     context, page = _open(new_context, server, VIEWPORT_DESKTOP)
     try:
         _expand_transavia(page)
-        with page.expect_navigation():
-            page.locator(B738_ROW + " .airlines-act input[type=file]").set_input_files(_PNG)
+        items = page.locator(A333_ROW + " .row-menu__panel .row-menu__item")
+        assert page.locator(A333_ROW + " .row-menu__toggle").count() == 0
+        _add_a333_artwork_through_the_dialog(page)
         page.wait_for_function(_SETTLED, timeout=15000)
         _expand_transavia(page)
-        page.locator(B738_ROW + " .row-menu__toggle").click()
-        items = page.locator(B738_ROW + " .row-menu__panel .row-menu__item")
+        page.locator(A333_ROW + " .row-menu__toggle").click()
         items.first.wait_for(state="visible")
-        assert items.all_inner_texts() == [
-            "Change artwork", "Back to the default", "Set as the default type",
-            "Delete the illustration"]
+        assert items.all_inner_texts() == ["Set as default", "Delete the artwork"]
         with page.expect_navigation():
-            items.nth(2).click()
+            items.nth(0).click()
         page.wait_for_function(_SETTLED, timeout=15000)
         _expand_transavia(page)
-        star = B738_ROW + " .airlines-pill--star"
-        assert page.locator(star).inner_text() == "Default type"
+        star = A333_ROW + " .airlines-star"
+        assert page.locator(star).get_attribute("aria-label") == "Default type"
+        assert page.locator(star).inner_text().strip() == ""
         assert airline_default_types.load_default_types(server.state_dir) == {
-            "transavia-france": "B738"}
-        page.locator(B738_ROW + " .row-menu__toggle").click()
+            "transavia-france": "A333"}
+        # The airline row shows the default type's code, no picture of its own.
+        assert page.locator(TRANSAVIA + " .airlines-row .airlines-deftype").inner_text() == "A333"
+        assert page.locator(TRANSAVIA + " .airlines-row .airlines-thumb__image").count() == 0
+        page.locator(A333_ROW + " .row-menu__toggle").click()
         items.first.wait_for(state="visible")
-        assert "Remove as the default type" in items.all_inner_texts()
+        assert items.all_inner_texts() == ["Remove as default", "Delete the artwork"]
         with page.expect_navigation():
-            items.nth(3).click()
+            items.nth(1).click()
         page.wait_for_function(_SETTLED, timeout=15000)
         assert not os.path.exists(os.path.join(
             server.state_dir, illustrations.ILLUSTRATION_OVERRIDE_DIRNAME,
-            "transavia-france-b737.png"))
+            "transavia-france-a330.png"))
         assert {"airline.default_type", "airline.artwork_delete"} <= set(
             _audit_actions(server.state_dir))
+        # The type left with no picture is no longer the default: the first type the airline
+        # still has a picture for (alphabetically) takes over.
+        assert airline_default_types.load_default_types(server.state_dir) == {
+            "transavia-france": "A320"}
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("lang,set_label", (("en", "Set as default"),
+                                              ("fr", "Image par défaut")))
+@pytest.mark.parametrize("name,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
+def test_only_a_type_with_a_picture_offers_to_be_the_default(
+        new_context, make_app_server, name, viewport, lang, set_label):
+    """the A320 of Transavia has a built-in picture and offers the default-type entry; the
+    A333 has none and has no menu at all"""
+    server = make_app_server(seed=_seed, fake_providers=True)
+    context, page = _open(new_context, server, viewport, lang)
+    try:
+        _expand_transavia(page)
+        a320 = TRANSAVIA + " .airlines-subrow:nth-child(3)"
+        assert page.locator(a320 + " .row-menu__toggle").count() == 1
+        page.locator(a320 + " .row-menu__toggle").click()
+        items = page.locator(a320 + " .row-menu__panel .row-menu__item")
+        items.first.wait_for(state="visible")
+        assert items.all_inner_texts() == [set_label]
+        box = items.first.bounding_box()
+        assert box["height"] >= 44 - 0.5 and 0 <= box["x"] and box["x"] + box["width"] <= viewport["width"]
+        assert page.locator(A333_ROW + " .row-menu__toggle").count() == 0
+        assert page.locator(A333_ROW + " .row-menu__item").count() == 0
     finally:
         context.close()
 
 
 def test_every_type_of_a_fully_identified_airline_is_editable(new_context, server):
     """Air France is a built-in airline with a name and a picture: none of its type rows is
-    a dead end, each offers Customise (or its own picture) and a menu"""
+    a dead end, each offers one upload entry"""
     context, page = _open(new_context, server, VIEWPORT_DESKTOP)
     try:
-        group = 'tbody.airline-group:has(input[value="Air France"])'
+        group = FRANCE
         chevron = group + " .airlines-expand > summary"
         _settle(page, chevron)
         page.locator(chevron).click()
         subrows = page.locator(group + " .airlines-subrow")
         subrows.first.wait_for(state="visible")
-        assert subrows.count() >= 1
         for index in range(subrows.count()):
             row = subrows.nth(index)
-            assert row.locator(".row-menu__toggle").count() == 1
-            assert "Uses the airline’s artwork" not in row.inner_text()
-            assert row.locator(".airlines-state").count() == 1
+            assert row.locator(".airlines-act:visible").count() == 1
+            assert "Uses the default" not in row.inner_text()
     finally:
         context.close()
 
@@ -564,11 +800,79 @@ def test_naming_a_prefix_is_audited(new_context, make_app_server):
     server = make_app_server(seed=_seed, fake_providers=True)
     context, page = _open(new_context, server, VIEWPORT_DESKTOP)
     try:
-        _settle(page, GAP_NAME)
+        _open_dialog(page, GAP_OPEN, GAP_DIALOG)
         page.locator(GAP_NAME).fill("Audit Air")
         with page.expect_navigation():
-            page.locator(GAP + " .airlines-resolve__actions button[type=submit]").click()
+            page.locator(GAP_DIALOG + " button[type=submit]").click()
         page.wait_for_function(_SETTLED, timeout=15000)
         assert "airline.resolve" in _audit_actions(server.state_dir)
+    finally:
+        context.close()
+
+
+def test_the_filter_chips_scroll_sideways_on_one_line_on_a_phone(new_context, server):
+    """the chips never wrap on a phone: one line that scrolls sideways with no scrollbar drawn,
+    still a labelled radio group the arrow keys move through (the focused chip is scrolled into
+    view); a wide screen wraps them under the full-width search instead"""
+    context, page = _open(new_context, server, VIEWPORT_MIN_SUPPORTED)
+    try:
+        group = "fieldset.filter-bar__chips--scroll"
+        tops = page.locator(group + " label.filter-chip").evaluate_all(
+            "els => els.map(e => Math.round(e.getBoundingClientRect().top))")
+        assert len(set(tops)) == 1, tops
+        metrics = page.locator(group).evaluate(
+            "e => ({scroll: e.scrollWidth, client: e.clientWidth, bar: getComputedStyle(e).scrollbarWidth,"
+            " overflow: getComputedStyle(e).overflowX, legend: e.querySelector('legend').textContent})")
+        assert metrics["scroll"] > metrics["client"] and metrics["overflow"] == "auto", metrics
+        assert metrics["bar"] == "none" and metrics["legend"], metrics
+        last = page.locator(group + " input").last
+        page.locator(group + " input").first.focus()
+        for _ in range(4):
+            page.keyboard.press("ArrowRight")
+        page.wait_for_function(
+            "g => { const c = document.querySelector(g + ' input:checked').closest('label').getBoundingClientRect();"
+            " return c.left >= 0 && c.right <= innerWidth + 1; }", arg=group, timeout=5000)
+        assert last.is_checked()
+        _assert_no_page_overflow(page, "the scrolling chips")
+    finally:
+        context.close()
+    context, page = _open(new_context, server, VIEWPORT_DESKTOP)
+    try:
+        tops = page.locator("fieldset.filter-bar__chips--scroll label.filter-chip").evaluate_all(
+            "els => els.map(e => Math.round(e.getBoundingClientRect().top))")
+        search = page.locator(".filter-bar__search").bounding_box()
+        chips = page.locator("fieldset.filter-bar__chips--scroll").bounding_box()
+        assert search["width"] >= 600 and chips["y"] > search["y"] + search["height"], (search, chips)
+        assert len(set(tops)) <= 2, tops
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("lang", ("en", "fr"))
+def test_an_airline_row_on_a_phone_is_one_line_like_the_approved_mockup(
+        new_context, server, lang):
+    """the bold name over `AFR . A320 . 37 views` in small mono, the "..." menu at the right
+    (an airline has no picture of its own: its types do), every control 44px and the row not
+    taller than a compact line; opening it lists the aircraft types in cards"""
+    context, page = _open(new_context, server, VIEWPORT_MIN_SUPPORTED, lang=lang)
+    try:
+        row = TRANSAVIA + " .airlines-row"
+        boxes = page.evaluate("""r => { const q = s => document.querySelector(r + ' ' + s).getBoundingClientRect();
+            const row = document.querySelector(r).getBoundingClientRect();
+            return {row: row.toJSON(), name: q('.airlines-name').toJSON(),
+                    meta: q('.airlines-meta').toJSON(), menu: q('.row-menu__toggle').toJSON(),
+                    metaText: document.querySelector(r + ' .airlines-meta').textContent}; }""", row)
+        assert boxes["row"]["height"] <= 80, boxes["row"]
+        assert page.locator(row + " .airlines-thumb").count() == 0
+        assert boxes["name"]["right"] <= boxes["menu"]["left"] + 1
+        assert boxes["name"]["bottom"] <= boxes["meta"]["top"] + 1, boxes
+        assert boxes["menu"]["width"] >= 44 and boxes["menu"]["height"] >= 44
+        middle = boxes["menu"]["top"] + boxes["menu"]["height"] / 2
+        assert abs(middle - (boxes["row"]["top"] + boxes["row"]["height"] / 2)) <= 4, boxes
+        assert re.fullmatch(r"\S+ \S+ · \S+ · \d+ \S+", boxes["metaText"]), boxes["metaText"]
+        page.locator(TRANSAVIA + " .airlines-expand > summary").click()
+        page.locator(TRANSAVIA + " .airlines-subrow").first.wait_for(state="visible")
+        card = page.locator(TRANSAVIA + " .airlines-subrow").first.bounding_box()
+        assert card["width"] >= 260 and card["height"] >= 100, card
     finally:
         context.close()

@@ -36,7 +36,7 @@ _MEASURE = """() => {
 
 # The Location page is not listed: with the map running it has no empty state (the map is its
 # canvas); the plain page's "nothing matches" state is measured in test_empty_state_scale.py.
-PAGES = ("/", "/audit", "/locations", "/update", "/flights", "/account")
+PAGES = ("/", "/audit", "/update", "/flights", "/account")
 
 
 @pytest.fixture(scope="module")

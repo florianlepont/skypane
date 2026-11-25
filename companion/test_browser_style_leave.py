@@ -4,6 +4,7 @@ tapped destination, Discard leaves without saving, Stay here (and Escape)
 changes nothing and gives the focus back to the tapped link. Any unsaved value
 asks - the layout, a colour, a special look - and the bottom tab bar, the More
 sheet and the Style sub-tabs all ask. A clean page never asks."""
+import animation_settle
 import pytest
 
 from companion import auth, layout
@@ -29,11 +30,10 @@ QUIET = DIALOG + " [data-leave-dialog-quiet]"
 CHECKED_LAYOUT = "#personalisation-layout input[name=layout]:checked"
 GREEN = '[data-look-sheet][data-look-inline] input[data-look-axis="colour"][value="green"]'
 WORDS = {
-    "en": ("Unsaved changes", "You have changes that are not saved. What do you want to do?",
-           "Save and continue", "Discard", "Stay here"),
-    "fr": ("Modifications non enregistrées",
-           "Vous avez des modifications non enregistrées. Que souhaitez-vous faire\u00a0?",
-           "Enregistrer et continuer", "Abandonner", "Rester ici"),
+    "en": ("Leave without saving?", "Your changes are not saved yet.",
+           "Save and leave", "Leave without saving", "Stay here"),
+    "fr": ("Quitter sans enregistrer\u00a0?", "Vos modifications ne sont pas encore enregistrées.",
+           "Enregistrer et quitter", "Quitter sans enregistrer", "Rester ici"),
 }
 CASES = [(name, viewport, lang)
          for name, viewport in (("360", VIEWPORT_MIN_SUPPORTED), ("1280", VIEWPORT_DESKTOP))
@@ -43,10 +43,7 @@ CASE_IDS = ["%s-%s" % (name, lang) for name, _viewport, lang in CASES]
 # sidebar instead, so the two are exercised on their own viewport.
 PHONE_CASES = [case for case in CASES if case[0] == "360"]
 PHONE_IDS = ["%s-%s" % (name, lang) for name, _viewport, lang in PHONE_CASES]
-SETTLED = (
-    "() => document.readyState === 'complete'"
-    " && document.getAnimations().every(a => a.playState !== 'running'"
-    " || a.effect.getComputedTiming().iterations === Infinity)")
+SETTLED = animation_settle.SETTLED
 
 
 def _seed(state_dir):
@@ -57,6 +54,11 @@ def _seed(state_dir):
 def _seed_with_look(state_dir):
     seed_state_dir(state_dir)
     device_config.save_device_config(state_dir, layout="classic", theme="band_red_field")
+
+
+def _seed_pairings(state_dir):
+    seed_state_dir(state_dir)
+    device_config.save_device_config(state_dir, layout="b", theme="grey")
 
 
 def _tab(page, view):
@@ -163,7 +165,7 @@ def test_tapping_a_sub_tab_with_an_unsaved_change_opens_the_dialog(
         assert page.locator(DIALOG + " .modal__body").inner_text() == text
         assert page.locator(PRIMARY).inner_text() == primary
         assert page.locator(SECONDARY).inner_text() == secondary
-        assert page.locator(QUIET).inner_text() == quiet
+        assert page.locator(QUIET).get_attribute("aria-label") == quiet
         page.wait_for_function(
             "() => document.activeElement && document.activeElement.hasAttribute('data-leave-dialog-quiet')",
             timeout=5000)
@@ -507,5 +509,67 @@ def test_without_script_the_tabs_are_plain_links_and_the_dialog_stays_closed(
         assert not page.locator(DIALOG).is_visible()
         _tab(page, "arrivals").click()
         page.wait_for_url("**" + layout.DISPLAY_ARRIVALS_ROUTE, timeout=10000)
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("name,viewport,lang", CASES, ids=CASE_IDS)
+def test_the_question_has_one_status_and_two_equal_answers(
+        new_context, make_app_server, name, viewport, lang):
+    """the bar behind the open question is out of sight so one status shows; the two answers
+    are the same 48 px tall and as wide as each other, side by side on a wide screen (leave
+    on the left, save on the right) and stacked on a phone (save first); the close cross
+    sits at the top right of the box"""
+    server = make_app_server(seed=_seed)
+    context, page = _open(new_context, server, viewport, lang)
+    try:
+        _pick_layout_c(page)
+        _tap_tab(page, "arrivals")
+        _wait_dialog_open(page)
+        page.wait_for_function(SETTLED, timeout=15000)
+        assert page.locator(".dirty-bar").first.is_hidden()
+        primary = page.locator(PRIMARY).bounding_box()
+        secondary = page.locator(SECONDARY).bounding_box()
+        assert abs(primary["width"] - secondary["width"]) <= 0.5, (primary, secondary)
+        assert abs(primary["height"] - secondary["height"]) <= 0.5, (primary, secondary)
+        assert primary["height"] >= 47.5, primary
+        if name == "1280":
+            assert abs(primary["y"] - secondary["y"]) <= 0.5
+            assert secondary["x"] < primary["x"]
+        else:
+            assert primary["y"] < secondary["y"]
+            assert abs(primary["x"] - secondary["x"]) <= 0.5
+        box = page.locator(DIALOG).bounding_box()
+        cross = page.locator(QUIET).bounding_box()
+        assert cross["x"] + cross["width"] > box["x"] + box["width"] - 24, (cross, box)
+        assert cross["y"] < box["y"] + 40, (cross, box)
+        page.click(QUIET)
+        _wait_dialog_closed(page)
+        assert page.locator(".dirty-bar").first.is_visible()
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("theme", UI_THEMES_EXPLICIT)
+def test_the_light_yellow_tile_has_a_darker_edge_and_the_others_have_none(
+        new_context, make_app_server, theme):
+    """only the yellow look tile wears a 3 px edge, in the stylesheet's own edge colour"""
+    server = make_app_server(seed=_seed_pairings)
+    context, page = _open(new_context, server, VIEWPORT_DESKTOP, "en")
+    try:
+        _set_ui_theme(page, theme)
+        edges = page.evaluate("""() => {
+          const out = {};
+          const probe = getComputedStyle(document.documentElement)
+            .getPropertyValue('--color-yellow-tile-edge').trim();
+          for (const card of document.querySelectorAll('.look-pairings .look-pick__card')) {
+            const s = getComputedStyle(card.querySelector('.look-pick__preview'));
+            out[card.querySelector('input').value] = [s.borderTopWidth, s.borderTopColor];
+          }
+          return {out, probe}; }""")
+        widths = {key: value[0] for key, value in edges["out"].items()}
+        assert widths["yellow_light"] == "3px", widths
+        assert all(width == "0px" for key, width in widths.items() if key != "yellow_light"), widths
+        assert edges["probe"], edges
     finally:
         context.close()

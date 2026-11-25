@@ -88,12 +88,26 @@ def _process_alive(pid):
     try:
         with open("/proc/%d/stat" % pid) as fh:
             content = fh.read()
-    except FileNotFoundError:
+    except (FileNotFoundError, ProcessLookupError):
+        # ProcessLookupError (ESRCH): the process exited while /proc/<pid>
+        # was being read, which is the same answer as a missing entry.
         return False
     # The state character is the first field after the command name,
     # which is parenthesised and may itself contain spaces.
     state = content.rsplit(")", 1)[1].split()[0]
     return state != "Z"
+
+
+def test_a_process_that_exits_while_its_stat_is_read_counts_as_gone(monkeypatch):
+    real_open = open
+
+    def vanishing_open(path, *args, **kwargs):
+        if str(path).startswith("/proc/") and str(path).endswith("/stat"):
+            raise ProcessLookupError(3, "No such process")
+        return real_open(path, *args, **kwargs)
+
+    monkeypatch.setattr("builtins.open", vanishing_open)
+    assert _process_alive(os.getpid()) is False
 
 
 def test_stop_kills_the_whole_process_group_including_a_grandchild(tmp_path, monkeypatch):

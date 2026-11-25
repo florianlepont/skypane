@@ -270,8 +270,7 @@ def test_pending_and_retired_frames_do_not_exist_for_a_user(rig):
 
 ADMIN_ONLY_KEYS = tuple(SEEDED_ADMIN_ONLY)
 _ADMIN_LINK_PATHS = (
-    "/fleet", "/users", "/audit", "/update", "/device", "/health", "/airlines/manage",
-    "/locations")
+    "/fleet", "/users", "/audit", "/update", "/airlines/manage")
 _FRAME_PAGES = ("/", "/display", "/flights", "/airlines")
 
 
@@ -389,16 +388,15 @@ def test_the_system_view_is_the_administrators_alone_and_keeps_its_platform_rows
     with history_db.open_db(rig.state_dir) as conn:
         history_db.set_meta(conn, history_db.META_SOURCE_FAULT, "True")
     platform_texts = (
-        health_page.ROW_FLIGHT_DATA_NAME, health_page.ROW_SOURCES_NAME, health_page.SOURCE_FAULT_HEADING,
-        health_page.UNRESOLVED_SECTION_HEADING)
+        health_page.ROW_FLIGHT_DATA_NAME, health_page.ROW_SOURCES_NAME, health_page.SOURCE_FAULT_HEADING)
     admin_health = rig.page("/fleet?view=system", "admin")
     for text in platform_texts:
         assert escape_html(i18n.t(text)) in admin_health, text
+    # Unresolved airlines are handled in the Editor: the identification row links nowhere.
+    assert "/airlines/manage" not in admin_health.split('id="system-card-identification"')[1].split("</li>")[0]
     rig.assert_unknown("GET", "/fleet?view=system", "a")
-    # The retired Health address moves a user to their own Home, never to a platform page.
-    status, headers, _body = rig.get("/health", "a")
-    assert status == 303 and headers["Location"].startswith("/devices/")
-    assert "fleet" not in headers["Location"]
+    # The removed Health address is the not-found page for a user.
+    rig.assert_unknown("GET", "/health", "a")
 
 
 def test_user_pages_link_to_no_admin_page_and_admin_pages_still_do(rig):

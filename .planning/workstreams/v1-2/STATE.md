@@ -4,15 +4,15 @@ milestone: v1.2
 milestone_name: Fleet platform
 current_plan: 11
 status: verifying
-stopped_at: Phase 64 verified with open points (64-VERIFICATION.md, updated 2026-11-16); criteria 6 and 9 validated on the owner's reports and decisions of 2026-11-16, criterion 7 still open (more measured on 2026-11-17: busy waits, LED and keys; battery values moved to production use and SEED-019, v1.4)
-last_updated: "2026-11-14T20:16:40.837Z"
-last_activity: 2026-11-18 - Phase 65 completed and deployed to production (65-VERIFICATION.md): TRK-01 and TRK-02 met, Orly 06/24 left untested by the owner's decision
+stopped_at: Phase 64 waves 1-3 executed (plans 64-01..64-11); waves 4-6 are owner-validated or blocked on Phase 57
+last_updated: "2026-11-25T09:32:50.821Z"
+last_activity: 2026-11-25
 progress:
-  total_phases: 17
-  completed_phases: 14
-  total_plans: 179
-  completed_plans: 275
-  percent: 82
+  total_phases: 24
+  completed_phases: 17
+  total_plans: 249
+  completed_plans: 364
+  percent: 71
 ---
 
 # Project State
@@ -27,7 +27,7 @@ progress:
 Phase: 49 (per-hardware-ota-registry) — ready for verification
 Plan: 11 of 11 (all plans complete)
 Status: Phase complete — ready for verification
-Last activity: 2026-11-16 - Phase 64 criterion 9 closed in the records (partly by owner decision for rows 2, 9, 10, 11); criterion 7 open
+Last activity: 2026-11-25
 
 Progress: [████████░░] 84%
 
@@ -73,23 +73,35 @@ Progress: [████████░░] 84%
 
 - Phase 62 added 2026-11-08 at the owner's request: Plane Screen Redesign (giant-lettering design), from `.planning/notes/plane-screen-design-brief.md`. Runs before Phase 59, which stays last.
 - Phase 63 added 2026-11-10 at the owner's request: Fast CI (test job from about 27 minutes to 10 minutes or less, nothing skipped), from measurements of run 42770577886 and a local 4-core run. Closed 2026-11-10: test check median 9.0 min over five green runs, merged as #320 and #322 (see `phases/63-fast-ci/63-VERIFICATION.md`).
-- Phase 65 added 2026-11-15 at the owner's request: Detection Robustness (runway 3, then the other Orly runways and other French airports; widened the same day). Its battery half (BAT-01: discharges, curves, thresholds, battery tests) was moved the same day to SEED-019 for v1.4. Runs before Phase 59, which stays last.
+- Phase 65 added 2026-11-15 at the owner's request: Detection Robustness (runway 3, then the other Orly runways and other French airports; widened the same day). Its battery half (BAT-01: discharges, curves, thresholds, battery tests) was moved the same day to SEED-019 for v1.3. Runs before Phase 59, which stays last.
 - Phases 66 and 67 added 2026-11-15 at the owner's request: Security Audit, and Project and Code Optimisation for a clean, industrial result. Both run before Phase 59, which stays last.
-- Phase 68 added 2026-11-16 at the owner's request: Console and Companion Visual Improvements, moved up from v1.3 (SEED-020) so that the security audit (Phase 66) and the code cleanup (Phase 67) work on the final code. It runs after Phase 65 and before Phase 66.
-- Phase 69 added 2026-11-18 at the owner's request: Rear Enclosure for the 7.3 Inch Frame (design, print, fit), the physical half of SEED-014, as an owner-driven parallel track (no code, no conflict with Phases 68, 66, 67, 59). The administrator flashing tool stays in v1.4.
+- Phase 68 added 2026-11-16 at the owner's request: Console and Companion Visual Improvements, moved up from v1.4 (SEED-020) so that the security audit (Phase 66) and the code cleanup (Phase 67) work on the final code. It runs after Phase 65 and before Phase 66.
+- Phase 69 added 2026-11-18 at the owner's request: Rear Enclosure for the 7.3 Inch Frame (design, print, fit), the physical half of SEED-014, as an owner-driven parallel track (no code, no conflict with Phases 68, 66, 67, 59). The administrator flashing tool stays in v1.3.
+- Phase 68 status 2026-11-23: all plans are built and merged except the closing plan (audit, design-system skill, Battery page); the owner validates the deployed site in English and French, with the device checks (More sheet in Safari, yellow tile on the panel, a retired frame, first sign-in by invitation); CON-01 stays unticked until then. D-26 closed at levels A and B and R29 closed without a build, both by the owner on 2026-11-23.
+- Phase 68 closed 2026-11-24: the owner validated the deployed companion and console in English and French on a phone and CON-01 is ticked. The last changes were the six redesigns F1 to F6 (#547), five phone fixes (#555: anchor bar, sheets over the keyboard, airline card corners, Add a frame card, page background), the opening animation that preloads every tab and waits for it, safety cap 10 s (#557, from the measured audit in `.planning/quick/261124-lda-loading-audit/`), and the splash test timing fix (#558). Known and accepted: the splash lasts about 7.9 s on a 1.6 Mbps link, and an administrator's first tap into the Console from a personal page still loads five Console scripts late (about 20 KB). The owner's airline editor remarks of 2026-11-24 were then delivered and deployed (closing addendum 2026-11-25): #562 (Add a frame uses the /pair-frame page with an administrator-only owner selector), #563 (aircraft families for every production type plus the Other slot), #564 (Illustrations manquantes, one row per airline and family), #565 (type rows show the family name with the codes on hover, a star for the default type, no Own artwork text, no relative age on the Unidentified rows, 8 px under the last card), #566 (the Fleet page shows a neutral Select a frame pane until a frame is chosen), #568 (44 px icon buttons to add or change an illustration), #569 (business jet label shortened), #574 (lint fix), #575 (Illustrations manquantes as a small label between Non identifiees and Airlines, like the two other blocks; renaming an airline now takes 6 steps, one scroll past the longer list, accepted by the owner), and the 18 real generic silhouettes the owner supplied (branch phase-68-7-real-generic-silhouettes). Decisions: the relative age stays in the Last seen column, the Nommer dialog and the lightbox. Phase 68 is closed with nothing open; Phase 68.1 waits for the owner's go.
+- Phase 68.1 inserted 2026-11-21 at the owner's request: Design System Consistency, Deviations and Improvements. It depends on Phase 68 and runs before Phases 66, 67 and 59: check the design system against the site, list and fix deviations, propose improvements and animations.
+- Phase 70 added 2026-11-24 at the owner's decision (everything private): Private Repository and CI. It sets up a deploy and firmware signing that do not depend on environment reviewers, a CI that fits the free-plan limits, and an inventory of what was public, before the visibility is switched. It runs before Phase 66.
+- Milestones v1.3 and v1.4 swapped 2026-11-24 at the owner's request: v1.3 is now "Ready to give" (wizard, Wi-Fi, flashing tool, telemetry, update policy, battery), v1.4 is now "Photo". SEED-011 and SEED-012 were found already delivered (Phase 61 and Phase 68 plan 28) and are marked fulfilled. Older phase documents keep the old numbers; see `.planning/notes/milestone-plan-v1-3-v1-4.md`.
 - Phase 69 decision 2026-11-18 (owner): Phase 69 is an owner-driven parallel track; milestone v1.2 may close before it is finished, and an unfinished phase carries into the next milestone.
 - Phase 64 added 2026-11-14 at the owner's request: Second Hardware in Production (build, release, deploy and parity with the first type), HW2-03 to HW2-05. The owner asked whether the second screen could be managed as the first one is; two read-only audits (server and companion, firmware and release pipeline) found the gap in the plan: Phase 57 releases the live frame only and Phase 58 validates the board with throwaway-key bench images, so nothing builds, publishes or deploys a release for the second type. Findings, re-checked against `main`, in `64-AUDIT.md`. Runs before Phase 59, which stays last.
 
-- Phase 58 closed 2026-11-15 by the owner with the battery model provisional: the unit passed cable flash, signed OTA bench, floor refusal and the four pairing checks; no valid discharge sample exists, so no battery value was measured. Real battery data is expected from production use (Phase 64); the discharge validation is SEED-019 (v1.4). Evidence in `58-03-SUMMARY.md`, `58-04-SUMMARY.md` and `hardware/SECOND-HARDWARE-VALIDATION.md`.
+- Phase 58 closed 2026-11-15 by the owner with the battery model provisional: the unit passed cable flash, signed OTA bench, floor refusal and the four pairing checks; no valid discharge sample exists, so no battery value was measured. Real battery data is expected from production use (Phase 64); the discharge validation is SEED-019 (v1.3). Evidence in `58-03-SUMMARY.md`, `58-04-SUMMARY.md` and `hardware/SECOND-HARDWARE-VALIDATION.md`.
 
 ### Pending Todos
 
-None yet.
+- Phase 68 deferred cleanups (owner, 2026-11-23): delete the frozen per-frame airline-name files (FLT-13) and the per-frame artwork directories (ART-10) in a later release, now that names and artwork are fleet-wide; drop the unused `layout.data_table(prose=, desc_columns=)` option, the dead `nav.frame_tools` id, the hamburger mentions in `ui_nav.py` comments, the `Health`/`Device`/`Releases` entries of `CONSOLE_NAV_ENTRIES` and `_gap_overflow_html` (it still links to `/health`); all candidates for Phase 67.
+- Phase 68 feedback of 2026-11-23 moved to Phase 68.1 (owner): a prominent battery tile on Home, one filter style across Flights and Airlines, the table inside its rounded card, lighter console dialogs (Manage access, Add a frame, Reassign, Add an illustration, frame settings cards), the Add a frame page, simpler product names everywhere, the version line of Account.
 
 ### Blockers/Concerns
 
 - Owner decisions still open (see research/SUMMARY.md): OTA signing, Auth0 app type, shared-password removal date, second board.
 - Research flagged for Phases 49, 50, 52, 53, 54, 55 and 58.
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 1 | Phase 69 rear enclosure: reworked cassette design, exported STL, filled print-order tables | 2026-11-18 | ebef9432 | [261118-q4d-phase-69-rear-enclosure-update-cassette-](./quick/261118-q4d-phase-69-rear-enclosure-update-cassette-/) |
 
 ## Session Continuity
 

@@ -71,7 +71,7 @@ MESSAGES = {
         "Sample panel rendered in the %s theme",
 
     # --- Quiet hours card pointer to the Location and detection page ----
-    "display.location_and_detection_title": "Lieu et détection",
+    "display.location_title": "Lieu",
 
     # --- Calendar row's connection block --------------------------------
     # The confirmation-page strings below (with a question mark, or
@@ -136,13 +136,15 @@ MESSAGES = {
     "display.wake_interval": "Intervalle de réveil",
     "display.choose_how_often_the_frame_checks":
         "Choisissez à quelle fréquence le cadre vérifie les nouvelles données de vol.",
-    "display.wake_interval_seconds": "Intervalle de réveil (secondes)",
-    "display.wake_interval_unit": "secondes",
-    "display.wake_interval_minutes": "\u00b7 # mn",
-    # The range input's own accessible name, distinct from the number
-    # input's label above — two controls sharing one accessible name is
-    # how a screen-reader visitor loses track of which they are on.
-    "display.wake_interval_slider": "Curseur d’intervalle de réveil",
+    "display.wake_interval_minutes_input": "Intervalle de réveil (minutes)",
+    "display.wake_interval_unit_min": "min",
+    "display.wake_minutes_value": "# min",
+    "display.wake_interval_default_tag": "Par défaut",
+    "display.wake_interval_range_hint": "De 1 à 60 min, par pas d’1 min.",
+    "display.wake_interval_default_hint": "Par défaut\u00a0: # min.",
+    "display.wake_interval_shortcuts": "Raccourcis",
+    "display.wake_interval_decrease": "Diminuer d’une minute",
+    "display.wake_interval_increase": "Augmenter d’une minute",
     # The two gauges: "#" is the quantity's place in both, and the unit
     # is always whole minutes in both languages, which keeps these
     # sentences free of a plural form. U+00A0 between the number and
@@ -170,7 +172,6 @@ MESSAGES = {
     "display.this_setting_wakes_the_frame_every_min_instead":
         "Ce réglage réveille le cadre toutes les # min au lieu de toutes "
         "les %d min.",
-    "display.uses_server_default": "Valeur par défaut",
 
     # --- Save --------------------------------------------------------
     # Symbolic notation ("≈" plus a placeholder already localized by its
@@ -181,10 +182,10 @@ MESSAGES = {
     # "Enregistrer" verb and the "Vérification en cours…" ellipsis style above.
     "display.saving": "Enregistrement…",
     "display.unsaved_changes": "Modifications non enregistrées",
-    "display.leave_title": "Modifications non enregistrées",
-    "display.leave_text": "Vous avez des modifications non enregistrées. Que souhaitez-vous faire\u00a0?",
-    "display.leave_save": "Enregistrer et continuer",
-    "display.leave_discard": "Abandonner",
+    "display.leave_title": "Quitter sans enregistrer\u00a0?",
+    "display.leave_text": "Vos modifications ne sont pas encore enregistrées.",
+    "display.leave_save": "Enregistrer et quitter",
+    "display.leave_discard": "Quitter sans enregistrer",
     "display.leave_stay": "Rester ici",
     "display.leave_save_only": "Enregistrer",
     "display.leave_stays_note": "Après l’enregistrement, vous restez sur cette page.",

@@ -516,7 +516,7 @@ def test_scoped_flows_stay_under_the_device_prefix(rig):
 def test_french_page_uses_the_catalogue_strings(rig):
     _s, _h, page = rig.get("owner", rig.scope() + "/detection?q=cdg", lang="fr")
     text = _visible_text(page)
-    assert "Lieu et détection" in text
+    assert "Lieu" in text
     assert "Rechercher des aéroports" in text
     assert "Rechercher un aéroport ou une adresse" in text
     assert "Aéroports français" in text

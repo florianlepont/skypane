@@ -224,17 +224,18 @@ def test_render_no_new_args_byte_identical_and_no_field_error_markup():
 
 def test_render_wake_interval_error_shows_message_value_and_aria():
     """render(ctx, errors={"wake_interval_s": ERROR_WAKE_INTERVAL_RANGE}, submitted={"wake_interval_s": "7"})
-    renders the message once, echoes value="7" back into the input, and sets aria-invalid plus a
-    matching aria-describedby"""
+    renders the message once, echoes the typed minutes back into the input, and sets aria-invalid
+    plus a matching aria-describedby"""
     error_message = form_post.ERROR_WAKE_INTERVAL_RANGE
     rendered = config_page.render(
         _TASK2_BASE_CTX, errors={"wake_interval_s": error_message},
-        submitted={"wake_interval_s": "7"})
+        submitted={"wake_interval_min": "99", "wake_interval_s": "300"})
     assert rendered.count(error_message) == 1, (
         "expected the error message to render exactly once, got %d" % rendered.count(error_message))
-    assert 'value="7"' in rendered, "expected the submitted value 7 to be echoed back into the input"
+    assert ' value="99"' in rendered, "expected the submitted value 99 to be echoed back into the input"
     input_match = re.search(
-        r'<input type="number" id="[^"]*" name="wake_interval_s"[^>]*>', rendered)
+        r'<input type="number" id="[^"]*" class="fleet-minutes" name="wake_interval_min"[^>]*>',
+        rendered)
     assert input_match, "expected the wake_interval_s input to still be present"
     assert 'aria-invalid="true"' in input_match.group(0), "expected aria-invalid=\"true\" on the errored input"
     describedby_match = re.search(r'aria-describedby="([^"]+)"', input_match.group(0))
@@ -627,7 +628,7 @@ def test_style_css_carries_theme_status_runway_row_and_settings_checkbox_selecto
 
 def test_theme_chip_preview_src_points_at_the_real_route_prefix_for_every_theme():
     """every theme radio in the departures table carries a data-preview-src pointing at
-    FRAME_PREVIEW_ROUTE_PREFIX + its own registry id, departing state and large size, and the
+    FRAME_PREVIEW_ROUTE_PREFIX + its own registry id, departing state and large size and a 12-hex content signature (v=), and the
     big departures picture's <img src> is that same URL for the saved theme"""
     rendered = config_page.render({
         "device_config": {"layout": "classic", "theme": "blue", "tracked_runway": "3"},
@@ -635,13 +636,15 @@ def test_theme_chip_preview_src_points_at_the_real_route_prefix_for_every_theme(
     }, scope=config_page.SCOPE_DISPLAY)
     start, end = cp.aspect_usage_row_bounds(rendered, config_page.COLOUR_USAGE_DEPARTURES)
     segment = rendered[start:end]
+    signature = r"&amp;v=[0-9a-f]{12}"
     for theme_id in device_config.THEME_IDS:
-        expected_src = escape_html(
+        prefix = escape_html(
             "%s%s.png?state=departing&size=large" % (config_page.FRAME_PREVIEW_ROUTE_PREFIX, theme_id))
-        assert 'data-preview-src="%s"' % expected_src in segment, (
-            "expected the %r radio to carry %r" % (theme_id, expected_src))
-    assert 'data-look-image src="%s"' % escape_html(
-        "%sblue.png?state=departing&size=large" % config_page.FRAME_PREVIEW_ROUTE_PREFIX) in segment
+        assert re.search(r'data-preview-src="%s%s"' % (re.escape(prefix), signature), segment), (
+            "expected the %r radio to carry %r then a content signature" % (theme_id, prefix))
+    blue_prefix = escape_html(
+        "%sblue.png?state=departing&size=large" % config_page.FRAME_PREVIEW_ROUTE_PREFIX)
+    assert re.search(r'data-look-image src="%s%s"' % (re.escape(blue_prefix), signature), segment)
 
 
 def test_theme_chip_swatch_dots_carry_real_palette_hex_values():

@@ -6,30 +6,36 @@ from datetime import timedelta
 from companion import i18n
 from companion import battery
 from companion.layout import escape_html
+from companion.ui_base import icon_html
 import companion.layout as layout
 from server import device_config, history_db
 
 from companion.settings.form import (
-    DIRTY_SECTION_ATTR, SETTINGS_FORM_ID, _field_error_attrs, _field_error_html)
+    DIRTY_SECTION_ATTR, _field_error_attrs, _field_error_html)
 
 
 WAKE_INTERVAL_SECTION_HEADING = i18n.msg("display.wake_interval", "Wake interval")
 WAKE_INTERVAL_SECTION_CAPTION = i18n.msg(
     "display.choose_how_often_the_frame_checks",
     "Choose how often the frame checks for new flight data.")
-WAKE_INTERVAL_PLACEHOLDER_TEXT = i18n.msg("display.uses_server_default", "Uses server default")
-# The number input's own visible label, distinct from
-# WAKE_SLIDER_LABEL below (the paired range control's own name).
+# The minutes field's own accessible name; the tile's visible label is the
+# section heading.
 WAKE_INTERVAL_INPUT_LABEL = i18n.msg(
-    "display.wake_interval_seconds", "Wake interval (seconds)")
-# The unit, rendered as a sibling beside the number input (never a
-# placeholder, which vanishes once a value is typed). aria-hidden, since
-# the field's own label already says "seconds".
-WAKE_INTERVAL_UNIT_LABEL = i18n.msg("display.wake_interval_unit", "seconds")
-# The same value in minutes, repainted live by value-controls.js through
-# the readout hook ("#" is the minute count, rounded up).
-WAKE_INTERVAL_MINUTES_TEXT = i18n.msg("display.wake_interval_minutes", "\u00b7 # min")
-WAKE_INTERVAL_INPUT_ID = "wake-interval-s"
+    "display.wake_interval_minutes_input", "Wake interval (minutes)")
+WAKE_INTERVAL_UNIT_LABEL = i18n.msg("display.wake_interval_unit_min", "min")
+# The tile's headline value ("#" is the minute count, repainted by script).
+WAKE_INTERVAL_MINUTES_TEXT = i18n.msg("display.wake_minutes_value", "# min")
+WAKE_INTERVAL_DEFAULT_TAG = i18n.msg("display.wake_interval_default_tag", "Default")
+WAKE_INTERVAL_HINT = i18n.msg(
+    "display.wake_interval_range_hint", "1 to 60 min, in 1 min steps.")
+WAKE_INTERVAL_HINT_DEFAULT = i18n.msg(
+    "display.wake_interval_default_hint", "Default: # min.")
+WAKE_INTERVAL_SHORTCUTS_LABEL = i18n.msg("display.wake_interval_shortcuts", "Shortcuts")
+WAKE_INTERVAL_DECREASE_LABEL = i18n.msg(
+    "display.wake_interval_decrease", "Decrease by one minute")
+WAKE_INTERVAL_INCREASE_LABEL = i18n.msg(
+    "display.wake_interval_increase", "Increase by one minute")
+WAKE_INTERVAL_INPUT_ID = "wake-interval-m"
 WAKE_INTERVAL_SECTION_CAPTION_ID = "wake-interval-caption"
 
 # The wake interval trades off freshness against battery life. Only one
@@ -41,6 +47,12 @@ WAKE_INTERVAL_SECTION_CAPTION_ID = "wake-interval-caption"
 # observed discharge slope, or the named "not enough history" state
 # when it refuses to derive one — never an invented number.
 WAKE_INTERVAL_FIELD_NAME = "wake_interval_s"
+# The minutes field's own posted name. Script keeps the seconds field equal to
+# minutes x 60; without script the server converts this one.
+WAKE_INTERVAL_MINUTES_FIELD_NAME = "wake_interval_min"
+WAKE_INTERVAL_MINUTES_MIN = device_config.WAKE_INTERVAL_MIN_S // 60
+WAKE_INTERVAL_MINUTES_MAX = device_config.WAKE_INTERVAL_MAX_S // 60
+WAKE_INTERVAL_PRESET_MINUTES = (5, 15, 30, 60)
 WAKE_GAUGE_CLASS = "wake-gauge"
 WAKE_GAUGE_FRESHNESS_ID = "wake-gauge-freshness"
 WAKE_GAUGE_BATTERY_ID = "wake-gauge-battery"
@@ -81,14 +93,6 @@ WAKE_BATTERY_SCREEN_OFF_TEXT = i18n.msg(
 WAKE_BATTERY_INSTEAD_TEXT = i18n.msg(
     "display.this_setting_wakes_the_frame_every_min_instead",
     "This setting wakes the frame every # min instead of every %d min.")
-
-WAKE_SLIDER_CLASS = "wake-slider"
-WAKE_SLIDER_INPUT_CLASS = "wake-slider__input"
-WAKE_SLIDER_STEP_S = 60
-# Its own accessible name: the number input's label names that
-# control, and two controls sharing one name loses a screen-reader
-# visitor track of which they are on.
-WAKE_SLIDER_LABEL = i18n.msg("display.wake_interval_slider", "Wake interval slider")
 
 
 def wake_gauge_interval_s(current_wake_interval_s, submitted=None):
@@ -294,120 +298,138 @@ def wake_gauges_html(interval_s, battery_rows=None):
     )
 
 
-def wake_slider_html(interval_s):
-    """The range input, inside the `.js` gate — `""` when there is no
-    saved interval to start from.
 
-    Carries no `name`: a named range would post a second value for
-    `wake_interval_s`, and whichever arrived last would win silently.
-    The `<input type="number">` is the only control on this card that
-    posts; this one only writes into it via `value-controls.js`.
+def _whole_minutes(interval_s):
+    """`interval_s` as whole minutes (rounded up) when it is a usable
+    interval, else `None`."""
+    if (isinstance(interval_s, int) and not isinstance(interval_s, bool)
+            and device_config.WAKE_INTERVAL_MIN_S <= interval_s
+            <= device_config.WAKE_INTERVAL_MAX_S):
+        return _wake_minutes(interval_s)
+    return None
 
-    Gated, since a range with no script drags and shows nothing; the
-    gauges and number input are not gated. `min`/`max` come from
-    `device_config`, never re-typed, so this control can never accept
-    what `save_device_config()`'s own server-side re-check would reject.
-    The native range has `step="any"`: a typed 700 s keeps the thumb at 700
-    instead of snapping to the nearest minute, while dragging and the arrow
-    keys still move in `WAKE_SLIDER_STEP_S` steps (data-value-step).
-    """
-    if interval_s is None:
-        return ""
+
+def _submitted_minutes(submitted):
+    """The minutes string a rejected save echoes back, or `None` when the
+    submission carried neither field: the minutes field when posted, else the
+    seconds field converted."""
+    if submitted is None:
+        return None
+    if WAKE_INTERVAL_MINUTES_FIELD_NAME in submitted:
+        return str(submitted[WAKE_INTERVAL_MINUTES_FIELD_NAME] or "")
+    if WAKE_INTERVAL_FIELD_NAME in submitted:
+        raw = str(submitted[WAKE_INTERVAL_FIELD_NAME] or "").strip()
+        try:
+            return str(_wake_minutes(int(raw))) if raw else ""
+        except ValueError:
+            return raw
+    return None
+
+
+def _wake_presets_html(minutes):
+    buttons = "".join(
+        '<button type="button" class="theme-option%s" data-minutes-preset="%d" '
+        'aria-pressed="%s">%d</button>' % (
+            " theme-option--active" if preset == minutes else "", preset,
+            "true" if preset == minutes else "false", preset)
+        for preset in WAKE_INTERVAL_PRESET_MINUTES)
     return (
-        '<div class="%s %s" %s %s="%s" %s="%s" %s="%d" %s="%d" %s="%d">'
-        '<input type="range" class="%s" %s value="%d" min="%d" max="%d" step="any"'
-        ' aria-label="%s" aria-describedby="%s">'
-        "</div>"
-    ) % (
-        escape_html(WAKE_SLIDER_CLASS), escape_html(layout.JS_GATE_CLASS),
-        layout.VALUE_CONTROL_ATTR,
-        layout.VALUE_CONTROL_FIELD_ATTR, escape_html(WAKE_INTERVAL_FIELD_NAME),
-        layout.VALUE_CONTROL_FORM_ATTR, SETTINGS_FORM_ID,
-        layout.VALUE_CONTROL_MIN_ATTR, device_config.WAKE_INTERVAL_MIN_S,
-        layout.VALUE_CONTROL_MAX_ATTR, device_config.WAKE_INTERVAL_MAX_S,
-        layout.VALUE_CONTROL_STEP_ATTR, WAKE_SLIDER_STEP_S,
-        escape_html(WAKE_SLIDER_INPUT_CLASS), layout.VALUE_CONTROL_INPUT_ATTR,
-        interval_s,
-        device_config.WAKE_INTERVAL_MIN_S, device_config.WAKE_INTERVAL_MAX_S,
-        escape_html(i18n.t(WAKE_SLIDER_LABEL)),
-        escape_html(WAKE_INTERVAL_SECTION_CAPTION_ID),
-    )
+        '<span class="theme-form fleet-presets %s" role="group" aria-label="%s">%s</span>' % (
+            escape_html(layout.JS_GATE_CLASS),
+            escape_html(i18n.t(WAKE_INTERVAL_SHORTCUTS_LABEL)), buttons))
 
 
-def _wake_minutes_text(interval_s):
-    if interval_s is None:
-        return ""
-    return i18n.t(WAKE_INTERVAL_MINUTES_TEXT).replace(
-        layout.VALUE_CONTROL_TEXT_TOKEN, str(_wake_minutes(interval_s)))
+def _wake_stepper_html(minutes_value, placeholder, error_attrs):
+    def step(delta, label):
+        return (
+            '<button type="button" class="fleet-step" data-minutes-step="%d" '
+            'aria-label="%s">%s</button>' % (
+                delta, escape_html(i18n.t(label)), "−" if delta < 0 else "+"))
+    return (
+        '<span class="fleet-stepper" role="group">%s'
+        '<label class="visually-hidden" for="%s">%s</label>'
+        '<input type="number" id="%s" class="fleet-minutes" name="%s" data-minutes-input'
+        ' min="%d" max="%d" step="1" inputmode="numeric" placeholder="%s"%s%s>'
+        '<span class="fleet-unit" aria-hidden="true">%s</span>%s</span>' % (
+            # Both buttons need script; the number field alone works without.
+            step(-1, WAKE_INTERVAL_DECREASE_LABEL).replace(
+                'class="fleet-step"', 'class="fleet-step js-gate"'),
+            escape_html(WAKE_INTERVAL_INPUT_ID), escape_html(i18n.t(WAKE_INTERVAL_INPUT_LABEL)),
+            escape_html(WAKE_INTERVAL_INPUT_ID),
+            escape_html(WAKE_INTERVAL_MINUTES_FIELD_NAME),
+            WAKE_INTERVAL_MINUTES_MIN, WAKE_INTERVAL_MINUTES_MAX, escape_html(placeholder),
+            ' value="%s"' % escape_html(minutes_value) if minutes_value else "", error_attrs,
+            escape_html(i18n.t(WAKE_INTERVAL_UNIT_LABEL)),
+            step(1, WAKE_INTERVAL_INCREASE_LABEL).replace(
+                'class="fleet-step"', 'class="fleet-step js-gate"')))
 
 
 def wake_interval_group(current_wake_interval_s, errors=None, submitted=None, next_wake_clock=None,
-                        battery_rows=None):
-    """The Wake interval settings group: a plain `<label>` wraps a
-    single `<input type="number">` (no checkbox gate, unlike
-    `quiet_hours_group()`). `min`/`max` come from `device_config`
-    rather than re-typed literals.
-
-    The `value` attribute is emitted only for an in-range, non-bool
-    int; otherwise the placeholder carries the empty state — an
-    out-of-range `value` fails HTML5 constraint validation and blocks
-    the whole form's submission. On a rejected save the raw submitted
-    string is echoed back verbatim instead, bypassing that guard so the
-    user sees what they typed. `battery_rows` remains accepted for
-    callers built before the Device simplification; this control does
-    not claim a battery duration.
+                        battery_rows=None, default_interval_s=None):
+    """The Wake interval tile: one control in whole minutes (1 to 60) over
+    the stored seconds. The minutes field posts `wake_interval_min`; a hidden
+    `wake_interval_s` carries minutes x 60 for scripts and the server
+    (`form_post.resolve_wake_interval`) accepts either. The tile's value and
+    its "Default" tag are repainted by `value-controls.js` as the minutes
+    change. On a rejected save the submitted text is echoed back verbatim, so
+    the person sees what they typed. `next_wake_clock` and `battery_rows` are
+    accepted for callers built before the tile.
     """
-    if submitted is not None and "wake_interval_s" in submitted:
-        raw_submitted = submitted["wake_interval_s"]
-        value_attr = ' value="%s"' % escape_html(raw_submitted) if raw_submitted else ""
+    echoed = _submitted_minutes(submitted)
+    if echoed is not None:
+        minutes_value = echoed
     else:
-        value_attr = (
-            ' value="%d"' % current_wake_interval_s
-            if (
-                isinstance(current_wake_interval_s, int)
-                and not isinstance(current_wake_interval_s, bool)
-                and device_config.WAKE_INTERVAL_MIN_S <= current_wake_interval_s <= device_config.WAKE_INTERVAL_MAX_S
-            ) else "")
+        current = _whole_minutes(current_wake_interval_s)
+        minutes_value = str(current) if current else ""
+    default_minutes = _whole_minutes(default_interval_s)
+    try:
+        minutes = int(minutes_value)
+    except ValueError:
+        minutes = None
+    # An interval already on disk that is not a whole minute keeps its exact
+    # seconds until the minutes are changed.
+    if echoed is None and _whole_minutes(current_wake_interval_s):
+        seconds_value = str(current_wake_interval_s)
+    else:
+        seconds_value = str(minutes * 60) if minutes is not None else ""
     error_attrs = _field_error_attrs(
-        errors, "wake_interval_s", "wake-interval-s", hint_id=WAKE_INTERVAL_SECTION_CAPTION_ID)
-    error_html = _field_error_html(errors, "wake_interval_s", "wake-interval-s")
-    # One resolution of the slider's subject, so it stays aligned with
-    # the persisted numeric control.
-    gauge_interval_s = wake_gauge_interval_s(current_wake_interval_s, submitted)
+        errors, "wake_interval_s", WAKE_INTERVAL_INPUT_ID, hint_id=WAKE_INTERVAL_SECTION_CAPTION_ID)
+    error_html = _field_error_html(errors, "wake_interval_s", WAKE_INTERVAL_INPUT_ID)
+    heading = escape_html(i18n.t(WAKE_INTERVAL_SECTION_HEADING))
+    shown = (i18n.t(WAKE_INTERVAL_MINUTES_TEXT).replace(
+        layout.VALUE_CONTROL_TEXT_TOKEN, str(minutes))
+        if minutes is not None else "—")
+    is_default = default_minutes is not None and minutes == default_minutes
+    default_hint = (
+        " " + i18n.t(WAKE_INTERVAL_HINT_DEFAULT).replace(
+            layout.VALUE_CONTROL_TEXT_TOKEN, str(default_minutes))
+        if default_minutes is not None else "")
     return (
-        '<div class="theme-status" %s="%s">'
-        '<h2 class="text-heading">%s</h2>'
-        '<p class="text-label section-caption" id="%s">%s</p>'
-        # The label is its own element (for=), not a wrapping <label>,
-        # and is read aloud only: the heading above is the one visible
-        # name of this card.
-        '<label for="%s" class="visually-hidden">%s</label>'
-        '<input type="number" id="%s" name="wake_interval_s" min="%d" max="%d"'
-        ' placeholder="%s"%s%s>'
-        # The unit as a sibling, aria-hidden: the label above already
-        # names the unit, so repeating it would announce the fact twice.
-        '<span class="text-label field-inline-value" aria-hidden="true">%s</span>'
-        '<span class="text-label field-inline-value" aria-hidden="true" %s="%s" %s="%s" %s="%d">%s</span>'
-        "%s"
-        # The slider sits after the error message, so the error stays
-        # adjacent to the control it describes.
-        "%s"
+        '<div class="fleet-tile fleet-tile--wide fleet-tile--control" data-state="off" '
+        '%s="%s" data-minutes-control data-minutes-default="%s" data-minutes-text="%s">'
+        '<span class="fleet-tile__text">'
+        '<span class="fleet-tile__head"><span class="fleet-tile__icon">%s</span>'
+        '<span class="fleet-tile__label">%s</span></span>'
+        '<span class="fleet-tile__value"><span data-minutes-readout>%s</span>'
+        '<span class="banner__pill fleet-default"%s data-minutes-tag>%s</span></span>'
+        '<span class="fleet-tile__meta" id="%s">%s</span></span>'
+        '<span class="fleet-tile__ui">%s'
+        '<input type="hidden" name="%s" value="%s" data-minutes-seconds>%s'
+        '<span class="fleet-tile__hint" id="wake-interval-hint">%s%s</span>%s</span>'
         "</div>"
     ) % (
-        DIRTY_SECTION_ATTR, escape_html(i18n.t(WAKE_INTERVAL_SECTION_HEADING)),
-        escape_html(i18n.t(WAKE_INTERVAL_SECTION_HEADING)),
+        DIRTY_SECTION_ATTR, heading,
+        default_minutes if default_minutes is not None else "",
+        escape_html(i18n.t(WAKE_INTERVAL_MINUTES_TEXT)),
+        icon_html("icon-refresh", 20), heading,
+        escape_html(shown),
+        "" if is_default else " hidden", escape_html(i18n.t(WAKE_INTERVAL_DEFAULT_TAG)),
         escape_html(WAKE_INTERVAL_SECTION_CAPTION_ID),
         escape_html(i18n.t(WAKE_INTERVAL_SECTION_CAPTION)),
-        escape_html(WAKE_INTERVAL_INPUT_ID), escape_html(i18n.t(WAKE_INTERVAL_INPUT_LABEL)),
-        escape_html(WAKE_INTERVAL_INPUT_ID),
-        device_config.WAKE_INTERVAL_MIN_S, device_config.WAKE_INTERVAL_MAX_S,
-        escape_html(i18n.t(WAKE_INTERVAL_PLACEHOLDER_TEXT)),
-        value_attr, error_attrs,
-        escape_html(i18n.t(WAKE_INTERVAL_UNIT_LABEL)),
-        layout.VALUE_CONTROL_READOUT_ATTR, escape_html(WAKE_INTERVAL_FIELD_NAME),
-        layout.VALUE_CONTROL_READOUT_TEXT_ATTR, escape_html(i18n.t(WAKE_INTERVAL_MINUTES_TEXT)),
-        layout.VALUE_CONTROL_READOUT_SCALE_ATTR, WAKE_GAUGE_SECONDS_PER_MINUTE,
-        escape_html(_wake_minutes_text(gauge_interval_s)),
-        error_html,
-        wake_slider_html(gauge_interval_s),
+        _wake_stepper_html(
+            minutes_value, str(default_minutes) if default_minutes is not None else "",
+            error_attrs),
+        escape_html(WAKE_INTERVAL_FIELD_NAME), escape_html(seconds_value),
+        _wake_presets_html(minutes),
+        escape_html(i18n.t(WAKE_INTERVAL_HINT)), escape_html(default_hint), error_html,
     )

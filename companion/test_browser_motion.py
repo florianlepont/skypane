@@ -14,7 +14,7 @@ from companion.test_browser_ux_helpers import (
 
 pytestmark = pytest.mark.browser
 
-SWITCH = "#quick-switch-led-label ~ .settings-switch-row .switch"
+SWITCH = ".fleet-tile:has(#quick-switch-led-label) .switch"
 
 # Counts navigator.vibrate calls without needing a motor.
 _VIBRATE_SPY = """() => {
@@ -159,7 +159,7 @@ def test_reduced_motion_runs_no_motion(new_context, server):
         page = context.new_page()
         page.add_init_script("(" + _VIBRATE_SPY + ")()")
         _login(page, server.base_url())
-        page.goto(server.base_url() + "/fleet?tab=settings")
+        page.goto(server.base_url() + "/fleet?frame=live&tab=settings")
         _wait_ready(page)
         durations = page.evaluate("""() => {
           const out = {};
@@ -201,7 +201,7 @@ def test_the_switch_springs_ticks_and_keeps_its_44px_target(new_context, server,
         page = context.new_page()
         page.add_init_script("(" + _VIBRATE_SPY + ")()")
         _login(page, server.base_url())
-        page.goto(server.base_url() + "/fleet?tab=settings")
+        page.goto(server.base_url() + "/fleet?frame=live&tab=settings")
         _wait_ready(page)
         page.wait_for_selector(SWITCH)
         before = page.locator(SWITCH).get_attribute("aria-checked")
@@ -249,7 +249,7 @@ def test_a_press_scales_a_button_and_releases_to_rest(new_context, server):
         context.close()
 
 
-@pytest.mark.parametrize("route", ["/", "/flights", "/fleet?tab=settings"])
+@pytest.mark.parametrize("route", ["/", "/flights", "/fleet?frame=live&tab=settings"])
 def test_hit_targets_settle_on_the_swept_pages(new_context, server, route):
     """With the motion layer on, the tab links and the page's own controls still own their
     centres once the page has settled, on a phone."""

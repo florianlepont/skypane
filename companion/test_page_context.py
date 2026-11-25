@@ -38,9 +38,9 @@ NAV_ROUTES = tuple(
     if route not in legacy_pages.RETIRED_ADMIN_PAGES) + ("/fleet",)
 
 _NAV_DOT_RE = re.compile(rb'class="dot (dot--\w+) nav-notification"')
-_BANNER_RE = re.compile(rb'class="toast (toast--\w+) toast--docked health-anomaly"')
+_BANNER_RE = re.compile(rb'class="sys-banner health-anomaly" data-severity="(\w+)"')
 _DOT_TO_SEVERITY = {b"dot--warn": "warn", b"dot--error": "error"}
-_BANNER_TO_SEVERITY = {b"toast--warning": "warn", b"toast--error": "error"}
+_BANNER_TO_SEVERITY = {b"warn": "warn", b"error": "error"}
 
 
 def _seed_warn_scenario(state_dir):
@@ -199,8 +199,10 @@ def test_health_markup_builds_only_on_the_fleet_page(app_server_in_process, monk
     for route in NAV_ROUTES:
         signals_calls.clear()
         state_calls.clear()
-        status, _headers, _body = http_request(server.url(route), cookie=session)
-        assert status == 200, "expected 200 from GET %s, got %d" % (route, status)
+        # A frame is chosen: the bare /fleet landing is the neutral pane and builds only the shell context.
+        url = "/fleet?frame=live" if route == "/fleet" else route
+        status, _headers, _body = http_request(server.url(url), cookie=session)
+        assert status == 200, "expected 200 from GET %s, got %d" % (url, status)
         # The Fleet page builds two contexts: the shell's (nav dot) and the selected frame's.
         expected_signals_calls = 2 if route == "/fleet" else 1
         assert len(signals_calls) == expected_signals_calls, (

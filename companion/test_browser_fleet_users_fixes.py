@@ -1,7 +1,7 @@
 """Real-browser checks of the Fleet and Users fixes: the Users Active switch acts in place
-(no page load, scroll and focus kept), the rename page's Save bar appears only on a change
-and saves, a typed wake interval is not snapped by the slider, and the System view is one
+(no page load, scroll and focus kept), a typed wake interval is not snapped by the slider, and the System view is one
 column with counts at the right edge. Every read waits for a settled page first."""
+import animation_settle
 import pytest
 
 import fleet_console_support as fx
@@ -12,9 +12,7 @@ from server import device_config, fleet_db
 
 pytestmark = pytest.mark.browser
 
-_SETTLED = (
-    "() => document.readyState === 'complete' && document.getAnimations().every("
-    "a => !a.effect || a.effect.getTiming().iterations === Infinity || a.playState !== 'running')")
+_SETTLED = animation_settle.SETTLED
 _OWNS_CENTRE = (
     "sel => { const el = document.querySelector(sel); if (!el) return false;"
     " const r = el.getBoundingClientRect();"
@@ -59,7 +57,7 @@ def test_the_active_switch_acts_in_place_without_reloading_the_page(
     try:
         row = "#user-%d" % seed.user_id
         switch = page.locator(row + " button.switch")
-        switch.scroll_into_view_if_needed()
+        switch.evaluate("e => e.scrollIntoView({block: 'center'})")
         page.wait_for_function(_OWNS_CENTRE, arg=row + " button.switch", timeout=10000)
         page.evaluate("() => { window.__same_document = true; }")
         switch.click()
@@ -72,6 +70,11 @@ def test_the_active_switch_acts_in_place_without_reloading_the_page(
         assert page.locator(row + " .users-pill--disabled").is_visible()
         assert page.locator(row + " .users-status .users-pill:visible").count() == 1
         assert _disabled(server, seed.user_id) == 1
+        # The first answer's toast floats above the tab bar and can cover the last card on a
+        # short page (hovering it pauses its dismissal): move away and let it go first.
+        page.mouse.move(2, 2)
+        page.wait_for_function("() => !document.querySelector('[data-toast]')", timeout=20000)
+        switch.evaluate("e => e.scrollIntoView({block: 'center'})")
         switch.click()
         page.wait_for_function(
             "sel => document.querySelector(sel).getAttribute('aria-checked') === 'true'"
@@ -97,86 +100,25 @@ def test_the_signed_in_administrators_row_offers_no_delete(new_context, app_serv
         context.close()
 
 
-@pytest.mark.parametrize("viewport", [VIEWPORT_MIN_SUPPORTED, VIEWPORT_DESKTOP], ids=["360", "1280"])
-@pytest.mark.parametrize("lang", ["en", "fr"])
-def test_the_rename_page_shows_the_cancel_and_save_bar_and_saves_the_name(
-        new_context, app_server_in_process, viewport, lang):
-    server = app_server_in_process
-    context, page, seed = _page(
-        new_context, server, "/devices/{owned}/frame/name", viewport, lang, who="owner")
-    try:
-        field = page.locator("#frame-name")
-        page.wait_for_function(_OWNS_CENTRE, arg="#frame-name", timeout=10000)
-        assert field.input_value() == "Kitchen"
-        bar = page.locator(".dirty-bar")
-        # The bar is in the page but shown only once the name differs from the saved one.
-        assert page.evaluate("() => document.querySelector('.dirty-bar').hidden")
-        field.fill("Living room")
-        page.wait_for_function(
-            "() => !document.querySelector('.dirty-bar').hidden", timeout=10000)
-        assert not _assert_no_page_overflow(page, "rename", viewport["width"])
-        save = bar.locator("button.dirty-bar__save")
-        assert save.bounding_box()["height"] >= 44 - 0.5
-        save.click()
-        page.wait_for_url("**/account**")
-        conn = fleet_db.connect(server.state_dir)
-        try:
-            assert fleet_db.get_device(conn, seed.owned_id)["name"] == "Living room"
-        finally:
-            conn.close()
-        page.wait_for_function(_SETTLED, timeout=15000)
-        assert "Living room" in page.locator("main").inner_text()
-    finally:
-        context.close()
-
-
-def test_cancel_on_the_rename_page_leaves_the_name_unchanged_and_goes_back(
-        new_context, app_server_in_process):
-    server = app_server_in_process
-    context, page, seed = _page(
-        new_context, server, "/devices/{owned}/frame/name", VIEWPORT_DESKTOP, who="owner")
-    try:
-        page.locator("#frame-name").fill("Changed")
-        page.locator(".dirty-bar a.dirty-bar__cancel").click()
-        page.wait_for_url("**/account**")
-        conn = fleet_db.connect(server.state_dir)
-        try:
-            assert fleet_db.get_device(conn, seed.owned_id)["name"] == "Kitchen"
-        finally:
-            conn.close()
-    finally:
-        context.close()
-
-
-def test_an_invalid_name_shows_the_field_error_in_place(new_context, app_server_in_process):
-    server = app_server_in_process
-    context, page, _seed = _page(
-        new_context, server, "/devices/{owned}/frame/name", VIEWPORT_DESKTOP, who="owner")
-    try:
-        page.locator("#frame-name").fill("x" * 41)
-        page.locator("#frame-name").evaluate("e => e.removeAttribute('maxlength')")
-        page.locator("#frame-name").fill("x" * 41)
-        page.locator(".dirty-bar button.dirty-bar__save").click()
-        page.wait_for_selector("#frame-name-error", timeout=10000)
-        assert "1 to 40" in page.locator("#frame-name-error").inner_text()
-        assert page.locator("#frame-name").get_attribute("aria-invalid") == "true"
-    finally:
-        context.close()
-
-
-def test_a_typed_wake_interval_keeps_the_slider_where_it_was_typed(
+def test_a_typed_wake_interval_is_brought_back_into_range_and_the_seconds_follow(
         new_context, app_server_in_process):
     server = app_server_in_process
     device_config.save_device_config(server.state_dir, wake_interval_s=600)
     context, page, _seed = _page(
         new_context, server, "/fleet?frame={live}&tab=settings", VIEWPORT_DESKTOP)
     try:
-        page.locator("#wake-interval-s").scroll_into_view_if_needed()
-        page.wait_for_function(_OWNS_CENTRE, arg="#wake-interval-s", timeout=10000)
-        page.locator("#wake-interval-s").fill("700")
+        page.locator("#wake-interval-m").scroll_into_view_if_needed()
+        page.wait_for_function(_OWNS_CENTRE, arg="#wake-interval-m", timeout=10000)
+        page.locator("#wake-interval-m").fill("12")
+        seconds = page.locator("input[name='wake_interval_s']")
         page.wait_for_function(
-            "() => document.querySelector('.wake-slider__input').value === '700'", timeout=10000)
-        assert page.locator("#wake-interval-s").input_value() == "700"
+            "() => document.querySelector('input[name=wake_interval_s]').value === '720'",
+            timeout=10000)
+        page.locator("#wake-interval-m").fill("700")
+        page.keyboard.press("Tab")
+        page.wait_for_function(
+            "() => document.querySelector('#wake-interval-m').value === '60'", timeout=10000)
+        assert seconds.input_value() == "3600"
     finally:
         context.close()
 

@@ -3,6 +3,7 @@ that ends in an ellipsis when it is too long (the whole address is its title and
 name), the last sign-in never wraps, and rows that show the same parts are equally tall."""
 import time
 
+import animation_settle
 import pytest
 
 import fleet_console_support as fx
@@ -27,9 +28,7 @@ PHONES = (
     pytest.param({"width": 390, "height": 844}, id="390"))
 ALL_WIDTHS = PHONES + WIDTHS
 
-_READY = (
-    "() => document.readyState === 'complete' && document.getAnimations().every("
-    "(a) => a.playState !== 'running' || a.effect.getComputedTiming().iterations === Infinity)")
+_READY = animation_settle.SETTLED
 
 _ROWS = """() => [...document.querySelectorAll('.users-table .users-row')].map((row) => {
   const lines = (el) => { const range = document.createRange(); range.selectNodeContents(el);
@@ -48,10 +47,15 @@ _ROWS = """() => [...document.querySelectorAll('.users-table .users-row')].map((
           named: head.textContent.includes(email.textContent),
           seen: seen.textContent.trim(), seenLines: lines(seen),
           seenCut: seen.scrollWidth > seen.clientWidth + 1,
+          framesShown: frames.getClientRects().length > 0,
+          seenShown: seen.getClientRects().length > 0,
+          meta: row.querySelector('.users-meta').textContent.trim(),
+          metaShown: row.querySelector('.users-meta').getClientRects().length > 0,
+          metaParts: [...row.querySelectorAll('.users-meta .users-frames__part')].map((part) => (
+            {lines: lines(part), cut: part.scrollWidth > part.clientWidth})),
           frames: frames.textContent.trim(),
           parts: [...frames.querySelectorAll('.users-frames__part')].map((part) => (
-            {lines: lines(part), cut: part.scrollWidth > part.clientWidth})),
-          invite: !!row.querySelector('.users-copy')};
+            {lines: lines(part), cut: part.scrollWidth > part.clientWidth}))};
 })"""
 
 
@@ -116,20 +120,33 @@ def test_every_address_is_one_line_and_a_long_one_ends_in_an_ellipsis(
 @pytest.mark.parametrize("viewport", ALL_WIDTHS)
 def test_the_last_sign_in_is_one_line_and_the_frames_never_break_inside_a_part(
         new_context, rig, viewport, lang):
-    """The frame count and the co-manager mark are whole, each on one line: side by side on
-    a card, one under the other in the table, where they stay within the row's height."""
+    """The frame count and the co-manager mark are whole, each on one line: one under the other
+    in the table, where they stay within the row's height, and side by side after the role on
+    a card, which shows neither the last sign-in nor the frames column."""
     context, page = _users(new_context, rig, viewport, lang)
     try:
         rows = page.evaluate(_ROWS)
-        never = "Jamais connecté" if lang == "fr" else "Never signed in"
-        assert sum(row["seen"] == never for row in rows) >= 2, rows
-        assert any(row["seen"] != never for row in rows), rows
-        suffix = "co-gestionnaire" if lang == "fr" else "co-manager"
+        table = viewport["width"] >= TABLE_FROM
+        suffix = "cogestionnaire" if lang == "fr" else "co-manager"
         assert any(suffix in row["frames"] for row in rows), rows
+        if table:
+            never = "Jamais connecté" if lang == "fr" else "Never signed in"
+            assert sum(row["seen"] == never for row in rows) >= 2, rows
+            assert any(row["seen"] != never for row in rows), rows
         for row in rows:
-            assert row["seenLines"] == 1 and not row["seenCut"], row
-            assert 1 <= len(row["parts"]) <= 2, row
-            assert all(part["lines"] == 1 and not part["cut"] for part in row["parts"]), row
+            assert row["seenShown"] == table and row["framesShown"] == table, row
+            assert row["metaShown"] != table, row
+            if table:
+                assert row["seenLines"] == 1 and not row["seenCut"], row
+                assert 1 <= len(row["parts"]) <= 2, row
+                assert all(part["lines"] == 1 and not part["cut"] for part in row["parts"]), row
+            else:
+                # "Role · frames" is the card's one detail line.
+                assert row["meta"].endswith(row["frames"]), row
+                assert " \u00b7 " in row["meta"], row
+                assert 1 <= len(row["metaParts"]) <= 2, row
+                assert all(part["lines"] == 1 and not part["cut"]
+                           for part in row["metaParts"]), row
     finally:
         context.close()
 
@@ -137,8 +154,8 @@ def test_the_last_sign_in_is_one_line_and_the_frames_never_break_inside_a_part(
 @pytest.mark.parametrize("lang", ["en", "fr"])
 @pytest.mark.parametrize("viewport", WIDTHS)
 def test_rows_that_show_the_same_parts_are_equally_tall(new_context, rig, viewport, lang):
-    """In the table every row has one height. As cards, a person who has not signed in yet
-    carries one more line (the Copy invitation button); cards are equal within each kind."""
+    """In the table every row has one height. As cards, a card is as tall as its address and its
+    frames line need: cards that wrap alike are equal, whether or not the person has signed in."""
     context, page = _users(new_context, rig, viewport, lang)
     try:
         rows = page.evaluate(_ROWS)
@@ -148,8 +165,10 @@ def test_rows_that_show_the_same_parts_are_equally_tall(new_context, rig, viewpo
         if table:
             assert len({row["height"] for row in rows}) == 1, rows
         else:
-            for invited in (True, False):
-                heights = {row["height"] for row in rows if row["invite"] == invited}
+            shapes = {(row["emailLines"], len(row["metaParts"])) for row in rows}
+            for shape in shapes:
+                heights = {row["height"] for row in rows
+                           if (row["emailLines"], len(row["metaParts"])) == shape}
                 assert len(heights) <= 1, rows
     finally:
         context.close()
@@ -163,12 +182,16 @@ _INK = """() => [...document.querySelectorAll('.users-table .users-row')].map((r
   const box = (el) => flat(el.getBoundingClientRect());
   const pill = row.querySelector('.users-status .users-pill:not([hidden])');
   const card = row.getBoundingClientRect();
-  const boxes = [
-    ['address', box(row.querySelector('.users-email'))], ['status', box(pill)],
+  const table = getComputedStyle(row.closest('.users-table')).display === 'table';
+  // A card has no role, frames or last sign-in cell: its one detail line says role and frames.
+  const detail = table ? [
     ['role', box(row.querySelector('.users-cell--role select, .users-role-fixed'))],
     ['frames', ink(row.querySelector('.users-cell--frames'))],
-    ['seen', ink(row.querySelector('.users-cell--seen'))],
-    ['switch', box(row.querySelector('button[role=switch]'))]];
+    ['seen', ink(row.querySelector('.users-cell--seen'))]
+  ] : [['meta', ink(row.querySelector('.users-meta'))]];
+  const boxes = [
+    ['address', box(row.querySelector('.users-email'))], ['status', box(pill)],
+    ...detail, ['switch', box(row.querySelector('button[role=switch]'))]];
   return {boxes: boxes.map(([name, at]) => Object.assign({name: name}, at)),
           left: card.left, right: card.right, pill: pill.textContent,
           pillCut: pill.scrollWidth > pill.clientWidth};
@@ -178,9 +201,9 @@ _INK = """() => [...document.querySelectorAll('.users-table .users-row')].map((r
 @pytest.mark.parametrize("viewport", ALL_WIDTHS)
 def test_no_part_of_a_row_runs_into_another_or_out_of_the_row(
         new_context, rig, viewport, lang):
-    """The address, the status, the role, the frames, the last sign-in and the switch share
-    no pixel and stay inside the row, and the status pill is whole, on a phone card, a wide
-    card and the table."""
+    """The address, the status, the role, the frames, the last sign-in (on a card: the one
+    "Role . frames" line) and the switch share no pixel and stay inside the row, and the
+    status pill is whole, on a phone card, a wide card and the table."""
     context, page = _users(new_context, rig, viewport, lang)
     try:
         rows = page.evaluate(_INK)

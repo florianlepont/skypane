@@ -189,11 +189,19 @@ def test_plain_strings_are_refused():
 # pronounced identically to its English source, never a missed
 # translation. Keyed by the stable message id.
 _UNCHANGED_IN_FRENCH = frozenset({
+    # Aircraft makes and models are spelled identically in French.
+    "airlines.family_a320", "airlines.family_b737", "airlines.family_atr72", "airlines.family_beechcraft1900d", "airlines.family_embraer", "airlines.family_a330", "airlines.family_a350", "airlines.family_erj145", "airlines.family_b787", "airlines.family_a220", "airlines.family_b777", "airlines.family_b747", "airlines.family_b767", "airlines.family_b757", "airlines.family_a380", "airlines.family_a300", "airlines.family_crj", "airlines.family_falcon", "airlines.family_kingair",
     "display.aspect",
+    # "Identification" is spelled identically in French.
+    "health.how_well_we_name_flights",
     # "Version", "Action" and "Notes (%d)" are spelled identically in French.
     "update.col_version", "update.col_action", "update.notes_n",
     # "Rare" is spelled identically in French.
     "airlines.collection_rarity_rare",
+    # "Suggestion" is spelled identically in French.
+    "airlines.suggest_tag",
+    # "min" is the abbreviation in both languages.
+    "display.wake_interval_unit_min", "display.wake_minutes_value",
     # Place names spelled identically in French.
     "display.timezone_opt_martinique", "display.timezone_opt_guadeloupe",
     "display.timezone_opt_mayotte",
@@ -216,17 +224,16 @@ _UNCHANGED_IN_FRENCH = frozenset({
     "detection.location_option",
     # "Administration", "Audit" and "Console" are the French words too,
     # spelled identically: real cognates for the console's nav labels.
-    "nav.administration", "nav.audit_short", "nav.console", "nav.personalisation",
-    # The French column heading for a list of row actions is the same word.
-    "admin_users.actions", "admin_locations.actions",
-    # "Latitude" and "Longitude" are the French words too, spelled identically.
-    "admin_locations.latitude", "admin_locations.longitude",
-    "admin_locations.latitude_longitude",
-    # "Action" is the French word too, for the audit table's column heading.
-    "admin_lifecycle.action",
+    "nav.administration", "nav.console", "nav.personalisation",
     # The French UI keeps the English word "Airlines" for the nav entry and the
     # page it names: "Compagnies" does not fit the six-tab phone bar.
     "nav.airline_collection", "airlines.table_caption",
+    # The French column heading for a list of row actions is the same word.
+    "admin_users.actions",
+    # "Action" is the French word too, for the audit table's column heading.
+    "admin_lifecycle.action",
+    # "Illustration" is the French word too, on the "+ Illustration" button.
+    "airlines.missing_add",
 })
 
 
@@ -259,6 +266,21 @@ def test_every_catalog_value_is_non_empty():
         identifier for identifier, _english, french in _sweep_entries()
         if not french.strip()]
     assert not empty, "empty French value for: %r" % (empty,)
+
+
+def test_the_french_ui_names_the_airlines_page_airlines_everywhere():
+    """The French nav entry, the page title, the table caption, the back link, the count and
+    the reload hints all say Airlines (the tab must fit the six-tab phone bar); French prose
+    about airlines in general stays French."""
+    by_id = {identifier: french for identifier, _english, french in _sweep_entries()}
+    assert by_id["nav.airline_collection"] == "Airlines"
+    assert by_id["airlines.table_caption"] == "Airlines"
+    assert by_id["airlines.back_to_airlines"] == "\u2190 Retour \u00e0 Airlines"
+    assert by_id["airlines.collection_count_of_total"] == "%d sur %d compagnies"
+    assert by_id["airlines.collection_count_of_total_template"] == "# sur # compagnies"
+    stale = [identifier for identifier, french in by_id.items()
+             if re.search(r"\b(la |à la |de la )?page Compagnies\b|^Compagnies$", french)]
+    assert not stale, "French value still names the page Compagnies: %r" % (stale,)
 
 
 _PLACEHOLDER_RE = re.compile(r"%[sd]|\{[^}]*\}")

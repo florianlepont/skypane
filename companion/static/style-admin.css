@@ -18,6 +18,13 @@
   margin: 0 0 var(--space-lg);
 }
 
+/* The Health page: one glass card per topic, stacked under one label. */
+.fleet-cards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
 /* A block's group holds value rows and free content items (health rows,
  * forms, version cards). The embedded page content brings its own card
  * chrome; inside the one glass group it is flattened so nothing nests. */
@@ -33,13 +40,6 @@
 
 .fleet-group > li + li {
   border-top: 1px solid var(--glass-hairline);
-}
-
-/* The Other frames group holds only rows with an actions menu whose popover opens below
- * the row: the group must not clip it, or the last row's options cannot be reached. The
- * rows paint no background, so nothing needs the card's rounded clip. */
-.fleet-block--others > .group {
-  overflow: visible;
 }
 
 .fleet-group ul.data-cards {
@@ -72,17 +72,12 @@
   border-top: 0;
 }
 
-.fleet-group .health-rows__group {
-  background: none;
-  border-bottom: 0;
-}
-
 @media (min-width: 1000px) {
   .fleet-block--wide {
     grid-column: 1 / -1;
   }}
 
-/* Console forms (Locations and the other fleet forms): a text input or
+/* Console forms (the fleet forms): a text input or
  * select never grows past its card, whatever its longest option or value. */
 .fleet-form input,
 .fleet-form select,
@@ -179,20 +174,24 @@
 
 .audit-event__detail {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
-  gap: var(--space-sm) var(--space-md);
-  margin: 0;
-  padding: 0 0 var(--space-md);
+  gap: var(--space-sm);
+  margin: 0 0 var(--space-md);
+  padding: var(--space-md);
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--color-text) 5%, transparent);
 }
 
 .audit-event__item {
+  display: grid;
+  grid-template-columns: 6rem minmax(0, 1fr);
+  column-gap: var(--space-sm);
   min-width: 0;
   overflow-wrap: anywhere;
 }
 
 .audit-event__item dt {
   font-size: var(--font-label-size);
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  color: var(--color-text);
 }
 
 .audit-event__item dd {
@@ -203,7 +202,7 @@
  * around it. */
 .audit-event__item--secondary dd {
   font-size: var(--font-label-size);
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  color: color-mix(in srgb, var(--color-text) 80%, transparent);
 }
 
 .audit-head {
@@ -234,6 +233,15 @@
     min-height: 56px;
   }
 
+  .audit-event__detail {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
+    gap: var(--space-sm) var(--space-md);
+  }
+
+  .audit-event__item {
+    display: block;
+  }
+
   .audit-event__who {
     font-size: var(--font-body-size);
   }
@@ -255,13 +263,12 @@
   flex-wrap: wrap;
 }
 
-/* The Update page. Two cards: a call-to-action card (up to date, or the
- * one newer release to install, or the schedule in flight) and a
- * "Versions" card of compact one-line rows, each a native <details>
- * holding every note, the absolute dates and the action, so the page
- * works with scripts blocked. Status colour only marks state (ok, warn,
- * error); the accent fill is the global primary button and is spent only
- * on installing a newer release. */
+/* The Update panel: one card (headline, version, release note, the one
+ * action) and a Versions label over a card of flat rows, each row a status
+ * dot, the version with its chip, a line of facts and, for an older version,
+ * a quiet Roll back; the notes fold behind one disclosure. Status colour only
+ * marks state (ok, warn, error); the accent fill is spent only on installing
+ * a newer release. */
 /* The hardware type switch reuses the segmented control (.theme-form).
  * Type labels are long, so a segment may wrap to a second line instead
  * of clipping, and the control sits one card gap above the cards. The
@@ -279,173 +286,95 @@
   overflow-wrap: anywhere;
 }
 
-/* The summary opening the Fleet panel: what the frame runs, large, with its
- * state chip on the right (under the text when the row is too narrow). */
-.update-sum {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-sm) var(--space-md);
-  margin-bottom: var(--space-md);
-}
-
-.update-sum__text {
-  min-width: 0;
-  flex: 1 1 14rem;
-}
-
-.update-sum__label {
-  margin: 0;
-  font-size: var(--font-caption-size);
-  font-weight: var(--weight-semibold);
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
-.update-sum__version {
-  margin: var(--space-xs) 0;
-  font-family: var(--font-mono);
-  font-size: var(--font-heading-size);
-  font-weight: var(--weight-semibold);
-  line-height: 1.25;
-  overflow-wrap: anywhere;
-}
-
-.update-sum__meta {
-  margin: 0;
-  font-size: var(--font-label-size);
-  line-height: 1.5;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-  overflow-wrap: anywhere;
-}
-
-.update-sum time {
-  white-space: nowrap;
-}
-
-/* The one update card: a tinted box inside the panel, never a shadowed card.
- * Text left and the Install button right where the row is wide; on a phone the
- * button takes the full width under the text. */
-.update-offer {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-md);
-  padding: var(--space-md);
-  border: 1px solid color-mix(in srgb, var(--color-accent) 35%, transparent);
+/* The rollback notice is a bordered warning card above the update card. */
+.update-rollback {
+  margin: 0 0 var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--glass-solid);
+  border: 1px solid var(--color-status-warn);
   border-radius: var(--radius-control);
-  background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+  box-shadow: none;
 }
 
-.update-offer__text {
-  min-width: 0;
-  flex: 1 1 16rem;
-}
-
-.update-offer__title {
+.update-cta,
+.update-hist__list,
+.update-hist__empty {
+  box-sizing: border-box;
   margin: 0;
-  font-size: var(--font-card-title-size);
-  font-weight: var(--weight-semibold);
-  line-height: 1.3;
-  overflow-wrap: anywhere;
-}
-
-.update-offer__note {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  margin: var(--space-xs) 0 0;
+  padding: 0;
   overflow: hidden;
-  font-size: var(--font-label-size);
-  line-height: 1.5;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-  overflow-wrap: anywhere;
+  list-style: none;
+  background: var(--glass-solid);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-glass);
 }
 
-.update-offer time {
-  white-space: nowrap;
-}
-
-.update-offer .update-actions,
-.update-offer .update-actions form,
-.update-offer .update-actions button[type="submit"] {
-  width: 100%;
-}
-
-@media (min-width: 600px) {
-  .update-offer .update-actions,
-  .update-offer .update-actions form,
-  .update-offer .update-actions button[type="submit"] {
-    width: auto;
-  }
-}
-
-.update-cta__top {
+.update-cta__row {
+  padding: var(--space-md);
   display: flex;
-  align-items: flex-start;
+  flex-direction: column;
+  align-items: stretch;
   gap: var(--space-md);
-}
-
-.update-cta__icon {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-  background: color-mix(in srgb, var(--color-text) 6%, transparent);
-}
-
-.update-cta--ok .update-cta__icon {
-  color: var(--color-status-ok);
-  background: color-mix(in srgb, var(--color-status-ok) 14%, transparent);
-}
-
-.update-cta--warn .update-cta__icon {
-  color: var(--color-status-warn);
-  background: color-mix(in srgb, var(--color-status-warn) 14%, transparent);
-}
-
-.update-cta--error .update-cta__icon {
-  color: var(--color-status-error);
-  background: color-mix(in srgb, var(--color-status-error) 14%, transparent);
 }
 
 .update-cta__text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
   min-width: 0;
   flex: 1;
 }
 
-/* The card's headline is a section title, the same role
- * .page-section--nested > h2 uses. */
 .update-cta__title {
-  margin: 0 0 var(--space-xs);
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin: 0;
   font-family: var(--font-display);
-  font-size: var(--font-card-title-size);
-  font-weight: var(--weight-semibold);
+  font-size: var(--font-heading-size);
+  font-weight: var(--weight-title);
   letter-spacing: -0.01em;
-  line-height: 1.3;
+  line-height: 1.25;
+}
+
+.update-cta__title .icon {
+  flex: none;
+}
+
+.update-cta--ok .update-cta__title .icon {
+  color: var(--color-status-ok);
+}
+
+.update-cta--warn .update-cta__title .icon {
+  color: var(--color-status-warn);
+}
+
+.update-cta--error .update-cta__title .icon {
+  color: var(--color-status-error);
 }
 
 .update-cta__detail {
   margin: 0;
   font-size: var(--font-label-size);
   line-height: 1.5;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
   overflow-wrap: anywhere;
+}
+
+.update-cta__detail:first-of-type {
+  color: var(--color-text);
+}
+
+.update-cta__detail:first-of-type .mono {
+  font-size: var(--font-card-title-size);
+  font-weight: var(--weight-semibold);
 }
 
 /* A relative age never breaks mid-phrase ("il y a / 1 h"). */
 .update-cta time,
-.update-row__meta time {
+.update-item__meta time {
   white-space: nowrap;
-}
-
-.update-cta__detail + .update-cta__detail {
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
 .update-cta__note {
@@ -453,21 +382,11 @@
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   overflow: hidden;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-.update-cta__on {
-  margin: var(--space-md) 0 0;
-  padding-top: var(--space-md);
-  border-top: 1px solid var(--color-border);
-  font-size: var(--font-label-size);
-  line-height: 1.5;
-  overflow-wrap: anywhere;
-}
-
-/* Install is a safety-relevant action: it keeps the full touch target
- * at every width. Specificity (0,2,1) beats both the global button and
- * the quiet secondary button's own padding and font size. */
+/* The action sits under the text on a phone, full width; on the right of
+ * the card from 600px. Install is safety-relevant: it keeps the full touch
+ * target at every width. */
 .update-actions {
   display: flex;
   flex-wrap: wrap;
@@ -476,10 +395,12 @@
 }
 
 .update-actions form {
+  flex: 1 1 auto;
   margin: 0;
 }
 
 .update-actions button[type="submit"] {
+  width: 100%;
   min-height: 44px;
   min-width: 44px;
   padding: 0 var(--space-md);
@@ -487,160 +408,256 @@
   white-space: nowrap;
 }
 
-.update-cta .update-actions {
-  margin-top: var(--space-md);
+@media (min-width: 600px) {
+  .update-cta__row {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .update-actions {
+    flex: none;
+  }
+
+  .update-actions form {
+    flex: none;
+  }
+
+  .update-actions button[type="submit"] {
+    width: auto;
+  }
 }
 
-.update-cta .update-actions form,
-.update-cta .update-actions button[type="submit"] {
-  width: 100%;
+.update-versions {
+  margin-top: var(--space-lg);
 }
 
-.update-versions__head h2 {
-  margin: 0;
-}
-
-.update-versions__count {
-  font-size: var(--font-label-size);
+.update-hist__title {
+  margin: 0 0 var(--space-xs) var(--space-md);
+  font-size: var(--font-caption-size);
+  font-weight: var(--weight-semibold);
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-/* The one-line row. Phone: version and age on the first line, the first
- * note on its own ellipsised line below, the chevron spanning both.
- * Replaces the global summary's flex layout and leading chevron: the row
- * owns a trailing chevron instead. */
-.update-row > summary {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto 20px;
-  grid-template-areas: "v d c" "s s c";
-  column-gap: var(--space-sm);
-  row-gap: 2px;
-  align-items: center;
-  min-height: 60px;
-  padding: var(--space-sm) 0;
-  color: var(--color-text);
-  list-style: none;
+.update-hist__empty .empty-state {
+  padding: var(--space-md);
 }
 
-.update-row > summary::before {
+.update-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding-right: var(--space-md);
+  border-top: 1px solid var(--color-border);
+}
+
+.update-item:first-child {
+  border-top: 0;
+}
+
+.update-item__details {
+  flex: 1;
+  min-width: 0;
+}
+
+.update-item__summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-height: 60px;
+  padding: var(--space-sm) 0 var(--space-sm) var(--space-md);
+  color: var(--color-text);
+  list-style: none;
+  cursor: pointer;
+}
+
+div.update-item__summary {
+  flex: 1;
+  min-width: 0;
+  cursor: default;
+}
+
+.update-item__summary::before,
+.update-item__summary::marker {
   content: none;
 }
 
-.update-row > summary::-webkit-details-marker {
+.update-item__summary::-webkit-details-marker {
   display: none;
 }
 
-.update-row__version {
-  grid-area: v;
+.update-item__dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--color-text) 30%, transparent);
+}
+
+.update-item--newest .update-item__dot,
+.update-item--running .update-item__dot {
+  background: var(--color-status-ok);
+}
+
+.update-item__text {
+  flex: 1;
+  min-width: 0;
+}
+
+.update-item__head {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-xs) var(--space-sm);
-  min-width: 0;
 }
 
-.update-row__when {
-  grid-area: d;
-  font-size: var(--font-label-size);
+.update-item__version {
+  font-size: var(--font-body-size);
+  font-weight: var(--weight-semibold);
   white-space: nowrap;
+}
+
+.update-item__meta {
+  display: block;
+  font-size: var(--font-caption-size);
+  line-height: 1.5;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-.update-row__note {
-  grid-area: s;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: var(--font-label-size);
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+.update-item__count {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
 }
 
-.update-row__note:empty,
-.update-row[open] .update-row__note {
-  display: none;
+/* The running chip is the accent fill, as in the approved design. */
+.update-item--running .update-item__head .banner__pill {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-on-accent);
 }
 
-.update-row__chevron {
-  grid-area: c;
-  justify-self: end;
+.update-item__head .banner__pill {
+  height: 22px;
+  line-height: 1;
+}
+
+.update-item__chevron {
+  flex: none;
   transform: rotate(90deg);
   transition: transform var(--motion-fast) ease;
 }
 
-.update-row[open] > summary .update-row__chevron {
+.update-item__details[open] .update-item__chevron {
   transform: rotate(-90deg);
 }
 
-.update-row__body {
-  display: grid;
-  gap: var(--space-sm);
-  padding: 0 0 var(--space-md);
+.update-item__action {
+  flex: none;
 }
 
-/* Notes are untrusted CI text: overflow-wrap: anywhere lets one long
- * unbroken token wrap instead of widening the card past the viewport. */
-.update-row__notes {
+.update-item__action:empty {
+  display: none;
+}
+
+.update-item__action form {
   margin: 0;
-  padding: 0 0 0 var(--space-md);
+}
+
+.update-item__action button[type="submit"] {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 var(--space-sm);
   font-size: var(--font-label-size);
-  line-height: 1.5;
-  overflow-wrap: anywhere;
+  font-weight: var(--weight-semibold);
+  white-space: nowrap;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
-.update-row__notes li {
-  margin: 0 0 var(--space-xs);
-}
-
-.update-row__meta {
+/* Notes are untrusted release text: long unbroken tokens wrap instead of
+ * widening the panel. */
+.update-item__notes {
   margin: 0;
+  padding: var(--space-xs) var(--space-md) var(--space-md) calc(var(--space-md) + 8px + var(--space-sm));
+  border-top: 1px dashed var(--color-border);
   font-size: var(--font-label-size);
   line-height: 1.5;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  overflow-wrap: anywhere;
 }
 
-/* The running release: a status-ok wash and rail bleeding to the card's
- * own edges (the card pads 16px, 24px from 960px). */
-.update-row--running {
-  margin-inline: calc(-1 * var(--space-md));
-  padding-inline: var(--space-md);
-  background: color-mix(in srgb, var(--color-status-ok) 7%, transparent);
-  box-shadow: inset 3px 0 0 var(--color-status-ok);
+.update-item__notes li {
+  margin: var(--space-xs) 0 0;
 }
 
-@media (min-width: 960px) {
-  .update-cta .update-actions form {
-    width: auto;
-  }
+/* The question dialog confirm-submit.js builds: Cancel beside the action, at
+ * every width, the text in the muted body colour. */
+.question-dialog .modal__title {
+  font-size: var(--font-heading-size);
+}
 
-  .update-cta .update-actions button[type="submit"] {
-    width: auto;
-    min-width: 200px;
-  }}
+.question-dialog .modal__body .text-body {
+  margin: 0;
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
 
-/* The release rows lay out in columns only where their own list is wide
- * enough; the Fleet page puts them in a narrow block even on a wide screen. */
-@container update-rows (min-width: 700px) {
-  .update-row > summary {
-    grid-template-columns: 232px minmax(0, 1fr) 140px 20px;
-    grid-template-areas: "v s d c";
-    column-gap: var(--space-md);
-    min-height: 56px;
-  }
+.question-dialog .modal__actions {
+  flex-direction: row;
+  justify-content: stretch;
+}
 
-  .update-row__when {
-    text-align: right;
-  }
+.question-dialog .modal__actions > button {
+  flex: 1 1 0;
+}
 
-  .update-row__body {
-    padding-left: 248px;
-    padding-right: var(--space-lg);
-  }
+/* The confirmation page without script: one card with the question, what
+ * will happen, and Cancel beside Install (Roll back). */
+.update-confirm {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  width: 100%;
+  max-width: 460px;
+  margin-top: var(--space-lg);
+  padding: var(--space-lg);
+  background: var(--glass-solid);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-glass);
+}
 
-  .update-row--running {
-    margin-inline: calc(-1 * var(--space-lg));
-    padding-inline: var(--space-lg);
-  }}
+.update-confirm__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--font-heading-size);
+  font-weight: var(--weight-semibold);
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.update-confirm .text-body,
+.update-confirm .text-label {
+  margin: 0;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.update-confirm__actions {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.update-confirm__actions > a.btn,
+.update-confirm__actions > form {
+  flex: 1 1 0;
+  margin: 0;
+}
+
+.update-confirm__actions button[type="submit"] {
+  width: 100%;
+}
 
 /* Renders INSIDE an existing .page-section card, unlike .history-card
  * which sits on the page background — so .data-card carries no fill,
@@ -714,61 +731,359 @@
   margin-top: var(--space-xs);
 }
 
-.readings-disclosure {
-  margin-top: var(--space-md);
+/* The Battery row: a header with the name and the charging pill, a hero
+ * (gauge, status pill, voltage, last reading), the chart and a full-width
+ * readings disclosure, each section divided by a hairline and padded to
+ * 16px like the other rows. Specificity wins over the generic row's container rules by its id. */
+#health-row-battery.health-row .health-row__summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm) var(--space-md);
+  padding: var(--space-md) var(--space-md) 0;
 }
 
-/* Fixed-width reveal text (4-digit mV + ISO timestamp, monospace) means
- * a reveal can never change where the line wraps, so min-height in em
- * prevents any layout jump. The semibold weight here must stay declared
- * after .mono in source order to win by source order, not specificity
- * — test_status_pages.py's cross-file guard pins that. */
-/* align-items: center keeps the aspect-locked figure at its own size:
- * a flex row's default stretch would letterbox it to the row's full
- * height. */
-.battery-readout-row {
+#health-row-battery .health-row__name {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--font-body-size);
+  line-height: 1.2;
+  color: var(--color-text);
+}
+
+#health-row-battery .health-row__verdict:empty {
+  display: none;
+}
+
+#health-row-battery.health-row .health-row__value {
+  max-width: none;
+  justify-content: flex-end;
+}
+
+#health-row-battery.health-row .health-row__body {
+  gap: 0;
+  padding: 0;
+}
+
+.battery-hero {
   display: flex;
   align-items: center;
-  gap: var(--space-md);
-  margin-bottom: var(--space-sm);
+  gap: var(--space-lg);
+  padding: var(--space-sm) var(--space-md) var(--space-md);
 }
 
-.battery-readout-row > .battery-readout {
-  margin-bottom: 0;
+.battery-gauge {
+  position: relative;
+  flex: none;
+  width: 112px;
+  height: 112px;
 }
 
-.battery-readout {
-  font-size: var(--font-body-size);
+.battery-trend-section .battery-gauge svg.drawing__figure:not(.icon) {
+  width: 100%;
+  height: 100%;
+}
+
+.battery-gauge__value {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.battery-gauge__value b {
+  font-size: 36px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.battery-gauge__value span {
+  margin-top: 2px;
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.battery-facts {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.battery-status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-height: 32px;
+  padding: 3px 14px 3px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  background: var(--color-secondary);
+  font-size: var(--font-label-size);
   font-weight: var(--weight-semibold);
-  min-height: 1.4em;
-  margin: 0 0 var(--space-sm);
+  line-height: 1.25;
 }
 
-/* The raw-readings action is secondary: muted, regular weight and
- * label-sized, still a full-height native summary. */
-.readings-disclosure > summary {
+.battery-status .icon {
+  flex: none;
+  color: var(--color-status-ok);
+}
+
+.battery-status--warn,
+.battery-status--error {
+  border-color: var(--color-status-warn);
+  background: var(--color-dominant);
+}
+
+.battery-status--warn .icon {
+  color: var(--color-status-warn);
+}
+
+.battery-volt {
+  font-size: 24px;
+  line-height: 1.1;
+  font-weight: var(--weight-semibold);
+  letter-spacing: -0.01em;
+}
+
+.battery-volt small {
   font-size: var(--font-label-size);
   font-weight: var(--weight-regular);
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-/* The h2 keeps the page outline's two sections and the #screen /
- * #server-data link targets; this rule gives it the label voice and takes
- * it off the shared heading rule. */
-.health-rows__group {
-  margin: 0;
-  padding: var(--space-sm) var(--space-md);
-  background: var(--color-secondary);
-  border-bottom: 1px solid var(--color-border);
-  font-family: var(--font-ui);
-  font-size: var(--font-caption-size);
-  font-weight: var(--weight-semibold);
-  line-height: 1.3;
+.battery-last {
+  font-size: var(--font-label-size);
+  line-height: 1.35;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-.health-rows__group:first-child {
-  border-radius: calc(var(--radius-control) - 1px) calc(var(--radius-control) - 1px) 0 0;
+.battery-chart-wrap {
+  padding: var(--space-md) var(--space-md) var(--space-sm);
+  border-top: 1px solid var(--color-border);
+}
+
+.battery-chart__top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm) var(--space-md);
+  margin-bottom: var(--space-sm);
+}
+
+.battery-chart__title {
+  min-width: 0;
+}
+
+.battery-chart__caption {
+  display: block;
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
+}
+
+.battery-chart__caption small {
+  display: block;
+  font-size: var(--font-caption-size);
+  font-weight: var(--weight-regular);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* Fixed-width reveal text (4-digit mV + a short date) keeps a reveal from
+ * changing where the line wraps; the line is reserved once the script has
+ * shown it, so a reveal never moves the chart. */
+.battery-readout {
+  min-height: 1.4em;
+  margin: 0;
+  font-size: var(--font-caption-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.battery-readout__value {
+  font-weight: var(--weight-semibold);
+  color: var(--color-text);
+}
+
+.battery-readout[hidden] {
+  display: none;
+}
+
+.battery-chart--empty {
+  margin: 0;
+}
+
+.battery-chart__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  box-sizing: border-box;
+  min-height: 192px;
+  padding: var(--space-md);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-control);
+  background: repeating-linear-gradient(
+    to bottom, transparent 0 53px, var(--color-border) 53px 54px);
+  text-align: center;
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.battery-chart__empty b {
+  padding: 0 var(--space-sm);
+  background: var(--color-dominant);
+  border-radius: 8px;
+  color: var(--color-text);
+  font-weight: var(--weight-semibold);
+}
+
+.battery-chart__empty span {
+  padding: 0 var(--space-sm);
+  background: var(--color-dominant);
+  border-radius: 8px;
+}
+
+.battery-chart__empty .icon {
+  background: var(--color-dominant);
+  border-radius: 50%;
+}
+
+.battery-readings {
+  margin: 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.battery-readings__title {
+  margin: 0;
+  padding: var(--space-md) var(--space-md) var(--space-sm);
+  color: var(--color-text);
+  font-size: var(--font-card-title-size);
+  font-weight: var(--weight-semibold);
+}
+
+.battery-readings .data-table th,
+.battery-readings .data-table td {
+  padding-inline: var(--space-md);
+}
+
+.battery-readings .data-table th:nth-child(n+2),
+.battery-readings .data-table td:nth-child(n+2) {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.battery-readings .data-table tbody tr:first-child td {
+  font-weight: var(--weight-semibold);
+}
+
+.battery-latest {
+  margin-left: var(--space-sm);
+  padding: 0 var(--space-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  font-size: 12px;
+  font-weight: var(--weight-semibold);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* A wide card (the Battery page on a desktop): the gauge and the facts share
+ * one header row across the card, the chart is taller, and the readings
+ * table runs the full width under it. */
+@container health-rows (min-width: 720px) {
+  .battery-hero {
+    gap: var(--space-xl);
+    padding: var(--space-md) var(--space-lg);
+  }
+
+  .battery-facts {
+    flex: 1 1 auto;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-sm) var(--space-xl);
+  }
+
+  .battery-last {
+    margin-left: auto;
+  }
+}
+
+@media (min-width: 960px) {
+  .battery-trend-section .battery-chart svg:not(.icon) {
+    height: 360px;
+  }
+}
+
+/* The narrowest phones: the readings table gives up its edge padding so Time
+ * (with the Latest tag), Voltage and Level still fit the card. */
+@container health-rows (max-width: 300px) {
+  .battery-readings .data-table th,
+  .battery-readings .data-table td {
+    padding-inline: var(--space-xs);
+  }
+
+  .battery-readings .data-table th:first-child,
+  .battery-readings .data-table td:first-child {
+    padding-left: var(--space-sm);
+  }
+
+  .battery-readings .data-table th:last-child,
+  .battery-readings .data-table td:last-child {
+    padding-right: var(--space-sm);
+  }
+
+  .battery-latest {
+    margin-left: var(--space-xs);
+    padding: 0 var(--space-xs);
+  }
+}
+
+/* A narrow card: a smaller gauge, and the switch fills the row. The
+ * readings columns keep the card's edge padding but pull their inner
+ * gutters in so Time, Voltage and Level fit the card without a sideways
+ * scroll (the French labels are the widest). */
+@container health-rows (max-width: 480px) {
+  .battery-readings .data-table th:not(:last-child),
+  .battery-readings .data-table td:not(:last-child) {
+    padding-right: var(--space-sm);
+  }
+
+  .battery-readings .data-table th:not(:first-child),
+  .battery-readings .data-table td:not(:first-child) {
+    padding-left: var(--space-sm);
+  }
+
+  .battery-hero {
+    gap: var(--space-md);
+  }
+
+  .battery-gauge {
+    width: 96px;
+    height: 96px;
+  }
+
+  .battery-gauge__value b {
+    font-size: 31px;
+  }
+
+  .battery-unit {
+    display: flex;
+    width: 100%;
+  }
+
+  .battery-unit[hidden] {
+    display: none;
+  }
+
+  .battery-unit__option {
+    flex: 1 1 0;
+    padding-inline: var(--space-sm);
+  }
 }
 
 .health-row {
@@ -792,13 +1107,30 @@
   --row-tone: var(--color-status-error);
 }
 
-.health-row:last-child:not([open]) > .health-row__summary {
-  border-radius: 0 0 calc(var(--radius-control) - 1px) calc(var(--radius-control) - 1px);
+/* The share bar of the route directories: the first directory's segment in
+ * the accent colour, the fallback's in the border colour, each as wide as
+ * its flight count (the count arrives as --seg on the segment). */
+.route-bar {
+  display: flex;
+  height: calc(var(--space-sm) + var(--space-xs));
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+  background: var(--color-border);
 }
-@container health-rows (min-width: 600px) {
-  .health-rows__group {
-    padding: var(--space-sm) var(--space-lg);
-  }}
+
+.route-bar__seg {
+  flex: var(--seg, 0) 1 0;
+  background: var(--color-border);
+}
+
+.route-bar__seg--first {
+  background: var(--color-accent);
+}
+
+.sys-card > .route-bar {
+  margin: var(--space-sm) var(--space-md) var(--space-md);
+}
+
 @media (min-width: 960px) {
 
   .data-cards {
@@ -824,8 +1156,7 @@
   margin: var(--space-lg) 0 0;
 }
 
-.fleet-system-footer .text-link,
-.health-row__note > .text-link {
+.fleet-system-footer .text-link {
   display: inline-flex;
   align-items: center;
   min-height: 44px;
@@ -879,13 +1210,134 @@ a.pair-link--primary:hover {
 
 .pair-form {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-md);
-  max-width: 28rem;
+  max-width: 35rem;
 }
 
-.pair-form input {
+.pair-form input,
+.pair-form select {
   box-sizing: border-box;
   width: 100%;
+  min-width: 0;
+}
+
+/* The one card of the page: the form on top, then a tinted footer that holds
+ * the Reset hint. */
+.pair-card {
+  gap: 0;
+  overflow: hidden;
+  background: var(--glass-solid);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-glass);
+}
+
+/* One shrinkable column: a long Owner option must not widen the track past the
+ * card (a grid item's automatic minimum is its content width). */
+.pair-card__main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-sm);
+  padding: var(--space-md);
+}
+
+@media (min-width: 700px) {
+  .pair-card__main {
+    padding: var(--space-lg);
+  }
+}
+
+.pair-card__heading {
+  margin: 0;
+}
+
+/* The code is read off the frame and typed whole: big, centred, spaced. */
+.pair-card input.mono {
+  min-height: 56px;
+  text-align: center;
+  font-size: 26px;
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.pair-card input.mono::placeholder {
+  font-size: var(--font-label-size);
+  letter-spacing: 0.08em;
+}
+
+.pair-card__help {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: var(--space-sm) var(--space-md);
+  border-top: 1px solid var(--glass-hairline);
+  background: color-mix(in srgb, var(--color-text) 4%, transparent);
+}
+
+@media (min-width: 700px) {
+  .pair-card__help {
+    padding-inline: var(--space-lg);
+  }
+}
+
+.pair-card__help .icon {
+  flex: none;
+  margin-top: 2px;
+}
+
+.pair-card__help p {
+  margin: 0;
+}
+
+.pair-card__help b {
+  color: var(--color-text);
+}
+
+@media (max-width: 699.98px) {
+  .pair-card .pair-form__actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .pair-card a.pair-form__cancel {
+    justify-content: center;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-control);
+  }
+}
+
+/* The refused code: a tinted error box, the icon beside a bold sentence with the
+ * validity line under it. */
+.pair-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 10px 0;
+  padding: 12px var(--space-md);
+  border: 1px solid color-mix(in srgb, var(--color-status-error) 35%, transparent);
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--color-status-error) 10%, transparent);
+}
+
+.pair-alert__icon {
+  flex: none;
+  margin-top: 2px;
+  color: var(--color-status-error);
+}
+
+.pair-alert__text > p {
+  margin: 0;
+}
+
+.pair-alert__text > .text-label {
+  font-size: 14px;
+}
+
+.pair-alert__text > .pair-alert__title {
+  margin-bottom: var(--space-xs);
+  font-weight: var(--weight-semibold);
 }
 
 .pair-form__actions {
@@ -909,28 +1361,9 @@ a.pair-form__cancel {
   color: var(--color-accent);
 }
 
-/* The State / Settings / Access sub-tabs of a frame: a phone shows one tab's
- * blocks (the server marks the current link and the container); from 960px the
- * control is gone and every block shows, as before. */
-.personalisation-nav.fleet-tabs {
-  display: none;
-}
-
-@media (max-width: 959px) {
-  .personalisation-nav.fleet-tabs {
-    display: flex;
-  }
-
-  .fleet-blocks[data-fleet-tab="state"] .fleet-block:not(.fleet-block--state),
-  .fleet-blocks[data-fleet-tab="settings"] .fleet-block:not(.fleet-block--settings),
-  .fleet-blocks[data-fleet-tab="access"] .fleet-block:not(.fleet-block--access) {
-    display: none;
-  }}
-
-/* The frame's sections as one centred column from 960px: every section card
- * (State, Device and version, Settings, Access, Other frames) follows the
- * same pattern, a label above one glass group, and every control is inline.
- * A phone keeps its sub-tabs above (the rules above). */
+/* The frame's sections as one column from 960px: every section (State, Settings,
+ * Access) follows the same pattern, a label above one glass surface, and every
+ * control is inline. A phone stacks the same sections under its anchors. */
 @media (min-width: 960px) {
   .fleet-frame {
     box-sizing: border-box;
@@ -941,7 +1374,7 @@ a.pair-form__cancel {
     gap: var(--space-lg);
   }
 
-  /* Five cards stand on the page at once: they are opaque instead of blurred, which
+  /* Four cards stand on the page at once: they are opaque instead of blurred, which
    * keeps the page's blurred surfaces few. */
   .fleet-frame .group {
     background: var(--glass-solid);
@@ -973,164 +1406,6 @@ a.fleet-retire__link {
   font-size: var(--font-label-size);
   font-weight: var(--weight-semibold);
   text-decoration: none;
-}
-
-/* The version history: a flat list inside the panel, no card of its own. Each
- * row is a status dot, the version over its date line, a status chip and, for
- * an older version, a quiet Revert. */
-.update-hist__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-sm);
-  padding-bottom: var(--space-xs);
-}
-
-.update-hist__title {
-  margin: 0;
-  font-size: var(--font-caption-size);
-  font-weight: var(--weight-semibold);
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
-.update-hist__list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.update-item {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-sm);
-  border-top: 1px solid var(--glass-hairline);
-}
-
-.update-item:first-child {
-  border-top: 0;
-}
-
-.update-item__details {
-  flex: 1;
-  min-width: 0;
-}
-
-.update-item__summary {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-md);
-  min-height: 60px;
-  padding: var(--space-sm) 0;
-  color: var(--color-text);
-  list-style: none;
-}
-
-.update-item__summary::before,
-.update-item__summary::marker {
-  content: none;
-}
-
-.update-item__summary::-webkit-details-marker {
-  display: none;
-}
-
-.update-item__dot {
-  flex: none;
-  width: 10px;
-  height: 10px;
-  margin-top: 8px;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--color-text) 20%, transparent);
-}
-
-.update-item--newest .update-item__dot {
-  background: var(--color-accent);
-}
-
-.update-item--running .update-item__dot {
-  background: var(--color-status-ok);
-}
-
-.update-item__text {
-  flex: 1;
-  min-width: 0;
-}
-
-.update-item__version {
-  display: block;
-  font-size: var(--font-body-size);
-  font-weight: var(--weight-semibold);
-  white-space: nowrap;
-}
-
-.update-item__meta {
-  display: block;
-  font-size: var(--font-caption-size);
-  line-height: 1.5;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
-.update-item__meta time {
-  white-space: nowrap;
-}
-
-.update-item__summary > .banner__pill {
-  margin-top: 4px;
-}
-
-.update-item__chevron {
-  flex: none;
-  margin-top: 6px;
-  transform: rotate(90deg);
-  transition: transform var(--motion-fast) ease;
-}
-
-/* A row without notes keeps the chevron's room so the chips share one edge. */
-.update-item__chevron-space {
-  flex: none;
-  width: 16px;
-}
-
-.update-item__details[open] .update-item__chevron {
-  transform: rotate(-90deg);
-}
-
-.update-item__action {
-  flex: none;
-  margin-top: var(--space-sm);
-}
-
-.update-item__action:empty {
-  display: none;
-}
-
-.update-item__action form {
-  margin: 0;
-}
-
-.update-item__action button[type="submit"] {
-  min-height: 44px;
-  min-width: 44px;
-  padding: 0 var(--space-sm);
-  font-size: var(--font-label-size);
-  font-weight: var(--weight-semibold);
-  white-space: nowrap;
-}
-
-/* Notes are untrusted release text: long unbroken tokens wrap instead of
- * widening the panel. */
-.update-item__notes {
-  margin: 0 0 var(--space-sm);
-  padding: 0 0 0 calc(10px + var(--space-md) + var(--space-md));
-  font-size: var(--font-label-size);
-  line-height: 1.5;
-  overflow-wrap: anywhere;
-}
-
-.update-item__notes li {
-  margin: 0 0 var(--space-xs);
 }
 
 /* A quiet outlined action link in a row (Reassign beside the owner). */
@@ -1200,52 +1475,46 @@ a.row-action {
   margin-left: auto;
 }
 
-/* The selected frame's header: its personal view and Rename as two link
- * buttons (the frame's name is the frame button's label), directly under the
- * page title and starting at its left edge; the negative top margin takes back
- * most of the title row's own bottom space. */
-.fleet-detail-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-start;
-  gap: var(--space-sm);
-  margin: calc(var(--space-sm) - var(--space-lg)) 0 var(--space-md);
-}
-
-.fleet-detail-head a.row-action {
-  margin-right: 0;
-}
-
 .users-table thead {
   display: none;
 }
 
+/* Below 79.5rem the table is one card and every person is a row of it, a
+ * divider between rows: avatar, address, status and "Role . frames" on the
+ * left, the Active switch and the "..." menu on the right. The role changes
+ * from the menu, so the select, the frames and the last sign-in cells stay
+ * for the wide table. */
 .users-table .users-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-areas:
-    "user user"
-    "role active"
-    "frames seen"
-    "invite invite";
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-areas: "user active menu";
   position: relative;
   align-items: center;
-  gap: var(--space-sm) var(--space-md);
-  margin-bottom: var(--space-md);
-  padding: var(--space-md);
-  background: var(--glass-solid);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-card);
-  box-shadow: var(--shadow-glass);
+  gap: var(--space-sm);
+  min-height: 76px;
+  padding: var(--space-sm) var(--space-sm) var(--space-sm) var(--space-md);
+  background: none;
+  border: 0;
+  border-top: 1px solid var(--glass-hairline);
+  border-radius: 0;
+  box-shadow: none;
 }
 
+/* The first row keeps the divider's room, so every card is as tall as it
+ * needs and no taller. */
+/* The card is solid, as the rows were: a switch's track is measured against
+ * a flat surface, not a blurred one. */
 @media (max-width: 79.49rem) {
   .users-section .users-table {
-    background: none;
-    border: 0;
-    box-shadow: none;
-  }}
+    background: var(--glass-solid);
+    border-color: var(--color-border);
+    box-shadow: var(--shadow-glass);
+  }
+}
+
+.users-table .users-row:first-child {
+  border-top-color: transparent;
+}
 
 /* The section around the table or the phone cards is plain layout, not a
  * card: the table (from 79.5rem) or each card is the one glass surface, with the
@@ -1268,30 +1537,22 @@ a.row-action {
   gap: var(--space-sm);
 }
 
-/* Room for the "..." menu. */
-.users-row--menu .users-cell--user {
-  padding-right: 44px;
+.users-cell--role {
+  display: none;
 }
 
-.users-cell--role { grid-area: role; }
-.users-cell--invite { grid-area: invite; }
-.users-cell--invite:empty { display: none; }
 .users-cell--active { grid-area: active; justify-self: end; }
-.users-cell--menu {
-  position: absolute;
-  top: var(--space-xs);
-  right: var(--space-sm);
-}
+.users-cell--menu { grid-area: menu; }
 
 .users-cell--frames {
-  grid-area: frames;
+  display: none;
   font-size: var(--font-label-size);
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
 /* The last sign-in is one line. */
 .users-cell--seen {
-  grid-area: seen;
+  display: none;
   font-size: var(--font-label-size);
   white-space: nowrap;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
@@ -1329,8 +1590,11 @@ a.row-action {
 .users-email {
   grid-column: 1 / -1;
   min-width: 0;
-  overflow-wrap: anywhere;
+  overflow: hidden;
+  overflow-wrap: normal;
   font-weight: var(--weight-semibold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .users-status {
@@ -1338,20 +1602,11 @@ a.row-action {
   min-width: 0;
 }
 
-/* From a tablet width up an address is one line that ends in an ellipsis
- * (its title and the row header hold it whole), so rows are equally tall. */
-@media (min-width: 37.5rem) {
-  .users-email {
-    overflow: hidden;
-    overflow-wrap: normal;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  /* The phone card's break opportunities do not apply to a single line. */
-  .users-email wbr {
-    display: none;
-  }}
+/* An address is one line that ends in an ellipsis at every width (its title
+ * and the row header hold it whole), so rows are equally tall. */
+.users-email wbr {
+  display: none;
+}
 
 .users-pills {
   display: flex;
@@ -1363,6 +1618,31 @@ a.row-action {
 
 .users-pills:empty {
   display: none;
+}
+
+/* On a narrow card the status words may take two lines rather than run under
+ * the switch. */
+@media (max-width: 79.49rem) {
+  .users-status .users-pill {
+    flex: 0 1 auto;
+    height: auto;
+    min-height: 20px;
+    padding-block: 1px;
+    line-height: 16px;
+    text-align: left;
+  }
+}
+
+/* "Role . frames" under the status, the phone card's only detail line. */
+.users-meta {
+  grid-column: 1 / -1;
+  min-width: 0;
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.users-menu__role {
+  display: block;
 }
 
 /* Status pills reuse the battery and charging pill recipes: the status colour
@@ -1386,35 +1666,6 @@ a.row-action {
   background: color-mix(in srgb, var(--color-status-error) 16%, var(--color-dominant));
 }
 
-/* The copy button: full-width on a phone card, hidden without script. */
-.users-copy {
-  display: none;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-sm);
-  width: 100%;
-  min-height: 44px;
-  padding: 0 var(--space-md);
-  background: var(--glass-solid);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-control);
-  box-shadow: none;
-  color: var(--color-text);
-  font-weight: var(--weight-semibold);
-}
-
-.js .users-copy {
-  display: flex;
-}
-
-.users-copy .copy-btn__label {
-  display: inline;
-  position: static;
-  transform: none;
-  margin: 0;
-  font-size: inherit;
-}
-
 .users-role-form,
 .users-active-form {
   display: flex;
@@ -1423,19 +1674,34 @@ a.row-action {
   margin: 0;
 }
 
-/* The browser draws the select's arrow in room of its own, beside the
- * padding: the same small padding on both sides leaves the longest role
- * name whole. */
-.users-role-form select {
-  flex: 1 1 auto;
+/* The role select is a compact bordered chip with a chevron drawn over its
+ * right edge: the native arrow is off, the control stays a real select. */
+.users-role-chip {
+  position: relative;
+  display: inline-flex;
   min-width: 0;
-  width: 100%;
   max-width: 100%;
-  padding-inline: var(--space-sm);
+}
+
+.users-role-chip select {
+  appearance: none;
+  min-width: 0;
+  max-width: 100%;
+  padding: 0 30px 0 var(--space-sm);
+  background: var(--color-dominant);
+  font-size: var(--font-label-size);
+}
+
+.users-role-chip .icon {
+  position: absolute;
+  top: 50%;
+  right: var(--space-sm);
+  transform: translateY(-50%);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  pointer-events: none;
 }
 
 .users-cell--role .users-role-form {
-  width: 100%;
   max-width: 14rem;
 }
 
@@ -1443,31 +1709,15 @@ a.row-action {
   display: flex;
   align-items: center;
   min-height: 44px;
-  font-weight: var(--weight-semibold);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  font-weight: var(--weight-regular);
 }
 
-/* On the narrowest cards the role select needs the room of the switch's text:
- * the status mark above already says Active, Invited or Disabled. */
-@media (max-width: 26rem) {
-  .users-cell--active .users-active-label {
-    display: none;
-  }
-
-  /* Three columns, so the last line can split differently from the one above
-   * it: the last sign-in gets the room of its longest wording and the frames
-   * wrap between the count and the co-manager mark. */
-  .users-table .users-row {
-    grid-template-columns: minmax(0, 11fr) minmax(0, 7fr) minmax(0, 8fr);
-    grid-template-areas:
-      "user user user"
-      "role role active"
-      "frames seen seen"
-      "invite invite invite";
-  }
-
-  .users-cell--seen {
-    text-align: right;
-  }}
+/* The switch is labelled for assistive technology; the status mark beside
+ * the address already says Active, Invited or Disabled. */
+.users-cell--active .users-active-label {
+  display: none;
+}
 
 .users-table button.users-role-save {
   min-height: 44px;
@@ -1492,6 +1742,9 @@ a.row-action {
 }
 
 .users-cell--menu .row-menu__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   white-space: nowrap;
   overflow-wrap: normal;
 }
@@ -1506,6 +1759,7 @@ a.row-action {
   .users-table .users-row {
     display: table-row;
     position: static;
+    min-height: 0;
     margin: 0;
     padding: 0;
     background: none;
@@ -1554,7 +1808,6 @@ a.row-action {
   .users-col--frames { width: 132px; }
   .users-col--seen { width: 136px; }
   .users-col--active { width: 60px; }
-  .users-col--invite { width: 60px; }
   .users-col--menu { width: 52px; }
 
   .users-frames__part {
@@ -1603,29 +1856,6 @@ a.row-action {
     grid-row: 2;
   }
 
-  .users-cell--invite:empty {
-    display: table-cell;
-  }
-
-  /* An icon-only button in the table; its name is the label, read aloud. */
-  .users-copy {
-    width: 44px;
-    padding: 0;
-  }
-
-  .users-copy .copy-btn__label {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
-
-  .users-copy.copy-btn--copied {
-    border-color: var(--color-accent);
-  }
-
   .users-cell--active .users-active-label {
     display: none;
   }
@@ -1633,6 +1863,11 @@ a.row-action {
   .users-cell--menu {
     position: static;
     padding-left: 0;
+  }
+
+  .users-meta,
+  .users-menu__role {
+    display: none;
   }}
 
 @media (max-width: 599.98px) {
@@ -1646,15 +1881,15 @@ a.row-action {
   }}
 
 /* Account: grouped rows. A frame row is the drawn frame, the name with its
- * hardware and status, a chevron, and the row's one action as a link line
- * under the text. */
+ * role pill and status, and the row's one action as a 44px icon button at
+ * the right (a row with an action shows no chevron). */
 .account-frame {
-  flex-wrap: wrap;
   padding-block: var(--space-sm);
 }
 
 .group > .account-frame > .row__main {
-  flex: 1 1 100%;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .account-frame__pic {
@@ -1695,16 +1930,21 @@ a.row-action {
 
 .account-frame__action {
   display: inline-flex;
+  flex: none;
   align-items: center;
+  justify-content: center;
   box-sizing: border-box;
-  min-height: 44px;
-  margin: 0 var(--space-md) var(--space-xs)
-    calc(var(--space-md) + 40px + var(--space-sm) + var(--space-xs));
-  color: var(--color-accent);
-  font-size: var(--font-label-size);
-  font-weight: var(--weight-semibold);
-  text-decoration: underline;
-  text-underline-offset: 3px;
+  width: 44px;
+  height: 44px;
+  margin: 0 var(--space-md) 0 0;
+  color: var(--color-text);
+  background: var(--color-dominant);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+}
+
+.account-frame__action:not(:last-child) {
+  margin-right: var(--space-sm);
 }
 
 /* A value row never widens the page: a long email ellipsises. */
@@ -1735,21 +1975,6 @@ a.row-action {
   padding: 0 var(--space-md);
 }
 
-/* Wide enough, the frame's action sits at the right of its row. */
-@media (min-width: 640px) {
-  .account-frame {
-    flex-wrap: nowrap;
-  }
-
-  .group > .account-frame > .row__main {
-    flex: 1 1 auto;
-  }
-
-  .account-frame__action {
-    margin: 0 var(--space-md);
-    white-space: nowrap;
-  }}
-
 /* Sign out is a group of its own: one row in the danger colour. */
 .account-sign-out-group .row > form {
   display: flex;
@@ -1761,10 +1986,11 @@ a.row-action {
   overflow-wrap: anywhere;
 }
 
-/* The Manage access sheet: the head keeps its place, the one group scrolls
- * inside, the add form is stacked (field, then a full-width primary button)
- * and Done is a full-width secondary button. A phone sheet clears its rounded
- * corners above the title and the home indicator below the button. */
+/* The Manage access sheet: the head keeps its place, the three labelled
+ * sections (owner, co-managers, add form) scroll inside, and the action row
+ * sits below them: the "Remove this frame" danger link at the left, Done (the
+ * primary) at the right. A phone sheet clears its rounded corners above the
+ * title and the home indicator below the buttons. */
 dialog.access-sheet .modal__body {
   gap: 0;
   margin-top: var(--space-sm);
@@ -1772,63 +1998,105 @@ dialog.access-sheet .modal__body {
 }
 
 .access-sheet .group-block {
-  margin: 0;
+  margin: 0 0 var(--space-md);
 }
 
-/* The empty state under the owner row sits in the same group with the same
- * inner padding as the rows around it. */
-.access-sheet .fleet-group__item {
-  box-sizing: border-box;
-  min-width: 0;
-  padding: var(--space-sm) var(--space-md);
-  border-top: 1px solid var(--glass-hairline);
+.access-sheet .group-block:last-child {
+  margin-bottom: 0;
 }
 
-/* Remove this frame: a quiet danger link set apart under the people group,
- * in regular weight and no surface so it does not compete with Done. */
-.access-sheet .access-rename,
-.access-sheet .access-remove-frame {
-  margin: var(--space-sm) 0 0;
-  text-align: center;
-}
-
-a.access-rename__link {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 44px;
-  min-width: 44px;
-  padding: 0 var(--space-md);
+/* The initials chip of a person row: the owner's is filled with the accent. */
+.access-avatar {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  margin-left: var(--space-xs);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
   color: var(--color-accent);
-  text-decoration: underline;
+  font-size: var(--font-caption-size);
+  font-weight: var(--weight-semibold);
 }
 
-a.access-remove-frame__link {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 44px;
-  min-width: 44px;
-  padding: 0 var(--space-md);
-  color: var(--color-status-error);
-  font-weight: var(--weight-regular);
-  text-decoration: underline;
+.access-avatar--owner {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
 }
 
+/* No co-managers yet: a dashed card with no shadow. */
+.access-section--empty .group {
+  border-style: dashed;
+  box-shadow: none;
+}
+
+.access-section--empty .empty-state {
+  margin: 0;
+  padding: var(--space-md);
+}
+
+/* The Add form: the picker and the primary Add button share one 44px line;
+ * the typed address of an owner keeps its label and helper line, so its
+ * button stacks full width under the field. */
 .access-sheet .row__form {
   flex-direction: column;
   align-items: stretch;
+}
+
+.access-sheet .row__form--inline {
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: nowrap;
+}
+
+.access-sheet .row__form--inline .row__form-field {
+  flex: 1 1 0;
+}
+
+.access-sheet .row__form--inline label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .access-sheet .row__form-field {
   flex: none;
 }
 
-.access-sheet .row__form > button[type="submit"] {
+.access-sheet .row__form:not(.row__form--inline) > button[type="submit"] {
   width: 100%;
 }
 
-.access-sheet a.modal__dismiss,
+/* The action row: the danger link left, Done right. */
+dialog.access-sheet .modal__actions--split {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--glass-hairline);
+}
+
+a.access-remove-frame__link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  min-width: 44px;
+  color: var(--color-status-error);
+  font-weight: var(--weight-regular);
+  text-decoration: underline;
+}
+
+dialog.access-sheet .modal__actions--split a.modal__done {
+  width: auto;
+  margin-left: auto;
+}
+
 a.modal__dismiss--button {
   background: var(--glass-solid);
   border: 1px solid var(--color-border);
@@ -1857,35 +2125,216 @@ dialog.access-sheet .modal__actions {
   margin-inline: 0;
 }
 
-/* Releases: the version list is one glass group of expandable rows. */
-.update-group {
-  container: update-rows / inline-size;
+/* The System detail cards: a header row (icon, small label, bold verdict and a
+ * short value at the right), a hairline, then label/value rows, outcome rows or
+ * a table. The state is carried by the icon shape and a hidden word, never the
+ * colour alone. */
+.sys-card {
+  --sys-tone: color-mix(in srgb, var(--color-text) 50%, transparent);
+  --sys-pad: calc(var(--space-sm) + var(--space-xs));
+  color: var(--color-text);
 }
 
-.update-group > li + li {
-  border-top: 1px solid var(--glass-hairline);
+.sys-card[data-state="ok"] {
+  --sys-tone: var(--color-status-ok);
 }
 
-.update-group .update-row > summary {
+.sys-card[data-state="warn"] {
+  --sys-tone: var(--color-status-warn);
+}
+
+.sys-card[data-state="error"] {
+  --sys-tone: var(--color-status-error);
+}
+
+.sys-card__head {
+  display: flex;
+  align-items: center;
+  gap: var(--sys-pad);
+  min-height: 64px;
   padding: var(--space-sm) var(--space-md);
 }
 
-.update-group .update-row__body {
-  padding: 0 var(--space-md) var(--space-md);
+.sys-card__icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--sys-tone) 16%, transparent);
+  color: var(--sys-tone);
 }
 
-/* A System topic's own row already carries the topic's title, so its section
- * label only names the group for assistive technology. */
-.system-topic > .section-label {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip-path: inset(50%);
+.sys-card__who {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.sys-card__label,
+.sys-card__sub {
+  font-size: var(--font-caption-size);
+  line-height: 1.3;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.sys-card__verdict {
+  font-weight: var(--weight-semibold);
+  line-height: 1.3;
+}
+
+.sys-card__value {
+  flex: none;
+  font-size: var(--font-label-size);
+  font-variant-numeric: tabular-nums;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.sys-card__head > .banner__pill {
+  height: auto;
+  min-height: 28px;
+  padding-block: var(--space-xs);
   white-space: nowrap;
-  border: 0;
+}
+
+.sys-card__facts {
+  display: grid;
+  gap: var(--space-sm);
+  margin: 0;
+  padding: var(--sys-pad) var(--space-md);
+  border-top: 1px solid var(--color-border);
+  font-size: var(--font-label-size);
+}
+
+.sys-card__facts > div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.sys-card__facts dt {
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.sys-card__facts dd {
+  margin: 0;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.sys-card__note {
+  margin: 0;
+  padding: var(--sys-pad) var(--space-md);
+  border-top: 1px solid var(--color-border);
+  font-size: var(--font-caption-size);
+  line-height: 1.3;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.sys-card__outcomes {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--color-border);
+}
+
+.sys-card__outcomes > li {
+  padding: var(--sys-pad) var(--space-md);
+}
+
+.sys-card__outcomes > li + li {
+  border-top: 1px solid var(--color-border);
+}
+
+.sys-card__outcome {
+  display: flex;
+  align-items: center;
+  margin: 0;
+  font-weight: var(--weight-semibold);
+}
+
+.sys-card__count {
+  margin-left: auto;
+  padding-left: var(--space-md);
+  font-variant-numeric: tabular-nums;
+}
+
+.sys-card__sentence {
+  margin: var(--space-xs) 0 0;
+  font-size: var(--font-caption-size);
+  line-height: 1.3;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.sys-card__table {
+  width: 100%;
+  border-top: 1px solid var(--color-border);
+  border-collapse: collapse;
+  font-size: var(--font-label-size);
+}
+
+.sys-card__table th {
+  padding: var(--space-sm) var(--space-md);
+  text-align: left;
+  font-size: var(--font-caption-size);
+  font-weight: var(--weight-semibold);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.sys-card__table td {
+  padding: var(--space-sm) var(--space-md);
+  border-top: 1px solid var(--color-border);
+  vertical-align: top;
+}
+
+.sys-card__num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* The warnings banner: a bordered card, the count in bold, one outlined pill
+ * per failing category, then the sentence that points at the cards. */
+.sys-banner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin: var(--space-md) 0;
+  padding: var(--sys-pad, calc(var(--space-sm) + var(--space-xs))) var(--space-md);
+  border: 1px solid var(--color-status-warn);
+  border-radius: var(--radius-card);
+  background: var(--glass-solid);
+  color: var(--color-text);
+}
+
+.sys-banner[data-severity="error"] {
+  border-color: var(--color-status-error);
+}
+
+.sys-banner__pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs) calc(var(--space-sm) - var(--space-xs) / 2);
+}
+
+.sys-banner__pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 calc(var(--space-sm) + var(--space-xs) / 2);
+  border: 1px solid var(--color-status-warn);
+  border-radius: var(--radius-pill);
+  background: var(--glass-solid);
+  font-size: var(--font-caption-size);
+}
+
+.sys-banner[data-severity="error"] .sys-banner__pill {
+  border-color: var(--color-status-error);
+}
+
+.sys-banner__tail {
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
 /* Components reference page (administrators): the index of anchors, one
@@ -1916,6 +2365,18 @@ dialog.access-sheet .modal__actions {
 /* Each family ends with a link back to the index: the page is long. */
 .components-family__top {
   margin: var(--space-md) 0 0;
+}
+
+/* The link is a stand-alone control: an invisible box around the text makes
+ * it a 44px target without moving the paragraph. */
+.components-family__top .text-link {
+  position: relative;
+}
+
+.components-family__top .text-link::before {
+  content: "";
+  position: absolute;
+  inset: -13px -8px;
 }
 
 .components-family {
@@ -1975,6 +2436,18 @@ dialog.access-sheet .modal__actions {
   flex: 1 1 100%;
 }
 
+.components-state__sample > form {
+  flex: 1 1 100%;
+}
+
+/* The scrolling chip row bleeds to the page edge in a page; in the catalogue it
+ * stays inside its card. */
+.components-state__sample .filter-bar.filter-bar--scroll-chips .filter-bar__chips--scroll {
+  margin-inline: 0;
+  padding-inline: 0;
+  scroll-padding-inline: 0;
+}
+
 .components-menu-host--open {
   min-height: 12rem;
 }
@@ -2019,4 +2492,913 @@ dialog.access-sheet .modal__actions {
   background: var(--color-dominant);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
+}
+/* The list of frames and the frame switch. A phone shows the list or one frame
+ * (the server marks the view on .fleet-split); from 1200px the list is a column
+ * beside the frame (a narrower page leaves the frame under 440px, too tight for
+ * its rows). */
+.fleet-split {
+  display: block;
+  min-width: 0;
+}
+
+.fleet-split__main,
+.fleet-split__list {
+  min-width: 0;
+}
+
+.fleet-split[data-fleet-mode="list"] > .fleet-split__main,
+.fleet-split:not([data-fleet-mode="list"]) > .fleet-split__list {
+  display: none;
+}
+
+.fleet-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.fleet-empty__halo {
+  width: 64px;
+  height: 64px;
+  margin-bottom: var(--space-md);
+  border: 1px solid var(--color-border);
+}
+
+.fleet-empty__hint {
+  margin: 0;
+  max-width: 36ch;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.dashboard-main > .page-header:empty {
+  display: none;
+}
+
+.fleet-list__head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  margin-bottom: var(--space-md);
+}
+
+.fleet-list__title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.fleet-list__heading,
+.fleet-empty__title,
+.fleet-head__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--font-page-title-size);
+  font-weight: var(--weight-title);
+  letter-spacing: var(--tracking-title);
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}
+
+.fleet-empty__halo + .fleet-empty__title {
+  margin-bottom: var(--space-sm);
+}
+
+.fleet-list__heading--wide {
+  display: none;
+}
+
+.fleet-list__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.fleet-list__body > .group-block {
+  margin: 0;
+}
+
+.fleet-search {
+  margin: 0;
+}
+
+.fleet-frame-row .row__main {
+  min-height: 56px;
+}
+
+.fleet-frame-row .row__value {
+  font-size: var(--font-caption-size);
+}
+
+.fleet-frame-row .row__label {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: var(--weight-semibold);
+}
+
+.fleet-frame-row .row__detail {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-caption-size);
+}
+
+.fleet-frame-row.is-selected .row__main {
+  background: var(--color-secondary);
+}
+
+.fleet-add-button,
+a.fleet-action-button {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  box-sizing: border-box;
+  min-height: 44px;
+  padding: 0 18px;
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-control);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
+  line-height: 1.2;
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.fleet-switch {
+  position: relative;
+  display: flex;
+  gap: var(--space-sm);
+  box-sizing: border-box;
+  width: calc(100% + 2 * var(--space-lg));
+  max-width: calc(100vw - var(--safe-left) - var(--safe-right));
+  margin: 0 calc(-1 * var(--space-lg)) var(--space-md);
+  padding: 0 var(--space-lg) var(--space-xs);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.fleet-switch::-webkit-scrollbar {
+  display: none;
+}
+
+.fleet-chip {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  box-sizing: border-box;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--glass-solid);
+  color: var(--color-text);
+  font-size: 14px;
+  line-height: 1.2;
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.fleet-chip--all {
+  background: var(--color-secondary);
+}
+
+.fleet-chip[aria-current="page"] {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+
+.fleet-split__main > .fleet-head__title {
+  margin-bottom: var(--space-md);
+}
+
+.fleet-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin: 0 0 var(--space-md);
+}
+
+.fleet-head__text {
+  min-width: 0;
+}
+
+.fleet-head__state {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+  margin: 6px 0 0;
+  font-weight: var(--weight-semibold);
+}
+
+.fleet-head__seen {
+  font-weight: var(--weight-regular);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* On a narrow screen the detail takes its own line, so the separator that
+ * would start that line goes. */
+@media (max-width: 30rem) {
+  .fleet-head__seen {
+    flex-basis: 100%;
+  }
+
+  .fleet-head__dot {
+    display: none;
+  }
+}
+
+.fleet-head__sub {
+  margin: var(--space-xs) 0 0;
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.fleet-head__buttons {
+  display: flex;
+  flex: none;
+  gap: var(--space-sm);
+}
+
+.fleet-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--glass-solid);
+  color: var(--color-text);
+}
+
+.fleet-other {
+  margin-top: var(--space-md);
+}
+
+@media (min-width: 1200px) {
+  /* The list is a full-height panel against the console sidebar (the two share
+   * their top, height and look) and the frame fills the rest of the screen.
+   * The page column drops its own width cap and padding so the panel can touch
+   * the sidebar side; the frame column brings its own padding, with the
+   * clearance the docked unsaved-changes bar needs under it. */
+  .dashboard-shell:has(.fleet-split) {
+    column-gap: var(--space-md);
+  }
+
+  .dashboard-shell .dashboard-main:has(> .fleet-split) {
+    max-width: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .fleet-split {
+    --fleet-list-width: 350px;
+    display: grid;
+    grid-template-columns: var(--fleet-list-width) minmax(0, 1fr);
+    gap: 0;
+    align-items: flex-start;
+  }
+
+  .fleet-split > .fleet-split__main,
+  .fleet-split > .fleet-split__list,
+  .fleet-split[data-fleet-mode="list"] > .fleet-split__main,
+  .fleet-split:not([data-fleet-mode="list"]) > .fleet-split__list {
+    display: block;
+  }
+
+  .fleet-split__list {
+    position: sticky;
+    top: var(--space-md);
+    box-sizing: border-box;
+    height: calc(100dvh - 2 * var(--space-md));
+    margin: var(--space-md) 0;
+    overflow: hidden;
+    background: var(--color-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-pill);
+    box-shadow: var(--shadow-glass);
+  }
+
+  /* The neutral pane beside the list while no frame is chosen: centred in the
+   * height the frame column would fill. */
+  .fleet-empty {
+    min-height: calc(100dvh - 2 * var(--space-2xl) - var(--save-bar-h) - var(--space-lg));
+  }
+
+  .fleet-split__main {
+    box-sizing: border-box;
+    max-width: calc(760px + var(--space-xl) + var(--space-2xl));
+    padding:
+      var(--space-2xl) var(--space-2xl)
+      calc(var(--space-2xl) + var(--save-bar-h) + var(--space-lg)) var(--space-xl);
+  }
+
+  /* The Battery page is a dedicated page: it takes the whole page column. */
+  .fleet-split__main:has(.fleet-blocks--detail) {
+    max-width: none;
+  }
+
+  /* The unsaved-changes bar docks under the frame column, clear of the list. */
+  .dashboard-shell:has(.fleet-split) .dirty-bar {
+    left: calc(240px + 2 * var(--space-md) + var(--fleet-list-width, 350px) + var(--space-xl));
+    right: var(--space-2xl);
+    width: auto;
+    max-width: 760px;
+    margin: 0;
+  }
+
+  .fleet-list {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+
+  .fleet-list__head {
+    flex: none;
+    margin: 0;
+    padding: var(--space-lg) var(--space-md) var(--space-md);
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .fleet-list__body {
+    flex: 1;
+    min-height: 0;
+    padding: var(--space-md) var(--space-md) var(--space-lg);
+    overflow-y: auto;
+  }
+
+  .fleet-switch {
+    display: none;
+  }
+
+  .fleet-list__heading {
+    font-size: var(--font-heading-size);
+  }
+
+  .fleet-list__heading--narrow {
+    display: none;
+  }
+
+  .fleet-list__heading--wide {
+    display: block;
+  }
+
+  .fleet-list .group {
+    background: var(--glass-solid);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+/* The State section: four equal tiles. Battery, flight data and firmware are
+ * each one link to the page that holds the whole story; the connection tile
+ * holds its own (last and next connection). The tone of a tile comes from its
+ * state; the state is also spelled out (a visually hidden word and the
+ * verdict), so colour never carries it alone. */
+.fleet-tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: 1fr;
+  gap: var(--space-sm);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fleet-tiles > li {
+  display: flex;
+  min-width: 0;
+}
+
+.fleet-tile {
+  --tile-tone: color-mix(in srgb, var(--color-text) 50%, transparent);
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-xs);
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 132px;
+  padding: var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--glass-solid);
+  box-shadow: var(--shadow-glass);
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.fleet-tile[data-state="ok"] {
+  --tile-tone: var(--color-status-ok);
+}
+
+.fleet-tile[data-state="warn"] {
+  --tile-tone: var(--color-status-warn);
+}
+
+.fleet-tile[data-state="error"] {
+  --tile-tone: var(--color-status-error);
+}
+
+.fleet-tile__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.fleet-tile__icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--tile-tone) 16%, transparent);
+  color: var(--tile-tone);
+}
+
+.fleet-tile__label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: var(--font-caption-size);
+  line-height: 1.3;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.fleet-tile__value {
+  overflow-wrap: anywhere;
+  font-size: var(--font-card-title-size);
+  font-weight: var(--weight-semibold);
+  line-height: 1.25;
+}
+
+.fleet-tile__meta {
+  overflow-wrap: anywhere;
+  font-size: var(--font-caption-size);
+  line-height: 1.3;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.fleet-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-sm) var(--space-md);
+  margin-top: auto;
+  padding-top: var(--space-xs);
+}
+
+.fleet-stat__k {
+  display: block;
+  font-size: var(--font-caption-size);
+  line-height: 1.3;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.fleet-stat__v {
+  display: block;
+  font-weight: var(--weight-semibold);
+  font-size: var(--font-body-size);
+  color: var(--color-text);
+}
+
+.fleet-tile__spark {
+  display: block;
+  width: 100%;
+  height: 28px;
+  color: var(--color-accent);
+}
+
+.fleet-tile__spark polyline {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.fleet-tile__more {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  margin-top: auto;
+  padding-top: var(--space-sm);
+  font-size: var(--font-caption-size);
+  font-weight: var(--weight-semibold);
+}
+
+/* Rows sized by their content, with a tile that spans the full width (the
+ * firmware tile, the two settings tiles). Each cell is a size container, so a
+ * wide tile lays its text and its control side by side once it is wide enough
+ * and stacks them on a phone. */
+.fleet-tiles--rows {
+  grid-auto-rows: auto;
+}
+
+.fleet-tiles--rows > li {
+  container-type: inline-size;
+}
+
+.fleet-tiles > li.fleet-tiles__span {
+  grid-column: 1 / -1;
+}
+
+.fleet-tile--wide {
+  min-height: 0;
+}
+
+.fleet-tile__text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+.fleet-tile__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+@container (max-width: 259px) {
+  .fleet-stats {
+    grid-template-columns: 1fr;
+  }
+}
+
+@container (min-width: 440px) {
+  .fleet-tile--wide {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-lg);
+  }
+
+  .fleet-tile--wide > .fleet-tile__more {
+    margin-top: 0;
+    padding-top: 0;
+  }
+
+  .fleet-tile__text {
+    flex: 1 1 0;
+  }
+
+  .fleet-tile--control .fleet-tile__ui {
+    flex: 0 0 58%;
+  }
+}
+
+/* The settings tiles. The wake-interval tile has more room than the state
+ * tiles: a larger padding and a larger gap between its heading, its caption
+ * and its controls. */
+.fleet-tile--control {
+  gap: var(--space-md);
+  padding: var(--space-lg);
+}
+
+.fleet-tile--control .fleet-tile__text {
+  gap: var(--space-sm);
+}
+
+.fleet-tile__ui {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  min-width: 0;
+}
+
+.fleet-stepper {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.fleet-step {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+  background: var(--glass-solid);
+  color: var(--color-text);
+  font-size: var(--font-heading-size);
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: none;
+}
+
+.config-form input.fleet-minutes {
+  width: 84px;
+  min-width: 0;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--weight-semibold);
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+.fleet-minutes::-webkit-outer-spin-button,
+.fleet-minutes::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.fleet-unit {
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.fleet-presets {
+  width: 100%;
+}
+
+/* A script-only row: the script gate would lose to the segmented row's own
+ * display, so the row restates both states. */
+.fleet-presets.js-gate {
+  display: none;
+}
+
+.js .fleet-presets.js-gate {
+  display: flex;
+}
+
+.fleet-default {
+  margin-left: var(--space-xs);
+  vertical-align: middle;
+  font-weight: var(--weight-regular, 400);
+}
+
+.fleet-default[hidden] {
+  display: none;
+}
+
+.fleet-tile__hint {
+  margin: 0;
+  font-size: var(--font-caption-size);
+  line-height: 1.3;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.fleet-tile__switch {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.fleet-tile--switch .quick-action__state {
+  white-space: nowrap;
+}
+
+/* The System page's tiles: the frame tiles with a coloured border when a
+ * topic needs attention (the word and the headline say it too). A tile jumps
+ * to its block, which stops below the app bar. */
+.fleet-tiles--system {
+  gap: var(--space-sm);
+  margin: var(--space-md) 0;
+}
+
+.fleet-tiles--system .fleet-tile[data-state="warn"] {
+  border-color: var(--color-status-warn);
+}
+
+.fleet-tiles--system .fleet-tile[data-state="error"] {
+  border-color: var(--color-status-error);
+}
+
+/* Compact: one label row (icon, label, chevron), the headline and one muted
+ * line. Two columns on a phone, three from 960px. The headline keeps its whole
+ * state word (it wraps rather than being cut); the muted line is one line and
+ * its full text is the tile's title. */
+.fleet-tiles--system .fleet-tile {
+  gap: 2px;
+  min-height: 44px;
+  padding: var(--space-sm);
+}
+
+.fleet-tiles--system .fleet-tile__icon {
+  width: 24px;
+  height: 24px;
+}
+
+.fleet-tiles--system .fleet-tile__head {
+  gap: var(--space-xs);
+}
+
+.fleet-tiles--system .fleet-tile__label {
+  flex: 1;
+  overflow-wrap: break-word;
+  hyphens: auto;
+}
+
+.fleet-tiles--system .fleet-tile__chevron {
+  display: flex;
+  flex: none;
+  align-items: center;
+  margin-inline-start: auto;
+}
+
+.fleet-tiles--system .fleet-tile__value {
+  font-size: var(--font-body-size);
+  line-height: 1.25;
+}
+
+.fleet-tiles--system .fleet-tile__meta {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+@media (min-width: 960px) {
+  .fleet-tiles--system {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .fleet-tiles--system .fleet-tile {
+    padding: var(--space-sm) var(--space-md);
+  }
+}
+
+.system-topic {
+  scroll-margin-top: calc(var(--space-xl) * 2);
+}
+
+/* The way back from Battery or Versions to the frame's page. */
+.fleet-back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-height: 44px;
+  margin-bottom: var(--space-xs);
+  color: var(--color-text);
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
+  text-decoration: none;
+}
+
+.fleet-versions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+/* Health and Versions are pages of their own: the list column is not part of
+ * them, at any width. */
+.fleet-split[data-fleet-mode="detail"] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.fleet-split[data-fleet-mode="detail"] > .fleet-split__list {
+  display: none;
+}
+
+/* The phone anchors: State, Settings and Access, kept at the top while the page
+ * scrolls; from 960px every section is on screen and they are gone. */
+.fleet-anchors {
+  display: none;
+}
+
+@media (max-width: 959.98px) {
+  .fleet-anchors {
+    position: sticky;
+    top: calc(var(--safe-top) + var(--app-bar-drop));
+    z-index: 13;
+    display: flex;
+    gap: var(--space-sm);
+    box-sizing: border-box;
+    margin: 0 calc(-1 * var(--space-lg)) var(--space-md);
+    padding: var(--space-sm) var(--space-lg);
+    background-color: var(--color-canvas);
+    background-image: linear-gradient(180deg, var(--sky-top) 0%, var(--sky-mid) 45%, var(--sky-bottom) 100%);
+    background-repeat: no-repeat;
+    background-size: 100% var(--anchors-page-h, 100%);
+    background-position: 0 calc(-1 * var(--anchors-y, 0px));
+  }
+
+  /* The bar sticks below the safe area and the app bar's drop; while it
+   * sticks (fleet-anchors.js sets data-stuck) this strip fills that gap so the
+   * page never scrolls through it. The bar and the strip paint the slice of the
+   * page's own sky gradient that lies behind them (the gradient is on <html>,
+   * laid over the whole page height), so neither shows as a band. At rest the
+   * strip is off: it would cover what sits above the bar. */
+  .fleet-anchors::before {
+    content: "";
+    position: absolute;
+    right: 0;
+    bottom: 100%;
+    left: 0;
+    height: calc(var(--safe-top) + var(--app-bar-drop));
+    background-color: var(--color-canvas);
+    background-image: linear-gradient(180deg, var(--sky-top) 0%, var(--sky-mid) 45%, var(--sky-bottom) 100%);
+    background-repeat: no-repeat;
+    background-size: 100% var(--anchors-page-h, 100%);
+    background-position: 0 calc(-1 * (var(--anchors-y, 0px) - var(--safe-top) - var(--app-bar-drop)));
+  }
+
+  .fleet-anchors:not([data-stuck])::before {
+    display: none;
+  }
+
+  .fleet-anchor {
+    display: inline-flex;
+    flex: 1 1 0;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    min-width: 0;
+    min-height: 44px;
+    padding: 0 var(--space-sm);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-pill);
+    background: var(--glass-solid);
+    color: var(--color-text);
+    font-size: 14px;
+    line-height: 1.2;
+    text-align: center;
+    text-decoration: none;
+  }
+
+  .fleet-anchor[aria-current="true"] {
+    border-color: var(--color-accent);
+    background: var(--color-accent);
+    color: var(--color-on-accent);
+  }
+
+  .fleet-blocks > .fleet-block {
+    scroll-margin-top: calc(var(--safe-top) + var(--app-bar-drop) + 44px + 2 * var(--space-sm));
+  }
+}
+
+/* The two-line list of what a confirmation does: a green tick where nothing
+ * is lost, an amber warning mark where something is. */
+.modal__effects {
+  display: grid;
+  gap: var(--space-xs);
+  margin: var(--space-sm) 0 0;
+  min-width: 0;
+  padding: var(--space-xs) var(--space-md);
+  list-style: none;
+  background: var(--glass-solid);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  font-size: var(--font-label-size);
+}
+
+.modal__effect {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-height: 44px;
+  padding: var(--space-xs) 0;
+}
+
+.modal__effect + .modal__effect {
+  border-top: 1px solid var(--glass-hairline);
+}
+
+.modal__effect .icon {
+  flex: none;
+  margin-top: 2px;
+}
+
+/* A long unbreakable address wraps instead of widening the sheet. */
+.modal__effect > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.modal__effect--ok .icon {
+  color: var(--color-status-ok);
+}
+
+.modal__effect--warn .icon {
+  color: var(--color-status-warn);
+}
+
+/* A button with a leading glyph in the retry form of the failure dialog. */
+.modal--compact .modal__actions > form > button.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
 }

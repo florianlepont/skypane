@@ -11,6 +11,7 @@ import os
 import shutil
 from datetime import datetime, timedelta, timezone
 
+import animation_settle
 import pytest
 
 import companion.test_status_pages_helpers as shp
@@ -32,9 +33,7 @@ PHONES = (({"width": 390, "height": 844}, "390x844"), ({"width": 360, "height": 
 THEMES = ("light", "dark")
 
 _COMPLETE = "() => document.readyState === 'complete'"
-_ANIMATIONS_DONE = (
-    "() => document.getAnimations().every(a => a.effect && "
-    "a.effect.getComputedTiming().iterations === Infinity || a.playState !== 'running')")
+_ANIMATIONS_DONE = animation_settle.ANIMATIONS_DONE
 _OWNS_CENTRE = (
     "s => { const e = document.querySelector(s); if (!e) return false;"
     " const r = e.getBoundingClientRect();"
@@ -94,7 +93,7 @@ def _quiet_seed(state_dir):
 
 
 def _open_quiet_dialog(page):
-    link = "a.home-switch__window"
+    link = "a.home-pill--quiet"
     page.locator(link).wait_for(state="visible")
     page.wait_for_function(_ANIMATIONS_DONE, timeout=15000)
     page.eval_on_selector(link, "el => el.scrollIntoView({block: 'center'})")
@@ -138,20 +137,20 @@ def test_the_quiet_hours_dialog_is_opaque_and_its_save_button_needs_no_scrolling
         context.close()
 
 
-# --- Flights: the search keeps clear of the frame button -----------------------
+# --- Flights: the controls keep clear of the frame button and the title ---------
 
 
 @pytest.mark.parametrize("width", (960, 1100, 1280, 1440))
-def test_the_flights_search_never_overlaps_the_frame_button_or_the_title(
+def test_the_flights_controls_never_overlap_the_frame_button_or_the_title(
         new_context, make_app_server, width):
     server = make_app_server(seed=vp.seed_flight_card_variety, fake_providers=True)
-    context, page = _page(new_context, server, "/history", {"width": width, "height": 800})
+    context, page = _page(new_context, server, "/flights", {"width": width, "height": 800})
     try:
         _settle_on(page, ".frame-menu__button")
         boxes = page.evaluate(
             """() => { const f = e => (r => ({l: r.left, r: r.right, t: r.top, b: r.bottom}))(
                 e.getBoundingClientRect());
-              return {search: f(document.querySelector('.filter-bar--title')),
+              return {search: f(document.querySelector('.filter-controls')),
                       button: f(document.querySelector('.frame-menu__button')),
                       title: f(document.querySelector('.page-title'))}; }""")
 
@@ -237,23 +236,21 @@ def test_the_location_card_is_opaque_and_its_runway_cards_and_mode_switch_are_ti
         context.close()
 
 
-# --- Fleet sub-tabs, tab bar -----------------------------------------------------
+# --- Fleet anchors, tab bar -----------------------------------------------------
 
 
 @pytest.mark.parametrize("lang", ("en", "fr"))
 @pytest.mark.parametrize("viewport,name", PHONES)
-def test_the_fleet_tab_thumb_fills_its_segment_and_every_tab_bar_label_fits_its_pill(
+def test_the_fleet_anchors_fill_their_row_and_every_tab_bar_label_fits_its_pill(
         new_context, app_server_in_process, viewport, name, lang):
     seed = fx.seed_fleet(app_server_in_process.state_dir)
     context, page = _page(
         new_context, app_server_in_process, "/fleet?frame=" + seed.owned_id, viewport, lang)
     try:
-        _settle_on(page, ".fleet-tabs .personalisation-nav__link")
+        _settle_on(page, ".fleet-anchors .fleet-anchor")
         probe = page.evaluate(
-            """() => { const link = document.querySelector(
-                '.fleet-tabs .personalisation-nav__link[aria-current="page"]');
-              const l = link.getBoundingClientRect();
-              const s = link.querySelector('span').getBoundingClientRect();
+            """() => { const anchors = [...document.querySelectorAll('.fleet-anchors .fleet-anchor')]
+                .map((a) => a.getBoundingClientRect().width);
               const labels = [...document.querySelectorAll('.tab-bar__label')].map((label) => ({
                 fits: label.scrollWidth <= label.clientWidth,
                 room: label.closest('.tab-bar__pill').getBoundingClientRect().width
@@ -261,9 +258,10 @@ def test_the_fleet_tab_thumb_fills_its_segment_and_every_tab_bar_label_fits_its_
               const barStyle = getComputedStyle(document.querySelector('.tab-bar'));
               const bar = {backgroundColor: barStyle.backgroundColor};
               const named = barStyle.viewTransitionName;
-              return {segment: l.width, thumb: s.width, labels: labels,
+              return {anchors: anchors, labels: labels,
                       fill: bar.backgroundColor, named: named}; }""")
-        assert probe["thumb"] >= probe["segment"] - 8, probe
+        # Three equal anchors share the row.
+        assert len(probe["anchors"]) == 3 and max(probe["anchors"]) - min(probe["anchors"]) < 1, probe
         assert len(probe["labels"]) == 5, probe
         assert all(label["fits"] and label["room"] >= 4 for label in probe["labels"]), probe
         assert probe["fill"].startswith("rgb(") and "rgba" not in probe["fill"], probe
@@ -279,7 +277,7 @@ def test_the_fleet_tab_thumb_fills_its_segment_and_every_tab_bar_label_fits_its_
 def test_the_picture_dialog_dims_the_whole_viewport_with_no_blurred_band(
         new_context, make_app_server, viewport, name):
     server = make_app_server(seed=vp.seed_flight_card_variety, fake_providers=True)
-    context, page = _page(new_context, server, "/history", viewport)
+    context, page = _page(new_context, server, "/flights", viewport)
     try:
         thumb = ".history-card__thumb:visible, td [data-view-panel-src]:visible"
         page.locator(thumb).first.wait_for(state="visible")
@@ -287,7 +285,7 @@ def test_the_picture_dialog_dims_the_whole_viewport_with_no_blurred_band(
         dialog = "#panel-lookup-dialog"
         page.wait_for_function(
             "s => { const d = document.querySelector(s); return d.open"
-            " && document.getAnimations().every(a => a.playState !== 'running'); }",
+            " && " + animation_settle.DONE_EXPR + "; }",
             arg=dialog, timeout=10000)
         surface = page.evaluate(_DIALOG_SURFACE, dialog)
         assert surface["filter"] == "none", surface

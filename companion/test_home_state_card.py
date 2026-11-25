@@ -1,21 +1,22 @@
-"""The status header on Home: the wording of each state, the two
-native POST controls, their persisted effect and flash, and the precedence
-of the battery-empty hold and the display switch. Everything is asserted on
-served markup (a direct render for the state matrix, a real server for the
-POST round trips)."""
+"""The title block and the pills of Home: the wording of each state, the next
+update, the Screen switch with its native POST, the Quiet hours opener, the
+battery pill, the persisted effect and flash, and the precedence of the
+battery-empty hold and the display switch. Everything is asserted on served
+markup (a direct render for the state matrix, a real server for the POST round
+trips)."""
 import re
 from datetime import datetime, timedelta
 
 import pytest
 
-import companion.battery as battery
 import companion.draw as draw
 import companion.layout as layout
 import companion.prefs as prefs
 import companion.wake as wake
 from companion import auth
-from companion.pages import home_page
+from companion.pages import home_page, home_state
 from companion_app_server import http_request, login, with_csrf
+from companion_markup import parse_html
 from server import device_config, history_db
 
 NOW = "2026-08-27T12:00:00+00:00"
@@ -33,130 +34,144 @@ def _ctx(tmp_path, cfg=None, battery_critical=False, last_checkin_ts=CHECKIN):
     }
 
 
-def _card(rendered):
-    """The hero and the Frame group after it: the state, the next update and the switches."""
-    start = rendered.index('<section class="hero home-state ')
-    return rendered[start:]
-
-
 def _render(tmp_path, lang="en", **kwargs):
     prefs.set_request_prefs(lang=lang)
     try:
-        return _card(home_page.render(_ctx(tmp_path, **kwargs)))
+        return home_page.render(_ctx(tmp_path, **kwargs))
     finally:
         prefs.set_request_prefs(lang="en")
 
 
-def _form(card, action):
-    match = re.search(
-        r'<form method="post" action="%s"[^>]*>(.*?)</form>' % re.escape(action), card, re.S)
-    assert match is not None, "no POST form to %s" % action
-    return match.group(1)
+def _tree(tmp_path, lang="en", **kwargs):
+    return parse_html(_render(tmp_path, lang, **kwargs))
 
 
-def _switch(card, action):
-    """The `role="switch"` button inside the form posting to `action`."""
-    match = re.search(r'<button[^>]*role="switch"[^>]*>', _form(card, action))
-    assert match is not None, "no switch button in the form to %s" % action
-    return match.group(0)
+def _title(tree):
+    return tree.select_one(".home-state__title").text().strip()
 
 
-def _checked(card, action):
-    return re.search(r'aria-checked="(true|false)"', _switch(card, action)).group(1)
+def _next_text(tree):
+    found = tree.select(".home-state__next")
+    return " ".join(found[0].text().split()) if found else None
 
 
-def test_screen_on_state_wording_and_both_switches(tmp_path):
-    """the default state reads "Online" (the dot's word), names the next update as a countdown with no clock
-    and offers two native POST switches that are checked, each posting the opposite state"""
-    card = _render(tmp_path, cfg={"quiet_hours_enabled": True})
-    assert '<span class="home-state__title">Online</span>' in card
-    line = re.search(r'<p class="home-state__next">.*?</p>', card, re.S).group(0)
-    assert "Next refresh <time" in line and "data-relative-countdown" in line
-    assert "≈" not in line and "time-value" not in line
-    assert "23:00 – 07:00" in card
-    assert _checked(card, "/quick/display") == "true"
-    assert _checked(card, "/quick/quiet-hours") == "true"
-    for action in ("/quick/display", "/quick/quiet-hours"):
-        form = _form(card, action)
-        assert 'name="state" value="off"' in form and 'name="return_to" value="/"' in form
+def _screen_pill(tree):
+    return tree.select_one(".home-pill--switch")
 
 
-def test_switches_are_named_and_described_for_assistive_tech(tmp_path):
-    """each switch is a labelled control: aria-labelledby points at the visible row label and
-    aria-describedby at the visible On/Off word, and each row is a quick-switch region that refreshes the page's state regions after a confirmed flip"""
-    card = _render(tmp_path)
-    for action, slug, label in (("/quick/display", "screen", "Screen"),
-                                ("/quick/quiet-hours", "quiet", "Quiet hours")):
-        button = _switch(card, action)
-        assert 'aria-labelledby="home-switch-%s-label"' % slug in button
-        assert 'aria-describedby="home-switch-%s-state"' % slug in button
-        assert re.search(r'id="home-switch-%s-label">%s</span>' % (slug, label), card)
-        assert 'id="home-switch-%s-state"' % slug in card
-    assert card.count("data-quick-region data-quick-refresh") == 2
+def _switch(tree):
+    return tree.select_one('.home-pill--switch button[role="switch"]')
+
+
+def test_default_state_reads_online_with_a_countdown_and_the_screen_switch_on(tmp_path):
+    """the default state reads "Online" (the dot's word), the next update is a live countdown with
+    no clock, and the Screen pill's native POST form posts the opposite state"""
+    tree = _tree(tmp_path, cfg={"quiet_hours_enabled": True})
+    assert _title(tree) == "Online"
+    line = tree.select_one(".home-state__next")
+    assert "Next refresh" in line.text() and line.select_one("time[data-relative-countdown]")
+    assert not line.select(".time-value")
+    switch = _switch(tree)
+    assert switch.attrs["aria-checked"] == "true"
+    form = tree.select_one(".home-pill--switch form")
+    assert form.attrs["action"] == "/quick/display"
+    assert form.select_one('input[name="state"]').attrs["value"] == "off"
+    assert form.select_one('input[name="return_to"]').attrs["value"] == "/"
+
+
+def test_the_screen_switch_is_named_and_described_and_asks_for_a_refresh(tmp_path):
+    """aria-labelledby points at the visible label and aria-describedby at the On/Off word (kept
+    for assistive technology only); the pill is a quick-switch region that refreshes the page's state
+    regions after a confirmed flip"""
+    tree = _tree(tmp_path)
+    switch = _switch(tree)
+    assert switch.attrs["aria-labelledby"] == "home-switch-screen-label"
+    assert switch.attrs["aria-describedby"] == "home-switch-screen-state"
+    assert tree.select_one("#home-switch-screen-label").text().strip() == "Screen"
+    assert "visually-hidden" in tree.select_one("#home-switch-screen-state").attrs["class"]
+    pill = _screen_pill(tree)
+    assert "data-quick-region" in pill.attrs and "data-quick-refresh" in pill.attrs
+    assert pill.select('button[role="switch"]') and len(pill.select("form")) == 1
 
 
 def test_screen_off_state_flips_the_screen_switch(tmp_path):
-    """display_enabled=false reads "Resting" (the dot's word), the screen switch is unchecked and posts
-    state=on; the cadence sentence quotes the screen-off interval, not the configured one"""
-    card = _render(tmp_path, cfg={"display_enabled": False})
-    assert '<span class="home-state__title">Resting</span>' in card
-    assert "Screen on" not in card
-    assert _checked(card, "/quick/display") == "false"
-    assert 'name="state" value="on"' in _form(card, "/quick/display")
+    """display_enabled=false reads "Resting" (the dot's word), the screen switch is unchecked and
+    posts state=on; the cadence sentence quotes the screen-off interval, not the configured one"""
+    tree = _tree(tmp_path, cfg={"display_enabled": False})
+    assert _title(tree) == "Resting"
+    assert _switch(tree).attrs["aria-checked"] == "false"
+    assert tree.select_one('.home-pill--switch input[name="state"]').attrs["value"] == "on"
     off_minutes = device_config.DISPLAY_OFF_SLEEP_S // 60
-    assert "about every %d min" % off_minutes in card
+    assert "about every %d min" % off_minutes in tree.select_one(".info-tip__bubble").text()
 
 
-def test_quiet_hours_state_names_the_end_time_and_the_window(tmp_path):
-    """inside the quiet window the title reads "Resting" with "rests until HH:MM" under it
-    and the switch is checked; with the schedule disabled the same clock reads "Online", the
-    switch is unchecked and the window stays visible beside it"""
+def test_quiet_hours_state_names_the_end_time(tmp_path):
+    """inside the quiet window the title reads "Resting" and the next-update line names the wake;
+    with the schedule off the same clock reads "Online" """
     window = {"quiet_hours_enabled": True, "quiet_hours_start": "00:00", "quiet_hours_end": "23:59"}
-    card = _render(tmp_path, cfg=window)
-    assert '<span class="home-state__title">Resting</span>' in card
-    assert '<p class="home-state__detail">The screen rests until 23:59</p>' in card
-    assert 'class="hero home-state home-state--off reveal"' in card
-    assert _checked(card, "/quick/quiet-hours") == "true"
-    assert "00:00 – 23:59" in card
+    tree = _tree(tmp_path, cfg=window)
+    assert _title(tree) == "Resting"
+    assert "quiet hours" in _next_text(tree)
+    assert tree.select_one(".home-state").attrs["class"].split()[1] == "home-state--off"
     window["quiet_hours_enabled"] = False
-    card = _render(tmp_path, cfg=window)
-    assert '<span class="home-state__title">Online</span>' in card
-    assert "rests until" not in card
-    assert _checked(card, "/quick/quiet-hours") == "false"
-    assert "00:00 – 23:59" in card
-    assert 'name="state" value="on"' in _form(card, "/quick/quiet-hours")
+    assert _title(_tree(tmp_path, cfg=window)) == "Online"
+
+
+@pytest.mark.parametrize("lang,name,text", [
+    ("en", "Edit quiet hours (23:30 \u2013 06:00)", "23:30 \u2013 06:00"),
+    ("fr", "Modifier les heures calmes (23:30 \u2013 06:00)", "23:30 \u2013 06:00"),
+])
+def test_quiet_hours_pill_is_a_link_to_the_dialog(tmp_path, lang, name, text):
+    """the Quiet hours pill is a hash link that opens the dialog; its accessible name repeats the
+    visible window; it holds no switch (the dialog's presets turn the schedule on and off)"""
+    tree = _tree(tmp_path, lang=lang, cfg={
+        "quiet_hours_enabled": True, "quiet_hours_start": "23:30", "quiet_hours_end": "06:00"})
+    link = tree.select_one("a.home-pill--quiet")
+    assert link.attrs["href"] == "#dlg-quiet-hours" and "data-modal-open" in link.attrs
+    assert link.attrs["aria-label"] == name
+    assert link.text().strip() == text and link.select("svg.icon")
+    assert not tree.select('form[action="/quick/quiet-hours"]')
+    assert tree.select("dialog#dlg-quiet-hours")
+
+
+def test_quiet_hours_pill_says_off_while_the_schedule_is_off(tmp_path):
+    """with the schedule off the pill reads "Quiet hours \u00b7 Off" and the window stays in its name"""
+    tree = _tree(tmp_path, cfg={"quiet_hours_enabled": False})
+    link = tree.select_one("a.home-pill--quiet")
+    assert link.text().strip() == "Quiet hours \u00b7 Off"
+    assert link.attrs["aria-label"] == "Edit quiet hours (Quiet hours \u00b7 Off)"
 
 
 def test_battery_empty_hold_outranks_the_display_switch(tmp_path):
     """a battery-critical hold beats display_enabled=false in both the state wording and the
     cadence sentence, exactly as wake.effective_wake_interval_s() orders them"""
-    card = _render(tmp_path, cfg={"display_enabled": False}, battery_critical=True)
-    assert '<span class="home-state__title">Low battery</span>' in card
-    assert "Screen off" not in card
+    tree = _tree(tmp_path, cfg={"display_enabled": False}, battery_critical=True)
+    assert _title(tree) == "Low battery"
     hold = wake.effective_wake_interval_s({"display_enabled": False}, battery_critical=True)
     assert hold == device_config.BATTERY_CRITICAL_SLEEP_S
-    assert "about every %d h" % (hold // 3600) in card or "about every %d min" % (hold // 60) in card
+    bubble = tree.select_one(".info-tip__bubble").text()
+    assert "about every %d h" % (hold // 3600) in bubble or "about every %d min" % (hold // 60) in bubble
 
 
-def test_without_a_check_in_there_is_no_next_update_but_the_switches_remain(tmp_path):
-    """no check-in: no invented next-update line and nothing to explain, both switches stay"""
-    card = _render(tmp_path, last_checkin_ts=None)
-    assert "Next refresh" not in card and "home-state__next" not in card
-    assert "info-tip" not in card
-    assert "/quick/display" in card and "/quick/quiet-hours" in card
+def test_without_a_check_in_there_is_no_next_update_but_the_pills_remain(tmp_path):
+    """no check-in: no invented next-update line and nothing to explain, every pill stays"""
+    tree = _tree(tmp_path, last_checkin_ts=None)
+    assert not tree.select(".home-state__next") and not tree.select(".info-tip")
+    assert _switch(tree) is not None and tree.select_one("a.home-pill--quiet")
+    assert tree.select_one("a.home-pill--place") and tree.select_one(".home-battery-pill")
 
 
-def test_french_status_header(tmp_path):
-    """the header reads in French: hidden heading, state, next update, info tooltip, switch
-    labels and state words"""
-    card = _render(tmp_path, lang="fr", cfg={"quiet_hours_enabled": True})
-    for text in ("État du cadre", '<span class="home-state__title">En ligne</span>', "Prochain rafraîchissement <time",
-                 "il se réveille environ toutes les 15 min",
-                 "il ne se rafraîchit donc pas en continu", "À propos des mises à jour",
-                 "Heures calmes", "Écran",
-                 "Allumé", "Cadre"):
-        assert text in card, text
-    assert "Screen on" not in card and ">Quiet hours<" not in card
+def test_french_title_block_and_pills(tmp_path):
+    """the block reads in French: hidden heading, state, next update, info tooltip, pill labels"""
+    tree = _tree(tmp_path, lang="fr", cfg={"quiet_hours_enabled": True})
+    assert tree.select_one("#home-frame-state").text().strip() == "État du cadre"
+    assert _title(tree) == "En ligne"
+    assert "Prochain rafraîchissement" in _next_text(tree)
+    info = tree.select_one(".info-tip__button")
+    assert info.attrs["aria-label"] == "À propos des mises à jour"
+    assert "il se réveille environ toutes les 15 min" in tree.select_one(".info-tip__bubble").text()
+    assert tree.select_one("#home-switch-screen-label").text().strip() == "Écran"
+    assert tree.select_one("#home-frame-controls").text().strip() == "Commandes du cadre"
 
 
 def _seed_battery(tmp_path, mv):
@@ -165,54 +180,32 @@ def _seed_battery(tmp_path, mv):
             conn, NOW, battery_mv=mv, fw_version="1.0.0", boot_reason="wake", rssi="-60")
 
 
-@pytest.mark.parametrize("mv,level,state_word,health", [
-    (4000, "ok", None, "ok"),
-    (3600, "low", "Low", "warn"),
-    (3381, "low", "Low", "ok"),
-    (3500, "critical", "Very low", "error"),
-])
-def test_battery_block_level_word_and_accessible_name(tmp_path, mv, level, state_word, health):
-    """the battery block is one named image ("Battery about N%"), shows the percentage, and for a
-    low or critical level also says so in words so colour is never the only signal"""
+@pytest.mark.parametrize("mv,level,word", [
+    (4000, "ok", None), (3381, "low", "Low"), (3300, "low", "Low")])
+def test_battery_pill_shows_the_charge_and_a_word_for_a_low_level(tmp_path, mv, level, word):
+    """the battery pill is one static capsule: the label and the percentage, plus a level word for
+    a low reading so colour is never the only signal"""
     _seed_battery(tmp_path, mv)
-    ctx = _ctx(tmp_path)
-    ctx["health_state"]["battery_state"] = health
-    percent = battery.battery_percent(mv)
-    prefs.set_request_prefs(lang="en")
-    card = _card(home_page.render(ctx))
-    assert 'class="home-battery home-battery--%s"' % level in card
-    assert 'role="img" aria-label="Battery about ≈ %d%%' % percent in card
-    assert ('<span class="home-battery__value">%d<span class="home-battery__unit">%%</span></span>'
-            % percent) in card
-    assert 'class="%s"' % draw.DRAWING_ARC_TRACK_CLASS in card
-    assert ("home-battery__state" in card) == (state_word is not None)
-    if state_word:
-        assert ">%s</span>" % state_word in card and "%s" % state_word.lower() in card
+    pill = _tree(tmp_path).select_one(".home-battery-pill")
+    assert "home-battery-pill--%s" % level in pill.attrs["class"]
+    text = " ".join(pill.text().split())
+    assert text.startswith("Battery ") and "%" in text
+    assert ("\u00b7" in text) == (word is not None) and (word is None or word in text)
+    assert pill.tag == "span" and "href" not in pill.attrs
 
 
-def test_battery_block_without_a_reading_is_words_only(tmp_path):
-    """no stored reading: a words-only block, no invented dial or percentage"""
-    card = _render(tmp_path)
-    assert "home-battery--none" in card and "No reading yet" in card
-    assert "drawing-arc" not in card and "<svg class=\"drawing" not in card
-    assert '<p class="home-battery home-battery--none text-label">' in card
+def test_battery_pill_without_a_reading_says_so(tmp_path):
+    """no stored reading: the pill says so, with no invented percentage"""
+    pill = _tree(tmp_path).select_one(".home-battery-pill")
+    assert " ".join(pill.text().split()) == "Battery \u00b7 No reading yet"
+    assert "%" not in pill.text()
 
 
-def test_battery_block_in_french(tmp_path):
-    """the battery name, label and level word read in French"""
+def test_battery_pill_in_french(tmp_path):
+    """the label, the percentage and the level word read in French"""
     _seed_battery(tmp_path, 3381)
-    ctx = _ctx(tmp_path)
-    prefs.set_request_prefs(lang="fr")
-    try:
-        card = _card(home_page.render(ctx))
-    finally:
-        prefs.set_request_prefs(lang="en")
-    assert 'aria-label="Batterie à environ ≈ 8%, faible"' in card
-    assert ">Batterie</span>" in card and ">Faible</span>" in card
-
-
-def _info_tip(card):
-    return re.search(r'<span class="info-tip">.*?</span></span>', card, re.S).group(0)
+    pill = _tree(tmp_path, lang="fr").select_one(".home-battery-pill")
+    assert " ".join(pill.text().split()) == "Batterie 8 % \u00b7 Faible"
 
 
 @pytest.mark.parametrize("lang,label,sentence", [
@@ -223,132 +216,121 @@ def _info_tip(card):
      "Le cadre dort entre deux mises à jour pour économiser sa batterie\u00a0: il se réveille "
      "environ toutes les 15 min, il ne se rafraîchit donc pas en continu."),
 ])
-def test_cadence_is_an_info_button_describing_a_tooltip(tmp_path, lang, label, sentence):
-    """the cadence lives behind a focusable "i" button whose aria-describedby names a
-    role="tooltip" element holding the sentence with the interval; the old muted disclosure and
-    its summary line are gone"""
-    card = _render(tmp_path, lang=lang)
-    tip = _info_tip(card)
-    assert '<button type="button" class="info-tip__button" aria-label="%s" ' % label in tip
-    described = re.search(r'aria-describedby="([^"]+)"', tip).group(1)
-    assert 'role="tooltip" id="%s">%s</span>' % (described, sentence) in tip
-    assert "icon-info" in tip
-    assert "<details" not in card and "home-state__cadence" not in card
-    assert "Updates about every" not in card and "Mise à jour environ toutes" not in card
+def test_cadence_is_an_info_button_at_the_end_of_the_next_update_line(tmp_path, lang, label, sentence):
+    """the cadence lives behind a focusable "i" button, the last thing in the next-update sentence,
+    whose aria-describedby names a role="tooltip" element holding the sentence with the interval"""
+    tree = _tree(tmp_path, lang=lang)
+    line = tree.select_one(".home-state__next")
+    button = line.select_one(".info-tip__button")
+    assert button.attrs["aria-label"] == label
+    bubble = line.select_one('[role="tooltip"]')
+    assert bubble.attrs["id"] == button.attrs["aria-describedby"]
+    assert bubble.text().strip() == " ".join(sentence.split())
+    sentence_node = line.select_one("span.home-state__sentence")
+    tail = [c for c in sentence_node.children if not isinstance(c, str)][-1]
+    assert tail.attrs.get("class") == "home-state__tail"
+    assert [c.attrs.get("class") for c in tail.children if not isinstance(c, str)][-1] == "info-tip"
+    assert not tree.select("details")
 
 
-def _late_ctx(tmp_path, minutes_since_checkin):
+def _late_tree(tmp_path, minutes_since_checkin, **kwargs):
     """The default 900 s interval: the expected wake is 15 min after the check-in and the frame
     counts as late 30 min after that, long overdue past 45 min after it."""
     checkin = datetime.fromisoformat(NOW) - timedelta(minutes=minutes_since_checkin)
-    return _render(tmp_path, last_checkin_ts=checkin.isoformat())
+    return _tree(tmp_path, last_checkin_ts=checkin.isoformat(), **kwargs)
 
 
 def test_a_short_delay_keeps_the_neutral_next_update_wording(tmp_path):
     """a few minutes past the expected wake is normal: the usual next-update line, green dot, no
     overdue wording and no Health link"""
-    card = _late_ctx(tmp_path, 20)
-    assert "Next refresh <time" in card and "Update overdue" not in card
-    assert "dot--ok" in card and "dot--warn" not in card and 'href="/health"' not in card
+    tree = _late_tree(tmp_path, 20)
+    assert "Next refresh" in _next_text(tree) and "overdue" not in _next_text(tree)
+    assert tree.select_one(".home-state__dot.dot--ok") and not tree.select(".dot--warn")
+    assert not tree.select('a[href="/health"]')
 
 
-def _render_full(tmp_path, lang="en", **kwargs):
-    prefs.set_request_prefs(lang=lang)
-    try:
-        return home_page.render(_ctx(tmp_path, **kwargs))
-    finally:
-        prefs.set_request_prefs(lang="en")
+def _next_row(next_iso, hold_reason=None):
+    return home_state.next_update_html(next_iso, 900, hold_reason, NOW, 900)
 
 
-def _late_next_row(next_iso, hold_reason=None):
-    html, _long = home_page._next_update_html(next_iso, 900, hold_reason, NOW, 900)
-    return html
-
-
-@pytest.mark.parametrize("lang,notice,hero_line,word", [
+@pytest.mark.parametrize("lang,notice,line,word", [
     ("en", "Your frame has not checked in on time.", "Update overdue", "Overdue"),
-    ("fr", "Votre cadre ne s’est pas manifesté à l’heure.", "Mise à jour en retard", "En retard"),
+    ("fr", "Votre cadre ne s\u2019est pas manifesté à l\u2019heure.", "Mise à jour en retard", "En retard"),
 ])
 def test_overdue_frame_says_so_once_with_the_overdue_dot_and_no_countdown(
-        tmp_path, lang, notice, hero_line, word):
-    """past the grace window the notification above the hero explains the delay and the hero
-    keeps only the amber Overdue word: no second "Update overdue" line, no countdown, no Health
-    link"""
-    page = _render_full(
+        tmp_path, lang, notice, line, word):
+    """past the grace window the notification explains the delay and the title block keeps only
+    the amber Overdue word: no second "Update overdue" line, no countdown, no Health link"""
+    page = _render(
         tmp_path, lang=lang,
         last_checkin_ts=(datetime.fromisoformat(NOW) - timedelta(minutes=50)).isoformat())
-    card = _card(page)
-    assert page.count(notice) == 1 and hero_line not in page
-    assert "Expected since" not in card and "Attendu depuis" not in card
-    assert "data-relative-countdown" not in card
-    assert "dot--warn" in card and "dot--ok" not in card and 'href="/health"' not in card
-    assert 'role="img" aria-label="%s"' % word in card
+    tree = parse_html(page)
+    assert page.count(notice) == 1 and line not in page
+    assert not tree.select(".home-state__next")
+    assert tree.select_one(".home-state__dot.dot--warn") and not tree.select(".dot--ok")
+    assert tree.select_one(".home-state__dot").attrs["aria-label"] == word
+    assert not tree.select('a[href="/health"]')
 
 
 @pytest.mark.parametrize("lang,link", [("en", "See Health"), ("fr", "Voir la santé")])
 def test_long_overdue_turns_the_dot_amber_and_links_nowhere(tmp_path, lang, link):
     """well past the expected wake: amber dot, and no link to Health (Health is the
     administrator's Console page)"""
-    card = _render(
+    page = _render(
         tmp_path, lang=lang,
         last_checkin_ts=(datetime.fromisoformat(NOW) - timedelta(minutes=90)).isoformat())
-    assert "dot--warn" in card and "dot--ok" not in card
-    assert "/health" not in card and link not in card
-    assert 'class="hero home-state home-state--warn reveal"' in card
+    tree = parse_html(page)
+    assert tree.select_one(".home-state--warn .dot--warn") and not tree.select(".dot--ok")
+    assert "/health" not in page and link not in page
 
 
 def test_overdue_date_appears_only_when_not_today():
     """an expected time on an earlier day carries its date, one on the same day does not"""
     now = datetime.fromisoformat(NOW)
-    same_day = _late_next_row((now - timedelta(minutes=40)).isoformat())
-    assert re.search(r"expected at <span class=\"time-value\">\d\d:\d\d</span>", same_day)
-    earlier = _late_next_row((now - timedelta(days=3)).isoformat())
-    assert re.search(r"expected at <span class=\"time-value\">\d+ \w+\.? \d\d:\d\d</span>", earlier)
+    same_day = _next_row((now - timedelta(minutes=40)).isoformat())
+    assert re.search(r"expected at (?:<span class=\"home-state__tail\">)?<span class=\"time-value\">\d\d:\d\d</span>", same_day)
+    earlier = _next_row((now - timedelta(days=3)).isoformat())
+    assert re.search(r"expected at (?:<span class=\"home-state__tail\">)?<span class=\"time-value\">\d+ \w+\.? \d\d:\d\d</span>", earlier)
 
 
 def test_a_quiet_hours_hold_is_never_overdue(tmp_path):
     """the quiet-hours hold keeps its own wording however long since the last check-in"""
     window = {"quiet_hours_enabled": True, "quiet_hours_start": "00:00", "quiet_hours_end": "23:59"}
-    card = _render(
+    page = _render(
         tmp_path, cfg=window,
         last_checkin_ts=(datetime.fromisoformat(NOW) - timedelta(days=2)).isoformat())
-    assert "Update overdue" not in card and 'href="/health"' not in card and "dot--warn" not in card
+    assert "Update overdue" not in page and 'href="/health"' not in page
+    assert "dot--warn" not in page
 
 
 def _lang_cookie(cookie, lang):
     return "%s; %s=%s" % (cookie, auth.UI_LANG_COOKIE_NAME, lang)
 
 
-@pytest.mark.parametrize("action,field,flash_off,flash_on,text_off,text_on", [
-    ("/quick/display", "display_enabled", "display_off", "display_on",
-     "Screen switched off", "Screen switched on"),
-    ("/quick/quiet-hours", "quiet_hours_enabled", "quiet_off", "quiet_on",
-     "Quiet hours turned off", "Quiet hours turned on"),
-])
-def test_post_round_trip_persists_flashes_and_returns_to_home(
-        make_app_server, action, field, flash_off, flash_on, text_off, text_on):
-    """posting the Home form's own fields persists the flip, redirects to Home with the
-    matching flash key, Home then shows that flash text and the opposite button; no JS header
-    is involved, so this is exactly the scripts-blocked path"""
+def test_post_round_trip_persists_flashes_and_returns_to_home(make_app_server):
+    """posting the Screen pill's own fields persists the flip, redirects to Home with the matching
+    flash key, Home then shows that flash text and the opposite button; no JS header is involved,
+    so this is exactly the scripts-blocked path"""
     server = make_app_server(fake_providers=True)
     cookie = login(server)
-    device_config.save_device_config(server.state_dir, quiet_hours_enabled=True)
     for state, flash, text, expected in (
-            ("off", flash_off, text_off, False), ("on", flash_on, text_on, True)):
+            ("off", "display_off", "Screen switched off", False),
+            ("on", "display_on", "Screen switched on", True)):
         body = with_csrf(
             cookie, {layout.QUICK_STATE_FIELD: state, "return_to": layout.HOME_ROUTE})
         status, headers, _ = http_request(
-            server.base_url() + action, method="POST", cookie=cookie, data=body)
+            server.base_url() + "/quick/display", method="POST", cookie=cookie, data=body)
         assert status == 303
         assert headers.get("Location") == "/?flash=%s" % flash
-        assert device_config.load_device_config(server.state_dir)[field] is expected
+        assert device_config.load_device_config(server.state_dir)["display_enabled"] is expected
         status, _headers, page = http_request(
             server.base_url() + headers["Location"], cookie=cookie)
         html = page.decode("utf-8")
         assert status == 200 and text in html
-        card = _card(html)
-        assert 'name="state" value="%s"' % ("on" if state == "off" else "off") in _form(card, action)
-        assert _checked(card, action) == ("true" if expected else "false")
+        tree = parse_html(html)
+        assert _switch(tree).attrs["aria-checked"] == ("true" if expected else "false")
+        assert tree.select_one('.home-pill--switch input[name="state"]').attrs["value"] == (
+            "off" if expected else "on")
 
 
 def test_home_page_flash_is_translated(make_app_server):
@@ -396,86 +378,34 @@ def test_arc_gauge_sweeps_three_quarters_and_fills_by_fraction():
     assert "style" not in draw.arc_gauge(0.5, "big")
 
 
-@pytest.mark.parametrize("mv,health,status_class", [
-    (4000, "ok", draw.DRAWING_STATUS_OK_CLASS),
-    (3381, "ok", draw.DRAWING_STATUS_WARN_CLASS),
-    (3600, "warn", draw.DRAWING_STATUS_WARN_CLASS),
-    (3500, "error", draw.DRAWING_STATUS_ERROR_CLASS),
+@pytest.mark.parametrize("lang,title,cfg,critical,tone", [
+    ("en", "Resting", {"display_enabled": False}, False, "off"),
+    ("fr", "Au repos", {"display_enabled": False}, False, "off"),
+    ("en", "Low battery", {}, True, "warn"),
+    ("fr", "Batterie faible", {}, True, "warn"),
 ])
-def test_battery_dial_colour_follows_the_level_thresholds(tmp_path, mv, health, status_class):
-    """the dial is coloured by the same ok / low / critical level as before (the shared
-    low-battery percentage or the health verdict), drawn as SVG attributes with no style
-    attribute, and sits inside the one named battery image"""
-    _seed_battery(tmp_path, mv)
-    ctx = _ctx(tmp_path)
-    ctx["health_state"]["battery_state"] = health
-    prefs.set_request_prefs(lang="en")
-    card = _card(home_page.render(ctx))
-    block = re.search(r'<p class="home-battery [^"]*" role="img" aria-label="Battery about[^"]*">'
-                      r'(.*?)</p>', card, re.S)
-    assert block is not None
-    assert '<svg class="%s %s"' % (draw.DRAWING_FIGURE_CLASS, status_class) in block.group(1)
-    value, _ = _dash(block.group(1), draw.DRAWING_ARC_VALUE_CLASS)
-    track, _ = _dash(block.group(1), draw.DRAWING_ARC_TRACK_CLASS)
-    assert 0 < value <= track
-    assert " style=" not in card
+def test_held_states_read_the_dots_word_and_tint_the_block(tmp_path, lang, title, cfg, critical, tone):
+    """a held state shows the dot's own word beside the dot and no sentence under it, and tints the
+    block neutral (screen off) or amber (battery hold)"""
+    tree = _tree(tmp_path, lang=lang, cfg=cfg, battery_critical=critical)
+    assert _title(tree) == title
+    assert "home-state--%s" % tone in tree.select_one(".home-state").attrs["class"]
+    assert not tree.select(".home-state__detail")
 
 
-@pytest.mark.parametrize("lang,title,detail,cfg,critical", [
-    ("en", "Resting", "The frame stays blank", {"display_enabled": False}, False),
-    ("fr", "Au repos", "Le cadre reste vide", {"display_enabled": False}, False),
-    ("en", "Low battery", "The frame is resting until it is recharged", {}, True),
-    ("fr", "Batterie faible", "Le cadre se repose jusqu’à sa recharge", {}, True),
-])
-def test_held_states_read_a_short_title_and_a_sentence(tmp_path, lang, title, detail, cfg,
-                                                       critical):
-    """a held state shows the dot's own word as the title beside the dot and a sentence under it, and tints the
-    card neutral (screen off) or amber (battery hold); "Screen on" has no sentence"""
-    card = _render(tmp_path, lang=lang, cfg=cfg, battery_critical=critical)
-    assert '<span class="home-state__title">%s</span>' % title in card
-    assert '<p class="home-state__detail">%s</p>' % detail in card
-    assert 'class="hero home-state home-state--%s reveal"' % ("warn" if critical else "off") in card
-    assert ("dot--warn" in card) == critical and ("dot--off" in card) == (not critical)
-    plain = _render(tmp_path)
-    assert "home-state__detail" not in plain and 'class="hero home-state home-state--ok reveal"' in plain
-
-
-def test_the_header_label_is_a_visible_heading_and_the_next_line_has_an_icon(tmp_path):
-    """the "Frame state" label is the hero's visually hidden h2 (the hero names itself without a
-    caption above the big title), and the next-update line leads with a decorative clock (a
-    warning sign once overdue)"""
-    card = _render(tmp_path)
-    assert '<h2 class="visually-hidden" id="home-frame-state">Frame state</h2>' in card
-    assert "#icon-nav-history" in card and "#icon-warning" not in card
-    assert "#icon-warning" in _late_next_row(
+def test_the_block_label_is_a_hidden_heading_and_the_next_line_has_an_icon(tmp_path):
+    """the "Frame state" label is the block's visually hidden h2, and the next-update line leads
+    with a decorative clock (a warning sign once overdue)"""
+    tree = _tree(tmp_path)
+    assert tree.select_one("h2.visually-hidden#home-frame-state").text().strip() == "Frame state"
+    assert tree.select_one(".home-state__next svg use").attrs["href"] == "#icon-nav-history"
+    assert "#icon-warning" in _next_row(
         (datetime.fromisoformat(NOW) - timedelta(minutes=40)).isoformat())
-    late = _render(
-        tmp_path, last_checkin_ts=(datetime.fromisoformat(NOW) - timedelta(minutes=50)).isoformat())
-    assert "#icon-warning" not in late and "home-state--warn" in late
-
-
-def test_switch_pills_keep_the_native_switch_semantics(tmp_path):
-    """each pill carries a decorative leading icon and still wraps exactly one native POST form
-    whose submit button is the role="switch" control named by the visible label"""
-    card = _render(tmp_path)
-    for action, slug, icon in (("/quick/display", "screen", "icon-nav-display"),
-                               ("/quick/quiet-hours", "quiet", "icon-moon")):
-        row = re.search(
-            r'<li class="row home-switch home-switch--(?:on|off) home-switch--%s" data-quick-region data-quick-refresh>'
-            r'<div class="row__main"><span class="row__chip" aria-hidden="true">'
-            r'<svg[^>]*aria-hidden="true"[^>]*><use href="#%s"></use></svg></span>(.*?)</form></li>'
-            % (slug, icon), card, re.S)
-        assert row is not None, slug
-        assert row.group(1).count("<form") == 1 and row.group(1).count('role="switch"') == 1
-        button = _switch(card, action)
-        assert 'type="submit"' in button and "aria-label=" not in button
-        assert 'aria-labelledby="home-switch-%s-label"' % slug in button
 
 
 def test_served_home_page_carries_no_inline_style(make_app_server):
     """the Home page served to a signed-in reader has no style attribute anywhere (the CSP
-    forbids inline styles), and a signed-in reader's Home carries the Battery row of the Frame
-    group but no battery dial (the dial is the administrator's hero tile)"""
+    forbids inline styles) and no battery dial, only the battery pill"""
     def seed(state_dir):
         _seed_battery(state_dir, 3700)
     server = make_app_server(seed=seed, fake_providers=True)
@@ -483,33 +413,5 @@ def test_served_home_page_carries_no_inline_style(make_app_server):
     status, _headers, page = http_request(server.base_url() + "/", cookie=cookie)
     html = page.decode("utf-8")
     assert status == 200 and 'class="%s"' % draw.DRAWING_ARC_VALUE_CLASS not in html
-    assert "home-battery" not in html
-    assert 'id="frame-battery-label"' in html
+    assert "home-battery__" not in html and "home-battery-pill" in html
     assert not re.search(r"<[^>]+\sstyle=", html)
-
-
-@pytest.mark.parametrize("lang,name", [
-    ("en", "Edit quiet hours (23:00 – 07:00)"),
-    ("fr", "Modifier les heures calmes (23:00 – 07:00)"),
-])
-def test_quiet_hours_window_is_a_link_to_the_dialog_outside_the_switch(
-        tmp_path, lang, name):
-    """the window beside the Quiet hours label is a hash link that opens the Quiet hours dialog,
-    with an accessible name that repeats the visible window and a chevron marking it openable;
-    the link sits in the pill row but outside the switch's <button>, which stays the single
-    role="switch" control"""
-    card = _render(tmp_path, lang=lang, cfg={"quiet_hours_enabled": True})
-    link = re.search(r'<a href="([^"]+)" class="home-switch__window[^"]*" aria-label="([^"]+)" '
-                     r"data-modal-open>(.*?)</a>", card)
-    assert link is not None, "no quiet hours window link"
-    assert link.group(1) == "#dlg-quiet-hours"
-    assert link.group(2) == name
-    assert link.group(3).startswith("23:00 – 07:00") and "icon-chevron-right" in link.group(3)
-    row = re.search(r'<li class="row home-switch home-switch--(?:on|off) home-switch--quiet" '
-                    r'data-quick-region data-quick-refresh>'
-                    r'.*?home-switch__window.*?</form></li>', card, re.S).group(0)
-    assert row.count('role="switch"') == 1
-    button = re.search(r"<button[^>]*role=\"switch\".*?</button>", row, re.S).group(0)
-    assert "<a " not in button
-    assert row.index("home-switch__window") < row.index('role="switch"')
-

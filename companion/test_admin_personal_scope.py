@@ -2,8 +2,8 @@
 the un-prefixed page moves to the same page of their default own or
 co-managed frame (or to the account page when they have none), every frame
 with a fleet row is addressed by its id, and an administrator viewing a frame
-they neither own nor co-manage sees a Viewing-owner strip with a way back to
-Fleet. Real app subprocess over a seeded fleet.
+they neither own nor co-manage sees a foreign-frame marker with a way back to
+the frame's Fleet page. Real app subprocess over a seeded fleet.
 """
 import re
 
@@ -156,15 +156,64 @@ def test_every_link_keeps_the_frame_being_viewed(app):
 # --- the foreign-frame notice ------------------------------------------------
 
 @pytest.mark.parametrize("page", ("/", "/display", "/flights", "/airlines", "/detection"))
-def test_the_notice_names_the_owner_and_leads_back_to_fleet(app, page):
+def test_the_notice_names_the_owner_and_leads_back_to_the_viewed_frame(app, page):
     _server, seed, _cookies = app
     _status, _headers, body = _get(
         app, "keeper", "/devices/%s%s" % (seed.nasty_frame, page))
     strip = _notice(body)
     assert strip is not None
-    assert "Viewing %s’s frame" % NASTY_OWNER in strip.text()
+    assert "You are viewing %s’s frame" % NASTY_OWNER in strip.text()
     link = strip.select_one("a")
-    assert (link.attrs["href"], link.text().strip()) == ("/fleet", "Back to Fleet")
+    assert link.attrs["href"] == "/fleet?frame=%s" % seed.nasty_frame
+    assert link.text().strip() == "Back to Fleet"
+    assert strip.select_one("strong").text() == NASTY_OWNER
+
+
+@pytest.mark.parametrize("page", ("/", "/flights", "/airlines", "/detection"))
+def test_the_notice_is_the_first_block_of_the_page_above_the_shell(app, page):
+    _server, seed, _cookies = app
+    _status, _headers, body = _get(
+        app, "keeper", "/devices/%s%s" % (seed.nasty_frame, page))
+    root = parse_html(body)
+    assert root.select(".frame-notice")[0].parent.tag == "body"
+    assert root.select("main .frame-notice") == []
+    assert body.index('class="frame-notice"') < body.index('class="dashboard-shell"')
+
+
+@pytest.mark.parametrize("page", ("/", "/flights", "/airlines", "/detection"))
+def test_consulting_a_frame_offers_no_space_switch(app, page):
+    _server, seed, _cookies = app
+    _status, _headers, body = _get(
+        app, "keeper", "/devices/%s%s" % (seed.nasty_frame, page))
+    assert parse_html(body).select(".space-switch") == []
+    assert parse_html(body).select(".tab-bar__space-link") == []
+    assert parse_html(body).select(".frame-notice a")
+
+
+@pytest.mark.parametrize("page", ("/", "/flights", "/airlines", "/detection"))
+def test_the_space_switch_stays_on_the_administrators_own_frame_and_the_console(app, page):
+    _server, seed, _cookies = app
+    _status, _headers, body = _get(
+        app, "keeper", "/devices/%s%s" % (seed.keeper_frame, page))
+    root = parse_html(body)
+    assert root.select(".space-switch") and root.select(".tab-bar__space-link")
+    assert root.select(".frame-notice") == []
+    _status, _headers, body = _get(app, "keeper", "/fleet")
+    assert parse_html(body).select(".space-switch")
+
+
+def test_the_return_link_ignores_a_frame_named_in_the_query(app):
+    _server, seed, _cookies = app
+    _status, _headers, body = _get(
+        app, "keeper", "/devices/%s/flights?frame=%s" % (seed.nasty_frame, seed.keeper_frame))
+    link = _notice(body).select_one("a")
+    assert link.attrs["href"] == "/fleet?frame=%s" % seed.nasty_frame
+
+
+def test_with_no_frame_in_scope_the_return_link_is_plain_fleet():
+    from companion import ui_shell
+    assert ui_shell._fleet_return_href() == "/fleet"
+    assert ui_shell.frame_notice_html("home") == ""
 
 
 def test_the_owner_email_is_escaped(app):
@@ -173,6 +222,7 @@ def test_the_owner_email_is_escaped(app):
         app, "keeper", "/devices/%s/flights" % seed.nasty_frame)
     assert NASTY_OWNER not in body
     assert "o&amp;&lt;b&gt;wner@example.test" in body
+    assert "<b>wner" not in body
 
 
 def test_the_notice_is_in_french(app):
@@ -183,7 +233,20 @@ def test_the_notice_is_in_french(app):
     strip = _notice(body)
     assert strip is not None
     assert "Retour à la flotte" in strip.text()
-    assert "Cadre de %s en consultation" % NASTY_OWNER in strip.text()
+    assert "Vous consultez le cadre de %s" % NASTY_OWNER in strip.text()
+
+
+def test_the_french_airlines_label_is_airlines_on_every_surface(app):
+    _server, seed, _cookies = app
+    _status, _headers, body = _get(
+        app, "keeper", "/devices/%s/airlines" % seed.keeper_frame,
+        headers={"Cookie": "%s; %s=fr" % (app[2]["keeper"], auth.UI_LANG_COOKIE_NAME)})
+    root = parse_html(body)
+    for region in ("nav.sidebar-nav", "nav.tab-bar"):
+        labels = [a.text().strip() for a in root.select_one(region).find_all("a")]
+        assert any("Airlines" in label for label in labels), (region, labels)
+        assert not any("Compagnies" in label for label in labels), (region, labels)
+    assert root.select_one("h1").text().strip() == "Airlines"
 
 
 @pytest.mark.parametrize("page", ("/", "/display", "/flights", "/airlines"))
@@ -218,4 +281,4 @@ def test_the_strip_text_matches_a_valid_email_shape(app):
         app, "admin", "/devices/%s/flights" % seed.shared_frame)
     strip = _notice(body)
     assert strip is not None
-    assert re.search(r"Viewing \S+@\S+’s frame", strip.text())
+    assert re.search(r"viewing \S+@\S+’s frame", strip.text())

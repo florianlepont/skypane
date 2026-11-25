@@ -1,6 +1,7 @@
 """Real-browser checks of small fit and target-size defects: a search hint that is not cut,
 44px targets on suggestion chips and stand-alone links, a tab bar whose cells line up, focus
 that is never left under the floating tab bar, and cards that keep to the page column."""
+import animation_settle
 import pytest
 
 import companion.test_view_pages_helpers as vp
@@ -17,9 +18,7 @@ PHONES = (
     pytest.param(VIEWPORT_PHONE, id="390"))
 LANGS = ("en", "fr")
 
-_READY = (
-    "() => document.readyState === 'complete' && document.getAnimations().every("
-    "(a) => a.playState !== 'running' || a.effect.getComputedTiming().iterations === Infinity)")
+_READY = animation_settle.SETTLED
 
 
 def _seed(state_dir):
@@ -183,9 +182,12 @@ def test_the_system_cards_fill_the_page_column(new_context, rig):
         edges = page.evaluate(
             "() => { const right = (s) => Math.round(document.querySelector(s)"
             ".getBoundingClientRect().right);"
-            " return {header: right('main > .page-header'), topics: right('.system-topics'),"
+            " const main = document.querySelector('main');"
+            " const inner = right('main')"
+            " - parseFloat(getComputedStyle(main).paddingRight);"
+            " return {column: Math.round(inner), topics: right('.system-topics'),"
             " card: right('.system-topics .group-block')}; }")
-        assert edges["topics"] == edges["header"] == edges["card"], edges
+        assert edges["topics"] == edges["column"] == edges["card"], edges
         assert not _assert_no_page_overflow(page, "System", 1280)
     finally:
         context.close()
@@ -248,5 +250,37 @@ def test_the_suggestion_chips_of_a_special_look_are_44px_targets(new_context, ri
             ".map((el) => el.getBoundingClientRect().height)")
         assert heights and min(heights) >= 44, heights
         assert not _assert_no_page_overflow(page, "New special look", viewport["width"])
+    finally:
+        context.close()
+
+
+_BAR_LABEL_BOXES = """() => [...document.querySelectorAll('.tab-bar > a, .tab-bar > details > summary')]
+  .filter((el) => el.getClientRects().length).map((el) => {
+    const label = el.querySelector('.tab-bar__label');
+    const range = document.createRange(); range.selectNodeContents(label);
+    const text = range.getBoundingClientRect(); const cell = el.getBoundingClientRect();
+    return {text: label.textContent.trim(), left: text.left, right: text.right,
+            cellLeft: cell.left, cellRight: cell.right,
+            clipped: label.scrollWidth > label.clientWidth + 0.5}; })"""
+
+
+@pytest.mark.parametrize("lang", LANGS)
+@pytest.mark.parametrize("width", (320, 360, 390))
+def test_the_console_bar_fits_its_five_cells_with_system_as_the_fourth(
+        new_context, rig, width, lang):
+    """Fleet, Users, Editor, System and More each keep their whole label inside their own
+    cell, with no label touching its neighbour, at the narrowest phone widths."""
+    context, page = _admin(new_context, rig, {"width": width, "height": 844}, "/fleet", lang)
+    try:
+        cells = page.evaluate(_BAR_LABEL_BOXES)
+        expected = {"en": ["Fleet", "Users", "Editor", "System", "More"],
+                    "fr": ["Flotte", "Équipe", "Éditeur", "Système", "Plus"]}[lang]
+        assert [c["text"] for c in cells] == expected, cells
+        for cell in cells:
+            assert not cell["clipped"], cell
+            assert cell["cellLeft"] - 0.5 <= cell["left"] and cell["right"] <= cell["cellRight"] + 0.5, cell
+        for left, right in zip(cells, cells[1:]):
+            assert left["right"] <= right["left"] + 0.5, (left, right)
+        assert not _assert_no_page_overflow(page, "Fleet", width)
     finally:
         context.close()

@@ -65,6 +65,48 @@ def _leading_token(delimiter, data):
     return data[start:end].decode("ascii"), end
 
 
+_FIELD_HEADER = re.compile(
+    rb'Content-Disposition: form-data; name="default_type"', re.IGNORECASE)
+_FIELD_VALUE = re.compile(rb"[A-Za-z0-9-]{0,16}")
+
+
+def _leading_type(delimiter, data):
+    """(value, offset) like `_leading_token`, for the optional `default_type`
+    text part (the aircraft type chosen next to the file); (None, 0) when the
+    body does not open with one."""
+    opening = delimiter + b"\r\n"
+    if not data.startswith(opening):
+        return None, 0
+    header_end = data.find(b"\r\n\r\n", len(opening))
+    if header_end < 0 or _FIELD_HEADER.fullmatch(data[len(opening):header_end]) is None:
+        return None, 0
+    start = header_end + 4
+    end = data.find(b"\r\n" + delimiter, start)
+    if end < 0 or _FIELD_VALUE.fullmatch(data[start:end]) is None:
+        return None, 0
+    return data[start:end].decode("ascii"), end
+
+
+def _after_token(delimiter, body):
+    """`body` without its leading token part, if it has one."""
+    token, end = _leading_token(delimiter, body)
+    return (token, body[end + 2:]) if token is not None else (None, body)
+
+
+def parse_upload_type(content_type, body):
+    """The aircraft type a script-free upload form sent as a text part between
+    the token part and the file part, or None. Never raises."""
+    try:
+        boundary = _boundary(content_type)
+        if boundary is None:
+            return None
+        delimiter = b"--" + boundary
+        _token, rest = _after_token(delimiter, body)
+        return _leading_type(delimiter, rest)[0]
+    except Exception:
+        return None
+
+
 def leading_token(content_type, head):
     """The anti-forgery token an upload opens with, read from the first bytes
     of the body, or None when it does not open with a well-formed token
@@ -112,10 +154,11 @@ def parse_upload_form(content_type, body):
         if boundary is None:
             return None
         delimiter = b"--" + boundary
-        token, end = _leading_token(delimiter, body)
-        if token is not None:
-            # Past the token part, what is left is a one-part body.
+        token, body = _after_token(delimiter, body)
+        kind, end = _leading_type(delimiter, body)
+        if kind is not None:
             body = body[end + 2:]
+        # Past the optional parts, what is left is a one-part body.
         payload = _file_payload(delimiter, body)
         return None if payload is None else (payload, token)
     except Exception:

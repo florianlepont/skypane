@@ -1,11 +1,12 @@
 """Real-browser checks that the unsaved-changes dialog belongs to the save
 bar, not to one page: every page family with a bar (Style, a Style form page,
-Calendar connect, Location and detection, the Fleet settings) asks the same
+Calendar connect, Location, the Fleet settings) asks the same
 question before an in-app link takes the edit away, by touch tap and by click,
 at 360 and 1280 px, in both languages and both themes. Save and continue lands
 on the tapped page where that page's save can return there, and saves and
 stays where it cannot; Discard leaves without saving; a post of another form
 (the theme switch) asks too."""
+import animation_settle
 import pytest
 
 from companion import auth, layout
@@ -31,20 +32,17 @@ SECONDARY = DIALOG + " [data-leave-dialog-secondary]"
 QUIET = DIALOG + " [data-leave-dialog-quiet]"
 BAR = ".dirty-bar"
 WORDS = {
-    "en": ("Unsaved changes", "You have changes that are not saved. What do you want to do?",
-           "Save and continue", "Discard", "Stay here"),
-    "fr": ("Modifications non enregistrées",
-           "Vous avez des modifications non enregistrées. Que souhaitez-vous faire ?",
-           "Enregistrer et continuer", "Abandonner", "Rester ici"),
+    "en": ("Leave without saving?", "Your changes are not saved yet.",
+           "Save and leave", "Leave without saving", "Stay here"),
+    "fr": ("Quitter sans enregistrer\u00a0?", "Vos modifications ne sont pas encore enregistrées.",
+           "Enregistrer et quitter", "Quitter sans enregistrer", "Rester ici"),
 }
 # What the primary says, and the note under the question, where the save cannot land on the
 # tapped page: the person is told the page stays open instead of being sent somewhere else.
 SAVE_ONLY = {"en": ("Save", "After saving you stay on this page."),
              "fr": ("Enregistrer", "Après l’enregistrement, vous restez sur cette page.")}
 NOTE = DIALOG + " [data-leave-dialog-note]"
-SETTLED = (
-    "() => document.readyState === 'complete' && document.getAnimations().every("
-    "a => !a.effect || a.effect.getTiming().iterations === Infinity || a.playState !== 'running')")
+SETTLED = animation_settle.SETTLED
 
 
 def _seed(state_dir):
@@ -100,8 +98,8 @@ def _pick_mode(page):
 
 def _change_wake(page):
     """A value that differs from the stored one, whatever earlier tests saved."""
-    field = page.locator("#wake-interval-s")
-    field.fill(str(int(field.input_value()) + 60))
+    field = page.locator("#wake-interval-m")
+    field.fill("5" if field.input_value() != "5" else "6")
 
 
 # name, route (or a callable of the server), element to wait for, the edit, the
@@ -114,7 +112,7 @@ PAGES = [
     ("calendar-connect", layout.DISPLAY_CALENDAR_CONNECT_ROUTE, "#calendar-connect-url",
      _type_calendar_url, "/flights", False),
     ("location", "/detection", "#place-mode-area", _pick_mode, "/flights", False),
-    ("fleet", _fleet_route, "#wake-interval-s", _change_wake, "/users", True),
+    ("fleet", _fleet_route, "#wake-interval-m", _change_wake, "/users", True),
 ]
 PAGE_IDS = [case[0] for case in PAGES]
 
@@ -198,7 +196,7 @@ def test_every_save_bar_page_asks_before_an_in_app_link(
             assert page.locator(PRIMARY).inner_text() == SAVE_ONLY[lang][0]
             assert page.locator(NOTE).inner_text() == SAVE_ONLY[lang][1]
         assert page.locator(SECONDARY).inner_text() == secondary
-        assert page.locator(QUIET).inner_text() == quiet
+        assert page.locator(QUIET).get_attribute("aria-label") == quiet
         page.wait_for_function(
             "() => document.activeElement"
             " && document.activeElement.hasAttribute('data-leave-dialog-quiet')",
@@ -345,37 +343,5 @@ def test_a_destination_the_save_cannot_reach_says_so_before_saving(new_context, 
         _wait_dialog_open(page)
         assert page.locator(PRIMARY).inner_text() == WORDS["en"][2]
         assert page.locator(NOTE).is_hidden()
-    finally:
-        context.close()
-
-
-def _rename_route(server):
-    conn = fleet_db.connect(server.state_dir)
-    try:
-        frame = conn.execute("SELECT id FROM devices LIMIT 1").fetchone()[0]
-    finally:
-        conn.close()
-    return "/devices/%s/frame/name" % frame
-
-
-def test_the_rename_page_saves_and_continues_to_the_tapped_page(new_context, server):
-    """opened without a page to return to, the rename page still saves the name and then lands
-    on the page the person tapped, not on the Account page"""
-    case = ("rename", _rename_route, "#frame-name",
-            lambda page: page.locator("#frame-name").fill("Kitchen wall"), "/flights", True)
-    context, page, prompts = _open(new_context, server, case, VIEWPORT_DESKTOP)
-    try:
-        _press(page, _leave_link(case))
-        _wait_dialog_open(page)
-        assert page.locator(PRIMARY).inner_text() == WORDS["en"][2]
-        with page.expect_navigation(timeout=20000):
-            page.click(PRIMARY)
-        page.wait_for_url("**/flights*", timeout=15000)
-        conn = fleet_db.connect(server.state_dir)
-        try:
-            assert conn.execute("SELECT name FROM devices LIMIT 1").fetchone()[0] == "Kitchen wall"
-        finally:
-            conn.close()
-        assert prompts == []
     finally:
         context.close()

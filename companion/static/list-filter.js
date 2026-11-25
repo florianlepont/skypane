@@ -18,7 +18,7 @@
   "use strict";
 
   // A control marked [data-autosubmit] sends its form as soon as it
-  // changes (the collection's sort and show chips, the Users role select); without a script the
+  // changes (the collection's sort, the Users role select); without a script the
   // form's own button does the same.
   // Heard on the document, so a control a script adds later (the airline
   // editor opens its aircraft-type rows on demand) submits too.
@@ -56,12 +56,9 @@
   // dispatched from here.
   var SWAPPED_EVENT = "skypane-regions-swapped";
   // Optional segmented chips: radios whose value is a row's
-  // data-filter-kind ("" is every row). Absent on a plain search bar.
+  // data-filter-kind ("" is every row); a row can list several kinds
+  // separated by spaces and matches a chip of any one of them. Absent on a plain search bar.
   var chipInputs = document.querySelectorAll("[data-filter-chip]");
-  // Set on the bar while the search holds text, so the collapsed search
-  // stays open without a :has() selector.
-  var ACTIVE_ATTR = "data-filter-active";
-  var bar = input.closest ? input.closest(".filter-bar") : null;
 
   function selectedKind() {
     for (var k = 0; k < chipInputs.length; k++) {
@@ -129,7 +126,7 @@
       group = "g" + (rawGroup === null ? "i" + i : rawGroup);
       rowKind = row.getAttribute("data-filter-kind") || "";
       matched = (query === "" || text.indexOf(query) !== -1)
-        && (kind === "" || rowKind === kind);
+        && (kind === "" || (" " + rowKind + " ").indexOf(" " + kind + " ") !== -1);
       row.hidden = !matched;
       // A Flights summary row's sibling .flight-detail-row is a
       // separate element sharing the same group value via
@@ -174,13 +171,6 @@
       }
     }
     syncDayHeaders();
-    if (bar) {
-      if (query !== "") {
-        bar.setAttribute(ACTIVE_ATTR, "");
-      } else {
-        bar.removeAttribute(ACTIVE_ATTR);
-      }
-    }
     // Looked up fresh: an in-place swap of the list renders the card again.
     var emptyEl = document.querySelector("[data-filter-empty]");
     if (emptyEl) {
@@ -192,6 +182,19 @@
 
   for (var ci = 0; ci < chipInputs.length; ci++) {
     chipInputs[ci].addEventListener("change", applyFilter);
+  }
+
+  // A chip row that scrolls sideways (a phone) brings the chip that just took
+  // the focus or the choice fully into view, not only its left edge.
+  function showChip(evt) {
+    var label = evt.target.closest && evt.target.closest(".filter-chip");
+    if (label && label.scrollIntoView) {
+      label.scrollIntoView({ inline: "nearest", block: "nearest" });
+    }
+  }
+  for (var si = 0; si < chipInputs.length; si++) {
+    chipInputs[si].addEventListener("change", showChip);
+    chipInputs[si].addEventListener("focus", showChip);
   }
 
   // The inline clear and the empty state's own Clear
@@ -276,7 +279,9 @@
     var fields = form.elements;
     for (var i = 0; i < fields.length; i++) {
       var field = fields[i];
-      if (field.type === "radio" && field.name) {
+      // A script-driven chip filters the page's own rows: the address and the
+      // answer know nothing of it.
+      if (field.type === "radio" && field.name && !field.hasAttribute("data-filter-chip")) {
         var wanted = query.has(field.name) ? query.get(field.name) : (defaults[field.name] || "");
         field.checked = field.value === wanted;
       }
@@ -397,16 +402,22 @@
     window.location.assign(url);
   }
 
-  function syncActive() {
-    if (input && input.value !== "") {
-      form.setAttribute("data-filter-active", "");
-    } else {
-      form.removeAttribute("data-filter-active");
+  // The controls the answer renders again inside the form: the sort menu names
+  // the order, the chips carry the counts. The search field is left alone, so
+  // the typed text and the focus stay.
+  var SYNCED = [".collection-sort", ".filter-bar__chips"];
+  function syncControls(doc) {
+    for (var s = 0; s < SYNCED.length; s++) {
+      var live = form.querySelector(SYNCED[s]);
+      var fresh = doc.querySelector(SYNCED[s]);
+      if (live && fresh) {
+        live.parentNode.replaceChild(document.importNode(fresh, true), live);
+      }
     }
   }
 
   // The page's list is a run of sibling elements, each marked [data-flights-view]
-  // (the controls, the empty card or the lists, the Load more block). A swap puts the
+  // (the count line, the empty card or the lists, the Load more block). A swap puts the
   // fetched run where the live one is. The entrance animation the stylesheet gives a
   // card is finished at once: only the first arrival of a page is staged.
   function swapView(doc) {
@@ -421,7 +432,6 @@
     var parent = live[0].parentNode;
     var added = [];
     var motion = window.SkyPaneMotion;
-    var thumbs = motion ? motion.tabsState(document) : null;
     var i;
     for (i = 0; i < fresh.length; i++) {
       var node = document.importNode(fresh[i], true);
@@ -431,16 +441,13 @@
     for (i = 0; i < live.length; i++) {
       parent.removeChild(live[i]);
     }
+    syncControls(doc);
     for (i = 0; i < added.length; i++) {
       settle(added[i]);
-      if (motion) {
-        // The chips are rendered again: their thumb carries on from where the
-        // old one was. The swapped list fades in again (opacity only); the
-        // one the breakpoint hides has no box and is left alone.
-        motion.enhanceTabs(added[i], thumbs);
-        if (visible(added[i]) && added[i].matches(".history-cards, .data-table-wrap")) {
-          motion.replay(added[i], true);
-        }
+      // The swapped list fades in again (opacity only); the one the
+      // breakpoint hides has no box and is left alone.
+      if (motion && visible(added[i]) && added[i].matches(".history-cards, .data-table-wrap")) {
+        motion.replay(added[i], true);
       }
     }
     var chosen = walking === null ? null :
@@ -712,12 +719,11 @@
       input.value = "";
     }
     if (inView) {
-      var chips = document.querySelectorAll('input[name="kind"][form="' + form.id + '"]');
+      var chips = form.querySelectorAll('input[name="kind"]');
       for (var i = 0; i < chips.length; i++) {
         chips[i].checked = chips[i].value === "";
       }
     }
-    syncActive();
     refresh(true);
     if (!inView && input) {
       input.focus();
@@ -726,8 +732,7 @@
 
   if (input) {
     input.addEventListener("input", function () {
-      syncActive();
-      window.clearTimeout(timer);
+        window.clearTimeout(timer);
       timer = window.setTimeout(function () { refresh(false); }, SEARCH_DELAY_MS);
     });
   }
@@ -766,7 +771,7 @@
 })();
 
 /*
- * The Airlines collection's show chips and sort menu. The server answers the
+ * The Airlines collection's sort menu. The server answers the
  * form (the list is built from the whole history); this block only fetches that
  * answer and puts the list in the place of the live one, so the page is not
  * reloaded, its opening is not played again and the scroll position stays.
@@ -781,7 +786,7 @@
   }
 
   var VIEW = ".collection-grid, .collection-sheet, [data-filter-empty], [data-collection-empty]";
-  var DEFAULTS = { show: "all", sort: "most" };
+  var DEFAULTS = { sort: "rarest" };
   var SORT_NAME = "sort";
   var OFFLINE = window.skypaneListOffline.REASON;
   var latest = 0;

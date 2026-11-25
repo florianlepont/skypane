@@ -40,7 +40,7 @@ def test_render_emits_no_fieldset_or_legend_three_groups_no_runway_cards_and_sav
     rendered = config_page.render(ctx)
     assert "<fieldset" not in rendered
     assert "<legend" not in rendered
-    assert rendered.count('class="theme-status"') == 3
+    assert rendered.count(config_page.DIRTY_SECTION_ATTR) == 3
     assert "theme-chip-grid" not in rendered
     assert '<label class="runway-card' not in rendered
     assert 'name="tracked_runway"' not in rendered
@@ -182,46 +182,42 @@ def test_render_wires_quiet_hours_group_after_led_before_save_button():
 
 
 def test_wake_interval_group_markup_in_range_value():
-    """wake_interval_group(120) emits one .theme-status[data-dirty-section] wrapper, the locked
-    heading/caption, one type="number" input with min/max from device_config and the locked
-    placeholder and a matching value, and none of <fieldset>/<legend>/settings-checkbox"""
+    """wake_interval_group(120) emits one dirty-tracked tile with the locked heading and
+    caption, one minutes input bounded to 1..60 showing 2, and the hidden seconds field
+    carrying 120"""
     rendered = config_page.wake_interval_group(120)
-    assert rendered.count('class="theme-status"') == 1
-    assert config_page.DIRTY_SECTION_ATTR in rendered
-    expected_heading = (
-        '<h2 class="text-heading">%s</h2>' % escape_html(config_page.WAKE_INTERVAL_SECTION_HEADING))
-    assert rendered.count(expected_heading) == 1
-    # The caption carries its own id, the number input's aria-describedby target.
+    assert rendered.count(config_page.DIRTY_SECTION_ATTR) == 1
+    assert rendered.count(
+        '<span class="fleet-tile__label">%s</span>' % escape_html(
+            config_page.WAKE_INTERVAL_SECTION_HEADING)) == 1
     expected_caption = (
-        '<p class="text-label section-caption" id="%s">%s</p>'
-        % (
+        '<span class="fleet-tile__meta" id="%s">%s</span>' % (
             escape_html(config_page.WAKE_INTERVAL_SECTION_CAPTION_ID),
             escape_html(config_page.WAKE_INTERVAL_SECTION_CAPTION)))
     assert rendered.count(expected_caption) == 1
-    expected_input = (
-        '<input type="number" id="%s" name="wake_interval_s"' % config_page.WAKE_INTERVAL_INPUT_ID)
-    assert rendered.count(expected_input) == 1
-    assert 'min="%d"' % device_config.WAKE_INTERVAL_MIN_S in rendered
-    assert 'max="%d"' % device_config.WAKE_INTERVAL_MAX_S in rendered
-    assert 'placeholder="%s"' % config_page.WAKE_INTERVAL_PLACEHOLDER_TEXT in rendered
-    assert 'value="120"' in rendered
+    assert rendered.count('<input type="number" id="%s"' % config_page.WAKE_INTERVAL_INPUT_ID) == 1
+    assert 'min="%d"' % (device_config.WAKE_INTERVAL_MIN_S // 60) in rendered
+    assert 'max="%d"' % (device_config.WAKE_INTERVAL_MAX_S // 60) in rendered
+    assert ' value="2"' in rendered
+    assert 'name="wake_interval_s" value="120"' in rendered
     assert "<fieldset" not in rendered
     assert "<legend" not in rendered
     assert "settings-checkbox" not in rendered
 
 
-def test_wake_interval_group_value_attribute_only_for_in_range_non_bool_int():
-    """wake_interval_group() emits a value attribute only for an in-range, non-bool int
-    (None/True/False/a str/30/59/3601/7200 all emit none; 60/3600/120 each emit theirs) — an
-    out-of-range or wrong-typed value would fail native constraint validation and block the
-    whole form"""
-    no_value_cases = (None, True, False, "120", 30, 59, 3601, 7200)
-    for case in no_value_cases:
-        assert "value=" not in config_page.wake_interval_group(case), (
-            "expected wake_interval_group(%r) to emit no value attribute" % (case,))
-    for case, expected in ((60, 60), (3600, 3600), (120, 120)):
+def test_wake_interval_group_shows_minutes_only_for_an_in_range_non_bool_int():
+    """wake_interval_group() fills the minutes field and the seconds field only for an in-range,
+    non-bool int (None/True/False/a str/30/59/3601/7200 leave both empty); an interval that is
+    not a whole minute shows its minutes rounded up and keeps its exact seconds"""
+    for case in (None, True, False, "120", 30, 59, 3601, 7200):
         rendered = config_page.wake_interval_group(case)
-        assert 'value="%d"' % expected in rendered
+        assert ' value="' not in rendered.replace(' value=""', ""), (
+            "expected wake_interval_group(%r) to fill no field" % (case,))
+        assert 'name="wake_interval_s" value=""' in rendered
+    for case, minutes in ((60, 1), (3600, 60), (120, 2), (90, 2)):
+        rendered = config_page.wake_interval_group(case)
+        assert ' value="%d"' % minutes in rendered
+        assert 'name="wake_interval_s" value="%d"' % case in rendered
 
 
 def test_render_places_wake_interval_last_and_resolves_prefill():
@@ -242,18 +238,18 @@ def test_render_places_wake_interval_last_and_resolves_prefill():
     ]
     positions = [rendered.index(h) for h in headings]
     assert positions == sorted(positions)
-    assert "value=" not in rendered.split('name="wake_interval_s"')[1].split(">")[0]
+    assert 'name="wake_interval_s" value=""' in rendered
 
     on_disk_ctx = dict(base_ctx)
     on_disk_ctx["device_config"] = dict(base_ctx["device_config"], wake_interval_s=180)
     on_disk_ctx["wake_interval_env_default"] = 900
     rendered = config_page.render(on_disk_ctx)
-    assert 'value="180"' in rendered
+    assert 'name="wake_interval_s" value="180"' in rendered and ' value="3"' in rendered
 
     fallback_ctx = dict(base_ctx)
     fallback_ctx["wake_interval_env_default"] = 900
     rendered = config_page.render(fallback_ctx)
-    assert 'value="900"' in rendered
+    assert 'name="wake_interval_s" value="900"' in rendered and ' value="15"' in rendered
 
 
 def test_no_page_and_no_scope_renders_a_display_or_quiet_hours_on_off_checkbox(tmp_path):
@@ -378,11 +374,8 @@ def test_every_settings_group_is_named_exactly_once():
         "Diagnostic LED": config_page.QUICK_LED_LABEL_ID,
     }
     for name in ("Diagnostic LED",):
-        heading_id = heading_ids.get(name)
-        if heading_id:
-            heading = '<h2 class="text-heading" id="%s">%s</h2>' % (escape_html(heading_id), name)
-        else:
-            heading = '<h2 class="text-heading">%s</h2>' % name
+        heading = '<span class="fleet-tile__label" id="%s">%s</span>' % (
+            escape_html(heading_ids[name]), name)
         assert rendered.count(heading) == 1
     assert 'id="runway-group-heading"' not in rendered
     assert "<legend" not in rendered

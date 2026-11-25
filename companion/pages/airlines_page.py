@@ -6,8 +6,9 @@ Renders the static curated list from
 `illustrations.target_variants_by_airline()` as a table
 (`airline_table.py`), with the sightings of every frame for the
 views, last seen and aircraft types.
-`unresolved_row_for_prefix()` makes one read-only membership check via
-`state_store.load_poll_state()`, gated on `ctx.resolve_prefix`. Each
+`unresolved_row_for_prefix()` makes one read-only membership check over the
+merged unidentified prefixes of every frame in scope
+(`companion.fleet_unresolved`), gated on `ctx.resolve_prefix`. Each
 `<img>` carries `illustration_normalize`'s width/height constants so the
 browser reserves space before the image loads.
 """
@@ -26,15 +27,14 @@ from companion.layout import csrf_field, escape_html
 import companion.layout as layout
 import companion.page_context as page_context
 import companion.ui_components as ui_components
-from companion import airline_collection
-from companion.pages import airline_sheet, airline_table
-from companion.ui_base import AIRLINE_EDITOR_LABEL
+from companion import airline_collection, fleet_unresolved
+from companion.pages import airline_missing, airline_rows, airline_sheet, airline_table
+from companion.ui_base import AIRLINE_EDITOR_LABEL, validation_attrs
 from server.plane import airline_default_types, illustrations
-# manual_resolutions, enrich and state_store import this page module in
+# manual_resolutions and enrich import this page module in
 # neither direction, so importing them here creates no cycle.
 from server.plane import manual_resolutions
 from server.plane import enrich
-import server.state_store as state_store
 
 # Mirrors companion/app.py's own ILLUSTRATION_IMAGE_ROUTE_PREFIX,
 # duplicated rather than imported since app.py imports this module (the
@@ -46,15 +46,23 @@ ILLUSTRATION_ROUTE_PREFIX = "/illustration/"
 # primary picture); the other sections use their fleet-variant shape as
 # identifier.
 ANY_TYPE_ID = "any"
-TYPE_LABEL_TEXT = i18n.msg("airlines.aircraft_type", "Aircraft type")
-# The type label of an owner-named airline: its one picture is used for
-# every aircraft, so it names no single type. A built-in airline always
-# names the airframe its picture shows (`illustrations.aircraft_label()`).
-TYPE_ALL_TEXT = i18n.msg("airlines.all_types", "All types")
-
-# A row lists up to this many aircraft types, else its first two and "+N".
-ROW_TYPES_SHOWN_MAX = 3
-ROW_TYPES_SEP = " · "
+# The upload address query parameter that carries the aircraft type chosen in
+# the add-first-artwork dialog (the multipart body holds the file alone).
+DEFAULT_TYPE_QUERY_PARAM = "default_type"
+ASK_TYPE_ATTR = "data-view-panel-ask-type"
+ASK_TYPE_ID = "airline_artwork_type"
+ASK_TYPE_CLASS = "upload-type"
+ASK_TYPE_LABEL = i18n.msg("airlines.artwork_aircraft_type", "Aircraft type")
+# A trigger that already knows the aircraft type (a type row's "Add artwork")
+# carries it here; the dialog then shows it as a fixed chip instead of the select.
+FIXED_TYPE_ATTR = "data-view-panel-fixed-type"
+UPLOAD_CONSTRAINTS = (
+    i18n.msg("airlines.constraint_transparent_png", "Transparent PNG"),
+    i18n.msg("airlines.constraint_min_width", "At least 1200 px wide"),
+    i18n.msg("airlines.constraint_landscape", "Landscape"),
+)
+DIALOG_CANCEL_TEXT = i18n.msg("airlines.cancel", "Cancel")
+DIALOG_UPLOAD_TEXT = i18n.msg("airlines.table_upload", "Upload")
 
 # A row's accessible name: ACTION_LABEL_TEMPLATE takes the action (or the
 # edit wording and the airline) then the airline's types / name.
@@ -206,6 +214,7 @@ FLASH_ILLUSTRATION_NOT_TRANSPARENT = "illustration_not_transparent"
 # storing an otherwise-acceptable upload.
 FLASH_ILLUSTRATION_REPLACE_FAILED = "illustration_replace_failed"
 
+FLASH_ARTWORK_TYPE_INVALID = "artwork_type_invalid"
 FLASH_MANUAL_RESOLVED = "manual_resolved"
 FLASH_MANUAL_NAME_EMPTY = "manual_name_empty"
 FLASH_MANUAL_NAME_TOO_LONG = "manual_name_too_long"
@@ -227,6 +236,8 @@ FLASH_MANUAL_NAME_UNUSABLE = "manual_name_unusable"
 # disappearing from the management list is the confirmation.
 
 RESOLVE_ROUTE = "/airlines/resolve"
+AIRLINE_SUGGEST_ROUTE = "/airlines/suggest"
+AIRLINE_SUGGEST_REJECT_ROUTE = "/airlines/suggest/reject"
 MANUAL_DELETE_ROUTE_PREFIX = "/airlines/manual-resolutions/"
 MANUAL_DELETE_ROUTE_SUFFIX = "/delete"
 # The read-only Airline collection; every link of this editing page uses
@@ -239,6 +250,8 @@ TYPES_QUERY_PARAM = airline_table.TYPES_PARAM
 # Re-exported so page_context reads one query-parameter vocabulary here.
 SHEET_QUERY_PARAM = airline_sheet.SHEET_QUERY_PARAM
 RENAME_ROUTE = airline_sheet.RENAME_ROUTE
+# The rename of an airline the owner named by hand (identified by its stored prefix).
+RENAME_MANUAL_ROUTE = "/airlines/rename/manual"
 RENAME_RESET_ROUTE = airline_sheet.RENAME_RESET_ROUTE
 FLASH_RENAMED = airline_sheet.FLASH_RENAMED
 FLASH_RENAME_RESET = airline_sheet.FLASH_RENAME_RESET
@@ -286,6 +299,9 @@ NAME_LABEL_TEXT = i18n.msg("airlines.airline_name", "Airline name")
 SAVE_BUTTON_TEXT = i18n.msg("airlines.save_airline_name", "Save airline name")
 STEP_B_HEADING_TEMPLATE = i18n.msg(
     "airlines.add_an_illustration_for", "Add an illustration for %s")
+# The add-illustration dialog's one-line title; the airline (and type) shows
+# beneath it as the subtitle.
+STEP_B_TITLE = i18n.msg("airlines.add_an_illustration", "Add an illustration")
 STEP_B_SKIP_TEXT = i18n.msg(
     "airlines.skip_i_ll_add_artwork_later", "Skip — I’ll add artwork later")
 # Fourth reachable state: a bookmark or Back press lands on a prefix
@@ -486,7 +502,7 @@ def _airline_card_manual_fields(manual_info, airline_name, key, state_dir, now):
     heading_value = ""
     upload_action_value = ""
     if mode == _VIEW_PANEL_MODE_NEEDS_ARTWORK:
-        heading_value = i18n.t(STEP_B_HEADING_TEMPLATE) % escape_html(airline_name)
+        heading_value = i18n.t(STEP_B_TITLE)
         upload_action_value = _illustration_url(key, "POST")
 
     delete_action_value = _manual_delete_action(prefix) if has_manual else ""
@@ -626,7 +642,7 @@ def _type_fields(card, type_key, type_title, is_base, has_art):
         fields = [_VIEW_PANEL_MODE_ART, False, False, "", "", "", "", "", "", "", "", ""]
     if not has_art and fields[0] == _VIEW_PANEL_MODE_ART:
         fields[0] = _VIEW_PANEL_MODE_NEEDS_ARTWORK
-        fields[5] = i18n.t(STEP_B_HEADING_TEMPLATE) % escape_html(type_title)
+        fields[5] = i18n.t(STEP_B_TITLE)
         fields[6] = _illustration_url(type_key, "POST")
     elif not fields[5]:
         fields[5] = escape_html(card["name"])
@@ -662,8 +678,9 @@ def _type_trigger_html(card, type_id, type_label, type_key, css_class, inner_htm
 
 
 def _gap_rows_for_grid(state_dir, manual_registry=None):
-    """Eligible gap rows: every prefix in the live unresolved-callsign-prefix
-    registry with `count >= GAP_BLOCK_THRESHOLD`, sorted `(-count, prefix)`,
+    """Eligible gap rows: every prefix in the unresolved-callsign-prefix
+    registries of every frame in scope, merged (counts added), with
+    `count >= GAP_BLOCK_THRESHOLD` on the merged count, sorted `(-count, prefix)`,
     capped at `GAP_BLOCK_CAP` shown rows. Never raises.
 
     Skips a prefix with a manual resolution entry already: the poll state
@@ -675,10 +692,7 @@ def _gap_rows_for_grid(state_dir, manual_registry=None):
     """
     if not state_dir:
         return [], 0
-    state = state_store.load_poll_state(state_dir)
-    registry = state.get("unresolved_prefixes")
-    if not isinstance(registry, dict):
-        return [], 0
+    registry = fleet_unresolved.merged_registry(fleet_unresolved.scope_dirs(state_dir))
     if manual_registry is None:
         manual_registry = manual_resolutions.load_manual_resolutions(state_dir)
     eligible = []
@@ -740,14 +754,14 @@ def _gap_overflow_html(overflow_count):
     """Overflow line for the gap block, rendered only when
     `_gap_rows_for_grid()`'s cap hid at least one eligible prefix.
 
-    Links to `/health`, not `/airlines`, even though this line renders
-    inside Airlines' own gap strip: only Health's unresolved-prefix
-    registry table lists every hidden prefix.
+    Links to the System view, not `/airlines`, even though this line
+    renders inside Airlines' own gap strip: only the unresolved-prefix
+    registry table there lists every hidden prefix.
     """
     if not overflow_count:
         return ""
     return '<p class="text-label section-caption">%s<a href="%s">%s</a>.</p>' % (
-        i18n.t(MANUAL_OVERFLOW_TEMPLATE) % overflow_count, device_scope.scoped("/health"),
+        i18n.t(MANUAL_OVERFLOW_TEMPLATE) % overflow_count, "/fleet?view=system",
         i18n.t(MANUAL_OVERFLOW_LINK_TEXT))
 
 
@@ -781,7 +795,7 @@ def _lightbox_html(name_form_hidden_html=""):
         '<dialog class="lightbox lightbox--wide" id="%s" aria-label="%s">'
         "%s"
         '<img class="lightbox__image" src="" alt="">'
-        '<p class="lightbox__caption text-label mono"></p>'
+        '<p class="lightbox__caption text-label"></p>'
         '<p class="lightbox__note text-body">%s</p>'
         "%s"
         "%s"
@@ -791,7 +805,9 @@ def _lightbox_html(name_form_hidden_html=""):
         "%s"
         '<div class="%s">'
         '<button type="button" %s>%s</button>'
+        "%s"
         '<button type="submit" form="%s">%s</button>'
+        "%s"
         "</div>"
         "</dialog>"
     ) % (
@@ -807,7 +823,15 @@ def _lightbox_html(name_form_hidden_html=""):
         delete_html,
         LIGHTBOX_ACTIONS_CLASS,
         _VIEW_PANEL_CLOSE_ATTR, escape_html(i18n.t(_CLOSE_TEXT)),
+        ui_components.button_html(
+            i18n.t(DIALOG_CANCEL_TEXT), "secondary",
+            attrs=" %s hidden" % _VIEW_PANEL_CLOSE_ATTR).replace(
+                'class="btn btn--secondary"', 'class="btn btn--secondary lightbox__cancel"'),
         MANUAL_RESOLVE_FORM_ID + "-dialog", escape_html(i18n.t(SAVE_BUTTON_TEXT)),
+        ui_components.button_html(
+            i18n.t(DIALOG_UPLOAD_TEXT), "primary", button_type="submit",
+            attrs=' form="%s" hidden' % (MANUAL_UPLOAD_FORM_ID + "-dialog")).replace(
+                'class="btn btn--primary"', 'class="btn btn--primary lightbox__upload"'),
     )
 
 
@@ -833,17 +857,16 @@ _CLOSE_TEXT = i18n.msg("airlines.close", "Close")
 _CHOOSE_AN_IMAGE_TEXT = i18n.msg("airlines.choose_an_image", "Choose an image")
 
 
-def _filter_bar_html(total):
-    """Filter bar over the gallery, entirely inert without JS —
-    list-filter.js's early-return guard leaves the full unfiltered grid
-    usable if the script never loads. The plain search pill: no chips,
-    since no row carries a second dimension worth segmenting.
-    """
+def _filter_bar_html(total, chips=None):
+    """Filter bar over the editor table, inert without JS (list-filter.js's
+    early-return guard leaves the full table usable). `chips` adds the kind
+    chips (`airline_rows.chips`)."""
     return layout.filter_bar_html(
         _FILTER_INPUT_ID, i18n.t(_FILTER_LABEL_TEXT),
         i18n.t(_FILTER_PLACEHOLDER_TEXT), i18n.t(_FILTER_COUNT_TEMPLATE),
         total, total, i18n.t(_FILTER_EMPTY_HEADING),
-        i18n.t(_FILTER_EMPTY_BODY_TEMPLATE) % total)
+        i18n.t(_FILTER_EMPTY_BODY_TEMPLATE) % total, chips=chips,
+        chips_legend=airline_rows.chips_legend() if chips else "", chips_scroll=True)
 
 
 def unresolved_row_for_prefix(state_dir, prefix):
@@ -867,10 +890,7 @@ def unresolved_row_for_prefix(state_dir, prefix):
     prefix = manual_resolutions.normalise_prefix(prefix)
     if prefix is None:
         return None
-    state = state_store.load_poll_state(state_dir)
-    registry = state.get("unresolved_prefixes")
-    if not isinstance(registry, dict):
-        return None
+    registry = fleet_unresolved.merged_registry(fleet_unresolved.scope_dirs(state_dir))
     entry = registry.get(prefix)
     if not isinstance(entry, dict):
         return None
@@ -987,42 +1007,79 @@ def _resolve_name_form_html(prefix_value, id_suffix, include_submit=True, hidden
     )
 
 
+def ask_type_options():
+    """The aircraft types an add-illustration dialog offers, sorted."""
+    return sorted(set(illustrations._TYPE_SHAPE_BUCKETS) | set(illustrations._TYPE_VARIANT_SLUGS))
+
+
+def _ask_type_html(inline=False):
+    """The aircraft-type row of the add-first-artwork step: its label, the
+    select and (in the dialog) the fixed-type chip. In the dialog the select
+    is hidden unless the opening trigger asks for a type and has no `name`:
+    the multipart body holds the file alone, so panel-lookup.js puts the choice
+    on the upload address as `default_type`; the chip replaces it when the
+    trigger names the type. Without a script (`inline`) the select is shown,
+    required and named: the browser sends it as a text part before the file,
+    which the upload route reads. Same options either way."""
+    options = ask_type_options()
+    select_id = ASK_TYPE_ID + ("-page" if inline else "")
+    select = (
+        '<select id="%s" class="%s" aria-label="%s"%s%s>'
+        '<option value="">%s</option>%s</select>'
+    ) % (
+        select_id, ASK_TYPE_CLASS, escape_html(i18n.t(ASK_TYPE_LABEL)),
+        ' name="%s" required' % DEFAULT_TYPE_QUERY_PARAM if inline else " hidden",
+        "" if inline else validation_attrs("select"), escape_html(i18n.t(ASK_TYPE_LABEL)),
+        "".join('<option value="%s">%s</option>' % (escape_html(c), escape_html(c)) for c in options))
+    chip = "" if inline else '<span class="upload-type-chip mono" data-upload-type-chip hidden></span>'
+    return (
+        '<div class="upload-type-row"><label class="upload-type-row__label" for="%s">%s</label>%s%s</div>'
+    ) % (select_id, escape_html(i18n.t(ASK_TYPE_LABEL)), select, chip)
+
+
+def _upload_constraints_html():
+    """The compact list of what the picture must be."""
+    return '<ul class="upload-constraints">%s</ul>' % "".join(
+        "<li>%s</li>" % escape_html(i18n.t(text)) for text in UPLOAD_CONSTRAINTS)
+
+
 def _resolve_upload_form_html(action, id_suffix):
-    """Step B's upload-zone form — one definition, two call sites: the no-JS
+    """Step B's upload form — one definition, two call sites: the no-JS
     fallback calls this with the real `/illustration/{key}.png` action and
     `id_suffix=""`; the dialog calls it with `action=""` and
     `id_suffix="-dialog"`, and panel-lookup.js overwrites `action` via
     `setAttribute`.
 
-    `action=""` on the dialog's call is a real, present placeholder, never
-    omitted. The drop zone sits inside the `<form>`, since it writes into
-    that form's own input.
+    Reads top to bottom: the aircraft type (select, or the fixed chip), the
+    file input and its framing preview in one drop zone, then the compact list
+    of what the picture must be. The dialog's Upload button lives in its
+    action row (re-attached by `form=`); the no-JS fallback keeps its own
+    inside the form. `action=""` on the dialog's call is a real, present
+    placeholder, never omitted. The drop zone sits inside the `<form>`, since
+    it writes into that form's own input.
     """
     upload_input_id = MANUAL_UPLOAD_INPUT_ID + id_suffix
-    icon_html = layout.icon_html("icon-upload", extra_class=REPLACE_ICON_CLASS)
+    submit = "" if id_suffix else ui_components.button_html(
+        i18n.t(REPLACE_BUTTON_TEXT), "secondary", button_type="submit")
     return (
         '<div class="%s">'
-        "%s"
-        '<label for="%s">%s</label>'
-        '<p class="%s">%s</p>'
         '<form id="%s" method="post" enctype="multipart/form-data" action="%s">'
-        "%s"
+        "%s%s"
+        '<label class="visually-hidden" for="%s">%s</label>'
         '<input type="file" id="%s" name="image" accept="image/png" required>'
-        "%s"
-        "%s"
+        "%s%s%s"
         "</form>"
         "</div>"
     ) % (
         RESOLVE_UPLOAD_ZONE_CLASS,
-        icon_html,
-        upload_input_id, i18n.t(_CHOOSE_AN_IMAGE_TEXT),
-        REPLACE_HINT_CLASS, i18n.t(REPLACE_HINT_TEXT),
         MANUAL_UPLOAD_FORM_ID + id_suffix,
         action,
-        csrf_field(),
+        csrf_field(), _ask_type_html(inline=not id_suffix),
+        upload_input_id, i18n.t(_CHOOSE_AN_IMAGE_TEXT),
         upload_input_id,
-        ui_components.button_html(i18n.t(REPLACE_BUTTON_TEXT), "secondary", button_type="submit"),
         _upload_drop_html(upload_input_id),
+        _upload_constraints_html(),
+        submit,
     )
 
 
@@ -1112,7 +1169,7 @@ def _resolve_section_html(ctx):
     # delete form is eligible in both.
     delete_form = _manual_delete_form_html(_manual_delete_action(prefix))
 
-    if illustrations.resolved_illustration_path(key, state_dir) is None:
+    if not illustrations.has_pictures(key, state_dir):
         # Step B: name already saved, no artwork exists yet.
         upload_action = _illustration_url(key, "POST")
         upload_zone = _resolve_upload_form_html(upload_action, "")
@@ -1147,6 +1204,14 @@ def _illustration_url(key, method="GET"):
     return url
 
 
+def manual_prefix_renamable(prefix):
+    """Whether a hand-named prefix can be renamed: the built-in tables, the
+    airlines known by name only included, do not name it (their name wins at
+    runtime, so a rename would change nothing)."""
+    return not enrich.static_airline_name_for_prefix(prefix) and prefix not in dict(
+        enrich.names_without_artwork())
+
+
 def _manual_resolution_rows(state_dir, registry):
     """`(prefix, airline_name, created_at, superseded, needs_artwork)`
     tuples from an already-loaded `registry`, via
@@ -1163,7 +1228,7 @@ def _manual_resolution_rows(state_dir, registry):
         needs_artwork = False
         if not superseded:
             key = manual_resolutions.illustration_key_for_name(airline_name)
-            needs_artwork = bool(key) and illustrations.resolved_illustration_path(key, state_dir) is None
+            needs_artwork = bool(key) and not illustrations.has_pictures(key, state_dir)
         rows.append((prefix, airline_name, created_at, superseded, needs_artwork))
     return rows
 
@@ -1179,6 +1244,19 @@ def _entries_by_slug(ctx, now):
         dirs.append(ctx.state_dir)
     entries, _summary = airline_collection.collection_across(dirs, now, overrides)
     return {entry.slug: entry for entry in entries}
+
+
+def _seen_only_names(entries_by_slug, taken):
+    """Names of the airlines some frame saw that the table has no row for yet
+    (not curated, not hand-named, not known by name), in sighting-slug order."""
+    names = []
+    for slug in sorted(entries_by_slug):
+        entry = entries_by_slug[slug]
+        if entry.curated or not entry.seen or entry.name in taken or entry.name in names:
+            continue
+        if manual_resolutions.illustration_key_for_name(entry.name):
+            names.append(entry.name)
+    return names
 
 
 def _table_data(ctx):
@@ -1221,7 +1299,14 @@ def _table_data(ctx):
                 and airline_name not in injected_names):
             injected_pairs.append((airline_name, []))
             injected_names.add(airline_name)
-    pairs = pairs + injected_pairs
+    promoted_prefixes = airline_missing.promoted(
+        state_dir, registry, curated_names | injected_names)
+    entries_by_slug = _entries_by_slug(ctx, now)
+    known_rows = airline_missing.rows(state_dir, registry)
+    taken = curated_names | injected_names | set(promoted_prefixes) | {
+        name for _prefix, name in known_rows}
+    pairs = pairs + injected_pairs + [(name, []) for name in promoted_prefixes] + [
+        (name, []) for name in _seen_only_names(entries_by_slug, taken)]
 
     overrides = ctx.name_overrides or {}
     sheets_by_name = {}
@@ -1234,8 +1319,11 @@ def _table_data(ctx):
 
     data = airline_table.TableData(
         pairs=pairs, state_dir=state_dir, now=now, sheets_by_name=sheets_by_name,
-        manual_info_by_name=manual_info_by_name, entries_by_slug=_entries_by_slug(ctx, now),
-        gap_rows=gap_shown, focus_key=focus_key,
+        manual_info_by_name=manual_info_by_name, entries_by_slug=entries_by_slug,
+        gap_rows=gap_shown, root_state_dir=ctx.root_state_dir or "",
+        known_rows=known_rows,
+        promoted_prefixes=promoted_prefixes,
+        focus_key=focus_key,
         default_types=airline_default_types.load_default_types(state_dir),
         types_open=ctx.types_open == airline_table.TYPES_ALL)
     return data, gap_overflow_count
@@ -1274,8 +1362,8 @@ def render(ctx):
     overflow_html = _gap_overflow_html(gap_overflow_count)
     pairs, gap_shown = table_data.pairs, table_data.gap_rows
     lightbox_html = _lightbox_html() if (pairs or gap_shown) else ""
-    filter_html = _filter_bar_html(len(gap_shown) + len(pairs)) if (pairs or gap_shown) else ""
-    table_html = airline_table.table_html(table_data)
+    table_html, chips = airline_table.table_and_chips(table_data)
+    filter_html = _filter_bar_html(chips[0][2], chips) if (pairs or gap_shown) else ""
     return (
         layout.page_header(i18n.t(AIRLINE_EDITOR_LABEL))
         + filter_html

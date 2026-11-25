@@ -1,6 +1,7 @@
 """Real-browser checks of the last audit points: the Access tab's person rows on a phone, the
 Users list's Invited badge, the nearest-airport offer on a phone, the Location map's edge tint
 and the Searching row of the place search."""
+import animation_settle
 import pytest
 
 import fleet_console_support as fx
@@ -9,9 +10,7 @@ from companion.test_browser_ux_helpers import _login
 
 pytestmark = pytest.mark.browser
 
-_SETTLED = (
-    "() => document.readyState === 'complete' && document.getAnimations().every("
-    "a => !a.effect || a.effect.getTiming().iterations === Infinity || a.playState !== 'running')")
+_SETTLED = animation_settle.SETTLED
 _PERSON_ROWS = """() => [...document.querySelectorAll('.fleet-frame .row.access-person')].map(row => {
   const box = row.getBoundingClientRect();
   const email = row.querySelector('.co-manager__email');

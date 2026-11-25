@@ -26,7 +26,7 @@ import time
 import pytest
 
 import companion.test_companion_app_helpers as cah
-from companion import access, app, auth, legacy_pages, routes, static_files
+from companion import access, app, auth, routes, static_files
 from companion_app_server import (
     InProcessAppServer, auth0_env, http_request, with_csrf_part,
     login_via_auth0)
@@ -38,7 +38,6 @@ import matrix_rows_admin_frame
 import matrix_rows_co_managers
 import matrix_rows_landing
 import matrix_rows_lifecycle
-import matrix_rows_locations
 import matrix_rows_pairing
 import matrix_rows_place
 import matrix_rows_users
@@ -82,19 +81,14 @@ ROUTE_POLICY = {
     ("GET", "/display/special-looks/new"): OWNER_DEVICE,
     ("GET", "/display/special-looks/edit"): OWNER_DEVICE,
     ("GET", "/display/arrivals"): OWNER_DEVICE,
-    ("GET", "/display/layout"): OWNER_DEVICE,
     ("GET", "/display/calendar"): OWNER_DEVICE,
     ("GET", "/display/calendar/connect"): OWNER_DEVICE,
     ("GET", "/display/calendar-look"): OWNER_DEVICE,
-    ("GET", "/display/screen"): OWNER_DEVICE,
-    ("GET", "/device"): ADMIN_ONLY,
     ("GET", "/detection"): OWNER_DEVICE,
     ("GET", "/flights"): OWNER_DEVICE,
     ("GET", "/airlines"): OWNER_DEVICE,
     ("GET", "/update"): ADMIN_ONLY,
     ("GET", "/settings"): OWNER_DEVICE,
-    ("GET", "/history"): OWNER_DEVICE,
-    ("GET", "/preview"): OWNER_DEVICE,
     ("GET", "/gallery/{}"): OWNER_DEVICE,
     ("GET", "/runway-image/{}.png"): ADMIN_ONLY,
     ("GET", "/illustration/{}.png"): OWNER_DEVICE,
@@ -118,19 +112,21 @@ ROUTE_POLICY.update({("GET", path): PUBLIC for path in _STATIC_PATHS})
 # `/devices/<id>` prefix. Every other route must refuse the prefix.
 DEVICE_SCOPED = frozenset(
     [("GET", path) for path in (
-        "/", "/display", "/display/arrivals", "/display/layout", "/display/special-looks", "/display/calendar",
+        "/", "/display", "/display/arrivals", "/display/special-looks", "/display/calendar",
         "/display/special-looks/new", "/display/special-looks/edit", "/display/calendar/connect",
-        "/display/calendar-look", "/display/screen",
-        "/detection", "/device", "/flights", "/health", "/airlines",
+        "/display/calendar-look",
+        "/detection", "/flights", "/airlines",
         "/airlines/manage",
-        "/settings", "/history", "/preview", "/gallery/{}",
+        "/settings", "/gallery/{}",
         "/illustration/{}.png", "/theme-preview/{}.png",
         "/frame-preview/{}.png")]
     + [("POST", path) for path in (
         "/settings", "/detection", "/quick/display", "/quick/quiet-hours",
         "/quick/quiet-hours/window",
         "/quick/led", "/airlines/resolve", "/airlines/rename",
-        "/airlines/rename/reset", "/airlines/artwork/delete", "/airlines/default-type",
+        "/airlines/rename/manual", "/airlines/rename/reset", "/airlines/artwork/delete",
+        "/airlines/default-type",
+        "/airlines/suggest", "/airlines/suggest/reject",
         "/airlines/manual-resolutions/{}/delete",
         "/illustration/{}.png", "/settings/rules/add",
         "/settings/calendar/disconnect", "/settings/calendar/connect",
@@ -199,7 +195,7 @@ SAMPLE_MIDDLE = {
 # each can be filled in without touching this file.
 for _rows in (
         matrix_rows_pairing, matrix_rows_lifecycle, matrix_rows_users,
-        matrix_rows_locations, matrix_rows_co_managers,
+        matrix_rows_co_managers,
         matrix_rows_landing, matrix_rows_admin_frame, matrix_rows_place):
     ROUTE_POLICY.update(_rows.ROWS)
     SAMPLE_MIDDLE.update(_rows.SAMPLES)
@@ -317,7 +313,7 @@ def test_a_console_route_without_a_row_is_reported_by_name(monkeypatch):
 def test_the_console_row_modules_are_merged_into_the_matrix():
     for module in (
             matrix_rows_pairing, matrix_rows_lifecycle, matrix_rows_users,
-            matrix_rows_locations, matrix_rows_co_managers,
+            matrix_rows_co_managers,
             matrix_rows_landing, matrix_rows_admin_frame, matrix_rows_place):
         for key, kind in module.ROWS.items():
             assert ROUTE_POLICY[key] == kind
@@ -636,11 +632,6 @@ def test_http_outcome_under_a_device_prefix_matches_the_base_route(
         location = headers.get("Location")
         assert location == _LOGIN_ANSWER[method] or location.startswith("/login?next=")
         assert stubbed.calls == []
-    elif key[1] in legacy_pages.RETIRED_ADMIN_PAGES and name in ("owner", "co-manager"):
-        assert status == 303
-        assert headers["Location"] == "/devices/%s%s" % (
-            rig.fleet.owner_device, legacy_pages.RETIRED_ADMIN_PAGES[key[1]])
-        assert stubbed.calls == []
     else:
         assert status == 404
         assert body == _unknown_path_404(rig, cookie)
@@ -700,14 +691,12 @@ def test_a_co_manager_gets_not_found_on_a_frame_they_do_not_co_manage(
 _ADMIN_ONLY_DEVICE_KEYS = [
     key for key in _SCOPED_KEYS
     if ROUTE_POLICY[key] in (ADMIN_ONLY, ADMIN_DEVICE)]
-_RETIRED_PAGE_KEYS = [
-    key for key in _ADMIN_ONLY_DEVICE_KEYS if key[1] in legacy_pages.RETIRED_ADMIN_PAGES]
-_REFUSED_KEYS = [key for key in _ADMIN_ONLY_DEVICE_KEYS if key not in _RETIRED_PAGE_KEYS]
+_REFUSED_KEYS = _ADMIN_ONLY_DEVICE_KEYS
 
 
 def test_the_device_update_and_led_routes_stay_admin_only_in_both_forms():
     assert {key[1] for key in _ADMIN_ONLY_DEVICE_KEYS} == {
-        "/device", "/quick/led"} | {key[1] for key in matrix_rows_admin_frame.ROWS}
+        "/quick/led"} | {key[1] for key in matrix_rows_admin_frame.ROWS}
     for path in ("/update", "/update/install", "/update/cancel",
                  "/runway-image/{}.png"):
         assert any(key[1] == path and ROUTE_POLICY[key] == ADMIN_ONLY
@@ -727,35 +716,7 @@ def test_an_admin_only_device_route_refuses_its_owner_in_both_forms(
     assert stubbed.calls == []
 
 
-@pytest.mark.parametrize("key", _RETIRED_PAGE_KEYS, ids=[
-    "%s_%s" % (k[0], k[1].strip("/").replace("/", "_") or "root")
-    for k in _RETIRED_PAGE_KEYS])
-def test_a_retired_admin_page_moves_its_owner_to_the_replacement_in_both_forms(
-        rig, stubbed, key):
-    cookie = rig.cookies["owner"]
-    expected = "/devices/%s%s" % (
-        rig.fleet.owner_device, legacy_pages.RETIRED_ADMIN_PAGES[key[1]])
-    for path in (_sample_path(key), _scoped_path(rig.fleet.owner_device, key)):
-        status, headers, _b = rig.request(key[0], path, cookie)
-        assert (status, headers["Location"]) == (303, expected)
-    assert stubbed.calls == []
-
-
-# The retired Update page is the one global route that also answers under a
-# frame's prefix (see the test below): it moves an administrator to the Fleet
-# view of that frame.
-_PREFIX_REFUSING_KEYS = [key for key in _UNSCOPED_KEYS if key != ("GET", "/update")]
-
-
-def test_the_retired_update_page_under_a_prefix_moves_an_administrator_to_that_frame(rig):
-    path = "/devices/%s/update" % rig.fleet.owner_device
-    status, headers, _b = rig.request("GET", path, rig.cookies["admin"])
-    assert (status, headers["Location"]) == (303, "/fleet?frame=%s" % rig.fleet.owner_device)
-    # A person who is not an administrator is moved like from the retired page itself.
-    status, headers, _b = rig.request("GET", path, rig.cookies["owner"])
-    assert (status, headers["Location"]) == (303, "/devices/%s/" % rig.fleet.owner_device)
-    status, headers, _b = rig.request("GET", path, rig.cookies["anonymous"])
-    assert status == 303 and headers["Location"].startswith("/login")
+_PREFIX_REFUSING_KEYS = list(_UNSCOPED_KEYS)
 
 
 @pytest.mark.parametrize("key", _PREFIX_REFUSING_KEYS, ids=[
@@ -778,9 +739,7 @@ def test_a_user_404_shows_no_health_dot_and_no_admin_navigation(rig, stubbed):
     user_body = _unknown_path_404(rig, rig.cookies["owner"]).decode("utf-8")
     admin_body = _unknown_path_404(rig, rig.cookies["admin"]).decode("utf-8")
     assert 'href="/fleet"' in admin_body
-    assert 'href="/health"' not in admin_body
-    for marker in ('href="/fleet"', 'href="/health"', 'href="/device"', 'href="/display"',
-                   'href="/airlines"'):
+    for marker in ('href="/fleet"', 'href="/display"', 'href="/airlines"'):
         assert marker not in user_body
 
 
@@ -922,13 +881,11 @@ def test_a_legacy_session_is_refused_whatever_the_retired_flag_says(
 
 def test_a_demoted_admin_loses_admin_pages_without_signing_in_again(rig, stubbed):
     uid, cookie = _user_with_session(rig, "demoted@example.test", role="admin")
-    assert rig.request("GET", "/health", cookie)[0] == 200
+    assert rig.request("GET", "/airlines/manage", cookie)[0] == 200
     conn = rig.conn()
     try:
         conn.execute("UPDATE users SET role = 'user' WHERE id = ?", (uid,))
     finally:
         conn.close()
-    status, headers, _b = rig.request("GET", "/health", cookie)
-    assert (status, headers["Location"]) == (303, "/account")
     assert rig.request("GET", "/airlines/manage", cookie)[0] == 404
     assert rig.request("GET", "/account", cookie)[0] == 200

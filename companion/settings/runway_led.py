@@ -5,6 +5,7 @@ prefix.
 from companion import device_scope, i18n
 from companion.layout import escape_html
 import companion.layout as layout
+from companion.ui_base import icon_html
 
 from companion.settings.form import DIRTY_SECTION_ATTR, _field_error_html
 
@@ -40,25 +41,25 @@ def led_group(current_led_enabled, errors=None, submitted=None, next_wake_clock=
     if errors and errors.get("led_enabled"):
         described_by = described_by + " led-enabled-error"
     return (
-        '<div class="theme-status" %s="%s" %s>'
-        '<h2 class="text-heading" id="%s">%s</h2>'
-        '<p class="text-label section-caption" id="%s">%s</p>'
-        '<div class="settings-switch-row">%s%s</div>'
-        "%s"
+        '<div class="fleet-tile fleet-tile--wide fleet-tile--switch" data-state="off" %s="%s" %s>'
+        '<span class="fleet-tile__text">'
+        '<span class="fleet-tile__head"><span class="fleet-tile__icon">%s</span>'
+        '<span class="fleet-tile__label" id="%s">%s</span></span>'
+        '<span class="fleet-tile__meta" id="%s">%s</span>%s</span>'
+        '<span class="fleet-tile__switch">%s%s</span>'
         "</div>"
     ) % (
         DIRTY_SECTION_ATTR, escape_html(i18n.t(LED_SECTION_HEADING)),
-        layout.QUICK_SWITCH_REGION_ATTR,
+        layout.QUICK_SWITCH_REGION_ATTR, icon_html("icon-bolt", 20),
         escape_html(QUICK_LED_LABEL_ID), escape_html(i18n.t(LED_SECTION_HEADING)),
         escape_html(LED_SECTION_CAPTION_ID),
-        escape_html(i18n.t(LED_SECTION_CAPTION)),
+        escape_html(i18n.t(LED_SECTION_CAPTION)), error_html,
         layout.quick_switch_state_html(
             QUICK_LED_STATE_ID,
             i18n.t(layout.QUICK_ACTION_ON_TEXT), i18n.t(layout.QUICK_ACTION_OFF_TEXT), is_on),
         layout.quick_switch_html(
             "", "", is_on, QUICK_LED_LABEL_ID,
             described_by, form_id=QUICK_LED_FORM_ID),
-        error_html,
     )
 
 

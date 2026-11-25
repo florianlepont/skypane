@@ -99,7 +99,6 @@ DRAWING_STATUS_CLASSES = (
 # selectors and companion/static/style.css's `.sparkline*` rules read them
 # directly, as static assets, and cannot be renamed alongside a Python refactor.
 DRAWING_CHART_HIT_CLASS = "sparkline-hit"
-DRAWING_CHART_DOT_CLASS = "sparkline-dot"
 DRAWING_CHART_LINE_CLASS = "sparkline-line"
 DRAWING_CHART_AXIS_CLASS = "sparkline-axis"
 DRAWING_CHART_AREA_LAYER_CLASS = "sparkline__area"
@@ -109,11 +108,15 @@ DRAWING_CHART_THRESHOLD_CLASS = "sparkline-threshold"
 DRAWING_CHART_LEGEND_ROW_CLASS = "sparkline__legend"
 DRAWING_CHART_LEGEND_CLASS = "sparkline-legend"
 DRAWING_CHART_LEGEND_SWATCH_CLASS = "sparkline-swatch"
-DRAWING_CHART_AXIS_LABEL_CLASS = "sparkline-axis-label"
 DRAWING_CHART_CANVAS_CLASS = "sparkline__canvas"
 DRAWING_CHART_GRID_CLASS = "sparkline"
-DRAWING_CHART_Y_LABELS_CLASS = "sparkline__y"
-DRAWING_CHART_X_LABELS_CLASS = "sparkline__x"
+# The tinted band below the low-battery line, and the chart's SVG text:
+# axis and threshold labels (muted) and the latest value (strong).
+DRAWING_CHART_ZONE_CLASS = "sparkline-zone"
+DRAWING_CHART_TEXT_CLASS = "sparkline-text"
+DRAWING_CHART_TEXT_STRONG_CLASS = "sparkline-text--strong"
+# The low-battery tick on the arc gauge.
+DRAWING_ARC_TICK_CLASS = "drawing-arc-tick"
 
 DRAWING_CLASSES = (
     DRAWING_GRID_CLASS,
@@ -132,6 +135,7 @@ DRAWING_CLASSES = (
     DRAWING_RING_VALUE_CLASS,
     DRAWING_ARC_TRACK_CLASS,
     DRAWING_ARC_VALUE_CLASS,
+    DRAWING_ARC_TICK_CLASS,
     DRAWING_CELL_CLASS,
     DRAWING_CELL_ON_CADENCE_CLASS,
     DRAWING_CELL_LATE_CLASS,
@@ -141,7 +145,6 @@ DRAWING_CLASSES = (
     DRAWING_STATUS_WARN_CLASS,
     DRAWING_STATUS_ERROR_CLASS,
     DRAWING_CHART_HIT_CLASS,
-    DRAWING_CHART_DOT_CLASS,
     DRAWING_CHART_LINE_CLASS,
     DRAWING_CHART_AXIS_CLASS,
     DRAWING_CHART_AREA_CLASS,
@@ -150,10 +153,10 @@ DRAWING_CLASSES = (
     DRAWING_CHART_LEGEND_ROW_CLASS,
     DRAWING_CHART_LEGEND_CLASS,
     DRAWING_CHART_LEGEND_SWATCH_CLASS,
-    DRAWING_CHART_AXIS_LABEL_CLASS,
     DRAWING_CHART_GRID_CLASS,
-    DRAWING_CHART_Y_LABELS_CLASS,
-    DRAWING_CHART_X_LABELS_CLASS,
+    DRAWING_CHART_ZONE_CLASS,
+    DRAWING_CHART_TEXT_CLASS,
+    DRAWING_CHART_TEXT_STRONG_CLASS,
     # DRAWING_CHART_CANVAS_CLASS ("sparkline__canvas") and
     # DRAWING_CHART_AREA_LAYER_CLASS ("sparkline__area") are deliberately
     # EXCLUDED here: style.css sizes both <svg> elements through the one
@@ -467,6 +470,18 @@ def polygon(class_name, points, attrs=None):
     return _shape("polygon", class_name, (("points", points),), attrs)
 
 
+def text(class_name, x, y, content, attrs=None):
+    """A <text> label at (`x`, `y`) in the canvas's own scheme (percentages
+    from `percent_attr()` on a no-viewBox canvas). `content` is escaped.
+    `attrs` carries `text-anchor`, `dx` and `dy`; like every shape it takes
+    its ink from the class, never from a paint attribute.
+    """
+    merged = {"class": _require_class(class_name), "x": _number(x), "y": _number(y)}
+    if attrs:
+        merged.update(attrs)
+    return "<text%s>%s</text>" % (_attrs(merged), escape(content))
+
+
 def title(text):
     """A <title> child — the tooltip and accessible name a drawn shape
     carries. `text` is escaped, with no exception: these carry
@@ -573,7 +588,7 @@ ARC_SWEEP_DEGREES = 270
 ARC_STROKE_RATIO = 0.08
 
 
-def arc_gauge(fraction, size, status_class=None):
+def arc_gauge(fraction, size, status_class=None, tick_fraction=None):
     """An open dial `size` CSS pixels square: a track sweeping
     ARC_SWEEP_DEGREES clockwise from the lower left, with its gap centred
     at six o'clock, and a value stroke over `fraction` of it. Never
@@ -586,6 +601,9 @@ def arc_gauge(fraction, size, status_class=None):
     proportion is taken over the track's own capped length, so the ink
     shown is `fraction` of the visible track. An empty reading omits the
     value stroke. `aria-hidden`, since the reading is printed beside it.
+
+    `tick_fraction` (0..1, optional) marks a level on the track with a short
+    radial tick crossing the stroke, e.g. a low-battery mark.
     """
     if not is_number(size) or size < RING_MIN_SIZE:
         size = RING_MIN_SIZE
@@ -612,6 +630,16 @@ def arc_gauge(fraction, size, status_class=None):
         dash = max(0.01, fraction * (sweep + stroke) - stroke)
         shapes.append(circle(DRAWING_ARC_VALUE_CLASS, centre, centre, radius, attrs=dict(
             base, **{"stroke-dasharray": "%.4f %.4f" % (dash, circumference)})))
+    if is_number(tick_fraction) and 0 < tick_fraction < 1:
+        # Angles are measured from three o'clock, clockwise (SVG), starting
+        # at the lower left end of the open arc.
+        angle = math.radians(90 + (360 - ARC_SWEEP_DEGREES) / 2.0
+                             + tick_fraction * ARC_SWEEP_DEGREES)
+        inner, outer = radius - stroke * 0.75, radius + stroke * 0.5 + 0.8
+        shapes.append(line(
+            DRAWING_ARC_TICK_CLASS,
+            round(centre + math.cos(angle) * inner, 2), round(centre + math.sin(angle) * inner, 2),
+            round(centre + math.cos(angle) * outer, 2), round(centre + math.sin(angle) * outer, 2)))
 
     class_name = DRAWING_FIGURE_CLASS
     if status_class in DRAWING_STATUS_CLASSES:

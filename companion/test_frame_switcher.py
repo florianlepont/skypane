@@ -100,7 +100,7 @@ def test_the_link_keeps_the_page(fleet):
     state_dir, seeded = fleet
     second = _add_device(state_dir, seeded.owner_id, 0x11, "Desk")
     _enter(state_dir, _principal(seeded, "owner"), seeded.owner_device)
-    for page, slug in (("flights", "/flights"), ("health", "/health")):
+    for page, slug in (("flights", "/flights"), ("airlines", "/airlines")):
         hrefs = {r.attrs["href"] for r in _rows(frame_menu.personal_menu_html(page))}
         assert "/devices/%s%s" % (second, slug) in hrefs
 
@@ -124,7 +124,7 @@ def test_a_user_gets_an_add_tile_to_their_own_page_and_no_fleet_link(fleet):
     assert "/account#account-frames" not in html
 
 
-def test_an_administrator_gets_the_same_add_row_in_the_personal_space_and_the_pairing_flow_in_the_console(fleet):
+def test_an_administrator_gets_the_add_row_in_the_personal_space_and_no_frame_button_in_the_console(fleet):
     state_dir, seeded = fleet
     _add_device(state_dir, seeded.admin_id, 0x12, "Mine")
     _add_device(state_dir, seeded.admin_id, 0x13, "Mine too")
@@ -135,8 +135,7 @@ def test_an_administrator_gets_the_same_add_row_in_the_personal_space_and_the_pa
     assert add.attrs["href"] == "/pair-frame"
     assert add.text().strip().endswith("Add a frame")
     assert "All frames" not in html
-    console = frame_menu.personal_menu_html("health")
-    assert _add_tile(console).attrs["href"] == "/fleet?pair=1"
+    assert frame_menu.personal_menu_html("health") == ""
     items = parse_html(html).select("ul.frame-menu__list > li")
     assert items[-1].select_one("a.frame-row--add") is not None
 

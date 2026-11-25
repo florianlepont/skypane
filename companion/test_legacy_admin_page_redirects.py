@@ -1,7 +1,8 @@
-"""The retired Health, Device and Update pages (and a frame's own Health
-address) move every signed-in role to the page that replaced them, keeping the
-chosen frame: an administrator lands on the Fleet view of the frame, an owner
-or user on the matching page of their own frame."""
+"""The retired Update address still moves every signed-in role to the page that
+replaced it, keeping the chosen frame (an administrator lands on the Versions
+page of the frame, an owner or user on their own Home); the retired Health and
+Device addresses, the frame-prefixed Update address and the old Health view
+of the Fleet page are gone and answer the ordinary not-found page."""
 import html
 
 import pytest
@@ -10,10 +11,10 @@ import fleet_console_support as fx
 from companion import prefs
 from companion_app_server import http_request
 
-LEGACY = ("/health", "/device", "/update")
-# The phone sub-tab each retired page lands on (the device settings are the Settings tab).
-FLEET_TAB = {"/health": "", "/device": "&tab=settings", "/update": ""}
-PERSON_PAGE = {"/health": "/", "/device": "/display", "/update": "/"}
+LEGACY = ("/update",)
+FLEET_TAB = {"/update": "&view=versions"}
+PERSON_PAGE = {"/update": "/"}
+REMOVED = ("/health", "/device")
 
 
 @pytest.fixture(autouse=True)
@@ -40,14 +41,6 @@ def test_an_administrator_lands_on_the_fleet_view_of_the_named_frame(fleet, path
     for frame in (seed.owned_id, seed.live_id):
         assert _get(server, admin, "%s?frame=%s" % (path, frame)) == (
             303, "/fleet?frame=%s%s" % (frame, FLEET_TAB[path])), path
-
-
-@pytest.mark.parametrize("path", ("/health", "/device"))
-def test_a_frames_own_address_lands_on_that_frame_in_the_fleet(fleet, path):
-    server, seed = fleet
-    admin = fx.admin_cookie(server.state_dir)
-    assert _get(server, admin, "/devices/%s%s" % (seed.owned_id, path)) == (
-        303, "/fleet?frame=%s%s" % (seed.owned_id, FLEET_TAB[path]))
 
 
 @pytest.mark.parametrize("path", LEGACY)
@@ -87,25 +80,60 @@ def test_a_user_without_a_frame_lands_on_the_account_page(fleet, path):
     assert _get(server, plain, "%s?frame=%s" % (path, seed.owned_id)) == (303, "/account")
 
 
-@pytest.mark.parametrize("path", ("/health", "/device"))
-def test_an_owner_reaches_the_page_under_their_own_frames_address(fleet, path):
-    server, seed = fleet
-    owner = fx.user_cookie(server.state_dir, fx.OWNER_EMAIL)
-    assert _get(server, owner, "/devices/%s%s" % (seed.owned_id, path)) == (
-        303, "/devices/%s%s" % (seed.owned_id, PERSON_PAGE[path]))
-
-
-@pytest.mark.parametrize("path", ("/health", "/device"))
-def test_an_unknown_frame_address_stays_a_not_found_page(fleet, path):
-    server, _seed = fleet
-    owner = fx.user_cookie(server.state_dir, fx.OWNER_EMAIL)
-    status, _headers, _body = http_request(
-        server.url("/devices/d_00000000%s" % path), cookie=owner)
-    assert status == 404
-
-
 @pytest.mark.parametrize("path", LEGACY)
 def test_a_signed_out_visitor_is_still_sent_to_sign_in(fleet, path):
     server, _seed = fleet
     status, location = _get(server, None, path)
     assert status == 303 and location.startswith("/login")
+
+
+def test_the_battery_view_is_served_directly_and_is_never_redirected(fleet):
+    server, seed = fleet
+    admin = fx.admin_cookie(server.state_dir)
+    status, _headers, _body = http_request(
+        server.url("/fleet?frame=%s&view=battery" % seed.live_id), cookie=admin)
+    assert status == 200
+
+
+@pytest.mark.parametrize("email", (fx.OWNER_EMAIL, fx.USER_EMAIL))
+def test_a_plain_user_gets_the_fleet_refusal_for_the_battery_view(fleet, email):
+    server, seed = fleet
+    cookie = fx.user_cookie(server.state_dir, email)
+    refusal = http_request(server.url("/fleet"), cookie=cookie)[0]
+    assert refusal != 200
+    for view in ("battery",):
+        status, headers, _body = http_request(
+            server.url("/fleet?frame=%s&view=%s" % (seed.owned_id, view)), cookie=cookie)
+        assert status == refusal
+        assert "view=battery" not in html.unescape(headers.get("Location") or "")
+
+
+@pytest.mark.parametrize("path", REMOVED + ("/update",))
+def test_a_removed_address_under_a_frame_prefix_is_the_not_found_page(fleet, path):
+    server, seed = fleet
+    admin = fx.admin_cookie(server.state_dir)
+    owner = fx.user_cookie(server.state_dir, fx.OWNER_EMAIL)
+    for cookie in (admin, owner):
+        status, _headers, _body = http_request(
+            server.url("/devices/%s%s" % (seed.owned_id, path)), cookie=cookie)
+        assert status == 404, path
+
+
+@pytest.mark.parametrize("path", REMOVED)
+def test_the_removed_health_and_device_addresses_are_not_found_for_every_role(fleet, path):
+    server, seed = fleet
+    cookies = (
+        fx.admin_cookie(server.state_dir), fx.user_cookie(server.state_dir, fx.OWNER_EMAIL),
+        fx.user_cookie(server.state_dir, fx.USER_EMAIL), None)
+    for cookie in cookies:
+        for query in ("", "?frame=%s" % seed.owned_id):
+            status, _headers, _body = http_request(server.url(path + query), cookie=cookie)
+            assert status == 404, (path, query)
+
+
+def test_the_old_health_view_of_the_fleet_page_is_an_ordinary_unknown_view(fleet):
+    server, seed = fleet
+    admin = fx.admin_cookie(server.state_dir)
+    status, headers, _body = http_request(
+        server.url("/fleet?frame=%s&view=health" % seed.live_id), cookie=admin)
+    assert status == 200 and not headers.get("Location")

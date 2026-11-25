@@ -8,6 +8,7 @@ the picture and the picker are two columns that both fit a 1280x800 screen. The 
 are plain links, one view each, with a highlight that slides to the current link (and does not
 under reduced motion); the retired Screen address lands on Departures; without scripts the
 look views offer the native look cards and tables."""
+import animation_settle
 import pytest
 
 from companion import auth, layout
@@ -45,10 +46,7 @@ _OWNS_CENTRE = (
     "el => { const r = el.getBoundingClientRect();"
     " const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);"
     " return !!hit && (hit === el || el.contains(hit) || hit.contains(el)); }")
-_SETTLED = (
-    "() => document.readyState === 'complete'"
-    " && document.getAnimations().every(a => a.effect && a.effect.getTiming().iterations !== Infinity"
-    " ? a.playState !== 'running' : true)")
+_SETTLED = animation_settle.SETTLED
 
 
 def _seed(state_dir):
@@ -462,19 +460,6 @@ def test_under_reduced_motion_the_highlight_does_not_slide(new_context, make_app
             "() => parseFloat(getComputedStyle(document.querySelector('[data-tabs-thumb]'))"
             ".transitionDuration) < 0.001")
         assert _thumb_covers_current_link(page)
-    finally:
-        context.close()
-
-
-def test_the_retired_screen_address_lands_on_departures(new_context, make_app_server):
-    """the old Screen address still answers: it ends on Departures with its link marked"""
-    server = make_app_server(seed=_seed)
-    context, page = _open(
-        new_context, server.base_url(), VIEWPORT_DESKTOP, route=layout.DISPLAY_SCREEN_ROUTE)
-    try:
-        assert page.url.split("?")[0].endswith(layout.DISPLAY_ROUTE)
-        current = page.locator('.personalisation-nav__link[aria-current="page"]')
-        assert current.get_attribute("href").endswith(layout.DISPLAY_ROUTE)
     finally:
         context.close()
 

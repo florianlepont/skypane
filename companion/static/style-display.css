@@ -68,7 +68,7 @@
   align-items: center;
   gap: 12px;
   margin-top: var(--space-sm);
-  padding: var(--space-sm) 4px 0;
+  padding: var(--space-sm) var(--space-xs) 0;
 }
 
 .calendar-status__tile {
@@ -345,7 +345,7 @@ button.look-frame__open:focus-visible {
   align-items: center;
   gap: var(--space-sm);
   min-height: 44px;
-  padding: 4px 14px 4px 6px;
+  padding: var(--space-xs) 14px var(--space-xs) 6px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-control);
   font-size: var(--font-label-size);
@@ -353,7 +353,7 @@ button.look-frame__open:focus-visible {
 }
 
 .look-option__name:first-child {
-  padding-left: 8px;
+  padding-left: var(--space-sm);
 }
 
 .look-table__scroll {
@@ -366,7 +366,7 @@ button.look-frame__open:focus-visible {
 }
 
 .look-table th {
-  padding: 0 4px;
+  padding: 0 var(--space-xs);
   font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
   line-height: 1.2;
@@ -1144,6 +1144,13 @@ button.rule-suggestion-chip {
   background: var(--picture-placeholder);
 }
 
+/* The light-yellow tile gets a 3px darker edge on screen only, so its shape
+ * reads on the card; the picture itself (and the panel's yellow) is unchanged. */
+.look-pick__card--yellow .look-pick__preview {
+  box-sizing: border-box;
+  border: 3px solid var(--color-yellow-tile-edge);
+}
+
 .look-pick__preview[data-frame-shape="landscape"] {
   aspect-ratio: 5 / 3;
 }
@@ -1229,10 +1236,6 @@ button.rule-suggestion-chip {
 .layout-card__picker .runway-card__check {
   top: var(--space-xs);
   right: var(--space-xs);
-}
-
-.layout-card__picker > .section-caption {
-  margin: var(--space-sm) 0 0;
 }
 
 @media (max-width: 699.98px) {

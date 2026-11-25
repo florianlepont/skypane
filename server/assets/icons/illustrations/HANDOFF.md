@@ -111,7 +111,7 @@ air-corsica-atr72.png         *  already vendored (renamed from ccm-airlines-atr
 transavia-france-a320.png     Transavia's A320neo/A321neo (fleet-transition secondary, D-05)
 royal-air-maroc-embraer.png   Royal Air Maroc's Embraer E190 (minority alongside the B737 primary)
 air-caraibes-a330.png         Air Caraïbes' A330-300/200 (minority alongside the A350 primary)
-amelia-embraer.png            Amelia's Embraer E145 (minority alongside the A320 primary, 260827-kih)
+amelia-erj145.png            Amelia's Embraer E145 (minority alongside the A320 primary, 260827-kih)
 air-france-hop-atr72.png      Air France Hop's minority ATR turboprop, alongside the Embraer primary (260827-lgt, MEDIUM-confidence split)
 air-caraibes-a350-1000.png    *  already vendored (parallel 2026-08-27 livery-audit session) — Air Caraïbes' long-haul A350-1000 secondary
 air-caraibes-atr72.png        *  already vendored (parallel 2026-08-27 livery-audit session) — Air Caraïbes' regional ATR72 secondary
@@ -357,7 +357,7 @@ phase's coverage boundary live:
   above for the full record of its deliberate current-brand-name exception,
   and of quick task `260827-kih`'s decision not to extend the new
   correction seam to cover it.
-- **Amelia (`AIA`) is now a target (`amelia.png` primary + `amelia-embraer.png`
+- **Amelia (`AIA`) is now a target (`amelia.png` primary + `amelia-erj145.png`
   secondary), added by quick task `260827-kih` (2026-08-27).** Through Phase
   3.1, this carrier was excluded as "Amelia International" —
   `03.1-LIVE-RESOLUTION.md` marked it `[UNRESOLVED]` because neither the
@@ -797,7 +797,7 @@ user-supplied photo of registration F-HDSJ showed the real livery is a
 **plain white tail with a modest uppercase `AMELIA` title and two low
 emerald fuselage ribbons** — not a blue tail with a lowercase wordmark. See
 `VENDOR.md`'s "Amelia A320 correction" note for the full record. Any future
-regeneration of `amelia.png` or `amelia-embraer.png` should use the
+regeneration of `amelia.png` or `amelia-erj145.png` should use the
 corrected description, not the original prompt text above.
 
 ### 26. `air-france-hop.png` (primary — Air France Hop's Embraer E190, 260827-lgt, MEDIUM confidence on primary/secondary split)
@@ -876,7 +876,7 @@ no shadow, nothing behind the aircraft. Clean flat illustration style,
 crisp hard edges, vintage aviation poster plate.
 ```
 
-### 32. `amelia-embraer.png` (secondary variant — Amelia's minority Embraer E145, 260827-kih)
+### 32. `amelia-erj145.png` (secondary variant — Amelia's minority Embraer E145, 260827-kih)
 ```
 Side-profile editorial illustration of an Embraer E145 in Amelia livery —
 matching `amelia.png`'s white fuselage and blue tail, on the regional-jet
@@ -1003,7 +1003,7 @@ The per-file subject/livery clauses were:
   modest uppercase `AMELIA` title and two low emerald fuselage ribbons. The
   originally suggested blue tail and a later oversized tail graphic were
   rejected as inaccurate.
-- `amelia-embraer.png` — E145 with rear engines and T-tail; the verified
+- `amelia-erj145.png` — E145 with rear engines and T-tail; the verified
   white/dark-green Amelia sweep adapted to the regional jet.
 - `air-france-hop.png` — E190; post-2019 Air France regional scheme with
   `AIRFRANCE`, restrained red `HOP!` and the contemporary striped tail.

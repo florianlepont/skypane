@@ -88,6 +88,8 @@ import server.plane.calendar_rules as calendar_rules  # noqa: E402
 import server.plane.colour_rules as colour_rules  # noqa: E402
 import server.plane.enrich as enrich  # noqa: E402
 import server.plane.manual_resolutions as manual_resolutions  # noqa: E402
+import server.plane.name_overrides as name_overrides  # noqa: E402
+from server import device_dirs  # noqa: E402
 import server.state_store as state_store  # noqa: E402
 from server import screen_layouts  # noqa: E402
 from server import history_db  # noqa: E402
@@ -1985,6 +1987,78 @@ def test_manual_resolution_reaches_route_source_end_to_end(tmp_path, clock):
         return
     finally:
         shutil.rmtree(manual_dir, ignore_errors=True)
+
+
+def test_a_name_given_on_frame_a_reaches_frame_bs_poll_cycle(tmp_path, clock, monkeypatch):
+    """a manual name and a name override stored through frame A's directory are the fleet files: frame B's own cycle (its own state dir, shared ledger root) resolves the callsign with them, reading each registry file once"""
+    root = str(tmp_path)
+    frame_a = device_dirs.provision_device_dir(root, "d_0123abcd", 800, 480)
+    frame_b = device_dirs.provision_device_dir(root, "d_4567cdef", 800, 480)
+    manual_resolutions.add_entry(frame_a, "OCN", "Oceanic")
+    name_overrides.set_names(frame_a, ["AFR"], "Skyline Air", own_builtin_name="Air France")
+
+    opened = []
+    real_load = manual_resolutions.load_registry_file
+    monkeypatch.setattr(
+        manual_resolutions, "load_registry_file",
+        lambda path: (opened.append(os.path.basename(path)), real_load(path))[1])
+
+    for hex_code, callsign, expected in (("a1b2c3", "OCN1234", "Oceanic"), ("d4e5f6", "AFR1234", "Skyline Air")):
+        _tick(clock, poll_cycle.MIN_ADVANCE_INTERVAL_S + 30)
+        del opened[:]
+        poll_cycle.run_once(
+            snapshot=_snapshot(hex_code, callsign, CLIMB), state_dir=frame_b,
+            geofence=GEOFENCE_PATH, ledger_root=root)
+        route = state_store.load_poll_state(frame_b).get("last_route")
+        assert isinstance(route, dict) and route.get("airline_name") == expected, route
+        assert sorted(opened) == ["airline_name_overrides.json", "manual_resolutions.json"], opened
+    assert not os.path.exists(os.path.join(frame_b, "manual_resolutions.json"))
+
+
+def test_a_rename_on_frame_a_reaches_the_next_flight_of_frame_b(tmp_path, clock):
+    """renaming a hand-named airline through frame A's directory changes the name frame B's next cycle stores"""
+    root = str(tmp_path)
+    frame_a = device_dirs.provision_device_dir(root, "d_0123abcd", 800, 480)
+    frame_b = device_dirs.provision_device_dir(root, "d_4567cdef", 800, 480)
+    manual_resolutions.add_entry(frame_a, "OCN", "Oceanic")
+
+    def cycle(hex_code):
+        _tick(clock, poll_cycle.MIN_ADVANCE_INTERVAL_S + 30)
+        poll_cycle.run_once(
+            snapshot=_snapshot(hex_code, "OCN1234", CLIMB), state_dir=frame_b,
+            geofence=GEOFENCE_PATH, ledger_root=root)
+        return state_store.load_poll_state(frame_b).get("last_route")["airline_name"]
+
+    assert cycle("a1b2c3") == "Oceanic"
+    assert manual_resolutions.rename_entries(frame_a, ["OCN"], "Oceanic Airways", set()) == manual_resolutions.ADD_OK
+    assert cycle("d4e5f6") == "Oceanic Airways"
+
+
+def test_artwork_added_for_frame_a_is_the_picture_frame_b_renders(tmp_path, clock, monkeypatch):
+    """a picture placed through frame A's directory is the file frame B's own poll cycle selects, from the one fleet directory"""
+    root = str(tmp_path)
+    frame_a = device_dirs.provision_device_dir(root, "d_0123abcd", 800, 480)
+    frame_b = device_dirs.provision_device_dir(root, "d_4567cdef", 800, 480)
+    fleet_file = os.path.join(root, "illustration_overrides", "air-france.png")
+    os.makedirs(os.path.dirname(fleet_file))
+    with open(fleet_file, "wb") as fh:
+        fh.write(b"path-existence fixture only")
+    assert render.illustrations.override_path_for_key("air-france", frame_a) == fleet_file
+
+    resolved = []
+    original = render.illustrations.select_illustration
+
+    def spy(route, aircraft_type=None, state_dir=None):
+        resolved.append(original(route, aircraft_type, state_dir=state_dir))
+        return resolved[-1]
+
+    monkeypatch.setattr(render.illustrations, "select_illustration", spy)
+    _tick(clock, poll_cycle.MIN_ADVANCE_INTERVAL_S + 30)
+    poll_cycle.run_once(
+        snapshot=_snapshot("aaaaaa", "AFR1234", CLIMB), state_dir=frame_b,
+        geofence=GEOFENCE_PATH, ledger_root=root)
+    assert fleet_file in resolved, resolved
+    assert not os.path.exists(os.path.join(frame_b, "illustration_overrides"))
 
 
 def test_clear_resolved_unresolved_prefix_removes_resolvable_entry(tmp_path, clock):

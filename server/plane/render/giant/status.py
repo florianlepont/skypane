@@ -39,7 +39,7 @@ _LABELS = {
     "battery_empty": "CHARGE ME",
     "no_connection": "OFFLINE",
     "updating": "INSTALLING",
-    "retired": "SKYPANE",
+    "retired": "",
 }
 _LINES = {
     "quiet_hours": ("QUIET", "HOURS"),
@@ -49,6 +49,13 @@ _LINES = {
     "updating": ("FIRMWARE", "UPDATE"),
     "retired": ("FRAME", "RETIRED"),
 }
+# Retired frame screen of `build_retired`: the first line is the legacy one,
+# the second names the action on the frame itself. English only, same text for
+# every hardware type.
+RETIRED_RESET_BODY_LINES = (
+    RETIRED_BODY_LINES[0],
+    "Press Reset to set it up again.",
+)
 PAIRING_LEAD = "PAIR"
 PAIRING_LABEL = "PAIRING CODE"
 PAIRING_BODY_LINES = (
@@ -174,9 +181,10 @@ def _paint_text(canvas: Image.Image, geom: _Geometry, size: Size, lines: Tuple[s
         left, top, _right, _bottom = _ink_box(font, line)
         draw.text((geom.margin - left, round(geom.giant_top + slot * i) - top),
                   line, font=font, fill=ink)
-    label_font = fonts.inter_bold(geom.label_px)
-    draw.text((geom.margin - _ink_box(label_font, label)[0], geom.label_y),
-              label, font=label_font, fill=ink)
+    if label:
+        label_font = fonts.inter_bold(geom.label_px)
+        draw.text((geom.margin - _ink_box(label_font, label)[0], geom.label_y),
+                  label, font=label_font, fill=ink)
     body_font = fonts.inter_bold(geom.body_px)
     for i, line in enumerate(body):
         draw.text((geom.margin, geom.body_y + i * geom.body_step), line, font=body_font, fill=ink)
@@ -215,6 +223,21 @@ def build_status(kind: str, size: Size, *, quiet_hours_until: Optional[str] = No
     the firmware ink masks can be extracted exactly. `battery_empty` ignores
     every other argument: its bytes depend on `size` and `flat` alone.
     """
+    return _build(kind, size, quiet_hours_until, source_fault, battery_low,
+                  runway_id, flat, None)
+
+
+def build_retired(size: Size) -> Image.Image:
+    """The retired frame screen of `size`: the calm "retired" composition with
+    the reset instruction as its second body line. `build_status("retired")`
+    keeps the legacy body for the giant render."""
+    return _build("retired", size, None, False, False,
+                  device_config.DEFAULT_RUNWAY_ID, False, RETIRED_RESET_BODY_LINES)
+
+
+def _build(kind: str, size: Size, quiet_hours_until: Optional[str], source_fault: bool,
+           battery_low: bool, runway_id: str, flat: bool,
+           body_override: Optional[Tuple[str, ...]]) -> Image.Image:
     if kind not in KINDS:
         raise ValueError("unknown status kind: %r" % (kind,))
     size = (int(size[0]), int(size[1]))
@@ -237,7 +260,9 @@ def build_status(kind: str, size: Size, *, quiet_hours_until: Optional[str] = No
         lines, label = _LINES[kind], _LABELS[kind]
     mask = icons.icon_mask(kind, geom.icon_h)
     canvas.paste(ink, (geom.margin, geom.icon_top), mask)
-    _paint_text(canvas, geom, size, lines, label, _body_lines(kind, runway_id, quiet_hours_until), ink)
+    body = body_override if body_override is not None \
+        else _body_lines(kind, runway_id, quiet_hours_until)
+    _paint_text(canvas, geom, size, lines, label, body, ink)
     if kind in _MARKED:
         _paint_marks(canvas, size, ink, source_fault, battery_low)
     return canvas

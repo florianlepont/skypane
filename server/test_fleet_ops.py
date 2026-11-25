@@ -2,6 +2,7 @@
 """Tests for server.fleet_ops: register, claim, retire, re-activate, reassign."""
 import contextlib
 import hmac
+import json
 import os
 import sqlite3
 import threading
@@ -116,7 +117,8 @@ def test_claim_creates_device_dir_and_audit(conn, root, owner):
     assert dev["owner_user_id"] == owner
     assert dev["state_path"] == "devices/" + res.device_id
     directory = os.path.join(root, "devices", res.device_id)
-    assert os.path.isfile(os.path.join(directory, "device_config.json"))
+    with open(os.path.join(directory, "device_config.json")) as fh:
+        assert json.load(fh) == {"wake_interval_s": 900}
     panel = open(os.path.join(directory, "panel.bin"), "rb").read()
     assert len(panel) == PANEL_BYTES and set(panel) == {WHITE_BYTE}
     claim = [a for a in _audit_rows(conn) if a["action"] == "pairing.claim"]
@@ -291,7 +293,8 @@ def test_reassign_wipes_and_keeps_identity(conn, root, owner):
     for key in ("mac", "secret_sha256", "token", "state_path", "hardware_type"):
         assert after[key] == before[key]
     assert sorted(os.listdir(directory)) == ["device_config.json", "panel.bin"]
-    assert open(os.path.join(directory, "device_config.json")).read().strip() == "{}"
+    with open(os.path.join(directory, "device_config.json")) as fh:
+        assert json.load(fh) == {"wake_interval_s": 900}
     assert os.path.getsize(os.path.join(directory, "panel.bin")) == PANEL_BYTES
     row = [a for a in _audit_rows(conn) if a["action"] == "device.reassign"][0]
     assert row["outcome"] == "ok"

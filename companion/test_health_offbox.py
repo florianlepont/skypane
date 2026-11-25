@@ -20,7 +20,6 @@ if REPO_ROOT not in sys.path:
 
 import companion.prefs as prefs  # noqa: E402
 from companion.pages import health_page  # noqa: E402
-import health_page_composition
 from server import history_db  # noqa: E402
 
 OFFBOX_ENV_VAR = health_page.OFFBOX_MARKER_ENV_VAR
@@ -205,17 +204,18 @@ def test_compute_health_state_offbox_fresh_marker_is_ok(monkeypatch, tmp_path):
     assert state["anomalies"] == []
 
 
-# --- Section 4: rendered off-box backup card (render) -----------------------
+# --- Section 4: the System view's off-box backup card -----------------------
 
 def _render(tmp_path):
-    return health_page_composition.render({"state_dir": str(tmp_path), "now": _NOW})
+    from companion.pages import system_cards
+    state = health_page.compute_health_state(str(tmp_path), now=_NOW)
+    return system_cards.backup(state["offbox"], _NOW)
 
 
 def test_render_offbox_hidden_when_env_unset(monkeypatch, tmp_path):
     monkeypatch.delenv(OFFBOX_ENV_VAR, raising=False)
     _seed_healthy_device(str(tmp_path))
-    rendered = _render(tmp_path)
-    assert "Off-box backup" not in rendered
+    assert _render(tmp_path) == ""
 
 
 def test_render_offbox_fresh_marker_ok_card(monkeypatch, tmp_path):
@@ -225,7 +225,7 @@ def test_render_offbox_fresh_marker_ok_card(monkeypatch, tmp_path):
     monkeypatch.setenv(OFFBOX_ENV_VAR, str(marker))
     rendered = _render(tmp_path)
     assert "Off-box backup" in rendered
-    assert 'data-state="ok" id="health-row-backup">' in rendered
+    assert 'data-state="ok" id="system-card-backup">' in rendered
     assert "<time " in rendered
     assert "No off-box backup" not in rendered
 
@@ -236,8 +236,8 @@ def test_render_offbox_stale_marker_warn_card(monkeypatch, tmp_path):
     marker.write_text("skypane-state-20260101T000000Z.tar.gz\n")
     monkeypatch.setenv(OFFBOX_ENV_VAR, str(marker))
     rendered = _render(tmp_path)
-    # A warn row renders already open.
-    assert 'data-state="warn" id="health-row-backup" open>' in rendered
+    # A warn card carries its state on the card.
+    assert 'data-state="warn" id="system-card-backup">' in rendered
     assert "No off-box backup in the last 3 days." in rendered
 
 
@@ -245,7 +245,7 @@ def test_render_offbox_missing_marker_warn_card_never_text(monkeypatch, tmp_path
     _seed_healthy_device(str(tmp_path))
     monkeypatch.setenv(OFFBOX_ENV_VAR, str(tmp_path / "does-not-exist"))
     rendered = _render(tmp_path)
-    assert 'data-state="warn" id="health-row-backup" open>' in rendered
+    assert 'data-state="warn" id="system-card-backup">' in rendered
     assert "No off-box backup has been pulled yet." in rendered
     assert "never" in rendered
 

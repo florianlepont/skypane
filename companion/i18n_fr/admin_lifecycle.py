@@ -14,7 +14,9 @@ MESSAGES = {
         "Ses données sont conservées.",
     "admin_lifecycle.flash_reactivated": "Cadre réactivé",
     "admin_lifecycle.flash_reactivated_detail":
-        "Il repasse en association et affichera un nouveau code à sa prochaine mise à jour.",
+        "Sur le cadre, appuyez sur Reset pour afficher tout de suite son code "
+        "d’association. Sinon, il apparaît à sa prochaine mise à jour, dans "
+        "24\u00a0h au plus.",
     "admin_lifecycle.flash_action_refused": "Action refusée",
     "admin_lifecycle.flash_live_protected_detail":
         "Le cadre actif ne peut pas être retiré.",
@@ -54,8 +56,8 @@ MESSAGES = {
     "admin_lifecycle.action_device_retire": "Cadre retiré",
     "admin_lifecycle.action_device_rename": "Cadre renommé",
     "admin_lifecycle.action_device_reactivate": "Cadre réactivé",
-    "admin_lifecycle.action_device_co_manager_add": "Co-gestionnaire ajouté",
-    "admin_lifecycle.action_device_co_manager_remove": "Co-gestionnaire retiré",
+    "admin_lifecycle.action_device_co_manager_add": "Cogestionnaire ajouté",
+    "admin_lifecycle.action_device_co_manager_remove": "Cogestionnaire retiré",
     "admin_lifecycle.audit_person": "Personne",
     "admin_lifecycle.audit_reason": "Raison",
     "admin_lifecycle.exact_date": "Date exacte",
@@ -72,9 +74,11 @@ MESSAGES = {
     "admin_lifecycle.audit_reason_remove_delete": "Cadre supprimé",
     "admin_lifecycle.audit_reason_remove_owner_disabled": "Le propriétaire du cadre a été désactivé",
     "admin_lifecycle.action_airline_resolve": "Compagnie nommée",
+    "admin_lifecycle.action_airline_rename_manual": "Compagnie renommée",
     "admin_lifecycle.action_airline_artwork_delete": "Illustration de compagnie supprimée",
     "admin_lifecycle.action_airline_default_type": "Type d’appareil par défaut modifié",
     "admin_lifecycle.action_user_invite": "Utilisateur invité",
+    "admin_lifecycle.action_user_invitation": "Lien d’invitation",
     "admin_lifecycle.action_user_role": "Rôle modifié",
     "admin_lifecycle.action_user_disable": "Utilisateur désactivé",
     "admin_lifecycle.action_user_enable": "Utilisateur activé",

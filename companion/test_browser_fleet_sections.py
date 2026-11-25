@@ -1,10 +1,11 @@
-"""Real-browser checks of the Fleet page from 960px: one centred column of section cards (State,
-Device and version, Settings, Access, Other frames), each present once and in that order at 1280
-and 1440px, every fact shown once, every setting edited inline (no dialog) and saved through the
-page's unsaved-changes bar, the version history collapsed in a native disclosure, and Retire this
-frame as the only confirmation dialog. A phone keeps its State / Settings / Access tabs.
+"""Real-browser checks of the Fleet page from 960px: one column of sections (State, Settings,
+Access), each present once and in that order at 1280 and 1440px, every fact shown once, every
+setting edited inline (no dialog) and saved through the page's unsaved-changes bar, the version
+history on the Versions page as a flat list, and Retire this frame as the only confirmation
+dialog. A phone stacks the same three sections under its anchors.
 
 State is always waited for (settled page, an open dialog), never read right after an input."""
+import animation_settle
 import pytest
 
 import fleet_console_support as fx
@@ -21,14 +22,12 @@ DESKTOP_1280 = {"width": 1280, "height": 900}
 DESKTOP_1440 = {"width": 1440, "height": 900}
 PHONE = {"width": 390, "height": 844}
 HEADINGS = {
-    "en": ["State", "Device and version", "Settings", "Access", "Other frames (2)"],
-    "fr": ["État", "Appareil et version", "Réglages", "Accès", "Autres cadres (2)"]}
+    "en": ["State", "Settings", "Access"],
+    "fr": ["État", "Réglages", "Accès"]}
 MODEL = "XIAO ePaper EE02 13.3in Spectra 6"
 COLUMN = ".fleet-frame"
 BAR = "[data-dirty-bar]"
-_SETTLED = (
-    "() => document.readyState === 'complete' && document.getAnimations().every("
-    "a => !a.effect || a.effect.getTiming().iterations === Infinity || a.playState !== 'running')")
+_SETTLED = animation_settle.SETTLED
 _OWNS_CENTRE = (
     "sel => { const el = document.querySelector(sel); if (!el) return false;"
     " const r = el.getBoundingClientRect();"
@@ -43,7 +42,7 @@ _SECTIONS = (
 
 
 def _open(new_context, server, viewport=DESKTOP_1280, lang="en", theme="light",
-          query="", releases=False, **args):
+          query="", releases=False, owns=COLUMN + " h2.section-label", **args):
     seed = fx.seed_fleet(server.state_dir)
     device_config.save_device_config(server.state_dir, wake_interval_s=600)
     if releases:
@@ -59,7 +58,7 @@ def _open(new_context, server, viewport=DESKTOP_1280, lang="en", theme="light",
         page.wait_for_function(_SETTLED, timeout=15000)
         _set_ui_theme(page, theme)
         page.wait_for_function(_SETTLED, timeout=15000)
-        page.wait_for_function(_OWNS_CENTRE, arg=COLUMN + " h2.section-label", timeout=10000)
+        page.wait_for_function(_OWNS_CENTRE, arg=owns, timeout=10000)
     return context, page, seed
 
 
@@ -77,19 +76,20 @@ def test_the_sections_are_one_content_wide_column_present_once_and_in_order(
         for upper, lower in zip(sections, sections[1:]):
             assert abs(lower["x"] - upper["x"]) < 1 and lower["y"] > upper["y"], (where, sections)
             assert abs(lower["w"] - upper["w"]) < 1, (where, sections)
-        assert sections[0]["w"] >= 640, (where, sections[0])
-        # The column runs the width of the page's content: it starts where the title starts and
-        # ends where the frame button ends, like every other page.
+        assert sections[0]["w"] >= 480, (where, sections[0])
+        # The column starts where the frame's title starts, beside the list of frames (which
+        # ends before it) and not under a frame button.
         column = page.locator(COLUMN).bounding_box()
         title = page.locator("main h1").first.bounding_box()
-        button = page.locator("details.frame-menu > summary").bounding_box()
+        listing = page.locator(".fleet-list").bounding_box()
         assert abs(column["x"] - title["x"]) <= 2, (where, column, title)
-        assert abs(column["x"] + column["width"] - (button["x"] + button["width"])) <= 2, (
-            where, column, button)
-        # No summary row and no tab bar of sub-tabs: the groups are on the page.
+        assert listing["x"] + listing["width"] <= column["x"], (where, listing, column)
+        assert page.locator("details.frame-menu").count() == 0
+        # No summary row, no sub-tabs and no anchors: the sections are on the page.
         assert page.locator("a.fleet-sum").count() == 0
-        assert page.locator("nav.fleet-tabs").is_hidden()
-        assert page.locator("#wake-interval-s").is_visible()
+        assert page.locator("nav.fleet-tabs").count() == 0
+        assert page.locator("nav.fleet-anchors").is_hidden()
+        assert page.locator("#wake-interval-m").is_visible()
     finally:
         context.close()
 
@@ -100,41 +100,40 @@ def test_no_fact_is_shown_twice_in_the_column(new_context, app_server_in_process
         new_context, app_server_in_process, viewport, releases=True)
     try:
         text = page.locator(COLUMN).inner_text()
-        assert text.count(MODEL) == 1, text
-        # The frame's name is the frame button's label above the column, not repeated in it.
-        assert text.count("Orly frame") == 0, text
-        for heading in ("Wake interval", "Diagnostic LED"):
-            assert page.locator(COLUMN).get_by_role("heading", name=heading).count() == 1
+        assert MODEL not in text, text
+        # The frame's name is the column's title and appears once.
+        assert text.count("Orly frame") == 1, text
+        for label in ("Wake interval", "Diagnostic LED"):
+            assert page.locator(COLUMN + " .fleet-tile__label", has_text=label).count() == 1
         # The owner is named once (the Reassign picker's options are choices, not facts).
         owners = page.locator(COLUMN + " .co-manager__email").all_inner_texts()
         assert owners == [fx.ADMIN_EMAIL], owners
-        # A firmware version is named once as a fact: what the frame runs in the summary, what
-        # is on offer in the update card (the Install button's label repeats the version it
-        # installs, and the seeded release note quotes it); the history rows list them again.
-        facts = page.locator(COLUMN + " .mono:not(.update-hist__list .mono)").all_inner_texts()
-        for version in (RELEASE_SEED_RUNNING_VERSION, RELEASE_SEED_AVAILABLE_VERSION):
-            assert facts.count(version) == 1, (version, facts)
-        # The summary names it once as what the frame runs and the history once as a row.
-        assert text.count(RELEASE_SEED_RUNNING_VERSION) == 2, text
+        # The running firmware version is named once, in the Firmware tile; the versions on offer
+        # and the history are on the Versions page.
+        facts = page.locator(COLUMN + " .mono").all_inner_texts()
+        assert facts == [RELEASE_SEED_RUNNING_VERSION], facts
+        assert text.count(RELEASE_SEED_RUNNING_VERSION) == 1, text
+        assert RELEASE_SEED_AVAILABLE_VERSION not in text, text
     finally:
         context.close()
 
 
 def test_the_version_history_is_a_flat_list_with_the_action_in_every_row(
         new_context, app_server_in_process):
-    context, page, _seed = _open(new_context, app_server_in_process, releases=True)
+    context, page, _seed = _open(
+        new_context, app_server_in_process, releases=True, query="&view=versions",
+        owns=".fleet-versions .update-cta")
     try:
         assert page.locator("details.update-all").count() == 0
-        assert page.locator(".fleet-block--device table").count() == 0
+        assert page.locator(".fleet-versions table").count() == 0
         heading = page.locator(".update-versions .update-hist__title")
         assert heading.text_content().strip() == "Versions"
-        assert page.locator(".update-hist__head .banner__pill").inner_text().strip() == "2"
         rows = page.locator("li.update-item")
         assert rows.count() == 2 and rows.first.is_visible()
         running = page.locator("li.update-item--running")
         assert running.count() == 1 and running.locator("form").count() == 0
         # The newer version is installed from the update card above; its row repeats no button.
-        card_button = page.locator(".update-offer form button[type=submit]")
+        card_button = page.locator(".update-cta form button[type=submit]")
         assert card_button.is_visible() and card_button.inner_text() == "Install fw-v1.1.0"
         assert card_button.bounding_box()["height"] >= 44 - 0.5
         assert page.locator("main form[action='/update/install']").count() == 1
@@ -143,15 +142,17 @@ def test_the_version_history_is_a_flat_list_with_the_action_in_every_row(
 
 
 def test_the_version_history_and_summary_are_in_french(new_context, app_server_in_process):
-    context, page, _seed = _open(new_context, app_server_in_process, lang="fr", releases=True)
+    context, page, _seed = _open(
+        new_context, app_server_in_process, lang="fr", releases=True, query="&view=versions",
+        owns=".fleet-versions .update-cta")
     try:
         assert page.locator(".update-hist__title").text_content().strip() == "Versions"
-        assert page.locator(".update-sum__label").text_content().strip() == "Sur le cadre"
+        assert page.locator(".update-cta h2").text_content().strip() == "Mise à jour disponible"
         chips = page.locator(".update-item .banner__pill").all_inner_texts()
         # Both releases share one publication time: the one that sorts first is the newest.
-        assert "Installée" in [chip.strip() for chip in chips]
-        assert set(chip.strip() for chip in chips) <= {"Installée", "Plus récente"}
-        assert page.locator(".update-offer form button").inner_text() == "Installer fw-v1.1.0"
+        assert "En cours" in [chip.strip() for chip in chips]
+        assert set(chip.strip() for chip in chips) <= {"En cours", "Plus récente"}
+        assert page.locator(".update-cta form button").inner_text() == "Installer fw-v1.1.0"
     finally:
         context.close()
 
@@ -161,8 +162,8 @@ def test_settings_are_edited_inline_and_saved_through_the_bar(
     server = app_server_in_process
     context, page, _seed = _open(new_context, server)
     try:
-        field = page.locator("#wake-interval-s")
-        field.fill("900")
+        field = page.locator("#wake-interval-m")
+        field.fill("15")
         page.locator(BAR).wait_for(state="visible")
         page.wait_for_function(_SETTLED, timeout=15000)
         # Editing never opens a dialog.
@@ -170,8 +171,8 @@ def test_settings_are_edited_inline_and_saved_through_the_bar(
         page.wait_for_function(_OWNS_CENTRE, arg=BAR + " .dirty-bar__save", timeout=10000)
         page.locator(BAR + " .dirty-bar__save").click()
         page.wait_for_function(
-            "() => { const f = document.querySelector('#wake-interval-s');"
-            " return document.readyState === 'complete' && !!f && f.value === '900'; }",
+            "() => { const f = document.querySelector('#wake-interval-m');"
+            " return document.readyState === 'complete' && !!f && f.value === '15'; }",
             timeout=15000)
         assert device_config.load_device_config(server.state_dir)["wake_interval_s"] == 900
     finally:
@@ -220,7 +221,7 @@ def test_the_sections_work_without_scripts(new_context, app_server_in_process):
     context, page, seed = _open(
         new_context, server, java_script_enabled=False)
     try:
-        assert page.locator("#wake-interval-s").is_visible()
+        assert page.locator("#wake-interval-m").is_visible()
         assert page.locator("details.update-all").count() in (0, 1)
         page.goto(server.base_url() + "/fleet?frame=" + seed.owned_id)
         link = page.locator("a.fleet-retire__link")
@@ -231,24 +232,17 @@ def test_the_sections_work_without_scripts(new_context, app_server_in_process):
 
 
 @pytest.mark.parametrize("lang", ["en", "fr"])
-def test_a_phone_keeps_its_three_tabs_with_the_same_sections(
+def test_a_phone_stacks_the_three_sections_under_its_anchors(
         new_context, app_server_in_process, lang):
     context, page, _seed = _open(
         new_context, app_server_in_process, PHONE, lang)
     try:
-        assert page.locator("nav.fleet-tabs").is_visible()
-        labels = {"en": ["State", "Settings", "Access"], "fr": ["État", "Réglages", "Accès"]}
-        assert page.locator("nav.fleet-tabs a span").all_inner_texts() == labels[lang]
+        assert page.locator("nav.fleet-anchors").is_visible()
+        assert page.locator("nav.fleet-anchors a").all_inner_texts() == HEADINGS[lang]
         shown = page.evaluate(_SECTIONS)
-        # State tab: State, Device and version, and the pending and retired frames.
-        assert [s["title"] for s in shown] == [
-            HEADINGS[lang][0], HEADINGS[lang][1], HEADINGS[lang][4]]
-        assert not _assert_no_page_overflow(page, "phone-tabs", PHONE["width"])
-        page.locator("nav.fleet-tabs a").nth(2).click()
-        page.wait_for_url("**tab=access")
-        page.wait_for_function(_SETTLED, timeout=15000)
-        shown = page.evaluate(_SECTIONS)
-        assert [s["title"] for s in shown] == [HEADINGS[lang][3]]
+        assert [s["title"] for s in shown] == HEADINGS[lang]
+        assert all(abs(s["x"] - shown[0]["x"]) < 1 and abs(s["w"] - shown[0]["w"]) < 1 for s in shown)
+        assert not _assert_no_page_overflow(page, "phone-sections", PHONE["width"])
     finally:
         context.close()
 

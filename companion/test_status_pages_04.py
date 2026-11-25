@@ -46,12 +46,11 @@ def battery_trend_js(_module_server):
 # --- shared helpers, local to this part ------------------------------------
 
 def _row_html(rendered, row_id):
-    """The served markup of one Health row: from its id to whichever comes next
-    (the next row, the next group band, or the registry card)."""
+    """The served markup of one row: from its id to whichever comes next
+    (the next row, or the end of the page)."""
     start = rendered.index('id="health-row-%s"' % row_id)
     ends = [index for index in (
-        rendered.find('<details class="health-row"', start),
-        rendered.find('<h2 id="%s"' % health_page.SERVER_DATA_SECTION_ID, start),
+        rendered.find('<div class="health-row"', start),
         len(rendered),
     ) if index != -1]
     return rendered[start:min(ends)]
@@ -103,9 +102,8 @@ def test_nested_card_heading_rhythm_rules_keep_their_margins_and_order(tmp_path,
         "expected the prose rhythm rule to sit after the heading rule it pairs with")
 
 
-def test_resolution_statistics_table_is_the_only_data_table_prose(tmp_path, css_text):
-    """Exactly the Identification row's breakdown table carries data-table--prose, not the battery
-    readings table, and style.css's
+def test_the_battery_readings_table_is_not_a_prose_table(tmp_path, css_text):
+    """the battery readings table does not carry data-table--prose, and style.css's
     .data-table--prose sits after .data-table with the shared max-content floor still intact on
     the base rule"""
     state_dir = str(tmp_path)
@@ -114,16 +112,10 @@ def test_resolution_statistics_table_is_the_only_data_table_prose(tmp_path, css_
         (shp.iso(now - timedelta(minutes=1)), 4200),
         (shp.iso(now), 4190),
     ])
-    shp.seed_runway_events(state_dir, [
-        {"ts": shp.iso(now), "hex": "abc123", "route_source": "fresh_hit"}])
     rendered = health_page_composition.render(shp.ctx(state_dir, shp.iso(now)))
     doc = parse_html(rendered)
 
-    assert rendered.count("data-table--prose") == 1
-    assert doc.select_one("#health-row-identification").select("table.data-table--prose"), (
-        "expected the opted-out table to be the Identification row's breakdown")
-    assert not doc.select_one("#health-row-battery").select("table.data-table--prose"), (
-        "the battery readings table must not carry data-table--prose")
+    assert "data-table--prose" not in rendered
     assert doc.select_one("#health-row-battery").select("table.data-table--readings")
 
     rules = css_rules(css_text)
@@ -136,27 +128,17 @@ def test_resolution_statistics_table_is_the_only_data_table_prose(tmp_path, css_
 
 
 def test_description_column_is_the_only_muted_column(tmp_path, css_text):
-    """The Description column is the only muted column end to end — markup (exactly
-    len(_SOURCE_ROWS) desc cells, all inside Resolution-statistics), builder (data_table()'s
+    """The Description column is the only muted column end to end — markup (the
+    battery table carries none), builder (data_table()'s
     desc_columns contract: inert default, byte-identical mono-only output, additive-only
     desc-only output, both-roles joining mono first) and stylesheet (.data-table td.desc's 70%
     muted colour, no min-width, no opacity, no muted token anywhere in the file)"""
     state_dir = str(tmp_path)
     now = shp.now()
-    shp.seed_runway_events(state_dir, [
-        {"ts": shp.iso(now), "hex": "abc123", "route_source": "fresh_hit"}])
+    shp.seed_device_health(state_dir, [
+        (shp.iso(now - timedelta(minutes=1)), 4200), (shp.iso(now), 4190)])
     rendered = health_page_composition.render(shp.ctx(state_dir, shp.iso(now)))
-
-    expected = len(health_page._SOURCE_ROWS)
-    desc_count = rendered.count('<td class="desc">')
-    assert desc_count == expected, (
-        "expected exactly %d desc-class cells (one per _SOURCE_ROWS entry), got %d"
-        % (expected, desc_count))
-
-    doc = parse_html(rendered)
-    assert len(doc.select_one("#health-row-identification").select("td.desc")) == expected, (
-        "expected every desc cell to live in the Identification row's breakdown table")
-    assert not doc.select_one("#health-row-battery").select("td.desc"), (
+    assert not parse_html(rendered).select("td.desc"), (
         "the battery readings table must carry no desc cell")
 
     plain = layout.data_table(["A", "B"], [["1", "2"]])
@@ -182,47 +164,6 @@ def test_description_column_is_the_only_muted_column(tmp_path, css_text):
         for prop, value in rule.declarations:
             assert "--color-text-muted" not in prop and "--color-text-muted" not in value, (
                 "a second muted value/token is the thing this stylesheet's own comments forbid")
-
-
-def test_stats_cards_list_is_complete_and_precedes_the_table(tmp_path):
-    """The Resolution-statistics table has a complete mobile .data-cards representation — one
-    item per _SOURCE_ROWS entry, every label/full-gloss/count present, positioned before its
-    unchanged desktop table"""
-    state_dir = str(tmp_path)
-    now = shp.now()
-    shp.seed_runway_events(state_dir, [
-        {"ts": shp.iso(now), "hex": "abc001", "route_source": "fresh_hit"},
-        {"ts": shp.iso(now), "hex": "abc002", "route_source": "cache_hit"},
-        {"ts": shp.iso(now), "hex": "abc003", "route_source": "cache_hit"},
-        {"ts": shp.iso(now), "hex": "abc004", "route_source": "airline_only"},
-        {"ts": shp.iso(now), "hex": "abc005", "route_source": "miss"},
-    ])
-    rendered = health_page_composition.render(shp.ctx(state_dir, shp.iso(now)))
-
-    assert rendered.count('<ul class="data-cards">') == 1
-    expected_items = len(health_page._SOURCE_ROWS)
-    item_count = rendered.count('<li class="data-card">')
-    assert item_count == expected_items, (
-        'expected exactly %d <li class="data-card"> items, got %d' % (expected_items, item_count))
-
-    stats_at = rendered.index(health_page.STATS_SECTION_HEADING)
-    cards_at = rendered.index('<ul class="data-cards">')
-    prose_at = rendered.index("data-table--prose")
-    assert stats_at < cards_at < prose_at, (
-        "expected the card list to sit after the Resolution-statistics heading and "
-        "before its data-table--prose table")
-
-    card_slice = rendered[cards_at:rendered.index("</ul>", cards_at) + len("</ul>")]
-    with history_db.open_db(state_dir) as conn:
-        stats = health_page.resolution_stats(conn, health_page.RESOLUTION_WINDOW_DAYS)
-    for label, gloss, count in stats["rows"]:
-        assert layout.escape_html(label) in card_slice
-        assert layout.escape_html(gloss) in card_slice, (
-            "expected the FULL gloss inside the card-list slice, untruncated")
-        assert str(count) in card_slice
-
-    assert rendered.count("data-table--prose") == 1
-    assert rendered.count('<td class="desc">') == len(health_page._SOURCE_ROWS)
 
 
 def test_data_cards_toggle_contract_and_untouched_rules(css_text):
@@ -259,35 +200,9 @@ def test_data_cards_toggle_contract_and_untouched_rules(css_text):
             "expected the harness's own pinned selector %r to still exist" % literal)
 
 
-def test_no_registry_chrome_and_no_cross_page_leak(tmp_path):
-    """The Health composition carries no unresolved-prefix registry (no filter bar, no card
-    list for it) even when the registry holds a prefix; the breakdown alone renders one
-    .data-cards list; History and Airlines carry zero occurrences of the card class names"""
-    empty_dir = tmp_path / "empty"
-    empty_dir.mkdir()
-    empty_dir = str(empty_dir)
+def test_history_and_airlines_carry_no_card_class_names(tmp_path):
+    """History and Airlines carry zero occurrences of the card class names"""
     now = shp.now()
-    rendered_empty = health_page_composition.render(shp.ctx(empty_dir, shp.iso(now)))
-    assert not shp.health_row(rendered_empty, "identification").select(".data-table"), (
-        "expected the empty identification breakdown to be entirely absent")
-    assert "data-card" not in rendered_empty and "filter-bar" not in rendered_empty
-
-    both_dir = tmp_path / "both"
-    both_dir.mkdir()
-    both_dir = str(both_dir)
-    shp.seed_runway_events(both_dir, [
-        {"ts": shp.iso(now), "hex": "abc111", "route_source": "fresh_hit"}])
-    shp.seed_unresolved_prefixes(both_dir, {
-        "ABC": {"count": 1, "first_seen": shp.iso(now), "last_seen": shp.iso(now),
-                "example_callsign": "ABC123"},
-    })
-    rendered_both = health_page_composition.render(shp.ctx(both_dir, shp.iso(now)))
-    cards_list_count = rendered_both.count('<ul class="data-cards">')
-    assert cards_list_count == 1, (
-        "expected exactly one <ul class=\"data-cards\"> list (the stats breakdown), got %d"
-        % cards_list_count)
-    assert "ABC123" not in rendered_both and "filter-bar" not in rendered_both
-
     leak_dir = tmp_path / "leak"
     leak_dir.mkdir()
     leak_dir = str(leak_dir)
@@ -305,8 +220,8 @@ def test_no_registry_chrome_and_no_cross_page_leak(tmp_path):
 
 
 def test_humanised_battery_readout_end_to_end(tmp_path, battery_trend_js):
-    """The battery readout carries its id, role="status", both value/detail spans and a
-    humanised visible detail with the machine-precise ISO only in the tooltip, every chart hit
+    """The battery readout carries its id, role="status", both value/detail spans (empty and hidden
+    until the script reveals a point), every point's data-when is a humanised timestamp, every chart hit
     target carries data-when, and battery-trend.js's shipped source still reads that attribute,
     both span classes, and the readout's id literal"""
     state_dir = str(tmp_path)
@@ -329,13 +244,15 @@ def test_humanised_battery_readout_end_to_end(tmp_path, battery_trend_js):
     assert "battery-readout__detail" in readout_html
     assert not re.search(r"\d{4}-\d{2}-\d{2}T", readout_html), (
         "expected zero raw ISO occurrences anywhere in the readout")
-    title_match = re.search(r'title="([^"]*)"', readout_html)
-    assert title_match is not None, "expected the detail span to carry a title attribute"
-    assert re.search(r"^\d{1,2} \w+ \d{2}:\d{2} \(", title_match.group(1)), (
-        "expected the title to be a full 'D Mon HH:MM (Nx ago)' local timestamp")
-    visible = re.sub(r"<[^>]*>", "", readout_html)
-    assert title_match.group(1) in visible, (
-        "expected the title to equal the readout's own visible text")
+    # The readout ships empty and hidden: the script writes a hovered point's reading into it, so
+    # nothing in it is the server's to humanise.
+    assert " hidden" in readout_html[:readout_html.index(">")]
+    assert re.sub(r"<[^>]*>", "", readout_html) == ""
+    assert 'data-when="' in section_html
+    when = re.search(r'data-when="([^"]*)"', section_html).group(1)
+    assert re.search(r"^\d{1,2} \w+ \d{2}:\d{2} \(", when), (
+        "expected a point's data-when to be a full 'D Mon HH:MM (Nx ago)' local timestamp")
+    assert not re.search(r"\d{4}-\d{2}-\d{2}T", when)
 
     assert section_html.count("data-when=") == 6, (
         "expected one data-when attribute per hit target in each of the two chart views")
@@ -371,7 +288,7 @@ def test_readout_typographic_split_stylesheet_guard(css_text):
 
 
 def test_anomaly_active_agrees_with_the_banner_both_directions(tmp_path):
-    """the nav-tab severity path and the anomaly banner's presence agree in both directions,
+    """the nav-tab severity path and the System view banner's presence agree in both directions,
     across healthy and unhealthy fixtures"""
     now = shp.now()
     fixtures = []
@@ -409,7 +326,7 @@ def test_anomaly_active_agrees_with_the_banner_both_directions(tmp_path):
         state = health_page.safe_health_state(state_dir, ts)
         severity = state["severity"] if state else "ok"
         verdict = severity != "ok"
-        rendered = health_page_composition.render(shp.ctx(state_dir, ts))
+        rendered = health_page.system_html(shp.ctx(state_dir, ts))
         banner_present = health_page.ANOMALY_BANNER_TEXT in rendered
         assert verdict == banner_present, (
             "the severity path (%r)=%r disagreed with the banner's presence=%r for %r"
@@ -430,16 +347,17 @@ def test_section_builder_markup_survives_the_row_reframe(tmp_path):
     shp.seed_runway_events(state_dir, [
         dict(ts=shp.iso(base), hex="abc123", confirmed_state="DEPARTING", corroborated="True")])
     rendered = health_page_composition.render(shp.ctx(state_dir, shp.iso(base)))
-    assert "dot--" in rendered, "expected at least one dot-- status class to survive the reframe"
+    system = health_page.system_html(shp.ctx(state_dir, shp.iso(base)))
+    assert "dot--" in system, "expected at least one dot-- status class to survive the reframe"
     assert '<table class="data-table data-table--readings">' in rendered, (
         "expected the battery table to survive the reframe")
     assert "<svg" in rendered, "expected the battery sparkline svg to survive the reframe"
 
 
-def test_health_row_icons_are_the_four_state_glyphs_and_no_heading_carries_a_glyph(tmp_path):
-    """Health's row icons are the four whitelisted state glyphs (one per row, drawn in distinct shapes), the
-    old per-signal tile icons are gone, and no Health <h2> — empty or seeded render — carries a glyph;
-    health_page.ICON_BATTERY is gone from the module namespace"""
+def test_row_icons_are_the_four_state_glyphs_and_no_heading_carries_a_glyph(tmp_path):
+    """the row icons are the four whitelisted state glyphs (drawn in distinct shapes), the
+    old per-signal tile icons are gone, and no Battery page <h2> — empty or seeded render — carries
+    a glyph; health_page.ICON_BATTERY is gone from the module namespace"""
     from companion import health_rows
     glyphs = tuple(health_rows.STATE_ICON_IDS[state] for state in ("ok", "warn", "error", "off"))
     assert len(set(glyphs)) == 4, "expected four distinct state glyphs (the state is never colour alone)"
@@ -449,45 +367,29 @@ def test_health_row_icons_are_the_four_state_glyphs_and_no_heading_carries_a_gly
         assert not hasattr(health_page, retired), (
             "health_page.%s must be gone from the module namespace" % retired)
 
-    def _headings_carry_no_glyph(rendered, expected_heading_count):
-        heads = re.findall(r"<h2\b.*?</h2>", rendered, re.S)
-        assert len(heads) == expected_heading_count, (
-            "expected Health to render %d headings, got %d" % (expected_heading_count, len(heads)))
-        for head in heads:
+    def _headings_carry_no_glyph(rendered):
+        for head in re.findall(r"<h2\b.*?</h2>", rendered, re.S):
             assert "<svg" not in head, (
-                "no Health heading may carry a glyph any more, found one in: %r" % head[:140])
+                "no heading may carry a glyph, found one in: %r" % head[:140])
         assert "#icon-battery" not in rendered, (
             "the retired icon-battery glyph must not be referenced anywhere in the page body")
 
-    def _non_toast_uses(rendered):
-        # The anomaly toast's own tone glyph is the toast's, not a row's
-        # or a heading's, so it is left out of the counts below.
-        return rendered.count("<use") - rendered.count("toast__glyph")
-
     state_dir = str(tmp_path)
     empty_rendered = health_page_composition.render(shp.ctx(state_dir))
-    assert _non_toast_uses(empty_rendered) == 5, (
-        "expected exactly five non-toast <use occurrences on the empty render (one state glyph "
-        "per row; Health carries no auto-refresh pill any more)")
-    rows = parse_html(empty_rendered).select("details.health-row")
-    for row in rows:
-        icon = row.select_one(".health-row__icon")
-        assert len(icon.select("svg")) == 1
+    assert empty_rendered.count("<use") == 1, (
+        "expected exactly one <use occurrence on the empty render: the row's state glyph")
+    rows = parse_html(empty_rendered).select("div.health-row")
+    assert len(rows) == 1
+    assert len(rows[0].select_one(".health-row__icon").select("svg")) == 1
     assert layout.STAT_TILE_ICON_CLASS not in empty_rendered, (
-        "the stat-tile tint class has no consumer on Health any more")
-    # The two group bands.
-    _headings_carry_no_glyph(empty_rendered, 2)
+        "the stat-tile tint class has no consumer on the Battery page")
+    _headings_carry_no_glyph(empty_rendered)
 
     now = shp.now()
-    shp.seed_unresolved_prefixes(state_dir, {
-        "ABC": {"count": 1, "first_seen": shp.iso(now), "last_seen": shp.iso(now),
-                "example_callsign": "ABC123"},
-    })
+    shp.seed_device_health(state_dir, [(shp.iso(now - timedelta(minutes=1)), 4200), (shp.iso(now), 4190)])
     seeded_rendered = health_page_composition.render(shp.ctx(state_dir, shp.iso(now)))
-    assert _non_toast_uses(seeded_rendered) == 5, (
-        "expected the same five non-toast <use occurrences on a seeded render: the registry "
-        "adds no filter bar and no dialog glyphs any more")
-    _headings_carry_no_glyph(seeded_rendered, 2)
+    assert seeded_rendered.count("<use") >= 1
+    _headings_carry_no_glyph(seeded_rendered)
 
 
 # ==========================================================================
@@ -621,11 +523,10 @@ def test_refresh_pill_stylesheet_contract(css_text):
         "expected .page-header .refresh-pill to declare explicit top/right offsets")
 
 
-def test_flight_data_row_renders_last_detection_timestamp(tmp_path):
-    """The Flight data row's last-aircraft fact renders META_LAST_DETECTION's timestamp byte-
-    identically to concise_timestamp_html(), as a label/value pair in the row's body — never
-    battery-readout__detail, whose class name would collide with the BATTERY_READOUT_ID absence
-    guards"""
+def test_flight_data_card_renders_last_detection_timestamp(tmp_path):
+    """The System view's flight data card renders the last-aircraft fact from META_LAST_DETECTION
+    as a label/value pair — never battery-readout__detail, whose class name would collide with
+    the BATTERY_READOUT_ID absence guards"""
     state_dir = str(tmp_path)
     now = shp.now()
     now_iso = shp.iso(now)
@@ -634,38 +535,36 @@ def test_flight_data_row_renders_last_detection_timestamp(tmp_path):
         history_db.META_LAST_PIPELINE_RUN: now_iso,
         history_db.META_LAST_DETECTION: detection_iso,
     })
-    rendered = health_page_composition.render(shp.ctx(state_dir, now_iso))
-    expected_detail = layout.concise_timestamp_html(detection_iso, now_iso)
+    rendered = health_page.system_html(shp.ctx(state_dir, now_iso))
+    expected_detail = layout.relative_time_html(detection_iso, now_iso, fallback="never")
     assert rendered.count(expected_detail) == 1, (
-        "expected the flight-data row to render concise_timestamp_html() "
-        "byte-identically for the seeded META_LAST_DETECTION value exactly once")
-    facts = shp.health_row(rendered, "flight-data").select(".health-row__facts > div")
+        "expected the flight data card to render the relative time byte-identically for "
+        "the seeded META_LAST_DETECTION value exactly once")
+    facts = parse_html(rendered).select_one("#system-card-flight-data").select(".sys-card__facts > div")
     labels = [fact.select_one("dt").text() for fact in facts]
-    assert health_page.LAST_DETECTION_LABEL in labels, (
-        "expected the last-aircraft label as a fact in the row's body")
-    detection_fact = facts[labels.index(health_page.LAST_DETECTION_LABEL)]
-    assert expected_detail in rendered[rendered.index('id="health-row-flight-data"'):], (
-        "expected the detection timestamp inside the flight-data row")
+    assert "Last detection" in labels, "expected the last-detection label as a fact in the card"
+    detection_fact = facts[labels.index("Last detection")]
     assert "battery-readout" not in detection_fact.text() and "battery-readout" not in str(detection_fact.attrs), (
         "expected the fact's own markup to carry no 'battery-readout' substring")
 
 
-def test_flight_data_row_falls_back_honestly_when_no_detection(tmp_path):
-    """The Flight data row's last-aircraft fact renders an honest "never" when META_LAST_DETECTION
+def test_flight_data_card_falls_back_honestly_when_no_detection(tmp_path):
+    """The flight data card's last-detection fact renders an honest "never" when META_LAST_DETECTION
     is absent, never an empty element, a dangling label or the battery's own no-reading wording"""
     state_dir = str(tmp_path)
     now_iso = shp.iso(shp.now())
     shp.seed_meta(state_dir, **{history_db.META_LAST_PIPELINE_RUN: now_iso})
-    rendered = health_page_composition.render(shp.ctx(state_dir, now_iso))
-    # The pipeline has run but never produced a detection, so the row is
-    # dated by its last run and the last-aircraft fact reads "never".
-    facts = shp.health_row(rendered, "flight-data").select(".health-row__facts > div")
-    by_label = {fact.select_one("dt").text(): fact.select_one("dd").text() for fact in facts}
-    assert by_label[health_page.LAST_DETECTION_LABEL] == "never", (
-        "expected the last-aircraft fact to render the honest fallback when META_LAST_DETECTION "
+    rendered = health_page.system_html(shp.ctx(state_dir, now_iso))
+    # The pipeline has run but never produced a detection, so the card is
+    # dated by its last run and the last-detection fact reads "never".
+    card = parse_html(rendered).select_one("#system-card-flight-data")
+    by_label = {
+        fact.select_one("dt").text(): fact.select_one("dd").text()
+        for fact in card.select(".sys-card__facts > div")}
+    assert by_label["Last detection"] == "never", (
+        "expected the last-detection fact to render the honest fallback when META_LAST_DETECTION "
         "is absent, got %r" % (by_label,))
-    assert layout.escape_html("no reading yet") not in rendered.split('id="health-row-flight-data"')[1].split(
-        'id="health-row-sources"')[0]
+    assert layout.escape_html("no reading yet") not in rendered
 
 
 def test_display_header_carries_only_the_silent_refresh_marker(tmp_path):
@@ -711,15 +610,11 @@ def test_display_header_carries_only_the_silent_refresh_marker(tmp_path):
 
 
 def test_uir_03_07_12_13_one_line_fixes_hold_together(tmp_path, css_text):
-    """The four one-line fixes hold together: the anomaly toast's pills wrap and its
-    count-and-noun lead is the toast's title, .banner__pill gains min-width: 0
+    """The four one-line fixes hold together: the System banner's count-and-noun lead is
+    its title, .banner__pill gains min-width: 0
     while keeping flex: none and its source position before .refresh-pill, .airlines-thumb__image
     declares height: auto alongside its surviving aspect-ratio, the .data-table--prose first-column
     nowrap rule exists after the base rule, and the rendered Battery row carries no range caption"""
-    pills_decls = declarations_for(css_text, ".toast__pills")
-    assert pills_decls.get("flex-wrap") == "wrap", (
-        "expected the anomaly toast's pill row to declare flex-wrap: wrap")
-
     pill_decls = declarations_for(css_text, ".banner__pill")
     assert pill_decls.get("min-width") == "0", "expected .banner__pill to declare min-width: 0"
     assert pill_decls.get("flex") == "none", "expected .banner__pill to still declare flex: none"
@@ -745,12 +640,12 @@ def test_uir_03_07_12_13_one_line_fixes_hold_together(tmp_path, css_text):
 
     banner_dir = tmp_path / "banner"
     banner_dir.mkdir()
-    rendered = health_page_composition.render(shp.ctx(str(banner_dir)))
-    banners = parse_html(rendered).select(".toast." + health_page.HEALTH_ANOMALY_CLASS)
-    assert len(banners) == 1, "expected a fresh empty state dir to render an anomaly toast"
-    label_text = banners[0].select_one(".toast__title").text()
+    rendered = health_page.system_html(shp.ctx(str(banner_dir)))
+    banners = parse_html(rendered).select(".sys-banner." + health_page.HEALTH_ANOMALY_CLASS)
+    assert len(banners) == 1, "expected a fresh empty state dir to render the System banner"
+    label_text = banners[0].select_one(".sys-banner__title").text()
     assert re.search(r"\A\d+ (warning|error)s?:\Z", label_text), (
-        "expected the count-and-noun lead text as the anomaly toast's title, got %r"
+        "expected the count-and-noun lead text as the banner's title, got %r"
         % label_text)
 
     caption_dir = tmp_path / "caption"
@@ -821,7 +716,7 @@ def test_bare_summary_rule_declares_the_accent_colour(css_text):
 
 def test_interaction_skip_guard_cross_file_contract(tmp_path, freshness_js):
     """The interaction-skip guard's cross-file contract: a fixture rich enough to actually render
-    a disclosure and a chart hit target, and freshness.js's shipped source still
+    the readings table and a chart hit target, and freshness.js's shipped source still
     checks for a focused INPUT/SUMMARY and health_page.SPARKLINE_HIT_CLASS's own literal value but
     no longer checks for an open <details> at all"""
     state_dir = str(tmp_path)
@@ -834,7 +729,8 @@ def test_interaction_skip_guard_cross_file_contract(tmp_path, freshness_js):
     shp.seed_runway_events(state_dir, [
         {"ts": shp.iso(now), "hex": "abc123", "route_source": "fresh_hit"}])
     rendered = health_page_composition.render(shp.ctx(state_dir, shp.iso(now)))
-    assert "<details" in rendered, "expected at least one <details> disclosure to actually render"
+    assert 'class="battery-readings"' in rendered, "expected the readings table to actually render"
+    assert "<details" not in rendered, "the Battery page folds nothing behind a toggle"
     assert health_page.SPARKLINE_HIT_CLASS in rendered, (
         "expected the battery chart's hit-target class to actually render")
 
@@ -872,7 +768,7 @@ def test_swap_selectors_pinned_both_directions(freshness_js):
 
 def test_swap_registry_has_one_definition_site_and_one_key_set(freshness_js):
     """The swap registry has ONE definition site (health_page.REFRESH_SWAP_SELECTORS resolves
-    from layout.REFRESH_SWAP_SELECTORS_BY_PAGE and is that same object, with the Fleet page's four regions
+    from layout.REFRESH_SWAP_SELECTORS_BY_PAGE and is that same object, with the Fleet page's regions
     in their documented order) and ONE key set (the script's registry keys equal the Python's, in
     both directions), with every selector appearing exactly once per registry entry in the
     script's comment-stripped code and the registry actually read"""
@@ -885,10 +781,11 @@ def test_swap_registry_has_one_definition_site_and_one_key_set(freshness_js):
         "copy of it — a copy is a second definition site with extra steps")
     assert health_page.REFRESH_SWAP_SELECTORS == (
         ".health-row__summary",
+        ".sys-card__head",
         "div.health-anomaly",
         "section.health-source-fault",
         'a[href$="/fleet"]'), (
-        "the Fleet page's four regions: each health row's summary, the anomaly banner, the "
+        "the Fleet page's regions: each health row's summary, each System card's header, the anomaly banner, the "
         "source-fault block and the Fleet navigation link")
 
     js = freshness_js

@@ -1,0 +1,390 @@
+<!--
+OWNER-APPROVED 2026-11-18. Decisions: Account frame rows get a 44 px icon button at the right (key = Manage access, door-and-arrow = Leave frame, names read aloud), no hardware line for anyone, status = dot plus last-seen word; Preferences group unchanged (Language, Theme with hints); new About group with a Credits row for users and administrators, Credits page gets a Back to Account link; sign-in First visit line moves under the button, small and muted; 404 uses option B (empty frame, line 'Nothing hangs on this wall.') on a card with the existing 44 px button.
+Covers R19 to R24: Account frame rows, Credits row, sign-in First visit, 404 illustration.
+-->
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SkyPane mockup: Account, sign-in and 404 (Phase 68, plan 07)</title>
+<style>
+/* Standalone mockup, no external asset. Tokens follow companion/static/style.css (light and dark only).
+   Each mock sits in a [data-viewport] box, 390 px (phone) or 1440 px (desktop); every translated block is a
+   [data-lang] wrapper and the toggle at the top shows one language at a time. All names and addresses are invented. */
+:root{
+  --sky:linear-gradient(#E7EEF7,#F1F3F6 45%,#EDF1F6); --canvas:#F1F3F6; --stage:#E4E9F0;
+  --text:#17191F; --muted:#5B6372; --border:#DAE1EB; --chip:#E9EEF5; --card:#fff;
+  --accent:#1F2430; --on-accent:#fff; --glass:rgba(255,255,255,.78); --tab:#fff; --shadow:0 6px 20px rgba(20,30,50,.08);
+  --ok:#16A34A; --okbg:#DDF3E4; --warn:#D97706; --err:#BE123C;
+}
+@media (prefers-color-scheme:dark){:root:not([data-ui-theme="light"]){
+  --sky:linear-gradient(#12151D,#161A24 45%,#1A1F2B); --canvas:#161A24; --stage:#0E1117;
+  --text:#F1F3F6; --muted:#A3ABBB; --border:#2A3040; --chip:#232A38; --card:#1C222D;
+  --accent:#F2EFE9; --on-accent:#14171F; --glass:rgba(34,40,54,.82); --tab:#1C222D; --shadow:0 6px 20px rgba(0,0,0,.35);
+  --ok:#4ADE80; --okbg:#173225; --warn:#FBBF24; --err:#FB7185; color-scheme:dark}}
+:root[data-ui-theme="dark"]{
+  --sky:linear-gradient(#12151D,#161A24 45%,#1A1F2B); --canvas:#161A24; --stage:#0E1117;
+  --text:#F1F3F6; --muted:#A3ABBB; --border:#2A3040; --chip:#232A38; --card:#1C222D;
+  --accent:#F2EFE9; --on-accent:#14171F; --glass:rgba(34,40,54,.82); --tab:#1C222D; --shadow:0 6px 20px rgba(0,0,0,.35);
+  --ok:#4ADE80; --okbg:#173225; --warn:#FBBF24; --err:#FB7185; color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--stage);color:var(--text);font:16px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;padding:32px 16px 96px}
+button,input{font:inherit;color:inherit}
+a{color:inherit;text-decoration:none}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.num{font-variant-numeric:tabular-nums}
+.top{max-width:1500px;margin:0 auto 24px;display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between;align-items:flex-end}
+.top h1{margin:0 0 8px;font-size:34px;letter-spacing:-.03em}
+.top p{margin:0;color:var(--muted);max-width:75ch}
+.toggles{display:flex;gap:16px;flex-wrap:wrap}
+.seg{display:inline-flex;background:var(--chip);border-radius:32px;padding:4px;gap:4px}
+.seg button{border:0;background:none;min-height:44px;padding:0 16px;border-radius:32px;cursor:pointer;font-size:15px}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent)}
+.sec{max-width:1500px;margin:56px auto 0}
+.sec>h2{margin:0 0 4px;font-size:26px;letter-spacing:-.02em}
+.sec>p.lead{margin:0 0 24px;color:var(--muted);max-width:85ch}
+.row2{display:flex;flex-wrap:wrap;gap:32px;align-items:flex-start}
+.mock{margin:0;display:flex;flex-direction:column;gap:8px;min-width:0}
+.mock>figcaption{font-size:15px;font-weight:600}
+.mock>figcaption small{display:block;font-weight:400;color:var(--muted);font-size:13px}
+.scroller{max-width:100%;overflow-x:auto;padding-bottom:8px}
+[data-ui-lang="en"] [data-lang="fr"],[data-ui-lang="fr"] [data-lang="en"]{display:none}
+.note{margin:12px 0 0;padding:12px 16px;border:1px dashed var(--border);border-radius:14px;color:var(--muted);font-size:14px;max-width:85ch}
+.note b{color:var(--text)}
+
+[data-viewport]{position:relative;overflow:hidden;border:1px solid var(--border);background:var(--sky) var(--canvas);box-shadow:0 12px 40px rgba(20,30,50,.12)}
+[data-viewport="phone"]{width:390px;height:780px;border-radius:36px}
+[data-viewport="desktop"]{width:1440px;height:900px;border-radius:16px}
+[data-viewport] [data-lang]{height:100%;position:relative}
+
+/* shared pieces */
+.ic{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--ok);flex:none;display:inline-block}
+.dot.idle{background:var(--muted)}.dot.err{background:var(--err)}.dot.pend{background:var(--warn)}
+.label{margin:0 0 6px 16px;font-size:13px;font-weight:600;color:var(--muted)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:22px;box-shadow:var(--shadow);overflow:hidden}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 18px;border:1px solid var(--border);border-radius:14px;background:var(--card);font-size:15px;font-weight:600;cursor:pointer}
+.btn.dark{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.btn.sq{width:44px;padding:0}
+.field{display:flex;align-items:center;gap:8px;min-height:44px;padding:0 14px;border:1px solid var(--border);border-radius:14px;background:var(--card)}
+.field input{flex:1;min-width:0;border:0;background:none;min-height:42px;outline:0}
+.title{margin:0;font-size:40px;line-height:1.1;font-weight:700;letter-spacing:-.03em}
+.sub{color:var(--muted);font-size:15px}
+.state{margin:6px 0 0;display:flex;align-items:center;gap:8px;font-weight:600}
+
+/* rows */
+.item{display:flex;align-items:center;gap:12px;min-height:64px;padding:10px 16px;border-top:1px solid var(--border)}
+.item:first-child{border-top:0}
+.item .who{flex:1;min-width:0}
+.item .who small{display:block;color:var(--muted);font-size:13px}
+.item .who b{display:block;font-weight:600}
+.item .val{color:var(--muted);font-size:14px;white-space:nowrap}
+.ico{width:36px;height:36px;border-radius:50%;background:var(--chip);display:flex;align-items:center;justify-content:center;flex:none}
+.ico.ok{background:var(--okbg);color:var(--ok)}
+.sw{flex:none;width:51px;height:31px;border-radius:31px;background:#7C8696;position:relative;cursor:pointer}
+.sw::after{content:"";position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.sw.on{background:var(--accent)}.sw.on::after{left:22px}
+.badge{display:inline-flex;align-items:center;min-height:24px;padding:0 10px;border-radius:32px;border:1px solid var(--border);font-size:12px;color:var(--muted)}
+.range{height:6px;border-radius:6px;background:var(--border);position:relative;margin:14px 0 4px}
+.range i{position:absolute;left:0;top:0;bottom:0;width:26%;border-radius:6px;background:var(--accent)}
+.range b{position:absolute;left:26%;top:50%;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;background:var(--accent)}
+.section{display:flex;flex-direction:column}
+.danger b{color:var(--err)}
+
+/* frame list rows */
+.frow{display:flex;align-items:center;gap:12px;min-height:56px;padding:6px 14px;border-top:1px solid var(--border);cursor:pointer}
+.frow:first-child{border-top:0}
+.frow .who{flex:1;min-width:0}
+.frow .who b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.frow .who small{display:block;color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.frow .seen{font-size:13px;color:var(--muted);white-space:nowrap}
+.frow.retired{opacity:.8}
+.frow.sel{background:var(--chip)}
+.chev{color:var(--muted)}
+
+/* phone shell */
+.ptop{position:absolute;left:0;right:0;top:0;height:64px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;z-index:5}
+.brand{display:flex;align-items:center;gap:8px;font-size:22px;font-weight:700;letter-spacing:-.02em}
+.screen{position:absolute;inset:64px 0 0 0;overflow-y:auto;padding:8px 16px 120px;display:flex;flex-direction:column;gap:16px;scrollbar-width:none}
+.screen::-webkit-scrollbar{display:none}
+.screen>*{flex-shrink:0}
+.tabs{position:absolute;left:12px;right:12px;bottom:14px;display:flex;justify-content:space-around;padding:8px 6px;background:var(--tab);border:1px solid var(--border);border-radius:34px;box-shadow:0 8px 24px rgba(20,30,50,.14);z-index:6}
+.tab{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-width:60px;min-height:52px;border-radius:26px;font-size:11px;color:var(--text)}
+.tab.on{background:var(--accent);color:var(--on-accent);font-weight:600}
+.chips{display:flex;gap:8px;overflow-x:auto;margin:0 -16px;padding:0 16px 4px;scrollbar-width:none}
+.chip{flex:none;display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 14px;border-radius:32px;background:var(--card);border:1px solid var(--border);font-size:14px;white-space:nowrap}
+.chip[aria-current="page"]{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.chip.all{background:var(--chip)}
+.anchors{position:sticky;top:-8px;z-index:3;margin:0 -16px;padding:8px 16px;display:flex;gap:8px;background:var(--canvas)}
+.anchors button{flex:1;min-height:44px;border:1px solid var(--border);border-radius:32px;background:var(--card);font-size:14px;cursor:pointer}
+.anchors button[aria-current="true"]{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.blk{scroll-margin-top:72px}
+
+/* desktop shell */
+.side{position:absolute;left:0;top:0;bottom:0;width:240px;padding:24px 16px;background:var(--glass);border-right:1px solid var(--border);display:flex;flex-direction:column;gap:8px}
+.side .brand{padding:0 8px;margin-bottom:8px}
+.space{display:flex;gap:4px;padding:4px;border-radius:16px;background:var(--chip);margin-bottom:8px}
+.space span{flex:1;text-align:center;min-height:36px;display:flex;align-items:center;justify-content:center;border-radius:12px;font-size:14px;font-weight:600;color:var(--muted)}
+.space span.on{background:var(--accent);color:var(--on-accent)}
+.nlabel{margin:12px 8px 0;font-size:13px;font-weight:600;color:var(--muted)}
+.nav{display:flex;align-items:center;gap:12px;min-height:46px;padding:0 12px;border-radius:14px;font-size:15px}
+.nav.on{background:var(--accent);color:var(--on-accent);font-weight:600}
+.sep{height:1px;background:var(--border);margin:8px 0}
+.signout{margin-top:auto}
+.listp{position:absolute;left:240px;top:0;bottom:0;width:350px;background:var(--glass);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.listp .lhead{flex:none;padding:20px 16px 12px;display:flex;flex-direction:column;gap:12px;border-bottom:1px solid var(--border)}
+.listp .lbody{flex:1;min-height:0;overflow-y:auto;padding:12px 12px 20px;display:flex;flex-direction:column;gap:14px}
+.main{position:absolute;left:590px;right:0;top:0;bottom:0;overflow-y:auto;padding:32px 44px 64px}
+.dcol{display:flex;flex-direction:column;gap:24px;max-width:760px;margin-top:20px}
+.titlerow{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.iconbtns{display:flex;gap:8px;flex:none}
+.sparkline{display:block;width:100%;height:44px}
+.sub2{display:flex;flex-direction:column;gap:6px;width:100%;padding-left:48px;font-size:13px;color:var(--muted)}
+.item.wrap{flex-wrap:wrap}
+.tiles2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.tile2{display:flex;flex-direction:column;gap:6px;min-height:132px;padding:14px;border-radius:22px;background:var(--card);border:1px solid var(--border);box-shadow:var(--shadow);min-width:0}
+.tile2 .th{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+.tile2 .tv{font-size:19px;font-weight:700;letter-spacing:-.01em}
+.tile2 .tm{font-size:13px;color:var(--muted)}
+.tile2 .more{margin-top:auto;display:flex;align-items:center;gap:4px;font-size:13px;font-weight:600}
+.bigspark{display:block;width:100%;height:120px;color:var(--accent)}
+.kv{display:grid;grid-template-columns:1fr auto;gap:6px 16px;padding:12px 16px;border-top:1px solid var(--border);font-size:14px}
+.kv span:nth-child(odd){color:var(--muted)}
+.kv span:nth-child(even){text-align:right}
+.rtable{width:100%;border-collapse:collapse;font-size:14px}
+.rtable th{text-align:left;color:var(--muted);font-weight:600;font-size:13px;padding:8px 16px}
+.rtable td{padding:8px 16px;border-top:1px solid var(--border)}
+.rtable td:last-child,.rtable th:last-child{text-align:right}
+.banner{display:flex;flex-direction:column;gap:8px;padding:12px 16px;border-radius:18px;border:1px solid var(--warn);background:var(--card)}
+.banner b{font-weight:700}
+.pills{display:flex;flex-wrap:wrap;gap:6px}
+.pill{display:inline-flex;align-items:center;min-height:26px;padding:0 10px;border-radius:32px;background:var(--chip);font-size:13px}
+.pill.warn{background:var(--card);border:1px solid var(--warn)}
+.unit{display:inline-flex;gap:4px;padding:3px;border-radius:12px;background:var(--chip)}
+.unit span{min-height:32px;padding:0 12px;display:flex;align-items:center;border-radius:9px;font-size:13px}
+.unit span.on{background:var(--accent);color:var(--on-accent);font-weight:600}
+details.rd{border-top:1px solid var(--border)}
+details.rd summary{min-height:48px;display:flex;align-items:center;padding:0 16px;font-size:14px;font-weight:600;cursor:pointer}
+.outcomes{list-style:none;margin:0;padding:0}
+.outcomes li{padding:10px 16px;border-top:1px solid var(--border)}
+.outcomes p{margin:0;display:flex;align-items:center;gap:8px;font-weight:600}
+.outcomes p span.n{margin-left:auto}
+.outcomes small{display:block;color:var(--muted);font-size:13px;margin:2px 0 0 16px}
+.rtable.l td:last-child,.rtable.l th:last-child{text-align:left}
+.pagehead{display:flex;flex-direction:column;gap:6px;margin-bottom:8px}
+.backl{display:inline-flex;align-items:center;gap:6px;min-height:44px;font-size:15px;font-weight:600}
+.ring{width:64px;height:64px;border-radius:50%;background:conic-gradient(var(--ok) 0 47%,var(--border) 0);display:flex;align-items:center;justify-content:center;flex:none}
+.ring b{width:48px;height:48px;border-radius:50%;background:var(--card);display:flex;align-items:center;justify-content:center;font-size:14px}
+.vrow{display:flex;align-items:center;gap:12px;min-height:52px;padding:6px 16px;border-top:1px solid var(--border)}
+.vrow .who{flex:1}
+.btn.quiet{min-height:40px;font-weight:500;color:var(--muted)}
+
+@media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+
+.scrim{position:absolute;inset:0;background:rgba(10,14,22,.45);z-index:20}
+.dlg{position:absolute;left:50%;transform:translate(-50%,-50%);top:50%;z-index:21;width:min(460px,88%);background:var(--card);border:1px solid var(--border);border-radius:24px;padding:22px;display:flex;flex-direction:column;gap:14px;box-shadow:0 20px 50px rgba(20,30,50,.3)}
+.dlg h4,.sheet h4{margin:0;font-size:20px}
+.dlg p,.sheet p{margin:0;color:var(--muted);font-size:15px}
+.dlg .row,.sheet .row{display:flex;gap:10px}.dlg .row .btn,.sheet .row .btn{flex:1}
+.sheet{position:absolute;left:0;right:0;bottom:0;z-index:21;background:var(--card);border-radius:28px 28px 0 0;padding:12px 16px 24px;display:flex;flex-direction:column;gap:14px;max-height:85%}
+.sheet .grab{width:44px;height:5px;border-radius:5px;background:var(--border);margin:0 auto 2px}
+[data-viewport="phone"] .dlgd{display:none}
+[data-viewport="desktop"] .sheetd{display:none}
+.cta{display:flex;flex-direction:column;gap:12px;padding:18px}
+.cta .big{font-size:22px;font-weight:700;letter-spacing:-.01em;display:flex;align-items:center;gap:10px}
+.cta .ver{font-family:ui-monospace,Menlo,monospace;font-size:18px;font-weight:600}
+.ctar{display:flex;gap:16px;align-items:center;justify-content:space-between}.ctal{display:flex;flex-direction:column;gap:8px;min-width:0}.ctar .btn{flex:none}
+[data-viewport="phone"] .ctar{flex-direction:column;align-items:stretch}
+.clamp{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.notes li{overflow-wrap:anywhere}
+.cta small{color:var(--muted);font-size:14px}
+.cta .foot{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;border-top:1px solid var(--border);padding-top:12px;font-size:14px;color:var(--muted)}
+.vlist .vr{display:flex;align-items:center;gap:12px;min-height:60px;padding:8px 16px;border-top:1px solid var(--border)}
+.vlist .vr:first-child{border-top:0}
+.vr .who{flex:1;min-width:0}
+.vr .who b{font-family:ui-monospace,Menlo,monospace;font-size:16px}
+.vr .who small{display:block;color:var(--muted);font-size:13px}
+.vr .act{flex:none}
+.notes{padding:4px 16px 14px 44px;color:var(--muted);font-size:14px;border-top:1px dashed var(--border)}
+.notes li{margin:3px 0}
+.chipv{display:inline-flex;align-items:center;min-height:22px;padding:0 8px;border-radius:32px;font-size:12px;font-weight:600;background:var(--chip);color:var(--muted);margin-left:8px;vertical-align:middle}
+.chipv.new{background:var(--okbg);color:var(--ok)}
+.chipv.run{background:var(--accent);color:var(--on-accent)}
+.toastb{display:flex;gap:10px;align-items:flex-start;padding:12px 16px;border-radius:18px;border:1px solid var(--warn);background:var(--card);font-size:14px}
+.btn.ghost2{background:transparent;border-color:transparent;color:var(--muted);min-height:40px;font-weight:600;text-decoration:underline;text-underline-offset:3px}
+.pagehead{display:flex;flex-direction:column;gap:6px;margin-bottom:8px}
+.backl{display:inline-flex;align-items:center;gap:6px;min-height:44px;font-size:15px;font-weight:600}
+.page2{max-width:760px;display:flex;flex-direction:column;gap:20px}
+.fallback{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:24px}
+
+.arow{display:flex;align-items:center;gap:12px;min-height:60px;padding:8px 16px;border-top:1px solid var(--border)}
+.vlist .arow:first-child{border-top:0}
+.arow.tall{min-height:96px}
+.arow .who{flex:1;min-width:0;display:flex;flex-wrap:wrap;align-items:center;gap:0 0}
+.arow .who b{font-size:16px;margin-right:2px}
+.arow .ln{display:block;flex-basis:100%;color:var(--muted);font-size:13px}
+.arow .st{display:flex;align-items:center;gap:8px}
+.arow.kv{justify-content:space-between}.arow.link{min-height:64px}.arow.link .ic{color:var(--muted);flex:none}
+.arow.add{font-weight:600;color:var(--text)}
+.arow.add .ic{width:32px;height:32px;padding:6px;border-radius:12px;background:var(--accent);color:var(--on-accent);stroke:var(--on-accent);background:var(--accent)}
+.arow.pref{flex-wrap:wrap}.arow.pref .seg{flex:none}
+.thumb{flex:none;width:30px;height:40px;border:3px solid var(--text);border-radius:6px}
+.iconbtn{flex:none;display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:14px;border:1px solid var(--border);background:var(--card);color:var(--text)}
+.lnk{display:inline-flex;align-items:center;min-height:44px;font-weight:600;text-decoration:underline;text-underline-offset:3px;flex-basis:100%}
+.lnk.center{justify-content:center}
+.lwrap{display:flex;justify-content:center}
+.lcard{width:100%;max-width:420px;background:var(--card);border:1px solid var(--border);border-radius:22px;padding:24px;display:flex;flex-direction:column;gap:14px;box-shadow:0 10px 30px rgba(20,30,50,.12)}
+.lcard .lg{width:40px;height:40px}.lcard .lg .ic{width:40px;height:40px}
+.lcard p{margin:0}.lead0{font-size:16px}
+.btn.wide{width:100%;justify-content:center}
+.first{text-align:center;color:var(--muted);font-size:13px}
+.nfcard{display:flex;flex-direction:column;align-items:center;gap:8px;padding:20px}
+.ill{width:100%;max-width:260px;height:auto;color:var(--text);--ink:var(--text)}
+.nfc{margin:0;text-align:center;color:var(--muted);font-size:15px}
+.page2 .title{font-size:34px;margin:0}
+</style>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-logo" viewBox="0 0 24 24"><rect x="4" y="3" width="14" height="18" rx="3"/><path d="M9 10l2 2 4-4"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8v.5"/></symbol>
+  <symbol id="i-fleet" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="3"/><path d="M9 11l2 2 4-4"/></symbol>
+  <symbol id="i-team" viewBox="0 0 24 24"><circle cx="9" cy="12" r="5"/><circle cx="15" cy="12" r="5"/></symbol>
+  <symbol id="i-tag" viewBox="0 0 24 24"><path d="M3 12V4h8l10 10-8 8z"/><circle cx="8" cy="8" r="1.4"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></symbol>
+  <symbol id="i-battery" viewBox="0 0 24 24"><rect x="2" y="7" width="17" height="10" rx="2"/><path d="M22 11v2"/></symbol>
+  <symbol id="i-plane" viewBox="0 0 24 24"><path d="M2 14l8-2 3-8 2 1-1 7 6 2v2l-6-1-2 4-2-.5.5-3.5L2 16z"/></symbol>
+  <symbol id="i-chip" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/></symbol>
+  <symbol id="i-timer" viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M9 2h6"/></symbol>
+  <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z"/></symbol>
+  <symbol id="i-frame" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2.5"/><rect x="7" y="8" width="10" height="8" rx="1"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+  <symbol id="i-down2" viewBox="0 0 24 24"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></symbol>
+  <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M16 7l3 3M14 9l2 2"/></symbol>
+  <symbol id="i-out" viewBox="0 0 24 24"><path d="M10 4H5v16h5M15 8l4 4-4 4M19 12H9"/></symbol>
+  <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 7L4 12l5 5M4 12h11a5 5 0 0 1 0 10h-3"/></symbol>
+</svg>
+<div class="top">
+  <div><h1>Account, sign-in and 404</h1><p>Mockup for the owner, on the real shell (CON-01: R19 to R24). Sample data is invented. Use the toggles.</p></div>
+  <div class="toggles">
+    <div class="seg" id="theme" role="group" aria-label="Theme"><button type="button" data-t="auto" aria-pressed="true">Auto</button><button type="button" data-t="light" aria-pressed="false">Light</button><button type="button" data-t="dark" aria-pressed="false">Dark</button></div>
+    <div class="seg" id="lang" role="group" aria-label="Language"><button type="button" data-l="en" aria-pressed="true">English</button><button type="button" data-l="fr" aria-pressed="false">Fran&ccedil;ais</button></div>
+  </div>
+</div>
+<div id="app"></div>
+<script>
+(function(){
+  function nb(s){return s.replace(/ ([:;?!»])/g,' $1').replace(/« /g,'« ');}
+  var S={
+    en:{tabs:['Home','Flights','Airlines','Style','Location','Account'],side:['Home','Flights','Airlines','Style','Location'],space:['Console','My frames'],
+      acct:'Account',acctsub:'Your SkyPane sign-in and preferences.',frames:'My frames',owner:'Owner',co:'Co-manager',seen:'Seen just now',seen2:'Seen 3 h ago',
+      manage:'Manage access',leave:'Leave frame',add:'Add a frame',ident:'Identity',email:'Email',role:'Role',user:'User',adm:'Administrator',about:'About',credits:'Credits',creditsSub:'Data sources and licences',
+      lang:'Language',prefs:'Preferences',langHint:'The language of the companion pages.',theme:'Theme',themeHint:'Light, dark, or follow the system.',themes:['Auto','Light','Dark'],signout:'Sign out',hw:'XIAO ePaper EE02 13.3in',by:'Shared by marie@example.test',
+      today:'Today',prop:'Proposed',
+      cT:'Credits',cI:'SkyPane shows live flights thanks to these open data sources.',back:'Back to Account',
+      lg1:'Sign in to manage your SkyPane frames.',lgBtn:'Sign in',first:'First visit? Use the email address you were invited with.',lgCred:'Credits',
+      nfT:'Page not found.',nfB:'This page does not exist, or it is reserved for administrators.',nfBtn:'Back to Home',nfA:'Looks like this one missed the runway.',nfB2:'Nothing hangs on this wall.'},
+    fr:{tabs:['Accueil','Vols','Airlines','Style','Lieu','Compte'],side:['Accueil','Vols','Airlines','Style','Lieu'],space:['Console','Mes cadres'],
+      acct:'Compte',acctsub:'Votre connexion SkyPane et vos préférences.',frames:'Mes cadres',owner:'Propriétaire',co:'Cogestionnaire',seen:'Vu à l’instant',seen2:'Vu il y a 3 h',
+      manage:'Gérer l’accès',leave:'Quitter le cadre',add:'Ajouter un cadre',ident:'Identité',email:'E-mail',role:'Rôle',user:'Utilisateur',adm:'Administrateur',about:'À propos',credits:'Crédits',creditsSub:'Sources de données et licences',
+      lang:'Langue',prefs:'Préférences',langHint:'La langue des pages du compagnon.',theme:'Thème',themeHint:'Clair, sombre, ou suivre le système.',themes:['Auto','Clair','Sombre'],signout:'Se déconnecter',hw:'XIAO ePaper EE02 13.3in',by:'Partagé par marie@example.test',
+      today:'Aujourd’hui',prop:'Proposé',
+      cT:'Crédits',cI:'SkyPane affiche les vols en direct grâce à ces sources de données ouvertes.',back:'Retour au compte',
+      lg1:'Connectez-vous pour gérer vos cadres SkyPane.',lgBtn:'Se connecter',first:'Première visite ? Utilisez l’adresse e-mail avec laquelle on vous a invité.',lgCred:'Crédits',
+      nfT:'Page introuvable.',nfB:'Cette page n’existe pas, ou elle est réservée aux administrateurs.',nfBtn:'Retour à l’accueil',nfA:'On dirait que celui-ci a raté la piste.',nfB2:'Rien n’est accroché à ce mur.'}
+  };
+  Object.keys(S.fr).forEach(function(k){var v=S.fr[k];if(typeof v==='string')S.fr[k]=nb(v);else if(Array.isArray(v))S.fr[k]=v.map(nb);});
+  function ic(n){return '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-'+n+'"/></svg>';}
+  var TI=['frame','clock','tag','grid','fleet','user'];
+  function userSide(t,on){
+    return '<div class="side"><span class="brand">'+ic('logo')+'SkyPane</span><div class="space"><span class="on">'+ic('check')+t.space[1]+'</span><span>'+t.space[0]+'</span></div><div class="sep"></div>'+
+      t.side.map(function(x,i){return '<div class="nav">'+ic(TI[i])+x+'</div>';}).join('')+'<div class="sep"></div><div class="nav'+(on==='acct'?' on':'')+'">'+ic('user')+t.acct+'</div></div>';
+  }
+  function userPhone(t,inner,on){
+    return '<div class="ptop"><span class="brand">'+ic('logo')+'SkyPane</span></div><div class="screen">'+inner+'</div><div class="tabs">'+t.tabs.map(function(x,i){return '<div class="tab'+(on===i?' on':'')+'">'+ic(TI[i])+x+'</div>';}).join('')+'</div>';
+  }
+  function wrap(vp,t,inner,on,side){
+    if(vp==='phone')return userPhone(t,inner,on);
+    return userSide(t,side)+'<div class="main" style="left:240px"><div class="page2">'+inner+'</div></div>';
+  }
+  function dot(c,txt){return '<span class="dot'+(c?' '+c:'')+'" role="img" aria-label="'+txt+'"></span>';}
+  function frameRow(t,o){
+    var pill='<span class="chipv" style="margin-left:6px">'+(o.shared?t.co:t.owner)+'</span>';
+    var line=o.hw?'<small class="ln">'+t.hw+'</small>':(o.shared?'<small class="ln">'+t.by+'</small>':'');
+    var seen='<small class="ln st">'+dot(o.dot||'',o.seen)+o.seen+'</small>';
+    var act=o.today?'':'<a class="iconbtn" href="#" aria-label="'+(o.shared?t.leave:t.manage)+'">'+ic(o.shared?'out':'key')+'</a>';
+    var todayAct=o.today?'<a class="lnk" href="#">'+(o.shared?t.leave:t.manage)+'</a>':'';
+    return '<div class="arow'+(o.today?' tall':'')+'"><span class="thumb"></span><span class="who"><b>'+o.name+'</b>'+pill+line+seen+todayAct+'</span>'+act+'</div>';
+  }
+  function framesCard(t,today,admin){
+    var r=frameRow(t,{name:'Kitchen shelf',seen:t.seen,today:today,dot:'',hw:today&&admin||false})+frameRow(t,{name:'Orly window',seen:t.seen2,today:today,dot:'idle',hw:today&&admin||false})+frameRow(t,{name:'Studio',shared:true,seen:t.seen,today:today});
+    return '<div><p class="label">'+t.frames+'</p><div class="card vlist">'+r+'<div class="arow add">'+ic('plus')+'<b>'+t.add+'</b></div></div></div>';
+  }
+  function group(rows){return '<div class="card vlist">'+rows+'</div>';}
+  function kv(k,v){return '<div class="arow kv"><span>'+k+'</span><span class="sub">'+v+'</span></div>';}
+  function accountPage(t,o){
+    var h='<div class="pagehead"><h3 class="title">'+t.acct+'</h3><span class="sub">'+t.acctsub+'</span></div>';
+    var id='<div><p class="label">'+t.ident+'</p>'+group(kv(t.email,o.admin?'admin@example.test':'user-a@example.test')+kv(t.role,o.admin?t.adm:t.user))+'</div>';
+    var about=o.today?'':'<div><p class="label">'+t.about+'</p>'+group('<div class="arow link"><span class="who"><b>'+t.credits+'</b><small class="ln">'+t.creditsSub+'</small></span>'+ic('chev')+'</div>')+'</div>';
+    function seg(a,on){return '<div class="seg">'+a.map(function(x,i){return '<button type="button" aria-pressed="'+(i===on)+'">'+x+'</button>';}).join('')+'</div>';}
+    function prow(l,hint,c){return '<div class="arow pref"><span class="who"><b>'+l+'</b><small class="ln">'+hint+'</small></span>'+c+'</div>';}
+    var pref='<div><p class="label">'+t.prefs+'</p>'+group(prow(t.lang,t.langHint,seg(['English','Français'],t===S.fr?1:0))+prow(t.theme,t.themeHint,seg(t.themes,0)))+'</div>';
+    var out='<div>'+group('<div class="arow link"><b style="color:var(--bad,#b42318)">'+t.signout+'</b></div>')+'</div>';
+    return h+framesCard(t,o.today,o.admin)+id+pref+about+out;
+  }
+  function creditsPage(t){
+    return '<div class="pagehead"><a class="backl" href="#">'+ic('chev').replace('<svg','<svg style="transform:rotate(180deg)"')+t.back+'</a><h3 class="title">'+t.cT+'</h3><span class="sub">'+t.cI+'</span></div>'+
+      group('<div class="arow link"><span class="who"><b>adsb.fi</b><small class="ln">ADS-B positions · ODbL</small></span></div><div class="arow link"><span class="who"><b>adsb.lol</b><small class="ln">ADS-B positions · ODbL</small></span></div><div class="arow link"><span class="who"><b>adsbdb</b><small class="ln">Callsign to airline and route</small></span></div>');
+  }
+  function loginCard(t,v){
+    var first='<p class="first">'+t.first+'</p>';
+    var old='<p class="sub" style="margin:0">'+t.first+'</p>';
+    var card=v==='today'?
+      '<div class="lcard"><span class="lg">'+ic('logo')+'</span><h3 class="title" style="font-size:30px">SkyPane</h3><p class="lead0">'+t.lg1+'</p>'+old+'<a class="btn dark wide" href="#">'+t.lgBtn+'</a><a class="lnk center" href="#">'+t.lgCred+'</a></div>':
+      '<div class="lcard"><span class="lg">'+ic('logo')+'</span><h3 class="title" style="font-size:30px">SkyPane</h3><p class="lead0">'+t.lg1+'</p><a class="btn dark wide" href="#">'+t.lgBtn+'</a>'+first+'<a class="lnk center" href="#">'+t.lgCred+'</a></div>';
+    return '<div class="lwrap">'+card+'</div>';
+  }
+  function plane(){return '<svg viewBox="0 0 220 120" class="ill" aria-hidden="true"><rect x="10" y="92" width="200" height="10" rx="5" fill="var(--border)"/><path d="M30 97h40M90 97h40M150 97h40" stroke="var(--card)" stroke-width="3" stroke-dasharray="14 12"/><g transform="translate(120 36) rotate(18)"><path d="M0 14c0-4 4-6 12-6h34l22-12h8l-10 12h14c6 0 6 8 0 8H44l-12 12h-8l6-12H12c-8 0-12-2-12-6z" fill="var(--text)"/></g><path d="M60 24c14-10 30-8 40 2" fill="none" stroke="var(--muted)" stroke-width="2" stroke-dasharray="3 5"/></svg>';}
+  function emptyFrame(){return '<svg viewBox="0 0 220 120" class="ill" aria-hidden="true"><rect x="70" y="14" width="80" height="100" rx="10" fill="none" stroke="var(--text)" stroke-width="6"/><rect x="82" y="26" width="56" height="76" rx="4" fill="var(--border)"/><path d="M96 80l12-14 10 10 8-8 12 12" fill="none" stroke="var(--muted)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="118" cy="48" r="6" fill="var(--muted)"/></svg>';}
+  function nf(t,v,vp){
+    var art=v==='a'?plane():v==='b'?emptyFrame():'';
+    var cap=v==='a'?t.nfA:v==='b'?t.nfB2:'';
+    return '<div class="pagehead"><h3 class="title">'+t.nfT+'</h3><span class="sub">'+t.nfB+'</span></div>'+(art?'<div class="card nfcard">'+art+'<p class="nfc">'+cap+'</p></div>':'')+'<a class="btn dark wide" href="#">'+t.nfBtn+'</a>';
+  }
+  function mock(vp,caption,sub,builder){
+    var langs=['en','fr'].map(function(l){return '<div data-lang="'+l+'">'+builder(vp,S[l])+'</div>';}).join('');
+    return '<figure class="mock"><figcaption>'+caption+(sub?'<small>'+sub+'</small>':'')+'</figcaption>'+(vp==='desktop'?'<div class="scroller"><div data-viewport="desktop">'+langs+'</div></div>':'<div data-viewport="phone">'+langs+'</div>')+'</figure>';
+  }
+  function section(h,lead,body,extra){return '<section class="sec"><h2>'+h+'</h2><p class="lead">'+lead+'</p>'+body+(extra||'')+'</section>';}
+  var html='';
+  html+=section('1. Account: frame rows (R19, R20, R21)',
+    'Today each owned frame carries a "Manage access" link on its own line, which makes the row taller and leaves an odd margin (R19). Proposed: the action becomes a 44 px icon button at the right of the row (people icon for Manage access, cross for Leave frame, each with its full name read aloud), so the row keeps the height of a plain row. The status is the dot alone with the last-seen word, never a percentage (R20), the dot also named for screen readers. The hardware model is shown to nobody on this page: it is useless for an administrator and for a person (R21).',
+    '<div class="row2">'+mock('phone','Today','',function(v,t){return wrap(v,t,accountPage(t,{today:true,admin:true}),5);})+mock('phone','Proposed','Same page, user view',function(v,t){return wrap(v,t,accountPage(t,{}),5);})+'</div>'+
+    '<div style="height:32px"></div><div class="row2">'+mock('desktop','Proposed, administrator view','No hardware line',function(v,t){return wrap(v,t,accountPage(t,{admin:true}),5,'acct');})+'</div>');
+  html+=section('2. Credits reachable once signed in (R23)',
+    'A single "Credits" row in a new About group at the bottom of Account, for users and administrators, opening the existing Credits page. That page gets a "Back to Account" link when opened from there.',
+    '<div class="row2">'+mock('phone','Account, About group','',function(v,t){return wrap(v,t,accountPage(t,{}),5);})+mock('phone','Credits page','',function(v,t){return wrap(v,t,creditsPage(t),5);})+'</div>');
+  html+=section('3. Sign-in: First visit (R22)',
+    'Today the hint is a second grey paragraph before the button, so the card reads as two instructions. Proposed: one calm centred line under the button, small and muted, no box, so the card reads heading, one sentence, button, then the hint and Credits.',
+    '<div class="row2">'+mock('phone','Today','',function(v,t){return '<div class="screen" style="padding-top:60px">'+loginCard(t,'today')+'</div>';})+mock('phone','Proposed','',function(v,t){return '<div class="screen" style="padding-top:60px">'+loginCard(t,'prop')+'</div>';})+'</div>');
+  html+=section('4. The 404 page (R24)',
+    'Two ways to make it friendlier with one inline drawing on a design-system card (no new asset, no new font), same two sentences and the same 44 px button. Option A: a plane that missed the runway. Option B: an empty frame on the wall.',
+    '<div class="row2">'+mock('phone','Today','',function(v,t){return wrap(v,t,nf(t,'',v),0);})+mock('phone','Option A: plane','',function(v,t){return wrap(v,t,nf(t,'a',v),0);})+mock('phone','Option B: empty frame','',function(v,t){return wrap(v,t,nf(t,'b',v),0);})+'</div>');
+  document.getElementById('app').innerHTML=html;
+  var r=document.documentElement;r.setAttribute('data-ui-lang','en');
+  document.querySelectorAll('#theme button').forEach(function(b){b.addEventListener('click',function(){
+    if(b.dataset.t==='auto')r.removeAttribute('data-ui-theme');else r.setAttribute('data-ui-theme',b.dataset.t);
+    document.querySelectorAll('#theme button').forEach(function(x){x.setAttribute('aria-pressed',String(x===b));});});});
+  document.querySelectorAll('#lang button').forEach(function(b){b.addEventListener('click',function(){
+    r.setAttribute('data-ui-lang',b.dataset.l);r.lang=b.dataset.l;
+    document.querySelectorAll('#lang button').forEach(function(x){x.setAttribute('aria-pressed',String(x===b));});});});
+})();
+</script>
+</html>

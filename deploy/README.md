@@ -305,6 +305,10 @@ migration never runs at service start.
   modified or removed by the migration and stay valid, so rolling back to
   the previous release works. A later roll-forward reconciles anything
   that was written only to the legacy files in the meantime.
+- **Pending frames are skipped.** A legacy MAC that is already a pending
+  (or retired) frame in `fleet.db` is not imported as a device, since the
+  pairing flow owns it; the migration prints `skip device <mac>: already a
+  pending frame`. Once the frame is paired it is an ordinary device.
 - **Operator tool.** `stub-server/fleet_cli.py` manages the database:
 
   ```bash
@@ -327,8 +331,8 @@ migration never runs at service start.
   `/opt/skypane/state` (`tar -xzf <archive> -C /opt/skypane/state fleet.db`),
   `chown skypane:skypane` it, `chmod 0600` it, and start `skypane-byos`.
 - **Health signal.** byos writes `fleet_status.json` in the state directory
-  (`ok`, `absent` or `fault`) for the Health page. It is derived, so it is
-  not backed up.
+  (`ok`, `absent` or `fault`) for the companion's health signals (the
+  navigation dot and the System view). It is derived, so it is not backed up.
 
 ## Pairing, retiring and re-activating a frame
 
@@ -636,6 +640,144 @@ To close the switch again, remove the `SKYPANE_ENABLE_SECOND_HARDWARE`
 line (or set it to anything but `1`), restart the same services and deploy once more. Releases already
 imported stay in the state directory and nothing is deleted.
 
+### Fleet-wide airline names and artwork
+
+The airline vocabulary is one per fleet. `manual_resolutions.json` (names
+given by hand), `airline_name_overrides.json` (renamed built-in airlines) and
+`airline_default_types.json` (default aircraft type) live once, in the state
+root, and every frame's editor and poll cycle reads that one file. Before this
+release each frame had its own copy under `devices/<id>/`; the live frame's
+copy was already the root file.
+
+Uploaded artwork is fleet-wide too. Every picture lives once, in
+`<state root>/illustration_overrides/<key>.png` (per-type pictures
+`<key>-<slug>.png` included): the live frame's directory was already that
+directory, so the poll render path, the Airlines editor, the previews, the
+upload and delete routes of every frame all read and write it. Before this
+release each other frame kept its pictures under
+`devices/<id>/illustration_overrides/`.
+
+The same `fleet_migrate` step that imports `fleet.db` merges the per-frame
+files into the root files, before the symlink swap, after the automatic
+pre-migration backup (which archives the root and every per-frame file). It
+never runs at service start, and a failed write exits 1 and stops the deploy.
+
+- **Conflict rule** (one total order, the same on every run): for a prefix
+  named differently on several frames the entry with the newest `created_at`
+  wins; on a tie the live frame (root) wins, then the lowest frame id; an
+  unparsable stamp counts as the oldest. Default types carry no stamp: root,
+  then the lowest frame id. Nothing is discarded: every loser is printed with
+  both names and both stamps, and the last 50 are kept in
+  `airline_registry_migration.json`. An override that would take the name of
+  another built-in airline (or of another airline's override), and entries
+  beyond the 200 (names, overrides) or 300 (types) cap, are not merged and
+  are printed.
+- **Reading the log.** Lines start with `airline names:`. `would merge N
+  per-frame file(s)` (dry-run) or `merged N per-frame file(s)` (real run) is
+  followed by one `<registry>: A added, R replaced` line per registry, then
+  one `conflict <registry> <prefix>: keep '<name>' [frame <id>, <stamp>] over
+  '<name>' [frame <id>, <stamp>]` line per conflict and `not merged ...` /
+  `skipped ...` lines for refusals (symlinked or oversized or invalid files).
+  `airline names: nothing to do` means every per-frame file was merged
+  already. An install with no per-frame registry file prints nothing.
+- **Idempotent.** The marker `airline_registry_migration.json` records the
+  SHA-256 of every per-frame file already merged. A second run changes no
+  byte, and a name deleted from the root afterwards is not brought back. A
+  per-frame file that changed since (see the rollback caveat) is merged once
+  more.
+- **Expand only.** The per-frame files are never modified, renamed or deleted
+  by this release. They become frozen copies that nothing reads or writes; they
+  disappear with their frame. A later release removes them after the rollback
+  window.
+
+**Artwork merge.** The same step (before the swap, after the same
+pre-migration backup, never at service start) merges every
+`devices/<id>/illustration_overrides/` into the fleet directory.
+
+- **Conflict rule.** When the fleet directory and one or more frames hold
+  different bytes under the same file name, the file with the latest
+  modification time wins; on a tie the fleet file wins, then the lowest frame
+  id. Copies keep the source's modification time. Identical bytes are not a
+  conflict. Every loser, a replaced fleet file included, is first copied to
+  `illustration_conflicts/<frame id or live>/<file name>` (a numeric suffix
+  `.1`, `.2` before `.png` keeps an earlier archive of different bytes); no
+  page or render reads that folder, and the nightly backup archives it.
+- **What is merged.** Only regular files (never symlinks) named `<key>.png`
+  (lowercase letters, digits, hyphens), at most 4 MiB, and accepted by the
+  same PNG, size and pixel-cap check as an upload. Dot-files and `*.tmp`
+  leftovers, symlinked directories and anything else are skipped, reported by
+  name and reason, and never deleted. At most 1000 files and 256 MiB are added
+  to the fleet directory per run (latest first); the rest stay pending for the
+  next run.
+- **Reading the log.** Lines start with `artwork:`. `would merge N picture(s)
+  from M frame(s) into the fleet directory: A new, R replaced, I identical, C
+  conflict(s)` (dry-run) or `merged ...` (real run), then one `conflict
+  <file>: keep [frame <id>, <time>, <size>] over [frame <id>, <time>, <size>]`
+  line per loser, and `skipped ...` / `not merged ...` lines. `artwork: nothing
+  to do` means every per-frame picture was merged already. An install with no
+  per-frame pictures prints nothing.
+- **Idempotent, expand only.** `illustration_migration.json` records the
+  SHA-256 of every per-frame picture merged, so a second run changes nothing
+  and a picture deleted from the fleet directory afterwards is not brought
+  back. The per-frame image directories are never modified, renamed or
+  deleted; they become frozen copies that disappear with their frame, and a
+  later release removes them after the rollback window.
+
+### Default aircraft types without a picture
+
+An airline's default aircraft type is only accepted for a type the airline has
+a picture for (built in or an upload). Defaults stored before that rule are
+cleared once by `server.fleet_migrate`, after the airline-names and artwork
+merges, in the same backup, dry-run and real-run steps as the rest.
+
+- **Reading the log.** Lines start with `airline default types:`. `would clear
+  N` (dry run) or `cleared N` (real run), then one `<airline key>: <type>` line
+  per entry; `airline default types: nothing to do` when none lacks a picture or
+  the run already happened. The dry run judges the fleet root as it is before
+  the merges of the same run.
+- **Nothing is lost.** Each cleared entry is first appended to
+  `airline_default_types_cleared.json` (airline key, type, source, time) in the
+  state root; `airline_default_types_migration.json` marks the run and is
+  written last. Both are in the backup. Only a run that clears something writes
+  anything. Per-frame files are never touched.
+- **After a deploy.** Check the log for the two lines, open the Editor and see
+  that the cleared airlines show no default type, and read the archive file to
+  restore any entry on purpose (upload the type's picture first, then set it).
+
+### A default type for every airline with pictures
+
+An airline has no picture of its own: its pictures are its aircraft types' (the
+older `{airline}.png` counts as the picture of its airframe type) and one type
+is its default, the picture shown for a type it has none of. After the clearing
+above, the same run (`server.plane.fleet_set_defaults`, called by
+`server.fleet_migrate`) gives every airline that has pictures and no default
+type one, by fixed rules and without any Editor choice: (a) a legacy picture
+with a known airframe gives that type; (b) otherwise one typed picture gives
+that type, several give the most seen type across all frames, a tie or no
+sighting the first type code alphabetically; (c) a legacy picture of an unknown
+airframe gives the most seen typed picture, or the airline is reported
+`unresolved`; (d) an airline with no picture gets nothing. Sightings are the
+`runway_events` of the root and of every frame, read-only.
+
+- **Reading the log.** `airline default types: would set N` (dry run) or `set
+  N`, then one `<airline key>: <type> (rule a|b|c)` line per entry, then
+  `airline default types: unresolved M` and one `unresolved <key>: <reason>`
+  line each; `airline default types: nothing to do` once the run has happened
+  (the clearing prints its own `nothing to do` line too). Expect about forty
+  `rule a` lines on the first deploy: every built-in airline gets its airframe.
+  The dry run judges the fleet root as it is before the merges of the same run
+  (a picture or default still pending in the per-frame merge is not counted); it
+  does count the defaults the clearing is about to remove as gone.
+- **Nothing is lost.** Every default set is first appended to
+  `airline_default_types_set.json` (airline key, type, rule, time) in the state
+  root; `airline_default_types_set_migration.json` marks the run and is written
+  last. Both are in the backup. Nothing visible changes on a frame except for an
+  airline whose chosen default now wins; a default the owner clears later is not
+  set again, the airline's legacy picture still being its effective default.
+- **After a deploy.** Check the `set` and `unresolved` lines, open the Editor:
+  each airline shows its type rows with the default marked; handle the
+  `unresolved` airlines by choosing a default in the Editor.
+
 ## Backups
 
 A nightly systemd timer (`skypane-backup.timer`, 03:15 UTC,
@@ -644,11 +786,12 @@ A nightly systemd timer (`skypane-backup.timer`, 03:15 UTC,
 consistent online copy of `history.db` and `fleet.db` with SQLite's own backup API
 (never a raw copy of the live `-wal`/`-shm` files), and copies everything
 else that cannot be regenerated from an **include list** — device
-tokens, device/colour/calendar/manual-resolution config, the calendar
-secret, uploaded illustration overrides, the poll enrichment cache, and
+tokens, device/colour/calendar/manual-resolution config, the airline
+name overrides, default aircraft types, AI-suggestion cache and the airline merge marker, the calendar
+secret, uploaded illustration overrides (and the `illustration_conflicts/` archive and its marker), the poll enrichment cache, and
 `gallery/` (the last ~25 rendered panels — kept for the visual history,
-per D-24). Regenerable files (`panel.bin`, theme preview caches, Caddy's
-access log) are excluded. An unlisted top-level file in `state/` is
+per D-24). Regenerable or short-lived files (`panel.bin`, theme and frame preview caches, the shared route
+cache, the ADS-B request ledger, the check-interval experiment file, Caddy's access log) are excluded. An unlisted top-level file in `state/` is
 logged as drift rather than silently skipped or silently included. Each
 run writes a checksummed `skypane-state-<UTC timestamp>.tar.gz` and keeps
 the newest 14 on the VPS.
@@ -658,7 +801,7 @@ the newest 14 on the VPS.
 the same file set as the root; the live frame stays at the root and is never
 moved. The backup archives each `devices/<id>/` entry under the same path in
 the archive: `device_config.json`, `poll_state.json`, `battery_state.json`,
-the calendar, colour and manual-resolution files, `illustration_overrides/`,
+the calendar, colour, manual-resolution, airline name override and default-type files and `illustration_overrides/` (frozen copies since the airline names and artwork became fleet-wide; the rollback source),
 `gallery/` and a WAL-safe snapshot of `history.db`. It does not archive
 `panel.bin`, `img/`, lock files, temp files, WAL/SHM files or symlinks. A
 directory under `devices/` with a malformed name, or an unexpected file
@@ -671,6 +814,27 @@ that device to Paris. A device created through the CLI is also written to the
 legacy `devices.json` and `byos_state.json`, so the previous release
 authenticates it and would serve it the live frame's image. This only affects
 devices created after this change; none exist in production yet.
+
+**Rollback caveat (airline names).** The previous release reads the airline
+files per frame, so after a rollback every non-live frame sees its own old
+names again, and names given or changed after the upgrade exist only in the
+root files (the previous release reads them for the live frame only). A later
+roll-forward merges again only the per-frame files that changed in the
+meantime (their hash differs from the marker), by the same conflict rule,
+which can bring back a name that was deleted fleet-wide before the rollback:
+re-check the Airlines editor after a roll-forward that followed a rollback.
+The merge runs for a few milliseconds before the symlink swap while the
+previous release may still write the live frame's root file; the
+pre-migration backup exists and a re-run is idempotent.
+
+**Rollback caveat (artwork).** The previous release reads per-frame image
+directories, so after a rollback every non-live frame sees its own old
+pictures again, and pictures added after the upgrade exist only in the root
+directory (visible to the previous release on the live frame only). A later
+roll-forward merges again only the per-frame pictures whose hash changed in
+the meantime, by the same rule, which can bring back a picture deleted
+fleet-wide before the rollback: re-check the Airlines editor after a
+roll-forward that followed a rollback.
 
 **The off-box copy is pulled, not pushed.** A dedicated `skypane-backup`
 system user (never a member of the `skypane` group, so it can never write
@@ -694,7 +858,7 @@ Useful commands: `launchctl kickstart -k gui/$(id -u)/com.skypane.backup-pull`
 to run it immediately, and `tail -f ~/Library/Logs/skypane-backup-pull.log`
 to watch it.
 
-The companion Health page reads that marker and shows "last off-box
+The companion's System view reads that marker and shows "last off-box
 backup N ago", turning into a warning once the archive's own snapshot
 timestamp is more than 3 days old, or if no pull has ever happened.
 
@@ -770,6 +934,50 @@ and logout URLs are derived from `SKYPANE_COMPANION_HOST` (or the optional
 `SKYPANE_COMPANION_PUBLIC_URL`); nothing is ever read from the request
 Host header.
 
+### Auth0 invitations (machine-to-machine)
+
+Optional. When configured, inviting someone from the companion also creates
+their Auth0 database user and shows a one-time link to set a password; the
+link is shown once and is never stored or logged. The first link of a person
+lasts 5 days; a link created again ("Send a new invitation") lasts 24 hours.
+Without it the invitation
+stays local and you create the Auth0 user by hand. These steps are the
+owner's, in the Auth0 dashboard:
+
+1. Create a **Machine to Machine** application (a separate one from the
+   Regular Web Application above).
+2. Authorise it for the **Auth0 Management API** with exactly two
+   permissions, `create:users` and `create:user_tickets`, and no other (no
+   read, update or delete permission).
+3. Note the name of the database connection the people are created on
+   (Authentication > Database) and its connection id (`con_` followed by 16
+   letters or digits, on the same connection's settings page). The id is
+   required to send a new invitation to someone who already has an Auth0
+   account: without it (or with a malformed one) that action fails closed
+   with a message to the administrator and the audit row says
+   `user_exists_connection_id_missing` or `connection_id_invalid`. It is not
+   a secret, but a real value never goes in this repository.
+4. In `/opt/skypane/skypane.env` (`root:root 0600`, the same file and mode
+   as the other Auth0 secret) add:
+
+   - `SKYPANE_AUTH0_MGMT_CLIENT_ID=<auth0-mgmt-client-id>`
+   - `SKYPANE_AUTH0_MGMT_CLIENT_SECRET=<auth0-mgmt-client-secret>`
+   - `SKYPANE_AUTH0_DB_CONNECTION=<auth0-database-connection-name>`
+   - `SKYPANE_AUTH0_DB_CONNECTION_ID=<auth0-database-connection-id>`
+   - `SKYPANE_AUTH0_CUSTOM_DOMAIN=<auth0-custom-domain>` (only if the tenant
+     uses a custom domain: the invitation link is shown only when it is an
+     https address on the tenant domain or this one)
+
+   then `sudo systemctl restart skypane-companion`. The values reach the
+   service only through the environment file; no unit file carries them.
+
+Rotate: rotate the client secret on the application in the dashboard, edit
+the line in the environment file, restart the companion. Revoke: delete the
+machine-to-machine application (or remove its Management API
+authorisation); the companion then reports invitations as not configured
+and keeps working. Sign-ups stay disabled, and an Auth0 account alone
+grants nothing: signing in still requires the local invitation.
+
 ### Inviting and managing people
 
 ```bash
@@ -841,6 +1049,42 @@ refuses a v2 file as too new and serves from the legacy files, so a
 rollback keeps the frame working, but Health shows a fleet fault until the
 new release is live again. Backups now contain the `sessions` table
 (hashes only); restoring one brings back unexpired sessions.
+
+## AI-suggested airline names
+
+In the Airlines editor (`/airlines/manage`, administrators only) each
+unidentified callsign prefix can carry a name proposed by a small Claude
+model (`claude-haiku-5-5`). The proposal is shown as a "Suggestion" with a
+round check; nothing is applied until a person presses the check or types a
+name, and the check posts to the same route as manual naming. A suggestion
+only fills a gap: "Name it" stays when there is none, when the service is off
+or when it fails.
+
+- **Off by default.** The feature exists only while `SKYPANE_ANTHROPIC_API_KEY`
+  is set in `/opt/skypane/skypane.env` (`root:root 0600`). Without it the
+  editor is exactly the manual flow and no network call is made. To switch it
+  off or revoke it, delete the line (and revoke the key in the Anthropic
+  console), then `sudo systemctl restart skypane-companion`.
+  `SKYPANE_ANTHROPIC_BASE_URL` is a loopback-only test seam; never set it in
+  production (a non-loopback host is ignored).
+- **What leaves the server.** The three-letter prefix and up to four sample
+  callsigns of that prefix, nothing else: no frame, owner, user, location or
+  device data. The call is made from the companion's administrator route (one
+  request at a time, after the page has rendered), never from the poll timer.
+- **Cache.** `airline_suggestions.json` in the state root (`SKYPANE_STATE_DIR`):
+  one entry per prefix with the proposed name, the model id and the date. A
+  prefix is asked once ever; "no idea", a removed suggestion and a named
+  prefix are kept as decisions and never asked again. A failed request is
+  retried after 15 minutes (6 hours for an authentication, billing or request
+  error). To ask again for one prefix, delete its entry from the file (the
+  file is read on each request, no restart needed).
+- **Caps.** At most 10 calls per rolling hour and 60 per rolling day across all
+  prefixes; over the cap the editor simply shows "Name it". One attempt per
+  call, 3.05 s connect and 8 s read timeout.
+- **Logs.** A failed call writes one line to the companion's journal:
+  `airline_suggest: prefix=OCN reason=http_529 request_id=req_...`. The key,
+  the request and the response body are never logged; `request_id` is the
+  Anthropic request id for support.
 
 ## Read-only battery-history export
 

@@ -166,7 +166,7 @@ def test_the_dialog_opens_on_its_title_and_no_field_asks_for_the_focus(rig):
 def test_the_helper_names_the_zone_and_links_to_the_place_page(rig):
     _status, body = rig.get("owner")
     note = _dialog(body).select_one(".quiet-timezone-note")
-    assert note.text() == "Time zone: Martinique. Change it in Location and detection."
+    assert note.text() == "Time zone: Martinique. Change it in Location."
     assert note.select_one("a").attrs["href"] == "%s/detection#details" % rig.scope()
 
 
@@ -177,7 +177,7 @@ def test_the_dialog_is_french_in_french(rig):
     assert dialog.select_one('button[type="submit"]').text() == "Enregistrer les heures calmes"
     assert "Utiliser les heures calmes" in dialog.select_one("label.settings-checkbox").text()
     assert dialog.select_one(".quiet-timezone-note").text() == (
-        "Fuseau : Martinique. Changer dans Lieu et détection.")
+        "Fuseau : Martinique. Changer dans Lieu.")
     assert [b.select_one(".quiet-card__title").text() for b in dialog.select(".quiet-cards button")
             ] == ["Nuit", "Journée"]
     assert dialog.select_one(".quiet-custom__label").text() == "Ou choisir ses heures"
@@ -192,17 +192,17 @@ def test_the_dialog_sits_outside_every_region_a_refresh_swaps(rig):
             assert not region.select("#dlg-quiet-hours")
 
 
-def test_the_schedule_row_is_a_switch_plus_a_link_that_opens_the_dialog(rig):
+def test_the_quiet_hours_pill_is_a_link_that_opens_the_dialog(rig):
     for who in ("owner", "admin"):
         _status, body = rig.get(who)
         doc = parse_html(body)
-        link = doc.select_one("a.home-switch__window")
+        link = doc.select_one("a.home-pill--quiet")
         assert link.attrs["href"] == "#dlg-quiet-hours" and "data-modal-open" in link.attrs
         assert link.text() == "22:00 – 06:30"
         switch_forms = [
             f for f in doc.select("form")
             if f.attrs.get("action", "").endswith("/quick/quiet-hours")]
-        assert len(switch_forms) == 1 and switch_forms[0].select_one('button[role="switch"]')
+        assert switch_forms == []
 
 
 # --- the save ----------------------------------------------------------------
@@ -232,7 +232,7 @@ def test_home_and_the_toast_reflect_the_saved_window(rig):
     rig.post("owner", _valid())
     status, body = rig.get("owner", "/?flash=quiet_window_saved")
     assert status == 200
-    assert parse_html(body).select_one("a.home-switch__window").text() == "21:15 – 05:45"
+    assert parse_html(body).select_one("a.home-pill--quiet").text() == "21:15 – 05:45"
     assert flash_toast_title_detail(body) == (
         "Quiet hours saved", "The screen will rest from 21:15 to 05:45.")
     _status, french = rig.get("owner", "/?flash=quiet_window_saved", lang="fr")

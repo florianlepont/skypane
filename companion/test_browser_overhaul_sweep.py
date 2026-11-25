@@ -1,7 +1,7 @@
 """Cross-page sweep of the reworked companion in a real browser.
 
 Every reworked page (Fleet, Users, Audit log, Releases, Account, Home,
-Location and detection, Personalisation, Airline collection, and the Console
+Location, Personalisation, Airline collection, and the Console
 Health, Device and Airline editor pages) and every dialog it opens (the Fleet
 dialogs, the quiet-hours dialog, the two confirm dialogs for a
 special look and a manual resolution) is loaded at 360 and 1280px, in English
@@ -23,11 +23,11 @@ import hashlib
 import re
 from datetime import datetime, timedelta, timezone
 
+import animation_settle
 import pytest
 
 import fleet_console_support as fx
 from skypane_contrast_check import WCAG_AA_NORMAL_TEXT, contrast_ratio
-from locations_page_support import open_locations_page
 from place_map_support import Hosts
 from companion import auth
 from companion.test_browser_ux_helpers import (
@@ -218,11 +218,10 @@ def _case(persona, path, dialog=None, label=None):
 
 CASES = (
     _case("admin", "/fleet", None, "fleet"),
-    _case("admin", "/fleet", "dlg-add-frame", "fleet-add-dialog"),
+    _case("admin", "/pair-frame", None, "admin-pair-frame"),
     _case("admin", "/fleet", "dlg-retire-{slug}", "fleet-retire-dialog"),
     _case("admin", "/users", None, "users"),
     _case("admin", "/users", "dlg-invite-user", "users-invite-dialog"),
-    _case("admin", "/locations", None, "locations"),
     _case("admin", "/audit", None, "audit"),
     _case("admin", "/update", None, "releases"),
     _case("admin", "/account", None, "admin-account"),
@@ -231,8 +230,8 @@ CASES = (
     _case("admin", "/display/special-looks", None, "admin-display-special-looks"),
     _case("admin", "/display/calendar", None, "admin-display-calendar"),
     _case("admin", "/display/arrivals", None, "admin-display-arrivals"),
-    _case("admin", "/device", None, "admin-device"),
-    _case("admin", "/health", None, "admin-health"),
+    _case("admin", "/fleet?frame={owned}&tab=settings", None, "admin-device"),
+    _case("admin", "/fleet?frame={owned}&view=battery", None, "admin-health"),
     _case("admin", "/flights", None, "admin-flight-history"),
     _case("owner", "/devices/{owned}/flights", None, "user-flight-history"),
     _case("admin", "/detection", None, "admin-location"),
@@ -274,10 +273,7 @@ def _open(new_context, server, persona, path, dialog, viewport, lang, scheme):
     url = server.base_url() + path.format(**ids)
     if dialog:
         url += "#" + dialog.format(**ids)
-    if path == "/locations":
-        open_locations_page(page, server.base_url())
-    else:
-        page.goto(url)
+    page.goto(url)
     page.locator("main").wait_for(state="visible")
     if dialog:
         page.locator("dialog[open]").wait_for(state="visible")
@@ -329,14 +325,19 @@ def test_reworked_pages_hold_the_layout_rules(
 
 
 @pytest.mark.parametrize("lang", ["en", "fr"])
-def test_the_fleet_page_is_not_called_cadres_in_french(new_context, server, lang):
+def test_the_fleet_page_keeps_its_name_in_the_navigation_and_the_tab_title(
+        new_context, server, lang):
+    """The page is Fleet / Flotte in the navigation and the tab title; its list of frames is
+    titled Frames / Cadres, as in the approved design."""
     context, page = _open(
         new_context, server, "admin", "/fleet", None, VIEWPORT_MIN_SUPPORTED, lang, "light")
     try:
-        title = page.locator("main h1").inner_text().strip()
-        assert title == ("Flotte" if lang == "fr" else "Fleet")
-        assert title != "Cadres"
+        title = page.locator("main h1:visible").inner_text().strip()
+        assert title == ("Cadres" if lang == "fr" else "Frames")
+        assert ("Flotte" if lang == "fr" else "Fleet") in page.title()
         assert "Cadres" not in page.title()
+        nav = page.locator(".tab-bar a[aria-current='page']").inner_text().strip()
+        assert nav.startswith("Flotte" if lang == "fr" else "Fleet")
     finally:
         context.close()
 
@@ -348,9 +349,10 @@ def test_the_fleet_page_is_not_called_cadres_in_french(new_context, server, lang
 # ("confirmed", a value the detector never writes).
 _SHARED = re.compile(
     r"^(SkyPane|Orly|Kitchen|Attic|Orly frame|Console|Audit|Distance|Station|Local|Total|"
-    r"Version|Versions|Image|Plus|Type|Description|Original|Information|Document|Action|"
-    r"Actions|Style|Airlines|Contact|Standard|Message|Notes?|Auto|Latitude|Longitude|XIAO ePaper|"
-    r"Air France|easyJet|Transavia|Ryanair|Confirmed|Rare|test)\b|^[A-Z0-9]{4} · |^(Paris-Orly Airport|Watching Runway)")
+    r"Version|Versions|Image|Illustration|Plus|Type|Description|Identification|Original|Information|Document|Action|"
+    r"Actions|Style|Airlines|Contact|Standard|Message|Notes?|Auto|Latitude|Longitude|XIAO ePaper|min|"
+    r"Air France|easyJet|Transavia|Ryanair|Confirmed|Rare|test|Emirates|FedEx Express|Finnair|"
+    r"KLM Royal Dutch Airlines|Korean Air|Turkish Airlines)\b|^[A-Z0-9]{4} · |^(Paris-Orly Airport|Watching Runway)")
 
 
 def _looks_english(text):
@@ -467,10 +469,7 @@ def test_the_overdue_home_card_has_no_health_pill_on_desktop(
 # --- Home notification for an amber or red dot ------------------------------
 
 NOTICE = ".home-facts .home-notice"
-FINITE_ANIMATIONS_DONE = (
-    "() => document.readyState === 'complete' && document.getAnimations().every("
-    "(a) => (a.effect && a.effect.getComputedTiming().iterations === Infinity)"
-    " || a.playState !== 'running')")
+FINITE_ANIMATIONS_DONE = animation_settle.SETTLED
 
 _NOTICE_FITS = """
 (selector) => {
@@ -588,10 +587,10 @@ def test_the_home_notification_holds_the_layout_rules(
         if overflow:
             problems.append(overflow)
         tops = page.evaluate(
-            "(n) => [n, '.home-state', 'main h1'].map("
+            "(n) => ['main h1', n, '.home-flight'].map("
             "(s) => document.querySelector(s).getBoundingClientRect().top)", NOTICE)
-        if not tops[0] < tops[1] <= tops[2]:
-            problems.append("order is not notification, state card with title: %r" % (tops,))
+        if not tops[0] < tops[1] < tops[2]:
+            problems.append("order is not title block, notification, flight card: %r" % (tops,))
         fit = page.evaluate(_NOTICE_FITS, NOTICE)
         if fit["page"] > 0 or fit["clipped"]:
             problems.append("notification overflows or clips text: %r" % (fit,))
@@ -608,8 +607,10 @@ def test_the_home_notification_holds_the_layout_rules(
             text = page.inner_text(NOTICE)
             for word in PERSONAL_FORBIDDEN.findall(text):
                 problems.append("console word in the notification: " + word)
+            # The title block says when contact was lost; the notification does not repeat it.
+            figures_in = text + " " + page.inner_text(".home-state")
             for figure in NOTICE_FIGURES[state]:
-                if not re.search(figure, text):
+                if not re.search(figure, figures_in):
                     problems.append("missing figure: " + figure)
             if len(text) > 230:
                 problems.append("the notification is not short: %d characters" % len(text))
@@ -680,9 +681,10 @@ def test_an_administrators_personal_page_equals_a_users(
     assert user["headings"] and user["nav"]
     for part in ("headings", "nav", "controls"):
         assert admin[part] == user[part], (page_path, viewport["width"], part)
-    # The switch and the foreign-frame notice are the whole difference.
+    # The foreign-frame notice is the whole difference: consulting someone else's frame
+    # offers no space switch either.
     assert user["switchControls"] == 0 and user["notice"] == 0
-    assert admin["switchControls"] >= 1 and admin["notice"] == 1
+    assert admin["switchControls"] == 0 and admin["notice"] == 1
 
 
 # --- Hit targets while a card is still arriving -------------------------------
@@ -758,8 +760,7 @@ def test_controls_keep_44px_at_every_point_of_the_entrance(
 # the pale sky of Light and the ink gradient of Dark.
 THREE_PAGES = [c for c in PAGES if c.id in ("user-home", "user-account", "user-flight-history")]
 # Home's signature is the one other deliberate ambient motion, content-neutral and slow: the
-# dot's and the picture glow's 6s breathing and the 12s cycle of the glass glint. Each is
-# transform/opacity only and switched off under reduced motion; no other page may loop.
+# dot's 6s breathing. It is transform/opacity only and switched off under reduced motion; no other page may loop.
 # The allow-list is exact: an endless animation passes only with this name on this element
 # (and pseudo-element), each for the reason given. Anything else that loops for ever fails,
 # whatever it is called.
@@ -767,9 +768,6 @@ AMBIENT_LOOPS = {
     # The status dot read from across a room: a soft halo and a slow breath.
     ("skypane-dot-halo", ".home-state__dot--pulse", "::after"),
     ("skypane-dot-breathe", ".home-state__dot--pulse", None),
-    # The frame picture's signature: the glow behind it and the glint over its glass.
-    ("skypane-picture-breathe", ".hero__picture", "::before"),
-    ("skypane-glint", ".hero__glass", "::after"),
 }
 
 
@@ -1092,7 +1090,7 @@ _BLUR_AND_ANIMATIONS = """
     const target = a.effect && a.effect.target;
     return t && t.iterations === Infinity &&
       !(target && target.closest(
-        '.home-state__dot--pulse, [class*="dot--pulse"], .hero__picture, .hero__glass'));
+        '.home-state__dot--pulse, [class*="dot--pulse"]'));
   }).map((a) => (a.effect.target && a.effect.target.className) || a.id || 'animation');
   return {blurred, infinite};
 }
@@ -1226,7 +1224,8 @@ def test_navigation_and_menus_state_what_they_are(new_context, server, case):
           return {current, menus, named: nav.every((n) => n.hasAttribute('aria-label') || n.hasAttribute('aria-labelledby'))};
         }""")
         assert any(count == 1 for count in report["current"]), report
-        assert report["menus"] and all(report["menus"]), report
+        # The Fleet page lists and switches frames in its own body: it has no popover menu.
+        assert (report["menus"] or case[1] == "/fleet") and all(report["menus"]), report
         assert report["named"], report
     finally:
         context.close()

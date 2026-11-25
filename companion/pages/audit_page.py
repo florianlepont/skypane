@@ -87,6 +87,8 @@ ACTION_LABELS = {
     "device.co_manager_remove": i18n.msg(
         "admin_lifecycle.action_device_co_manager_remove", "Co-manager removed"),
     "user.invite": i18n.msg("admin_lifecycle.action_user_invite", "User invited"),
+    "user.invitation": i18n.msg(
+        "admin_lifecycle.action_user_invitation", "Invitation link"),
     "user.role": i18n.msg("admin_lifecycle.action_user_role", "Role changed"),
     "user.disable": i18n.msg("admin_lifecycle.action_user_disable", "User disabled"),
     "user.enable": i18n.msg("admin_lifecycle.action_user_enable", "User enabled"),
@@ -96,6 +98,8 @@ ACTION_LABELS = {
     "location.update": i18n.msg("admin_lifecycle.action_location_update", "Location updated"),
     "location.delete": i18n.msg("admin_lifecycle.action_location_delete", "Location deleted"),
     "airline.resolve": i18n.msg("admin_lifecycle.action_airline_resolve", "Airline named"),
+    "airline.rename_manual": i18n.msg(
+        "admin_lifecycle.action_airline_rename_manual", "Airline renamed"),
     "airline.artwork_delete": i18n.msg(
         "admin_lifecycle.action_airline_artwork_delete", "Airline artwork removed"),
     "airline.default_type": i18n.msg(

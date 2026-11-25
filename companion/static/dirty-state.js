@@ -144,10 +144,10 @@
   // `isDirty()` holds - the sub-tabs, the bottom tab bar, the More sheet, the
   // sidebar, the frame menu, back and brand links - and so does a post of
   // another form on the page (the theme and language switches, sign out),
-  // which would leave just as surely. Save and continue saves through the
+  // which would leave just as surely. Save and leave saves through the
   // bar's own Save button and names the tapped address as the save's return
   // target when the page listed it, else the save stays here with its usual
-  // confirmation; Discard leaves without saving; Stay here changes nothing
+  // confirmation; Leave without saving leaves; the close cross changes nothing
   // and the focus goes back to what was tapped. Without the dialog or
   // modal.js the page keeps its plain links and the browser's own prompt.
   // One guard per page: a page with both a tracked bar and a form-page bar

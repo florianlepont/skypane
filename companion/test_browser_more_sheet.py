@@ -2,6 +2,7 @@
 with one tap inside the sheet (and kept after a reload), Sign out two taps from any page, the
 sheet's other rows, French tab labels that never touch at 360px, and the administrator's Account
 page carrying a single Sign out control and a neutral space switch."""
+import animation_settle
 import pytest
 from companion_app_server import session_cookie_for_state_dir
 from skypane_two_device_fleet import OWNER_EMAIL
@@ -12,8 +13,7 @@ from companion.test_device_helpers import start_fleet_app
 
 pytestmark = pytest.mark.browser
 
-_SETTLED = """() => document.readyState === 'complete' && document.getAnimations().every(
-  (a) => a.playState !== 'running' || a.effect.getComputedTiming().iterations === Infinity)"""
+_SETTLED = animation_settle.SETTLED
 
 _MORE_OWNS_CENTRE = """() => {
   const e = document.querySelector('.tab-bar__more > summary'); if (!e) return false;
@@ -158,7 +158,7 @@ def test_the_sheet_holds_the_other_rows_and_the_account_row_names_the_person(
         assert page.eval_on_selector_all(
             ".tab-bar__more-panel a",
             "els => els.map(e => (e.querySelector('.link-card__title, .tab-bar__account-name') || e).textContent.trim())") == [
-            "Account", "My frame"]
+            "Account", "Audit log", "My frames"]
         assert page.locator(".tab-bar__account-email").inner_text() == OWNER_EMAIL
         for selector in (".tab-bar__more-panel a", ".tab-bar__sign-out button",
                          ".tab-bar__more-panel .theme-option"):
@@ -441,7 +441,9 @@ def test_the_more_cell_is_one_glyph_like_every_other_cell(new_context, app, sche
 
 
 @pytest.mark.parametrize("lang", ["en", "fr"])
-@pytest.mark.parametrize("viewport", [VIEWPORT_MIN_SUPPORTED, VIEWPORT_PHONE], ids=["360", "390"])
+@pytest.mark.parametrize(
+    "viewport", [{"width": 320, "height": 700}, VIEWPORT_MIN_SUPPORTED, VIEWPORT_PHONE],
+    ids=["320", "360", "390"])
 def test_the_theme_and_language_controls_share_one_left_and_right_edge(
         new_context, app, viewport, lang):
     context, page = _open(new_context, app, _home(app), viewport, lang=lang)
@@ -492,9 +494,7 @@ _AMBIENT = """(want) => {
   const read = [
     getComputedStyle(document.querySelector('.home-state__dot--pulse')).animationIterationCount,
     getComputedStyle(
-      document.querySelector('.home-state__dot--pulse'), '::after').animationIterationCount,
-    getComputedStyle(
-      document.querySelector('.hero__picture'), '::before').animationIterationCount];
+      document.querySelector('.home-state__dot--pulse'), '::after').animationIterationCount];
   return read.every((v) => v === want); }"""
 
 

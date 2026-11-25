@@ -314,11 +314,11 @@
     },
     "status_retired_landscape": {
       "bytes": 384000,
-      "sha256": "ea827e7493d082c9e243e1beaf9c9aeab81594a99cd1f72c962484ff916c62a2"
+      "sha256": "f97578cf688fb8ef01a76f039ec0098c6dbc5f1576456e3079edc95e10bbd179"
     },
     "status_retired_portrait": {
       "bytes": 1920000,
-      "sha256": "cd85bd842ba56a555f22b96fb2c512d625d309e97b663f75f26e66a74eab143b"
+      "sha256": "c85a3ad1100e4c7843ac44a2d63147e19e59b9dddc523b381659e8f95425c55d"
     },
     "status_updating_landscape": {
       "bytes": 384000,

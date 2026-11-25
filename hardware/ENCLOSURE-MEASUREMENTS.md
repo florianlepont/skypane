@@ -53,13 +53,40 @@ Filled from the owner's reports only.
 | 10 Battery dimensions and mass | Thickness 8, width 60, length 50 mm; mass 49 g; pack: Kubii 3000 mAh (confirmed by the owner, 2026-11-18) | 2026-11-18 | Tape measure (no calliper) | measured |
 | 11 Masses: board, screen, antenna | Board with antenna and cable 20 g; screen 36 g | 2026-11-18 | Kitchen scale | measured |
 | 12 Masses: frame | Complete frame 173 g; empty frame 149 g | 2026-11-18 | Kitchen scale | measured |
+| 6b Mat opening, recheck | 140.93 x 90.27 mm (width x height), as typed by the owner. The owner did not say what was measured; Claude reads it as the mat window, because it matches the IKEA page (14 x 9 cm) and the owner's earlier statement of 90 mm for the height | 2026-11-23 | Tool not stated (two decimals suggest a calliper); the owner's earlier statement on 2026-11-19 gave 90 mm without a measurement | reported by the owner on 2026-11-23; the owner confirmed on 2026-11-23 that it is the mat window (the tool is still not stated). It replaces the 99 mm height of row 6 (a typing error, per the owner). Row 6 keeps its original reading unchanged. The centring on the mat opening and the visible margin figures of the later plans use 90.27 mm in height; the mat opening in the Blender reference model is still 140 x 99 mm and the owner decides whether the CAD needs a change. The owner decided on 2026-11-24 that the enclosure work also covers reframing the displayed image to the visible window (about 705 x 451 pixels of 800 x 480 for a 140.93 x 90.27 mm window over a 160 x 96 mm active area, arithmetic from design values, not measured) |
+| 7b Metal tab, height behind the back of the screen, folded | 15 mm (confirmed by the owner) | 2026-11-18 | Reported in the design session; tool not stated | owner-reported |
+| 7c Metal tab, width | 4 mm | 2026-11-18 | Confirmed by the owner in the design session; tool not stated | owner-reported |
+| 7d Metal tabs, position along each side (seen from the back, frame in portrait) | Top tab: its right edge is 48 mm from the right corner of the rebate. Bottom tab: its right edge is 77 mm from the right corner. Left tab: its lower edge is 86 mm from the bottom edge of the rebate. Right tab: 82 mm, same method | 2026-11-18 | Reported in the design session; tool not stated | owner-reported |
+| 13 Wi-Fi antenna cable | 50 mm | 2026-11-18 | Reported in the design session; tool not stated | owner-reported |
 
 ## Design checks to redo after the masses are in
 
 The checks on the model (closed meshes, no support, no wall under 0.8 mm, no
 slot under 1 mm, centre of gravity on the landscape hook axis) used estimated
-masses: tray about 57 g, lid about 48 g, stand about 11 g, shim about 5 g
+masses: tray about 57 g, lid about 48 g, stand about 11 g, shim about 6 g
 (design values, not measured). The owner reruns them after the measurements.
+
+## Frame survey (calliper)
+
+This survey is optional (owner decision, 2026-11-23: fit is judged first by
+trying the printed parts). It is filled only if the shim does not fit a frame
+or the owner wants it. The "Rules for this sheet" above apply: only the
+owner's readings go in, with the tool and method used, each with a date and
+"reported by the owner". An empty cell stays "design value, not measured".
+
+| Row | Item | Design value (design value, not measured) | Tool | Frame 1 | Frame 2 | Frame 3 | Frame 4 | Frame 5 | Date | Source |
+|-----|------|-------------------------------------------|------|---------|---------|---------|---------|---------|------|--------|
+| S1 | Rebate length: both ends and middle (3 readings) | about 133.4 mm (design value, not measured) | | | | | | | | |
+| S2 | Rebate width: both ends and middle (3 readings) | about 183.4 mm (design value, not measured) | | | | | | | | |
+| S3 | Rebate corner radius or mitre gap | not recorded (design value, not measured) | | | | | | | | |
+| S4 | Free depth at the four corners | 22.7 mm (design value, not measured) | | | | | | | | |
+| S5 | Tabs: count, folded height behind the back of the screen, width, position along each side, per frame | one per side, 15 mm high, 4 mm wide (design value, not measured) | | | | | | | | |
+| S6 | Front sheet thickness | not recorded (design value, not measured) | | | | | | | | |
+| S7 | Mat thickness and window length x height | 1 mm; window 140 x 90 mm (design value, not measured) | | | | | | | | |
+| S8 | Outer size | not recorded (design value, not measured) | | | | | | | | |
+| S9 | Empty frame mass | 149 g, one frame (design value, not measured) | | | | | | | | |
+| S10 | Article number read from the label | 105.488.67 (design value, not measured) | | | | | | | | |
+| S11 | Frame colour and series | black RÖDALM (design value, not measured) | | | | | | | | |
 
 ## Notes
 
@@ -70,15 +97,24 @@ rounded or corrected.
 
 Points to settle with the owner (nothing here is concluded by the assistant):
 
-- Row 6: the mat keeps its current opening of 140 x 99 mm (owner decision,
-  2026-11-18). The displayed image is to be adapted to what shows through the
+- Row 6: the mat keeps its current opening of 140 x 99 mm as first read (owner
+  decision, 2026-11-18; the height is corrected to 90 mm in row 6b, owner report
+  of 2026-11-19, not remeasured). The displayed image is to be adapted to what shows through the
   mat, instead of recutting the mat. The active area reported in row 3 is
   160 x 96 mm, so a 140 mm wide opening hides part of its width, and 99 mm is
-  taller than 96 mm. Changing the displayed image is a rendering change, outside
-  this phase (no code); the enclosure is centred on the mat opening, to be
-  confirmed with the owner.
+  taller than 96 mm. Changing the displayed image is a rendering change; the owner
+  decided on 2026-11-24 that it belongs to this enclosure work (it needs a plan of
+  its own); the enclosure is centred on the mat opening, to be confirmed with the
+  owner.
 - Row 7: tab depth corrected by the owner to 8 mm (design value about 12.6 mm,
   design value, not measured).
+- Row 7, clarification by the owner on 2026-11-18: the 8 mm is the length of the
+  tab (how far it reaches over the back), not its depth behind the screen. The
+  height of the folded tab is row 7b (15 mm). Rows 7b to 7d replace the design
+  value of about 12.6 mm and the "middle of each side" assumption. The owner
+  adds that frames probably vary from one to another, so the lid pads are wide.
+- Row 13: the vendor sheet gives 80 mm for the antenna coaxial cable; the owner's
+  own reading is 50 mm, which is the one used.
 - Row 10: the pack in the enclosure is the Kubii 3000 mAh (owner, 2026-11-18);
   the reported dimensions match its vendor size (8 x 50 x 60 mm). The frame in
   production uses another pack today (see `BATTERY-MODEL.md`).
@@ -91,7 +127,7 @@ Points to settle with the owner (nothing here is concluded by the assistant):
 
 Reported by the owner on 2026-11-18, not checked by Claude:
 
-- `hardware/cad/skypane_cassette.blend` is saved and current; last save
+- `hardware/cad/source/skypane_cassette.blend` is saved and current; last save
   2026-11-17.
 - The four parts and the script `skypane_cassette.py` are in it.
 - The Father Christmas figurine and the abandoned versions are no longer in it.

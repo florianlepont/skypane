@@ -11,7 +11,9 @@ from companion.test_browser_ux_helpers import (
 
 pytestmark = pytest.mark.browser
 
-ROUTES = ("/", "/display", "/flights", "/airlines", "/health", "/device", "/update")
+ROUTES = (
+    "/", "/display", "/flights", "/airlines", "/fleet?frame=live&view=battery",
+    "/fleet?frame=live&tab=settings", "/update")
 # Distance from the bottom of the app bar (or of the space strip under it) to the top of the title: 16px bar margin + 16px
 # content padding.
 PHONE_TITLE_GAP_MAX = 32
@@ -24,13 +26,21 @@ def _title_state(page):
             const h1 = all[0];
             const box = h1.getBoundingClientRect();
             const bar = document.querySelector('.site-header').getBoundingClientRect();
+            // A frame page on a phone opens with its chip row (the owner's layout): the title then
+            // follows the row, and the row sits where a title would.
+            // The Health and Versions pages open with the way back to the frame, which stands in
+            // the same place.
+            const chips = document.querySelector('.fleet-switch, .fleet-back');
+            const chipBox = chips && getComputedStyle(chips).display !== 'none'
+                ? chips.getBoundingClientRect() : null;
             const hidden = h1.classList.contains('visually-hidden');
             const shown = hidden ? document.querySelector('.home-state__title') : h1;
             const shownBox = shown.getBoundingClientRect();
             return {count: all.length, text: h1.textContent.trim(), hidden: hidden,
                     width: shownBox.width, height: shownBox.height,
                     clip: getComputedStyle(shown).clipPath,
-                    gap: hidden ? 0 : box.top - bar.bottom};
+                    gap: hidden ? 0 : box.top - (chipBox ? chipBox.bottom : bar.bottom),
+                    chipGap: chipBox ? chipBox.top - bar.bottom : 0};
         }""")
 
 
@@ -67,6 +77,7 @@ def test_page_title_is_visible_on_every_page_and_close_to_the_app_bar(
             # Home's title sits in the hero, below its notification, not under the app bar.
             if phone and route != "/":
                 assert 0 <= state["gap"] <= PHONE_TITLE_GAP_MAX, (route, state)
+                assert 0 <= state["chipGap"] <= PHONE_TITLE_GAP_MAX, (route, state)
             assert not _assert_no_page_overflow(
                 page, "title/%s" % route, viewport["width"]), route
     finally:

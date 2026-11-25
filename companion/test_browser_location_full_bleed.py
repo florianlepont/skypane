@@ -104,6 +104,8 @@ _EDGE_SCAN = """() => {
     return !!c && c[3] > 0.3 && (c[0] + c[1] + c[2]) / 3 < 120; };
   const found = [];
   for (const el of document.querySelectorAll('body *')) {
+    // The map box itself carries the tile ground, which is dark under the dark map.
+    if (el.id === 'place-map' && !el.parentElement.closest('#place-map')) continue;
     for (const pseudo of [null, '::before', '::after']) {
       const s = getComputedStyle(el, pseudo);
       if (pseudo && s.content === 'none') continue;
@@ -142,7 +144,7 @@ def test_the_map_container_shows_the_tile_ground_colour_and_no_dark_surface_touc
         got = page.evaluate(
             "() => { const m = getComputedStyle(document.getElementById('place-map'));"
             " return {bg: m.backgroundColor, pos: m.position, top: m.top, bottom: m.bottom}; }")
-        assert got == {"bg": "rgb(242, 239, 233)", "pos": "absolute", "top": "0px", "bottom": "0px"}, got
+        assert got == {"bg": "rgb(22, 20, 15)" if theme == "dark" else "rgb(242, 239, 233)", "pos": "absolute", "top": "0px", "bottom": "0px"}, got
         found = page.evaluate(_EDGE_SCAN)
         assert found == [], found
     finally:

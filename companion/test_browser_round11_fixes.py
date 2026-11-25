@@ -10,6 +10,7 @@ State is always waited for (settled page, owned centres), never read right after
 import re
 from datetime import datetime, timedelta, timezone
 
+import animation_settle
 import pytest
 
 import fleet_console_support as fx
@@ -28,9 +29,7 @@ LANGS = ("en", "fr")
 TABLET = {"width": 768, "height": 900}
 
 _COMPLETE = "() => document.readyState === 'complete'"
-_ANIMATIONS_DONE = (
-    "() => document.getAnimations().every(a => (a.effect && "
-    "a.effect.getComputedTiming().iterations === Infinity) || a.playState !== 'running')")
+_ANIMATIONS_DONE = animation_settle.ANIMATIONS_DONE
 
 
 def _airline_seed(state_dir):
@@ -191,9 +190,16 @@ def test_the_airline_type_rows_align_with_the_airline_row_and_nothing_overlaps(
         else:
             head, subs = rows[0], rows[1:]
             menu = [c for c in head if "airlines-cell--menu" in c["cls"]][0]
+            with_menu = 0
             for sub in subs:
                 sub_menu = [c for c in sub if "airlines-cell--menu" in c["cls"]]
-                assert sub_menu and abs(sub_menu[0]["r"] - menu["r"]) <= 1, (sub, menu)
+                # A type without a picture has no menu; a type with one keeps its menu.
+                if not sub_menu:
+                    continue
+                with_menu += 1
+                # A narrow screen shows each type as a card inset in the opened row.
+                assert sub_menu[0]["r"] <= menu["r"] + 1, (sub, menu)
+            assert with_menu, subs
     finally:
         context.close()
 
@@ -237,7 +243,7 @@ def test_the_flights_sort_menu_works_without_scripts(new_context, make_app_serve
                      viewport=VIEWPORT_MIN_SUPPORTED) as page:
         page.locator(".collection-sort > summary").click()
         page.locator('.collection-sort__option:has(input[value="airline"])').click()
-        page.locator(".history-controls__apply").click()
+        page.locator(".filter-controls__apply").click()
         page.wait_for_url("**sort=airline*")
         assert page.locator("input[name=sort][value=airline]:checked").count() == 1
 
@@ -439,14 +445,14 @@ def test_the_save_bar_over_the_map_is_opaque_and_readable(
 # --- Fleet: the firmware version history ------------------------------------------------
 
 
-@pytest.mark.parametrize("lang,installed", [("en", "Installed"), ("fr", "Installée")])
+@pytest.mark.parametrize("lang,installed", [("en", "Running"), ("fr", "En cours")])
 @pytest.mark.parametrize("viewport", [VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED], ids=["1280", "360"])
 def test_the_firmware_history_lines_up_its_dot_version_and_chip_down_the_list(
         new_context, app_server_in_process, viewport, lang, installed):
     seed = fx.seed_fleet(app_server_in_process.state_dir)
     seed_two_releases(app_server_in_process.state_dir)
     context, page = _open(
-        new_context, app_server_in_process, "/fleet?frame=" + seed.live_id, viewport, lang=lang)
+        new_context, app_server_in_process, "/fleet?frame=" + seed.live_id + "&view=versions", viewport, lang=lang)
     try:
         page.locator("ul.update-hist__list").scroll_into_view_if_needed()
         rows = page.evaluate(

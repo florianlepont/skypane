@@ -22,7 +22,7 @@ import sqlite3
 import sys
 import time
 from http.server import BaseHTTPRequestHandler
-from urllib.parse import parse_qs, parse_qsl, quote, urlencode, urlsplit
+from urllib.parse import parse_qs, parse_qsl, urlencode, urlsplit
 
 # Same repo-root sys.path bootstrap as server/poll_loop.py, so
 # server.* resolves whether this file runs as a package or standalone.
@@ -33,7 +33,7 @@ if _REPO_ROOT not in sys.path:
 
 from companion import (  # noqa: E402
     access, audit, auth, console_flash, console_routes, credits_page, detection_actions, device_dispatch, device_scope, export_api, flash, fleet_moves, freshness, i18n, illustration_normalize, layout, legacy_pages,
-    login_page, next_route as next_route_check, page_cache, page_context, page_policy, post_actions, preview_images, prefs, quiet_server, request_body, routes, server_error, sign_in,
+    login_page, next_route as next_route_check, page_cache, page_context, page_policy, post_actions, preview_images, prefs, preload_assets, quiet_server, request_body, routes, server_error, sign_in,
     sign_in_config, static_files, theme_preview, user_view)
 from companion.pages import (  # noqa: E402
     # airlines_page is unused by this module's own code; kept so
@@ -135,12 +135,8 @@ HOME_ROUTE = layout.HOME_ROUTE
 DISPLAY_ROUTE = layout.DISPLAY_ROUTE
 FLIGHTS_ROUTE = layout.FLIGHTS_ROUTE
 AIRLINES_ROUTE = layout.AIRLINES_ROUTE
-HEALTH_ROUTE = layout.HEALTH_ROUTE
 DEVICE_ROUTE = layout.DEVICE_ROUTE
 UPDATE_ROUTE = layout.UPDATE_ROUTE
-# The pre-refactor History route, kept as a fixed 303 to FLIGHTS_ROUTE
-# for stale bookmarks — the same treatment PREVIEW_PAGE_ROUTE gets.
-HISTORY_LEGACY_ROUTE = "/history"
 # Quick-action routes the Screen on/off and Quiet-hours instant switches
 # post to. Literal here, byte-identical to the values home_page.py used
 # to define, since this module can never import a page module either.
@@ -165,9 +161,6 @@ FRESHNESS_FETCH_HEADER_VALUE = "freshness"
 THEME_ROUTE = "/ui-theme"
 LANG_ROUTE = "/ui-lang"
 LOGOUT_ROUTE = "/logout"
-# The Preview page is retired into History; kept as a fixed-redirect
-# source only.
-PREVIEW_PAGE_ROUTE = "/preview"
 GALLERY_ROUTE_PREFIX = "/gallery/"
 # Rebound from config_page.py (the single definition site) rather than
 # retyped, to avoid a reverse-import cycle. Same for RULES_*/CALENDAR_*
@@ -263,62 +256,14 @@ _PAGE_TITLES = dict(layout.NAV_TABS)
 _CHILD_PAGE_TITLES = {
     detection_page.DETECTION_ROUTE: place_page.PAGE_TITLE,
     airlines_page.MANAGE_ROUTE: console_routes.AIRLINE_EDITOR_LABEL,
+    layout.DEVICE_ROUTE: config_page.DEVICE_PAGE_TITLE,
 }
 # The frame pages that belong to the Console: they show no foreign-frame strip.
 _CONSOLE_FRAME_ROUTES = frozenset((layout.DEVICE_ROUTE, airlines_page.MANAGE_ROUTE))
 
-# Each tab's own extra scripts, on top of layout.GLOBAL_PAGE_SCRIPTS
-# (present on every authenticated page regardless). One tuple per
-# layout.NAV_TABS route - companion/test_page_scripts.py's hook-coverage
-# test fails, naming the route, if a tab is ever added here without one.
-# Each tuple is the SUPERSET over every state the page can be in,
-# including a region freshness.js may swap in later with no fresh page
-# load of its own (for example Flights' rows, or Display's calendar-
-# disconnect confirm dialog once the calendar is connected) - never only
-# what a freshly-seeded, empty state happens to render.
-_PAGE_SCRIPTS = {
-    layout.HOME_ROUTE: (
-        layout.DIRTY_STATE_SCRIPT_SRC,
-        layout.FRESHNESS_SCRIPT_SRC,
-        layout.QUICK_SWITCH_SCRIPT_SRC,
-    ),
-    layout.DISPLAY_ROUTE: (
-        layout.CALENDAR_CONNECT_SCRIPT_SRC,
-        layout.CONFIRM_SUBMIT_SCRIPT_SRC,
-        layout.DIRTY_STATE_SCRIPT_SRC,
-        layout.FRESHNESS_SCRIPT_SRC,
-        layout.QUICK_SWITCH_SCRIPT_SRC,
-        layout.THEME_PREVIEW_SCRIPT_SRC,
-        layout.VALUE_CONTROLS_SCRIPT_SRC,
-    ),
-    layout.DEVICE_ROUTE: (
-        layout.DIRTY_STATE_SCRIPT_SRC,
-        layout.QUICK_SWITCH_SCRIPT_SRC,
-        layout.VALUE_CONTROLS_SCRIPT_SRC,
-    ),
-    detection_page.DETECTION_ROUTE: place_page.PAGE_SCRIPTS,
-    layout.FLIGHTS_ROUTE: (
-        layout.FRESHNESS_SCRIPT_SRC,
-        layout.LIST_FILTER_SCRIPT_SRC,
-        layout.PANEL_LOOKUP_SCRIPT_SRC,
-    ),
-    layout.AIRLINES_ROUTE: (
-        layout.LIST_FILTER_SCRIPT_SRC,
-    ),
-    airlines_page.MANAGE_ROUTE: (
-        layout.LIST_FILTER_SCRIPT_SRC,
-        layout.AIRLINE_TYPES_SCRIPT_SRC,
-        layout.PANEL_LOOKUP_SCRIPT_SRC,
-    ),
-    # CONFIRM_SUBMIT_SCRIPT_SRC gates the per-release Install form's
-    # data-confirm misclick guard: the script never sets a "confirm"
-    # field of its own, so accepting the native confirm() dialog still
-    # lands on _handle_update_install_post()'s server-side confirm page,
-    # never schedules directly.
-    layout.UPDATE_ROUTE: (
-        layout.CONFIRM_SUBMIT_SCRIPT_SRC,
-    ),
-}
+# Each tab's own extra scripts: companion/preload_assets.py's table, also the
+# source of the files the splash preloads.
+_PAGE_SCRIPTS = preload_assets.PAGE_SCRIPTS
 
 # The freshness-token machinery (the four refresh-page slugs, every
 # _freshness_*() stamp/signal helper, and _page_freshness_token() itself)
@@ -424,6 +369,7 @@ class Handler(
         post_actions.SettingsActionsMixin, server_error.ErrorPageMixin,
         BaseHTTPRequestHandler):
     server_version = "skypane-companion"
+    referrer_policy = "same-origin"  # a one-time page sets "no-referrer"
     # (body, over_cap) of the upload being handled; see upload_form.read_upload().
     upload_body = (None, False)
     args = None
@@ -445,7 +391,7 @@ class Handler(
         """
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("X-Frame-Options", "DENY")
-        self.send_header("Referrer-Policy", "same-origin")
+        self.send_header("Referrer-Policy", self.referrer_policy)
         self.send_header("Content-Security-Policy", policy.content_security_policy)
         self.send_header("Permissions-Policy", policy.permissions_policy)
 
@@ -490,7 +436,7 @@ class Handler(
         self._send_hardening_headers()
         self.end_headers()
 
-    def send_bytes(self, code, content_type, payload, cache_seconds=0, public=False):
+    def send_bytes(self, code, content_type, payload, cache_seconds=0, public=False, immutable=False):
         """`public` (default False, fail-closed): a shared cache has no
         knowledge of the session cookie, so `public=True` must be an
         explicit opt-in, never the default, or a shared cache could
@@ -506,8 +452,8 @@ class Handler(
             self.send_header("Content-Length", str(len(payload)))
         if etag is not None:
             self.send_header("ETag", etag)
-            self.send_header("Cache-Control", "%s, max-age=%d" % (
-                "public" if public else "private", cache_seconds))
+            self.send_header("Cache-Control", "%s, max-age=%d%s" % (
+                "public" if public else "private", cache_seconds, ", immutable" if immutable else ""))
         else:
             self.send_header("Cache-Control", "no-store")
         self._send_hardening_headers()
@@ -808,8 +754,10 @@ class Handler(
         self._apply_principal(principal)
         if principal is None or principal.role != access.ADMIN:
             return None
+        # No device, so no known discharge curve: the low-battery signal is
+        # left out rather than read off a guessed one.
         signals = health_page.safe_health_signals(
-            self.args.state_dir, history_db.utc_now_iso())
+            self.args.state_dir, history_db.utc_now_iso(), curve_known=False)
         return signals["severity"] if signals else "ok"
 
     def _unavailable_page(self):
@@ -959,9 +907,9 @@ class Handler(
         `send_not_modified()` here, with `render()` never called for
         it. A normal navigation (no `X-Requested-With: freshness`) is
         never answered 304, even carrying a stale matching
-        If-None-Match from an earlier tick. `/device` and `/airlines`
-        are not refresh pages, so they skip this whole branch and
-        carry neither an ETag nor a `data-refresh-token` attribute.
+        If-None-Match from an earlier tick. `/airlines`
+        is not a refresh page, so it skips this whole branch and
+        carries neither an ETag nor a `data-refresh-token` attribute.
         """
         ctx = self.page_context(device)
         if layout.nav_slug(route) in _FRESHNESS_PAGE_SLUGS:
@@ -981,7 +929,7 @@ class Handler(
 
     def _console_page(
             self, route, title_msg, body_html, purpose_msg=None, status=200,
-            action_html=None, scripts=(), page_flash=None):
+            action_html=None, scripts=(), page_flash=None, omit_title=False):
         """Render one admin console page: the page header (the title falls
         back to the console registry when `title_msg` is None), then
         `body_html`, inside the shell with the console route's own nav slug
@@ -1004,7 +952,8 @@ class Handler(
         purpose = i18n.t(purpose_msg) if purpose_msg else None
         flash_html, clear_cookie = console_flash.take_flash(self.headers.get("Cookie"))
         flash_html = flash_html or page_flash or self._welcome_flash_html()
-        body = layout.page_header(title, purpose, action_html=action_html) + body_html
+        body = layout.page_header(
+            title, purpose, action_html=action_html, omit_title=omit_title) + body_html
         page = layout.page_shell(
             title=title, active=layout.nav_slug(route), body=body,
             ui_theme=ctx.ui_theme, flash=flash_html or None,
@@ -1068,7 +1017,7 @@ class Handler(
         if method == "POST" and not auth.post_origin_ok(self.headers):
             return self.send_html(403, self._forbidden_page())
         parsed = urlsplit(self.path)
-        prefs.set_request_path(parsed.path)
+        prefs.set_request_path(parsed.path, parsed.query)
         result = routes.match(method, parsed.path, parsed.query)
         if result is None:
             if static_files.looks_like_asset(parsed.path):
@@ -1234,7 +1183,8 @@ class Handler(
         return self.redirect(fleet_moves.with_flash(back, flash_key))
 
     def _handle_quick_toggle(
-            self, device, field, allowed_return_to=None, fallback_return_to=None):
+            self, device, field, allowed_return_to=None, fallback_return_to=None,
+            return_url=None):
         """The Home page's one-tap switches. `state` ("on"/"off") is the
         only field read; every other device-config value is carried
         forward untouched. `return_to` is membership-tested against
@@ -1253,15 +1203,14 @@ class Handler(
         return_to = device_scope.strip_current_prefix(form.get("return_to"))
         if return_to not in allowed_return_to:
             return_to = fallback_return_to
-        return_to = device_scope.scoped(return_to)
+        return_to = return_url or device_scope.scoped(return_to)
         state = form.get(layout.QUICK_STATE_FIELD)
         if state not in (layout.QUICK_STATE_ON, layout.QUICK_STATE_OFF):
             # NOT a 204, even for a fetch: the client reads 204 as
             # confirmation and would leave its optimistic flip standing,
             # showing a state the frame is not in. A rejected submission
             # must reach the client as a failure in BOTH shapes.
-            return self.redirect(
-                "%s?flash=%s" % (return_to, quote(FLASH_KEY_QUICK_FAILED)))
+            return self.redirect(fleet_moves.with_flash(return_to, FLASH_KEY_QUICK_FAILED))
         enabled = state == layout.QUICK_STATE_ON
         if field == "display_enabled":
             kwargs = {"display_enabled": enabled}
@@ -1287,7 +1236,7 @@ class Handler(
         # confirmation.
         if flash_key != FLASH_KEY_QUICK_FAILED and self._wants_no_content():
             return self.send_no_content()
-        return self.redirect("%s?flash=%s" % (return_to, quote(flash_key)))
+        return self.redirect(fleet_moves.with_flash(return_to, flash_key))
 
     def _choice_cookie_header(self, name, value, choices, max_age_s):
         """The `Set-Cookie` header for a UI-preference cookie (theme,
@@ -1351,11 +1300,10 @@ class Handler(
                 firmware_registry.load_registry(self.args.state_dir, hardware_type),
                 firmware_registry.load_device_report(self.args.state_dir),
                 history_db.utc_now_iso())
-            is_bench = any(
-                release.get("version") == version and release.get("bench")
-                for release in confirm_view.get("releases") or [])
+            is_bench, is_rollback = update_page.release_flags(confirm_view, version)
             body = update_page.update_install_confirm_page(
                 ctx, version, next_wake_text, wake_held=wake_held, is_bench=is_bench,
+                rollback=is_rollback,
                 type_choice=update_page.post_choice(self.args.state_dir, hardware_type),
                 back_href=self._update_flash_url(None, hardware_type))
             return self.send_html(200, self._page_shell_for(UPDATE_ROUTE, body, ctx))
@@ -1384,11 +1332,13 @@ class Handler(
             self._update_flash_url(FLASH_KEY_UPDATE_SCHEDULE_FAILED, hardware_type))
 
     def _update_flash_url(self, flash_key=None, hardware_type=hardware.LEGACY_KEY):
-        """The Fleet view of a frame of `hardware_type` (the one the action
+        """The Versions page of a frame of `hardware_type` (the one the action
         came from), carrying `flash_key` when given. A type with no frame has
         no Fleet view: its own Update page answers instead."""
         frame = fleet_moves.frame_for_type(self, hardware_type)
-        url = fleet_moves.frame_url(frame) if frame else update_page.page_route(hardware_type)
+        url = (
+            fleet_moves.frame_url(frame, view=fleet_moves.VIEW_VERSIONS) if frame
+            else update_page.page_route(hardware_type))
         return fleet_moves.with_flash(url, flash_key) if flash_key else url
 
     def _requested_update_type(self):

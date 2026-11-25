@@ -31,14 +31,12 @@ def test_the_aggregator_holds_the_pairing_routes_and_nav_follows_them():
     assert {
         ("GET", console_routes.FLEET_ROUTE),
         ("POST", console_routes.FLEET_REGISTER_ROUTE),
-        ("POST", console_routes.FLEET_PAIR_ROUTE),
         ("GET", console_routes.USERS_ROUTE),
         ("POST", console_routes.USERS_INVITE_ROUTE),
-        ("GET", console_routes.AUDIT_ROUTE),
-        ("GET", console_routes.LOCATIONS_ROUTE),
-        ("POST", console_routes.LOCATIONS_ADD_ROUTE)} <= served_routes
+        ("GET", console_routes.AUDIT_ROUTE)} <= served_routes
     assert [entry[1] for entry in console_routes.available_nav_entries()] == [
-        "/fleet", "/users", "/health", "/device", "/airlines/manage", "/audit", "/update"]
+        "/fleet", "/users", "/airlines/manage", "/audit", "/update",
+        "/fleet?view=system"]
 
 
 def test_nav_entries_follow_the_route_table(monkeypatch):
@@ -49,7 +47,7 @@ def test_nav_entries_follow_the_route_table(monkeypatch):
     monkeypatch.setattr(routes, "ROUTES", routes.ROUTES + extra)
     keys = [entry[0] for entry in console_routes.available_nav_entries()]
     assert keys == [
-        "fleet", "users", "health", "device", "editor", "audit", "releases"]
+        "fleet", "users", "editor", "audit", "releases", "system"]
 
 
 def test_console_french_labels_are_translated():
@@ -143,13 +141,13 @@ def test_admin_sidebar_lists_the_administration_group_in_order(served):
     assert status == 200
     sidebar = _sidebar(page)
     assert _unscoped(_hrefs(sidebar)) == [
-        "/fleet", "/users", "/airlines/manage", "/audit", "/account"]
+        "/fleet", "/users", "/airlines/manage", "/audit", "/fleet?view=system", "/account"]
     group = _console_group(sidebar)
     assert "Administration" in group
     assert "Releases<" not in sidebar
     aside = page[page.index("<aside"):page.index("</aside>")]
     assert re.search(
-        r'class="space-switch__segment" href="/"[^>]*>(<[^>]*>)*My frame<', aside)
+        r'class="space-switch__segment" href="/"[^>]*>(<[^>]*>)*My frames<', aside)
     assert "nav-group--frame-tools" not in sidebar
 
 
@@ -170,7 +168,7 @@ def test_the_console_sidebar_lists_the_console_pages_for_the_frame_in_view(
     sidebar = _sidebar(page)
     assert _hrefs(_console_group(sidebar)) == ["/fleet", "/users"]
     assert _unscoped(_hrefs(sidebar)) == [
-        "/fleet", "/users", "/airlines/manage", "/audit", "/account"]
+        "/fleet", "/users", "/airlines/manage", "/audit", "/fleet?view=system", "/account"]
 
 
 def test_a_user_sees_no_administration_navigation_and_no_console_page(served):
@@ -184,16 +182,16 @@ def test_a_user_sees_no_administration_navigation_and_no_console_page(served):
     assert refused == unknown and refused[0] == 404
 
 
-def test_the_console_bar_has_fleet_users_airlines_audit_and_more_and_the_switch_in_more(served):
+def test_the_console_bar_has_fleet_users_airlines_system_and_more_and_the_switch_in_more(served):
     server, cookies = served
     _status, page = _get(server, cookies["admin"], "/users")
     bar = _tab_bar(page)
     cells = bar.split('<details class="tab-bar__more">')[0]
-    assert _unscoped(_hrefs(cells)) == ["/fleet", "/users", "/airlines/manage", "/audit"]
+    assert _unscoped(_hrefs(cells)) == ["/fleet", "/users", "/airlines/manage", "/fleet?view=system"]
     assert "Admin<" not in bar
     assert 'aria-current="page"' in cells.split('href="/users"')[1].split("</a>")[0]
     sheet = bar.split('<div class="tab-bar__more-panel">')[1]
-    assert _unscoped(_hrefs(sheet)) == ["/account", "/"]
+    assert _unscoped(_hrefs(sheet)) == ["/account", "/audit", "/"]
     health_at = cells.index("/fleet")
     health_cell = cells[health_at:cells.index("</a>", health_at)]
     assert health_cell.count("nav-notification") == bar.count("nav-notification") == 1
@@ -211,7 +209,9 @@ def test_my_views_pages_of_an_admin_carry_no_admin_tab(served):
         prefix + "/", prefix + "/flights", prefix + "/airlines", prefix + "/display",
         prefix + "/detection"]
     sheet = bar.split('<div class="tab-bar__more-panel">')[1]
-    assert _hrefs(sheet) == ["/account", "/fleet"]
+    # Consulting the owner's frame, the way out is the notice's Back to Fleet:
+    # the sheet holds no switch row.
+    assert _hrefs(sheet) == ["/account"]
     assert "Admin<" not in page and "Administration" not in _sidebar(page)
 
 
@@ -225,13 +225,11 @@ def test_the_switch_is_a_row_of_the_more_panel_for_an_admin_and_absent_for_a_use
     assert "tab-bar__link--switch" not in bar
     panel = bar.split('<div class="tab-bar__more-panel">')[1]
     assert re.search(r'<a class="[^"]*tab-bar__space-link" href="/"[^>]*>', panel)
-    assert "My frame<" in panel
+    assert "My frames<" in panel
     _status, mine = _get(server, cookies["admin"], server.frame_prefix + "/")
     mine_bar = _tab_bar(mine)
     assert "tab-bar__link--switch" not in mine_bar
-    mine_panel = mine_bar.split('<div class="tab-bar__more-panel">')[1]
-    assert re.search(r'<a class="[^"]*tab-bar__space-link" href="/fleet"', mine_panel)
-    assert "Console<" in mine_panel
+    assert "tab-bar__space-link" not in mine_bar
     _status, account = _get(server, cookies["owner"], "/account")
     assert "space-switch" not in account and "tab-bar__space-link" not in account
 

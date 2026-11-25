@@ -26,6 +26,7 @@ import os
 import re
 import sys
 import unicodedata
+from typing import NamedTuple
 
 from PIL import Image
 
@@ -35,6 +36,8 @@ _HERE = os.path.dirname(os.path.abspath(__file__))  # server/plane
 _REPO_ROOT = os.path.dirname(os.path.dirname(_HERE))
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
+
+from server import device_dirs  # noqa: E402
 
 # --- Constants ---------------------------------------------------------------
 
@@ -264,9 +267,8 @@ _ILLUSTRATION_TARGETS = [
     ("Air Caraïbes", "a330", "D-03 mixed-fleet secondary (P-04)"),
     (
         "Amelia",
-        "embraer",
-        "Quick task 260827-kih secondary variant - Embraer E145 (E190 "
-        "shares the file per the suffix rule), chosen over the E190 "
+        "erj145",
+        "Secondary variant - Embraer E145 (an ERJ, own picture slot), chosen over the E190 "
         "because the E145 is the type on Amelia's real Orly-relevant Pau "
         "service (recorded in Phase 3.1's own fleet research, "
         "03.1-CONTEXT.md D-03). Cross-references the same AIA correction "
@@ -484,7 +486,7 @@ VARIANT_AIRCRAFT_LABELS = {
     ("Transavia France", "a320"): "A320",
     ("Royal Air Maroc", "embraer"): "E190",
     ("Air Caraïbes", "a330"): "A330",
-    ("Amelia", "embraer"): "E145",
+    ("Amelia", "erj145"): "E145",
     ("Air France Hop", "atr72"): "ATR72",
     ("Air Caraïbes", "a350-1000"): "A350-1000",
     ("Air Caraïbes", "atr72"): "ATR72",
@@ -506,10 +508,14 @@ def aircraft_label(airline_name, shape=None):
 # directory via path construction.
 _UNSAFE_KEY_RE = re.compile(r"[\\/]|\.\.")
 
-# The seven base aircraft shapes classify_aircraft_type() classifies into.
-# Order is iteration-stable (target_filenames() relies on it) but not a
-# priority ranking. Shared contract with the filename convention
-# (illustrations/{shape}.png) and render.py's caption labels.
+# The aircraft picture slots a type designator is classified into, plus the
+# catch-all `OTHER_SLUG` that every unmapped designator falls into. Order is
+# iteration-stable (target_filenames() relies on it) but not a priority
+# ranking. Shared contract with the filename convention
+# (`{airline}-{slug}.png`, `generic-{slug}.png`) and the caption labels. Slugs
+# are a-z0-9 only and none may be the tail of another after a hyphen, so an
+# artwork key splits unambiguously into airline and slot.
+OTHER_SLUG = "other"
 SHAPE_SLUGS = (
     "a320",
     "b737",
@@ -518,50 +524,71 @@ SHAPE_SLUGS = (
     "embraer",
     "a330",
     "a350",
+    "erj145",
+    "b787",
+    "a220",
+    "b777",
+    "b747",
+    "b767",
+    "b757",
+    "a380",
+    "a300",
+    "crj",
+    "falcon",
+    "bizjetlarge",
+    "bizjet",
+    "kingair",
+    "pc12",
+    "helicopter",
+    "gahigh",
+    OTHER_SLUG,
 )
 
-# ICAO type designator (uppercase) -> one of SHAPE_SLUGS. Hand-curated,
-# verified out of band, never a live lookup. A missing designator
+# Family -> ICAO type designators (uppercase) drawn with its picture.
+# Hand-curated, verified out of band, never a live lookup.
+_FAMILY_CODES = {
+    "a320": "A318 A319 A320 A321 A19N A20N A21N",
+    "b737": "B731 B732 B733 B734 B735 B736 B737 B738 B739 B37M B38M B39M B3XM",
+    "atr72": "AT43 AT44 AT45 AT46 AT72 AT73 AT75 AT76",
+    "beechcraft1900d": "B190",
+    "embraer": "E170 E75L E75S E190 E195 E290 E295",
+    "a330": "A332 A333 A338 A339",
+    "a350": "A359 A35K",
+    "erj145": "E135 E145 E45X E35L",
+    "b787": "B788 B789 B78X",
+    "a220": "BCS1 BCS3",
+    "b777": "B772 B773 B77L B77W B778 B779",
+    "b747": "B741 B742 B743 B744 B748 B74R B74S",
+    "b767": "B762 B763 B764",
+    "b757": "B752 B753",
+    "a380": "A388",
+    "a300": "A306 A30B A310",
+    "crj": "CRJ1 CRJ2 CRJ7 CRJ9 CRJX",
+    "falcon": "FA50 F900 FA7X FA8X FA6X F2TH FA10 FA20",
+    "bizjetlarge": "GLF4 GLF5 GLF6 GLEX GL5T GL7T GA7C GA5C GA6C GLF2",
+    "bizjet": (
+        "C25A C25B C25C C25M C500 C501 C510 C525 C550 C560 C56X C650 C680 C68A "
+        "C700 C750 CL30 CL35 CL60 E50P E55P E545 E550 EA50 HDJT H25B LJ35 LJ60 "
+        "LJ31 LJ40 LJ45 LJ75 G280 GALX G150 PRM1 PC24"),
+    "kingair": "BE9L BE9T BE10 BE20 BE30 B350",
+    "pc12": "PC12 TBM7 TBM8 TBM9 P46T M600",
+    "helicopter": (
+        "EC45 EC35 EC55 A109 A139 H160 AS65 S76 B412 B429 A169 A189 NH90 AS32 "
+        "EC25 BK17"),
+    "gahigh": "C172 C150 C152 C182 C206 C210 C170 C177 C180",
+}
+
+# ICAO type designator (uppercase) -> one of SHAPE_SLUGS. A missing designator
 # degrades to None (treated as "no shape"), never raises.
 _TYPE_SHAPE_BUCKETS = {
-    # A320 family: Air France, Vueling, Iberia, TAP, Transavia, easyJet,
-    # Wizz Air, Volotea, ITA Airways, Tunisair, Pegasus, La Compagnie
-    # [excluded from the target set pending re-verification]; KM Malta
-    # Airlines (A320neo primary); Amelia (A320 primary).
-    "A318": "a320", "A319": "a320", "A320": "a320", "A321": "a320",
-    "A20N": "a320", "A21N": "a320",  # A320neo / A321neo
-    # B737 family: Transavia, Air Europa, Air Algerie, Royal Air Maroc;
-    # TUIfly Belgium (737 MAX 8 primary); ASL Airlines France (adsbdb
-    # resolves the pre-2015-rebrand name "Europe Airpost", corrected on
-    # read, see enrich.py); KlasJet (737-800 primary, lower-confidence
-    # entry - see enrich.py's KLJ row).
-    "B731": "b737", "B732": "b737", "B733": "b737", "B734": "b737",
-    "B735": "b737", "B736": "b737", "B737": "b737", "B738": "b737",
-    "B739": "b737", "B37M": "b737", "B38M": "b737", "B39M": "b737",
-    "B3XM": "b737",  # MAX 7/8/9/10
-    # ATR72: Air Corsica, Chalair Aviation (Air Corsica's key was renamed
-    # from the adsbdb-resolved "CCM Airlines" to its real current name,
-    # see enrich.py); Air France Hop ATR72 secondary (see the
-    # "Air France Hop"/"atr72" row in _ILLUSTRATION_TARGETS) - ATR42
-    # designators map here too since there is no separate ATR42 shape.
-    "AT43": "atr72", "AT44": "atr72", "AT45": "atr72", "AT46": "atr72",
-    "AT72": "atr72", "AT73": "atr72", "AT75": "atr72", "AT76": "atr72",
-    # Beechcraft 1900D: Twin Jet.
-    "BE9L": "beechcraft1900d",
-    # Embraer E-Jet family: LOT Polish Airlines, Royal Air Maroc
-    # minority; Amelia's E145 secondary variant (see the
-    # "Amelia"/"embraer" row in _ILLUSTRATION_TARGETS); Air France Hop
-    # primary, E170/E175/E190, the numerically dominant regional type
-    # since HOP!'s fold-in (see the "Air France Hop" primary entry).
-    "E135": "embraer", "E145": "embraer", "E170": "embraer",
-    "E75L": "embraer", "E75S": "embraer", "E190": "embraer",
-    "E195": "embraer", "E290": "embraer", "E295": "embraer",
-    # A330 family: Air Caraibes minority; Corsair (adsbdb's CRL airline
-    # endpoint resolves the prior-brand name "Corsairfly", corrected on
-    # read, see enrich.py).
-    "A332": "a330", "A333": "a330", "A339": "a330",
-    # A350 family: Air Caraibes majority, French Bee.
-    "A359": "a350", "A35K": "a350",
+    code: family for family, codes in _FAMILY_CODES.items() for code in codes.split()}
+
+# Names the curated pictures are labelled with that are not ICAO designators
+# (see PRIMARY_AIRCRAFT_LABELS), to the family they are drawn from: the legacy
+# picture of such an airline is the picture of that family's slot.
+_LABEL_ALIASES = {
+    "A330": "a330", "A350": "a350", "ATR72": "atr72", "B1900D": "beechcraft1900d",
+    "B747": "b747", "B777": "b777", "B787": "b787", "EC145": "helicopter",
 }
 
 
@@ -583,9 +610,9 @@ def normalise_airline_key(airline_name):
 
 def classify_aircraft_type(icao_type):
     """One of SHAPE_SLUGS for a known ICAO type designator, else `None`.
-    Never raises. Always one of the seven hardcoded slugs or `None`,
-    never a value derived from the argument, so a hostile designator can
-    never reach a filesystem path.
+    Never raises. Always one of the hardcoded slugs or `None`, never a
+    value derived from the argument, so a hostile designator can never
+    reach a filesystem path.
     """
     if not isinstance(icao_type, str) or not icao_type:
         return None
@@ -596,6 +623,222 @@ def classify_aircraft_type(icao_type):
 # the variant filename suffix carrying it. The bucket (A35K -> a350) is
 # too coarse to reach a file like `air-caraibes-a350-1000.png`.
 _TYPE_VARIANT_SLUGS = {"A35K": "a350-1000"}
+
+
+def type_artwork_keys(airline_key, code):
+    """The artwork keys an airline's picture of the aircraft type `code` can
+    be stored under: the type's variant or shape slot (`{airline}-{slug}`),
+    and the lower-cased designator itself, the slot of a curated picture named
+    after its designator (ATR72, A330). Empty for an unsafe key or code."""
+    designator = _designator(code)
+    if not airline_key or not designator or _UNSAFE_KEY_RE.search(airline_key):
+        return []
+    slugs = [slot_slug(designator),
+             re.sub(r"[^a-z0-9-]", "", designator.lower())]
+    keys = []
+    for slug in slugs:
+        if slug and "%s-%s" % (airline_key, slug) not in keys:
+            keys.append("%s-%s" % (airline_key, slug))
+    return keys
+
+
+class TypePicture(NamedTuple):
+    """One picture of an airline's aircraft type: the artwork key it is stored
+    under (`{airline}-{slug}`, or the bare airline key for the legacy picture
+    of the airline) and the file that serves it."""
+
+    key: str
+    path: str
+
+
+# The designator a type picture without a better label is listed under, by the
+# file-name slug of its slot.
+_SLUG_CODES = {"beechcraft1900d": "B1900D", "a350-1000": "A350-1000", OTHER_SLUG: "OTHER"}
+
+
+def _all_type_slugs():
+    return tuple(SHAPE_SLUGS) + tuple(
+        slug for slug in _TYPE_VARIANT_SLUGS.values() if slug not in SHAPE_SLUGS)
+
+
+def airline_key_of_artwork(key):
+    """The airline an artwork key belongs to: a per-type picture
+    (`{airline}-{type slug}`) belongs to its airline, any other key is the
+    airline's own key."""
+    if not isinstance(key, str):
+        return ""
+    for slug in sorted(_all_type_slugs(), key=len, reverse=True):
+        suffix = "-" + slug
+        if key.endswith(suffix) and len(key) > len(suffix):
+            return key[:-len(suffix)]
+    return key
+
+
+def builtin_name_for_key(airline_key, state_dir=None):
+    """The built-in airline name whose curated picture the airline `airline_key`
+    carries: the airline itself, or the built-in airline an owner's rename
+    started from. `None` for an airline no built-in table knows. Never raises."""
+    if not airline_key:
+        return None
+    for name in target_airline_names():
+        if normalise_airline_key(name) == airline_key:
+            return name
+    if not state_dir:
+        return None
+    try:
+        from server.plane import enrich, name_overrides  # both import this module
+        for prefix, entry in sorted(name_overrides.load_name_overrides(state_dir).items()):
+            if normalise_airline_key(entry.get("airline_name")) == airline_key:
+                builtin = enrich.static_airline_name_for_prefix(prefix)
+                if builtin:
+                    return builtin
+    except Exception:
+        return None
+    return None
+
+
+def legacy_picture_type(airline_key, state_dir=None):
+    """The aircraft type shown by the airline's legacy picture (`{airline}.png`,
+    built in or uploaded), or `None` when it has none or its airframe is not
+    known. A built-in airline names its airframe in the curated list; for any
+    other airline the type chosen when the picture was uploaded is the stored
+    default type, unless that type has a picture of its own. Never raises."""
+    if resolved_illustration_path(airline_key, state_dir) is None:
+        return None
+    name = builtin_name_for_key(airline_key, state_dir)
+    label = aircraft_label(name) if name else ""
+    if label:
+        return label
+    stored = _default_type_of(airline_key, state_dir)
+    if stored and not any(
+            resolved_illustration_path(key, state_dir) for key in type_artwork_keys(airline_key, stored)):
+        return stored
+    return None
+
+
+def type_pictures(airline_key, state_dir=None, codes=()):
+    """The pictures of an airline BY AIRCRAFT TYPE: `{type code: TypePicture}`.
+
+    An airline has no picture of its own; its pictures are those of its
+    aircraft types. Listed: each of `codes` (and the stored default type) that
+    has a picture in its slot (`type_artwork_keys`); every other typed file of
+    the airline under the type its curated label or file name gives; and the
+    legacy picture `{airline}.png`, which counts as the picture of its airframe
+    type (`legacy_picture_type`) unless that type already has a typed file.
+    Built-in files and fleet-wide uploads are both read (an upload wins).
+    Never raises."""
+    if not airline_key or _UNSAFE_KEY_RE.search(airline_key):
+        return {}
+    found = {}
+    claimed = set()
+    wanted = [_designator(code) for code in codes]
+    stored = _default_type_of(airline_key, state_dir)
+    if stored:
+        wanted.append(stored)
+    legacy = legacy_picture_type(airline_key, state_dir)
+    legacy_picture = (
+        TypePicture(airline_key, resolved_illustration_path(airline_key, state_dir)) if legacy else None)
+    for code in wanted:
+        for key in type_artwork_keys(airline_key, code):
+            path = resolved_illustration_path(key, state_dir)
+            if path is not None:
+                found.setdefault(code, TypePicture(key, path))
+                claimed.add(key)
+                break
+        else:
+            # A type drawn with the legacy picture's slot is the same type row.
+            if legacy_picture is not None and same_type(code, legacy):
+                found.setdefault(code, legacy_picture)
+    name = builtin_name_for_key(airline_key, state_dir)
+    for slug in _all_type_slugs():
+        key = "%s-%s" % (airline_key, slug)
+        path = None if key in claimed else resolved_illustration_path(key, state_dir)
+        if path is None:
+            continue
+        code = (aircraft_label(name, slug) if name else "") or _SLUG_CODES.get(slug) or slug.upper()
+        found.setdefault(code, TypePicture(key, path))
+    if legacy_picture is not None and not any(
+            picture.key == airline_key for picture in found.values()):
+        found[legacy] = legacy_picture
+    return found
+
+
+def type_slug(code):
+    """The picture slot a type designator resolves to (`b737` for B738, the
+    sub-type slug `a350-1000` for A35K), or `None` for a designator with no
+    slot. Two designators with the same slug are drawn with the same picture."""
+    designator = _designator(code)
+    if not designator:
+        return None
+    return (_TYPE_VARIANT_SLUGS.get(designator) or classify_aircraft_type(designator)
+            or _LABEL_ALIASES.get(designator))
+
+
+def slot_slug(code):
+    """The picture slot an upload for the type `code` goes to: its slot
+    (`type_slug`), else the catch-all `OTHER_SLUG` shared by every type with no
+    slot of its own. `None` only for an empty or non-string designator."""
+    designator = _designator(code)
+    return (type_slug(designator) or OTHER_SLUG) if designator else None
+
+def same_type(first, second):
+    """Whether two designators are the same type for pictures: equal, or
+    resolving to the same picture slot."""
+    a, b = _designator(first), _designator(second)
+    return bool(a) and (a == b or (type_slug(a) is not None and type_slug(a) == type_slug(b)))
+
+
+def has_type_livery(airline_key, code, state_dir=None):
+    """Whether the airline has a picture (built in, an owner's upload, or its
+    legacy picture of that airframe) for the aircraft type `code`. Never
+    raises."""
+    designator = _designator(code)
+    return bool(designator) and designator in type_pictures(airline_key, state_dir, (designator,))
+
+
+def effective_default_type(airline_key, state_dir=None, pictures=None):
+    """The type code of the airline's EFFECTIVE default: the stored default
+    type when it has a picture, else the airframe of the legacy picture, else
+    `None`. `pictures` is `type_pictures()`'s result when the caller has it."""
+    if pictures is None:
+        pictures = type_pictures(airline_key, state_dir)
+    stored = _default_type_of(airline_key, state_dir)
+    if stored and stored in pictures:
+        return stored
+    return legacy_picture_type(airline_key, state_dir)
+
+
+def display_key(airline_key, state_dir=None):
+    """The artwork key of the picture shown for the airline where no single
+    flight is meant (the airlines list, a thumbnail): the picture of its
+    effective default type, which is also what a frame draws for a type it has
+    no picture of. `None` when the airline has no picture."""
+    picture = default_picture(airline_key, state_dir)
+    return picture.key if picture is not None else None
+
+
+def has_pictures(airline_key, state_dir=None):
+    """Whether the airline has any picture: a typed one or the legacy one."""
+    return default_picture(airline_key, state_dir) is not None or bool(
+        type_pictures(airline_key, state_dir))
+
+
+def default_picture(airline_key, state_dir=None):
+    """The picture of the airline's EFFECTIVE default type, or `None`: the
+    stored default type's picture when it has one, else the legacy picture of
+    the airline (the picture of its airframe type, which is also what a stored
+    default naming that airframe resolves to). Reads only the default-type
+    file, never the name registries, so the poll path stays cheap. Never
+    raises."""
+    if not airline_key or _UNSAFE_KEY_RE.search(airline_key):
+        return None
+    stored = _default_type_of(airline_key, state_dir)
+    for key in type_artwork_keys(airline_key, stored) if stored else ():
+        path = resolved_illustration_path(key, state_dir)
+        if path is not None:
+            return TypePicture(key, path)
+    path = resolved_illustration_path(airline_key, state_dir)
+    return TypePicture(airline_key, path) if path is not None else None
 
 
 def _designator(icao_type):
@@ -620,18 +863,22 @@ def generic_fallback_path():
 # An uploaded replacement must survive a redeploy, so it cannot live
 # inside git-tracked ILLUSTRATION_DIR (`deploy/deploy.sh` rsyncs `server/`
 # with `--delete`, excluding only `state`). An override instead lives at
-# `{state_dir}/illustration_overrides/{key}.png`.
+# `{fleet root}/illustration_overrides/{key}.png`: one directory shared by
+# every frame, whichever frame's state directory is passed in.
 ILLUSTRATION_OVERRIDE_DIRNAME = "illustration_overrides"
 
 
 def override_dir_for_state_dir(state_dir=None):
-    """`{state_dir}/ILLUSTRATION_OVERRIDE_DIRNAME`, or `None` when
-    `state_dir` is falsy - no state dir means vendored-only, no override
-    directory exists to look in. Never creates the directory.
+    """`{fleet root}/ILLUSTRATION_OVERRIDE_DIRNAME` for any frame's
+    `state_dir` (the live frame's directory is the fleet root, another
+    frame's lives under `devices/<id>`), or `None` when `state_dir` is
+    falsy - no state dir means vendored-only, no override directory exists
+    to look in. Never creates the directory.
     """
     if not state_dir:
         return None
-    return os.path.join(state_dir, ILLUSTRATION_OVERRIDE_DIRNAME)
+    return os.path.join(device_dirs.fleet_root_for(state_dir),
+                        ILLUSTRATION_OVERRIDE_DIRNAME)
 
 
 def override_path_for_key(key, state_dir=None):
@@ -662,15 +909,44 @@ def resolved_illustration_path(key, state_dir=None):
     return None
 
 
+# `{default types file path: (mtime_ns, size, {airline key: type code})}`: the
+# poll path reads the file once per change, not once per render.
+_DEFAULT_TYPES_CACHE = {}
+
+
+def _default_type_of(airline_key, state_dir):
+    """The airline's stored default aircraft type code, or `None`: no airline,
+    no state directory, no entry, or a missing or unreadable file. Never
+    raises."""
+    if not airline_key or not state_dir:
+        return None
+    try:
+        from server.plane import airline_default_types  # imports this module
+        path = airline_default_types.default_types_path(state_dir)
+        info = os.stat(path)
+        stamp = (info.st_mtime_ns, info.st_size)
+        cached = _DEFAULT_TYPES_CACHE.get(path)
+        if cached is None or cached[0] != stamp:
+            cached = (stamp, airline_default_types.load_default_types_file(path))
+            _DEFAULT_TYPES_CACHE[path] = cached
+        return cached[1].get(airline_key)
+    except Exception:
+        return None
+
+
 def select_illustration(route, aircraft_type=None, state_dir=None):
     """Illustration path for `route`/`aircraft_type`, resolved through
     four fallback tiers, or `None` if not even the generic fallback
-    exists. Never raises.
+    exists. Never raises. An airline has no picture of its own: its pictures
+    are those of its aircraft types, and one type is its default.
 
     Tier 1: `{airline}-{shape}.png` - exact airline+type match (for a
         designator in `_TYPE_VARIANT_SLUGS`, its sub-type file first).
-    Tier 2: `{airline}.png` - airline's own illustration (brand identity
-        wins over exact type precision).
+    Tier 2: the picture of the airline's EFFECTIVE default type
+        (`default_picture`): the stored default type
+        (`airline_default_types.json` at the fleet root) when it has a
+        picture, else the airframe of the airline's legacy `{airline}.png`.
+        The stand-in for a type with no picture; brand wins over precision.
     Tier 3: `generic-{shape}.png` - neutral, correct-shape illustration
         for an unrecognised airline.
     Tier 4: `generic-fallback.png` - universal fallback.
@@ -686,10 +962,12 @@ def select_illustration(route, aircraft_type=None, state_dir=None):
         airline_name = None
 
     airline_key = normalise_airline_key(airline_name)
-    shape_key = classify_aircraft_type(aircraft_type)
+    shape_key = classify_aircraft_type(aircraft_type) or (
+        OTHER_SLUG if _designator(aircraft_type) else None)
 
     # Tier 1: exact airline + shape match. A designator with a sub-type
-    # file of its own (an A350-1000) tries that file first, then its shape.
+    # file of its own (an A350-1000) tries that file first, then its shape;
+    # a type with no shape of its own uses the airline's "other" picture.
     if airline_key and shape_key:
         for slug in (_TYPE_VARIANT_SLUGS.get(_designator(aircraft_type)), shape_key):
             if not slug:
@@ -698,12 +976,11 @@ def select_illustration(route, aircraft_type=None, state_dir=None):
             if exact is not None:
                 return exact
 
-    # Tier 2: known airline, no exact-shape file - brand wins over
-    # type precision; still show that airline's own default illustration.
-    if airline_key:
-        primary = resolved_illustration_path(airline_key, state_dir)
-        if primary is not None:
-            return primary
+    # Tier 2: the airline's effective default type stands in for a type with
+    # no picture of its own.
+    chosen = default_picture(airline_key, state_dir)
+    if chosen is not None:
+        return chosen.path
 
     # Tier 3: unrecognized airline, but a recognized+covered shape - show
     # the neutral correct-shape illustration instead of jumping straight

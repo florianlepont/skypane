@@ -71,6 +71,20 @@ def seed_fleet(state_dir):
     return seed
 
 
+def add_frames(state_dir, count, owner_id, prefix="Frame"):
+    """`count` more live frames named "<prefix> NN" for `owner_id`; their ids."""
+    conn = fleet_db.connect(state_dir)
+    try:
+        return [
+            fleet_db.add_device(
+                conn, "aa:bb:cc:09:%02x:%02x" % (n // 256, n % 256), SECRET_HASH,
+                hardware.LEGACY_KEY, owner_id, name="%s %02d" % (prefix, n),
+                state_path="auto")
+            for n in range(count)]
+    finally:
+        conn.close()
+
+
 def issue_code(state_dir, pending_id, code=FAKE_CODE, ttl_s=600):
     """Give the pending frame a pairing code expiring `ttl_s` from now
     (negative for an expired one)."""

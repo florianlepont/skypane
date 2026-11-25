@@ -110,7 +110,7 @@ def test_the_console_card_is_a_plain_get_link_that_opens_the_console(
         back = page.evaluate(_CARD)
         assert back["href"].startswith("/"), back
         assert back["subtitle"] == "", back
-        assert back["title"] == {"en": "My frame", "fr": "Mon cadre"}[lang], back
+        assert back["title"] == {"en": "My frames", "fr": "Mes cadres"}[lang], back
         assert back["isSpaceLink"] and back["h"] >= MIN_TAP_PX, back
     finally:
         context.close()
@@ -183,7 +183,7 @@ def test_the_panel_opens_with_a_grab_handle_and_the_account_row(
         _open_panel(page)
         top = page.evaluate(_TOP)
         assert top["grabFirst"] and top["grabHidden"], top
-        assert 36 <= top["grabW"] <= 44 and 3 <= top["grabH"] <= 5 and top["grabCentred"], top
+        assert top["grabW"] == 44 and top["grabH"] == 5 and top["grabCentred"], top
         assert top["grabBg"] not in ("rgba(0, 0, 0, 0)", "transparent"), top
         assert top["name"] == _ACCOUNT_LABEL[lang], top
         assert top["email"] and "@" in top["email"], top

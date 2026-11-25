@@ -76,15 +76,27 @@ POLL_CYCLE_COLUMNS = (
 _RUNWAY_EVENT_COLUMNS = (
     "ts", "hex", "callsign", "aircraft_type", "confirmed_state",
     "corroborated", "route_source", "airline", "origin", "destination",
-    "tracked_runway", "gallery_name",
+    "tracked_runway", "gallery_name", "route_directory",
 )
 
 _RUNWAY_EVENT_INSERT_SQL = (
     "INSERT INTO runway_events "
-    "(ts, hex, callsign, aircraft_type, confirmed_state, corroborated, "
-    "route_source, airline, origin, destination, tracked_runway, gallery_name) "
-    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    "(" + ", ".join(_RUNWAY_EVENT_COLUMNS) + ") "
+    "VALUES (" + ", ".join("?" * len(_RUNWAY_EVENT_COLUMNS)) + ")"
 )
+
+# `PRAGMA user_version` of history.db. 0 is a database created before the
+# route-directory counters; 1 has the `route_lookups` table and the
+# `runway_events.route_directory` column. `init_schema()` raises the stamp
+# once the steps for it are done and never lowers it.
+HISTORY_SCHEMA_VERSION = 1
+
+# The route directories `route_lookups` counts, and what a lookup can end in.
+ROUTE_DIRECTORIES = ("vrs", "adsbdb")
+ROUTE_LOOKUP_OUTCOMES = ("found", "none", "failed")
+
+# `route_lookups` keeps this many days of requests.
+ROUTE_LOOKUP_RETENTION_DAYS = 14
 
 _DEVICE_HEALTH_OLD_COLUMNS = ("ts", "battery_mv", "fw_version", "boot_reason", "rssi")
 
@@ -132,10 +144,14 @@ def history_db_path(state_dir):
 
 
 def init_schema(conn):
-    """Create all five tables with IF NOT EXISTS, safe to call on every
-    connection. There is no schema version stamp: a new table is free via
-    IF NOT EXISTS, and an additive nullable column is added by a guarded
-    ALTER TABLE (`_add_missing_wake_columns`).
+    """Create all six tables with IF NOT EXISTS, safe to call on every
+    connection. A new table is free via IF NOT EXISTS, and an additive
+    nullable column is added by a guarded ALTER TABLE
+    (`_add_missing_wake_columns`, `_add_missing_runway_event_columns`).
+    Every step is idempotent and safe while another process uses the file;
+    the last step raises `PRAGMA user_version` to `HISTORY_SCHEMA_VERSION`
+    (see `_stamp_schema_version`), so a run interrupted before it simply
+    repeats the steps next time.
     """
     conn.execute(
         "CREATE TABLE IF NOT EXISTS runway_events ("
@@ -156,7 +172,10 @@ def init_schema(conn):
         # The archived render the frame showed for this flight: NULL for a row
         # written before the column existed (unknown), "" when the cycle that
         # recorded the flight archived no render, else the gallery file name.
-        "gallery_name TEXT"
+        "gallery_name TEXT, "
+        # Which route directory supplied the route shown: "vrs" or "adsbdb",
+        # NULL when neither did and for a row from before the column.
+        "route_directory TEXT"
         ")"
     )
     conn.execute("CREATE INDEX IF NOT EXISTS idx_runway_events_ts ON runway_events(ts)")
@@ -218,9 +237,35 @@ def init_schema(conn):
         ")"
     )
     conn.execute("CREATE INDEX IF NOT EXISTS idx_poll_cycles_ts ON poll_cycles(ts)")
+    _create_route_lookups(conn)
     _add_missing_wake_columns(conn)
     _add_missing_runway_event_columns(conn)
     conn.commit()
+    _stamp_schema_version(conn)
+
+
+def _create_route_lookups(conn):
+    # One row per request that really went to a route directory (a cache hit
+    # makes none): when, which directory, and how it ended. Counts and times
+    # only, no callsign.
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS route_lookups ("
+        "id INTEGER PRIMARY KEY, "
+        "ts TEXT NOT NULL, "
+        "directory TEXT NOT NULL, "
+        "outcome TEXT NOT NULL"
+        ")"
+    )
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_route_lookups_ts ON route_lookups(ts)")
+
+
+def _stamp_schema_version(conn):
+    """Raise `PRAGMA user_version` to `HISTORY_SCHEMA_VERSION`. Never lowers
+    it: a file stamped by a newer release keeps its stamp. Two processes
+    stamping at once write the same value."""
+    current = conn.execute("PRAGMA user_version").fetchone()[0]
+    if current < HISTORY_SCHEMA_VERSION:
+        conn.execute("PRAGMA user_version = %d" % HISTORY_SCHEMA_VERSION)
 
 
 def _add_missing_wake_columns(conn):
@@ -243,17 +288,23 @@ def _add_missing_wake_columns(conn):
                 raise
 
 
+_RUNWAY_EVENT_ADDED_COLUMNS = ("gallery_name", "route_directory")
+
+
 def _add_missing_runway_event_columns(conn):
-    """Add `runway_events.gallery_name` to a database created before it
-    existed. Same race handling as `_add_missing_wake_columns`."""
+    """Add the `runway_events` columns a database created before them lacks
+    (an existing row reads NULL, "unknown"). Same race handling as
+    `_add_missing_wake_columns`."""
     present = {row[1] for row in conn.execute("PRAGMA table_info(runway_events)")}
-    if "gallery_name" in present:
-        return
-    try:
-        conn.execute("ALTER TABLE runway_events ADD COLUMN gallery_name TEXT")
-    except sqlite3.OperationalError as exc:
-        if "duplicate column name" not in str(exc):
-            raise
+    for column in _RUNWAY_EVENT_ADDED_COLUMNS:
+        if column in present:
+            continue
+        try:
+            # The name comes from the fixed tuple above, never from input.
+            conn.execute("ALTER TABLE runway_events ADD COLUMN " + column + " TEXT")
+        except sqlite3.OperationalError as exc:
+            if "duplicate column name" not in str(exc):
+                raise
 
 
 class _HistoryConnection(sqlite3.Connection):
@@ -564,6 +615,34 @@ def prune_poll_cycles(conn, now_iso):
     return deleted
 
 
+def record_route_lookups(conn, ts, lookups):
+    """Insert one `route_lookups` row per `(directory, outcome)` in
+    `lookups`, all stamped `ts`. A pair naming a directory or outcome this
+    module does not know is skipped. Returns the number of rows added."""
+    rows = [
+        (ts, directory, outcome) for directory, outcome in lookups
+        if directory in ROUTE_DIRECTORIES and outcome in ROUTE_LOOKUP_OUTCOMES]
+    if rows:
+        conn.executemany(
+            "INSERT INTO route_lookups (ts, directory, outcome) VALUES (?, ?, ?)", rows)
+        _commit(conn)
+    return len(rows)
+
+
+def prune_route_lookups(conn, now_iso):
+    """Delete `route_lookups` rows older than `ROUTE_LOOKUP_RETENTION_DAYS`
+    before `now_iso`. An unparseable `now_iso` prunes nothing. Returns the
+    number of rows deleted."""
+    try:
+        now = datetime.fromisoformat(now_iso)
+    except (TypeError, ValueError):
+        return 0
+    cutoff = (now - timedelta(days=ROUTE_LOOKUP_RETENTION_DAYS)).isoformat(timespec="seconds")
+    deleted = conn.execute("DELETE FROM route_lookups WHERE ts < ?", (cutoff,)).rowcount
+    _commit(conn)
+    return deleted
+
+
 # --- Readers ---------------------------------------------------------------
 
 
@@ -617,6 +696,46 @@ def route_source_counts(conn, since=None):
             "SELECT route_source, COUNT(*) AS n FROM runway_events GROUP BY route_source"
         ).fetchall()
     return {row["route_source"]: row["n"] for row in rows}
+
+
+def route_directory_stats(conn, since):
+    """`{directory: stats}` for every directory in `ROUTE_DIRECTORIES`, from
+    `route_lookups`. `stats` holds `lookups`, `found` and `failed` (requests
+    with `ts >= since`), `last_answer_ts` (the newest request that was
+    answered, found or none, over all retained rows, else None) and
+    `reachable` (True when the newest request was answered, False when it
+    failed, None when there is none)."""
+    stats = {}
+    for directory in ROUTE_DIRECTORIES:
+        counts = {
+            row["outcome"]: row["n"] for row in conn.execute(
+                "SELECT outcome, COUNT(*) AS n FROM route_lookups "
+                "WHERE directory = ? AND ts >= ? GROUP BY outcome", (directory, since))}
+        last = conn.execute(
+            "SELECT outcome FROM route_lookups WHERE directory = ? "
+            "ORDER BY ts DESC, id DESC LIMIT 1", (directory,)).fetchone()
+        answered = conn.execute(
+            "SELECT MAX(ts) AS ts FROM route_lookups "
+            "WHERE directory = ? AND outcome != 'failed'", (directory,)).fetchone()
+        stats[directory] = {
+            "lookups": sum(counts.values()),
+            "found": counts.get("found", 0),
+            "failed": counts.get("failed", 0),
+            "last_answer_ts": answered["ts"],
+            "reachable": None if last is None else last["outcome"] != "failed",
+        }
+    return stats
+
+
+def route_directory_counts(conn, since):
+    """`{directory: flights}` over `runway_events` with `ts >= since`, for the
+    directories in `ROUTE_DIRECTORIES`: how many flights each one's route was
+    shown for. Rows from before the column count for neither."""
+    rows = conn.execute(
+        "SELECT route_directory, COUNT(*) AS n FROM runway_events "
+        "WHERE ts >= ? AND route_directory IS NOT NULL GROUP BY route_directory", (since,)).fetchall()
+    by_directory = {row["route_directory"]: row["n"] for row in rows}
+    return {directory: by_directory.get(directory, 0) for directory in ROUTE_DIRECTORIES}
 
 
 def corroboration_counts(conn, since=None):
@@ -912,6 +1031,148 @@ def daily_battery_averages(conn, since=None):
         }
         for day in sorted(buckets.keys(), reverse=True)
     ]
+
+
+# --- Home statistics (read-only aggregates) ------------------------------
+#
+# Each function reads the one frame's own history database (`conn`), never
+# writes, and takes the frame's IANA time zone and an explicit `now` (an
+# aware datetime or an ISO string) instead of reading the clock.
+
+# Two stored events of one pass within this many seconds count once, the same
+# window the Flights and Home lists fold on (companion/flight_card.py).
+PASS_DUPLICATE_WINDOW_S = 60
+HOME_STATS_DIRECTIONS = ("arriving", "departing")
+HOME_STATS_DAYS = 7
+_FALLBACK_TIMEZONE = "Europe/Paris"
+
+
+def _frame_zone(tz_name):
+    try:
+        return ZoneInfo(tz_name)
+    except (KeyError, ValueError, TypeError, OSError):
+        return ZoneInfo(_FALLBACK_TIMEZONE)
+
+
+def _local_today(tz_name, now):
+    """`(zone, today)`: the frame's zone and the local calendar date of `now`."""
+    instant = instant_or_none(now) if isinstance(now, str) else now
+    if instant is None:
+        instant = datetime.now(timezone.utc)
+    if instant.tzinfo is None:
+        instant = instant.replace(tzinfo=timezone.utc)
+    zone = _frame_zone(tz_name)
+    return zone, instant.astimezone(zone).date()
+
+
+def _day_window(zone, first_day, last_day):
+    """The stored-`ts` text bounds `[start, end)` of the local days
+    `first_day..last_day` inclusive, spelled as the poll loop stores them."""
+    start = datetime.combine(first_day, datetime.min.time(), tzinfo=zone)
+    end = datetime.combine(last_day + timedelta(days=1), datetime.min.time(), tzinfo=zone)
+    return (start.astimezone(timezone.utc).isoformat(timespec="seconds"),
+            end.astimezone(timezone.utc).isoformat(timespec="seconds"))
+
+
+def _direction_events(conn, zone, first_day, last_day, columns="ts, hex, callsign, origin, "
+                      "destination, confirmed_state"):
+    """The arrivals and departures between two local days as dicts, oldest
+    first, with a pass stored twice folded to one and each row's local
+    `moment` (an aware datetime). One range scan of `idx_runway_events_ts`."""
+    start, end = _day_window(zone, first_day, last_day)
+    rows = conn.execute(
+        "SELECT %s FROM runway_events WHERE ts >= ? AND ts < ? "
+        "AND confirmed_state IN (?, ?) ORDER BY ts ASC, id ASC" % columns,
+        (start, end) + HOME_STATS_DIRECTIONS,
+    ).fetchall()
+    events = []
+    last_seen = {}
+    for row in rows:
+        moment = instant_or_none(row["ts"])
+        if moment is None:
+            continue
+        key = tuple(row[name] for name in (
+            "hex", "callsign", "origin", "destination", "confirmed_state"))
+        earlier = last_seen.get(key)
+        last_seen[key] = moment
+        if earlier is not None and (moment - earlier).total_seconds() < PASS_DUPLICATE_WINDOW_S:
+            continue
+        event = dict(row)
+        event["moment"] = moment.astimezone(zone)
+        events.append(event)
+    return events
+
+
+def home_day_timeline(conn, tz_name, now):
+    """Today's arrivals and departures in the frame's local day:
+    `{"day": "YYYY-MM-DD", "arriving": n, "departing": n, "hours": [24 x
+    {"hour", "arriving", "departing"}], "ticks": [{"at": local hour as a
+    float, "state"}]}`. Every hour of the day is present, zero when quiet."""
+    zone, today = _local_today(tz_name, now)
+    hours = [{"hour": hour, "arriving": 0, "departing": 0} for hour in range(24)]
+    ticks = []
+    for event in _direction_events(conn, zone, today, today):
+        moment, state = event["moment"], event["confirmed_state"]
+        hours[moment.hour][state] += 1
+        ticks.append({"at": moment.hour + moment.minute / 60.0, "state": state})
+    return {
+        "day": today.isoformat(),
+        "arriving": sum(h["arriving"] for h in hours),
+        "departing": sum(h["departing"] for h in hours),
+        "hours": hours,
+        "ticks": ticks,
+    }
+
+
+def home_week_totals(conn, tz_name, now):
+    """The last seven local days, oldest first and ending today, zero-filled:
+    `[{"day": "YYYY-MM-DD", "arriving": n, "departing": n, "total": n}]`."""
+    zone, today = _local_today(tz_name, now)
+    first = today - timedelta(days=HOME_STATS_DAYS - 1)
+    days = {
+        (first + timedelta(days=i)): {"arriving": 0, "departing": 0}
+        for i in range(HOME_STATS_DAYS)}
+    for event in _direction_events(conn, zone, first, today):
+        days[event["moment"].date()][event["confirmed_state"]] += 1
+    return [
+        {"day": day.isoformat(), "arriving": c["arriving"], "departing": c["departing"],
+         "total": c["arriving"] + c["departing"]}
+        for day, c in sorted(days.items())]
+
+
+def _airline_of(event, airline_names):
+    override = override_airline_name(event, airline_names) if airline_names else None
+    return override or (event.get("airline") or "").strip()
+
+
+def home_airline_highlights(conn, tz_name, now, airline_names=None):
+    """Over the last seven local days: `{"most_seen": {"airline", "count"} or
+    None, "new_airlines": [names]}`. The most seen airline has the highest
+    count, ties broken alphabetically; a new airline is one first seen
+    inside the window (no earlier row names it). A flight without an airline
+    counts for none. `airline_names` is the owner's `{prefix: name}` override
+    applied to what is read, never written back."""
+    zone, today = _local_today(tz_name, now)
+    first = today - timedelta(days=HOME_STATS_DAYS - 1)
+    counts = {}
+    for event in _direction_events(
+            conn, zone, first, today,
+            columns="ts, hex, callsign, origin, destination, confirmed_state, airline"):
+        name = _airline_of(event, airline_names)
+        if name:
+            counts[name] = counts.get(name, 0) + 1
+    if not counts:
+        return {"most_seen": None, "new_airlines": []}
+    best = min(counts, key=lambda name: (-counts[name], name))
+    start, _ = _day_window(zone, first, today)
+    earlier = {
+        _airline_of(dict(row), airline_names) for row in conn.execute(
+            "SELECT DISTINCT airline, callsign FROM runway_events "
+            "WHERE ts < ? AND airline IS NOT NULL", (start,))}
+    return {
+        "most_seen": {"airline": best, "count": counts[best]},
+        "new_airlines": sorted(name for name in counts if name not in earlier),
+    }
 
 
 def get_meta(conn, key):

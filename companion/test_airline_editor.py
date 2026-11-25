@@ -14,8 +14,8 @@ from PIL import Image
 import companion.test_companion_app_helpers as cah
 import companion.test_status_pages_helpers as shp
 import fleet_console_support as fx
-from companion import device_scope
-from companion_app_server import InProcessAppServer, http_request, with_csrf, with_csrf_part
+from companion.test_airline_editor_helpers import Rig
+from companion_app_server import InProcessAppServer, http_request, with_csrf_part
 from server import fleet_db
 from server.plane import airline_default_types, manual_resolutions, name_overrides
 
@@ -25,48 +25,6 @@ VENDORED = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
     "server", "assets", "icons", "illustrations")
 STAMP = "2026-01-01T00:00:00+00:00"
-
-
-class Rig:
-    def __init__(self, server, seed, cookies):
-        self.server = server
-        self.seed = seed
-        self.cookies = cookies
-        devices = {d.id: d for d in device_scope.load_devices(server.state_dir)}
-        self.owned_dir = devices[seed.owned_id].state_dir
-        os.makedirs(self.owned_dir, exist_ok=True)
-        self.frame = "/devices/%s" % seed.owned_id
-
-    def get(self, who, path):
-        status, headers, body = http_request(self.server.url(path), cookie=self.cookies.get(who))
-        return status, headers, body.decode("utf-8", "replace")
-
-    def post(self, who, path, form):
-        cookie = self.cookies.get(who)
-        status, headers, body = http_request(
-            self.server.url(path), method="POST", cookie=cookie,
-            data=with_csrf(cookie, form), extra_headers={"Origin": self.server.base_url()})
-        return status, headers, body.decode("utf-8", "replace")
-
-    def upload(self, who, path, payload):
-        body, content_type = with_csrf_part(
-            self.cookies.get(who), *cah.encode_multipart(payload, field_name="illustration"))
-        status, headers, _b = http_request(
-            self.server.url(path), method="POST", data=body,
-            cookie=self.cookies.get(who), content_type=content_type,
-            extra_headers={"Origin": self.server.base_url()})
-        return status, headers
-
-    def stored(self):
-        """Every file the editing flows write, by relative path with its bytes."""
-        found = {}
-        for root, _dirs, names in os.walk(self.owned_dir):
-            for name in names:
-                if name.endswith((".json", ".png")):
-                    path = os.path.join(root, name)
-                    with open(path, "rb") as handle:
-                        found[os.path.relpath(path, self.owned_dir)] = handle.read()
-        return found
 
 
 @pytest.fixture
@@ -256,22 +214,36 @@ def test_deleting_a_manual_resolution_returns_to_the_editor_and_removes_it(rig):
     assert "manual-resolutions/ZZZ/delete" not in rig.get("admin", rig.frame + EDITOR)[2]
 
 
-def test_a_hand_named_airline_keeps_its_row_with_a_pill_and_a_delete_item(rig):
+def test_a_hand_named_airline_without_artwork_is_a_known_row_with_a_delete_item(rig):
     manual_resolutions.add_entry(rig.owned_dir, "ZZZ", "Zed Air", now=STAMP)
     page = rig.get("admin", rig.frame + EDITOR)[2]
-    assert "manual-resolutions/" not in page.split("</table>")[1]
-    group = re.search(r'<tbody class="airline-group"(?:(?!</tbody>).)*Zed Air.*?</tbody>', page, re.S)
-    assert group, "the hand-named airline has no row"
+    assert not re.search(r'<tbody class="airline-group"(?:(?!</tbody>).)*Zed Air', page, re.S)
+    group = re.search(r'<li class="airlines-missing__head"(?:(?!</li>).)*Zed Air.*?</li>', page, re.S)
+    assert group, "the hand-named airline has no header in the missing-illustrations section"
     text = group.group(0)
-    assert 'class="airlines-pill">Named by hand<' in text
+    assert "Named by hand" not in text and ">ZZZ<" in text
     form = re.search(r'<form class="airlines-menu__form"[^>]*manual-resolutions/ZZZ/delete".*?</form>', text, re.S)
     assert form and ">Delete my name<" in form.group(0)
     assert re.search(r'<input type="hidden" name="[a-z_]*csrf[a-z_]*" value="[^"]+">', form.group(0))
     assert "Manual resolutions" not in page
 
 
+def test_a_hand_named_airline_with_artwork_keeps_its_table_row_and_a_delete_item(rig):
+    manual_resolutions.add_entry(rig.owned_dir, "ZZZ", "Zed Air", now=STAMP)
+    _override(rig, "zed-air")
+    page = rig.get("admin", rig.frame + EDITOR)[2]
+    assert "manual-resolutions/" not in page.split("</table>")[-1]
+    group = re.search(r'<tbody class="airline-group"(?:(?!</tbody>).)*Zed Air.*?</tbody>', page, re.S)
+    assert group, "the hand-named airline has no row"
+    text = group.group(0)
+    assert "Named by hand" not in text
+    form = re.search(r'<form class="airlines-menu__form"[^>]*manual-resolutions/ZZZ/delete".*?</form>', text, re.S)
+    assert form and ">Delete my name<" in form.group(0)
+    assert "airline-group--known" not in page[page.index("Zed Air") - 400:page.index("Zed Air")]
+
+
 def _override(rig, key):
-    folder = os.path.join(rig.owned_dir, "illustration_overrides")
+    folder = os.path.join(rig.server.state_dir, "illustration_overrides")
     os.makedirs(folder, exist_ok=True)
     path = os.path.join(folder, key + ".png")
     with open(os.path.join(VENDORED, "vueling-airlines.png"), "rb") as handle:
@@ -315,6 +287,7 @@ def test_deleting_artwork_of_an_unknown_key_changes_nothing(rig, key):
 
 def test_the_default_type_is_stored_cleared_validated_and_audited(rig):
     route = rig.frame + "/airlines/default-type"
+    _override(rig, "air-france-a320")
     status, headers, _b = rig.post("admin", route, {"airline_key": "air-france", "type": "a320"})
     assert (status, _query(headers)[1]["flash"]) == (303, ["airline_default_type_saved"])
     assert airline_default_types.load_default_types(rig.owned_dir) == {"air-france": "A320"}
@@ -324,6 +297,65 @@ def test_the_default_type_is_stored_cleared_validated_and_audited(rig):
         rig.post("admin", route, form)
         assert airline_default_types.load_default_types(rig.owned_dir) == {}
     assert _audit_actions(rig).count("airline.default_type") == 2
+
+
+def _default_type_flash(rig, key, code):
+    status, headers, _b = rig.post(
+        "admin", rig.frame + "/airlines/default-type", {"airline_key": key, "type": code})
+    assert status == 303
+    return _query(headers)[1]["flash"]
+
+
+def test_a_type_without_a_picture_is_refused_as_default_and_nothing_is_written(rig):
+    before = rig.stored()
+    assert _default_type_flash(rig, "air-france", "A333") == ["airline_default_type_failed"]
+    assert _default_type_flash(rig, "air-france", "B738") == ["airline_default_type_failed"]
+    assert airline_default_types.load_default_types(rig.owned_dir) == {}
+    assert rig.stored() == before
+    assert "airline.default_type" not in _audit_actions(rig)
+
+
+def test_a_type_with_a_built_in_or_uploaded_picture_can_be_the_default(rig):
+    # The built-in Transavia France A320 picture needs no upload.
+    assert _default_type_flash(rig, "transavia-france", "A320") == ["airline_default_type_saved"]
+    _override(rig, "air-france-b737")
+    assert _default_type_flash(rig, "air-france", "B738") == ["airline_default_type_saved"]
+    assert airline_default_types.load_default_types(rig.owned_dir) == {
+        "transavia-france": "A320", "air-france": "B738"}
+
+
+def test_clearing_the_default_stays_allowed_without_a_picture(rig):
+    airline_default_types.set_default_type(rig.owned_dir, "air-france", "A320")
+    assert _default_type_flash(rig, "air-france", "") == ["airline_default_type_saved"]
+    assert airline_default_types.load_default_types(rig.owned_dir) == {}
+
+
+def test_deleting_the_picture_of_the_default_type_repoints_the_default_to_a_remaining_type(rig):
+    _override(rig, "air-france-b737")
+    _default_type_flash(rig, "air-france", "B738")
+    rig.post("admin", rig.frame + "/airlines/artwork/delete", {"key": "air-france-b737"})
+    # Air France keeps its legacy picture, the picture of an A320.
+    assert airline_default_types.load_default_types(rig.owned_dir) == {"air-france": "A320"}
+
+
+def test_deleting_the_last_picture_of_the_default_type_clears_the_default(rig):
+    manual_resolutions.add_entry(rig.owned_dir, "ZEP", "Zephyr Air")
+    _override(rig, "zephyr-air-a320")
+    assert _default_type_flash(rig, "zephyr-air", "A320") == ["airline_default_type_saved"]
+    rig.post("admin", rig.frame + "/airlines/artwork/delete", {"key": "zephyr-air-a320"})
+    assert airline_default_types.load_default_types(rig.owned_dir) == {}
+
+
+def test_the_legacy_picture_of_a_built_in_airline_is_a_livery_for_its_airframe(rig):
+    assert _default_type_flash(rig, "air-france", "A320") == ["airline_default_type_saved"]
+    assert airline_default_types.load_default_types(rig.owned_dir) == {"air-france": "A320"}
+
+
+def test_deleting_an_upload_keeps_the_default_while_a_built_in_picture_remains(rig):
+    assert _default_type_flash(rig, "transavia-france", "A320") == ["airline_default_type_saved"]
+    _override(rig, "transavia-france-a320")
+    rig.post("admin", rig.frame + "/airlines/artwork/delete", {"key": "transavia-france-a320"})
+    assert airline_default_types.load_default_types(rig.owned_dir) == {"transavia-france": "A320"}
 
 
 @pytest.mark.parametrize("who", ("owner", "co", "anonymous"))
@@ -337,16 +369,28 @@ def test_the_artwork_routes_refuse_everyone_but_the_administrator(rig, who):
     assert rig.stored() == before
 
 
-def test_naming_a_prefix_inline_stays_on_the_editor_and_stores_the_default_type(rig):
+def _name_xqz_inline(rig):
     shp.seed_unresolved_prefixes(rig.owned_dir, {
         "XQZ": {"count": 5, "first_seen": STAMP, "last_seen": STAMP, "example_callsign": "XQZ1"}})
     status, headers, _b = rig.post(
         "admin", rig.frame + "/airlines/resolve",
         {"prefix": "XQZ", "airline_name": "Xqz Wings", "inline": "1", "default_type": "B738"})
-    path, query = _query(headers)
+    return status, _query(headers)
+
+
+def test_naming_a_prefix_inline_stores_the_default_type_when_the_type_has_a_picture(rig):
+    _override(rig, "xqz-wings-b737")
+    status, (path, query) = _name_xqz_inline(rig)
     assert (status, path, query) == (303, rig.frame + EDITOR, {"flash": ["manual_resolved"]})
     assert airline_default_types.load_default_types(rig.owned_dir) == {"xqz-wings": "B738"}
     assert "airline.resolve" in _audit_actions(rig)
+
+
+def test_naming_a_prefix_inline_refuses_a_default_type_without_a_picture(rig):
+    status, (path, query) = _name_xqz_inline(rig)
+    assert (status, path, query) == (303, rig.frame + EDITOR, {"flash": ["airline_default_type_failed"]})
+    assert airline_default_types.load_default_types(rig.owned_dir) == {}
+    assert "Xqz Wings" in open(manual_resolutions.manual_resolutions_path(rig.owned_dir)).read()
 
 
 @pytest.mark.parametrize("who", ("owner", "co"))

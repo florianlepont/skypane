@@ -79,10 +79,6 @@
   outline-offset: 1px;
 }
 
-.filter-bar--title .filter-bar__search {
-  flex: 1 1 100%;
-  max-width: none;
-}
 @media (min-width: 960px) {
   .filter-bar--chips {
     flex-wrap: nowrap;
@@ -111,7 +107,7 @@
   display: inline-flex;
   align-items: center;
   height: 20px;
-  padding: 0 8px;
+  padding: 0 var(--space-sm);
   border-radius: var(--radius-pill);
   font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
@@ -190,8 +186,7 @@
   min-width: 0;
 }
 
-.lightbox__replace-zone:not([hidden]),
-.resolve-upload-zone:not([hidden]) {
+.lightbox__replace-zone:not([hidden]) {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -252,7 +247,7 @@ details.row-menu[open] > .row-menu__toggle {
 }
 
 .collection-sort__toggle,
-.collection-legend .row-menu__toggle {
+.filter-info .row-menu__toggle {
   border: 1px solid var(--color-border);
   background: var(--color-dominant);
 }
@@ -384,4 +379,216 @@ button.row-menu__item:hover {
 
 .lightbox--picture .lightbox__caption:empty {
   display: none;
+}
+/* The scrolling pill row of the filter bar (Airlines editor): the search takes
+ * the whole first line, the chips are separate pills below it. A phone keeps
+ * them on one line that scrolls sideways (no scrollbar drawn, the group stays
+ * a focusable radio group, and the arrow keys and touch still move it); from
+ * 960px they wrap. The segmented track and its selected-pill inset of the
+ * other pages are not used. */
+.filter-bar.filter-bar--scroll-chips {
+  row-gap: var(--space-sm);
+}
+
+.filter-bar.filter-bar--scroll-chips .filter-bar__search {
+  flex: 1 1 100%;
+  max-width: none;
+}
+
+.filter-bar.filter-bar--scroll-chips .filter-bar__chips--scroll {
+  flex: 1 1 100%;
+  flex-wrap: nowrap;
+  gap: var(--space-sm);
+  height: auto;
+  margin-inline: calc(-1 * var(--space-lg));
+  padding: 2px var(--space-lg) var(--space-xs);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  scroll-padding-inline: var(--space-lg);
+  background: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.filter-bar.filter-bar--scroll-chips .filter-bar__chips--scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.filter-bar.filter-bar--scroll-chips .filter-bar__chips--scroll .filter-chip {
+  flex: none;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0;
+}
+
+.filter-bar.filter-bar--scroll-chips .filter-bar__chips--scroll .filter-chip__box {
+  flex-direction: row;
+  gap: var(--space-xs);
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--glass-solid);
+  box-shadow: none;
+}
+
+.filter-bar.filter-bar--scroll-chips .filter-bar__chips--scroll .filter-chip__text {
+  overflow: visible;
+}
+
+.filter-chip__count {
+  font-size: var(--font-caption-size);
+  line-height: 1.2;
+  color: var(--seg-idle-fg);
+  opacity: 0.75;
+}
+
+.filter-bar.filter-bar--scroll-chips .filter-bar__chips--scroll .filter-chip input:checked + .filter-chip__box {
+  border-color: var(--seg-selected-bg);
+  background: var(--seg-selected-bg);
+  box-shadow: none;
+}
+
+.filter-bar.filter-bar--scroll-chips .filter-bar__chips--scroll .filter-chip input:checked + .filter-chip__box .filter-chip__count {
+  color: var(--seg-selected-fg);
+}
+
+.filter-bar.filter-bar--scroll-chips .filter-bar__chips--scroll .filter-chip:hover input:not(:checked) + .filter-chip__box {
+  background: var(--color-control-wash);
+}
+
+@media (min-width: 960px) {
+  .filter-bar.filter-bar--scroll-chips {
+    flex-wrap: wrap;
+  }
+
+  .filter-bar.filter-bar--scroll-chips .filter-bar__chips--scroll {
+    flex-wrap: wrap;
+    margin-inline: 0;
+    padding: 0;
+    overflow: visible;
+  }
+
+  .filter-bar.filter-bar--scroll-chips .filter-chip {
+    flex: none;
+  }
+
+  .filter-bar.filter-bar--scroll-chips .filter-chip__box {
+    gap: var(--space-xs);
+    padding: 0 14px;
+  }
+}
+
+/* The radio of a scrolling chip covers its whole pill (still invisible), so
+ * moving the focus along the row scrolls the whole pill into view, not just
+ * its left edge. */
+.filter-bar.filter-bar--scroll-chips .filter-bar__chips--scroll .filter-chip input {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  overflow: visible;
+  clip-path: none;
+  opacity: 0;
+}
+
+/* The Audit category chips are one line on a phone: the track scrolls
+ * sideways (no scrollbar drawn), the right edge fades to show there is more
+ * and the last chip scrolls clear of the fade. From 700px they all fit. */
+@media (max-width: 699px) {
+  .filter-bar__chips--links {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    padding-inline-end: var(--space-xl);
+    -webkit-mask-image: linear-gradient(to right, var(--color-text) calc(100% - var(--space-xl)), transparent);
+    mask-image: linear-gradient(to right, var(--color-text) calc(100% - var(--space-xl)), transparent);
+  }
+
+  .filter-bar__chips--links::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* The label's trimmed text box would clip a descender (Pairing, Frames). */
+.filter-bar__chips--links .filter-chip__text {
+  overflow: visible;
+}
+
+/* The aircraft-type select of the add-first-artwork step, beside its label. */
+.resolve-upload-zone .upload-type:not([hidden]) {
+  display: block;
+  max-width: 100%;
+  box-sizing: border-box;
+  min-height: 44px;
+}
+
+/* The shared filter controls of Flights and Airlines (one GET form): row 1 is
+ * the search field (taking the remaining width), the sort menu button and the
+ * info button, every one 44px; row 2 is the scrolling pill row of the filter
+ * chips with their counts. The Apply button is how the form is sent without a
+ * script; with one the controls act on change. */
+.filter-bar.filter-controls {
+  gap: var(--space-sm);
+  margin-bottom: var(--space-sm);
+}
+
+.filter-controls__row {
+  display: flex;
+  flex: 1 1 100%;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.filter-bar.filter-bar--scroll-chips .filter-controls__row .filter-bar__search {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: none;
+}
+
+.filter-controls__row > .row-menu {
+  flex: none;
+}
+
+/* The chips of a server-answered list work without a script, so they are not
+ * gated and need their own flex display. */
+.filter-bar__chips--scroll:not(.js-gate) {
+  display: flex;
+}
+
+.filter-controls__apply {
+  min-height: 44px;
+  padding: 0 var(--space-md);
+  font-size: var(--font-body-size);
+}
+
+:is(.js, .js-early) .filter-controls__apply {
+  display: none;
+}
+
+.filter-info__panel {
+  width: max-content;
+  max-width: min(22rem, calc(100vw - 2 * var(--space-lg)));
+  padding: var(--space-sm) var(--space-md);
+}
+
+.filter-info__panel > p {
+  margin: 0;
+}
+
+.filter-info__panel > p + p {
+  margin-top: var(--space-xs);
+}
+
+/* The line that counts the rows under the controls ("34 of 148 flights"). */
+.filter-count {
+  margin: 0 0 var(--space-sm) var(--space-xs);
+  font-size: var(--font-caption-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }

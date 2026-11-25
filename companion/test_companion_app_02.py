@@ -31,7 +31,7 @@ from companion_app_server import http_request, served_asset, served_stylesheet
 from companion_markup import css_rules, declarations_for
 from server import device_config
 from server.plane import illustrations as server_illustrations
-from server.plane import manual_resolutions
+from server.plane import enrich, manual_resolutions
 from server.plane import render
 import server.device_policy as device_policy
 from skypane_test_support import REPO_ROOT, child_env
@@ -72,13 +72,13 @@ def test_health_nav_notification_dot_appears_in_sidebar_and_tab_bar(served_css):
     nowhere when None/omitted, never on another link, and never in the personal navigation"""
     dot_device_cfg = {"display_enabled": True, "quiet_hours_enabled": False}
     on = layout.page_shell(
-        title="T", active="health", body="<p>b</p>", health_alert="error",
+        title="T", active="fleet", body="<p>b</p>", health_alert="error",
         device_config=dot_device_cfg)
     off = layout.page_shell(
-        title="T", active="health", body="<p>b</p>", health_alert=None,
+        title="T", active="fleet", body="<p>b</p>", health_alert=None,
         device_config=dot_device_cfg)
     default = layout.page_shell(
-        title="T", active="health", body="<p>b</p>", device_config=dot_device_cfg)
+        title="T", active="fleet", body="<p>b</p>", device_config=dot_device_cfg)
     assert on.count(layout.NAV_NOTIFICATION_CLASS) == 2, (
         "expected the notification class exactly twice (one per nav renderer) when "
         "health_alert='error'")
@@ -157,7 +157,7 @@ def test_health_nav_notification_dot_warn_severity():
     """layout.page_shell(..., health_alert='warn') also renders the notification dot,
     using dot--warn rather than dot--error"""
     warn = layout.page_shell(
-        title="T", active="health", body="<p>b</p>", health_alert="warn",
+        title="T", active="fleet", body="<p>b</p>", health_alert="warn",
         device_config={"display_enabled": True, "quiet_hours_enabled": False})
     assert warn.count(layout.NAV_NOTIFICATION_CLASS) == 2, (
         "expected the notification class exactly twice (one per nav renderer) when "
@@ -277,7 +277,7 @@ def test_tab_bar_is_six_cells_from_the_one_shared_nav_iteration():
         "expected the tab bar's destinations to equal the sidebar's; got %r vs %r"
         % (bar_routes, sidebar_routes))
     assert sidebar_routes == [
-        "/", "/flights", "/detection", "/display", "/airlines", "/account"], (
+        "/", "/flights", "/airlines", "/display", "/detection", "/account"], (
         "expected the personal sidebar order, got %r" % (sidebar_routes,))
 
     tab_links = re.findall(r'<a class="tab-bar__link[^"]*" href="([^"]+)"', bar)
@@ -797,7 +797,7 @@ def test_theme_preview_cached_bytes_live_event_keyed_by_id(tmp_path):
     }
     event_6 = dict(event_5, id=6, callsign="AFR9999")
     theme_preview.cached_preview_bytes(state_dir, "white", live_event=event_5)
-    path_5 = theme_preview.cache_path(state_dir, "white", live_event_id=5)
+    path_5 = theme_preview.cache_path(state_dir, "white", live_event_id=5, live_event=event_5)
     assert os.path.isfile(path_5), "expected cached_preview_bytes() to create %r" % (path_5,)
     marker = b"mutated-cache-fixture-not-a-real-render"
     with open(path_5, "wb") as fh:
@@ -808,7 +808,7 @@ def test_theme_preview_cached_bytes_live_event_keyed_by_id(tmp_path):
     third_newer_event = theme_preview.cached_preview_bytes(state_dir, "white", live_event=event_6)
     assert third_newer_event != marker, (
         "expected a newer event id to be a cache miss, not the stale marker bytes")
-    path_6 = theme_preview.cache_path(state_dir, "white", live_event_id=6)
+    path_6 = theme_preview.cache_path(state_dir, "white", live_event_id=6, live_event=event_6)
     assert path_5 != path_6, "expected two different event ids to produce two different cache files"
 
 
@@ -824,9 +824,13 @@ def test_illustration_filenames_union_contract(tmp_path):
     server-persisted manual keys: None and an empty state dir both equal the static set
     exactly, a seeded manual entry adds exactly one filename, and an entry whose stored name
     yields no usable key contributes nothing"""
-    baseline = frozenset(server_illustrations.target_filenames())
+    known = {
+        manual_resolutions.illustration_key_for_name(name) + ".png"
+        for _prefix, name in enrich.names_without_artwork()}
+    baseline = frozenset(server_illustrations.target_filenames()) | known
     assert app_module._illustration_filenames(None) == baseline, (
-        "expected _illustration_filenames(None) to equal the static target set")
+        "expected _illustration_filenames(None) to equal the static target set plus the "
+        "airlines known by name only")
     tmp = str(tmp_path)
     assert app_module._illustration_filenames(tmp) == baseline, (
         "expected an empty state dir (no manual_resolutions.json yet) to contribute "
@@ -1050,9 +1054,9 @@ def test_battery_discharge_curve_is_well_formed():
     assert battery_module.battery_percent(battery_module.LOW_BATTERY_DISPLAY_MV) == (
         battery_module.LOW_BATTERY_DISPLAY_PERCENT), (
         "expected battery_percent(LOW_BATTERY_DISPLAY_MV) == LOW_BATTERY_DISPLAY_PERCENT")
-    assert (health_page.SPARKLINE_Y_MIN_MV < battery_module.LOW_BATTERY_DISPLAY_MV
-            < health_page.SPARKLINE_Y_MAX_MV), (
-        "expected LOW_BATTERY_DISPLAY_MV strictly inside the sparkline's fixed range")
+    assert (battery_module.BATTERY_EMPTY_MV < battery_module.LOW_BATTERY_DISPLAY_MV
+            < battery_module.BATTERY_FULL_MV), (
+        "expected LOW_BATTERY_DISPLAY_MV strictly inside the discharge curve's range")
     assert device_policy.BATTERY_LOW_THRESHOLD_MV < battery_module.LOW_BATTERY_DISPLAY_MV, (
         "expected device_policy.BATTERY_LOW_THRESHOLD_MV < LOW_BATTERY_DISPLAY_MV, pinning the "
         "relationship the module's own comment states")
@@ -1141,13 +1145,12 @@ def test_every_drawing_class_resolves_in_the_served_stylesheet(served_css):
             "NOTHING at all" % (class_name,))
 
 
-# --- battery_sparkline_svg() chart-migration equivalence baseline ---------
-# The pre-migration chart's markup, captured for a fixed `now` and a fixed
-# set of named inputs, committed once to
-# companion/testdata/battery_chart_baseline.json (regenerated only by a
-# one-off command, never by a test — see that file's own git history) and
-# asserted byte-identical on every run: the proof the chart-onto-draw.py
-# migration changed no rendered pixel.
+# --- battery_sparkline_svg() markup baseline ---------------------------------
+# The chart's markup, captured for a fixed `now` and a fixed set of named
+# inputs, committed to companion/testdata/battery_chart_baseline.json
+# (regenerated only by a one-off command, never by a test) and asserted
+# byte-identical on every run: a change to the chart's markup is a
+# deliberate one, made together with a new baseline.
 _CHART_NOW = "2024-06-15T12:00:00"
 
 
@@ -1196,8 +1199,7 @@ def test_battery_chart_markup_is_unchanged():
     """battery_sparkline_svg() emits byte-identical markup, for a fixed `now` and a fixed set of
     named inputs (no rows, one row, two rows, a dense 90-point series, out-of-range readings, a
     daily series, a threshold-visible series, a hostile firmware/timestamp string), to the
-    committed pre-migration baseline — the proof moving the chart onto companion/draw.py's
-    shared primitives changed no rendered byte"""
+    committed baseline"""
     with open(_chart_baseline_path(), encoding="utf-8") as fh:
         baseline = json.load(fh)
     actual = {
@@ -1210,8 +1212,7 @@ def test_battery_chart_markup_is_unchanged():
     for name in baseline:
         assert actual[name] == baseline[name], (
             "battery_sparkline_svg() case %r no longer matches the committed baseline "
-            "(companion/testdata/battery_chart_baseline.json) — the chart migration must not "
-            "change a single rendered byte" % (name,))
+            "(companion/testdata/battery_chart_baseline.json)" % (name,))
 
 
 def test_draw_module_imports_no_page_and_no_server():
@@ -1435,8 +1436,8 @@ def _expected_next_login_location(next_route):
 
 
 @pytest.mark.parametrize(
-    "path", ["/", "/display", "/flights", "/airlines", "/health", "/device"],
-    ids=["home", "display", "flights", "airlines", "health", "device"])
+    "path", ["/", "/display", "/flights", "/airlines"],
+    ids=["home", "display", "flights", "airlines"])
 def test_unauth_get_nav_tab_redirects_to_login_with_next(app02_server, path):
     """unauthenticated GET {path} redirects to /login carrying that route as ?next="""
     status, headers, body = http_request(app02_server.base_url() + path)
@@ -1446,9 +1447,9 @@ def test_unauth_get_nav_tab_redirects_to_login_with_next(app02_server, path):
     assert not body, "expected an empty redirect body, got %d bytes of content" % len(body)
 
 
-@pytest.mark.parametrize("path", ["/settings", "/history"], ids=["settings", "history"])
+@pytest.mark.parametrize("path", ["/settings"], ids=["settings"])
 def test_unauth_get_retired_page_route_redirects_to_login_without_next(app02_server, path):
-    """unauthenticated GET {path} (a retired page route) redirects to /login without ?next="""
+    """unauthenticated GET {path} (the settings form's twin address) redirects to /login without ?next="""
     status, headers, body = http_request(app02_server.base_url() + path)
     assert status == 303, "expected 303, got %d" % status
     assert headers.get("Location") == "/login", (
@@ -1456,14 +1457,11 @@ def test_unauth_get_retired_page_route_redirects_to_login_without_next(app02_ser
     assert not body, "expected an empty redirect body, got %d bytes of content" % len(body)
 
 
-def test_unauth_get_preview_redirects_to_login_without_next(app02_server):
-    """unauthenticated GET /preview (the retired Preview page's redirect source) redirects to
-    /login without page content"""
-    status, headers, body = http_request(app02_server.base_url() + "/preview")
-    assert status == 303, "expected 303, got %d" % status
-    assert headers.get("Location") == "/login", (
-        "expected a redirect to '/login', got %r" % (headers.get("Location"),))
-    assert not body
+@pytest.mark.parametrize("path", ["/history", "/preview", "/health", "/device"])
+def test_unauth_get_a_removed_address_is_the_not_found_page(app02_server, path):
+    """the removed History, Preview, Health and Device addresses are the ordinary 404"""
+    status, _headers, _body = http_request(app02_server.base_url() + path)
+    assert status == 404, "expected 404, got %d" % status
 
 
 def test_preview_png_unauth_404_not_login_redirect(app02_server):

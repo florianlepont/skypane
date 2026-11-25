@@ -11,8 +11,8 @@ code, escaped into the input's `value` on the immediate response.
 import datetime
 from typing import NamedTuple
 
-from companion import device_scope, frame_status, i18n, ui_entity_list, ui_modal
-from companion.ui_base import escape_html, validation_attrs
+from companion import device_scope, frame_status, i18n, ui_modal
+from companion.ui_base import escape_html, icon_html, validation_attrs
 
 KIND_LIVE = frame_status.KIND_LIVE
 KIND_PENDING = frame_status.KIND_PENDING
@@ -27,8 +27,6 @@ HASH_FIELD = "secret_sha256"
 HARDWARE_FIELD = "hardware_type"
 PAIR_QUERY_FLAG = "pair"
 
-ADD_DIALOG_ID = "dlg-add-frame"
-
 _FRAMES_TEXT = i18n.msg("admin_fleet.frames", "Frames")
 # Same id and English as the frame button's, so one name reads one way.
 _LIVE_FRAME_NAME = i18n.msg("nav.device_default_name", "Orly frame")
@@ -37,8 +35,6 @@ _NEW_FRAME = i18n.msg("admin_fleet.new_frame", "New frame")
 _WAITING_FOR_PAIRING = i18n.msg("admin_fleet.waiting_for_pairing", "Waiting for pairing")
 _FORMERLY = i18n.msg("admin_fleet.formerly_owner", "Formerly %s")
 _UNASSIGNED = i18n.msg("admin_fleet.unassigned", "Unassigned")
-_OTHER_FRAMES = i18n.msg("admin_fleet.other_frames_n", "Other frames (%d)")
-_ROW_MENU_ARIA = i18n.msg("admin_fleet.actions_for_frame", "Actions for %s")
 _EMPTY_HEADING = i18n.msg("admin_fleet.no_frames_yet", "No frames yet")
 _EMPTY_BODY = i18n.msg(
     "admin_fleet.switch_a_frame_on_when_its_pairing_code_appears_choose_add",
@@ -61,6 +57,11 @@ _TITLE_REACTIVATE = i18n.msg(
 _NEW_OWNER = i18n.msg("admin_fleet.new_owner", "New owner")
 _TITLE_REASSIGN = i18n.msg("admin_fleet.reassign_frame_title", "Reassign “%s”?")
 _CANCEL = i18n.msg("admin_fleet.cancel", "Cancel")
+_REASSIGN_CHOOSE_HINT = i18n.msg(
+    "admin_fleet.reassign_choose_owner_hint", "Choose an owner to continue.")
+_REASSIGN_CO_MANAGERS = i18n.msg(
+    "admin_fleet.reassign_co_managers_lose_access",
+    "Co-managers lose their access to this frame.")
 _REASSIGN_ARIA = i18n.msg("admin_fleet.reassign_aria", "Reassign %s to another owner")
 _RETIRE_SENTENCE = i18n.msg(
     "admin_fleet.this_frame_will_show_a_retired_screen_and_stop_updating",
@@ -77,28 +78,16 @@ _REASSIGN_LIVE_SENTENCE = i18n.msg(
     "admin_fleet.only_the_owner_changes_nothing_is_erased",
     "Nothing is erased.")
 _THIS_OWNER = i18n.msg("admin_fleet.the_current_owner", "The current owner")
-_RETIRE_THIS_FRAME = i18n.msg("admin_fleet.retire_this_frame", "Retire this frame")
+_RETIRE_THIS_FRAME = i18n.msg("admin_fleet.retire_this_frame", "Retire this frame…")
 _RETIRE_HINT = i18n.msg(
     "admin_fleet.retire_this_frame_hint",
     "The frame stops showing anything and its owner is released.")
 _RETIRE_ACTION = i18n.msg("admin_fleet.retire_this_frame_action", "Retire…")
 
 _ADD_TITLE = i18n.msg("admin_fleet.add_a_frame", "Add a frame")
-_BACK_TO_FLEET = i18n.msg("admin_fleet.back_to_fleet", "Back to Fleet")
-_PAIR_PURPOSE = i18n.msg(
-    "admin_fleet.enter_the_code_shown_on_the_frame_s_screen_and_choose",
-    "Enter the code shown on the frame's screen and choose who it belongs to.")
-_PAIR_CODE_LABEL = i18n.msg("admin_fleet.pairing_code", "Pairing code")
-_PAIR_CODE_HELP = i18n.msg(
-    "admin_fleet.the_code_stays_valid_for_about_35_minutes",
-    "The code stays valid for about 35 minutes; a new one then appears on the frame.")
-_PAIR_OWNER_LABEL = i18n.msg("admin_fleet.pair_owner", "Owner")
+PAIR_OWNER_LABEL = i18n.msg("admin_fleet.pair_owner", "Owner")
 _PAIR_OWNER_CHOOSE = i18n.msg("admin_fleet.choose_an_owner_option", "Choose an owner")
 _PAIR_SUBMIT = i18n.msg("admin_fleet.pair_frame", "Pair frame")
-_PAIR_NONE_WAITING = i18n.msg(
-    "admin_fleet.no_frame_is_showing_a_code_yet",
-    "No frame is showing a code yet. Switch the frame on; its code appears on "
-    "its screen.")
 _ADMIN_SUFFIX = i18n.msg("admin_fleet.admin_suffix", "(admin)")
 CLAIM_REFUSED_TITLE = i18n.msg("admin_fleet.code_not_recognised", "Code not recognised")
 CLAIM_REFUSED_DETAIL = i18n.msg(
@@ -135,7 +124,9 @@ REGISTER_HARDWARE_ERROR = i18n.msg(
 class FleetRow(NamedTuple):
     """One frame as the list shows it. `frame_id` is the device id (live
     and retired-from) or the pending id; `previous_owner` marks a retired
-    frame's owner line. `last_seen` is epoch seconds or None."""
+    frame's owner line. `last_seen` is epoch seconds or None; `retired_at`
+    (a retired frame) and `code_issued_at` (a pending frame showing a code) are
+    epoch seconds or None when the database holds no such moment."""
     kind: str
     frame_id: str
     name: str
@@ -149,25 +140,19 @@ class FleetRow(NamedTuple):
     offline: bool
     state: str | None = None
     screen_off: bool = False
+    retired_at: int | None = None
+    code_issued_at: int | None = None
 
 
 class FleetView(NamedTuple):
     """Everything the page renders. `owners` is a (value, label) sequence;
-    `code_value`, `owner_selected`, the error fields and `open_add_dialog`
-    carry the state of a refused submission; `register_errors` the messages
-    of a refused scripted registration. `access` is a tuple of (frame id,
-    co_managers_card.CardView) for the frames whose Manage access dialog is
-    offered; `open_access` is the frame id whose dialog renders open."""
+    `register_errors` holds the messages of a refused scripted registration.
+    `access` is a tuple of (frame id, co_managers_card.CardView) for the
+    frames whose Manage access dialog is offered; `open_access` is the frame
+    id whose dialog renders open."""
     rows: tuple
     owners: tuple
-    has_pending: bool
     now: datetime.datetime
-    code_value: str = ""
-    owner_selected: str = ""
-    claim_toast_html: str = ""
-    code_error: str = ""
-    owner_error: str = ""
-    open_add_dialog: bool = False
     register_errors: tuple = ()
     access: tuple = ()
     open_access: str = ""
@@ -234,126 +219,21 @@ def _owner_line(row):
     return row.owner_email
 
 
-def _menu_items(row):
-    """The actions menu's (label, target, destructive) items by state: an
-    active frame offers its personal view; a retired frame re-activates; a
-    pending frame offers the pairing dialog. Every address is built from the
-    frame id."""
-    if row.kind == KIND_RETIRED:
-        return [(i18n.t(_ACTION_REACTIVATE), _slug("dlg-reactivate", row.frame_id), True)]
-    if row.kind == KIND_PENDING:
-        return [(i18n.t(_PAIR_SUBMIT), ADD_DIALOG_ID, False)]
-    if row.kind != KIND_LIVE:
-        return []
-    return [(i18n.t(_ACTION_PERSONAL_VIEW), "/devices/%s/" % row.frame_id, False)]
-
-
-def _actions_menu(row):
-    items = _menu_items(row)
-    return (
-        ui_entity_list.row_menu_html(i18n.t(_ROW_MENU_ARIA) % _display_name(row), items)
-        if items else "")
-
-
-def row_html(row):
-    """One frame as a list row (status dot, name, owner line, actions menu)."""
-    return ui_entity_list.entity_row_html(
-        frame_status.status_dot_html(row), _display_name(row), _owner_line(row), "",
-        _actions_menu(row), None)
-
-
-def detail_header_html(view, frame_id):
-    """The selected frame's header: two visible link buttons, its personal
-    view and Rename. The frame's name is the frame button's label above, not
-    repeated here. Empty when `frame_id` is not a live row of `view`."""
-    row = next(
-        (r for r in view.rows if r.kind == KIND_LIVE and r.frame_id == frame_id), None)
-    if row is None:
-        return ""
-    from companion.pages import frame_name_page
-    name = _display_name(row)
-    return (
-        '<div class="fleet-detail-head">'
-        '<a class="row-action" href="/devices/%s/" aria-label="%s">%s</a>'
-        '<a class="row-action" href="%s" aria-label="%s">%s</a></div>' % (
-            _esc(frame_id), _esc(i18n.t(_OPEN_PERSONAL_ARIA) % name),
-            _t(_ACTION_PERSONAL_VIEW),
-            _esc(frame_name_page.device_route(frame_id, "/fleet?frame=" + frame_id)),
-            _esc(i18n.t(frame_name_page.ACTION_ARIA) % name),
-            _t(frame_name_page.ACTION_TEXT)))
-
-
-def _other_rows(rows):
-    """The pending frames, then the retired ones."""
-    others = [row for row in rows if row.kind != KIND_LIVE]
-    pending = [row for row in others if row.kind == KIND_PENDING]
-    return pending + [row for row in others if row.kind == KIND_RETIRED]
-
-
-def other_frames_title(count):
-    return i18n.t(_OTHER_FRAMES) % count
-
-
-def other_frames_list_html(rows):
-    """The pending frames, then the retired ones, as one compact list; empty
-    without any."""
-    ordered = _other_rows(rows)
-    if not ordered:
-        return ""
-    return ui_entity_list.entity_list_html("".join(row_html(row) for row in ordered))
-
-
 def _owner_options(view, placeholder=True):
     options = (
         ['<option value="">%s</option>' % _t(_PAIR_OWNER_CHOOSE)] if placeholder else [])
     for value, label in view.owners:
-        selected = " selected" if value == view.owner_selected else ""
-        options.append(
-            '<option value="%s"%s>%s</option>' % (_esc(value), selected, _esc(label)))
+        options.append('<option value="%s">%s</option>' % (_esc(value), _esc(label)))
     return "".join(options)
-
-
-def _field_error(dialog_id, field, message):
-    """(attributes for the control, the error paragraph) of one field."""
-    if not message:
-        return "", ""
-    return (
-        ' aria-invalid="true" aria-describedby="%s"' % _esc(ui_modal.error_id(dialog_id, field)),
-        ui_modal.field_error_html(dialog_id, field, message))
-
-
-def _add_dialog(view):
-    code_attrs, code_error = _field_error(ADD_DIALOG_ID, "code", view.code_error)
-    owner_attrs, owner_error = _field_error(ADD_DIALOG_ID, "owner", view.owner_error)
-    none_waiting = (
-        "" if view.has_pending
-        else '<p class="text-label">%s</p>' % _t(_PAIR_NONE_WAITING))
-    body = (
-        '%s<p class="text-body">%s</p>'
-        '<div class="modal__field"><label for="pair-code">%s</label>'
-        '<input type="text" id="pair-code" name="%s" class="mono" '
-        'autocomplete="off" autocapitalize="characters" spellcheck="false" '
-        'inputmode="text" maxlength="12" placeholder="XXXX-XXXX" value="%s"%s>%s'
-        '<p class="text-label">%s</p></div>'
-        '<div class="modal__field"><label for="pair-owner">%s</label>'
-        '<select id="pair-owner" name="%s"%s>%s</select>%s</div>%s' % (
-            view.claim_toast_html, _t(_PAIR_PURPOSE), _t(_PAIR_CODE_LABEL),
-            CODE_FIELD, _esc(view.code_value), code_attrs, code_error,
-            _t(_PAIR_CODE_HELP), _t(_PAIR_OWNER_LABEL), OWNER_FIELD, owner_attrs,
-            _owner_options(view), owner_error, none_waiting))
-    return ui_modal.dialog_html(
-        ADD_DIALOG_ID, i18n.t(_ADD_TITLE), _routes().FLEET_PAIR_ROUTE,
-        _ui().csrf_field(), body, i18n.t(_PAIR_SUBMIT), i18n.t(_BACK_TO_FLEET),
-        _routes().FLEET_ROUTE, open_=view.open_add_dialog)
 
 
 def _frame_dialog(
         row, dialog_id, suffix, title, sentence, body_extra, submit, dismiss,
-        with_hardware=True, **flags):
+        with_hardware=True, sentence_class="text-body", **flags):
     return ui_modal.dialog_html(
         dialog_id, title % _display_name(row),
         _routes().FRAME_ACTION_PREFIX + row.frame_id + suffix, _ui().csrf_field(),
-        '<p class="text-body">%s</p>%s' % (_esc(sentence), body_extra),
+        '<p class="%s">%s</p>%s' % (sentence_class, _esc(sentence), body_extra),
         i18n.t(submit), i18n.t(dismiss),
         _routes().FLEET_ROUTE if row.kind != KIND_LIVE else "%s?frame=%s&tab=access" % (
             _routes().FLEET_ROUTE, row.frame_id),
@@ -384,13 +264,32 @@ def reassign_dialog_html(row, view):
     field_id = _slug("fleet-reassign", row.frame_id) + "-owner"
     field = (
         '<div class="modal__field"><label for="%s">%s</label>'
-        '<select id="%s" name="%s" required%s>%s</select></div>' % (
+        '<select id="%s" name="%s" required data-gate-select%s>%s</select>'
+        '<p class="text-label" data-gate-hint hidden>%s</p></div>' % (
             field_id, _t(_NEW_OWNER), field_id, OWNER_FIELD,
-            validation_attrs("select"), _owner_options(view._replace(owner_selected=""))))
-    return _frame_dialog(
-        row, _slug("dlg-reassign", row.frame_id), _routes().FRAME_REASSIGN_SUFFIX,
-        i18n.t(_TITLE_REASSIGN), sentence, field, _ACTION_REASSIGN, _CANCEL,
-        with_hardware=False, secondary_dismiss=True, destructive=not row.is_live_frame)
+            validation_attrs("select"), _owner_options(view),
+            _t(_REASSIGN_CHOOSE_HINT)))
+    # What the change does, in two lines: a tick when nothing is lost, a
+    # warning mark when something is.
+    checks = (
+        '<ul class="modal__effects">%s%s</ul>' % (
+            _check_item(sentence, ok=row.is_live_frame),
+            _check_item(i18n.t(_REASSIGN_CO_MANAGERS), ok=False)))
+    return ui_modal.dialog_html(
+        _slug("dlg-reassign", row.frame_id),
+        i18n.t(_TITLE_REASSIGN) % _display_name(row),
+        _routes().FRAME_ACTION_PREFIX + row.frame_id + _routes().FRAME_REASSIGN_SUFFIX,
+        _ui().csrf_field(), field + checks, i18n.t(_ACTION_REASSIGN), i18n.t(_CANCEL),
+        _routes().FLEET_ROUTE if row.kind != KIND_LIVE else "%s?frame=%s&tab=access" % (
+            _routes().FLEET_ROUTE, row.frame_id),
+        secondary_dismiss=True, destructive=not row.is_live_frame,
+        submit_attrs=" data-needs-choice")
+
+
+def _check_item(text, ok):
+    icon = icon_html("icon-check" if ok else "icon-warning", size=20)
+    return '<li class="modal__effect modal__effect--%s">%s<span>%s</span></li>' % (
+        "ok" if ok else "warn", icon, _esc(text))
 
 
 def retire_row_html(row):
@@ -414,7 +313,7 @@ def _row_dialogs(row):
             row, _slug("dlg-reactivate", row.frame_id),
             _routes().FRAME_REACTIVATE_SUFFIX, i18n.t(_TITLE_REACTIVATE),
             i18n.t(_REACTIVATE_SENTENCE), "", _CONFIRM_REACTIVATE, _KEEP_RETIRED,
-            destructive=True, confirm_only=True)
+            destructive=True, confirm_only=True, sentence_class="text-body modal__question")
     if row.kind != KIND_LIVE or row.is_live_frame:
         return ""
     return _frame_dialog(
@@ -443,11 +342,23 @@ def unnamed_text():
 def render(view):
     """The Fleet page's frame-independent part: the empty state of a fleet
     without frames and every dialog the page opens (the retire and
-    re-activate confirmations and the pairing dialog)."""
+    re-activate confirmations)."""
     empty = "" if view.rows else _ui().empty_state(
         i18n.t(_EMPTY_HEADING), i18n.t(_EMPTY_BODY), compact=True)
     section = (
         '<section class="page-section" aria-label="%s">%s</section>' % (
             _t(_FRAMES_TEXT), empty) if empty else "")
-    dialogs = _add_dialog(view) + "".join(_row_dialogs(row) for row in view.rows)
+    dialogs = "".join(_row_dialogs(row) for row in view.rows)
     return _register_errors_html(view) + section + dialogs
+
+
+# The names the list of frames (fleet_frames_list) shares.
+ACTION_PERSONAL_VIEW = _ACTION_PERSONAL_VIEW
+OPEN_PERSONAL_ARIA = _OPEN_PERSONAL_ARIA
+ACTION_REACTIVATE = _ACTION_REACTIVATE
+PAIR_SUBMIT = _PAIR_SUBMIT
+WAITING_FOR_PAIRING = _WAITING_FOR_PAIRING
+ADD_TITLE = _ADD_TITLE
+slug = _slug
+display_name = _display_name
+owner_line = _owner_line
