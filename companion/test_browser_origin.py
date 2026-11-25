@@ -100,7 +100,7 @@ def test_cross_origin_form_post_is_rejected_and_device_config_unchanged(app_serv
 
 def test_same_origin_quick_switch_and_settings_save_still_work(app_server, page, new_context):
     _login(page, app_server.base_url())
-    page.goto(app_server.base_url() + "/fleet")
+    page.goto(app_server.base_url() + "/fleet?frame=live")
 
     # No page renders a quick-switch control any more, but the endpoint stays routed and must
     # keep accepting the same-origin fetch shape companion/static/quick-switch.js sends
@@ -144,7 +144,7 @@ def test_same_origin_quick_switch_and_settings_save_still_work(app_server, page,
     # it uses its own scripts-blocked context via the guarded `new_context` factory from
     # companion/conftest.py.
     result = _persist_without_js(
-        new_context, app_server.base_url(), "/fleet",
+        new_context, app_server.base_url(), "/fleet?frame=live",
         "wake_interval_min", "10",
         lambda: (device_config.load_device_config(app_server.state_dir)["wake_interval_s"] or 0) // 60,
         restore=False, shows_back=False)

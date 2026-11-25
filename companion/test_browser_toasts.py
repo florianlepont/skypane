@@ -323,7 +323,7 @@ def test_quick_switch_failure_is_a_sticky_error_toast(new_context, make_app_serv
     context, page = _open(new_context, server, clock=True)
     try:
         page.route("**/quick/led", lambda route: route.abort())
-        _goto(page, server, "/fleet")
+        _goto(page, server, "/fleet?frame=live")
         page.click('[data-quick-region] button[role="switch"]')
         page.locator(LIVE_TOAST).wait_for(state="visible")
         assert "toast--error" in page.get_attribute(LIVE_TOAST, "class")

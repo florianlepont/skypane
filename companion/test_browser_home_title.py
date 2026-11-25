@@ -186,7 +186,7 @@ def test_an_administrator_from_fleet_ends_on_fleet(new_context, rename_app):
     context = new_context(viewport=VIEWPORT_DESKTOP)
     page = context.new_page()
     _login(page, rename_app.server.base_url())
-    page.goto(rename_app.server.base_url() + "/fleet")
+    page.goto(rename_app.server.base_url() + "/fleet?frame=%s" % rename_app.fleet.live.id)
     page.wait_for_function(_SETTLED)
     field = RENAME_DIALOG + " input[name=name]"
     page.locator(".fleet-head a.fleet-icon-button[title=\"Rename\"]").click()

@@ -61,13 +61,37 @@ def test_no_frame_chosen_shows_the_list_of_every_frame(fleet):
     # The System view is not a row of the list: it has its own navigation entry.
     assert "/fleet?view=system" not in hrefs
     assert 'data-fleet-mode="list"' in page
-    # A phone's title is the list's h1; a wide screen's h1 is the first frame's name.
+    # A phone's title is the list's h1; a wide screen's h1 is the neutral pane's heading.
     assert re.search(r'<h1 class="fleet-list__heading fleet-list__heading--narrow">Frames</h1>', page)
-    assert re.search(r'<h1 class="fleet-head__title">', _main(page))
+    assert re.search(r'<h2 class="fleet-list__heading fleet-list__heading--wide">Frames</h2>', page)
+    assert page.count("<h1") == 2
+    main = _main(page)
+    assert "Select a frame" in main and "fleet-head" not in main and "fleet-block" not in main
     assert not [1 for _h, current in _tiles(page) if current]
     assert 'href="/pair-frame"' in _list(page)
     groups = re.findall(r'class="section-label" id="fleet-list-[a-z]+">([^<]*)<', page)
     assert groups == ["Live \u00b7 2", "Waiting to be paired \u00b7 1", "Retired \u00b7 1"]
+
+
+def test_no_frame_chosen_shows_a_neutral_pane_with_no_frame_data(fleet):
+    server, seed, cookie = fleet
+    _status, _headers, page = fx.get(server, cookie, "/fleet")
+    main = _main(page)
+    assert '<h1 class="fleet-empty__title">Select a frame</h1>' in main
+    assert "Choose a frame in the list to see its status and settings." in main
+    assert 'href="#icon-device"' in main
+    for frame_id in (seed.owned_id, seed.live_id):
+        assert frame_id not in main
+    assert 'class="fleet-frame' not in main and "<form" not in main
+    assert "is-selected" not in page and 'aria-current="page"' not in _list(page)
+
+
+def test_the_neutral_pane_is_in_french(fleet):
+    server, _seed, cookie = fleet
+    _status, _headers, page = fx.get(
+        server, cookie + "; %s=fr" % auth.UI_LANG_COOKIE_NAME, "/fleet")
+    assert "Sélectionnez un cadre" in _main(page)
+    assert "Choisissez un cadre dans la liste" in _main(page)
 
 
 def test_a_tile_selects_its_frame_and_outlines_it(fleet):
@@ -143,13 +167,13 @@ def test_the_selected_frame_shows_its_four_blocks_in_order(fleet):
     assert 'action="/devices/%s%s"' % (seed.owned_id, co_managers_card.ADD_ROUTE) in page
 
 
-def test_an_unknown_frame_value_shows_the_list_and_the_first_frame(fleet):
+def test_an_unknown_frame_value_shows_the_list_and_the_neutral_pane(fleet):
     server, _seed, cookie = fleet
     status, _headers, page = fx.get(server, cookie, "/fleet?frame=nope%22%3E")
     assert status == 200
     assert "nope" not in page
     assert 'data-fleet-mode="list"' in page
-    assert _blocks(page)[:1] == ["State"]
+    assert _blocks(page) == [] and "Select a frame" in _main(page)
 
 
 def test_the_system_view_shows_the_platform_wide_blocks(fleet):

@@ -259,14 +259,14 @@ def test_wake_interval_env_prefill_and_on_disk_precedence(make_app_server):
     cookie = login(server)
     base = server.base_url()
 
-    status, _headers, body = http_request(base + "/fleet", cookie=cookie)
+    status, _headers, body = http_request(base + "/fleet?frame=live", cookie=cookie)
     assert status == 200, "expected 200 for the env-only pre-fill case, got %d" % status
     assert re.search(rb'name="wake_interval_s"[^>]*value="900"', body), (
         "expected the Wake interval input to carry value=\"900\" pre-filled from "
         "SKYPANE_SLEEP_S=900 with nothing stored")
 
     device_config.save_device_config(server.state_dir, wake_interval_s=120)
-    status, _headers, body = http_request(base + "/fleet", cookie=cookie)
+    status, _headers, body = http_request(base + "/fleet?frame=live", cookie=cookie)
     assert status == 200, "expected 200 after storing wake_interval_s=120, got %d" % status
     assert re.search(rb'name="wake_interval_s"[^>]*value="120"', body), (
         "expected the stored wake_interval_s=120 to win over the SKYPANE_SLEEP_S=900 "
@@ -281,7 +281,7 @@ def test_wake_interval_below_floor_env_degrades_to_placeholder(make_app_server):
     the form could not submit"""
     server = make_app_server(fake_providers=True, env_overrides={app_module.SLEEP_ENV_VAR: "30"})
     cookie = login(server)
-    status, _headers, body = http_request(server.base_url() + "/fleet", cookie=cookie)
+    status, _headers, body = http_request(server.base_url() + "/fleet?frame=live", cookie=cookie)
     assert status == 200, "expected 200, got %d" % status
     assert b'name="wake_interval_min"' in body, "expected the Wake interval input to still be present"
     assert not re.search(rb'name="wake_interval_min"[^>]*\bvalue="', body), (

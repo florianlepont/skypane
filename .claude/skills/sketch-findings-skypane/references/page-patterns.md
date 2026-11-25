@@ -161,11 +161,13 @@ frame). Console label "Airline editor", bar label "Editor".
 
 ## Fleet (administrator: `console_fleet_view.py`, `fleet_page.py`, `pages/fleet_*.py`, `style-admin.css`)
 
-- **List** (`/fleet`): the page opens on the list of frames, never on the first frame. A list
+- **List** (`/fleet`): the page opens on the list of frames, never on the first frame; from 1200px the pane beside
+  the list is a neutral "Select a frame" state (icon, short heading, one muted line, no frame data, no
+  selected row) until a row is chosen, and the list's title is the only `h1`. A list
   panel with the title, "Add a frame", a search field from 8 frames, groups Live / Waiting to be
   paired / Retired with counts, and a System row; each row is one link (status dot, name, state and
   owner, last seen, chevron; the selected row is `aria-current` and is scrolled into view in its
-  own column). From 960px the list is a left column beside the frame; on a phone a bounded chip
+  own column). From 1200px the list is a left column beside the frame; on a phone a bounded chip
   switch ("All frames (N)", the frame in view first, at most 8 live frames) replaces it. A pending
   or retired frame is reachable only from the list and has its own page (see below); an unknown
   `?frame=` shows the list with a not-found note. Scales to 30 frames.

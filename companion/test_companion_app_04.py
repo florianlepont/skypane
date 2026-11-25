@@ -49,6 +49,7 @@ ENTRANCE_SELECTORS = (".reveal-appended", ".reveal-replay",
     ".dashboard-main[data-page-open] .personalisation > .personalisation-nav",
     ".dashboard-main[data-page-open] .fleet-frame > .fleet-head",
     ".dashboard-main[data-page-open] .fleet-split__main > .fleet-head",
+    ".dashboard-main[data-page-open] .fleet-split__main > .fleet-empty",
     ".dashboard-main[data-page-open] .fleet-frame > .fleet-anchors",
     ".dashboard-main[data-page-open] .fleet-tiles--system")
 # A table or an empty state straight on the sky opens like a card, in its place in the order.
@@ -899,7 +900,7 @@ def test_display_page_and_fleet_settings_split_the_groups(app04_server, session_
     base = app04_server.base_url()
     _s, _h, display_body = http_request(base + "/display", cookie=session_cookie)
     _s, _h, special_body = http_request(base + "/display/special-looks/new", cookie=session_cookie)
-    _s, _h, device_body = http_request(base + "/fleet", cookie=session_cookie)
+    _s, _h, device_body = http_request(base + "/fleet?frame=live", cookie=session_cookie)
     display_text = display_body.decode("utf-8", errors="replace")
     special_text = special_body.decode("utf-8", errors="replace")
     device_text = device_body.decode("utf-8", errors="replace")

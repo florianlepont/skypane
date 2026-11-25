@@ -1279,7 +1279,7 @@ _NO_JS_CONTROL_REGISTRY = (
         "field": "wake_interval_min",
         "form": config_page.SETTINGS_FORM_ID,
         "form_assoc": "enclosing",
-        "page_route": "/fleet",
+        "page_route": "/fleet?frame=live",
         "render": lambda: config_page.wake_interval_group(600),
     },
     {
@@ -1396,7 +1396,7 @@ def test_no_js_control_contract_holds_for_every_registered_control(make_app_serv
             "control": "fixture", "plan": "25-01-PLAN.md Task 4",
             "wrapper_attr": gate_attr, "field": field,
             "form": config_page.SETTINGS_FORM_ID, "form_assoc": "enclosing",
-            "page_route": "/fleet", "render": render,
+            "page_route": "/fleet?frame=live", "render": render,
         }
 
     good = fixture(lambda: real_group + wrapper_ok)

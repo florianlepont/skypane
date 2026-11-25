@@ -199,8 +199,10 @@ def test_health_markup_builds_only_on_the_fleet_page(app_server_in_process, monk
     for route in NAV_ROUTES:
         signals_calls.clear()
         state_calls.clear()
-        status, _headers, _body = http_request(server.url(route), cookie=session)
-        assert status == 200, "expected 200 from GET %s, got %d" % (route, status)
+        # A frame is chosen: the bare /fleet landing is the neutral pane and builds only the shell context.
+        url = "/fleet?frame=live" if route == "/fleet" else route
+        status, _headers, _body = http_request(server.url(url), cookie=session)
+        assert status == 200, "expected 200 from GET %s, got %d" % (url, status)
         # The Fleet page builds two contexts: the shell's (nav dot) and the selected frame's.
         expected_signals_calls = 2 if route == "/fleet" else 1
         assert len(signals_calls) == expected_signals_calls, (
