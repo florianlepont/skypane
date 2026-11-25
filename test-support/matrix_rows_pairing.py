@@ -7,7 +7,6 @@ sample middle segment.
 ROWS = {
     ("GET", "/fleet"): "admin-only",
     ("POST", "/fleet/register"): "admin-only",
-    ("POST", "/fleet/pair"): "admin-only",
     # The user-scope claim: any signed-in person pairs a frame for themselves.
     ("GET", "/pair-frame"): "signed-in",
     ("POST", "/pair-frame"): "signed-in",

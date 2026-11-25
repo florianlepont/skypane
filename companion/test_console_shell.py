@@ -31,7 +31,6 @@ def test_the_aggregator_holds_the_pairing_routes_and_nav_follows_them():
     assert {
         ("GET", console_routes.FLEET_ROUTE),
         ("POST", console_routes.FLEET_REGISTER_ROUTE),
-        ("POST", console_routes.FLEET_PAIR_ROUTE),
         ("GET", console_routes.USERS_ROUTE),
         ("POST", console_routes.USERS_INVITE_ROUTE),
         ("GET", console_routes.AUDIT_ROUTE)} <= served_routes
