@@ -15,7 +15,7 @@ bar. The earlier hamburger design lives only in `sources/002-mobile-hamburger-na
 
 The personal pages are one table (`_PERSONAL_PAGES` in `ui_nav.py`) read by both the sidebar
 and the bar, so the two can never disagree: **Home, Flights, Airlines, Style, Location**, then
-Account. The Console pages are likewise one list: **Fleet, Users, Editor, Audit, System**, then
+Account. The Console pages are likewise one list: **Fleet, Users, Editor, Activity, System**, then
 Account. A test pins that the bar labels equal the sidebar labels in the same order, in both
 languages, for an administrator and an owner.
 
@@ -76,7 +76,7 @@ owner device check. Tests: `test_browser_more_sheet.py`, `test_browser_more_scri
 A floating glass panel (16px margin, `view-transition-name: skypane-sidebar`), full names, 44px
 links, current item a solid graphite (ivory in Dark) pill.
 - Personal: Home, Flights, Airlines, Style, Location, then an Account group.
-- Console: eyebrow "Administration" over Fleet, Users, Editor, Audit log, System; then Account.
+- Console: eyebrow "Admin" over Fleet, Users, Editor, Activity, System; then Account.
 - Administrators also get the space switch (`space_switch_html`) above the sidebar navigation as
   its own landmark: a two-segment control reading **My frames | Console** in that order, the
   current segment marked with a check and `aria-current`.
@@ -111,7 +111,7 @@ shorter bar word except the two Console ones noted).
 | Console: Fleet | Fleet / Flotte | same |
 | Console: Users | Users / Utilisateurs | Users / Équipe |
 | Console: Airline editor | Airline editor / Éditeur de compagnies | Editor / Éditeur |
-| Console: Audit | Audit log / Journal d’audit | (More) |
+| Console: Audit | Activity / Activité | (More) |
 | Console: System | System / Système | same |
 | Space switch and the Console's way back | My frames / Mes cadres | |
 

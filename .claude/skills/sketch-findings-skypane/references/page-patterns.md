@@ -172,7 +172,7 @@ frame). Console label "Airline editor", bar label "Editor".
 
 - **List** (`/fleet`): the page opens on the list of frames, never on the first frame; from 1200px the pane beside
   the list is a neutral "Select a frame" state (icon, short heading, one muted line, no frame data, no
-  selected row) until a row is chosen, and the list's title is the only `h1`. A list
+  selected row) until a row is chosen, and the list's title is the only `h1`. One name per page: the list's title reads Fleet / Flotte, the same as the navigation entry and the page title. A list
   panel with the title, "Add a frame", a search field from 8 frames, groups Live / Waiting to be
   paired / Retired with counts, and a System row; each row is one link (status dot, name, state and
   owner, last seen, chevron; the name and the detail line are one line each and end in an ellipsis
@@ -183,17 +183,17 @@ frame). Console label "Airline editor", bar label "Editor".
   `?frame=` shows the list with a not-found note. Scales to 30 frames.
 - **Frame page** (`/fleet?frame=<id>`): a header with the `h1` name, the state line and two 44px
   icon buttons (personal view, Rename); then a State section of **three tiles** (a two-column grid:
-  Connection and Battery side by side, the wide Firmware tile spanning both columns under them, its text and
+  Last contact and Battery side by side, the wide Software tile spanning both columns under them, its text and
   chevron side by side once the tile is 440px wide) and the
   Settings and Access sections stacked in one column of equal cards (on a phone, three sticky
   anchors State / Settings / Access, 44px, mark the section in view on a solid bar whose gap above (safe area and app-bar drop) is painted too; from 960px the anchors are
   hidden):
-  - **Connection** tile: a verdict and two lines, "Last check-in <age>" and "Next wake <clock>"; a
+  - **Last contact** tile (Dernier contact): a verdict and two lines, "Last check-in <age>" and "Next wake <clock>"; a
     plain block, not a link, no Details mark. A frame that never checked in says so once and still
     has its tiles.
   - **Battery** tile: percentage and millivolts, a verdict and a sparkline of the 90-day series;
     links to the Battery page. A low level turns the tile to a warning in words.
-  - **Firmware** tile: the running version in mono and the update headline; links to Versions.
+  - **Software** tile (Logiciel): the running version in mono and the update headline; links to Versions.
   The tiles' state is spelled out, never colour alone.
 - **Battery page** (`?frame=<id>&view=battery`, administrators only): a Back link to the frame and
   the one `h1` "Battery". The card has a 270 degree gauge with the percentage as the hero and a tick
