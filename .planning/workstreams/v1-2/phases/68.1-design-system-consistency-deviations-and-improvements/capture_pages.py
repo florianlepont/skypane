@@ -11,19 +11,33 @@ When neither can launch a browser every cell is written as "CI needed".
 
 Output (JSON matrix and PNG screenshots) goes to --out, never to the repo.
 Usage: python3 -I capture_pages.py --out DIR [--repo ROOT] [--only NAME,...]
+
+Remote mode (--remote https://host --cookie-file PATH) captures a deployed
+companion read-only with the owner's own session instead: GET requests only,
+the cookie is read from a private file, handed to the browser driver through
+the environment and never printed, logged or written to --out.
 """
 import argparse
 import json
 import os
 import shutil
+import re
+import stat
 import subprocess
 import sys
 import tempfile
+import urllib.error
+import urllib.parse
+import urllib.request
+from html.parser import HTMLParser
 
 LANGS = ("en", "fr")
 THEMES = ("light", "dark")
 WIDTHS = {"360": (360, 800), "1280": (1280, 900)}
 SHOT_CELLS = {("360", "light", "en"), ("360", "dark", "fr")}
+SESSION_COOKIE_NAME = "sp_session"
+COOKIE_ENV = "SP_CAPTURE_COOKIE"
+FETCH_TIMEOUT = 15
 NODE_PATH = "/opt/node22/lib/node_modules"
 CHROME_CANDIDATES = ("/usr/bin/google-chrome", "/usr/bin/chromium")
 
@@ -164,6 +178,8 @@ NODE_DRIVER = r"""
 const {chromium} = require('playwright');
 const fs = require('fs');
 const cfg = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+const SECRET = process.env.SP_CAPTURE_COOKIE || '';
+const scrub = (t) => (SECRET ? String(t).split(SECRET).join('***') : String(t));
 const MEASURE = eval('(' + cfg.measure + ')');
 const DIALOGS = eval('(' + cfg.dialogs + ')');
 (async () => {
@@ -179,7 +195,14 @@ const DIALOGS = eval('(' + cfg.dialogs + ')');
           {name: 'sp_ui_lang', value: lang, url: job.base},
           {name: 'sp_ui_theme', value: theme, url: job.base}];
         if (job.cookie) { const [n, v] = job.cookie.split('='); cookies.push({name: n, value: v, url: job.base, httpOnly: true}); }
+        else if (job.envCookie && SECRET) cookies.push({name: job.envCookie, value: SECRET, url: job.base, httpOnly: true});
         await ctx.addCookies(cookies);
+        if (cfg.getOnly) {
+          cell.blockedNonGet = 0;
+          await ctx.route('**/*', (route) => {
+            if (route.request().method() === 'GET') return route.continue();
+            cell.blockedNonGet += 1; return route.abort(); });
+        }
         const page = await ctx.newPage();
         const resp = await page.goto(job.base + job.path, {waitUntil: 'load', timeout: 20000});
         cell.status = resp ? resp.status() : null; cell.finalUrl = page.url().replace(job.base, '');
@@ -197,7 +220,7 @@ const DIALOGS = eval('(' + cfg.dialogs + ')');
         if (cfg.shots.includes(key)) {
           const f = job.name + '__' + w + '-' + theme + '-' + lang + '.png';
           await page.screenshot({path: cfg.outdir + '/' + f, fullPage: true}); cell.shot = f; }
-      } catch (e) { cell.error = String(e).slice(0, 300); }
+      } catch (e) { cell.error = scrub(e).slice(0, 300); }
       await ctx.close(); out.push(cell);
     }
   }
@@ -250,11 +273,12 @@ def build_jobs(only, servers):
     return jobs
 
 
-def run_driver(jobs, outdir, result_name, chrome):
+def run_driver(jobs, outdir, result_name, chrome, cookie_secret=None):
     cfg = {
         "jobs": jobs, "langs": LANGS, "themes": THEMES, "widths": WIDTHS,
         "shots": ["/".join((w, t, lang)) for (w, t, lang) in SHOT_CELLS],
-        "outdir": outdir, "result": result_name, "chrome": chrome, "measure": MEASURE_JS, "dialogs": DIALOGS_JS}
+        "outdir": outdir, "result": result_name, "chrome": chrome, "measure": MEASURE_JS, "dialogs": DIALOGS_JS,
+        "getOnly": cookie_secret is not None}
     cfg["shots"] = ["%s/%s/%s" % cell for cell in SHOT_CELLS]
     cfg_path = os.path.join(outdir, "driver-config-" + result_name)
     driver_path = os.path.join(outdir, "driver.js")
@@ -266,9 +290,179 @@ def run_driver(jobs, outdir, result_name, chrome):
     for key in ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"):
         env.pop(key, None)
     env["NO_PROXY"] = "127.0.0.1"
+    if cookie_secret is not None:
+        for key in ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"):
+            if key in os.environ:
+                env[key] = os.environ[key]
+        env.pop("NO_PROXY", None)
+        env[COOKIE_ENV] = cookie_secret
     proc = subprocess.run(
         ["node", driver_path, cfg_path], env=env, capture_output=True, text=True, timeout=1500)
+    if cookie_secret is not None:
+        proc.stdout = scrub(proc.stdout, cookie_secret)
+        proc.stderr = scrub(proc.stderr, cookie_secret)
     return proc
+
+
+def scrub(text, secret):
+    """Remove every occurrence of the secret from text."""
+    return text.replace(secret, "***") if secret else text
+
+
+class FrameLinks(HTMLParser):
+    """Collects (href, visible text) of every anchor."""
+
+    def __init__(self):
+        super().__init__()
+        self.links = []
+        self._href = None
+        self._text = []
+
+    def handle_starttag(self, tag, attrs):
+        if tag == "a":
+            self._href = dict(attrs).get("href") or ""
+            self._text = []
+
+    def handle_data(self, data):
+        if self._href is not None:
+            self._text.append(data)
+
+    def handle_endtag(self, tag):
+        if tag == "a" and self._href is not None:
+            self.links.append((self._href, " ".join("".join(self._text).split())))
+            self._href = None
+
+
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    """Never follow redirects, so the cookie cannot leave the given origin."""
+
+    def redirect_request(self, *args, **kwargs):
+        return None
+
+
+def read_cookie_file(path):
+    """Return the session token from a private file; never echo its content."""
+    try:
+        info = os.stat(path)
+    except OSError as exc:
+        raise SystemExit("cookie file not readable: %s" % exc.strerror)
+    if not stat.S_ISREG(info.st_mode):
+        raise SystemExit("cookie file is not a regular file")
+    if info.st_mode & 0o077:
+        raise SystemExit("cookie file is readable by group or others; run chmod 600 on it")
+    with open(path, encoding="utf-8") as fh:
+        token = fh.read().strip()
+    prefix = SESSION_COOKIE_NAME + "="
+    if token.startswith(prefix):
+        token = token[len(prefix):]
+    if not token or re.search(r"[\s;,\"]", token):
+        raise SystemExit("cookie file must hold one bare token or sp_session=<token>")
+    return token
+
+
+def parse_remote(url):
+    """Return scheme://host[:port] for an https URL, else exit with a message."""
+    parts = urllib.parse.urlsplit(url)
+    if parts.scheme != "https" or not parts.hostname or parts.username or parts.password:
+        raise SystemExit("--remote must be an https URL without credentials")
+    if parts.path not in ("", "/") or parts.query or parts.fragment:
+        raise SystemExit("--remote must be the site root, for example https://host")
+    return "https://" + parts.netloc
+
+
+def get_page(base, path, token):
+    """GET one page with the cookie; return (status, body). Never raises on HTTP status."""
+    req = urllib.request.Request(base + path, method="GET", headers={
+        "Cookie": "%s=%s" % (SESSION_COOKIE_NAME, token), "User-Agent": "skypane-capture/1"})
+    opener = urllib.request.build_opener(NoRedirect)
+    try:
+        with opener.open(req, timeout=FETCH_TIMEOUT) as resp:
+            return resp.status, resp.read(2_000_000).decode("utf-8", "replace")
+    except urllib.error.HTTPError as exc:
+        return exc.code, ""
+    except (urllib.error.URLError, OSError, ValueError) as exc:
+        reason = getattr(exc, "reason", exc)
+        raise SystemExit("could not reach %s: %s" % (base, type(reason).__name__))
+
+
+def discover_frames(base, token):
+    """Best-effort frame ids for {live},{a1},{retired},{pending} from /fleet and /."""
+    ids, retired, pending = [], [], []
+    for path in ("/fleet", "/"):
+        status, body = get_page(base, path, token)
+        if status != 200:
+            continue
+        parser = FrameLinks()
+        parser.feed(body)
+        for href, text in parser.links:
+            match = (re.search(r"[?&]frame=([^&#]+)", href)
+                     or re.search(r"/devices/([^/?#]+)/", href))
+            if not match:
+                continue
+            frame = urllib.parse.unquote(match.group(1))
+            low = text.lower()
+            if re.search(r"retired|retir", low):
+                retired.append(frame)
+            elif re.search(r"pending|en attente|unpaired", low):
+                pending.append(frame)
+            elif frame not in ids:
+                ids.append(frame)
+    found = {}
+    if ids:
+        found["live"] = found["a1"] = ids[0]
+    if retired:
+        found["retired"] = retired[0]
+    if pending:
+        found["pending"] = pending[0]
+    return found
+
+
+def build_remote_jobs(only, base, found):
+    """Return (jobs, skipped cells, unresolved placeholders) for remote mode."""
+    jobs, skipped, unresolved = [], [], set()
+    for name, role, path, group in PAGES:
+        if only and name not in only:
+            continue
+        needed = set(re.findall(r"{(\w+)}", path))
+        missing = sorted(needed - set(found))
+        if missing:
+            unresolved.update(missing)
+            skipped += [
+                {"page": name, "lang": lang, "theme": theme, "width": width,
+                 "status": "skipped: no frame id", "missing": missing}
+                for lang in LANGS for theme in THEMES for width in WIDTHS]
+            continue
+        jobs.append({
+            "name": name, "group": group, "role": role, "base": base,
+            "path": path.format(**found), "cookie": None,
+            "envCookie": SESSION_COOKIE_NAME if role else None})
+    return jobs, skipped, sorted(unresolved)
+
+
+def run_remote(args, only):
+    base = parse_remote(args.remote)
+    token = read_cookie_file(args.cookie_file)
+    found = discover_frames(base, token)
+    jobs, skipped, unresolved = build_remote_jobs(only, base, found)
+    chrome = find_chrome()
+    if chrome is None:
+        raise SystemExit("no Chrome or Chromium found for the browser driver")
+    proc = run_driver(jobs, args.out, args.result, chrome, cookie_secret=token)
+    sys.stdout.write(proc.stdout)
+    path = os.path.join(args.out, args.result)
+    matrix = []
+    if proc.returncode == 0 and os.path.exists(path):
+        with open(path, encoding="utf-8") as fh:
+            matrix = json.load(fh)
+    else:
+        sys.stderr.write(proc.stderr[-2000:])
+        matrix = ci_needed_matrix(jobs, "browser driver failed: " + proc.stderr[-200:])
+    matrix += skipped
+    matrix.append({"meta": {"remote": base, "unresolved_placeholders": unresolved,
+                            "resolved_placeholders": sorted(found)}})
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write(scrub(json.dumps(matrix, indent=1), token))
+    return proc.returncode
 
 
 def ci_needed_matrix(jobs, reason):
@@ -283,9 +477,18 @@ def main():
     parser.add_argument("--out", required=True, help="scratch directory for JSON and PNG output")
     parser.add_argument("--repo", default=os.getcwd(), help="repository root to serve")
     parser.add_argument("--only", default="", help="comma-separated page names")
+    parser.add_argument("--remote", help="https URL of a deployed companion (read-only capture)")
+    parser.add_argument("--cookie-file", help="file holding the sp_session token (mode 600), remote mode only")
     parser.add_argument("--result", default="matrix.json", help="result file name inside --out")
     args = parser.parse_args()
     only = {n for n in args.only.split(",") if n}
+    if bool(args.remote) != bool(args.cookie_file):
+        parser.error("--remote and --cookie-file must be given together")
+    if args.remote:
+        parse_remote(args.remote)
+        read_cookie_file(args.cookie_file)
+        os.makedirs(args.out, exist_ok=True)
+        return run_remote(args, only)
     os.makedirs(args.out, exist_ok=True)
     workdir = tempfile.mkdtemp(prefix="capture-state-", dir=args.out)
     servers = {}
