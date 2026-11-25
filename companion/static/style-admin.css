@@ -2432,8 +2432,24 @@ dialog.access-sheet .modal__actions {
 .components-state__sample > .toast,
 .components-state__sample > .modal__field,
 .components-state__sample > .page-header,
+.components-state__sample > .page-section,
+.components-state__sample > .fleet-tiles,
 .components-state__sample > .entity-list {
   flex: 1 1 100%;
+}
+
+/* A page-level card sits in the sample without the card-to-card gap it keeps in
+ * a page: the sample's own gap separates the cards. */
+.components-state .page-section {
+  margin-bottom: 0;
+}
+
+/* A control placed straight in a row (the catalogue's switch, outside the form
+ * a page wraps it in) keeps its width and leaves the text column to shrink and
+ * wrap, as the form's margin does in a page. */
+.components-state .group > .row > .switch {
+  flex: none;
+  margin-right: var(--space-md);
 }
 
 .components-state__sample > form {
@@ -2472,8 +2488,21 @@ dialog.access-sheet .modal__actions {
   gap: var(--space-sm);
 }
 
+/* The page's bar is as wide as its main column from 960px; in the catalogue it
+ * takes the width of its sample, so the message keeps room beside the buttons. */
 .components-save-bar .dirty-bar {
   position: static;
+  width: auto;
+  margin: 0;
+}
+
+/* The docked bar's message wraps in the catalogue instead of ending in an
+ * ellipsis, so the whole text of the sample is on the page in French too. */
+.components-save-bar:not(.components-save-bar--inline) .dirty-bar__message {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 /* The buttons keep the width their labels need, in French too. */
