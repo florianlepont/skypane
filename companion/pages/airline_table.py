@@ -11,9 +11,9 @@ default type's, offers one upload entry, and its menu makes the type the
 airline's default picture or deletes the uploaded picture. Unidentified prefixes sit above as compact rows (`airline_rows`)
 named in a dialog. The table lists only airlines with artwork: one without
 (the application's own name for a prefix, or a name the owner typed or
-accepted) is a row of the "Known by name only" block above it, with the
-"..." menu of its row, and moves here once it has artwork. Below 70rem every
-row is a card.
+accepted) has no row here: it is listed in the section of missing
+illustrations below (`airline_missing`), whose header carries the "..." menu,
+and moves here once it has artwork. Below 70rem every row is a card.
 
 Every control posts to a route of the editor: the rename and reset routes,
 the illustration upload route, the manual-name delete route, the resolve
@@ -30,7 +30,7 @@ import companion.i18n as i18n
 import companion.illustration_normalize as illustration_normalize
 import companion.layout as layout
 from companion.layout import csrf_field, escape_html
-from companion.pages import airline_families, airline_known_rows, airline_rows, airline_sheet
+from companion.pages import airline_families, airline_missing, airline_rows, airline_sheet
 from server.plane import airline_default_types
 from server.plane import airline_suggest
 from server.plane import illustrations
@@ -106,7 +106,7 @@ def _page():
     return airlines_page
 
 
-def _views_text(count):
+def views_text(count):
     return i18n.t(VIEWS_ONE) if count == 1 else i18n.t(VIEWS_MANY) % count
 
 
@@ -138,7 +138,7 @@ def _upload_action(page, key, code):
         action, "&" if "?" in action else "?", page.DEFAULT_TYPE_QUERY_PARAM, escape_html(code))
 
 
-def _change_art_form(page, key, text=None, css="row-menu__item", code=""):
+def change_art_form(page, key, text=None, css="row-menu__item", code=""):
     """The "Change artwork" control: a label wrapping the file input of a
     form that posts to the illustration upload route. With a script it sends
     on change; without one the Upload button sends it."""
@@ -280,7 +280,7 @@ def _meta_html(row, prefixes):
     """The phone row's second line, `AFR · A320 · 37 views`: the prefixes, the
     default type and the views of the row's separate cells (which a phone
     hides, so nothing is read twice)."""
-    parts = (prefixes or NO_VALUE, row["default_type"] or NO_VALUE, _views_text(row["views"]))
+    parts = (prefixes or NO_VALUE, row["default_type"] or NO_VALUE, views_text(row["views"]))
     return '<span class="airlines-meta mono">%s</span>' % escape_html(
         SUB_ROW_TYPE_SEP.join(parts))
 
@@ -312,7 +312,7 @@ def _main_row_html(page, row):
     ) % (
         _expand_cell(row), _name_cell(row), _meta_html(row, prefixes),
         _hidden_label(i18n.t(COL_PREFIXES)), escape_html(prefixes or NO_VALUE),
-        _artwork_cell(row), escape_html(_views_text(row["views"])),
+        _artwork_cell(row), escape_html(views_text(row["views"])),
         _hidden_label(i18n.t(COL_LAST_SEEN)), row["last_seen_html"],
         _menu_cell(page, row))
 
@@ -334,26 +334,30 @@ def _sub_art_html(page, sub, row):
     return ""
 
 
-def _add_art_trigger(page, sub, row):
+def add_art_trigger(page, sub, row, inner=None, css="airlines-act", aria=None, chip=None,
+                    plain_css=None):
     """"Add artwork" of a type with no picture of its own: the button that opens
     the add-illustration dialog with the aircraft type fixed (its chip), the
     airline and the type as the subtitle and the upload address already naming
     the type. Without a script the plain upload form (`_change_art_form`) is
     the way to add it. A type whose designator cannot be named asks for the
-    type in the dialog instead."""
+    type in the dialog instead. `inner`, `css` and `aria` restyle the button
+    (the section of missing illustrations), `plain_css` the class of the
+    script-free label and `chip` the text of the fixed-type chip, the
+    designator by default."""
     code = sub["code_ok"]
     label = "%s · %s" % (row["name"], code) if code else row["name"]
-    text = '<span class="airlines-act__text">%s</span>' % escape_html(i18n.t(ACTION_ADD_ART))
-    fixed = '%s="%s" ' % (page.FIXED_TYPE_ATTR, escape_html(code)) if code else (
+    text = inner or '<span class="airlines-act__text">%s</span>' % escape_html(i18n.t(ACTION_ADD_ART))
+    fixed = '%s="%s" ' % (page.FIXED_TYPE_ATTR, escape_html(chip or code)) if code else (
         '%s="" ' % page.ASK_TYPE_ATTR)
     trigger = page._airline_card_zoom_html(
         label, page._VIEW_PANEL_MODE_NEEDS_ARTWORK, text, "",
         page._illustration_url(sub["slot"], "POST"), "", "", i18n.t(page.STEP_B_TITLE),
         _upload_action(page, sub["slot"], code), "", "", "", "", "",
-        aria_label="%s: %s" % (i18n.t(ACTION_ADD_ART), label), css_class="airlines-act",
+        aria_label=aria or "%s: %s" % (i18n.t(ACTION_ADD_ART), label), css_class=css,
         extra_attrs=fixed)
     return '<span class="js-gate airlines-act-gate">%s</span><span class="airlines-act-nojs">%s</span>' % (
-        trigger, _change_art_form(page, sub["slot"], i18n.t(ACTION_ADD_ART), "airlines-act", code))
+        trigger, change_art_form(page, sub["slot"], i18n.t(ACTION_ADD_ART), plain_css or css, code))
 
 
 def _sub_action_html(page, sub, row):
@@ -363,8 +367,8 @@ def _sub_action_html(page, sub, row):
     if sub["slot"] is None:
         return ""
     if not sub["has_own"]:
-        return _add_art_trigger(page, sub, row)
-    return _change_art_form(
+        return add_art_trigger(page, sub, row)
+    return change_art_form(
         page, sub["slot"], i18n.t(MENU_CHANGE_ART), "airlines-act", sub["code_ok"])
 
 
@@ -409,7 +413,7 @@ def _sub_row_html(page, sub, row):
         '<td class="airlines-cell airlines-cell--seen airlines-cell--act">%s</td>'
         '<td class="airlines-cell airlines-cell--menu">%s</td></tr>'
     ) % (_family_title(sub), escape_html(label), star, _sub_art_html(page, sub, row),
-         escape_html(_views_text(sub["views"])), _sub_action_html(page, sub, row),
+         escape_html(views_text(sub["views"])), _sub_action_html(page, sub, row),
          _sub_menu_html(page, sub, row))
 
 
@@ -441,7 +445,7 @@ def _sub_row(group, picture, slot, row):
             codes[0], codes[0]) if len(codes) == 1 and group["views"] else shown,
         "picture": picture, "slot": picture.key if picture is not None else slot,
         "has_own": picture is not None, "has_override": bool(path) and os.path.isfile(path),
-        "code_ok": code_ok,
+        "code_ok": code_ok, "codes": tuple(named),
         "is_default": any(illustrations.same_type(c, row["default_type"]) for c in named),
         "is_stored_default": any(illustrations.same_type(c, row["stored_default"]) for c in named),
         "slug": group["slug"]}
@@ -618,7 +622,7 @@ def suggest_row_html(page, index, gap_row, now, suggestion=None):
     prefix, count, _first_seen, last_seen, callsign = gap_row
     callsign = callsign if isinstance(callsign, str) else str(callsign)
     meta = '%s<span class="cell-inline-sep">·</span>%s<span class="cell-inline-sep">·</span>%s' % (
-        escape_html(callsign), escape_html(_views_text(count)),
+        escape_html(callsign), escape_html(views_text(count)),
         layout.concise_timestamp_html(last_seen, now, fallback=""))
     return airline_rows.gap_group_html(
         index, prefix, meta, "%s %s" % (callsign.lower(), prefix.lower()),
@@ -658,9 +662,25 @@ def show_types_link_html(data):
          escape_html(i18n.t(SHOW_TYPES_TEXT)))
 
 
+def _missing_entry(row, prefix, with_menu, page=None):
+    """The section's entry for one airline (`airline_missing.group_html`), or
+    `None` when it has nothing to do. An airline with no row in the table
+    carries its "..." menu and its dialog in its header, and the anchor of its
+    key."""
+    items = airline_missing.todo_items(row)
+    if not items:
+        return None
+    menu, dialog = _menu_parts(page, row) if with_menu else ("", "")
+    return {"row": row, "prefix": prefix, "items": items, "anchor": with_menu,
+            "menu": menu, "dialog": dialog}
+
+
 def table_and_chips(data):
-    """`(table markup, filter chips)` for `data`: unidentified rows first, then
-    one group per airline; the chips carry the count of each kind of row."""
+    """`(markup, filter chips)` for `data`: unidentified rows first, then one
+    group per airline with artwork, then the section of missing illustrations.
+    The chips carry the count of each kind of row: the section's is its number
+    of rows (one airline x aircraft family each), and "All" counts the
+    unidentified prefixes, the airlines of the table and those rows."""
     page = _page()
     budget = [None] * MAX_PENDING_ROWS
     gaps = "".join(
@@ -668,23 +688,23 @@ def table_and_chips(data):
                         suggestion_for(page, data.root_state_dir, gap_row[0], budget))
         for index, gap_row in enumerate(data.gap_rows))
     groups = []
-    known = [(name.casefold(), prefix, {"prefix": prefix, "name": name})
-             for prefix, name in data.known_rows]
+    missing = []
     counts = {airline_rows.KIND_UNIDENTIFIED: len(data.gap_rows)}
     for index, (builtin_name, shapes) in enumerate(data.pairs):
         row = _row_facts(page, data, index, builtin_name, shapes)
         if row is None:
             continue
-        if not row["has_art"]:
-            # An airline without artwork is listed by name, with the menu of its row.
-            menu, dialog = _menu_parts(page, row)
-            known.append((row["name"].casefold(), _row_prefixes(row), {
-                "prefix": _row_prefixes(row), "name": row["name"], "key": row["key"],
-                "filter_text": _filter_text(row), "menu_html": menu, "dialog_html": dialog}))
-            continue
-        groups.append(_airline_group_html(page, row, data.types_open))
-        counts[row["kinds"]] = counts.get(row["kinds"], 0) + 1
-    counts[airline_rows.KIND_KNOWN] = len(known)
+        if row["has_art"]:
+            groups.append(_airline_group_html(page, row, data.types_open))
+            counts[row["kinds"]] = counts.get(row["kinds"], 0) + 1
+        missing.append((_missing_entry(row, _row_prefixes(row), not row["has_art"], page)))
+    for offset, (prefix, name) in enumerate(data.known_rows):
+        row = _row_facts(page, data, len(data.pairs) + offset, name, [])
+        if row is not None:
+            missing.append(_missing_entry(row, prefix, False, page))
+    missing = sorted(
+        (entry for entry in missing if entry is not None),
+        key=lambda entry: (entry["row"]["name"].casefold(), entry["prefix"]))
     gap_table = (
         '<table class="airlines-table airlines-table--gaps"><caption class="airlines-label">%s</caption>%s</table>%s'
     ) % (escape_html("%s · %d" % (i18n.t(airline_rows.CHIP_UNIDENTIFIED), len(data.gap_rows))),
@@ -692,12 +712,10 @@ def table_and_chips(data):
     table = (
         '<table class="airlines-table"><caption class="airlines-label">%s</caption>%s%s</table>'
     ) % (escape_html("%s · %d" % (i18n.t(CAPTION_TEXT), len(groups))), _head_html(), "".join(groups))
-    slot = any(args.get("menu_html") for _name, _prefix, args in known)
-    known_table = airline_known_rows.table_html([
-        airline_known_rows.group_html(page, data.state_dir, slot=slot, **args)
-        for _name, _prefix, args in sorted(known, key=lambda item: item[:2])])
-    table = gap_table + known_table + table
-    return table, airline_rows.chips(counts, len(data.gap_rows) + len(known) + len(groups))
+    section, rows = airline_missing.section_html(page, data.state_dir, missing)
+    counts[airline_rows.KIND_MISSING] = rows
+    return gap_table + table + section, airline_rows.chips(
+        counts, len(data.gap_rows) + len(groups) + rows)
 
 
 def table_html(data):

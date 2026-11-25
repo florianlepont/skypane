@@ -1025,40 +1025,165 @@ dialog.modal .airlines-remove {
   }
 }
 
-/* An airline known by name only: its name over its prefix, and the button
- * that adds its first artwork, then the "..." menu of an airline the owner
- * can change. */
-.airlines-known {
+/* The section of missing illustrations: one list on a solid surface, a small
+ * header per airline (name, prefix, state, the "..." menu of an airline with no
+ * row in the table) and one row per aircraft family to illustrate. The list does
+ * not clip its children: the menu panel opens over the rows below. */
+.airlines-missing {
+  margin: calc(var(--space-lg) + var(--space-md)) 0 var(--space-md);
+}
+
+.airlines-missing__title {
+  margin: 0 0 var(--space-xs);
+}
+
+.airlines-missing__title + .section-caption {
+  margin: 0 0 var(--space-md);
+}
+
+.airlines-missing__list {
+  background: var(--glass-solid);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.airlines-missing__head[hidden],
+.airlines-missing__item[hidden] {
+  display: none;
+}
+
+.airlines-missing__head {
   display: flex;
+  align-items: center;
+  gap: var(--space-sm) var(--space-md);
+  min-width: 0;
+  flex-wrap: wrap;
+  min-height: 44px;
+  padding: var(--space-xs) var(--space-md);
+  background: color-mix(in srgb, var(--color-text) 5%, transparent);
+  border-top: 1px solid var(--color-border);
+}
+
+.airlines-missing__airline {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.airlines-missing__head:has(.row-menu) {
+  padding-block: 0;
+}
+
+.airlines-missing__airline:first-child > .airlines-missing__head {
+  border-top: 0;
+  border-radius: calc(var(--radius-card) - 1px) calc(var(--radius-card) - 1px) 0 0;
+}
+
+.airlines-missing__who {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: baseline;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.airlines-missing__name {
+  font-weight: var(--weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.airlines-missing__prefix {
+  font-size: var(--font-caption-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.airlines-missing__state {
+  margin-left: auto;
+  font-size: var(--font-caption-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  text-align: right;
+}
+
+.airlines-missing__head > .row-menu {
+  flex: none;
+  width: 44px;
+}
+
+.airlines-missing__item {
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-sm) var(--space-md);
   min-width: 0;
   min-height: 60px;
   padding: var(--space-sm) var(--space-md);
+  border-top: 1px solid var(--glass-hairline);
 }
 
-.airline-group--known:not([hidden]) ~ .airline-group--known:not([hidden]) {
-  border-top: 1px solid var(--color-border);
+.airlines-missing__head + .airlines-missing__item {
+  border-top: 0;
 }
 
-.airlines-known__who {
+.airlines-missing__airline:last-child > .airlines-missing__item:last-child {
+  border-radius: 0 0 calc(var(--radius-card) - 1px) calc(var(--radius-card) - 1px);
+}
+
+.airlines-missing__slot {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1.5px dashed color-mix(in srgb, var(--color-text) 35%, transparent);
+  border-radius: 12px;
+  background: var(--picture-placeholder);
+  color: color-mix(in srgb, var(--color-text) 55%, transparent);
+}
+
+.airlines-missing__what {
   display: flex;
-  flex: 1 1 0;
+  flex: 1 1 7rem;
   flex-direction: column;
   min-width: 0;
 }
 
-.airlines-known__name {
+.airlines-missing__family {
   font-weight: var(--weight-semibold);
   overflow-wrap: anywhere;
 }
 
-.airlines-known__prefix {
+.airlines-missing__seen {
   font-size: var(--font-caption-size);
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  overflow-wrap: anywhere;
 }
 
-.airlines-known > .airlines-known__add {
+.airlines-missing__item .airlines-act-gate {
+  flex: none;
+}
+
+.airlines-missing__item .airlines-act-nojs {
+  flex: 1 1 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+  max-width: 100%;
+}
+
+.airlines-missing__item .airlines-art {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.airlines-missing__item select {
+  max-width: 100%;
+  min-height: 44px;
+}
+
+.airlines-missing__add {
   flex: none;
   display: inline-flex;
   align-items: center;
@@ -1067,12 +1192,80 @@ dialog.modal .airlines-remove {
   min-height: 44px;
   min-width: 44px;
   text-align: center;
+  white-space: nowrap;
 }
 
-.airlines-known > .row-menu,
-.airlines-known > .airlines-known__slot {
-  flex: none;
-  width: 44px;
+.airlines-missing__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-lg);
+  text-align: center;
+  background: var(--glass-solid);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.airlines-missing__empty p {
+  margin: 0;
+}
+
+.airlines-missing__empty-title {
+  font-weight: var(--weight-semibold);
+}
+
+.airlines-missing__ok {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--color-status-ok) 16%, transparent);
+  color: var(--color-status-ok);
+}
+
+/* A filter that hid every row hides the section with its title; the empty
+ * state goes when a chip other than All or the section's own is chosen. */
+.airlines-missing:not(.airlines-missing--done):not(:has(.airlines-missing__item:not([hidden]))) {
+  display: none;
+}
+
+body:has([data-filter-chip]:checked:not([value=""]):not([value="missing"])) .airlines-missing--done {
+  display: none;
+}
+
+/* A header with a menu keeps it beside the name; the state goes under both. */
+@media (max-width: 40rem) {
+  .airlines-missing__head:has(.row-menu) > .row-menu {
+    order: 2;
+  }
+
+  .airlines-missing__head:has(.row-menu) > .airlines-missing__state {
+    order: 3;
+    flex-basis: 100%;
+    margin-left: 0;
+    text-align: left;
+  }
+}
+
+@media (max-width: 29rem) {
+  .airlines-missing__head,
+  .airlines-missing__item {
+    padding-inline: var(--space-sm);
+    gap: var(--space-sm);
+  }
+
+  .airlines-missing__slot {
+    width: 40px;
+    height: 40px;
+  }
+
+  .airlines-missing__add {
+    padding-inline: var(--space-sm);
+    gap: var(--space-xs);
+  }
 }
 
 /* The filter chips: five segments do not fit a phone's line, so they wrap
@@ -1107,14 +1300,16 @@ dialog.modal .airlines-remove {
 
 /* The "..." menu: even padding, every item a 44px line, no margin from the
  * forms the items sit in. */
-.airlines-table .row-menu__panel {
+.airlines-table .row-menu__panel,
+.airlines-missing .row-menu__panel {
   display: grid;
   gap: 0;
   min-width: 15.5rem;
   padding: var(--space-xs);
 }
 
-.airlines-table .row-menu__item {
+.airlines-table .row-menu__item,
+.airlines-missing .row-menu__item {
   border-radius: var(--radius-control);
 }
 
