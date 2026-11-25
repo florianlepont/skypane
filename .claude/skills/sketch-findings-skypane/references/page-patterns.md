@@ -145,7 +145,7 @@ frame). Console label "Airline editor", bar label "Editor".
   (a family is one of the picture slots, "Other" for rare designators). One solid list surface; each
   airline has a small header (name, prefix, "No artwork yet" or "<family> already done", "· n to
   do") and its rows: a dashed 44px slot, the family, the designators and views, and a 44px
-  **+ Illustration** button that opens the add dialog with the family in its chip. An airline with
+  icon-only add button (a picture with a plus, 44px, tooltip "Add artwork", aria-label "Add an illustration for <airline>, <family>") that opens the add dialog with the family in its chip. An airline with
   no sighting and no artwork has one "Type to choose" row whose dialog asks the type first; one with
   art and no sighting is not listed. The "..." menu (Rename, Reset or Delete my name) is in the
   header of an airline that has no row in the table. After an upload the page reloads and the row is
@@ -154,8 +154,7 @@ frame). Console label "Airline editor", bar label "Editor".
 - **Airlines table:** only airlines with artwork. The airline's name is plain text with its
   default type's picture; Rename (a dialog), Reset to the original name and Delete my name are in
   the "..." menu (even padding, 44px items, Escape closes). The chevron opens one row per aircraft
-  type, loaded lazily and quickly, with no overlap on the next row; a type row is labelled with its aircraft family name (interface font, 16px/600, no "(famille)"; focusable, the codes seen are a mono 14px tooltip on hover and keyboard focus beside the name, past the star, 320px wide at most; in a card they are a 13px secondary line, two lines then an ellipsis, a tap on the name expands it), the default type is a text-free star with an accessible name and its own tooltip, and it says "Own artwork" or
-  "Uses the default type's artwork" and has one upload entry (Add artwork or Change artwork) and a
+  type, loaded lazily and quickly, with no overlap on the next row; a type row is labelled with its aircraft family name (interface font, 16px/600, no "(famille)"; focusable, the codes seen are a mono 14px tooltip on hover and keyboard focus beside the name, past the star, 320px wide at most; in a card they are a 13px secondary line, two lines then an ellipsis, a tap on the name expands it), the default type is a text-free star with an accessible name and its own tooltip, and it has one upload entry, an icon-only 44px outlined button (a picture with a plus for Add artwork, a picture with a pencil for Change artwork; aria-label names the airline and the family, tooltip on hover and keyboard focus, to the left of the button in the table; in a card it sits right of the thumbnail block with the menu under it) and a
   menu with Set as default type and Delete the artwork (only for an uploaded picture). A refused
   name or picture reopens its dialog on that row.
 - Artwork has no "Revert to default" and no separate Customise: one upload entry per type.

@@ -129,8 +129,7 @@ def _slot_html():
 
 
 def _add_inner():
-    return '%s<span class="airlines-missing__text">%s</span>' % (
-        layout.icon_html("icon-plus", 20), escape_html(i18n.t(ADD_TEXT)))
+    return layout.icon_html("icon-picture-add")
 
 
 def _family_button(page, sub, row):
@@ -139,7 +138,7 @@ def _family_button(page, sub, row):
     form without a script."""
     label = _family_label(sub)
     return _table().add_art_trigger(
-        page, sub, row, inner=_add_inner(), css="btn btn--secondary airlines-missing__add",
+        page, sub, row, inner=_add_inner(), css="btn btn--secondary airlines-missing__add airlines-act--icon",
         aria=i18n.t(ADD_ARIA) % (row["name"], label), chip=label,
         plain_css="btn btn--secondary")
 
@@ -168,8 +167,10 @@ def _ask_button(page, state_dir, row):
         "manual_fields": _NO_MANUAL_FIELDS, "types": [],
     }
     trigger = page._type_trigger_html(
-        card, page.ANY_TYPE_ID, name, key, "btn btn--secondary airlines-missing__add", _add_inner(),
-        i18n.t(ADD_ASK_ARIA) % name, extra_attrs='%s="" ' % page.ASK_TYPE_ATTR)
+        card, page.ANY_TYPE_ID, name, key, "btn btn--secondary airlines-missing__add airlines-act--icon", _add_inner(),
+        i18n.t(ADD_ASK_ARIA) % name,
+        extra_attrs='%s="" data-tip="%s" ' % (
+            page.ASK_TYPE_ATTR, escape_html(i18n.t(_table().ACTION_ADD_ART))))
     return '<span class="js-gate airlines-act-gate">%s</span><span class="airlines-act-nojs">%s</span>' % (
         trigger, _ask_nojs(page, key))
 

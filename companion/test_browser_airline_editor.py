@@ -203,9 +203,9 @@ def test_renaming_an_airline_through_the_editor_works_end_to_end(new_context, ma
 KNOWN_ROW = ".airlines-missing__item"
 KNOWN_ADD = KNOWN_ROW + " .airlines-missing__add"
 _CENTRED_TEXT = (
-    "el => { const range = document.createRange(); range.selectNodeContents(el.querySelector('.airlines-missing__text'));"
-    " const text = range.getBoundingClientRect(); const box = el.getBoundingClientRect();"
-    " return Math.abs((text.top + text.height / 2) - (box.top + box.height / 2)); }")
+    "el => { const glyph = el.querySelector('svg').getBoundingClientRect(); const box = el.getBoundingClientRect();"
+    " return Math.abs((glyph.top + glyph.height / 2) - (box.top + box.height / 2))"
+    " + Math.abs((glyph.left + glyph.width / 2) - (box.left + box.width / 2)); }")
 
 
 @pytest.mark.parametrize("lang", ("en", "fr"))

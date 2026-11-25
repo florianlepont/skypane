@@ -125,7 +125,7 @@ def test_the_phone_shows_the_list_or_a_frame_and_the_desktop_both(
         assert page.evaluate(_VISIBLE, ".fleet-list")
         assert not page.evaluate(_VISIBLE, "section.fleet-block")
         assert not page.evaluate(_VISIBLE, ".fleet-switch")
-        assert page.locator("main h1:visible").inner_text() == "Select a frame"
+        assert page.locator("main h1:visible").inner_text() == "Frames"
         page.locator(".fleet-list li.fleet-frame-row > a[href='/fleet?frame=%s']" % seed.owned_id).click()
         page.wait_for_url("**/fleet?frame=%s" % seed.owned_id)
         assert not page.evaluate(_VISIBLE, ".fleet-list")
@@ -358,7 +358,7 @@ def test_a_wide_screen_with_no_frame_chosen_shows_the_neutral_pane(
         assert page.locator(".fleet-head, .fleet-block, .fleet-frame").count() == 0
         assert page.locator(".fleet-frame-row.is-selected, .fleet-list [aria-current]").count() == 0
         assert page.locator("main h1:visible").count() == 1
-        assert page.locator(".fleet-list h2:visible").inner_text() == "Cadres"
+        assert page.locator(".fleet-list__title h2:visible").inner_text() == "Cadres"
         # Centred in the column beside the list and nothing overflows.
         box = pane.bounding_box()
         halo = pane.locator(".fleet-empty__halo").bounding_box()

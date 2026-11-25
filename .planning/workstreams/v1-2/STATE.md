@@ -4,15 +4,15 @@ milestone: v1.2
 milestone_name: Fleet platform
 current_plan: 11
 status: verifying
-stopped_at: Phase 64 verified with open points (64-VERIFICATION.md, updated 2026-11-16); criteria 6 and 9 validated on the owner's reports and decisions of 2026-11-16, criterion 7 still open (more measured on 2026-11-17: busy waits, LED and keys; battery values moved to production use and SEED-019, v1.3)
-last_updated: "2026-11-14T20:16:40.837Z"
-last_activity: 2026-11-18 - Phase 65 completed and deployed to production (65-VERIFICATION.md): TRK-01 and TRK-02 met, Orly 06/24 left untested by the owner's decision
+stopped_at: Phase 64 waves 1-3 executed (plans 64-01..64-11); waves 4-6 are owner-validated or blocked on Phase 57
+last_updated: "2026-11-25T09:32:50.821Z"
+last_activity: 2026-11-25
 progress:
-  total_phases: 17
-  completed_phases: 14
-  total_plans: 179
-  completed_plans: 275
-  percent: 82
+  total_phases: 24
+  completed_phases: 17
+  total_plans: 249
+  completed_plans: 364
+  percent: 71
 ---
 
 # Project State
@@ -27,7 +27,7 @@ progress:
 Phase: 49 (per-hardware-ota-registry) — ready for verification
 Plan: 11 of 11 (all plans complete)
 Status: Phase complete — ready for verification
-Last activity: 2026-11-19 - Phase 69: rear enclosure design reworked with the owner, four STL exported, parts sliced in Bambu Studio (slice check filled), plans 03 to 05 aligned; nothing printed yet
+Last activity: 2026-11-25
 
 Progress: [████████░░] 84%
 

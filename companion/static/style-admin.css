@@ -2551,7 +2551,7 @@ dialog.access-sheet .modal__actions {
   overflow-wrap: anywhere;
 }
 
-.fleet-empty__title {
+.fleet-empty__halo + .fleet-empty__title {
   margin-bottom: var(--space-sm);
 }
 
