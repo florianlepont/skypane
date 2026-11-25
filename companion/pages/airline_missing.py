@@ -105,7 +105,7 @@ def todo_items(row):
 
 
 def state_text(row, count):
-    """`No artwork yet · 2 to do` or `Airbus A320 family already done · 1 to
+    """`No artwork yet · 2 to do` or `Airbus A320 already done · 1 to
     do`: what the airline already has, and how many rows it is listed with."""
     done = []
     for sub in row["sub_rows"]:
