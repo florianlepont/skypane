@@ -240,7 +240,7 @@ def test_a_get_on_the_route_is_not_routed(rig):
 def test_the_editor_offers_rename_on_a_hand_named_row_and_not_on_a_built_in_or_superseded_one(rig):
     manual_resolutions.add_entry(rig.root, "KLM", "Klm Old Name", now=STAMP)
     _s, _h, page = rig.get("admin", rig.frame + EDITOR)
-    row = next(r for r in re.findall(r"<tbody.*?</tbody>", page, re.S) if "Zephyr Air" in r)
+    row = next(r for r in re.findall(r"<ul class=\"airlines-missing__airline\".*?</ul>", page, re.S) if "Zephyr Air" in r)
     assert 'name="prefix" value="ZPH"' in row
     assert row.index(">Rename<") < row.index("Delete my name")
     assert html.escape(rig.frame + ROUTE) in row or (rig.frame + ROUTE) in row

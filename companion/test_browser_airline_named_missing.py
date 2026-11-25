@@ -1,7 +1,7 @@
-"""Real-browser checks of the rule "an airline without artwork is known by name only": an airline
-the owner named by hand, or by accepting a suggestion, is listed in the "Known by name only" block
-(not in the table of airlines with artwork) with its menu; the caption, the chip and the rows
-agree; adding artwork moves it to the table; removing the name is reachable from its row. English
+"""Real-browser checks of the rule "an airline without artwork is listed in the missing-illustrations
+section": an airline the owner named by hand, or by accepting a suggestion, has a header with its
+menu there (not a row in the table of airlines with artwork); the title, the chip and the rows
+agree; adding artwork moves it to the table; removing the name is reachable from its header. English
 and French, at 320, 390 and 1440 px."""
 import json
 import os
@@ -22,13 +22,13 @@ pytestmark = pytest.mark.browser
 
 STAMP = "2026-11-17T10:29:00+00:00"
 _PNG = os.path.join(illustrations.ILLUSTRATION_DIR, "vueling-airlines.png")
-KNOWN = "tbody.airline-group--known"
-TABLE_ROWS = "tbody.airline-group:not(.airline-group--known):not(.airline-group--gap)"
+KNOWN = ".airlines-missing__airline"
+ITEMS = ".airlines-missing__item"
+TABLE_ROWS = "tbody.airline-group:not(.airline-group--gap)"
 SIZES = ((320, 700), (390, 844), (1440, 900))
 _SETTLED = animation_settle.SETTLED
 FLASH = {"en": "Airline name saved", "fr": "Nom de compagnie enregistré"}
-CHIP = {"en": "Known by name only", "fr": "Connues par leur nom"}
-CAPTION = {"en": "Known by name only", "fr": "Connues par leur nom seulement"}
+CHIP = {"en": "Missing illustrations", "fr": "Illustrations manquantes"}
 DELETE = {"en": "Delete my name", "fr": "Supprimer mon nom"}
 
 
@@ -54,15 +54,13 @@ def _open(new_context, server, size, lang="en", theme="light", path="/airlines/m
 
 
 def _known_names(page):
-    return page.locator(KNOWN + " .airlines-known__name").all_inner_texts()
+    return page.locator(KNOWN + " .airlines-missing__name").all_inner_texts()
 
 
 def _assert_consistent(page, lang):
-    """The caption, the chip and the rows of the block agree; the chips split the rest."""
-    rows = page.locator(KNOWN).count()
-    caption = [c for c in page.locator("caption.airlines-label").all_inner_texts()
-               if c.startswith(CAPTION[lang])]
-    assert caption == ["%s · %d" % (CAPTION[lang], rows)], (caption, rows)
+    """The title, the chip and the rows of the section agree; the chips split the rest."""
+    rows = page.locator(ITEMS).count()
+    assert page.locator("#airlines-missing-title").inner_text() == "%s · %d" % (CHIP[lang], rows)
     labels = page.locator(".filter-chip__text").all_inner_texts()
     counts = [int(c) for c in page.locator(".filter-chip__count").all_inner_texts()]
     chips = dict(zip(labels, counts))
@@ -81,15 +79,16 @@ def test_an_airline_named_by_hand_is_in_the_block_and_not_in_the_table(new_conte
     try:
         assert "Zephyr Air" in _known_names(page)
         row = page.locator(KNOWN, has_text="Zephyr Air")
-        assert row.locator(".airlines-known__prefix").inner_text() == "ZPH"
-        assert row.locator(".airlines-known__add").count() == 1
+        assert row.locator(".airlines-missing__prefix").inner_text() == "ZPH"
+        assert row.locator(".airlines-missing__add").count() == 1
         assert page.locator(TABLE_ROWS, has_text="Zephyr Air").count() == 0
         _assert_consistent(page, lang)
         page.locator("label.filter-chip", has_text=CHIP[lang]).click()
         page.wait_for_function(
-            "n => document.querySelectorAll('tbody.airline-group:not([hidden])').length === n",
-            arg=page.locator(KNOWN).count(), timeout=10000)
-        assert "Zephyr Air" in page.locator(KNOWN + ":not([hidden]) .airlines-known__name").all_inner_texts()
+            "n => document.querySelectorAll('.airlines-missing__item:not([hidden])').length === n",
+            arg=page.locator(ITEMS).count(), timeout=10000)
+        assert "Zephyr Air" in page.locator(
+            ".airlines-missing__head:not([hidden]) .airlines-missing__name").all_inner_texts()
     finally:
         context.close()
 
@@ -144,8 +143,8 @@ def test_artwork_added_from_the_row_moves_the_airline_to_the_table(new_context, 
     server = make_app_server(seed=_seed, fake_providers=True)
     context, page = _open(new_context, server, (390, 844))
     try:
-        before = page.locator(KNOWN).count()
-        page.locator(KNOWN, has_text="Zephyr Air").locator(".airlines-known__add").click()
+        before = page.locator(ITEMS).count()
+        page.locator(KNOWN, has_text="Zephyr Air").locator(".airlines-missing__add").click()
         upload = page.locator("#manual-illustration-input-dialog")
         upload.wait_for(state="attached")
         upload.set_input_files(_PNG)
@@ -154,9 +153,9 @@ def test_artwork_added_from_the_row_moves_the_airline_to_the_table(new_context, 
             page.locator("#panel-lookup-dialog .lightbox__upload").click()
         page.wait_for_function(_SETTLED, timeout=15000)
         assert "Zephyr Air" not in _known_names(page)
-        assert page.locator(KNOWN).count() == before - 1
+        assert page.locator(ITEMS).count() == before - 1
         moved = page.locator("#airline-zephyr-air")
-        assert moved.count() == 1 and "airline-group--known" not in moved.get_attribute("class")
+        assert moved.count() == 1 and moved.evaluate("el => el.tagName") == "TBODY"
         assert "ZPH" in moved.inner_text()
         _assert_consistent(page, "en")
     finally:
@@ -191,7 +190,7 @@ def test_the_block_fits_and_its_controls_are_44px_targets(new_context, make_app_
     try:
         _assert_no_page_overflow(page, "the Airlines editor", expected_width=size[0])
         row = page.locator(KNOWN, has_text="Zephyr Air")
-        for control in (row.locator(".airlines-known__add"), row.locator(".row-menu__toggle")):
+        for control in (row.locator(".airlines-missing__add"), row.locator(".row-menu__toggle")):
             box = control.bounding_box()
             assert box["width"] >= 44 and box["height"] >= 44 and box["x"] + box["width"] <= size[0], box
         row.locator(".row-menu__toggle").click()
