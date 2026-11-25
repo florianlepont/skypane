@@ -347,16 +347,16 @@ def test_device_reveal_and_persist_stays_in_step_with_display(page, make_app_ser
     server = make_app_server(seed=seed_state_dir, fake_providers=True)
     base_url = server.base_url()
     _login(page, base_url)
-    page.goto(base_url + "/fleet")
-    wake_sel = 'input[name="wake_interval_s"]'
+    page.goto(base_url + "/fleet?frame=live")
+    wake_sel = 'input[name="wake_interval_min"]'
     before = page.eval_on_selector(wake_sel, "el => el.value")
-    target = "1800" if before != "1800" else "3600"
+    target = "30" if before != "30" else "60"
     page.fill(wake_sel, target)
     _commit_field(page, wake_sel)
     _wait_for_bar(page)
     _save_via_bar(page)
     stored = device_config.load_device_config(server.tmpdir)["wake_interval_s"]
-    if str(stored) != target:
+    if stored != int(target) * 60:
         raise AssertionError(
             "expected the edited wake interval to reach disk, got %r" % (stored,))
     # The LED switch, which is not part of that form, must be unmoved by the save.
@@ -425,15 +425,15 @@ def test_leave_guard_arms_on_uncommitted_edit_and_stays_armed_through_commit(pag
     # shares the module's read-only server.
     base_url = server.base_url()
     _login(page, base_url)
-    page.goto(base_url + "/fleet")
+    page.goto(base_url + "/fleet?frame=live")
 
     # a. Fresh load: disarmed.
     if _guard_armed(page):
         raise AssertionError("expected the leave-guard to start disarmed on a clean page load")
 
-    wake_sel = 'input[name="wake_interval_s"]'
+    wake_sel = 'input[name="wake_interval_min"]'
     before = page.eval_on_selector(wake_sel, "el => el.value")
-    target = "1800" if before != "1800" else "3600"
+    target = "30" if before != "30" else "60"
 
     # Type without committing: `input` fires per keystroke; `change` does not fire until
     # focus leaves the field.
@@ -468,7 +468,7 @@ def test_leave_guard_arms_on_uncommitted_edit_and_stays_armed_through_commit(pag
             "Enregistrer, not the retired auto-save contract where a commit "
             "disarmed the guard because it was already persisted")
     stored = device_config.load_device_config(server.tmpdir)["wake_interval_s"]
-    if str(stored) == target:
+    if stored == int(target) * 60:
         raise AssertionError(
             "the committed value already reached disk with no Save click — "
             "this check's own premise (unsaved-but-committed) does not hold")

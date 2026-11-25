@@ -728,7 +728,7 @@ def test_get_fleet_end_to_end_renders_the_scheduled_state(module_app_server_fact
     assert "fw-v1.0.0" in text
     frame = headers["Location"].replace("&view=versions", "")
     _status, _headers, overview = get(server, frame, cookie=cookie)
-    tile = re.search(r'<a class="fleet-tile"[^>]*href="[^"]*view=versions">.*?</a>', overview.decode("utf-8"), re.S)
+    tile = re.search(r'<a class="fleet-tile[^"]*"[^>]*href="[^"]*view=versions">.*?</a>', overview.decode("utf-8"), re.S)
     assert tile and i18n.t(update_page.CTA_SCHEDULED_TEXT) in tile.group(0)
 
 # ==========================================================================

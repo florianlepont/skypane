@@ -190,6 +190,7 @@ from companion.ui_time import (
     age_seconds,
     concise_timestamp_html,
     duration_text,
+    local_timestamp_html,
     refresh_marker_html,
     full_local_timestamp_text,
     local_clock_text,
@@ -275,8 +276,7 @@ from companion.ui_components import (
     status_dot,
     status_row,
 )
-from companion.ui_filter import (
-    filter_bar_html, filter_title_search_form_html, filter_title_search_html)
+from companion.ui_filter import filter_bar_html
 from companion.ui_shell import (
     GLOBAL_PAGE_SCRIPTS,
     SHELL_SCRIPT_ORDER,
@@ -511,11 +511,10 @@ __all__ = (
     "concise_timestamp_html",
     "data_table",
     "duration_text",
+    "local_timestamp_html",
     "empty_state",
     "escape_html",
     "filter_bar_html",
-    "filter_title_search_form_html",
-    "filter_title_search_html",
     "flash_banner",
     "frame_strip_html",
     "refresh_marker_html",

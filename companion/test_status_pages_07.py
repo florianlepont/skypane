@@ -177,7 +177,7 @@ def test_french_tab_bar_labels_and_landmark():
     for english, french in (
             ("Home", "Accueil"), ("Flights", "Vols"), ("Location", "Lieu"),
             ("Style", "Style"), ("More", "Plus"),
-            ("Airlines", "Compagnies"), ("Account", "Compte")):
+            ("Airlines", "Airlines"), ("Account", "Compte")):
         assert ">%s<" % french in bar, (
             "expected the %r cell to read %r in French, got %r" % (english, french, bar))
         if english != french:
@@ -1018,6 +1018,8 @@ def test_both_tabs_ok_end_to_end(make_app_server):
             # airframe and each secondary type of every airline.
             upload_forms = sum(
                 len(shapes) + 1 for _name, shapes in illustrations.target_variants_by_airline())
+            # Plus the plain upload form of each row of the missing-illustrations section.
+            upload_forms += body_text.count('class="airlines-missing__item"')
             assert body_text.count('<form class="airlines-art"') == upload_forms
             assert body_text.count('<input type="file"') == 2 + upload_forms, (
                 "expected <input type=\"file\" for the dialog's two forms and each row upload "

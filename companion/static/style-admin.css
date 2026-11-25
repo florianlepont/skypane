@@ -1210,13 +1210,102 @@ a.pair-link--primary:hover {
 
 .pair-form {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-md);
-  max-width: 28rem;
+  max-width: 35rem;
 }
 
-.pair-form input {
+.pair-form input,
+.pair-form select {
   box-sizing: border-box;
   width: 100%;
+  min-width: 0;
+}
+
+/* The one card of the page: the form on top, then a tinted footer that holds
+ * the Reset hint. */
+.pair-card {
+  gap: 0;
+  overflow: hidden;
+  background: var(--glass-solid);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-glass);
+}
+
+/* One shrinkable column: a long Owner option must not widen the track past the
+ * card (a grid item's automatic minimum is its content width). */
+.pair-card__main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-sm);
+  padding: var(--space-md);
+}
+
+@media (min-width: 700px) {
+  .pair-card__main {
+    padding: var(--space-lg);
+  }
+}
+
+.pair-card__heading {
+  margin: 0;
+}
+
+/* The code is read off the frame and typed whole: big, centred, spaced. */
+.pair-card input.mono {
+  min-height: 56px;
+  text-align: center;
+  font-size: 26px;
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.pair-card input.mono::placeholder {
+  font-size: var(--font-label-size);
+  letter-spacing: 0.08em;
+}
+
+.pair-card__help {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: var(--space-sm) var(--space-md);
+  border-top: 1px solid var(--glass-hairline);
+  background: color-mix(in srgb, var(--color-text) 4%, transparent);
+}
+
+@media (min-width: 700px) {
+  .pair-card__help {
+    padding-inline: var(--space-lg);
+  }
+}
+
+.pair-card__help .icon {
+  flex: none;
+  margin-top: 2px;
+}
+
+.pair-card__help p {
+  margin: 0;
+}
+
+.pair-card__help b {
+  color: var(--color-text);
+}
+
+@media (max-width: 699.98px) {
+  .pair-card .pair-form__actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .pair-card a.pair-form__cancel {
+    justify-content: center;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-control);
+  }
 }
 
 /* The refused code: a tinted error box, the icon beside a bold sentence with the
@@ -1897,10 +1986,11 @@ a.row-action {
   overflow-wrap: anywhere;
 }
 
-/* The Manage access sheet: the head keeps its place, the one group scrolls
- * inside, the add form is stacked (field, then a full-width primary button)
- * and Done is a full-width secondary button. A phone sheet clears its rounded
- * corners above the title and the home indicator below the button. */
+/* The Manage access sheet: the head keeps its place, the three labelled
+ * sections (owner, co-managers, add form) scroll inside, and the action row
+ * sits below them: the "Remove this frame" danger link at the left, Done (the
+ * primary) at the right. A phone sheet clears its rounded corners above the
+ * title and the home indicator below the buttons. */
 dialog.access-sheet .modal__body {
   gap: 0;
   margin-top: var(--space-sm);
@@ -1908,51 +1998,105 @@ dialog.access-sheet .modal__body {
 }
 
 .access-sheet .group-block {
+  margin: 0 0 var(--space-md);
+}
+
+.access-sheet .group-block:last-child {
+  margin-bottom: 0;
+}
+
+/* The initials chip of a person row: the owner's is filled with the accent. */
+.access-avatar {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  margin-left: var(--space-xs);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  color: var(--color-accent);
+  font-size: var(--font-caption-size);
+  font-weight: var(--weight-semibold);
+}
+
+.access-avatar--owner {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+
+/* No co-managers yet: a dashed card with no shadow. */
+.access-section--empty .group {
+  border-style: dashed;
+  box-shadow: none;
+}
+
+.access-section--empty .empty-state {
   margin: 0;
+  padding: var(--space-md);
 }
 
-/* The empty state under the owner row sits in the same group with the same
- * inner padding as the rows around it. */
-.access-sheet .fleet-group__item {
-  box-sizing: border-box;
-  min-width: 0;
-  padding: var(--space-sm) var(--space-md);
-  border-top: 1px solid var(--glass-hairline);
-}
-
-/* Remove this frame: a quiet danger link set apart under the people group,
- * in regular weight and no surface so it does not compete with Done. */
-.access-sheet .access-remove-frame {
-  margin: var(--space-sm) 0 0;
-  text-align: center;
-}
-
-a.access-remove-frame__link {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 44px;
-  min-width: 44px;
-  padding: 0 var(--space-md);
-  color: var(--color-status-error);
-  font-weight: var(--weight-regular);
-  text-decoration: underline;
-}
-
+/* The Add form: the picker and the primary Add button share one 44px line;
+ * the typed address of an owner keeps its label and helper line, so its
+ * button stacks full width under the field. */
 .access-sheet .row__form {
   flex-direction: column;
   align-items: stretch;
+}
+
+.access-sheet .row__form--inline {
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: nowrap;
+}
+
+.access-sheet .row__form--inline .row__form-field {
+  flex: 1 1 0;
+}
+
+.access-sheet .row__form--inline label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .access-sheet .row__form-field {
   flex: none;
 }
 
-.access-sheet .row__form > button[type="submit"] {
+.access-sheet .row__form:not(.row__form--inline) > button[type="submit"] {
   width: 100%;
 }
 
-.access-sheet a.modal__dismiss,
+/* The action row: the danger link left, Done right. */
+dialog.access-sheet .modal__actions--split {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--glass-hairline);
+}
+
+a.access-remove-frame__link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  min-width: 44px;
+  color: var(--color-status-error);
+  font-weight: var(--weight-regular);
+  text-decoration: underline;
+}
+
+dialog.access-sheet .modal__actions--split a.modal__done {
+  width: auto;
+  margin-left: auto;
+}
+
 a.modal__dismiss--button {
   background: var(--glass-solid);
   border: 1px solid var(--color-border);
@@ -2223,6 +2367,18 @@ dialog.access-sheet .modal__actions {
   margin: var(--space-md) 0 0;
 }
 
+/* The link is a stand-alone control: an invisible box around the text makes
+ * it a 44px target without moving the paragraph. */
+.components-family__top .text-link {
+  position: relative;
+}
+
+.components-family__top .text-link::before {
+  content: "";
+  position: absolute;
+  inset: -13px -8px;
+}
+
 .components-family {
   min-width: 0;
   margin: 0 0 var(--space-xl);
@@ -2356,6 +2512,27 @@ dialog.access-sheet .modal__actions {
   display: none;
 }
 
+.fleet-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.fleet-empty__halo {
+  width: 64px;
+  height: 64px;
+  margin-bottom: var(--space-md);
+  border: 1px solid var(--color-border);
+}
+
+.fleet-empty__hint {
+  margin: 0;
+  max-width: 36ch;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
 .dashboard-main > .page-header:empty {
   display: none;
 }
@@ -2375,6 +2552,7 @@ dialog.access-sheet .modal__actions {
 }
 
 .fleet-list__heading,
+.fleet-empty__title,
 .fleet-head__title {
   margin: 0;
   font-family: var(--font-display);
@@ -2383,6 +2561,10 @@ dialog.access-sheet .modal__actions {
   letter-spacing: var(--tracking-title);
   line-height: 1.1;
   overflow-wrap: anywhere;
+}
+
+.fleet-empty__halo + .fleet-empty__title {
+  margin-bottom: var(--space-sm);
 }
 
 .fleet-list__heading--wide {
@@ -2614,6 +2796,12 @@ a.fleet-action-button {
     box-shadow: var(--shadow-glass);
   }
 
+  /* The neutral pane beside the list while no frame is chosen: centred in the
+   * height the frame column would fill. */
+  .fleet-empty {
+    min-height: calc(100dvh - 2 * var(--space-2xl) - var(--save-bar-h) - var(--space-lg));
+  }
+
   .fleet-split__main {
     box-sizing: border-box;
     max-width: calc(760px + var(--space-xl) + var(--space-2xl));
@@ -2769,8 +2957,26 @@ a.fleet-action-button {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-.fleet-tile__line {
+.fleet-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-sm) var(--space-md);
+  margin-top: auto;
+  padding-top: var(--space-xs);
+}
+
+.fleet-stat__k {
   display: block;
+  font-size: var(--font-caption-size);
+  line-height: 1.3;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.fleet-stat__v {
+  display: block;
+  font-weight: var(--weight-semibold);
+  font-size: var(--font-body-size);
+  color: var(--color-text);
 }
 
 .fleet-tile__spark {
@@ -2796,6 +3002,172 @@ a.fleet-action-button {
   padding-top: var(--space-sm);
   font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
+}
+
+/* Rows sized by their content, with a tile that spans the full width (the
+ * firmware tile, the two settings tiles). Each cell is a size container, so a
+ * wide tile lays its text and its control side by side once it is wide enough
+ * and stacks them on a phone. */
+.fleet-tiles--rows {
+  grid-auto-rows: auto;
+}
+
+.fleet-tiles--rows > li {
+  container-type: inline-size;
+}
+
+.fleet-tiles > li.fleet-tiles__span {
+  grid-column: 1 / -1;
+}
+
+.fleet-tile--wide {
+  min-height: 0;
+}
+
+.fleet-tile__text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+.fleet-tile__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+@container (max-width: 259px) {
+  .fleet-stats {
+    grid-template-columns: 1fr;
+  }
+}
+
+@container (min-width: 440px) {
+  .fleet-tile--wide {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-lg);
+  }
+
+  .fleet-tile--wide > .fleet-tile__more {
+    margin-top: 0;
+    padding-top: 0;
+  }
+
+  .fleet-tile__text {
+    flex: 1 1 0;
+  }
+
+  .fleet-tile--control .fleet-tile__ui {
+    flex: 0 0 58%;
+  }
+}
+
+/* The settings tiles. The wake-interval tile has more room than the state
+ * tiles: a larger padding and a larger gap between its heading, its caption
+ * and its controls. */
+.fleet-tile--control {
+  gap: var(--space-md);
+  padding: var(--space-lg);
+}
+
+.fleet-tile--control .fleet-tile__text {
+  gap: var(--space-sm);
+}
+
+.fleet-tile__ui {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  min-width: 0;
+}
+
+.fleet-stepper {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.fleet-step {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+  background: var(--glass-solid);
+  color: var(--color-text);
+  font-size: var(--font-heading-size);
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: none;
+}
+
+.config-form input.fleet-minutes {
+  width: 84px;
+  min-width: 0;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--weight-semibold);
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+.fleet-minutes::-webkit-outer-spin-button,
+.fleet-minutes::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.fleet-unit {
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.fleet-presets {
+  width: 100%;
+}
+
+/* A script-only row: the script gate would lose to the segmented row's own
+ * display, so the row restates both states. */
+.fleet-presets.js-gate {
+  display: none;
+}
+
+.js .fleet-presets.js-gate {
+  display: flex;
+}
+
+.fleet-default {
+  margin-left: var(--space-xs);
+  vertical-align: middle;
+  font-weight: var(--weight-regular, 400);
+}
+
+.fleet-default[hidden] {
+  display: none;
+}
+
+.fleet-tile__hint {
+  margin: 0;
+  font-size: var(--font-caption-size);
+  line-height: 1.3;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.fleet-tile__switch {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.fleet-tile--switch .quick-action__state {
+  white-space: nowrap;
 }
 
 /* The System page's tiles: the frame tiles with a coloured border when a
@@ -2857,14 +3229,6 @@ a.fleet-action-button {
   text-overflow: ellipsis;
 }
 
-.fleet-tiles--system .fleet-tile__line {
-  display: inline;
-}
-
-.fleet-tiles--system .fleet-tile__line + .fleet-tile__line::before {
-  content: " · ";
-}
-
 @media (min-width: 960px) {
   .fleet-tiles--system {
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -2924,7 +3288,35 @@ a.fleet-action-button {
     box-sizing: border-box;
     margin: 0 calc(-1 * var(--space-lg)) var(--space-md);
     padding: var(--space-sm) var(--space-lg);
-    background: var(--color-canvas);
+    background-color: var(--color-canvas);
+    background-image: linear-gradient(180deg, var(--sky-top) 0%, var(--sky-mid) 45%, var(--sky-bottom) 100%);
+    background-repeat: no-repeat;
+    background-size: 100% var(--anchors-page-h, 100%);
+    background-position: 0 calc(-1 * var(--anchors-y, 0px));
+  }
+
+  /* The bar sticks below the safe area and the app bar's drop; while it
+   * sticks (fleet-anchors.js sets data-stuck) this strip fills that gap so the
+   * page never scrolls through it. The bar and the strip paint the slice of the
+   * page's own sky gradient that lies behind them (the gradient is on <html>,
+   * laid over the whole page height), so neither shows as a band. At rest the
+   * strip is off: it would cover what sits above the bar. */
+  .fleet-anchors::before {
+    content: "";
+    position: absolute;
+    right: 0;
+    bottom: 100%;
+    left: 0;
+    height: calc(var(--safe-top) + var(--app-bar-drop));
+    background-color: var(--color-canvas);
+    background-image: linear-gradient(180deg, var(--sky-top) 0%, var(--sky-mid) 45%, var(--sky-bottom) 100%);
+    background-repeat: no-repeat;
+    background-size: 100% var(--anchors-page-h, 100%);
+    background-position: 0 calc(-1 * (var(--anchors-y, 0px) - var(--safe-top) - var(--app-bar-drop)));
+  }
+
+  .fleet-anchors:not([data-stuck])::before {
+    display: none;
   }
 
   .fleet-anchor {
@@ -2955,4 +3347,58 @@ a.fleet-action-button {
   .fleet-blocks > .fleet-block {
     scroll-margin-top: calc(var(--safe-top) + var(--app-bar-drop) + 44px + 2 * var(--space-sm));
   }
+}
+
+/* The two-line list of what a confirmation does: a green tick where nothing
+ * is lost, an amber warning mark where something is. */
+.modal__effects {
+  display: grid;
+  gap: var(--space-xs);
+  margin: var(--space-sm) 0 0;
+  min-width: 0;
+  padding: var(--space-xs) var(--space-md);
+  list-style: none;
+  background: var(--glass-solid);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  font-size: var(--font-label-size);
+}
+
+.modal__effect {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-height: 44px;
+  padding: var(--space-xs) 0;
+}
+
+.modal__effect + .modal__effect {
+  border-top: 1px solid var(--glass-hairline);
+}
+
+.modal__effect .icon {
+  flex: none;
+  margin-top: 2px;
+}
+
+/* A long unbreakable address wraps instead of widening the sheet. */
+.modal__effect > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.modal__effect--ok .icon {
+  color: var(--color-status-ok);
+}
+
+.modal__effect--warn .icon {
+  color: var(--color-status-warn);
+}
+
+/* A button with a leading glyph in the retry form of the failure dialog. */
+.modal--compact .modal__actions > form > button.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
 }

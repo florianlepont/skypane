@@ -16,7 +16,8 @@ On a phone the list and a frame page are separate screens joined by the frame
 switch (a chip row); from 1200 px the list is a full-height column beside the
 console sidebar and the frame fills the rest. The System view is reached from the
 console navigation, not from the list. With no
-frame chosen the list shows, and a wide screen also shows the first frame.
+frame chosen the list shows, and a wide screen shows a neutral "Select a
+frame" pane beside it, never a frame's data.
 
 Selection is read from the query only to pick one of the rows the request
 scope already lists; a value matching none shows the list, so no request text
@@ -24,7 +25,7 @@ reaches a path, a query or a filesystem call.
 """
 from companion import device_scope, i18n
 from companion.pages import co_managers_card, fleet_tiles
-from companion.ui_base import escape_html
+from companion.ui_base import escape_html, icon_html
 from server import history_db
 
 FRAME_QUERY = "frame"
@@ -76,6 +77,10 @@ _SYSTEM_EMPTY = i18n.msg(
     "admin_fleet.system_unavailable",
     "No system information is available yet.")
 _UNKNOWN_FRAME = i18n.msg("admin_fleet.unknown_frame", "That frame was not found.")
+_EMPTY_TITLE = i18n.msg("admin_fleet.select_frame", "Select a frame")
+_EMPTY_HINT = i18n.msg(
+    "admin_fleet.select_frame_hint",
+    "Choose a frame in the list to see its status and settings.")
 
 _ID_PREFIX_INLINE = "access-inline"
 
@@ -166,6 +171,15 @@ def _cards_block(heading, items_html, extra_class, slug):
         '<div class="fleet-cards">%s</div>' % cards)
 
 
+def _tiles_block(heading_msg, content_html, extra_class, slug):
+    """One labelled block whose content is its own run of tiles (the Settings
+    form), with no glass group around it."""
+    from companion import ui_groups
+    return '<section class="group-block fleet-block%s" id="%s%s" aria-labelledby="%s">%s%s</section>' % (
+        extra_class, fleet_tiles.SECTION_ID_PREFIX, slug, "fleet-block-" + slug,
+        ui_groups.section_label(i18n.t(heading_msg), "fleet-block-" + slug), content_html)
+
+
 def _item(content_html, flush=False):
     """Free content (forms, the battery row, version cards) as one item of a
     block's group; the hairline above it is drawn by the group."""
@@ -219,9 +233,8 @@ def frame_html(ctx, device, view, header_html="", focus=""):
             ctx, scope=config_page.SCOPE_DEVICE, embedded=True)
         blocks = (
             fleet_tiles.tiles_section_html(device.id, tiles, firmware)
-            + _block(
-                _SETTINGS_HEADING, _item(settings_html),
-                " fleet-block--settings", "settings")
+            + _tiles_block(
+                _SETTINGS_HEADING, settings_html, " fleet-block--settings", "settings")
             + _access_block(device, view.access, view))
     return (
         '<div class="fleet-frame">' + header_html + anchors_html()
@@ -308,7 +321,8 @@ def _split(mode, list_html, main_html):
 def page_html(h, query, view):
     """The selected view. Sets the request scope to the selected live frame
     (the embedded forms post to its own /devices/<id> routes), or to the
-    first one when the list is shown."""
+    first one when the list is shown (the page navigation needs a scope; no
+    frame data is rendered then)."""
     from companion.pages import fleet_frames_list as frames_list
     root = h.args.state_dir
     principal = h._safe_principal()
@@ -317,10 +331,7 @@ def page_html(h, query, view):
     row = frames_list.find_row(view, wanted_frame(query))
     if is_system:
         row = None
-    watch = None if (selected or is_system or row) else frames_list.first_to_watch(view)
-    scope_device = selected or next(
-        (d for d in devices if watch is not None and d.id == watch.frame_id),
-        devices[0] if devices else None)
+    scope_device = selected or (devices[0] if devices else None)
     device_scope.set_request_scope(
         scope_device, devices, getattr(principal, "user_id", None), root)
     notice = _unknown_frame_notice(query, selected or row)
@@ -343,9 +354,8 @@ def page_html(h, query, view):
             "other", frames_list.list_panel_html(view, row.frame_id),
             frames_list.switch_html(view) + frames_list.other_page_html(row, view))
     return notice + _split(
-        "list", frames_list.list_panel_html(
-            view, landing=True, with_frame=scope_device is not None),
-        _auto_frame_html(h, view, watch, scope_device, frames_list))
+        "list", frames_list.list_panel_html(view, landing=True),
+        empty_detail_html())
 
 
 def _detail_html(h, device, row, detail, frames_list):
@@ -361,15 +371,15 @@ def _detail_html(h, device, row, detail, frames_list):
     return detail_head_html(device, name) + frames_list.title_head_html(title) + body
 
 
-def _auto_frame_html(h, view, watch, device, frames_list):
-    """The first frame of the list, which a wide screen shows beside it when
-    no frame is chosen; "" without a live frame. A frame the database does not
-    list as a row (the legacy single frame) shows a header of its name only."""
-    if device is None:
-        return ""
-    return frame_html(
-        h.page_context(device), device, view,
-        frames_list.head_html(watch, view) if watch else frames_list.plain_head_html(device))
+def empty_detail_html():
+    """The neutral pane a wide screen shows beside the list while no frame is
+    chosen: an icon, a short heading and one muted line, no frame data. A phone
+    hides it (the list mode shows the list only). On a wide screen this heading is
+    the page's `<h1>`; the list's title is then an `<h2>`."""
+    return (
+        '<div class="fleet-empty"><div class="empty-state__halo fleet-empty__halo">%s</div>'
+        '<h1 class="fleet-empty__title">%s</h1><p class="fleet-empty__hint">%s</p></div>') % (
+            icon_html("icon-device", 28), _t(_EMPTY_TITLE), _t(_EMPTY_HINT))
 
 
 def query_flash_html(h, query):

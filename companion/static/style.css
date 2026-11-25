@@ -711,13 +711,20 @@ html[data-ui-theme="dark"] {
  * the colour, the Safari bars and the overscroll area show the same sky. The
  * flat colour under the gradient is its first stop, the colour of the
  * theme-color tags: a browser that tints its top bar from the flat colour
- * rather than the gradient image shows no lighter band above the page. */
+ * rather than the gradient image shows no lighter band above the page.
+ * The second layer is a strip of the last stop's colour that starts at the
+ * bottom of <html> and hangs below it: on a phone the visible window can be
+ * taller than the box (the browser's toolbars retract, the page is short), and
+ * the canvas there would otherwise show the flat top colour as a band. */
 html {
   min-height: 100%;
   background-color: var(--sky-top);
-  background-image: linear-gradient(180deg, var(--sky-top) 0%, var(--sky-mid) 45%, var(--sky-bottom) 100%);
+  background-image:
+    linear-gradient(180deg, var(--sky-top) 0%, var(--sky-mid) 45%, var(--sky-bottom) 100%),
+    linear-gradient(var(--sky-bottom), var(--sky-bottom));
   background-repeat: no-repeat;
-  background-size: 100% 100%;
+  background-size: 100% 100%, 100% 200px;
+  background-position: 0 0, 0 calc(100% + 200px);
 }
 
 body {
@@ -1370,7 +1377,7 @@ select.visually-hidden {
    * the left instead of filling the bordered container as one control. */
   flex: 1 1 0;
   min-width: 0;
-  padding: 0 4px;
+  padding: 0 var(--space-xs);
   white-space: nowrap;
   /* A label wider than its equal-width segment is clipped with an
    * ellipsis inside its own box; it can never paint over a neighbour. */
@@ -1952,7 +1959,7 @@ select.visually-hidden {
   display: inline-flex;
   align-items: center;
   height: 20px;
-  padding: 0 8px;
+  padding: 0 var(--space-sm);
   border-radius: var(--radius-pill);
   font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
@@ -2329,8 +2336,8 @@ body:has(> .frame-notice) .dashboard-shell {
   display: inline-flex;
   align-items: center;
   height: 20px;
-  padding: 0 8px;
-  gap: 4px;
+  padding: 0 var(--space-sm);
+  gap: var(--space-xs);
   border-radius: var(--radius-pill);
   font-size: var(--font-caption-size);
   font-weight: var(--weight-regular);
@@ -2360,7 +2367,7 @@ body:has(> .frame-notice) .dashboard-shell {
  * beside a title, not a property of the pill itself. */
 .page-header .refresh-pill {
   position: absolute;
-  top: 8px;
+  top: var(--space-sm);
   right: 0;
 }
 
@@ -3270,112 +3277,11 @@ table.data-table--flights .cell-inline-sep {
   color: var(--seg-selected-fg);
 }
 
-/* The search lives in the page header's title row (.filter-bar--title).
- * Without a script it is a plain field beside the title. With one, a phone
- * shows a 44px magnifier at the row's right edge that opens over the whole
- * row, in place: the title keeps its box under the field, so nothing below
- * moves. From 960px the field is always open at the right. */
-.page-header:has(> .filter-bar--title) {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-xs) var(--space-md);
-  min-height: 44px;
-}
-
-.page-header:has(> .filter-bar--title) > .page-title {
-  margin: 0;
-}
-
-.filter-bar--title {
-  flex: 1 1 280px;
-  margin: 0 0 0 auto;
-  max-width: 560px;
-}
-
-:is(.js, .js-early) .filter-bar--title {
-  position: absolute;
-  top: 0;
-  right: 0;
-  z-index: 2;
-  width: 44px;
-  max-width: none;
-  margin: 0;
-}
-
-:is(.js, .js-early) .filter-bar--title .filter-bar__search input {
-  padding: 0;
-  cursor: pointer;
-}
-
-:is(.js, .js-early) .filter-bar--title .filter-bar__search input::placeholder {
-  color: transparent;
-}
-
-:is(.js, .js-early) .filter-bar--title:focus-within,
-:is(.js, .js-early) .filter-bar--title[data-filter-active] {
-  width: 100%;
-}
-
-:is(.js, .js-early) .filter-bar--title:focus-within input,
-:is(.js, .js-early) .filter-bar--title[data-filter-active] input {
-  padding: 0 52px 0 46px;
-  cursor: text;
-}
-
-:is(.js, .js-early) .filter-bar--title:focus-within input::placeholder,
-:is(.js, .js-early) .filter-bar--title[data-filter-active] input::placeholder {
-  color: color-mix(in srgb, var(--color-text) 55%, transparent);
-}
 @media (min-width: 960px) {
-
   .filter-bar--chips .filter-chip {
     flex: 0 0 auto;
   }
-
-  /* In the title row, after the title and clear of the frame button (the
-   * header keeps that space free); it wraps under the title when the row is
-   * too narrow for both. */
-  :is(.js, .js-early) .filter-bar--title,
-  :is(.js, .js-early) .filter-bar--title:focus-within,
-  :is(.js, .js-early) .filter-bar--title[data-filter-active] {
-    position: relative;
-    top: auto;
-    right: auto;
-    flex: 0 1 360px;
-    width: 360px;
-    max-width: 100%;
-    margin: 0;
-  }
-
-  :is(.js, .js-early) .filter-bar--title .filter-bar__search input,
-  :is(.js, .js-early) .filter-bar--title:focus-within input {
-    padding: 0 52px 0 46px;
-    cursor: text;
-  }
-
-  :is(.js, .js-early) .filter-bar--title .filter-bar__search input::placeholder {
-    color: color-mix(in srgb, var(--color-text) 55%, transparent);
-  }
 }
-
-@media (min-width: 1280px) {
-  .page-header:has(> .filter-bar--title) {
-    flex-wrap: nowrap;
-  }
-
-  .page-header:has(> .filter-bar--title) > .page-title {
-    flex: none;
-  }
-
-  :is(.js, .js-early) .filter-bar--title,
-  :is(.js, .js-early) .filter-bar--title:focus-within,
-  :is(.js, .js-early) .filter-bar--title[data-filter-active] {
-    min-width: 260px;
-    margin-left: auto;
-  }
-}
-
 
 /* The empty state: a soft card with a search glyph in a halo and its
  * own Clear action. Sets no display, so [hidden] still hides it. */
@@ -4079,6 +3985,11 @@ a.airline-card {
     grid-template-columns: calc(240px + var(--space-md)) minmax(0, 1fr);
     column-gap: var(--space-xl);
     align-items: start;
+  }
+
+  /* A page with no navigation has no sidebar column. */
+  .dashboard-shell--bare {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   /* position: sticky needs .dashboard-shell's align-items: start above
@@ -5455,7 +5366,6 @@ input[name="radius_km"] {
     --btn-border: 0px;
   }
 
-  .airlines-pill:not(:has(> *)),
   .airline-card__chip:not(:has(> *)),
   .airlines-gap__prefix:not(:has(> *)) {
     display: inline-block;
@@ -5467,7 +5377,6 @@ input[name="radius_km"] {
     white-space: nowrap;
   }
 
-  .airlines-pill { --pill-h: 24px; }
   .airline-card__chip { --pill-h: 20px; --pill-bw: 1px; }
   .airlines-gap__prefix { --pill-h: 32px; }
   .filter-chip__text,
@@ -5898,13 +5807,20 @@ a.btn[aria-disabled="true"] {
    * zones an iPhone draws under the status bar and the bottom toolbar), so
    * while the sheet is open it carries the same dim. The body then paints the
    * ground itself, so the scrim dims it once and the zones outside the window
-   * match what is inside it. */
+   * match what is inside it. The four layers mirror the page's own two (the
+   * sky and the strip hanging below the box), each under its own dim. */
   html:has(.tab-bar__more[open]) {
     background-image:
       linear-gradient(
         color-mix(in srgb, var(--color-text) 55%, transparent),
         color-mix(in srgb, var(--color-text) 55%, transparent)),
-      linear-gradient(180deg, var(--sky-top) 0%, var(--sky-mid) 45%, var(--sky-bottom) 100%);
+      linear-gradient(
+        color-mix(in srgb, var(--color-text) 55%, transparent),
+        color-mix(in srgb, var(--color-text) 55%, transparent)),
+      linear-gradient(180deg, var(--sky-top) 0%, var(--sky-mid) 45%, var(--sky-bottom) 100%),
+      linear-gradient(var(--sky-bottom), var(--sky-bottom));
+    background-size: 100% 100%, 100% 200px, 100% 100%, 100% 200px;
+    background-position: 0 0, 0 calc(100% + 200px), 0 0, 0 calc(100% + 200px);
   }
 
   body:has(.tab-bar__more[open]) {
@@ -6028,7 +5944,7 @@ a.btn[aria-disabled="true"] {
 
 .look-frame__picture {
   position: relative;
-  padding: 8px;
+  padding: var(--space-sm);
   border-radius: var(--radius-control);
   background: linear-gradient(145deg, var(--color-frame-bezel-hi), var(--color-frame-bezel));
   box-shadow: 0 14px 30px -14px var(--color-shadow-strong);
@@ -6137,7 +6053,7 @@ a.form-back {
   .look-sheet::before {
     content: "";
     position: absolute;
-    top: 8px;
+    top: var(--space-sm);
     left: 50%;
     width: 40px;
     height: 4px;
@@ -6360,13 +6276,32 @@ a.modal__dismiss {
   dialog.modal::before {
     content: "";
     position: absolute;
-    top: 8px;
+    top: var(--space-sm);
     left: 50%;
     width: 40px;
     height: 4px;
     margin-left: -20px;
     border-radius: var(--radius-control);
     background: var(--color-border);
+  }
+
+  /* With the keyboard up the sheet floats above it, and iOS leaves its
+   * autofill bar transparent: this fixed strip carries the sheet's own surface
+   * from the sheet's bottom edge down to the bottom of the viewport. Fixed, so
+   * it is not clipped by the sheet's scroll and adds no page height; it is
+   * zero tall while no keyboard lifts the sheet. */
+  dialog.modal::after {
+    content: "";
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    height: var(--keyboard-inset, 0px);
+    background: inherit;
+  }
+
+  dialog.modal[open] {
+    border-bottom-width: 0;
   }
 }
 
@@ -6561,7 +6496,7 @@ dialog.modal--compact[open] > *,
 .modal__linkbox {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-sm);
   padding: 6px 6px 6px 12px;
   background: var(--color-secondary);
   border: 1px solid var(--color-border);
@@ -6574,7 +6509,7 @@ dialog.modal--compact[open] > *,
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 13px;
+  font-size: var(--font-caption-size);
   user-select: all;
 }
 
@@ -6624,7 +6559,7 @@ dialog.modal--compact[open] > *,
   }
 
   .modal--compact .modal__actions {
-    padding-bottom: calc(24px + var(--safe-bottom));
+    padding-bottom: calc(var(--space-lg) + var(--safe-bottom));
   }
 }
 
@@ -7203,6 +7138,7 @@ button.row-menu__item {
 .dashboard-main[data-page-open] .personalisation > .personalisation-nav,
 .dashboard-main[data-page-open] .fleet-frame > .fleet-head,
 .dashboard-main[data-page-open] .fleet-split__main > .fleet-head,
+.dashboard-main[data-page-open] .fleet-split__main > .fleet-empty,
 .dashboard-main[data-page-open] .fleet-frame > .fleet-anchors,
 .dashboard-main[data-page-open] .fleet-tiles--system {
   animation:
@@ -7274,10 +7210,6 @@ button.row-menu__item {
 /* The editor table that follows the gaps table enters one step after it. */
 .dashboard-main[data-page-open] > .airlines-table--gaps ~ .airlines-table {
   animation-delay: calc(3 * var(--motion-stagger));
-}
-
-.dashboard-main[data-page-open] > .airlines-table--known ~ .airlines-table:not(.airlines-table--known) {
-  animation-delay: calc(4 * var(--motion-stagger));
 }
 
 /* A filter that only hides rows replays a fade of its list, nothing else:
@@ -7455,7 +7387,8 @@ button.row-menu__item {
     animation: skypane-reveal-fade var(--motion-enter) var(--ease-out) backwards;
   }
 
-  .dashboard-main[data-page-open] .fleet-split__main > .fleet-head {
+  .dashboard-main[data-page-open] .fleet-split__main > .fleet-head,
+  .dashboard-main[data-page-open] .fleet-split__main > .fleet-empty {
     --reveal-index: 1;
   }
 

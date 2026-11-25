@@ -1,4 +1,4 @@
-# Photo mode: concept brief (v1.3 candidate)
+# Photo mode: concept brief (v1.4 candidate)
 
 Status: exploration, decided with the owner in a discussion session on
 2026-11-10. No production code was changed. Trial images and scripts live
@@ -15,9 +15,9 @@ it.
 
 | # | Topic | Decision |
 |---|-------|----------|
-| 1 | Photo source | The user's own photos first (uploaded from the companion). Provided collections right after, as v1.3.x. External albums/services are out of scope. |
+| 1 | Photo source | The user's own photos first (uploaded from the companion). Provided collections right after, as v1.4.x. External albums/services are out of scope. |
 | 2 | Mode selection | One mode per frame, plane or photos, set in the companion. No automatic switch when no plane is around, no time-of-day schedule (both are later ideas). |
-| 3 | Scope of v1.3 | Simple: upload, per-frame mode, rotation. Collections come in v1.3.x. No schedule. |
+| 3 | Scope of v1.4 | Simple: upload, per-frame mode, rotation. Collections come in v1.4.x. No schedule. |
 | 4 | Privacy | Photos are visible only to the frame owner and co-managers. **The admin never sees user photos**, and no admin view of them is to be built. Only a reduced, normalised copy is stored (no original). Deleting a photo removes the file from disk; deleting an account removes all its photos. Quota to settle in planning (starting point: 20 photos per frame, about 1 MB each at most). |
 | 5 | Fitting a photo to the panel | Crop to fill by default, with a per-photo setting (crop or bands) and a way to move the crop in the companion. The same stored photo must serve both the portrait (1200x1600) and the landscape (800x480) panels. |
 | 6 | Rotation | Per frame: hourly, every 6 h, every 12 h or daily (default daily). Order: random without repeats, or upload order. In photo mode the frame's wake interval follows the rotation interval. |
@@ -104,7 +104,7 @@ needed on a real frame before stating an autonomy figure.
 4. **Companion UI.** Upload, photo list, delete, per-photo crop or bands with
    movable crop, dithered preview, mode and rotation settings. English and
    French strings.
-5. **(v1.3.x) Provided collections.** Public-domain sets with the tracking
+5. **(v1.4.x) Provided collections.** Public-domain sets with the tracking
    file, plus the artist collection with its agreement; a way for a user to
    add a collection to a frame.
 

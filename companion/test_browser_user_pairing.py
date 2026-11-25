@@ -128,6 +128,60 @@ def test_the_add_your_frame_button_text_is_readable_on_its_fill(
         context.close()
 
 
+@pytest.mark.parametrize("width", (360, 1280))
+@pytest.mark.parametrize("lang", ["en", "fr"])
+def test_the_add_frame_page_is_one_card_with_the_help_footer_below_the_actions(
+        new_context, seeded, lang, width):
+    server, _seed = seeded
+    context, page = _open(new_context, server, fx.USER_EMAIL, "/pair-frame", lang)
+    try:
+        page.set_viewport_size({"width": width, "height": 800})
+        page.locator("#pair-code").wait_for(state="visible")
+        card = page.locator("form.pair-card")
+        assert card.count() == 1
+        assert card.locator("#pair-code").count() == 1
+        assert card.locator(".pair-card__help").count() == 1
+        actions = card.locator(".pair-form__actions").bounding_box()
+        footer = card.locator(".pair-card__help").bounding_box()
+        assert footer["y"] >= actions["y"] + actions["height"] - 1
+        box = card.bounding_box()
+        assert box["x"] >= -1 and box["x"] + box["width"] <= width + 1
+        assert page.locator("#pair-code").evaluate(
+            "e => getComputedStyle(e).textAlign") == "center"
+        assert _no_sideways_scroll(page)
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("width", (390, 1280))
+def test_the_pair_card_is_the_only_surface_around_the_form(new_context, seeded, width):
+    """no outer card around the card: walking up from the form, nothing before the page's main
+    column paints a background, border or shadow, and the form is the card that does"""
+    server, _seed = seeded
+    context, page = _open(new_context, server, fx.USER_EMAIL, "/pair-frame", "fr")
+    try:
+        page.set_viewport_size({"width": width, "height": 844})
+        page.locator("#pair-code").wait_for(state="visible")
+        page.wait_for_function(animation_settle.SETTLED, timeout=15000)
+        surfaces = page.evaluate(
+            """() => {
+              const out = [];
+              for (let e = document.querySelector('form.pair-card'); e && e.tagName !== 'MAIN';
+                   e = e.parentElement) {
+                const s = getComputedStyle(e);
+                const painted = s.backgroundColor !== 'rgba(0, 0, 0, 0)' || s.backgroundImage !== 'none'
+                  || parseFloat(s.borderTopWidth) > 0 || s.boxShadow !== 'none';
+                if (painted) { out.push(e.tagName.toLowerCase() + '.' + e.className); }
+              }
+              return out;
+            }""")
+        assert len(surfaces) == 1 and "pair-card" in surfaces[0], surfaces
+        card = page.locator("form.pair-card").bounding_box()
+        assert card["x"] >= 0 and card["x"] + card["width"] <= width
+    finally:
+        context.close()
+
+
 @pytest.mark.parametrize("lang", ["en", "fr"])
 def test_a_user_pairs_a_frame_from_the_empty_state_and_lands_on_its_home(
         new_context, seeded, lang):
@@ -261,5 +315,47 @@ def test_the_fleet_page_header_has_no_add_a_frame_button(new_context, seeded):
         assert page.locator(".page-header a.page-header__action").count() == 0
         assert page.locator("a.frame-row--add").count() == 0
         assert page.locator(".fleet-list .fleet-add-button").count() == 1
+    finally:
+        context.close()
+
+
+_GEOMETRY = """() => {
+  const edge = e => { const b = e.getBoundingClientRect(); return [b.left, b.right]; };
+  const q = s => document.querySelector(s);
+  return {card: edge(q("form.pair-form")), main: edge(q(".pair-card__main")),
+          controls: ["#pair-code", "#pair-owner", "form.pair-form button[type=submit]"]
+              .map(s => edge(q(s)))};
+}"""
+
+
+@pytest.mark.parametrize("theme", ["light", "dark"])
+@pytest.mark.parametrize("lang", ["en", "fr"])
+@pytest.mark.parametrize("width", [360, 390, 1280])
+def test_an_administrators_owner_picker_stays_inside_the_card_padding(
+        new_context, app_server_in_process, width, lang, theme):
+    server = app_server_in_process
+    fx.seed_fleet(server.state_dir)
+    context = new_context(viewport={"width": width, "height": 844})
+    pair = fx.admin_cookie(server.state_dir)
+    name, value = pair.split("=", 1)
+    context.add_cookies([
+        {"name": name, "value": value, "url": server.base_url(), "httpOnly": True,
+         "sameSite": "Strict"},
+        {"name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": server.base_url()}])
+    page = context.new_page()
+    try:
+        page.goto(server.base_url() + "/pair-frame")
+        page.locator("main").wait_for(state="visible")
+        _set_ui_theme(page, theme)
+        page.wait_for_function(animation_settle.SETTLED, timeout=15000)
+        geometry = page.evaluate(_GEOMETRY)
+        card_left, card_right = geometry["card"]
+        assert geometry["main"][0] >= card_left and geometry["main"][1] <= card_right
+        left = geometry["controls"][0][0] - card_left
+        right = card_right - geometry["controls"][0][1]
+        assert abs(left - right) <= 1 and left >= 8, geometry
+        for control_left, control_right in geometry["controls"]:
+            assert control_left >= card_left + left - 1, geometry
+            assert control_right <= card_right - right + 1, geometry
     finally:
         context.close()

@@ -20,7 +20,7 @@ this seed is about the next layer of polish, not a redesign.
 
 ## When to Surface
 
-**Trigger:** milestone v1.3. It fits next to the getting-started wizard and the
+**Trigger:** milestone v1.4. It fits next to the getting-started wizard and the
 photo mode screens (SEED-013), which add new pages that must follow the same
 visual rules.
 
@@ -53,7 +53,7 @@ Points to settle:
 ## Notes
 
 Phase 67 (project and code optimisation, v1.2) must not change how the console
-looks; visual work waits for v1.3.
+looks; visual work waits for v1.4.
 
 ## Items noted during the Phase 64 walk-through
 

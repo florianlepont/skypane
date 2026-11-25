@@ -2,7 +2,7 @@
 
 **Status (2026-11-19).** The design was reworked with the owner in a Blender session
 and checked on the model; the original text of 2026-11-16 below is updated where it
-had become wrong. The four parts are exported as STL in `hardware/cad/export/`. The
+had become wrong. The four parts are exported as STL in `hardware/cad/print/`. The
 changes, the checks and the measured values are listed in
 [ENCLOSURE-PRINT-ORDER.md](ENCLOSURE-PRINT-ORDER.md) and
 [ENCLOSURE-MEASUREMENTS.md](ENCLOSURE-MEASUREMENTS.md). Values the owner has not
@@ -20,8 +20,8 @@ Print the back of the SkyPane 7.3 inch e-ink frame, to sit inside an IKEA RÖDAL
 13 x 18 cm black frame in place of the original back and spacer. Four parts:
 
 1. **Tray** (bac): holds the board, the battery and the antenna.
-2. **Lid** (couvercle): carries the two wall hooks, the supports for the frame tabs, four screw lugs, two stop walls for the stand and the engraved name.
-3. **Stand** (chevalet): one loose plate that leans against a stop wall on the lid and stands the frame on a piece of furniture, in landscape or in portrait, at a tilt of 20 degrees.
+2. **Lid** (couvercle): carries the two wall hooks, the supports for the frame tabs (no screw lugs since 2026-11-24), two lugs for the diagonal hinge of the stand and the engraved name.
+3. **Stand** (chevalet): one flat leg on a diagonal hinge near the logo, with two small lugs on the lid; it stands the frame in landscape and in portrait without being moved (tilt about 26 to 27 degrees), and folds flat on the lid back.
 4. **Centring shim** (cale) for the screen.
 
 Intended use: landscape as the base format (board at the bottom), portrait as
@@ -130,19 +130,21 @@ Fallbacks, only if the first fit asks for them: a U.FL antenna extension, M2 hea
 
 ## Files
 
-In this repository, `hardware/cad/` (added by the owner on 2026-11-17):
+In this repository, `hardware/cad/` (added by the owner on 2026-11-17, reorganised on
+2026-11-24; the folder has its own `README.md`):
 
-- `skypane_cassette.blend`: the Blender file with the four parts and the generating
+- `source/skypane_cassette.blend`: the Blender file with the parts and the generating
   script `skypane_cassette.py` (renamed from "Sans titre.blend"; about 5.5 MB). It
   was reworked on 2026-11-18 and saved in this repository; the owner reports that the
   figurine and the abandoned versions are no longer in it.
-- `ee04_board.stl`: the board, converted from the GrabCAD STEP file (about 12.5 MB).
-- `ikea_rodalm_13x18_noir.glb`: the IKEA 3D model of the frame (about 0.14 MB).
-
-- `skypane_cassette.blend1`: a Blender automatic backup copy, not a design source.
-- `export/skypane_tray.stl`, `export/skypane_lid.stl`, `export/skypane_stand.stl`, `export/skypane_shim.stl`: the four parts to print,
-  exported 2026-11-18 per the previous record; the owner's confirmation that they match the final blend is recorded in the print order.
-- `export/skypane_lid.3mf`: present in the export folder; its role is open (asked of the owner on 2026-11-19).
+- `reference/ee04_board.stl`: the board, converted from the GrabCAD STEP file (about 12.5 MB).
+- `reference/ikea_rodalm_13x18_noir.glb`: the IKEA 3D model of the frame (about 0.14 MB).
+- `print/skypane_tray_shim_merged.stl`, `print/skypane_lid.stl`, `print/skypane_stand.stl`: the three parts to print since 2026-11-24 (the tray and the shim are one part);
+  the lid was exported again on 2026-11-24 after the tab pads moved and the screw lugs went, the stand on 2026-11-24 as one leg on a diagonal hinge; the owner's confirmation that the earlier exports match the blend is recorded in the print order.
+- `print/skypane_print_project.3mf`: the owner's one Bambu Studio project (recreated on 2026-11-24, renamed on 2026-11-25): the lid, the one-part tray and shim, and the stand.
+- `old/`: the previous two-part design (`skypane_tray.stl`, `skypane_shim.stl`, `skypane_cassette_separate.blend`), kept until the one-part design has been fitted in the frame. The one-part design was chosen by the owner on 2026-11-24 (reprinted well, not yet fitted).
+- The Blender automatic backup copy (`skypane_cassette.blend1`) was removed on 2026-11-24;
+  it stays in the git history, and `*.blend1` is now ignored.
 
 ## Notes for the planning
 

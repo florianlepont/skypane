@@ -138,7 +138,7 @@ def dialog_html(
         dismiss_label, dismiss_href, destructive=False, confirm_only=False,
         open_=False, subtitle=None, focus_id=None, focus_title=False,
         return_on_close=False, return_focus_id=None, secondary_dismiss=False,
-        extra_action_html="", variant="", scrim_close=False):
+        extra_action_html="", variant="", scrim_close=False, submit_attrs=""):
     """One modal dialog wrapping a POST form.
 
     `dismiss_href` is the host page path: the close and dismiss links go
@@ -170,6 +170,8 @@ def dialog_html(
     "compact-top" sits in the upper part of a wide screen instead of its
     middle. The variant is a modifier class on that dialog only; every other
     dialog keeps its own spacing.
+    `submit_attrs` (already escaped, empty by default) adds attributes to the
+    submit button.
     `scrim_close` lets a tap outside close a dialog that holds a field (which
     otherwise ignores it so typed text is not lost): for a one-field dialog
     where cancelling discards.
@@ -216,7 +218,7 @@ def dialog_html(
         '%(head)s'
         '<div class="modal__body">%(body)s</div>'
         '<div class="modal__actions">'
-        '<button type="submit"%(submit_class)s%(submit_focus)s>%(submit)s</button>'
+        '<button type="submit"%(submit_class)s%(submit_focus)s%(submit_attrs)s>%(submit)s</button>'
         '<a class="%(dismiss_class)s" href="%(href)s" data-modal-close%(dismiss_focus)s>%(dismiss)s</a>'
         '%(extra_action)s</div></form></dialog>\n'
     ) % {
@@ -232,6 +234,7 @@ def dialog_html(
         "body": body_html,
         "submit_class": submit_class,
         "submit_focus": submit_focus,
+        "submit_attrs": submit_attrs,
         "submit": escape_html(submit_label),
         "dismiss_focus": dismiss_focus,
         "dismiss_class": dismiss_class,
@@ -245,13 +248,14 @@ def result_dialog_html(
         once=False):
     """A compact-top dialog, open, that reports the outcome of a submission:
     no form of its own, a Done link and optionally `retry_form_html` (an
-    already-escaped form whose one submit button is the primary action).
+    already-escaped form whose one submit button is the primary action and
+    takes the initial focus).
 
     `once` is for a body that carries a one-time credential: the closing
     script removes the dialog from the page and puts `dismiss_href` in the
     address bar, so neither a reload nor the page itself holds the value
-    afterwards. Done takes the initial focus so Enter never repeats the
-    action."""
+    afterwards. Without a retry form Done takes the initial focus so Enter never
+    repeats the action."""
     slug = validated_slug(dialog_id)
     href = escape_html(dismiss_href)
     done_class = (
@@ -264,12 +268,13 @@ def result_dialog_html(
         'aria-labelledby="%(id)s-title" open%(attrs)s>'
         '%(head)s<div class="modal__body">%(body)s</div>'
         '<div class="modal__actions">%(retry)s'
-        '<a class="%(done_class)s modal__done" href="%(href)s" data-modal-close autofocus>'
+        '<a class="%(done_class)s modal__done" href="%(href)s" data-modal-close%(done_focus)s>'
         '%(done)s</a></div></dialog>\n'
     ) % {
         "id": slug, "attrs": attrs, "body": body_html, "retry": retry_form_html,
         "head": _head_html(slug, title, "", href, "", True),
-        "done_class": done_class, "href": href, "done": escape_html(done_label),
+        "done_class": done_class, "done_focus": "" if retry_form_html else " autofocus",
+        "href": href, "done": escape_html(done_label),
     }
 
 
@@ -330,7 +335,7 @@ def choice_dialog_html(
 
 def sections_dialog_html(
         dialog_id, title, subtitle, sections_html, dismiss_label, dismiss_href,
-        open_=False, extra_class=""):
+        open_=False, extra_class="", leading_action_html=""):
     """A modal dialog whose body is several independent forms.
 
     Unlike `dialog_html` it wraps no form of its own: `sections_html` holds
@@ -339,9 +344,13 @@ def sections_dialog_html(
     initial focus, or the dismiss link when the sections have none. `open_`
     renders the `open` attribute for a dialog reopened after a change.
     `extra_class` adds one slug class to the dialog for page-specific styling.
+    `leading_action_html` (already escaped) is a control set at the left of
+    the action row, the dismiss link then being the primary action at the right.
     """
     slug = validated_slug(dialog_id)
     classes = "modal " + validated_slug(extra_class) if extra_class else "modal"
+    actions_class = "modal__actions modal__actions--split" if leading_action_html else "modal__actions"
+    dismiss_class = "modal__dismiss btn btn--primary modal__done" if leading_action_html else "modal__dismiss"
     title_id = slug + "-title"
     sections_html, found = _autofocus_first_control(sections_html)
     dismiss_focus = "" if found else " autofocus"
@@ -357,10 +366,13 @@ def sections_dialog_html(
         '<a class="modal__close" href="%(href)s" data-modal-close aria-label="%(close)s">'
         '%(close_icon)s</a></header>'
         '<div class="modal__body">%(body)s</div>'
-        '<div class="modal__actions">'
-        '<a class="modal__dismiss" href="%(href)s" data-modal-close%(focus)s>%(dismiss)s</a>'
+        '<div class="%(actions_class)s">%(leading)s'
+        '<a class="%(dismiss_class)s" href="%(href)s" data-modal-close%(focus)s>%(dismiss)s</a>'
         '</div></dialog>\n'
     ) % {
+        "actions_class": actions_class,
+        "dismiss_class": dismiss_class,
+        "leading": leading_action_html,
         "classes": classes,
         "id": slug,
         "title_id": title_id,

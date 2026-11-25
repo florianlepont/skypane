@@ -78,5 +78,9 @@ transition durations to 0.01ms with `!important`, and limits transitioned proper
 paint without moving layout. Two more reduce blocks switch off the loops that a 0.01ms override
 would leave running (the halo, shimmer, switch ring, slider stretch, press scale) and the Location
 map tiles (`style-place.css`). `motion.js` adds no class and starts nothing when the preference is
-set. "Every animation is finite" holds except the resting status dot and the ambient loops of Home;
+set. These blocks are the documented exceptions to "no bare duration" and "no `!important`":
+the `0.01ms` durations and the 13 `!important` declarations in `style.css`, one in `style-airlines.css`
+(the datalist arrow of the Airlines name field, dropped so it reads as a plain text input) and one in `style-place.css`
+(the tile transition) must win over any component rule, so they cannot be tokens or ordinary
+declarations. "Every animation is finite" holds except the resting status dot and the ambient loops of Home;
 no loop runs under reduced motion.

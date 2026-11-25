@@ -222,13 +222,13 @@ def test_new_login_surfaces_render_the_approved_french():
 # --- Defaults are unchanged -------------------------------------------
 
 # The pinned digests cover the shared sprite (icon-fit, icon-eye, icon-chevron-left,
-# icon-departure, icon-arrival, icon-spark) and the shared nav names and order
-# (Home, Flights, Airlines, Style, Location; French Vols, Compagnies, Lieu).
+# icon-departure, icon-arrival, icon-spark, icon-picture-add, icon-picture-edit) and the shared nav names and order
+# (Home, Flights, Airlines, Style, Location; French Vols, Airlines, Lieu).
 _LOGIN_BASELINE = {
     "en": {
-        "nf": "eebd9c27e34917fe4c1605d103aa1e0ce1ad9a5642564e2152b0c0518d9f875d",
-        "nf2": "eebd9c27e34917fe4c1605d103aa1e0ce1ad9a5642564e2152b0c0518d9f875d",
-        "forb": "20011e982e42cf5a252b902ee41cc67be2bbf6017434c595981ef27f2f970a12",
+        "nf": "5fc64c46a831c3d5498afd3f4ed9fad92fa44ab09e1611d0ef6ebf9073cc1df4",
+        "nf2": "5fc64c46a831c3d5498afd3f4ed9fad92fa44ab09e1611d0ef6ebf9073cc1df4",
+        "forb": "fa742bf0353b5a4cc72d84f6802cf07843c43db80a7f5031f38259452d97016f",
     },
 }
 
@@ -349,7 +349,7 @@ def test_unrecognised_principal_clears_to_default():
 # The digest of the personal pages and the Update page. The Health and Device pages were removed, so
 # their two shells left the list; every remaining shell is byte-identical to before the removal.
 _SHELL_BASELINE_DIGEST = (
-    "d1a42f48d29cb061d9678c64811bcf04242927ff7c1b3115e1c0cb02d2008ee9")
+    "4800c901e44c72557270a099145771029af37edbeb114f4b4f0eb2f061c9c407")
 
 
 def test_shell_without_a_principal_is_byte_identical_to_before():

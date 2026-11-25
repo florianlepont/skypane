@@ -25,9 +25,9 @@ PIL_Image = pytest.importorskip("PIL.Image")
 ROUTES = ("/airlines/manage", "/flights", "/fleet")
 VIEWPORTS = (("390", VIEWPORT_PHONE), ("1280", VIEWPORT_DESKTOP))
 
-# The boxes whose text is centred: the filter chips, the buttons, the Airlines editor's pills.
+# The boxes whose text is centred: the filter chips, the buttons, the Airlines editor's gap prefixes.
 SELECTOR = ", ".join((
-    ".filter-chip__box", ".btn", ".airlines-pill", ".airlines-gap__prefix",
+    ".filter-chip__box", ".btn", ".airlines-gap__prefix",
     ".airlines-act", ".airline-card__chip"))
 
 # One pixel of slack on top of the measured 0.5px that pixel snapping alone gives.

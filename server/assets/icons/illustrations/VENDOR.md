@@ -147,6 +147,26 @@ for all seven.
 | `generic-embraer.png` | *(none — D-07 neutral shape fallback)* | Embraer E-Jet shape | 2172×724 | `ba78794a0d37200291b53b8f2f7cdc7f8d1ca0949aab0a6e4da5f2b26b7f6723` |
 | `generic-a330.png` | *(none — D-07 neutral shape fallback)* | A330-family shape | 1672×941 | `9668b91ff52283ad44d514eb74e528991dadb0792749923ca6968d019386a0e7` |
 | `generic-a350.png` | *(none — D-07 neutral shape fallback)* | A350-family shape | 1774×887 | `459fa39fa8df935cd01480aebcec2e7e83c9f6a9f1904e8b23d427130263c9eb` |
+| `generic-erj145.png` | *(none — neutral generic silhouette; AI-generated, delivered by the owner 2026-11-25, nose left, neutral white livery with slate tail)* | ERJ-145 shape | 2172×724 | `bbb978d8928d08775003251d6a5d71163f5a8fef5292944030bed73dc56afc41` |
+| `generic-b787.png` | *(none — neutral generic silhouette; AI-generated, delivered by the owner 2026-11-25, nose left, neutral white livery with slate tail)* | B787 shape | 2172×724 | `cc019d118e49337bb3a3929de0e9cdd9f44336d5c975444904d0d94d82b0a742` |
+| `generic-a220.png` | *(none — neutral generic silhouette; AI-generated, delivered by the owner 2026-11-25, nose left, neutral white livery with slate tail)* | A220 shape | 2172×724 | `4ee7f3c0c1673b4e6ffd7b5522e89fbfdebce483f22ecc39f25d3b09891e4379` |
+| `generic-b777.png` | *(none — neutral generic silhouette; AI-generated, delivered by the owner 2026-11-25, nose left, neutral white livery with slate tail)* | B777 shape | 2172×724 | `09ae81d2cc358a55933b9470cb888979f895d8b1fdfe6df87cee345985b43a47` |
+| `generic-b747.png` | *(none — neutral generic silhouette; AI-generated, delivered by the owner 2026-11-25, nose left, neutral white livery with slate tail)* | B747 shape | 2172×724 | `3bdbf482ca22ef3240d6b0cd2182265be2f606870fa8491a67ca5c2d41437065` |
+| `generic-b767.png` | *(none — neutral generic silhouette; AI-generated, delivered by the owner 2026-11-25, nose left, neutral white livery with slate tail)* | B767 shape | 2172×724 | `fb7b74b75a481f3d9261e2164dbc7fd8d59f1a9d22bc0f7397e4966009be1220` |
+| `generic-b757.png` | *(none — neutral generic silhouette; AI-generated, delivered by the owner 2026-11-25, nose left, neutral white livery with slate tail)* | B757 shape | 2172×724 | `16913930bf1a402d1f7c3ecc2c91d965b35e7ccafc414b18caf5d0651348a2be` |
+| `generic-a380.png` | *(none — neutral generic silhouette; AI-generated, delivered by the owner 2026-11-25, nose left, neutral white livery with slate tail)* | A380 shape | 2172×724 | `540c8d8523605d2df919e1dac13840f9cbafa479b021df6637dd8e31e24a1525` |
+| `generic-a300.png` | *(none — neutral generic silhouette; AI-generated, delivered by the owner 2026-11-25, nose left, neutral white livery with slate tail)* | A300 shape | 2172×724 | `f5827262f6a6939cd9a782bc7a79ddd68b76a7f1e75910d667fa1078707af92d` |
+| `generic-crj.png` | *(none — neutral generic silhouette; AI-generated, delivered by the owner 2026-11-25, nose left, neutral white livery with slate tail)* | CRJ regional jet shape | 2149×732 | `26caab5ad5001e0e793e2f0ef8e257f55034aa0968d2f29522303b229e7e4b21` |
+| `generic-falcon.png` | *(none — neutral generic silhouette; AI-generated, delivered by the owner 2026-11-25, nose left, neutral white livery with slate tail)* | Falcon business jet shape | 2172×724 | `79cdea6f73439ed6efaaf6d6257c78621b152ecd3fc90637d5117e0d6eebb8c2` |
+| `generic-bizjetlarge.png` | *(none — neutral generic silhouette; AI-generated, delivered by the owner 2026-11-25, nose left, neutral white livery with slate tail)* | large business jet shape | 2172×724 | `f04a92a28b50d9359e64679a8afe3edbedb596c8d5e1defdb0c0b7474269833b` |
+| `generic-bizjet.png` | *(none — neutral generic silhouette; AI-generated, delivered by the owner 2026-11-25, nose left, neutral white livery with slate tail)* | light business jet shape | 2172×724 | `4b5f9816618dd61d965a2b85b5b6e4fa1c7d6c1b8022175da92dfc904eed7f70` |
+| `generic-kingair.png` | *(none — neutral generic silhouette; AI-generated, delivered by the owner 2026-11-25, nose left, neutral white livery with slate tail)* | King Air turboprop shape | 2172×724 | `0b3dc2e2a714d82a18470ebea8b5c64c63dd774eb34a1e80d7d9ff7ef77b319d` |
+| `generic-pc12.png` | *(none — neutral generic silhouette; AI-generated, delivered by the owner 2026-11-25, nose left, neutral white livery with slate tail)* | PC-12 turboprop shape | 2172×724 | `55fd38360f47369740c33ac55ae8c503bd3dc61202d34f321f01f5c467325240` |
+| `generic-helicopter.png` | *(none — neutral generic silhouette; AI-generated, delivered by the owner 2026-11-25, nose left, neutral white livery with slate tail)* | helicopter shape | 1774×887 | `31885a4e977d5779a2fbd36bb522fb35974755bb2681d9eb9c367e385ab2f029` |
+| `generic-gahigh.png` | *(none — neutral generic silhouette; AI-generated, delivered by the owner 2026-11-25, nose left, neutral white livery with slate tail)* | high-wing general-aviation single shape | 1983×793 | `f3a84378a07bd90b4402737d71ee7b6d796e0ce1ac13591368d0eb48e4728f62` |
+| `generic-other.png` | *(none — neutral generic silhouette; AI-generated, delivered by the owner 2026-11-25, nose left, neutral white livery with slate tail)* | unclassified-aircraft shape | 1983×793 | `06d462fdf8c589fedaf1dcb63680cd0d643f4d01c16e2c2632e893dbd412705e` |
+
+**Real generic silhouettes (18, delivered 2026-11-25):** the rows after the `generic-a350.png` row above replace the earlier placeholder copies of the same names. The 18 files were generated by AI image generation as transparent RGBA PNG cutouts, delivered by the owner on 2026-11-25, nose pointing left, neutral generic livery (white body, slate tail, no airline identity). They are used exactly as delivered, with no local modification.
 
 ### `_unresolved/` — generated but NOT selection targets (not shipped assets)
 
@@ -293,7 +313,7 @@ by design, per `03.1-LIVE-RESOLUTION.md`):**
 
 - **Amelia International** — `[UNRESOLVED]` **through Phase 3.1 only.**
   **Status changed by quick task `260827-kih` (2026-08-27): this carrier IS
-  now a real target** (`amelia.png`/`amelia-embraer.png`, filed as
+  now a real target** (`amelia.png`/`amelia-erj145.png`, filed as
   "Amelia", not "Amelia International" — see the "Quick task 260827-kih"
   subsection immediately below for the full live evidence). At the time
   this exclusion was recorded (Phase 3.1), no adsbdb code could be trusted:
@@ -303,7 +323,7 @@ by design, per `03.1-LIVE-RESOLUTION.md`):**
   speculatively-generated `_unresolved/amelia-international.png` this
   exclusion produced has since been removed from disk (2026-08-27, by the
   same parallel session that delivered the real `amelia.png`/
-  `amelia-embraer.png` art) — it is no longer present, and `_unresolved/`
+  `amelia-erj145.png` art) — it is no longer present, and `_unresolved/`
   itself now holds no files (see the note above).
 - **La Compagnie** — `[UNRESOLVED]` **through quick task 260921-v9c only.**
   **Status changed by quick task `260921-v9c` (2026-09-21): this carrier IS
@@ -331,7 +351,7 @@ Outstanding count: **3 → 5** (both new Amelia files await an external
 generation batch per D-09; neither has a sha256/dimensions row yet — added
 only once a real file lands on disk and passes `--validate`). Full current
 outstanding list (5): `km-malta-airlines.png`, `tuifly-belgium.png`,
-`amelia.png`, `royal-air-maroc-embraer.png`, `amelia-embraer.png`. See
+`amelia.png`, `royal-air-maroc-embraer.png`, `amelia-erj145.png`. See
 "Quick task 260827-lgt" below for the current project-wide total of 8
 outstanding files.
 
@@ -380,7 +400,7 @@ corrected against a real reference photo; see the digest table and the
 | Filename | Airline | Aircraft type | Livery (moderate confidence at spec time) |
 |---|---|---|---|
 | `amelia.png` | Amelia | Airbus A320 | Originally specified as white fuselage, blue tail, lowercase "amelia" wordmark — corrected post-delivery, see below |
-| `amelia-embraer.png` | Amelia | Embraer E145 | Same livery, on the regional-jet airframe (Amelia's real Orly-relevant Pau service type, per `03.1-CONTEXT.md` D-03) |
+| `amelia-erj145.png` | Amelia | Embraer E145 | Same livery, on the regional-jet airframe (Amelia's real Orly-relevant Pau service type, per `03.1-CONTEXT.md` D-03) |
 
 **KM Malta Airlines and TUIfly Belgium (quick task `260827-jz6`) are
 untouched by this session (QT-kih-D-07) — see the Naming rules section of
@@ -401,7 +421,7 @@ new secondary, Air France Hop's ATR72 variant). Outstanding count:
 **5 → 8**. Full current project-wide outstanding list (8, in `--targets`
 order): `km-malta-airlines.png`, `tuifly-belgium.png`, `amelia.png`,
 `air-france-hop.png`, `klasjet.png`, `royal-air-maroc-embraer.png`,
-`amelia-embraer.png`, `air-france-hop-atr72.png`.
+`amelia-erj145.png`, `air-france-hop-atr72.png`.
 
 **Three new outstanding targets, none generated by this task:**
 
@@ -480,7 +500,7 @@ Caraïbes rather than Amelia; it was removed instead of promoted.
 | `km-malta-airlines.png` | KM Malta Airlines | Airbus A320neo, post-2023 | 2017×780 | `57317df5cbb460889afd1358be7579f45d5f3742abfb594b222f7715f55bd38f` |
 | `tuifly-belgium.png` | TUIfly Belgium | Boeing 737 MAX 8 | 2001×786 | `71605dfeee854ba4c296b242d31831a3fcee12d86d15d848dacb2b395d7390ea` |
 | `amelia.png` | Amelia | Airbus A320, white tail with low emerald fuselage ribbons | 2084×754 | `58598c69094b4a77c79a61f588343c5159d38cce474b59f3fb431e4723f5cdd4` |
-| `amelia-embraer.png` | Amelia | Embraer E145, verified white/dark-green livery | 2067×761 | `284e4947fe2f1b30c51ddd0bc9b6af6489ba3bd92f526800260435f65141aa53` |
+| `amelia-erj145.png` | Amelia | Embraer E145, verified white/dark-green livery | 2067×761 | `284e4947fe2f1b30c51ddd0bc9b6af6489ba3bd92f526800260435f65141aa53` |
 | `air-france-hop.png` | Air France HOP | Embraer E190, post-2019 | 2135×737 | `20eb212ce74e744e7972a248d107a9cacae7b4003652f1d53a783861d8c1c995` |
 | `air-france-hop-atr72.png` | Air France HOP | ATR 72-600, historical HOP! livery | 2056×765 | `6994215f6b85048f084cdf1900a86ad826f38cdecba569a92d9f6f8db69e3121` |
 | `klasjet.png` | KlasJet | Boeing 737-800, current minimalist ACMI appearance | 2073×758 | `628557ff3171001d9dfd6b847f9c5471da9c6b6657b1006edc0d40d54a5e5f20` |

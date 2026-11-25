@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>P15 Home hero, realistic mockup (OWNER-DECISION)</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#E4E9F0;color:#17191F;font:16px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif;padding:24px 16px 64px}
+.doc{max-width:1400px;margin:0 auto}
+h1{margin:0 0 8px;font-size:26px;letter-spacing:-.02em}
+h2{margin:40px 0 4px;font-size:20px}
+p,li{max-width:84ch;color:#2F3541;font-size:15px}
+ul{margin:4px 0 12px;padding-left:20px}
+.box{background:#fff;border:1px solid #CBD3DF;border-radius:14px;padding:12px 16px;margin:12px 0;max-width:none}
+.box h3{margin:0 0 4px;font-size:16px}
+.od{border-color:#B45309;background:#FFF8EB}
+table{border-collapse:collapse;font-size:14px;background:#fff}
+td,th{border:1px solid #CBD3DF;padding:4px 10px;text-align:left}
+code{background:#fff;border:1px solid #DAE1EB;border-radius:4px;padding:0 4px;font-size:13px}
+.pair{display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start;margin:12px 0 20px}
+.pair.wide{flex-direction:column}
+.side{margin:0}
+.side figcaption{font-size:13px;font-weight:600;margin:0 0 6px;color:#2F3541}
+.side figcaption span{font-weight:400;color:#4A5160}
+.side iframe{display:block;border:1px solid #AEB8C8;border-radius:28px;background:#fff}
+.side.w1280{max-width:100%;overflow-x:auto}
+.side.w1280 iframe{border-radius:12px}
+.side figcaption span.tag{color:#fff;font-weight:600}
+.tag{display:inline-block;font-size:12px;border-radius:99px;padding:0 8px;background:#17191F;color:#fff;margin-right:6px}
+.tag.new{background:#15803D}
+</style>
+<div class="doc" id="doc">
+<h1>P15 Home hero: realistic mockup (OWNER-DECISION)</h1>
+<p>Every frame below is the real served Home page of the seeded companion app (the page's own markup and the real <code>style.css</code> and <code>style-home.css</code> inlined, scripts removed, no network). Each is an iframe at its real viewport width, so the real phone and desktop breakpoints apply. TODAY is untouched. PROPOSED is the same page with only the P15 change applied. Sample flights are invented; the picture is the app's own frame preview, a stand-in (it does not show the invented flight).</p>
+<div class="box"><h3>What changes (PROPOSED only)</h3><ul>
+<li>The callsign leaves the narrow text column and takes its own full-width row at the top of the flight card. It is the largest thing on the card.</li>
+<li>Its size is fluid: <code>min(56px, 17cqw)</code> of the card's inner width. <strong>At 360 wide the card's inner width is 276px, so the callsign is 46.9px (about 47px, not 56).</strong> 56px is reached once the card's inner width is 330px or more (a viewport of about 414px and up), and at 1280 it is 56px. TODAY is 22px, and 28px from 960 up. The widest case here, WZZ6ABCD (8 characters), measures 261px of the 276px available at 360, so it fits on one line with 15px to spare.</li>
+<li>The route and the aircraft type stop sharing one dotted line: the route (<code>LFPO &rarr; LFLL</code>) is one line, the type is another, in the caption size.</li>
+<li>The registration becomes a small plate beside the type: identifier face (<code>--font-mono</code>), 13px, 1px ink border, 6px radius, uppercase with 0.08em tracking.</li></ul></div>
+<div class="box"><h3>What does not change</h3><ul>
+<li>The picture (132px beside the text, ring around it), the direction badge, the airline line, the Detected line, the frame switcher, the title and state block, the pills, the statistics, the tab bar and the sidebar. No colour, no motion (the page-opening animation is switched off in both columns so the shots are still), no new token.</li>
+<li>Callsigns are data and stay untranslated; only the real French of the page's own strings appears.</li></ul></div>
+<div class="box od"><h3>OWNER-DECISION: the rule bend</h3><p>The plate uses <strong>uppercase plus 0.08em tracking</strong> on an identifier. The system allows that only for the pairing-code entry (DEV-10, the one named exception) and says no uppercase label voice. A registration is an identifier, but accepting P15 makes this a <strong>second named exception</strong>. Everything else in the proposal obeys the rules.</p></div>
+<div class="box"><h3>Corrections to the first P15 mockup (found by building from the real page)</h3><ul>
+<li>Today's Home does not show the dotted string <code>Air France &middot; Airbus A320 &middot; F-GKXA &middot; Paris to Lyon</code>. It shows the badge, the callsign (22px), the airline, and one line <code>LFPO &rarr; LFLL &middot; A320</code> beside a 132px picture. The only mid-dot string is route and type.</li>
+<li>The route is ICAO codes, not city names, and the type is the ICAO type code (A320). The mockup keeps the data as it is.</li>
+<li><strong>No registration is stored today</strong> (the flight history has no such column). The plate needs the registration to be captured and stored, an extra server and database change that P15 did not list. Where a plate shows below it is hypothetical data; scenarios B and D show the case without it, and PROPOSED then simply has no plate.</li>
+<li>Because the picture sits beside the text, a 56px callsign cannot stay in the text column (148px wide at 360). That is why the callsign moves to a full-width row in the card.</li></ul></div>
+
+<div id="stage"></div>
+</div>
+<script id="payload-script">
+const PAYLOAD=/*__PAYLOAD__*/null;
+(function(){
+const P=PAYLOAD;
+const stage=document.getElementById('stage');
+const sections=[
+ ['Short, medium and long callsigns, Light, English (360 wide)',i=>i.theme==='light'&&i.lang==='en'&&i.width===360],
+ ['Dark, English (360 wide)',i=>i.theme==='dark'&&i.lang==='en'&&i.width===360],
+ ['French (360 wide)',i=>i.lang==='fr'&&i.width===360],
+ ['Desktop (1280 wide): sidebar, wider card',i=>i.width===1280]
+];
+const names={A:'AF1234 departing, type and registration known',B:'EZY12AB arriving, type known, no registration',C:'WZZ6ABCD arriving (8 characters), registration known, no type',D:'TVF65GH departing, airline, route, type and registration all unknown'};
+const labels={light:'Light',dark:'Dark',en:'English',fr:'Français'};
+function doc(item,body,proposed){
+ return '<!doctype html><html lang="'+item.lang+'" data-ui-theme="'+item.theme+'"><head><meta charset="utf-8">'+
+ '<meta name="viewport" content="width=device-width, initial-scale=1"><style>'+P.css+(proposed?P.overlay:'')+'</style></head>'+body+'</html>';
+}
+function side(item,which){
+ const f=document.createElement('figure');f.className='side'+(item.width===1280?' w1280':'');
+ const cap=document.createElement('figcaption');
+ const tag=which==='today'?'<span class="tag">TODAY</span>':'<span class="tag new">PROPOSED</span>';
+ cap.innerHTML=tag+item.scenario+' '+item.data.callsign+' <span>'+labels[item.lang]+', '+labels[item.theme]+', '+item.width+'px</span>';
+ const fr=document.createElement('iframe');
+ fr.width=item.width;fr.height=item.width===360?800:860;fr.title=which+' '+item.data.callsign;
+ fr.srcdoc=doc(item,which==='today'?item.today:item.proposed,which==='proposed');
+ fr.dataset.case=item.scenario+'-'+item.lang+'-'+item.theme+'-'+item.width+'-'+which;
+ f.appendChild(cap);f.appendChild(fr);return f;
+}
+sections.forEach(function(s){
+ const items=P.items.filter(s[1]);if(!items.length)return;
+ const h=document.createElement('h2');h.textContent=s[0];stage.appendChild(h);
+ items.forEach(function(item){
+  const t=document.createElement('p');t.innerHTML='<strong>'+item.scenario+'</strong>: '+names[item.scenario]+'.';stage.appendChild(t);
+  const pair=document.createElement('div');pair.className='pair'+(item.width===1280?' wide':'');
+  pair.appendChild(side(item,'today'));pair.appendChild(side(item,'proposed'));stage.appendChild(pair);
+ });
+});
+})();
+</script>

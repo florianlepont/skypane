@@ -103,7 +103,7 @@ def _type_calendar_url(page):
 
 
 def _change_wake(page):
-    page.locator("#wake-interval-s").fill("900")
+    page.locator("#wake-interval-m").fill("15")
 
 
 def _fleet_route(server):
@@ -125,7 +125,7 @@ PAGES = [
     ("calendar-connect", layout.DISPLAY_CALENDAR_CONNECT_ROUTE, "#calendar-connect-url",
      _type_calendar_url),
     ("location", "/detection", "#place-mode-area", _pick_mode),
-    ("fleet", _fleet_route, "#wake-interval-s", _change_wake),
+    ("fleet", _fleet_route, "#wake-interval-m", _change_wake),
 ]
 
 

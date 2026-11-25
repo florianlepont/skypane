@@ -3,8 +3,11 @@ under three anchors that stay at the top while the page scrolls, each 44 px and 
 390 px in English and French, the section in view marked current, plain links that work without
 scripts, a saved-section landing, the three State tiles, the full single column on a desktop,
 the unsaved-changes bar, and the designed empty picture on Home."""
+import io
+
 import animation_settle
 import pytest
+from PIL import Image
 
 import fleet_console_support as fx
 from companion import auth
@@ -34,7 +37,7 @@ _PROBE = """() => {
     pageOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
   };
 }"""
-_TILES = """() => [...document.querySelectorAll('.fleet-tile')].map((t) => {
+_TILES = """() => [...document.querySelectorAll('#fleet-section-state .fleet-tile')].map((t) => {
   const r = t.getBoundingClientRect();
   return {x: r.left, y: r.top, w: r.width, h: r.height};
 })"""
@@ -74,20 +77,127 @@ def test_the_three_anchors_fit_and_all_three_sections_are_stacked_in_order(
         context.close()
 
 
+@pytest.mark.parametrize("theme", UI_THEMES_EXPLICIT)
+@pytest.mark.parametrize("lang", ["en", "fr"])
+def test_the_sticky_bar_is_solid_and_covers_the_gap_above_it_on_an_iphone(
+        new_context, app_server_in_process, lang, theme):
+    """with a notch (safe area) and the installed web app's drop, the bar sticks below that gap:
+    its own background is opaque and the gap above it is painted too, so scrolled content never
+    shows through between the screen top and the chips"""
+    context, page = _open(new_context, app_server_in_process, PHONE, lang, theme=theme)
+    try:
+        page.evaluate(
+            "() => { document.documentElement.classList.add('web-app');"
+            " document.documentElement.style.setProperty('--safe-top', '47px'); }")
+        page.evaluate("() => window.scrollTo(0, document.documentElement.scrollHeight)")
+        page.wait_for_function(
+            "() => document.querySelector('nav.fleet-anchors').hasAttribute('data-stuck')",
+            timeout=5000)
+        look = page.evaluate(
+            """() => {
+              const nav = document.querySelector('nav.fleet-anchors');
+              const alpha = (c) => { const p = c.slice(c.indexOf('(') + 1, -1).split(',');
+                                     return p.length === 4 ? parseFloat(p[3]) : 1; };
+              const gap = getComputedStyle(nav, '::before');
+              return {top: nav.getBoundingClientRect().top, bar: alpha(getComputedStyle(nav).backgroundColor),
+                      strip: alpha(gap.backgroundColor), stripHeight: parseFloat(gap.height),
+                      hit: [2, 20, 40, 60].map((y) => document.elementFromPoint(195, y) === nav)};
+            }""")
+        assert look["bar"] == 1 and look["strip"] == 1, look
+        assert abs(look["stripHeight"] - look["top"]) <= 1, look
+        assert all(look["hit"]), look
+    finally:
+        context.close()
+
+
+def _as_iphone_web_app(page):
+    page.evaluate(
+        "() => { document.documentElement.classList.add('web-app');"
+        " document.documentElement.style.setProperty('--safe-top', '47px'); }")
+
+
+def _rgb_at(page, x, y):
+    """The colour painted at one viewport pixel (a one-pixel screenshot)."""
+    png = page.screenshot(clip={"x": x, "y": y, "width": 1, "height": 1})
+    return Image.open(io.BytesIO(png)).convert("RGB").getpixel((0, 0))
+
+
+def _the_same_colour(first, second, tolerance=3):
+    return all(abs(a - b) <= tolerance for a, b in zip(first, second))
+
+
+@pytest.mark.parametrize("theme", UI_THEMES_EXPLICIT)
+def test_the_resting_bar_does_not_cover_the_status_line_above_it(
+        new_context, app_server_in_process, theme):
+    """at the top of the page the bar has not stuck, so the strip meant for the gap above a stuck
+    bar must not paint over the frame's status line"""
+    context, page = _open(new_context, app_server_in_process, PHONE, "fr", theme=theme)
+    try:
+        _as_iphone_web_app(page)
+        page.evaluate("() => window.scrollTo(0, 0)")
+        page.wait_for_timeout(300)
+        hits = page.evaluate(
+            """() => {
+              const line = document.querySelector('.fleet-head__state').getBoundingClientRect();
+              const nav = document.querySelector('nav.fleet-anchors');
+              return {line: [line.top, line.bottom], navTop: nav.getBoundingClientRect().top,
+                      stuck: nav.hasAttribute('data-stuck'),
+                      hit: [0.2, 0.5, 0.8].map((f) => {
+                        const el = document.elementFromPoint(40, line.top + f * line.height);
+                        return !!el && !!el.closest('.fleet-head__state'); })};
+            }""")
+        assert hits["line"][1] <= hits["navTop"] and not hits["stuck"], hits
+        assert all(hits["hit"]), hits
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("theme", UI_THEMES_EXPLICIT)
+@pytest.mark.parametrize("scroll", [0, 300, 700, 100000])
+def test_the_bar_and_the_gap_above_it_are_the_colour_of_the_page_behind_them(
+        new_context, app_server_in_process, theme, scroll):
+    """the page background is a gradient on <html>; the bar and the strip over the gap must be
+    indistinguishable from it, resting or stuck: a pixel in an empty part of each equals the pixel
+    there with the bar hidden"""
+    context, page = _open(new_context, app_server_in_process, PHONE, "fr", theme=theme)
+    try:
+        _as_iphone_web_app(page)
+        page.evaluate("(y) => window.scrollTo(0, y)", scroll)
+        page.wait_for_timeout(400)
+        box = page.evaluate(
+            """() => { const r = document.querySelector('nav.fleet-anchors').getBoundingClientRect();
+                       return {top: r.top, height: r.height,
+                               stuck: document.querySelector('nav.fleet-anchors').hasAttribute('data-stuck')}; }""")
+        points = [(3, box["top"] + box["height"] / 2), (3, box["top"] + 2)]
+        if box["stuck"]:
+            points.append((3, box["top"] - 20))
+        with_bar = [_rgb_at(page, x, int(y)) for x, y in points]
+        page.evaluate("() => { document.querySelector('nav.fleet-anchors').style.visibility = 'hidden'; }")
+        without_bar = [_rgb_at(page, x, int(y)) for x, y in points]
+        for shown, bare, point in zip(with_bar, without_bar, points):
+            assert _the_same_colour(shown, bare), (scroll, box, point, shown, bare)
+        assert box["stuck"] == (scroll >= 300)
+    finally:
+        context.close()
+
+
 @pytest.mark.parametrize("lang", ["en", "fr"])
 @pytest.mark.parametrize("viewport", [VIEWPORT_MIN_SUPPORTED, PHONE, VIEWPORT_DESKTOP],
                          ids=["360", "390", "1440"])
-def test_the_state_section_is_three_equal_tiles_in_two_columns(
+def test_the_state_section_is_two_equal_tiles_over_a_full_width_firmware_tile(
         new_context, app_server_in_process, viewport, lang):
     context, page = _open(new_context, app_server_in_process, viewport, lang)
     try:
         tiles = page.evaluate(_TILES)
         assert len(tiles) == 3, tiles
-        assert max(t["w"] for t in tiles) - min(t["w"] for t in tiles) < 1, tiles
-        assert max(t["h"] for t in tiles) - min(t["h"] for t in tiles) < 1, tiles
+        connection, battery, firmware = tiles
+        # Connection and Battery side by side, equal; Firmware under both, as wide as the two
+        # together and the gap between them.
+        assert abs(connection["w"] - battery["w"]) < 1 and abs(connection["h"] - battery["h"]) < 1
+        assert abs(connection["y"] - battery["y"]) < 1 and battery["x"] > connection["x"]
+        assert abs(firmware["x"] - connection["x"]) < 1 and firmware["y"] > connection["y"]
+        assert abs(firmware["x"] + firmware["w"] - (battery["x"] + battery["w"])) < 1
         assert min(t["h"] for t in tiles) >= 44
-        assert abs(tiles[0]["x"] - tiles[2]["x"]) < 1
-        assert abs(tiles[0]["y"] - tiles[1]["y"]) < 1 and tiles[2]["y"] > tiles[0]["y"]
         assert page.evaluate(
             "() => document.documentElement.scrollWidth - document.documentElement.clientWidth") <= 0
         assert [a.inner_text().split("\n")[-1].strip() for a in
@@ -118,7 +228,7 @@ def test_the_anchors_stay_at_the_top_and_mark_the_section_in_view(
         top = page.locator("#fleet-section-settings").bounding_box()["y"]
         bar = nav.bounding_box()
         assert bar["y"] + bar["height"] - 2 <= top <= bar["y"] + bar["height"] + 40, (top, bar)
-        assert page.locator("#wake-interval-s").is_visible()
+        assert page.locator("#wake-interval-m").is_visible()
     finally:
         context.close()
 
@@ -179,7 +289,7 @@ def test_a_desktop_shows_every_section_in_one_column_and_no_anchors(
 def test_the_unsaved_changes_bar_shows_in_the_settings_section(new_context, app_server_in_process):
     context, page = _open(new_context, app_server_in_process, PHONE, "en", "&tab=settings")
     try:
-        page.locator("#wake-interval-s").fill("900")
+        page.locator("#wake-interval-m").fill("15")
         page.locator("[data-dirty-bar]").wait_for(state="visible")
     finally:
         context.close()

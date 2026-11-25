@@ -71,6 +71,7 @@ REASON_BAD_CONNECTION_ID = "connection_id_invalid"
 REASON_BAD_TTL = "bad_ttl"
 REASON_BAD_TICKET_URL = "ticket_url_rejected"
 REASON_RATE_LIMITED = "rate_limited"
+REASON_FORBIDDEN = "permission_denied"
 
 
 @dataclasses.dataclass(frozen=True)
@@ -207,8 +208,13 @@ def _call(post: Transport, url: str, document: Mapping[str, Any],
 
 def _failure(reply: Reply, reason: str) -> str:
     """The reason for a refused call: rate limiting is told apart so the
-    caller can say "try again in a moment"."""
-    return REASON_RATE_LIMITED if reply.status == 429 else reason
+    caller can say "try again in a moment", and a 403 on creating a user or a
+    ticket so it can name the missing Management API permission."""
+    if reply.status == 429:
+        return REASON_RATE_LIMITED
+    if reply.status == 403 and reason in (REASON_CREATE, REASON_TICKET):
+        return REASON_FORBIDDEN
+    return reason
 
 
 def _access_token(cfg: MgmtConfig, post: Transport) -> tuple[str, str]:

@@ -741,5 +741,50 @@
     }
   }, true);
 
+  // A form whose submit button carries data-needs-choice stays disabled until
+  // its select [data-gate-select] has a value; the hint paragraph
+  // [data-gate-hint] shows meanwhile. Without script the button is enabled and
+  // the server refuses an empty choice.
+  function syncChoiceGate(form) {
+    var select = form.querySelector("select[data-gate-select]");
+    var button = form.querySelector("button[data-needs-choice]");
+    if (!select || !button) {
+      return;
+    }
+    var waiting = select.value === "";
+    button.disabled = waiting;
+    button.setAttribute("aria-disabled", waiting ? "true" : "false");
+    var hint = form.querySelector("[data-gate-hint]");
+    if (hint) {
+      hint.hidden = !waiting;
+    }
+  }
+
+  function syncAllChoiceGates() {
+    var selects = document.querySelectorAll("select[data-gate-select]");
+    for (var i = 0; i < selects.length; i += 1) {
+      var form = selects[i].form;
+      if (form) {
+        syncChoiceGate(form);
+      }
+    }
+  }
+
+  document.addEventListener("change", function (evt) {
+    var el = evt.target;
+    if (el && el.form && el.hasAttribute && el.hasAttribute("data-gate-select")) {
+      syncChoiceGate(el.form);
+    }
+  });
+
+  document.addEventListener("submit", function (evt) {
+    var select = evt.target && evt.target.querySelector &&
+      evt.target.querySelector("select[data-gate-select]");
+    if (select && select.value === "") {
+      evt.preventDefault();
+    }
+  }, true);
+
+  syncAllChoiceGates();
   upgradeOnLoad();
 })();

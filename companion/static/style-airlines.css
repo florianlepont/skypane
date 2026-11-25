@@ -20,6 +20,12 @@
   background: var(--color-secondary);
 }
 
+/* The add-illustration dialog's subtitle (airline, type): body font, secondary text. */
+.lightbox--wide .lightbox__caption {
+  color: var(--color-text); /* fallback for browsers without color-mix() */
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
 /* Restated against tokens rather than reusing .lightbox__replace-hint,
  * so test_status_pages.py's replace-zone contract still matches exactly
  * one .lightbox__replace-hint element per zone. */
@@ -121,68 +127,6 @@
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-/* One control bar: the filter field, the sort menu button and the legend button.
- * Every control is 44px. */
-.collection-controls {
-  position: sticky;
-  top: calc(var(--space-sm) + var(--safe-top));
-  z-index: 5;
-  align-items: center;
-  gap: var(--space-sm);
-  margin-bottom: var(--space-md);
-  padding: var(--space-sm);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-card);
-  background: var(--glass-solid);
-  box-shadow: var(--shadow-glass);
-}
-
-.collection-controls .filter-bar__search {
-  flex: 1 1 0;
-  order: 1;
-  min-width: 0;
-  max-width: none;
-}
-
-.collection-controls .collection-sort {
-  order: 2;
-}
-
-.collection-controls .collection-legend {
-  order: 3;
-}
-
-.collection-controls__apply {
-  order: 5;
-  min-height: 44px;
-  padding: 0 var(--space-md);
-  font-size: var(--font-body-size);
-}
-
-/* With a script the sort submits on change. */
-.js .collection-controls__apply {
-  display: none;
-}
-
-@media (min-width: 700px) {
-  .collection-controls .filter-bar__search {
-    flex: 1 1 150px;
-    max-width: 340px;
-  }
-
-  .collection-controls .collection-sort {
-    order: 3;
-  }
-
-  .collection-controls .collection-legend {
-    order: 4;
-  }}
-
-.collection-legend__panel {
-  width: max-content;
-  padding: var(--space-sm) var(--space-md);
-}
-
 .rarity-legend {
   display: grid;
   gap: var(--space-xs);
@@ -224,7 +168,7 @@
 .collection-card > .rarity-pill--new {
   min-height: 20px;
   height: 20px;
-  padding: 0 8px;
+  padding: 0 var(--space-sm);
   position: absolute;
   top: var(--space-xs);
   right: var(--space-sm);
@@ -440,6 +384,13 @@ table.airlines-table {
     border-radius: var(--radius-card);
     box-shadow: var(--shadow-card);
   }
+
+  /* The last card's bottom margin collapses out of the block-level group; a
+   * flow root keeps it inside, so the space under the last card is the gap
+   * between cards. */
+  .airline-group:not([hidden]):has(details.airlines-expand[open]) {
+    display: flow-root;
+  }
 }
 
 .airlines-table:not(:has(.airline-group:not([hidden]))) {
@@ -517,13 +468,12 @@ table.airlines-table {
 
 .airlines-subrow {
   display: none;
-  grid-template-columns: 84px minmax(0, 1fr) auto 44px;
+  grid-template-columns: 72px minmax(0, 1fr) 44px;
   grid-template-areas:
-    "thumb name name name"
-    "thumb state state state"
-    "act act act menu";
+    "thumb name act"
+    "thumb state act";
   align-items: center;
-  gap: 2px var(--space-md);
+  gap: 2px var(--space-sm);
   margin: 0 var(--space-md) var(--space-sm);
   padding: var(--space-sm) var(--space-md);
   background: var(--glass-solid);
@@ -544,8 +494,19 @@ table.airlines-table {
   background: var(--glass-solid);
 }
 
-.airlines-table .airline-group:first-of-type:has(details.airlines-expand[open]) {
-  border-radius: var(--radius-card) var(--radius-card) 0 0;
+/* The fills of the first and last airline follow the card's rounded corners:
+ * the card's 1px border sits between its outer arc and these fills, so they
+ * take the radius one pixel smaller, and no square fill (an opened row, the
+ * opened group's tint) shows outside the arc. */
+.airlines-table .airline-group:first-of-type,
+.airlines-table .airline-group:first-of-type > .airlines-row {
+  border-top-left-radius: calc(var(--radius-card) - 1px);
+  border-top-right-radius: calc(var(--radius-card) - 1px);
+}
+
+.airlines-table .airline-group:last-of-type {
+  border-bottom-left-radius: calc(var(--radius-card) - 1px);
+  border-bottom-right-radius: calc(var(--radius-card) - 1px);
 }
 
 /* A type row has no prefixes: the empty cell would open a column of its own. */
@@ -621,12 +582,14 @@ table.airlines-table {
   grid-area: thumb;
 }
 
-.airlines-subrow .airlines-cell--art > .airlines-state,
+.airlines-subrow .airlines-cell--art > .airlines-state-line,
 .airlines-subrow .airlines-cell--art > .airlines-uses {
   grid-area: state;
   margin: 0;
   font-size: var(--font-caption-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
+
 
 .airlines-cell--views {
   grid-area: views;
@@ -663,49 +626,124 @@ table.airlines-table {
   color: var(--color-text);
 }
 
-/* An aircraft designator, set like code. */
-.airlines-type {
-  color: var(--color-text);
-  font-family: var(--font-mono, ui-monospace, monospace);
-  font-weight: var(--weight-semibold);
+/* The aircraft family name labelling a type row: interface font, focusable so
+ * the designators beside it can be reached from the keyboard. */
+.airlines-type-label {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 var(--space-sm);
+  min-width: 0;
 }
 
-.airlines-pill {
-  flex: none;
-  gap: var(--space-xs);
-  padding-inline: var(--space-sm);
-  border-radius: var(--radius-pill);
-  background: color-mix(in srgb, var(--color-text) 8%, transparent);
+.airlines-type {
+  position: relative;
   color: var(--color-text);
-  font-size: var(--font-caption-size);
+  font-family: var(--font-ui);
+  font-size: var(--font-body-size);
   font-weight: var(--weight-semibold);
+  border-radius: 6px;
+  overflow-wrap: anywhere;
+  outline-offset: 2px;
+}
+
+.airlines-type:focus-visible,
+.airlines-star:focus-visible {
+  outline: 2px solid var(--color-accent);
+}
+
+/* A tap on the name reaches 44px of height without moving the card's lines. */
+.airlines-type::after {
+  content: "";
+  position: absolute;
+  inset: -10px 0;
+}
+
+/* The default type: a star, named for assistive technology and in a tooltip. */
+.airlines-star {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--color-status-warn) 20%, transparent);
+  color: var(--color-text);
+  outline-offset: 2px;
+}
+
+.airlines-star > svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* In a card the designators are a secondary line under the name, two lines
+ * at most; a tap on the name shows them all. */
+.airlines-codes {
+  flex-basis: 100%;
+  min-width: 0;
+  margin-top: 2px;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  font-family: var(--font-mono);
+  font-size: var(--font-caption-size);
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.airlines-type-label.is-expanded > .airlines-codes {
+  display: block;
+  overflow: visible;
+}
+
+.airlines-codes__label {
+  display: none;
+}
+
+/* A tooltip: the colours of a toast, to the right of the element it names,
+ * shown on hover and keyboard focus. */
+.airlines-tip {
+  position: absolute;
+  left: calc(100% + var(--space-sm));
+  top: 50%;
+  z-index: 5;
+  box-sizing: border-box;
+  display: none;
+  width: max-content;
+  max-width: 320px;
+  padding: var(--space-sm) var(--space-md);
+  border-radius: 10px;
+  background: var(--color-toast-bg);
+  color: var(--color-toast-fg);
+  box-shadow: var(--shadow-toast-float);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  font-weight: var(--weight-semibold);
+  line-height: 1.4;
+  pointer-events: none;
+  transform: translateY(-50%);
   white-space: nowrap;
 }
 
-.airlines-pill--star {
-  display: inline-flex;
-  align-items: center;
-  height: 24px;
-  background: color-mix(in srgb, var(--color-status-warn) 20%, transparent);
+.airlines-tip::before {
+  content: "";
+  position: absolute;
+  left: -5px;
+  top: calc(50% - 5px);
+  width: 10px;
+  height: 10px;
+  background: inherit;
+  border-radius: 2px;
+  transform: rotate(45deg);
 }
 
-/* Without text-box and the cap unit the pills centre by flex alignment. */
-@supports not ((text-box: trim-both cap alphabetic) and (padding: 1cap)) {
-  .airlines-pill {
-    display: inline-flex;
-    align-items: center;
-    height: 24px;
-  }
-
-  .airlines-gap__prefix {
-    padding-block: 6px;
-  }
-}
-
-.airlines-state {
-  display: inline-block;
-  vertical-align: middle;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+.airlines-star:is(:hover, :focus-visible) > .airlines-tip {
+  display: block;
 }
 
 .airlines-cell--art .airlines-thumb {
@@ -850,7 +888,9 @@ table.airlines-table {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  height: auto;
   min-height: 44px;
+  margin: 0;
   padding: 0 18px;
   box-sizing: border-box;
   background: var(--glass-solid);
@@ -1068,40 +1108,170 @@ dialog.modal .airlines-remove {
   }
 }
 
-/* An airline known by name only: its name over its prefix, and the button
- * that adds its first artwork, then the "..." menu of an airline the owner
- * can change. */
-.airlines-known {
+/* The section of missing illustrations: a sibling of the tables above and
+ * below it, with the same small label lifted above one list on a solid
+ * surface, a small header per airline (name, prefix, state, the "..." menu of
+ * an airline with no row in the table) and one row per aircraft family to
+ * illustrate. The list does not clip its children: the menu panel opens over
+ * the rows below. */
+.airlines-missing {
+  position: relative;
+  margin: 0 0 var(--space-lg);
+  padding-top: calc(var(--font-caption-size) * 1.4 + 6px);
+}
+
+.airlines-missing > .airlines-label {
+  top: 0;
+  bottom: auto;
+}
+
+.airlines-missing > .section-caption {
+  margin: 0 0 var(--space-md);
+}
+
+.airlines-missing__list {
+  background: var(--glass-solid);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.airlines-missing__head[hidden],
+.airlines-missing__item[hidden] {
+  display: none;
+}
+
+.airlines-missing__head {
   display: flex;
+  align-items: center;
+  gap: var(--space-sm) var(--space-md);
+  min-width: 0;
+  flex-wrap: wrap;
+  min-height: 44px;
+  padding: var(--space-xs) var(--space-md);
+  background: color-mix(in srgb, var(--color-text) 5%, transparent);
+  border-top: 1px solid var(--color-border);
+}
+
+.airlines-missing__airline {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.airlines-missing__head:has(.row-menu) {
+  padding-block: 0;
+}
+
+.airlines-missing__airline:first-child > .airlines-missing__head {
+  border-top: 0;
+  border-radius: calc(var(--radius-card) - 1px) calc(var(--radius-card) - 1px) 0 0;
+}
+
+.airlines-missing__who {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: baseline;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.airlines-missing__name {
+  font-weight: var(--weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.airlines-missing__prefix {
+  font-size: var(--font-caption-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.airlines-missing__state {
+  margin-left: auto;
+  font-size: var(--font-caption-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  text-align: right;
+}
+
+.airlines-missing__head > .row-menu {
+  flex: none;
+  width: 44px;
+}
+
+.airlines-missing__item {
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-sm) var(--space-md);
   min-width: 0;
   min-height: 60px;
   padding: var(--space-sm) var(--space-md);
+  border-top: 1px solid var(--glass-hairline);
 }
 
-.airline-group--known:not([hidden]) ~ .airline-group--known:not([hidden]) {
-  border-top: 1px solid var(--color-border);
+.airlines-missing__head + .airlines-missing__item {
+  border-top: 0;
 }
 
-.airlines-known__who {
+.airlines-missing__airline:last-child > .airlines-missing__item:last-child {
+  border-radius: 0 0 calc(var(--radius-card) - 1px) calc(var(--radius-card) - 1px);
+}
+
+.airlines-missing__slot {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1.5px dashed color-mix(in srgb, var(--color-text) 35%, transparent);
+  border-radius: 12px;
+  background: var(--picture-placeholder);
+  color: color-mix(in srgb, var(--color-text) 55%, transparent);
+}
+
+.airlines-missing__what {
   display: flex;
-  flex: 1 1 0;
+  flex: 1 1 7rem;
   flex-direction: column;
   min-width: 0;
 }
 
-.airlines-known__name {
+.airlines-missing__family {
   font-weight: var(--weight-semibold);
   overflow-wrap: anywhere;
 }
 
-.airlines-known__prefix {
+.airlines-missing__seen {
   font-size: var(--font-caption-size);
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  overflow-wrap: anywhere;
 }
 
-.airlines-known > .airlines-known__add {
+.airlines-missing__item .airlines-act-gate {
+  flex: none;
+}
+
+.airlines-missing__item .airlines-act-nojs {
+  flex: 1 1 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+  max-width: 100%;
+}
+
+.airlines-missing__item .airlines-art {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.airlines-missing__item select {
+  max-width: 100%;
+  min-height: 44px;
+}
+
+.airlines-missing__add {
   flex: none;
   display: inline-flex;
   align-items: center;
@@ -1110,12 +1280,80 @@ dialog.modal .airlines-remove {
   min-height: 44px;
   min-width: 44px;
   text-align: center;
+  white-space: nowrap;
 }
 
-.airlines-known > .row-menu,
-.airlines-known > .airlines-known__slot {
-  flex: none;
-  width: 44px;
+.airlines-missing__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-lg);
+  text-align: center;
+  background: var(--glass-solid);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.airlines-missing__empty p {
+  margin: 0;
+}
+
+.airlines-missing__empty-title {
+  font-weight: var(--weight-semibold);
+}
+
+.airlines-missing__ok {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--color-status-ok) 16%, transparent);
+  color: var(--color-status-ok);
+}
+
+/* A filter that hid every row hides the section with its title; the empty
+ * state goes when a chip other than All or the section's own is chosen. */
+.airlines-missing:not(.airlines-missing--done):not(:has(.airlines-missing__item:not([hidden]))) {
+  display: none;
+}
+
+body:has([data-filter-chip]:checked:not([value=""]):not([value="missing"])) .airlines-missing--done {
+  display: none;
+}
+
+/* A header with a menu keeps it beside the name; the state goes under both. */
+@media (max-width: 40rem) {
+  .airlines-missing__head:has(.row-menu) > .row-menu {
+    order: 2;
+  }
+
+  .airlines-missing__head:has(.row-menu) > .airlines-missing__state {
+    order: 3;
+    flex-basis: 100%;
+    margin-left: 0;
+    text-align: left;
+  }
+}
+
+@media (max-width: 29rem) {
+  .airlines-missing__head,
+  .airlines-missing__item {
+    padding-inline: var(--space-sm);
+    gap: var(--space-sm);
+  }
+
+  .airlines-missing__slot {
+    width: 40px;
+    height: 40px;
+  }
+
+  .airlines-missing__add {
+    padding-inline: var(--space-sm);
+    gap: var(--space-xs);
+  }
 }
 
 /* The filter chips: five segments do not fit a phone's line, so they wrap
@@ -1150,14 +1388,16 @@ dialog.modal .airlines-remove {
 
 /* The "..." menu: even padding, every item a 44px line, no margin from the
  * forms the items sit in. */
-.airlines-table .row-menu__panel {
+.airlines-table .row-menu__panel,
+.airlines-missing .row-menu__panel {
   display: grid;
   gap: 0;
   min-width: 15.5rem;
   padding: var(--space-xs);
 }
 
-.airlines-table .row-menu__item {
+.airlines-table .row-menu__item,
+.airlines-missing .row-menu__item {
   border-radius: var(--radius-control);
 }
 
@@ -1319,10 +1559,18 @@ dialog.modal .airlines-remove {
     display: table-cell;
   }
 
-  .airlines-subrow .airlines-cell--art > .airlines-state,
   .airlines-subrow .airlines-cell--art > .airlines-uses {
     margin: 0;
     font-size: var(--font-label-size);
+  }
+
+  /* The table has a column of views: the card's copy is not drawn. */
+  .airlines-subrow .airlines-cell--art > .airlines-state-line {
+    display: contents;
+  }
+
+  .airlines-views-inline {
+    display: none;
   }
 
   .airlines-cell--type {
@@ -1330,27 +1578,74 @@ dialog.modal .airlines-remove {
     padding-left: calc(44px + var(--space-md) + var(--space-xs));
   }
 
-  /* In the table the pill follows the code inline; in a card the flex gap
-   * spaces it. */
-  .airlines-cell--type > .airlines-pill {
-    margin-left: var(--space-sm);
+  /* In the table the designators are a tooltip to the right of the name and
+   * the star, on hover and keyboard focus, and the name is a 44px target. */
+  .airlines-type-label {
+    display: inline-flex;
+    flex-wrap: nowrap;
+    max-width: 100%;
+  }
+
+  .airlines-type {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+
+  .airlines-type::after {
+    inset: 0;
+  }
+
+  .airlines-codes {
+    position: absolute;
+    left: calc(100% + var(--space-sm));
+    top: 50%;
+    z-index: 5;
+    box-sizing: border-box;
+    display: none;
+    width: max-content;
+    max-width: 320px;
+    padding: var(--space-sm) var(--space-md);
+    border-radius: 10px;
+    background: var(--color-toast-bg);
+    color: var(--color-toast-fg);
+    box-shadow: var(--shadow-toast-float);
+    font-size: 14px;
+    font-weight: var(--weight-semibold);
+    line-height: 1.4;
+    overflow: visible;
+    pointer-events: none;
+    transform: translateY(-50%);
+  }
+
+  .airlines-codes::before {
+    content: "";
+    position: absolute;
+    left: -5px;
+    top: calc(50% - 5px);
+    width: 10px;
+    height: 10px;
+    background: inherit;
+    border-radius: 2px;
+    transform: rotate(45deg);
+  }
+
+  .airlines-type:is(:hover, :focus-visible) ~ .airlines-codes {
+    display: block;
+  }
+
+  .airlines-codes__label {
+    display: block;
+    margin-bottom: 2px;
+    font-family: var(--font-ui);
+    font-size: 12px;
+    font-weight: var(--weight-regular);
+    opacity: 0.75;
   }
 
   .airlines-subrow .airlines-cell--seen {
     justify-self: auto;
     padding-inline: var(--space-sm);
-  }
-
-  /* The artwork column is narrower than the thumbnail plus its state word:
-   * the state word stays for assistive technology and the dimming of the
-   * thumbnail says the rest. */
-  .airlines-subrow .airlines-state {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    margin: -1px;
-    overflow: hidden;
-    clip-path: inset(50%);
   }
 
   /* Counts and dates stay on one line. */
@@ -1372,7 +1667,7 @@ dialog.modal .airlines-remove {
     vertical-align: middle;
     padding: var(--space-sm) var(--space-md);
     border-bottom: 1px solid var(--glass-hairline);
-    font-size: 13px;
+    font-size: var(--font-caption-size);
     font-weight: var(--weight-semibold);
     text-transform: none;
     text-align: left;
@@ -1407,4 +1702,162 @@ dialog.modal .airlines-remove {
 
 .airlines-subrow .row-menu__panel {
   min-width: 17.5rem;
+}
+
+/* The add-illustration step: the aircraft type (a select, or the fixed chip),
+ * then one drop zone with its preview, then the compact list of what the
+ * picture must be. Plain column: the preview frame is the one dashed box. */
+.resolve-upload-zone:not([hidden]) {
+  display: block;
+  min-width: 0;
+}
+
+.resolve-upload-zone form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.upload-type-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs) var(--space-sm);
+}
+
+.upload-type-row__label {
+  margin: 0;
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
+}
+
+.upload-type-row .upload-type:not([hidden]) {
+  flex: 1 1 12rem;
+  width: auto;
+}
+
+.upload-type-chip:not([hidden]) {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 var(--space-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--glass-solid);
+  font-size: var(--font-label-size);
+}
+
+.upload-constraints {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs) var(--space-md);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--font-caption-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* The action row of the add-illustration step: Cancel and Upload at the end. */
+.lightbox__actions:has(.lightbox__upload:not([hidden])) {
+  justify-content: flex-end;
+}
+
+.lightbox__upload[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* The type row's script-only "Add artwork" trigger sits in its cell like the
+ * plain form it stands in for. */
+.airlines-act-gate {
+  --js-gate-display: contents;
+}
+
+.js .airlines-act-nojs {
+  display: none;
+}
+
+/* The icon-only add / change picture buttons: a 44px outlined square with a
+ * 20px glyph. The glyph's badge is cut out in the button's own colour (--ko).
+ * The name is an aria-label or visually hidden text; the tooltip (the button's
+ * data-tip) shows on hover and keyboard focus, to the left of the button. */
+.airlines-act--icon {
+  --ko: var(--glass-solid);
+  position: relative;
+  flex: none;
+  width: 44px;
+  min-width: 44px;
+  padding: 0;
+  color: var(--color-text);
+  border-color: color-mix(in srgb, var(--color-text) 22%, transparent);
+}
+
+.airlines-act--icon > svg {
+  width: 20px;
+  height: 20px;
+}
+
+.airlines-act--icon:hover {
+  --ko: var(--color-control-wash);
+}
+
+.airlines-act--icon:is(:hover, :focus-visible, :focus-within)::after {
+  content: attr(data-tip);
+  position: absolute;
+  right: calc(100% + var(--space-sm));
+  top: 50%;
+  z-index: 6;
+  padding: var(--space-sm) var(--space-md);
+  border-radius: 10px;
+  background: var(--color-toast-bg);
+  color: var(--color-toast-fg);
+  box-shadow: var(--shadow-toast-float);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  font-weight: var(--weight-semibold);
+  line-height: 1.4;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+.airlines-act--icon:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.airlines-missing__add.airlines-act--icon {
+  padding: 0;
+  gap: 0;
+}
+
+/* The cut-out disc of the picture glyphs' badge (see the sprite): the colour
+ * of the button behind the glyph, so the badge reads apart from the frame. */
+.icon-ko {
+  fill: var(--ko, transparent);
+  stroke: none;
+}
+
+/* A type card: the button sits right of the thumbnail block, the "..." menu
+ * under it; a card without a menu centres the button. */
+.airlines-subrow:has(.airlines-cell--menu:not(:empty)) {
+  grid-template-areas:
+    "thumb name act"
+    "thumb state menu";
+}
+
+.airlines-subrow .airlines-cell--act {
+  justify-self: center;
+}
+
+@media (max-width: 69.99rem) {
+  .airlines-subrow .airlines-cell--menu:empty {
+    display: none;
+  }
+
+  .airlines-subrow .airlines-cell--art > .airlines-thumb {
+    width: 72px;
+  }
 }

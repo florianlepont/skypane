@@ -7,9 +7,12 @@
  *
  * Preloaded for real, each group reporting its own events: the fonts, the
  * stylesheets, the page's scripts (the motion assets, seen through resource
- * timing) and the key images. Hard cap: the whole splash, opening included,
- * never lasts longer than CAP_MS. Reduced motion: the logo and the progress
- * are static, then the page is revealed at once.
+ * timing), the key images and the files of the other destinations. With
+ * everything in cache the splash is its fixed sequence; on a slow link it
+ * holds on the last frame, the outline thickening with the real progress,
+ * and opens at 100%. Safety cap: the whole splash never lasts longer than
+ * CAP_MS. Reduced motion: the logo and the progress are static (the same
+ * waiting rule), then the page is revealed at once.
  *
  * Photosensitivity: the sequence below is the whole list of moving parts;
  * exactly one of them is a luminance flash (the inversion, a soft 340 ms
@@ -30,10 +33,12 @@
     return;
   }
 
-  var CAP_MS = 3000;
-  // The preload counts as done at this moment whatever the network says, so
-  // the scan, the opening and the finish still fit under the cap.
-  var FORCE_DONE_MS = 1900;
+  // Safety cap: the splash lasts as long as the preload needs (the real
+  // progress, not a timer, opens the page), but a request that hangs must
+  // not lock the app, so the page opens anyway at this moment and what is
+  // still loading goes on in the background. splash-boot.js caps the
+  // overlay class a little later, in case this script never runs.
+  var CAP_MS = 10000;
 
   var SEQUENCE = [
     { name: "outline", kind: "draw", at: 0, duration: 460 },
@@ -114,8 +119,9 @@
 
   // ---- Real preload progress ----------------------------------------------
 
-  var GROUP_WEIGHTS = { fonts: 0.1, styles: 0.2, scripts: 0.3, images: 0.4 };
-  var groups = { fonts: 0, styles: 0, scripts: 0, images: 0 };
+  // "others" is the files of the other destinations (see below).
+  var GROUP_WEIGHTS = { fonts: 0.05, styles: 0.1, scripts: 0.15, images: 0.3, others: 0.4 };
+  var groups = { fonts: 0, styles: 0, scripts: 0, images: 0, others: 1 };
 
   function fontsGroup() {
     if (!document.fonts || !document.fonts.ready) {
@@ -225,6 +231,84 @@
       }
     }
     return all ? 1 : sum;
+  }
+
+  // ---- Warming the other destinations -----------------------------------------
+  //
+  // The page names (data-splash-preload) the versioned files every other
+  // destination of its navigation needs. They are fetched here, a few at a
+  // time, once this script runs (after the page's own styles and scripts
+  // were requested), so a later tap finds them in the HTTP cache
+  // (immutable). They are the "others" progress group: the splash holds on
+  // its last frame until they have all arrived, up to the safety cap. The
+  // airline pictures the page shows small are fetched at the larger size the
+  // airline pages ask for.
+
+  var WARM_PARALLEL = 6;
+  var SMALL_PICTURE = /([?&]w=)264$/;
+  var LARGE_PICTURE = "$1450";
+  var MAP_FILES = "/static/vendor/";
+
+  function warmAllowed() {
+    var connection = window.navigator.connection;
+    return !!window.fetch && !(connection && (connection.saveData
+      || /(^|-)2g$/.test(connection.effectiveType || "")));
+  }
+
+  function warmQueue() {
+    var queue = (overlay.getAttribute("data-splash-preload") || "").split(" ").filter(function (url) {
+      return url.charAt(0) === "/" && url.charAt(1) !== "/";
+    });
+    var pictures = [];
+    Array.prototype.forEach.call(document.querySelectorAll('img[src*="/illustration/"]'), function (img) {
+      var src = img.getAttribute("src") || "";
+      var large = SMALL_PICTURE.test(src) ? src.replace(SMALL_PICTURE, LARGE_PICTURE) : "";
+      if (large && pictures.indexOf(large) === -1) {
+        pictures.push(large);
+      }
+    });
+    // The map library is the heaviest and the least likely: it goes last.
+    var at = queue.length;
+    for (var i = 0; i < queue.length; i += 1) {
+      if (queue[i].indexOf(MAP_FILES) === 0) {
+        at = i;
+        break;
+      }
+    }
+    return queue.slice(0, at).concat(pictures, queue.slice(at));
+  }
+
+  function warmOtherDestinations() {
+    var queue = warmQueue();
+    api.warm = { queued: queue.length, done: 0, settled: 0 };
+    if (!queue.length || !warmAllowed()) {
+      return;
+    }
+    groups.others = 0;
+    var active = 0;
+    function next() {
+      while (active < WARM_PARALLEL && queue.length) {
+        active += 1;
+        window.fetch(queue.shift(), { credentials: "same-origin" })
+          .then(function (response) {
+            // The body is read so the whole answer reaches the cache.
+            return response.arrayBuffer();
+          })
+          .then(function () {
+            api.warm.done += 1;
+          }, function () {
+            // A file that cannot be fetched is fetched by the page that needs it.
+          })
+          .then(function () {
+            // Fetched or failed: either way nothing more is awaited from it.
+            api.warm.settled += 1;
+            groups.others = api.warm.settled / api.warm.queued;
+            active -= 1;
+            next();
+          });
+      }
+    }
+    next();
   }
 
   // ---- The progress bar: attributes only ------------------------------------
@@ -357,10 +441,10 @@
     var dt = Math.max(0, Math.min(0.05, (now - last) / 1000));
     last = now;
     pollScripts();
-    var goal = elapsed >= FORCE_DONE_MS ? 1 : target();
+    var goal = target();
     shown += (goal - shown) * (1 - Math.exp(-dt * (staticMode ? 60 : 8)));
     shown = Math.max(0, Math.min(1, shown));
-    if (goal >= 1 && (shown > 0.996 || elapsed >= FORCE_DONE_MS)) {
+    if (goal >= 1 && shown > 0.996) {
       shown = 1;
     }
     drawProgress();
@@ -410,6 +494,7 @@
     startOutline();
   }
   drawProgress();
+  warmOtherDestinations();
   // Whatever happens in the frame loop, the cap ends the splash.
   window.setTimeout(finish, CAP_MS);
   window.requestAnimationFrame(tick);

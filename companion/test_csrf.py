@@ -283,7 +283,7 @@ def _form_tokens(page_html, action_fragment):
     ("/airlines/manage", airlines_page.LIGHTBOX_DELETE_CLASS),
     ("/", "/quick/display"),
     ("/", "/quick/quiet-hours"),
-    ("/fleet?tab=settings", "/quick/led"),
+    ("/fleet?frame=live&tab=settings", "/quick/led"),
     ("/display", 'action="/settings"'),
     ("/display/calendar-look", 'action="/settings"'),
     ("/account", 'action="/ui-theme"'),

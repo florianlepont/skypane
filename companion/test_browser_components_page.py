@@ -328,7 +328,7 @@ def test_the_rename_field_fills_its_dialog_and_the_dialog_has_a_visible_save(
         context.close()
 
 
-def test_the_wake_interval_field_is_wide_enough_for_its_placeholder(new_context, fleet_server):
+def test_the_wake_interval_field_is_wide_enough_for_its_widest_value(new_context, fleet_server):
     conn = fleet_db.connect(fleet_server.state_dir)
     try:
         owned = conn.execute("SELECT id FROM devices WHERE name = 'Kitchen'").fetchone()[0]
@@ -338,17 +338,17 @@ def test_the_wake_interval_field_is_wide_enough_for_its_placeholder(new_context,
         new_context, fleet_server, "/fleet?frame=%s&tab=settings" % owned)
     try:
         field = page.evaluate(
-            "() => { const i = document.querySelector('#wake-interval-s');"
+            "() => { const i = document.querySelector('#wake-interval-m');"
             " const c = document.createElement('canvas').getContext('2d');"
             " const s = getComputedStyle(i); c.font = s.fontSize + ' ' + s.fontFamily;"
             " const pad = parseFloat(s.paddingLeft) + parseFloat(s.paddingRight);"
-            " return {width: i.getBoundingClientRect().width - pad, text: c.measureText(i.placeholder).width}; }")
+            " return {width: i.getBoundingClientRect().width - pad, text: c.measureText('60').width}; }")
         assert field["width"] >= field["text"], field
     finally:
         context.close()
 
 
-def test_the_empty_flights_search_keeps_plain_chips_and_a_standard_clear(
+def test_the_empty_flights_search_keeps_its_chips_and_a_standard_clear(
         new_context, module_app_server_factory):
     import companion.test_view_pages_helpers as vp
     server = module_app_server_factory(seed=vp.seed_flight_card_variety, fake_providers=True)
@@ -357,7 +357,7 @@ def test_the_empty_flights_search_keeps_plain_chips_and_a_standard_clear(
         result = page.evaluate(
             "() => ({labels: [...document.querySelectorAll('.filter-chip')].map(e => e.textContent.trim()),"
             " clear: document.querySelector('[data-flights-empty] .btn--secondary').getBoundingClientRect().height})")
-        assert result["labels"] == ["All", "Departures", "Arrivals"], result
+        assert result["labels"] == ["All0", "Departures0", "Arrivals0"], result
         assert result["clear"] >= 43.5, result
     finally:
         context.close()

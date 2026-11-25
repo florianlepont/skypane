@@ -59,8 +59,14 @@ FILTER_LABEL = i18n.msg("airlines.collection_filter_label", "Filter airlines")
 # The field's placeholder is shorter than its label so it never clips on a phone.
 FILTER_PLACEHOLDER = i18n.msg("airlines.collection_filter_placeholder", "Filter")
 APPLY_TEXT = i18n.msg("airlines.collection_apply", "Apply")
-COUNT_TEXT = i18n.msg("airlines.collection_count", "Airlines: %d")
-COUNT_TEMPLATE = i18n.msg("airlines.collection_count_template", "Airlines: #")
+COUNT_TEXT = i18n.msg("airlines.collection_count_of_total", "%d of %d airlines")
+COUNT_TEMPLATE = i18n.msg("airlines.collection_count_of_total_template", "# of # airlines")
+CHIPS_LEGEND = i18n.msg("airlines.chips_legend", "Filter the airlines")
+CHIP_ALL = i18n.msg("airlines.chip_all", "All")
+CHIP_ART = i18n.msg("airlines.collection_chip_artwork", "With artwork")
+CHIP_NO_ART = i18n.msg("airlines.collection_chip_no_artwork", "No artwork")
+CHIP_MONTH = i18n.msg("airlines.collection_chip_month", "Seen this month")
+KIND_ART, KIND_NO_ART, KIND_MONTH = "art", "noart", "month"
 
 SEEN_MANY = i18n.msg("airlines.collection_seen_many", "Seen %d times")
 SEEN_ONCE = i18n.msg("airlines.collection_seen_once", "Seen once")
@@ -97,7 +103,7 @@ NO_MATCH_BODY = i18n.msg(
 
 SORT_VALUES = (
     ("most", SORT_MOST), ("rarest", SORT_RAREST), ("latest", SORT_LATEST), ("az", SORT_AZ))
-DEFAULT_SORT = "most"
+DEFAULT_SORT = "rarest"
 QUERY_MAX_CHARS = 60
 SORT_PARAM = "sort"
 TEXT_PARAM = "q"
@@ -238,7 +244,7 @@ def _seen_text(times):
     return i18n.t(SEEN_ONCE) if times == 1 else i18n.t(SEEN_MANY) % times
 
 
-def _card_html(entry, state_dir, ranks=""):
+def _card_html(entry, state_dir, ranks="", kinds=""):
     """A calm card: the picture, the name, the sighting count and the rarity
     pill; the New pill sits in the card's corner, outside the picture, and
     only while it applies."""
@@ -258,8 +264,8 @@ def _card_html(entry, state_dir, ranks=""):
             _picture_html(entry, state_dir), new, escape_html(entry.name), line_html),
         extra_class=classes)
     unlock = ' data-unlock="%s"' % escape_html(entry.slug) if entry.is_new else ""
-    return '<li class="collection-item" data-filter-text="%s" %s="%s"%s>%s</li>' % (
-        escape_html(entry.name.lower()), RANK_ATTR, ranks, unlock, link)
+    return '<li class="collection-item" data-filter-text="%s" data-filter-kind="%s" %s="%s"%s>%s</li>' % (
+        escape_html(entry.name.lower()), kinds, RANK_ATTR, ranks, unlock, link)
 
 
 def _date_text(day):
@@ -345,46 +351,67 @@ def _sort_html(view):
 
 
 def _search_html(view):
-    label = escape_html(i18n.t(FILTER_LABEL))
-    return (
-        '<div class="filter-bar__search"><label class="visually-hidden" for="collection-filter">%s</label>'
-        '%s<input type="search" id="collection-filter" name="%s" value="%s" maxlength="%d" '
-        'placeholder="%s" autocomplete="off" spellcheck="false" data-filter-input></div>'
-    ) % (label, layout.icon_html("icon-search", 20), TEXT_PARAM, escape_html(view.text),
-         QUERY_MAX_CHARS, escape_html(i18n.t(FILTER_PLACEHOLDER)))
+    return ui_filter.named_search_html(
+        "collection-filter", i18n.t(FILTER_LABEL), i18n.t(FILTER_PLACEHOLDER),
+        TEXT_PARAM, view.text, QUERY_MAX_CHARS)
 
 
-def _count_html(shown):
-    """The live count, read out by screen readers only: the segmented
-    filter already shows the visible numbers."""
+def _count_html(shown, total):
+    """The live count under the controls ("N of M airlines"); the script
+    rewrites it as the text and the chips narrow the list."""
     return (
-        '<p class="visually-hidden" role="status" data-filter-count '
+        '<p class="filter-count" role="status" data-filter-count '
         'data-filter-count-template="%s">%s</p>'
-    ) % (escape_html(i18n.t(COUNT_TEMPLATE)), escape_html(i18n.t(COUNT_TEXT) % shown))
+    ) % (escape_html(i18n.t(COUNT_TEMPLATE)), escape_html(i18n.t(COUNT_TEXT) % (shown, total)))
 
 
-def _legend_menu_html():
-    """The rarity legend behind a small info button (a native <details>
-    that the shared menu script closes on Escape or an outside tap)."""
-    label = escape_html(i18n.t(LEGEND_LABEL))
-    return (
-        '<details class="row-menu collection-legend"><summary class="row-menu__toggle" '
-        'aria-label="%s" title="%s">%s</summary>'
-        '<div class="row-menu__panel collection-legend__panel">%s</div></details>'
-    ) % (label, label, layout.icon_html("icon-info", 20), _legend_html())
+def _info_html():
+    """The rarity legend behind the info button."""
+    return ui_filter.info_menu_html(LEGEND_LABEL, _legend_html())
 
 
-def _controls_html(view, shown):
-    """One bar: the filter field, the sort menu and the legend button. With a
-    script the sort submits on change; without one the Apply button stays visible."""
-    return (
-        '<form class="filter-bar collection-controls" method="get" action="%s" data-collection-form>'
-        '%s%s%s%s'
-        '<button type="submit" class="collection-controls__apply">%s</button>%s</form>'
-    ) % (escape_html(device_scope.scoped(layout.AIRLINES_ROUTE)),
-         _search_html(view), _sort_html(view), _legend_menu_html(),
-         _count_html(shown), escape_html(i18n.t(APPLY_TEXT)),
-         ui_filter.list_offline_template_html())
+def _this_month(now):
+    """`(year, month)` of the Paris date `now` falls on, or None."""
+    parsed = layout.parse_iso(now)
+    if parsed is None:
+        return None
+    local = parsed.astimezone(layout.LOCAL_TZ)
+    return local.year, local.month
+
+
+def _kinds(entry, state_dir, month):
+    """The filter kinds of an airline's card: whether it has artwork, and
+    whether it was last seen this month (several kinds are space separated)."""
+    has_art = illustrations.display_key(entry.picture_key, state_dir) is not None
+    kinds = [KIND_ART if has_art else KIND_NO_ART]
+    if month is not None and entry.last_day is not None and (
+            entry.last_day.year, entry.last_day.month) == month:
+        kinds.append(KIND_MONTH)
+    return " ".join(kinds)
+
+
+def _chips_html(kinds):
+    """The filter chips with how many airlines each holds; they filter the
+    cards in the page, so a page without a script hides them."""
+    counts = {}
+    for entry_kinds in kinds:
+        for kind in entry_kinds.split():
+            counts[kind] = counts.get(kind, 0) + 1
+    chips = [("", i18n.t(CHIP_ALL), len(kinds))] + [
+        (kind, i18n.t(label), counts.get(kind, 0))
+        for kind, label in ((KIND_ART, CHIP_ART), (KIND_NO_ART, CHIP_NO_ART),
+                            (KIND_MONTH, CHIP_MONTH))]
+    return ui_filter.chips_row_html(chips, i18n.t(CHIPS_LEGEND))
+
+
+def _controls_html(view, shown, kinds):
+    """The shared filter controls: the search, the sort and the rarity info on
+    one row, the artwork and recency chips on the next. With a script the sort
+    submits on change; without one the Apply button stays visible."""
+    return ui_filter.controls_html(
+        device_scope.scoped(layout.AIRLINES_ROUTE), _search_html(view), _sort_html(view),
+        _info_html(), _chips_html(kinds), i18n.t(APPLY_TEXT), attrs=" data-collection-form",
+        extra_html=ui_filter.list_offline_template_html()) + _count_html(shown, shown)
 
 
 def _no_match_html(action_html, attrs):
@@ -419,7 +446,9 @@ def render(ctx, query_string=""):
         parts.append(layout.empty_state(
             i18n.t(EMPTY_HEADING), i18n.t(EMPTY_BODY), compact=True))
         return "".join(parts)
-    parts.append(_controls_html(view, len(shown)))
+    month = _this_month(now)
+    kinds = {entry.slug: _kinds(entry, ctx.state_dir, month) for entry in entries}
+    parts.append(_controls_html(view, len(shown), list(kinds.values())))
     if shown:
         ranks = _sort_ranks(entries)
         # Revealed by list-filter.js when the typed text hides every card.
@@ -430,7 +459,8 @@ def render(ctx, query_string=""):
             "data-filter-empty hidden"))
         parts.append('<ul class="collection-grid" id="%s" data-unlock-scope="%s">%s</ul>' % (
             GRID_ID, escape_html(prefs.current_principal_email() or "shared"),
-            "".join(_card_html(entry, ctx.state_dir, ranks[entry.slug]) for entry in shown)))
+            "".join(_card_html(entry, ctx.state_dir, ranks[entry.slug], kinds[entry.slug])
+                    for entry in shown)))
         parts.extend(_sheet_html(entry, ctx.state_dir) for entry in shown)
     else:
         parts.append(_no_match_html(

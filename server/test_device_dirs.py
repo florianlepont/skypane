@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Tests for server/device_dirs.py: state_path shape checks, containment
 and idempotent provisioning."""
+import json
 import os
 
 import pytest
@@ -75,10 +76,26 @@ def test_provision_seeds_config_and_white_panel_only(tmp_path):
     assert d == os.path.join(str(tmp_path), "devices", DEV)
     assert sorted(os.listdir(d)) == ["device_config.json", "panel.bin"]
     with open(os.path.join(d, "device_config.json")) as fh:
-        assert fh.read().strip() == "{}"
+        assert json.load(fh) == {"wake_interval_s": 900}
     white = (panel_format.WHITE << 4) | panel_format.WHITE
     with open(os.path.join(d, "panel.bin"), "rb") as fh:
         assert fh.read() == bytes([white]) * ((8 // 2) * 4)
+
+
+def test_a_new_frame_wakes_every_fifteen_minutes_and_an_existing_one_keeps_its_value(tmp_path):
+    from server import device_config, wake
+    root = str(tmp_path)
+    fresh = device_dirs.provision_device_dir(root, DEV, 8, 4)
+    assert device_config.load_device_config(fresh)["wake_interval_s"] == 900
+    assert wake.effective_wake_interval_s(device_config.load_device_config(fresh)) == 900
+    device_config.save_device_config(fresh, wake_interval_s=300)
+    device_dirs.provision_device_dir(root, DEV, 8, 4)
+    assert device_config.load_device_config(fresh)["wake_interval_s"] == 300
+    legacy = tmp_path / "devices" / "d_00000009"
+    legacy.mkdir(parents=True)
+    (legacy / "device_config.json").write_text("{}\n")
+    device_dirs.provision_device_dir(root, "d_00000009", 8, 4)
+    assert device_config.load_device_config(str(legacy))["wake_interval_s"] is None
 
 
 def test_provision_never_touches_live_root_files(tmp_path):

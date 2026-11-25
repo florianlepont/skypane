@@ -20,6 +20,7 @@ from companion.test_browser_ux_helpers import (
     UI_THEMES_EXPLICIT,
     VIEWPORT_DESKTOP,
     VIEWPORT_MIN_SUPPORTED,
+    VIEWPORT_PHONE,
     _assert_no_page_overflow,
     _login,
     _no_js_page,
@@ -136,10 +137,10 @@ def test_the_collection_does_not_overflow_and_its_targets_are_44px(
             box = page.locator(selector).first.bounding_box()
             assert box["height"] >= 44 - 0.5 and box["width"] >= 44 - 0.5, (selector, box)
             assert page.locator(selector).first.evaluate(_OWNS_CENTRE), selector
-        assert not page.locator(".collection-controls__apply").is_visible()
+        assert not page.locator(".filter-controls__apply").is_visible()
         _assert_bar_is_one_unclipped_unit(page, viewport["width"])
-        _wait_owns_centre(page, ".collection-legend > summary")
-        legend_box = page.locator(".collection-legend > summary").bounding_box()
+        _wait_owns_centre(page, ".filter-info > summary")
+        legend_box = page.locator(".filter-info > summary").bounding_box()
         assert legend_box["height"] >= 44 - 0.5 and legend_box["width"] >= 44 - 0.5
         # The badges are one compact pill, "earned/total", spelled out for assistive technology.
         pill = page.locator(".collection-badges")
@@ -147,7 +148,7 @@ def test_the_collection_does_not_overflow_and_its_targets_are_44px(
         assert pill.get_attribute("title")
         spelled = pill.locator(".visually-hidden").inner_text()
         assert "1/5" in spelled and ("Locked" if lang == "en" else "Verrouillé") in spelled
-        assert page.locator(".filter-chip, .collection-progress__bar, a.collection-card--unseen"
+        assert page.locator(".collection-progress__bar, a.collection-card--unseen"
                             ).count() == 0
     finally:
         context.close()
@@ -157,13 +158,13 @@ def _assert_bar_is_one_unclipped_unit(page, width):
     """Every control of the bar sits inside the form and inside the viewport, the legend button
     ends the row, and the field, the sort and the legend share one row."""
     geometry = page.evaluate(
-        "() => { const form = document.querySelector('.collection-controls').getBoundingClientRect();"
+        "() => { const form = document.querySelector('.filter-controls').getBoundingClientRect();"
         " const box = sel => document.querySelector(sel).getBoundingClientRect();"
         " return {form: [form.left, form.right],"
         " parts: ['#collection-filter', '.collection-sort > summary',"
-        " '.collection-legend > summary']"
+        " '.filter-info > summary']"
         ".map(sel => [box(sel).left, box(sel).right, box(sel).top]),"
-        " visibleCount: !!document.querySelector('.collection-controls__count')}; }")
+        " visibleCount: !!document.querySelector('.filter-controls__count')}; }")
     for left, right, _top in geometry["parts"]:
         assert left >= geometry["form"][0] - 0.5 and right <= geometry["form"][1] + 0.5, geometry
         assert left >= -0.5 and right <= width + 0.5, geometry
@@ -203,23 +204,22 @@ def test_the_phone_header_takes_no_more_than_a_third_of_the_screen(
     try:
         geometry = page.evaluate(
             "() => { const box = sel => document.querySelector(sel).getBoundingClientRect();"
-            " const head = box('main .page-header'); const bar = box('.collection-controls');"
+            " const head = box('main .page-header'); const bar = box('.filter-controls');"
             " return {head: head.height, headBottom: head.bottom, bar: bar,"
             " title: box('.page-title'), badges: box('.collection-badges'),"
-            " line1: ['#collection-filter', '.collection-sort > summary', '.collection-legend > summary']"
+            " line1: ['#collection-filter', '.collection-sort > summary', '.filter-info > summary']"
             ".map(sel => box(sel))}; }")
         assert geometry["head"] <= 740 / 3, geometry
         assert geometry["badges"]["top"] >= geometry["title"]["bottom"] - 0.5
         # The title is on the shared page-title scale (30px+): the French wording may wrap to a
         # second line, never to a third.
         assert geometry["title"]["height"] < 70, geometry
-        # One compact bar of one line: the field, the sort button and the legend button share
-        # it (the field takes the free width).
+        # Row 1: the field, the sort button and the info button share one line (the field takes
+        # the free width); row 2 is the chips row. Every control is 44px, 8px apart.
         line1 = geometry["line1"]
         assert max(box["top"] for box in line1) - min(box["top"] for box in line1) < 1, geometry
         assert line1[0]["width"] > line1[1]["width"] + line1[2]["width"], geometry
-        # One line of 44px controls, inside the bar's own 8px padding and 1px border.
-        assert geometry["bar"]["height"] <= 44 + 2 * 8 + 2 + 1, geometry
+        assert geometry["bar"]["height"] <= 44 + 8 + 44 + 2 * 8 + 2, geometry
     finally:
         context.close()
 
@@ -269,19 +269,19 @@ def test_sort_and_the_field_work_through_apply_without_script(
                      viewport=VIEWPORT_MIN_SUPPORTED, reduced_motion="reduce") as page:
         _wait_settled(page)
         assert page.locator(CARD).count() == TOTAL_SPOTTED
-        apply_box = page.locator(".collection-controls__apply").bounding_box()
+        apply_box = page.locator(".filter-controls__apply").bounding_box()
         assert apply_box["height"] >= 44 - 0.5 and apply_box["width"] >= 44 - 0.5
         assert apply_box["x"] + apply_box["width"] <= VIEWPORT_MIN_SUPPORTED["width"] + 0.5
         page.locator(".collection-sort > summary").click()
         page.locator(".collection-sort__option", has_text="A to Z").click()
         with page.expect_navigation():
-            page.locator(".collection-controls__apply").click()
+            page.locator(".filter-controls__apply").click()
         _wait_settled(page)
         names = page.locator(".collection-card__name").all_inner_texts()
         assert names == sorted(names, key=str.casefold)
         page.fill("#collection-filter", "iberia")
         with page.expect_navigation():
-            page.locator(".collection-controls__apply").click()
+            page.locator(".filter-controls__apply").click()
         _wait_settled(page)
         assert page.locator(".collection-card__name").all_inner_texts() == ["Iberia Airlines"]
         assert "q=iberia" in page.url and "sort=az" in page.url and "show=" not in page.url
@@ -292,7 +292,7 @@ def test_the_sort_applies_on_change_with_script(new_context, make_app_server):
     context, page = _open(new_context, server.base_url(), VIEWPORT_MIN_SUPPORTED)
     try:
         summary = page.locator(".collection-sort > summary")
-        assert "Most seen" in summary.get_attribute("aria-label")
+        assert "Rarest" in summary.get_attribute("aria-label")
         summary.click()
         panel = page.locator(".collection-sort__panel")
         panel.wait_for(state="visible")
@@ -301,7 +301,7 @@ def test_the_sort_applies_on_change_with_script(new_context, make_app_server):
         ticks = page.evaluate(
             "() => [...document.querySelectorAll('.collection-sort__row .icon')]"
             ".map(i => getComputedStyle(i).visibility)")
-        assert ticks == ["visible", "hidden", "hidden", "hidden"], ticks
+        assert ticks == ["hidden", "visible", "hidden", "hidden"], ticks
         page.locator(".collection-sort__option", has_text="A to Z").click()
         page.wait_for_url("**sort=az**", timeout=10000)
         page.wait_for_function(_SETTLED, timeout=15000)
@@ -333,13 +333,13 @@ def test_a_sort_reorders_the_cards_already_there_without_asking_the_server(
         page.on("request", lambda request: asked.append(request.url) if (
             "/airlines" in request.url or request.resource_type == "image") else None)
         orders = {}
-        for value in ("az", "rarest", "latest", "most"):
+        for value in ("az", "most", "latest", "rarest"):
             page.locator(".collection-sort > summary").click()
             option = page.locator('.collection-sort__option:has(input[value="%s"])' % value)
             words = option.inner_text().strip()
             option.click()
             page.wait_for_function(
-                "(v) => (new URLSearchParams(location.search).get('sort') || 'most') === v",
+                "(v) => (new URLSearchParams(location.search).get('sort') || 'rarest') === v",
                 arg=value, timeout=10000)
             page.wait_for_function(
                 "() => !document.querySelector('.collection-sort').open", timeout=5000)
@@ -352,7 +352,7 @@ def test_a_sort_reorders_the_cards_already_there_without_asking_the_server(
         assert orders["az"] == sorted(orders["az"], key=str.casefold)
         assert len({tuple(names) for names in orders.values()}) > 1, "no order changed anything"
         for value, names in orders.items():
-            page.goto(server.base_url() + "/airlines" + ("?sort=" + value if value != "most" else ""))
+            page.goto(server.base_url() + "/airlines" + ("?sort=" + value if value != "rarest" else ""))
             page.wait_for_function(_SETTLED, timeout=15000)
             assert page.evaluate(_CARD_NAMES) == names, value
     finally:
@@ -380,7 +380,7 @@ def test_rare_and_occasional_airlines_and_aircraft_stand_out_by_colour_and_by_wo
             assert pill["dot"] == pill["color"]
             assert _contrast(pill["color"], pill["bg"]) >= 4.5, (theme, pill)
         assert not page.locator(".rarity-legend").is_visible()
-        page.locator(".collection-legend > summary").click()
+        page.locator(".filter-info > summary").click()
         page.locator(".rarity-legend").wait_for(state="visible")
         legend = page.locator(".rarity-legend").inner_text()
         for word in ("Regular", "Occasional", "Rare", "10 or more sightings", "3 to 9 sightings",
@@ -388,7 +388,7 @@ def test_rare_and_occasional_airlines_and_aircraft_stand_out_by_colour_and_by_wo
             assert word in legend
         page.keyboard.press("Escape")
         page.wait_for_function(
-            "() => !document.querySelector('.collection-legend').open", timeout=10000)
+            "() => !document.querySelector('.filter-info').open", timeout=10000)
         page.locator(SEEN_CARD).first.click()
         page.wait_for_function(
             "() => !!document.querySelector('dialog[open] .rarity-pill')", timeout=10000)
@@ -432,7 +432,7 @@ def test_the_text_filter_hides_cards_instantly_with_script(new_context, make_app
 def test_a_search_with_no_match_shows_the_empty_card_and_clear_brings_the_cards_back(
         new_context, make_app_server, label, viewport, lang):
     """Typing something no airline has leaves a card saying so (not a blank page) with a Clear
-    button; Clear empties the field and shows the cards again, the sticky bar still stuck."""
+    button; Clear empties the field and shows the cards again."""
     server = make_app_server(seed=_seed)
     context, page = _open(new_context, server.base_url(), viewport, lang)
     try:
@@ -453,8 +453,6 @@ def test_a_search_with_no_match_shows_the_empty_card_and_clear_brings_the_cards_
             "() => document.querySelector('#collection-filter').value === ''"
             " && document.querySelector('[data-filter-empty]').hidden", timeout=10000)
         assert page.locator(".collection-item:not([hidden])").count() > 0
-        assert page.locator(".collection-controls").evaluate(
-            "el => getComputedStyle(el).position") == "sticky"
     finally:
         context.close()
 
@@ -560,24 +558,33 @@ def test_the_page_title_has_the_size_of_the_other_pages_titles(
         context.close()
 
 
-def test_the_control_bar_sticks_to_the_top_while_the_cards_scroll(
-        new_context, make_app_server):
+@pytest.mark.parametrize("lang", ["en", "fr"])
+def test_a_chip_narrows_the_cards_and_the_count_line_follows(new_context, make_app_server, lang):
+    """Each chip carries how many airlines it holds; choosing one hides the other cards in place
+    and the "N of M" line follows; All brings every card back; a chip that empties the list shows
+    the empty card, whose Clear resets the chips too."""
     server = make_app_server(seed=_seed)
-    # Only the airlines the frame saw are listed, so a short window is what makes the page scroll.
-    context, page = _open(
-        new_context, server.base_url(), {"width": 360, "height": 400})
+    context, page = _open(new_context, server.base_url(), VIEWPORT_PHONE, lang)
     try:
-        page.evaluate("() => window.scrollTo(0, document.documentElement.scrollHeight)")
-        page.wait_for_function("() => window.scrollY > 100", timeout=10000)
+        chips = page.locator(".filter-chip")
+        assert chips.count() == 4
+        counts = [int(chip.locator(".filter-chip__count").inner_text()) for chip in chips.all()]
+        total = page.locator(".collection-item").count()
+        assert counts[0] == total and counts[1] + counts[2] == total
+        this_month = counts[3]
+        assert 1 <= this_month < total
+        chips.nth(3).click()
         page.wait_for_function(
-            "() => { const r = document.querySelector('.collection-controls')"
-            ".getBoundingClientRect(); return r.top >= 0 && r.top < 24 && r.height > 60; }",
-            timeout=10000)
+            "(n) => document.querySelectorAll('.collection-item:not([hidden])').length === n",
+            arg=this_month, timeout=10000)
+        of = "of" if lang == "en" else "sur"
+        assert page.locator("[data-filter-count]").inner_text().startswith(
+            "%d %s %d" % (this_month, of, total))
+        chips.nth(0).click()
         page.wait_for_function(
-            "() => { const el = document.querySelector('#collection-filter');"
-            " const r = el.getBoundingClientRect();"
-            " return document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2) === el; }",
-            timeout=10000)
+            "(n) => document.querySelectorAll('.collection-item:not([hidden])').length === n",
+            arg=total, timeout=10000)
+        assert not _assert_no_page_overflow(page, "airline chips", VIEWPORT_PHONE["width"])
     finally:
         context.close()
 
@@ -618,7 +625,7 @@ def test_the_goal_reads_coherently_in_both_languages_and_no_total_is_shown(
     context, page = _open(new_context, server.base_url(), VIEWPORT_DESKTOP, lang=lang)
     try:
         assert page.locator(".collection-progress__goal").inner_text() == goal
-        assert page.locator(".collection-progress__headline, .filter-chip").count() == 0
+        assert page.locator(".collection-progress__headline").count() == 0
         assert "36" not in page.locator("main .page-header").inner_text()
     finally:
         context.close()

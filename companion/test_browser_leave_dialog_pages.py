@@ -98,8 +98,8 @@ def _pick_mode(page):
 
 def _change_wake(page):
     """A value that differs from the stored one, whatever earlier tests saved."""
-    field = page.locator("#wake-interval-s")
-    field.fill(str(int(field.input_value()) + 60))
+    field = page.locator("#wake-interval-m")
+    field.fill("5" if field.input_value() != "5" else "6")
 
 
 # name, route (or a callable of the server), element to wait for, the edit, the
@@ -112,7 +112,7 @@ PAGES = [
     ("calendar-connect", layout.DISPLAY_CALENDAR_CONNECT_ROUTE, "#calendar-connect-url",
      _type_calendar_url, "/flights", False),
     ("location", "/detection", "#place-mode-area", _pick_mode, "/flights", False),
-    ("fleet", _fleet_route, "#wake-interval-s", _change_wake, "/users", True),
+    ("fleet", _fleet_route, "#wake-interval-m", _change_wake, "/users", True),
 ]
 PAGE_IDS = [case[0] for case in PAGES]
 

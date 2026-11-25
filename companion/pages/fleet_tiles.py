@@ -51,11 +51,13 @@ def _spark_html(percents):
         % (_SPARK_WIDTH, _SPARK_HEIGHT, points))
 
 
-def _tile(href, state, icon_id, label, value_html, meta_html, extra_html="", compact=False):
+def _tile(href, state, icon_id, label, value_html, meta_html, extra_html="", compact=False,
+          wide=False):
     """One tile: a link with a Details mark when `href` is given, else a plain
     block (the connection tile, which holds its whole story). A `compact` tile
     carries the mark as a chevron at the end of its label row and gives its
-    muted line a plain-text `title`."""
+    muted line a plain-text `title`. A `wide` tile spans the grid and sets its
+    text and its Details mark side by side once it is wide enough."""
     from companion import health_rows
     state = health_rows.resolved_state(state)
     details = escape_html(i18n.t(_DETAILS))
@@ -69,9 +71,21 @@ def _tile(href, state, icon_id, label, value_html, meta_html, extra_html="", com
     elif href:
         more = '<span class="fleet-tile__more">%s%s</span>' % (
             details, icon_html("icon-chevron-right", 16))
+    tile_class = "fleet-tile fleet-tile--wide" if wide else "fleet-tile"
     opening = (
-        '<a class="fleet-tile" data-state="%s" href="%s">' % (state, href) if href
-        else '<div class="fleet-tile" data-state="%s">' % state)
+        '<a class="%s" data-state="%s" href="%s">' % (tile_class, state, href) if href
+        else '<div class="%s" data-state="%s">' % (tile_class, state))
+    if wide:
+        return (
+            '<li class="fleet-tiles__span">%s<span class="fleet-tile__text">'
+            '<span class="fleet-tile__head"><span class="fleet-tile__icon">%s'
+            '<span class="visually-hidden">%s</span></span>'
+            '<span class="fleet-tile__label">%s</span></span>'
+            '<span class="fleet-tile__body"><span class="fleet-tile__value">%s</span>'
+            '<span class="fleet-tile__meta">%s</span></span></span>%s%s</li>' % (
+                opening, icon_html(icon_id, 20),
+                escape_html(i18n.t(health_rows.STATE_WORDS[state])), escape_html(label),
+                value_html, meta_html, more, "</a>" if href else "</div>"))
     return (
         '<li>%s'
         '<span class="fleet-tile__head"><span class="fleet-tile__icon">%s'
@@ -112,10 +126,10 @@ def tiles_section_html(frame_id, tiles, firmware):
     firmware_cell = _tile(
         versions, _TONE_STATES.get(firmware.tone, "off"), "icon-nav-update",
         i18n.t(_FIRMWARE), version if firmware.version else headline,
-        headline if firmware.version else "")
+        headline if firmware.version else "", wide=True)
     return (
         '<section class="group-block fleet-block" id="%sstate" '
-        'aria-labelledby="fleet-block-state">%s<ul class="fleet-tiles">%s</ul></section>' % (
+        'aria-labelledby="fleet-block-state">%s<ul class="fleet-tiles fleet-tiles--rows">%s</ul></section>' % (
             SECTION_ID_PREFIX,
             ui_groups.section_label(i18n.t(_STATE_HEADING), "fleet-block-state"),
             "".join(cells) + firmware_cell))

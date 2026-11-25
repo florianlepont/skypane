@@ -11,7 +11,7 @@
   margin: 0;
 }
 
-/* The title block: the name with its pencil, the state, the next update. */
+/* The title block: the name, the state, the next update. */
 .home-state {
   --home-tone: var(--color-status-ok);
   display: flex;
@@ -31,10 +31,9 @@
   }
 }
 
-/* The rename pencil and the "i" are round buttons with a visible, opaque
- * surface, never a bare glyph. The element stays a 44px hit target; only the
+/* The "i" is a round button with a visible, opaque surface, never a bare
+ * glyph. The element stays a 44px hit target; only the
  * 28px disc drawn by ::before is visible, behind the centred icon. */
-.home-state .title-action__action .btn.btn--icon,
 .home-state .info-tip__button {
   position: relative;
   isolation: isolate;
@@ -44,11 +43,10 @@
   color: var(--color-text);
 }
 
-.home-state .title-action__action .btn.btn--icon::before,
 .home-state .info-tip__button::before {
   content: "";
   position: absolute;
-  inset: 8px;
+  inset: var(--space-sm);
   z-index: -1;
   border: 1px solid var(--color-border);
   border-radius: 50%;
@@ -56,7 +54,6 @@
   box-shadow: var(--shadow-glass);
 }
 
-.home-state .title-action__action .btn.btn--icon .icon,
 .home-state .info-tip__button .icon {
   width: 16px;
   height: 16px;
@@ -65,15 +62,11 @@
   margin: 0;
 }
 
-.home-state .title-action__action .btn.btn--icon:hover::before,
-.home-state .title-action__action .btn.btn--icon:focus-visible::before,
 .home-state .info-tip__button:hover::before,
 .home-state .info-tip:focus-within .info-tip__button::before {
   background: color-mix(in srgb, var(--color-text) 8%, var(--glass-solid));
 }
 
-.home-state .title-action__action .btn.btn--icon:hover,
-.home-state .title-action__action .btn.btn--icon:focus-visible,
 .home-state .info-tip__button:hover,
 .home-state .info-tip:focus-within .info-tip__button {
   background: transparent;
@@ -113,6 +106,15 @@
 
 .home-state__sentence {
   min-width: 0;
+}
+
+/* The last word of the sentence and the "i" wrap as one piece. */
+.home-state__tail {
+  white-space: nowrap;
+}
+
+.home-state__tail .info-tip__bubble {
+  white-space: normal;
 }
 
 /* An overdue line reads in the warning treatment through its weight and
@@ -324,7 +326,7 @@
 }
 
 .home-flight__call {
-  font-size: 22px;
+  font-size: var(--font-heading-size);
   font-weight: var(--weight-title);
   line-height: 1.2;
   letter-spacing: -0.02em;
@@ -496,8 +498,8 @@
 
 .home-stats__period.theme-form {
   align-self: flex-start;
-  padding: 4px;
-  gap: 4px;
+  padding: var(--space-xs);
+  gap: var(--space-xs);
   border-radius: var(--radius-pill);
 }
 

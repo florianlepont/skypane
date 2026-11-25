@@ -183,7 +183,8 @@ def test_live_frame_is_current_by_default_with_its_default_name(fleet_app):
 def test_the_fleet_page_has_no_frame_button_and_adds_a_frame_from_its_list(fleet_app):
     _, _, page = _fleet_get(fleet_app, "/fleet")
     assert "frame-menu" not in page
-    assert re.findall(r'<a href="(#dlg-add-frame)" class="fleet-add-button" data-modal-open>', page)
+    assert re.findall(r'<a class="fleet-add-button" href="(/pair-frame)">', page)
+    assert "dlg-add-frame" not in page
 
 
 def test_each_tile_reads_a_last_seen_word_from_the_shared_status(fleet_app):

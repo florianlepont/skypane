@@ -47,12 +47,12 @@ def _open(new_context, server, viewport, lang):
 
 def _reveal(page):
     """The wake interval field: inline on the page, in the Settings tab on a phone."""
-    page.locator("#wake-interval-s").wait_for(state="visible")
+    page.locator("#wake-interval-m").wait_for(state="visible")
 
 
 def _make_dirty(page):
     """Change the interval; the page's unsaved-changes bar takes over."""
-    page.locator("#wake-interval-s").fill("900")
+    page.locator("#wake-interval-m").fill("15")
     page.locator(BAR).wait_for(state="visible")
     page.wait_for_function(_SETTLED, timeout=15000)
     for selector in (BAR + " .dirty-bar__save", BAR + " .dirty-bar__cancel"):
@@ -118,32 +118,32 @@ def test_at_the_end_of_the_page_the_bar_covers_no_card(
 def test_cancel_hides_the_bar_and_restores_the_value(new_context, app_server_in_process):
     context, page = _open(new_context, app_server_in_process, VIEWPORT_DESKTOP, "en")
     try:
-        before = page.locator("#wake-interval-s").input_value()
+        before = page.locator("#wake-interval-m").input_value()
         _make_dirty(page)
         page.locator(BAR + " .dirty-bar__cancel").click()
         page.locator(BAR).wait_for(state="hidden")
         page.wait_for_function(
-            "v => document.querySelector('#wake-interval-s').value === v", arg=before)
+            "v => document.querySelector('#wake-interval-m').value === v", arg=before)
     finally:
         context.close()
 
 
-@pytest.mark.parametrize("lang,unit,minutes", [("en", "seconds", "15 min"), ("fr", "secondes", "15 mn")])
-def test_the_wake_interval_card_has_one_visible_label_and_shows_minutes(
-        new_context, app_server_in_process, lang, unit, minutes):
+@pytest.mark.parametrize("lang,unit", [("en", "min"), ("fr", "min")])
+def test_the_wake_interval_tile_has_one_visible_label_and_shows_minutes(
+        new_context, app_server_in_process, lang, unit):
     context, page = _open(new_context, app_server_in_process, VIEWPORT_DESKTOP, lang)
     try:
-        field = page.locator("#wake-interval-s")
-        assert page.locator("label[for='wake-interval-s']").evaluate(
+        field = page.locator("#wake-interval-m")
+        assert page.locator("label[for='wake-interval-m']").evaluate(
             "el => el.classList.contains('visually-hidden')")
-        card = page.locator(".theme-status:has(#wake-interval-s)")
-        assert card.locator("h2").count() == 1
-        assert unit in card.inner_text()
-        assert "10 min" in card.inner_text().replace("mn", "min")
-        field.fill("900")
+        tile = page.locator(".fleet-tile:has(#wake-interval-m)")
+        assert tile.locator(".fleet-tile__label").count() == 1
+        assert unit in tile.inner_text()
+        assert "10 min" in tile.locator(".fleet-tile__value").inner_text()
+        field.fill("15")
         page.wait_for_function(
-            "m => document.querySelector('.theme-status:has(#wake-interval-s)')"
-            ".innerText.includes(m)", arg=minutes, timeout=10000)
+            "() => document.querySelector('.fleet-tile:has(#wake-interval-m) .fleet-tile__value')"
+            ".innerText.includes('15 min')", timeout=10000)
         assert field.evaluate(
             "el => getComputedStyle(el).appearance") in ("textfield", "none")
     finally:

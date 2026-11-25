@@ -3,7 +3,7 @@ id: SEED-015
 status: dormant
 planted: 2026-11-14
 planted_during: "v1.2, owner's roadmap discussion (repository visibility, licensing and data sources questions of 2026-11-13)"
-trigger_when: "Future milestone, no version number yet — the owner plans a business plan and a technical feasibility study for a market launch after v1.4; surface it when the owner decides to prepare a go-to-market study, or earlier if a licensing or data-source decision cannot wait."
+trigger_when: "Future milestone, no version number yet — the owner plans a business plan and a technical feasibility study for a market launch after v1.3; surface it when the owner decides to prepare a go-to-market study, or earlier if a licensing or data-source decision cannot wait."
 target_milestone: future
 scope: large
 ---
@@ -21,7 +21,7 @@ not code.
 
 ## When to Surface
 
-**Trigger:** after v1.3 (photo mode) and v1.4 (enclosure), or sooner if one of
+**Trigger:** after v1.4 (photo mode) and v1.3 (enclosure), or sooner if one of
 the "decide early" items below needs an answer before then.
 
 ## Scope Estimate

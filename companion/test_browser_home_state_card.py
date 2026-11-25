@@ -318,7 +318,7 @@ def test_cadence_tooltip_opens_on_hover_and_keyboard_focus(
         page.mouse.move(0, 0)
         assert not bubble.is_visible()
         page.locator(".home-state__title").click()
-        # The rename pencil in the title row comes before the info button in tab order.
+        # The info button is the first focusable control after the title.
         for _ in range(2):
             page.keyboard.press("Tab")
             if page.evaluate("document.activeElement.classList.contains('info-tip__button')"):

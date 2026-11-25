@@ -16,7 +16,7 @@ import companion.app as app
 import companion.test_status_pages_helpers as shp
 from companion import airline_display, i18n, illustration_normalize, layout, prefs
 from companion.i18n_fr import health as i18n_fr_health
-from companion.pages import airlines_page, health_page, history_page
+from companion.pages import airline_families, airlines_page, health_page, history_page
 import health_page_composition
 from companion_app_server import served_stylesheet
 from companion_markup import css_rules, declarations_for, parse_html, rules_with_selector
@@ -58,9 +58,14 @@ def _card_slice(rendered, airline_name):
 def _sub_rows(card_slice):
     """The type label and the artwork-upload action of every sub-row of one airline."""
     rows = re.findall(r'<tr class="airlines-subrow">(.*?)</tr>', card_slice)
-    return [(re.search(r'<span class="airlines-type">([^<]*)</span>', row).group(1),
+    return [(re.search(r'<span class="airlines-type"[^>]*>([^<]*)</span>', row).group(1),
              (re.search(r'<form class="airlines-art"[^>]* action="([^"]+)"', row) or [None, None])[1])
             for row in rows]
+
+
+def _family_or_code(code):
+    """The label of a type row: its family name, or the designator for a slot with no family."""
+    return airline_families.family_label(illustrations.type_slug(code)) or code
 
 
 def _expected_type_rows(airline_name, shapes):
@@ -74,7 +79,7 @@ def _expected_type_rows(airline_name, shapes):
     for shape in shapes:
         label = illustrations.aircraft_label(airline_name, shape)
         rows[label] = "/illustration/%s-%s.png?default_type=%s" % (key, shape, label)
-    return [(layout.escape_html(code), rows[code]) for code in sorted(rows)]
+    return [(layout.escape_html(_family_or_code(code)), rows[code]) for code in sorted(rows)]
 
 
 def _rendered_pages_with_search_inputs(tmp_path):
@@ -399,10 +404,10 @@ def test_air_caraibes_row_lists_every_known_type(tmp_path):
     card_slice = _card_slice(rendered, "Air Caraïbes")
     assert 'class="airlines-expand"' in card_slice
     assert _sub_rows(card_slice) == [
-        ("A330", "/illustration/air-caraibes-a330.png?default_type=A330"),
-        ("A350", "/illustration/air-caraibes.png?default_type=A350"),
+        ("Airbus A330", "/illustration/air-caraibes-a330.png?default_type=A330"),
+        ("Airbus A350", "/illustration/air-caraibes.png?default_type=A350"),
         ("A350-1000", "/illustration/air-caraibes-a350-1000.png?default_type=A350-1000"),
-        ("ATR72", "/illustration/air-caraibes-atr72.png?default_type=ATR72"),
+        ("ATR 42 / 72", "/illustration/air-caraibes-atr72.png?default_type=ATR72"),
     ]
     assert "Any aircraft" not in card_slice
 
@@ -416,9 +421,9 @@ def test_every_airline_lists_each_of_its_types_as_text(tmp_path):
         card_slice = _card_slice(rendered, airline_name)
         assert _sub_rows(card_slice) == _expected_type_rows(airline_name, shapes), airline_name
     assert [label for label, _action in _sub_rows(_card_slice(rendered, "Transavia France"))] == [
-        "A320", "B737"]
+        "Airbus A320", "Boeing 737"]
     assert [label for label, _action in _sub_rows(_card_slice(rendered, "Royal Air Maroc"))] == [
-        "B737", "E190"]
+        "Boeing 737", "Embraer E-Jet"]
 
 
 def test_primary_only_airline_renders_its_one_type_row_with_its_airframe(tmp_path):
@@ -427,7 +432,7 @@ def test_primary_only_airline_renders_its_one_type_row_with_its_airframe(tmp_pat
     kind"""
     rendered = airlines_page.render(shp.ctx(str(tmp_path)) | {"types_open": "all"})
     card_slice = _card_slice(rendered, "Air France")
-    assert _sub_rows(card_slice) == [("A320", "/illustration/air-france.png?default_type=A320")]
+    assert _sub_rows(card_slice) == [("Airbus A320", "/illustration/air-france.png?default_type=A320")]
     assert 'class="airlines-expand"' in card_slice
     assert "airline-card__chip" not in card_slice
 
@@ -474,7 +479,7 @@ def test_gallery_filter_bar_carries_all_four_contract_markers_exactly_once(tmp_p
     assert 'data-filter-clear-all' in rendered
     labels = re.findall(r'<span class="filter-chip__text">([^<]*)</span>', rendered)
     assert labels == [
-        "All", "Unidentified", "Known by name only", "Seen", "Not seen yet"]
+        "All", "Unidentified", "Missing illustrations", "Seen", "Not seen yet"]
     counts = re.findall(r'<span class="filter-chip__count">([^<]*)</span>', rendered)
     known = len(enrich.names_without_artwork())
     assert counts == [str(36 + known), "0", str(known), "0", "36"]
@@ -775,8 +780,10 @@ def test_replace_form_action_matches_trigger_attribute_membership(tmp_path):
     assert len(actions) == expected + typed_with_art
     uploads = re.findall(r'<form class="airlines-art"[^>]* action="([^"]+)"', rendered)
     # One per type row: the legacy picture's airframe and each secondary type.
+    # Plus the plain upload form of each row of the missing-illustrations section.
     assert len(uploads) == sum(
-        len(shapes) + 1 for _name, shapes in illustrations.target_variants_by_airline())
+        len(shapes) + 1 for _name, shapes in illustrations.target_variants_by_airline()
+    ) + rendered.count('class="airlines-missing__item"')
     for action in actions + uploads:
         action = action.split("?", 1)[0]
         assert action.startswith(prefix) and action.endswith(".png"), (
@@ -800,3 +807,22 @@ def test_replace_form_declares_post_multipart_enctype_and_present_action(tmp_pat
         "silently send the file as a filename string" % (form_tag,))
     assert 'action=""' in form_tag, (
         "expected a literally present action=\"\" placeholder in %r" % (form_tag,))
+
+
+@pytest.mark.parametrize("lang", ("en", "fr"))
+def test_an_unidentified_prefix_row_has_its_date_and_no_relative_age(tmp_path, lang):
+    """the row of an unidentified prefix reads callsign, views and the local date and time; the
+    relative age ("il y a 83 j", "83 d ago") is not served, and no ticker element is left in it"""
+    shp.seed_unresolved_prefixes(str(tmp_path), {
+        "DEFGM": {"count": 4, "first_seen": "2020-09-03T08:00:00+00:00",
+                  "last_seen": "2020-09-03T08:00:00+00:00", "example_callsign": "DEFGM12"}})
+    try:
+        prefs.set_request_prefs(lang=lang)
+        rendered = airlines_page.render(shp.ctx(str(tmp_path)))
+    finally:
+        prefs.set_request_prefs(lang="en")
+    start = rendered.index("airline-group--gap")
+    meta = re.search(r'<span class="airlines-gap__meta">(.*?)</span></span>', rendered[start:], re.S)
+    text = re.sub(r"<[^>]+>", "", meta.group(1))
+    assert "DEFGM12" in text and "10:00" in text
+    assert "il y a" not in text and " ago" not in text and "data-relative" not in meta.group(1)

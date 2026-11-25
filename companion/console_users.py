@@ -180,6 +180,12 @@ def _view(h, **invite_state):
         app_url=_app_url(h), **invite_state)
 
 
+# The scripts the Users page loads beyond the shared ones.
+PAGE_SCRIPTS = (
+    ui_base.LIST_FILTER_SCRIPT_SRC, ui_base.COPY_BUTTON_SCRIPT_SRC,
+    ui_base.QUICK_SWITCH_SCRIPT_SRC)
+
+
 def _render(h, status=200, **invite_state):
     from companion import console_routes
     return h._console_page(
@@ -187,9 +193,7 @@ def _render(h, status=200, **invite_state):
         lambda: users_page.render(_view(h, **invite_state)),
         None, status=status,
         action_html=users_page.header_action_html,
-        scripts=(
-            ui_base.LIST_FILTER_SCRIPT_SRC, ui_base.COPY_BUTTON_SCRIPT_SRC,
-            ui_base.QUICK_SWITCH_SCRIPT_SRC))
+        scripts=PAGE_SCRIPTS)
 
 
 def _asked_role_change(h):
@@ -219,6 +223,11 @@ _FAILURE_KIND = {
     auth0_management.REASON_EXISTS_NO_CONNECTION_ID: users_page.FAIL_CONNECTION_ID,
     auth0_management.REASON_BAD_CONNECTION_ID: users_page.FAIL_CONNECTION_ID,
     auth0_management.REASON_RATE_LIMITED: users_page.FAIL_BUSY,
+    auth0_management.REASON_BAD_TICKET_URL: users_page.FAIL_CUSTOM_DOMAIN,
+    auth0_management.REASON_FORBIDDEN: users_page.FAIL_PERMISSIONS,
+    auth0_management.REASON_CREATE: users_page.FAIL_CONNECTION_NAME,
+    auth0_management.REASON_TOKEN: users_page.FAIL_CREDENTIALS,
+    auth0_management.REASON_BAD_RESULT_URL: users_page.FAIL_RESULT_URL,
 }
 
 

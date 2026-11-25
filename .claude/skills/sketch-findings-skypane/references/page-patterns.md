@@ -4,16 +4,20 @@ What each page is made of today. Components are in `components.md`, navigation i
 `navigation.md`. Page code is under `companion/pages/`, area CSS in `companion/static/style-*.css`.
 Every page: one `h1`, sections as `section-label` + group (or a `.page-section` card for free
 content), complete and correct with scripts blocked, 360px without horizontal scroll, EN and FR.
+Every device-scoped personal page (not the Fleet console) carries the frame button
+(`frame_menu.py`): a 44px glass pill with the frame name and its status dot, top right of the
+app bar on a phone and of the content area on desktop. It opens a native `<details>` popover with
+one row per frame (name, last seen, owner line when it is not the viewer's, a check on the frame in
+view) and an "Add a frame" row.
 
 ## Home (`pages/home_page.py`, `home_state.py`, `home_flight_card.py`, `home_pills.py`, `style-home.css`)
 
 One column of blocks, built for three states: online, sleeping (quiet hours or screen off) and
 offline (no contact).
 - **Title block** (`home_state.py`): the `h1` is the frame name (32px phone, 44px from 700px) with
-  a 28px round rename pencil right after it (`pages/home_title.py`, a 44px target; it opens the
-  frame-name page and returns to Home); under it the status dot and its word, then the next update
+  no rename control (renaming lives in Account and the Fleet header; `pages/home_title.py`); under it the status dot and its word, then the next update
   sentence ("Next update in 12 min", or "Last contact 3h ago" for a frame that lost contact) ending
-  with the cadence "i" button inside the sentence. The dot halo pulses and stops under reduced
+  with the cadence "i" button inside the sentence (held with the last word, so it never wraps under the text). The dot halo pulses and stops under reduced
   motion, at rest after a minute idle and while a dialog is open.
 - **Flight card** (`home_flight_card.py`): the newest archived picture beside a direction badge,
   callsign, airline, route and type ("ORY → TLS · A320") and a live "Detected 4m ago". A thin ring
@@ -46,9 +50,10 @@ offline (no contact).
 
 ## Flights (`pages/history_page.py`, `style-flights.css`)
 
-- Title row with a search field that opens from the title and stays on the title row from 320 to
-  1280px; a Departures / All / Arrivals segmented filter (no counts) and a sort menu. Search, sort
-  and "Load more" run on the server (`?q`, `?kind`, `?sort`); counts stay at the whole history's.
+- Under the title the shared filter controls (`ui_filter.controls_html`): search, sort and an info
+  button on row 1, All / Departures / Arrivals chips with their counts on row 2 (they scroll on a
+  phone), then the count line ("34 of 148 flights"). Search, sort, chips and "Load more" run on
+  the server (`?q`, `?kind`, `?sort`); the chip counts follow the search.
 - Phone: one glass group per Paris calendar day (section label "Today", "Yesterday", "3 Sep"); a
   row is a 56x36 thumbnail (a 44px-tall picture control), the airline over one route line (an
   arrow-over-runway icon for the direction, two airport codes, a chevron), and the time (bold) over
@@ -92,9 +97,10 @@ offline (no contact).
 - Four tabs (`data-tabs="display"`): Departures, Arrivals, Special looks, Calendar. Each tab
   has its own route and document title; the calendar look and the add/edit special look and
   calendar-connect screens are sub-pages with their own title and a page-mode Save bar.
-- The look picker fits one 360x740 screen above the tab bar without scrolling: a 31-theme
-  swatch catalogue (colour, background, stripe; swatches 32px in 44px targets), segmented
-  controls for background and band, and a preview. The light-yellow tile has a 3px darker edge
+- The look picker is a Layout row, then a two-column grid of look cards (`.look-pick__grid`; each
+  `.runway-card` is a preview picture and a name, radios with a check), with the background and band
+  choices and a preview. It is taller than one phone screen (about 1230px at 360) and the page
+  scrolls above the tab bar. The light-yellow tile has a 3px darker edge
   (`--color-yellow-tile-edge`) so its shape shows; no other tile has one.
 - Previews are content-addressed: one URL per picture, `private`, `immutable`, cached for a year, so
   switching a tab fetches no unchanged preview and a stale or missing address never pins an image.
@@ -116,57 +122,71 @@ Read-only, and different by role.
 - **An administrator** on the personal page sees the same per-frame collection; the fleet-wide
   view is the Editor (below).
 - A grid of glass cards (artwork on a neutral plate, name) with a **filled rarity pill** on every
-  card (tinted by `--rarity-tint`, a word as well as a colour), and a control bar: a filter field, a
-  sort icon menu (Most seen, Rarest, Latest, A to Z), a legend button behind one info button and the
-  next-badge goal line. Two lines on a phone; the bar sticks while the cards scroll.
+  card (tinted by `--rarity-tint`, a word as well as a colour), and the shared filter controls (the
+  same module and placement as Flights): a filter field, a sort icon menu (Most seen, Rarest,
+  Latest, A to Z; Rarest is the default) and the rarity legend behind the info button on row 1;
+  All / With artwork / No artwork / Seen this month chips with counts on row 2 (script-driven, so
+  hidden without a script), then the count line ("21 of 36 airlines") and the next-badge goal line.
 - Detail sheet: three facts as hairline rows under the picture and the rarity pill, the round
   opaque cross at the top as the only Close (the foot strip is hidden), no inner scroll on a phone
   or desktop; aircraft types load lazily as a fragment. A newly seen airline's card plays an unlock
   flip once (`motion.js`, tracked in `localStorage`; no animation if storage fails) and carries a
   "New" pill in its corner.
 
-## Editor (`pages/airlines_page.py`, `airline_table.py`, `airline_rows.py`, `airline_known_rows.py`)
+## Editor (`pages/airlines_page.py`, `airline_table.py`, `airline_rows.py`, `airline_missing.py`)
 
 Administrator only, **fleet-wide**: the airlines seen by any frame, one registry of names and one
 directory of artwork for the whole fleet (a name or picture given on one frame shows on every
 frame). Console label "Airline editor", bar label "Editor".
-- Order: the unidentified prefixes (first, compact), then the **Known by name only** block, then the
-  Airlines table. A filter bar with a search field and five scrolling chips with counts: All,
-  Unidentified, Known by name only, Seen, Not seen yet.
+- Order: the unidentified prefixes (first, compact), then the **Missing
+  illustrations** section, then the Airlines table. A filter bar with a search field and five wrapping chips with counts: All,
+  Unidentified, Missing illustrations, Seen, Not seen yet.
 - **Unidentified prefix:** one compact row on a phone and desktop: the prefix, an example callsign,
   the count and last seen, and one **Name it** button (a sheet on a phone, a centred card on
   desktop) that posts to the resolve route. There is no Ignore. When the suggestion service is on, a
   cached suggestion shows as a Suggestion tag with the proposed name in bold, an Edit link and a
   round 44px check (a real form), never blocking the Name it flow; a pending prefix says "Looking
   for a name".
-- **Known by name only:** every airline that has a name and no artwork, whoever named it (the
-  application, a person, or a renamed built-in), as a read-only row with an **Artwork** button that
-  asks for the aircraft type first; adding artwork moves the row to the table. Its "..." menu has
-  Rename and Reset to the original name (a renamed built-in) or Rename and Delete my name (a
-  hand-named one).
+- **Missing illustrations · N:** a sibling of the two tables: the same small label (`.airlines-label`,
+  13px 600, 70% ink, 16px indent) lifted above its list, no 22px heading and no caption sentence
+  (the sentence stays in the empty state); the section keeps `id="airlines-missing"` and is named
+  by the label (`aria-labelledby`); 24px between blocks. N counts rows, one per airline x aircraft family without a picture
+  (a family is one of the picture slots, "Other" for rare designators). One solid list surface; each
+  airline has a small header (name, prefix, "No artwork yet" or "<family> already done", "· n to
+  do") and its rows: a dashed 44px slot, the family, the designators and views, and a 44px
+  icon-only add button (a picture with a plus, 44px, tooltip "Add artwork", aria-label "Add an illustration for <airline>, <family>") that opens the add dialog with the family in its chip. An airline with
+  no sighting and no artwork has one "Type to choose" row whose dialog asks the type first; one with
+  art and no sighting is not listed. The "..." menu (Rename, Reset or Delete my name) is in the
+  header of an airline that has no row in the table. After an upload the page reloads and the row is
+  gone; an empty list says "All illustrations are in place" with a check. The chip counts the same
+  rows and "All" adds the unidentified prefixes and the airlines of the table.
 - **Airlines table:** only airlines with artwork. The airline's name is plain text with its
   default type's picture; Rename (a dialog), Reset to the original name and Delete my name are in
   the "..." menu (even padding, 44px items, Escape closes). The chevron opens one row per aircraft
-  type, loaded lazily and quickly, with no overlap on the next row; a type row says "Own artwork" or
-  "Uses the default type's artwork" and has one upload entry (Add artwork or Change artwork) and a
+  type, loaded lazily and quickly, with no overlap on the next row; a type row is labelled with its aircraft family name (interface font, 16px/600, no "(famille)"; focusable, the codes seen are a mono 14px tooltip on hover and keyboard focus beside the name, past the star, 320px wide at most; in a card they are a 13px secondary line, two lines then an ellipsis, a tap on the name expands it), the default type is a text-free star with an accessible name and its own tooltip, and it has one upload entry, an icon-only 44px outlined button (a picture with a plus for Add artwork, a picture with a pencil for Change artwork; aria-label names the airline and the family, tooltip on hover and keyboard focus, to the left of the button in the table; in a card it sits right of the thumbnail block with the menu under it) and a
   menu with Set as default type and Delete the artwork (only for an uploaded picture). A refused
   name or picture reopens its dialog on that row.
 - Artwork has no "Revert to default" and no separate Customise: one upload entry per type.
 
 ## Fleet (administrator: `console_fleet_view.py`, `fleet_page.py`, `pages/fleet_*.py`, `style-admin.css`)
 
-- **List** (`/fleet`): the page opens on the list of frames, never on the first frame. A list
+- **List** (`/fleet`): the page opens on the list of frames, never on the first frame; from 1200px the pane beside
+  the list is a neutral "Select a frame" state (icon, short heading, one muted line, no frame data, no
+  selected row) until a row is chosen, and the list's title is the only `h1`. A list
   panel with the title, "Add a frame", a search field from 8 frames, groups Live / Waiting to be
   paired / Retired with counts, and a System row; each row is one link (status dot, name, state and
-  owner, last seen, chevron; the selected row is `aria-current` and is scrolled into view in its
-  own column). From 960px the list is a left column beside the frame; on a phone a bounded chip
+  owner, last seen, chevron; the name and the detail line are one line each and end in an ellipsis
+  rather than wrap or clip the row, as does the System tiles' meta line; the selected row is `aria-current` and is scrolled into view in its
+  own column). From 1200px the list is a left column beside the frame; on a phone a bounded chip
   switch ("All frames (N)", the frame in view first, at most 8 live frames) replaces it. A pending
   or retired frame is reachable only from the list and has its own page (see below); an unknown
   `?frame=` shows the list with a not-found note. Scales to 30 frames.
 - **Frame page** (`/fleet?frame=<id>`): a header with the `h1` name, the state line and two 44px
-  icon buttons (personal view, Rename); then a State section of **three equal tiles** and the
+  icon buttons (personal view, Rename); then a State section of **three tiles** (a two-column grid:
+  Connection and Battery side by side, the wide Firmware tile spanning both columns under them, its text and
+  chevron side by side once the tile is 440px wide) and the
   Settings and Access sections stacked in one column of equal cards (on a phone, three sticky
-  anchors State / Settings / Access, 44px, mark the section in view; from 960px the anchors are
+  anchors State / Settings / Access, 44px, mark the section in view on a solid bar whose gap above (safe area and app-bar drop) is painted too; from 960px the anchors are
   hidden):
   - **Connection** tile: a verdict and two lines, "Last check-in <age>" and "Next wake <clock>"; a
     plain block, not a link, no Details mark. A frame that never checked in says so once and still
@@ -247,11 +267,14 @@ ink) and value right.
 
 Groups: My frames (one row per frame: the drawn portrait frame, name, owner line, an Owner or
 Co-manager pill, a status dot with a name and the last-seen word, never a battery percentage and
-never the hardware type; two 44px icon buttons at the row's right, "Manage access: <frame>" (a key)
-and "Leave frame" (a door), named by `aria-label`; the last row "Add a frame"), Identity (Email,
+never the hardware type; 44px icon buttons at the row's right, named by `aria-label`: on a frame
+the person owns "Rename: <frame>" (a pencil) then "Manage access: <frame>" (a key; absent when the
+frame has no access view), on a frame shared with them "Leave frame: <frame>" (a door); the last row "Add a frame"), Identity (Email,
 Role; a co-manager sees "Co-manager of N frames"), Preferences (Language and Theme segmented
 controls), **About** (a Credits row, for users and administrators alike) and Sign out as a group of
-its own. Leaving a frame opens a dialog with "Stay on this frame".
+its own. Leaving a frame opens a dialog with "Stay on this frame". A plain user's tab bar ends with
+this page as its last cell (Account, not More: the More sheet would hold only Account); an
+administrator reaches it through More.
 
 ## Sign-in, Credits and error pages
 
@@ -261,8 +284,9 @@ its own. Leaving a frame opens a dialog with "Stay on this frame".
   state, sign-in cancelled returns 303. A page restored after the session ended shows the translated
   "session expired" toast (`session-guard.js`) and redirects to `/login?next=...&expired=1`. A refused
   pairing code is kept 2 minutes in the `sp_pair_code` cookie for one showing (`pair_code_cookie.py`).
-- Credits (`credits_page.py`): reachable from Account's About group and from sign-in; signed in, a
-  chevron "Back to Account" link above the title; anonymous, "Back to sign in" at the bottom.
+- Credits (`credits_page.py`): reachable from Account's About group and from sign-in; signed in, the page
+  is drawn with no navigation at all (`page_shell(bare=True)`: no sidebar, tab bar, space switch or frame
+  button) and a chevron "Back to Account" link above the title; anonymous, "Back to sign in" at the bottom.
 - **404:** an "empty frame" drawn inline (an SVG in the page ink, decorative, 260px at most) over one
   muted caption ("Nothing hangs on this wall.") on a panel, the same for every caller; status stays
   404 and the back link goes to the frame home, Account or sign-in as the caller needs. 403 and 500
@@ -273,6 +297,9 @@ its own. Leaving a frame opens a dialog with "Stay on this frame".
 The living catalogue (`pages/components_page.py`): one section per family in every state,
 guarded by tests (see `components.md`). Includes the page-name table, the motion index, the
 foreign-frame marker, the scrolling chip row and the short dialog.
+It does not render `.page-section`, the fleet tiles (`.fleet-tile`, regular and `compact`), the
+`.dot--off` and `.dot--hollow` dots or the result dialog; those are read from the stylesheet and the
+pages that use them (`components.md`).
 
 ## Opening splash
 

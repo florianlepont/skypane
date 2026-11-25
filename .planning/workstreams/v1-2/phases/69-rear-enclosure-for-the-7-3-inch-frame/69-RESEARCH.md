@@ -139,7 +139,7 @@ hardware/
 ├── ENCLOSURE-TEST-PRINT-LOG.md   # NEW (plan 03): rounds, clearance table, adjustment ledger
 ├── ENCLOSURE-VALIDATION.md       # NEW (plan 04)
 ├── ENCLOSURE-ASSEMBLY.md         # NEW (plan 05)
-└── cad/export/                   # skypane_{tray,lid,stand,shim}.stl (+ skypane_lid.3mf, unlisted)
+└── cad/print/                    # skypane_{tray,lid,stand,shim}.stl (+ skypane_lid.3mf, unlisted)
 ```
 
 ### Pattern 1: Shim as fit gauge (recommended, my reasoning)
@@ -397,7 +397,7 @@ def diff_ci(a, b, n=5000, seed=1):
 | 12 | 69-05 PLAN | "glass" | IKEA: front protection is polystyrene plastic | Say "front sheet" |
 | 13 | 69-05 PLAN | "IKEA ... article 105.488.67" | The design record says black is 105.488.67; the IKEA page fetched was white 105.488.72 | Confirm article of the frames actually bought |
 | 14 | 69-01 PLAN rows 4 to 7 and CONTEXT D-04 | "mat opening about 158 x 94 mm cut by the owner" | D-09 overrides: 140 x 99 mm kept | Note superseded (plan 01 already complete) |
-| 15 | ENCLOSURE-3D-DESIGN.md | Multiple stale statements (see Pitfall 10); stated "exported 2026-11-18" vs 2026-11-19 rework | `hardware/cad/export/skypane_lid.3mf` also exists and is not in any file list | Sweep; list or remove the 3MF |
+| 15 | ENCLOSURE-3D-DESIGN.md | Multiple stale statements (see Pitfall 10); stated "exported 2026-11-18" vs 2026-11-19 rework | `hardware/cad/print/skypane_lid.3mf` also exists and is not in any file list | Sweep; list or remove the 3MF |
 | 16 | ENCLOSURE-PRINT-ORDER.md Print-order spec table | Two rows (Material, Nozzle) carry four cells in a two-column table | Table formatting bug (extra "decided by the owner / date" cells) | Fix columns |
 | 17 | ENCLOSURE-PRINT-ORDER.md "Build plate: open"; "Filament: Bambu Lab filament (reference to confirm)" | Slice states textured PEI and PETG Basic | Same document contradicts itself | Update the Decisions rows |
 | 18 | ENCLOSURE-AUDIT F-01 "Still to do: first-layer compensation or a small chamfer" | Not recorded as done or decided | Open | Decide in round 1 |
@@ -533,7 +533,7 @@ def diff_ci(a, b, n=5000, seed=1):
 ## Sources
 
 ### Primary (HIGH, read in this session)
-- Repository: `69-CONTEXT.md`, `69-DISCUSSION-LOG.md`, `69-01..05-PLAN.md`, `69-01/02-SUMMARY.md`, `ROADMAP.md`, `REQUIREMENTS.md`, `STATE.md`, `hardware/ENCLOSURE-3D-DESIGN.md`, `ENCLOSURE-MEASUREMENTS.md`, `ENCLOSURE-PRINT-ORDER.md`, `ENCLOSURE-AUDIT.md`, `BOM.md`, `BATTERY-MODEL.md`, `PACK-ACCEPTANCE.md`, `SECOND-HARDWARE*.md` (grep only), `firmware/main/wifi.c`, `api_client.c`, `hardware/cad/export/` file names.
+- Repository: `69-CONTEXT.md`, `69-DISCUSSION-LOG.md`, `69-01..05-PLAN.md`, `69-01/02-SUMMARY.md`, `ROADMAP.md`, `REQUIREMENTS.md`, `STATE.md`, `hardware/ENCLOSURE-3D-DESIGN.md`, `ENCLOSURE-MEASUREMENTS.md`, `ENCLOSURE-PRINT-ORDER.md`, `ENCLOSURE-AUDIT.md`, `BOM.md`, `BATTERY-MODEL.md`, `PACK-ACCEPTANCE.md`, `SECOND-HARDWARE*.md` (grep only), `firmware/main/wifi.c`, `api_client.c`, `hardware/cad/print/` file names.
 - IKEA UK RÖDALM 13x18 page [ikea.com/gb/en/p/roedalm-frame-black-10548872/](https://www.ikea.com/gb/en/p/roedalm-frame-black-10548872/) (fetched).
 - Bambu forum screw-hole design guide [forum.bambulab.com/t/how-to-design-screw-holes-for-3d-printing/217352](https://forum.bambulab.com/t/how-to-design-screw-holes-for-3d-printing/217352) (fetched; community post, MEDIUM).
 - CNC Kitchen heat-set inserts [cnckitchen.com/blog/tipps-amp-tricks-fr-gewindeeinstze-im-3d-druck-3awey](https://www.cnckitchen.com/blog/tipps-amp-tricks-fr-gewindeeinstze-im-3d-druck-3awey) (fetched).

@@ -18,7 +18,6 @@ from companion.ui_base import (
 
 FLEET_ROUTE = "/fleet"
 FLEET_REGISTER_ROUTE = "/fleet/register"
-FLEET_PAIR_ROUTE = "/fleet/pair"
 FRAME_ACTION_PREFIX = "/fleet/frames/"
 FRAME_RETIRE_SUFFIX = "/retire"
 FRAME_REACTIVATE_SUFFIX = "/reactivate"

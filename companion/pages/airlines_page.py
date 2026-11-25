@@ -28,7 +28,7 @@ import companion.layout as layout
 import companion.page_context as page_context
 import companion.ui_components as ui_components
 from companion import airline_collection, fleet_unresolved
-from companion.pages import airline_known_rows, airline_rows, airline_sheet, airline_table
+from companion.pages import airline_missing, airline_rows, airline_sheet, airline_table
 from companion.ui_base import AIRLINE_EDITOR_LABEL, validation_attrs
 from server.plane import airline_default_types, illustrations
 # manual_resolutions and enrich import this page module in
@@ -53,6 +53,16 @@ ASK_TYPE_ATTR = "data-view-panel-ask-type"
 ASK_TYPE_ID = "airline_artwork_type"
 ASK_TYPE_CLASS = "upload-type"
 ASK_TYPE_LABEL = i18n.msg("airlines.artwork_aircraft_type", "Aircraft type")
+# A trigger that already knows the aircraft type (a type row's "Add artwork")
+# carries it here; the dialog then shows it as a fixed chip instead of the select.
+FIXED_TYPE_ATTR = "data-view-panel-fixed-type"
+UPLOAD_CONSTRAINTS = (
+    i18n.msg("airlines.constraint_transparent_png", "Transparent PNG"),
+    i18n.msg("airlines.constraint_min_width", "At least 1200 px wide"),
+    i18n.msg("airlines.constraint_landscape", "Landscape"),
+)
+DIALOG_CANCEL_TEXT = i18n.msg("airlines.cancel", "Cancel")
+DIALOG_UPLOAD_TEXT = i18n.msg("airlines.table_upload", "Upload")
 
 # A row's accessible name: ACTION_LABEL_TEMPLATE takes the action (or the
 # edit wording and the airline) then the airline's types / name.
@@ -289,6 +299,9 @@ NAME_LABEL_TEXT = i18n.msg("airlines.airline_name", "Airline name")
 SAVE_BUTTON_TEXT = i18n.msg("airlines.save_airline_name", "Save airline name")
 STEP_B_HEADING_TEMPLATE = i18n.msg(
     "airlines.add_an_illustration_for", "Add an illustration for %s")
+# The add-illustration dialog's one-line title; the airline (and type) shows
+# beneath it as the subtitle.
+STEP_B_TITLE = i18n.msg("airlines.add_an_illustration", "Add an illustration")
 STEP_B_SKIP_TEXT = i18n.msg(
     "airlines.skip_i_ll_add_artwork_later", "Skip — I’ll add artwork later")
 # Fourth reachable state: a bookmark or Back press lands on a prefix
@@ -489,7 +502,7 @@ def _airline_card_manual_fields(manual_info, airline_name, key, state_dir, now):
     heading_value = ""
     upload_action_value = ""
     if mode == _VIEW_PANEL_MODE_NEEDS_ARTWORK:
-        heading_value = i18n.t(STEP_B_HEADING_TEMPLATE) % escape_html(airline_name)
+        heading_value = i18n.t(STEP_B_TITLE)
         upload_action_value = _illustration_url(key, "POST")
 
     delete_action_value = _manual_delete_action(prefix) if has_manual else ""
@@ -629,7 +642,7 @@ def _type_fields(card, type_key, type_title, is_base, has_art):
         fields = [_VIEW_PANEL_MODE_ART, False, False, "", "", "", "", "", "", "", "", ""]
     if not has_art and fields[0] == _VIEW_PANEL_MODE_ART:
         fields[0] = _VIEW_PANEL_MODE_NEEDS_ARTWORK
-        fields[5] = i18n.t(STEP_B_HEADING_TEMPLATE) % escape_html(type_title)
+        fields[5] = i18n.t(STEP_B_TITLE)
         fields[6] = _illustration_url(type_key, "POST")
     elif not fields[5]:
         fields[5] = escape_html(card["name"])
@@ -782,7 +795,7 @@ def _lightbox_html(name_form_hidden_html=""):
         '<dialog class="lightbox lightbox--wide" id="%s" aria-label="%s">'
         "%s"
         '<img class="lightbox__image" src="" alt="">'
-        '<p class="lightbox__caption text-label mono"></p>'
+        '<p class="lightbox__caption text-label"></p>'
         '<p class="lightbox__note text-body">%s</p>'
         "%s"
         "%s"
@@ -792,7 +805,9 @@ def _lightbox_html(name_form_hidden_html=""):
         "%s"
         '<div class="%s">'
         '<button type="button" %s>%s</button>'
+        "%s"
         '<button type="submit" form="%s">%s</button>'
+        "%s"
         "</div>"
         "</dialog>"
     ) % (
@@ -808,7 +823,15 @@ def _lightbox_html(name_form_hidden_html=""):
         delete_html,
         LIGHTBOX_ACTIONS_CLASS,
         _VIEW_PANEL_CLOSE_ATTR, escape_html(i18n.t(_CLOSE_TEXT)),
+        ui_components.button_html(
+            i18n.t(DIALOG_CANCEL_TEXT), "secondary",
+            attrs=" %s hidden" % _VIEW_PANEL_CLOSE_ATTR).replace(
+                'class="btn btn--secondary"', 'class="btn btn--secondary lightbox__cancel"'),
         MANUAL_RESOLVE_FORM_ID + "-dialog", escape_html(i18n.t(SAVE_BUTTON_TEXT)),
+        ui_components.button_html(
+            i18n.t(DIALOG_UPLOAD_TEXT), "primary", button_type="submit",
+            attrs=' form="%s" hidden' % (MANUAL_UPLOAD_FORM_ID + "-dialog")).replace(
+                'class="btn btn--primary"', 'class="btn btn--primary lightbox__upload"'),
     )
 
 
@@ -984,61 +1007,79 @@ def _resolve_name_form_html(prefix_value, id_suffix, include_submit=True, hidden
     )
 
 
+def ask_type_options():
+    """The aircraft types an add-illustration dialog offers, sorted."""
+    return sorted(set(illustrations._TYPE_SHAPE_BUCKETS) | set(illustrations._TYPE_VARIANT_SLUGS))
+
+
 def _ask_type_html(inline=False):
-    """The aircraft-type select of the add-first-artwork step. In the dialog
-    it is hidden unless the opening trigger asks for a type and has no `name`:
+    """The aircraft-type row of the add-first-artwork step: its label, the
+    select and (in the dialog) the fixed-type chip. In the dialog the select
+    is hidden unless the opening trigger asks for a type and has no `name`:
     the multipart body holds the file alone, so panel-lookup.js puts the choice
-    on the upload address as `default_type`. Without a script (`inline`) it is
-    shown, required and named: the browser sends it as a text part before the
-    file, which the upload route reads. Same options either way."""
-    options = sorted(set(illustrations._TYPE_SHAPE_BUCKETS) | set(illustrations._TYPE_VARIANT_SLUGS))
-    return (
+    on the upload address as `default_type`; the chip replaces it when the
+    trigger names the type. Without a script (`inline`) the select is shown,
+    required and named: the browser sends it as a text part before the file,
+    which the upload route reads. Same options either way."""
+    options = ask_type_options()
+    select_id = ASK_TYPE_ID + ("-page" if inline else "")
+    select = (
         '<select id="%s" class="%s" aria-label="%s"%s%s>'
         '<option value="">%s</option>%s</select>'
     ) % (
-        ASK_TYPE_ID + ("-page" if inline else ""), ASK_TYPE_CLASS, escape_html(i18n.t(ASK_TYPE_LABEL)),
+        select_id, ASK_TYPE_CLASS, escape_html(i18n.t(ASK_TYPE_LABEL)),
         ' name="%s" required' % DEFAULT_TYPE_QUERY_PARAM if inline else " hidden",
         "" if inline else validation_attrs("select"), escape_html(i18n.t(ASK_TYPE_LABEL)),
         "".join('<option value="%s">%s</option>' % (escape_html(c), escape_html(c)) for c in options))
+    chip = "" if inline else '<span class="upload-type-chip mono" data-upload-type-chip hidden></span>'
+    return (
+        '<div class="upload-type-row"><label class="upload-type-row__label" for="%s">%s</label>%s%s</div>'
+    ) % (select_id, escape_html(i18n.t(ASK_TYPE_LABEL)), select, chip)
+
+
+def _upload_constraints_html():
+    """The compact list of what the picture must be."""
+    return '<ul class="upload-constraints">%s</ul>' % "".join(
+        "<li>%s</li>" % escape_html(i18n.t(text)) for text in UPLOAD_CONSTRAINTS)
 
 
 def _resolve_upload_form_html(action, id_suffix):
-    """Step B's upload-zone form — one definition, two call sites: the no-JS
+    """Step B's upload form — one definition, two call sites: the no-JS
     fallback calls this with the real `/illustration/{key}.png` action and
     `id_suffix=""`; the dialog calls it with `action=""` and
     `id_suffix="-dialog"`, and panel-lookup.js overwrites `action` via
     `setAttribute`.
 
-    `action=""` on the dialog's call is a real, present placeholder, never
-    omitted. The drop zone sits inside the `<form>`, since it writes into
-    that form's own input.
+    Reads top to bottom: the aircraft type (select, or the fixed chip), the
+    file input and its framing preview in one drop zone, then the compact list
+    of what the picture must be. The dialog's Upload button lives in its
+    action row (re-attached by `form=`); the no-JS fallback keeps its own
+    inside the form. `action=""` on the dialog's call is a real, present
+    placeholder, never omitted. The drop zone sits inside the `<form>`, since
+    it writes into that form's own input.
     """
     upload_input_id = MANUAL_UPLOAD_INPUT_ID + id_suffix
-    icon_html = layout.icon_html("icon-upload", extra_class=REPLACE_ICON_CLASS)
+    submit = "" if id_suffix else ui_components.button_html(
+        i18n.t(REPLACE_BUTTON_TEXT), "secondary", button_type="submit")
     return (
         '<div class="%s">'
-        "%s"
-        '<label for="%s">%s</label>'
-        '<p class="%s">%s</p>'
         '<form id="%s" method="post" enctype="multipart/form-data" action="%s">'
         "%s%s"
+        '<label class="visually-hidden" for="%s">%s</label>'
         '<input type="file" id="%s" name="image" accept="image/png" required>'
-        "%s"
-        "%s"
+        "%s%s%s"
         "</form>"
         "</div>"
     ) % (
         RESOLVE_UPLOAD_ZONE_CLASS,
-        icon_html,
-        upload_input_id, i18n.t(_CHOOSE_AN_IMAGE_TEXT),
-        REPLACE_HINT_CLASS, i18n.t(REPLACE_HINT_TEXT),
         MANUAL_UPLOAD_FORM_ID + id_suffix,
         action,
-        csrf_field(),
-        _ask_type_html(inline=not id_suffix),
+        csrf_field(), _ask_type_html(inline=not id_suffix),
+        upload_input_id, i18n.t(_CHOOSE_AN_IMAGE_TEXT),
         upload_input_id,
-        ui_components.button_html(i18n.t(REPLACE_BUTTON_TEXT), "secondary", button_type="submit"),
         _upload_drop_html(upload_input_id),
+        _upload_constraints_html(),
+        submit,
     )
 
 
@@ -1258,10 +1299,10 @@ def _table_data(ctx):
                 and airline_name not in injected_names):
             injected_pairs.append((airline_name, []))
             injected_names.add(airline_name)
-    promoted_prefixes = airline_known_rows.promoted(
+    promoted_prefixes = airline_missing.promoted(
         state_dir, registry, curated_names | injected_names)
     entries_by_slug = _entries_by_slug(ctx, now)
-    known_rows = airline_known_rows.rows(state_dir, registry)
+    known_rows = airline_missing.rows(state_dir, registry)
     taken = curated_names | injected_names | set(promoted_prefixes) | {
         name for _prefix, name in known_rows}
     pairs = pairs + injected_pairs + [(name, []) for name in promoted_prefixes] + [
@@ -1322,8 +1363,7 @@ def render(ctx):
     pairs, gap_shown = table_data.pairs, table_data.gap_rows
     lightbox_html = _lightbox_html() if (pairs or gap_shown) else ""
     table_html, chips = airline_table.table_and_chips(table_data)
-    filter_html = _filter_bar_html(
-        len(gap_shown) + len(table_data.known_rows) + len(pairs), chips) if (pairs or gap_shown) else ""
+    filter_html = _filter_bar_html(chips[0][2], chips) if (pairs or gap_shown) else ""
     return (
         layout.page_header(i18n.t(AIRLINE_EDITOR_LABEL))
         + filter_html

@@ -602,23 +602,21 @@ def _flights_page(new_context, server, viewport):
 
 
 @pytest.mark.parametrize("viewport", VIEWPORTS)
-def test_the_flights_chips_slide_the_thumb_and_the_swapped_list_enters(
+def test_the_flights_chips_swap_the_list_in_place_and_the_swapped_list_enters(
         new_context, flights, viewport):
-    """choosing Departures swaps the list in place (no navigation): the thumb slides to the new
-    chip and the list enters again, as the first three days or the table, never row by row"""
+    """choosing Departures swaps the list in place (no navigation): the chips stay in the form
+    and the list enters again, as the first three days or the table, never row by row"""
     context, page = _flights_page(new_context, flights, viewport)
     try:
-        strip = '[data-tabs="flights"]'
-        assert _thumb_matches_current(page, strip)
         page.evaluate("() => { window.__same = 'document'; }")
         mark = page.evaluate("() => window.__anim.length")
-        page.locator(strip + " label.filter-chip").nth(1).click()
+        page.locator(".filter-controls label.filter-chip").nth(1).click()
         page.wait_for_function(
             "(m) => window.__anim.slice(m).some((e) => e.name === 'skypane-reveal-fade')",
             arg=mark, timeout=10000)
         page.wait_for_function(_SETTLED_PAGE, timeout=10000)
         assert page.evaluate("() => window.__same") == "document"
-        _wait_sliding(page, strip)
+        assert page.locator(".filter-controls input[value=departing]").is_checked()
         entered = _entered_since(page, mark)
         assert entered and not [e for e in entered if e["row"]], entered
         assert len(entered) <= 3
@@ -646,7 +644,7 @@ def test_a_filter_change_on_the_desktop_table_fades_without_moving_it(new_contex
     try:
         page.wait_for_function(_OPENING_OVER, timeout=10000)
         mark = page.evaluate("() => window.__anim.length")
-        page.locator('[data-tabs="flights"] label.filter-chip').nth(1).click()
+        page.locator(".filter-controls label.filter-chip").nth(1).click()
         page.wait_for_function(
             "(m) => window.__anim.slice(m).some((e) => e.name === 'skypane-reveal-fade')",
             arg=mark, timeout=10000)
@@ -881,7 +879,7 @@ def test_map_tiles_do_not_fade_in_under_reduced_motion(new_context, place_server
 # --- The bottom tab bar's pill ---------------------------------------------------------------
 
 
-@pytest.mark.parametrize("path", ["/credits", "/components", "/", "/account"])
+@pytest.mark.parametrize("path", ["/components", "/", "/account"])
 def test_the_tab_bar_pill_is_on_every_page(new_context, server, path):
     """the sliding pill sits under an active cell on every page but the error pages: a page that
     belongs to no bar cell is reached through More, which carries the pill there"""
@@ -928,8 +926,8 @@ def test_the_style_page_opens_on_a_wide_screen_without_the_picture_moving(
 @pytest.mark.parametrize("width", [768, 1024])
 @pytest.mark.parametrize("motion", ["reduce", "no-preference"])
 def test_the_flights_filter_bar_opens_in_its_final_layout(new_context, server, width, motion):
-    """the search field and the chips beside it are placed before the first paint: opening
-    Flights at tablet and small desktop widths shifts nothing by more than 0.01"""
+    """the search row and the chips row are placed before the first paint: opening Flights at
+    tablet and small desktop widths shifts nothing by more than 0.01"""
     context = _admin_context(
         new_context, server, {"width": width, "height": 900}, reduced_motion=motion)
     context.add_init_script(_SHIFT_RECORDER)

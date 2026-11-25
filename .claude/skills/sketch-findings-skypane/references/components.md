@@ -9,8 +9,10 @@ Guards: `companion/test_components_page.py` fails when a public helper of the co
 modules is neither rendered on that page nor named in its `EXEMPT` table with a reason;
 `companion/test_browser_components_page.py` checks every family's geometry and contrast at
 360 and 1280px, light and dark, English and French. The page renders each family through
-the helper the pages call, in every state (default, selected, disabled, error, long text,
-empty, open/closed). It is linked from the System page footer
+the helper the pages call, in the states that matter (default, selected, disabled, error, long
+text, empty, open/closed). It does not yet show `.page-section`, the fleet tiles (`.fleet-tile`,
+regular and `compact`), the `.dot--off` and `.dot--hollow` dots, or the result dialog (named in
+`EXEMPT`); read those from the stylesheet and the pages that use them. It is linked from the System page footer
 (`console_fleet_view.py`). To add a component or state: add the helper, add a family or
 state to `CATALOGUE` with French strings in `companion/i18n_fr/components.py`, run the
 browser test. Tokens: `tokens-and-theming.md`.
@@ -20,11 +22,11 @@ browser test. Tokens: `tokens-and-theming.md`.
 | Family | Canonical helper | Class and states | Use it when |
 |--------|------------------|------------------|-------------|
 | Button | `ui_components.button_html`, `icon_button_html`, `icon_link_html` | `.btn` (44px min height, 15px/600, radius 14px) + `--primary` (the page's one main action, graphite/ivory), `--secondary` (every other action, glass), `--ghost` (quiet text action), `--danger` (destructive), `--icon` (44px square); disabled via `disabled` / `aria-disabled` | any action |
-| Title with icon action | `ui_components.title_action_html`, `pages/home_title.title_html` | `.title-action`: the page `<h1>` with one quiet icon link; hit area 44px centred on the first line; a long title wraps inside its box | the title names the thing and one quick action belongs to it (Home: frame name + rename pencil) |
+| Title with icon action | `ui_components.title_action_html`, `pages/home_title.title_html` | `.title-action`: the page `<h1>` with one quiet icon link; generic title 28px (48px from 700px, 24px below 380px; Home overrides to 32px / 44px); hit area 44px centred on the first line; a long title wraps inside its box | the title names the thing and one quick action belongs to it (Account and Fleet rename links; Home shows the name alone) |
 | Switch | `switch_button_html`, `quick_switch_html` + `quick_switch_state_html` (posted switch), `form_switch_html` | `.switch` (`aria-checked`), 52x32 track, 24px knob, on = accent, off = `--color-switch-off`; the button is the 44px target; a native checkbox in `.settings-checkbox` is drawn as the same switch | a two-state setting |
 | Segmented control | `ui_segmented.segmented_radios_html`, `segmented_buttons_html`, `segmented_links_html`; chips `ui_filter.filter_bar_html`, `chip_links_html` | one glass track with `--seg-edge`; selected = solid `--seg-selected-bg` pill; 44px segments; label then count on one line; links `.personalisation-nav`, chips `.filter-chip`. `chips_scroll=True` makes the chips separate pills on one line that scrolls sideways on a phone (right edge fades, the current pill opens into view) and wraps from 960px | choosing one of 2-6 options; a longer set of kinds (Editor, Audit) |
 | Text field | `ui_components.text_field_html`, `ui_modal.field_error_html` | `.modal__field` label + full-width 44px input + help; error adds `aria-invalid` | any labelled input |
-| Search, menus | `ui_filter.filter_title_search_html`, `search_field_html`, `sort_menu_html`, `ui_entity_list.row_menu_html` | search opens from the title row; sort is a 44px round icon button opening a `<details class="row-menu">` of radio rows | filtering and sorting a list; row actions |
+| Search, menus | `ui_filter.controls_html` (with `server_search_html` / `named_search_html`, `sort_menu_html`, `info_menu_html`, `chips_row_html`), `search_field_html`, `ui_entity_list.row_menu_html` | the one filter module of Flights and Airlines, a GET form: row 1 is the search field (the remaining width), the sort and the info button, all 44px; row 2 the scrolling chip row with counts; the count line under it: `.filter-bar__count` in the shared module (`ui_filter`) and on the Audit page, `.entity-count` on entity lists, `.filter-count` on Flights and Airlines pages that render their own line. Sort is a 44px round icon button opening a `<details class="row-menu">` of radio rows; info opens `.filter-info__panel`. Apply is the no-script send | filtering and sorting a list; row actions |
 | Groups and rows | `ui_groups.group`, `group_panel`, `row`, `section_label`, `chip_html` | `h2.section-label` (13px) over one glass `ul.group` of rows (min 54px, hairline between rows, 32px icon chip, label, detail, value, chevron, trailing control); `group_panel` holds free content; a group never contains a group | every list of settings, facts, entities |
 | Cards | `ui_components.stat_tile`, `status_row`, `section_intro_html`; `.page-section` | glass free-content card; `.stat-tile` survives on the Components page only | free content that cannot be rows |
 | Tiles | `pages/fleet_tiles.py` (`.fleet-tile`) | equal tiles in a grid, 44px or more, a label row, a headline, one meta line, a "Details" chevron when the tile is a link; the state is spelled out in a visually hidden word, never colour alone; a warning or error tile takes a coloured edge. Frame page: three tiles in a row, 2x2 grid never. System page: `compact` tiles, 2 columns on a phone and 3 from 960px, the chevron at the end of the label row and a one-line muted line with a plain-text `title` | a frame's or the platform's state at a glance, each tile leading to the page that holds the whole story |
@@ -34,7 +36,7 @@ browser test. Tokens: `tokens-and-theming.md`.
 | Empty states | `empty_state` (plain, compact), `ui_filter.filter_empty_html` | compact inside a flush card keeps 16px inner padding; search with no match keeps counts at the whole history's | a list with nothing to show |
 | Dialogs, sheets | `ui_modal.dialog_html` (with `variant`), `result_dialog_html`, `sections_dialog_html`, `choice_dialog_html`, `trigger_html`; `modal.js` | see Dialogs below | a focused task or a question |
 | Save bar | `ui_save_bar.save_bar_html`, `leave_dialog_html` | see Save bar below | unsaved changes |
-| Link card | `ui_components.link_card_html` | a glass card row with glyph, title, subtitle (the More panel's space card) | a prominent link to another area |
+| Link card | `ui_components.link_card_html` | a card row with glyph, title, subtitle (the More panel's space card): an accent outline and a 12% accent tint over `--glass-solid` (18% on hover), min height 60px, so it reads as a prominent link, not a plain glass row | a prominent link to another area |
 | Page header | `ui_components.page_header` | title, optional purpose, action | every page |
 
 ## Toast

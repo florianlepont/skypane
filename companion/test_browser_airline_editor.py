@@ -20,8 +20,8 @@ from server.plane import manual_resolutions
 pytestmark = pytest.mark.browser
 
 VIEWPORTS = (("360", VIEWPORT_MIN_SUPPORTED), ("1280", VIEWPORT_DESKTOP))
-ROW = 'tbody.airline-group:has(form[action*="manual-resolutions/"])'
-DELETE_LINK = ROW + " .airlines-row .row-menu__toggle"
+ROW = '.airlines-missing__airline:has(form[action*="manual-resolutions/"])'
+DELETE_LINK = ROW + " .airlines-missing__head .row-menu__toggle"
 FRANCE = "#airline-air-france"
 FRANCE_NAME = FRANCE + " .airlines-name"
 FRANCE_MENU = FRANCE + " .airlines-row .row-menu__toggle"
@@ -108,9 +108,10 @@ def test_the_editor_is_reached_from_the_console_bar_on_a_phone(new_context, serv
 
 
 def test_the_editor_is_reached_from_the_sidebar_on_desktop(new_context, server):
-    # The Fleet landing carries a phone and a wide variant of the list title: wait for the frame title, which is always shown.
+    # On a wide screen the Fleet landing's visible h1 is the neutral pane's heading (the list
+    # title h1 before it is for a phone and is hidden here).
     context, page = _open(
-        new_context, server, VIEWPORT_DESKTOP, path="/fleet", ready="main h1.fleet-head__title")
+        new_context, server, VIEWPORT_DESKTOP, path="/fleet", ready="h1.fleet-empty__title")
     try:
         link = page.locator('nav.sidebar-nav a[href$="/airlines/manage"]')
         link.wait_for(state="visible")
@@ -123,9 +124,9 @@ def test_the_editor_is_reached_from_the_sidebar_on_desktop(new_context, server):
         context.close()
 
 
-def test_a_hand_named_airline_stays_in_the_table_and_its_menu_deletes_the_name(
+def test_a_hand_named_airline_keeps_its_header_and_its_menu_deletes_the_name(
         new_context, make_app_server):
-    """no separate manual-resolutions table: the two owner-named airlines keep a row, and "Delete my name" in the row menu removes the name"""
+    """no separate manual-resolutions table: the two owner-named airlines keep a header in the missing-illustrations section, and "Delete my name" in its menu removes the name"""
     server = make_app_server(seed=_seed, fake_providers=True)
     context, page = _open(new_context, server, VIEWPORT_DESKTOP)
     try:
@@ -200,38 +201,39 @@ def test_renaming_an_airline_through_the_editor_works_end_to_end(new_context, ma
         context.close()
 
 
-KNOWN_ROW = "tbody.airline-group--known"
-KNOWN_ADD = KNOWN_ROW + " .airlines-known__add"
+KNOWN_ROW = ".airlines-missing__item"
+KNOWN_ADD = KNOWN_ROW + " .airlines-missing__add"
 _CENTRED_TEXT = (
-    "el => { const range = document.createRange(); range.selectNodeContents(el.querySelector('.airlines-known__text'));"
-    " const text = range.getBoundingClientRect(); const box = el.getBoundingClientRect();"
-    " return Math.abs((text.top + text.height / 2) - (box.top + box.height / 2)); }")
+    "el => { const glyph = el.querySelector('svg').getBoundingClientRect(); const box = el.getBoundingClientRect();"
+    " return Math.abs((glyph.top + glyph.height / 2) - (box.top + box.height / 2))"
+    " + Math.abs((glyph.left + glyph.width / 2) - (box.left + box.width / 2)); }")
 
 
 @pytest.mark.parametrize("lang", ("en", "fr"))
 @pytest.mark.parametrize("name,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
-def test_airlines_known_by_name_are_read_only_rows_with_an_artwork_button_and_a_chip(
+def test_missing_illustrations_are_rows_with_an_illustration_button_and_a_chip(
         new_context, server, name, viewport, lang):
     context, page = _open(new_context, server, viewport, lang, ready=KNOWN_ROW)
     try:
         rows = page.locator(KNOWN_ROW)
         assert rows.count() >= 4
-        assert rows.first.locator("input, form").count() == 0
+        assert rows.first.locator("input:visible, form:visible").count() == 0
         for index in range(rows.count()):
             button = page.locator(KNOWN_ADD).nth(index)
             box = button.bounding_box()
             assert box["height"] >= 44 and box["width"] >= 44
             assert button.evaluate(_CENTRED_TEXT) <= 2
-        chip_text = "Known by name only" if lang == "en" else "Connues par leur nom"
+        chip_text = "Missing illustrations" if lang == "en" else "Illustrations manquantes"
         chips = page.locator(".filter-bar__chips")
         assert chips.evaluate("el => getComputedStyle(el).flexWrap") == "nowrap" or viewport["width"] > 500
         chip = page.locator(".filter-chip", has_text=chip_text)
         chip.click()
         page.wait_for_function(
-            "n => document.querySelectorAll('tbody.airline-group:not([hidden])').length === n",
+            "n => document.querySelectorAll('.airlines-missing__item:not([hidden])').length === n",
             arg=rows.count())
+        assert page.locator("tbody.airline-group:not([hidden])").count() == 0
         assert page.locator("tbody.airline-group--gap:not([hidden])").count() == 0
-        assert not _assert_no_page_overflow(page, "known", viewport["width"])
+        assert not _assert_no_page_overflow(page, "missing", viewport["width"])
     finally:
         context.close()
 

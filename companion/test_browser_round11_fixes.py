@@ -243,7 +243,7 @@ def test_the_flights_sort_menu_works_without_scripts(new_context, make_app_serve
                      viewport=VIEWPORT_MIN_SUPPORTED) as page:
         page.locator(".collection-sort > summary").click()
         page.locator('.collection-sort__option:has(input[value="airline"])').click()
-        page.locator(".history-controls__apply").click()
+        page.locator(".filter-controls__apply").click()
         page.wait_for_url("**sort=airline*")
         assert page.locator("input[name=sort][value=airline]:checked").count() == 1
 

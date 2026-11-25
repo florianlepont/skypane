@@ -187,9 +187,9 @@ def test_a_frame_that_never_woke_keeps_its_state_text_inside_the_card_and_its_bu
     where = "fleet-state/%d/%s/%s" % (viewport["width"], lang, scheme)
     try:
         page.wait_for_function("() => document.readyState === 'complete'")
-        # The State section is three tiles whose text stays inside them; the other sections'
-        # groups keep theirs inside too.
-        assert page.locator(".fleet-tile").count() == 3
+        # The State section is three tiles and the Settings section two, whose text stays inside
+        # them; the Access group keeps its text inside too.
+        assert page.locator(".fleet-tile").count() == 5
         read = page.evaluate(_TEXT_INSET, ".fleet-group, .fleet-tile")
         assert read["blocks"] >= 5 and not read["bad"], (where, read)
         head = page.evaluate(_HEAD)

@@ -29,6 +29,15 @@
   // owns, since the server can neither check it nor trust the machine
   // it ran on.
   var uploadDropZones = document.querySelectorAll("[data-upload-drop]");
+  // A drop assigns the input's files without any event; the dialog's Upload
+  // button listens through this hook (set once the dialog is found).
+  var uploadChangedHook = null;
+
+  function notifyUploadChanged() {
+    if (uploadChangedHook) {
+      uploadChangedHook();
+    }
+  }
 
   function uploadZoneInput(zone) {
     // getElementById of a SERVER-RENDERED id, never an ancestor walk:
@@ -144,6 +153,7 @@
     }
     setUploadMessage(zone, "");
     showUploadPreview(zone, files[0]);
+    notifyUploadChanged();
   }
 
   // THE PICKER PATH. It runs the SAME validator and says the same
@@ -262,6 +272,36 @@
   }
   var resolveScope = dialog.querySelector(".lightbox__resolve-scope");
   var resolveSubmit = dialog.querySelector(".lightbox__actions [type=\"submit\"]");
+  // The add-illustration step's own action row: Cancel and Upload replace
+  // Close and Save while it shows; Upload waits for a chosen image.
+  var closeAction = dialog.querySelector(".lightbox__actions [data-view-panel-close]");
+  var cancelAction = dialog.querySelector(".lightbox__cancel");
+  var uploadSubmit = dialog.querySelector(".lightbox__upload");
+  var typeChip = resolveUploadZone ? resolveUploadZone.querySelector("[data-upload-type-chip]") : null;
+  var uploadFileInput = resolveUploadZone ? resolveUploadZone.querySelector('input[type="file"]') : null;
+  var uploadTypeSelect = resolveUploadZone ? resolveUploadZone.querySelector("select") : null;
+
+  // Upload is available once the zone's file input holds a file and, when the
+  // dialog asks for the aircraft type, once a type is chosen; the plain
+  // aria-disabled state is mirrored so a screen reader hears it.
+  function refreshUploadReady() {
+    if (!uploadSubmit || !uploadFileInput) {
+      return;
+    }
+    var ready = !!uploadFileInput.files && uploadFileInput.files.length > 0;
+    if (ready && uploadTypeSelect && !uploadTypeSelect.hidden && uploadTypeSelect.required) {
+      ready = uploadTypeSelect.value !== "";
+    }
+    uploadSubmit.disabled = !ready;
+    uploadSubmit.setAttribute("aria-disabled", ready ? "false" : "true");
+  }
+  if (uploadTypeSelect) {
+    uploadTypeSelect.addEventListener("change", refreshUploadReady);
+  }
+  if (uploadFileInput) {
+    uploadFileInput.addEventListener("change", refreshUploadReady);
+    uploadChangedHook = refreshUploadReady;
+  }
   var heading = dialog.querySelector(".lightbox__heading");
   var manualNote = dialog.querySelector(".lightbox__manual-note");
   var resolveContext = dialog.querySelector(".resolve-context");
@@ -454,9 +494,11 @@
     }
 
     var mode = trigger.getAttribute("data-view-panel-mode") || "";
-    // An airline's dialog is titled by its heading alone; the caption
+    // An airline's own dialog is titled by its heading alone; the caption
     // would only repeat it.
-    caption.hidden = (mode === "art" || mode === "needs-artwork");
+    // The add-illustration dialog keeps the caption as its subtitle (the
+    // airline, and the type) under the short title.
+    caption.hidden = (mode === "art" || (mode === "needs-artwork" && !captionText));
     // Governed by mode alone, independent of manual below. Every hidden
     // assignment here runs before showModal() further down, since its
     // one-time autofocus placement is synchronous and only ever sees
@@ -471,6 +513,16 @@
     }
     if (resolveUploadZone) {
       resolveUploadZone.hidden = (mode !== "needs-artwork");
+    }
+    var addingArtwork = mode === "needs-artwork";
+    if (closeAction) {
+      closeAction.hidden = addingArtwork;
+    }
+    if (cancelAction) {
+      cancelAction.hidden = !addingArtwork;
+    }
+    if (uploadSubmit) {
+      uploadSubmit.hidden = !addingArtwork;
     }
     if (replaceForm) {
       replaceForm.hidden = (mode !== "art");
@@ -545,12 +597,20 @@
       // The add-first-artwork step always asks for the aircraft type first
       // (an airline's pictures are its types'); the select is shown and
       // required for that step only.
+      // A trigger that names the aircraft type (a type row) shows it as a
+      // fixed chip instead and its upload address already carries it.
       var askType = resolveUploadZone.querySelector("select");
+      var fixedType = trigger.getAttribute("data-view-panel-fixed-type") || "";
       if (askType) {
-        var asks = trigger.hasAttribute("data-view-panel-ask-type") || mode === "needs-artwork";
+        var asks = (trigger.hasAttribute("data-view-panel-ask-type") || mode === "needs-artwork")
+          && !fixedType;
         askType.hidden = !asks;
         askType.required = asks;
         askType.value = "";
+      }
+      if (typeChip) {
+        typeChip.textContent = fixedType;
+        typeChip.hidden = !fixedType;
       }
     }
     if (deleteForm) {
@@ -565,8 +625,13 @@
         replaceForm.reset();
       }
       clearAllUploadPreviews();
+      refreshUploadReady();
       return;
     }
+    if (uploadFileInput) {
+      uploadFileInput.value = "";
+    }
+    refreshUploadReady();
     var focusTarget = chooseInitialFocus(trigger);
     dialog.showModal();
     if (focusTarget && document.activeElement !== focusTarget) {
@@ -765,8 +830,9 @@
   }
 
   var closeButton = dialog.querySelector("[data-view-panel-close]");
-  if (closeButton) {
-    closeButton.addEventListener("click", closeDialog);
+  var closeButtons = dialog.querySelectorAll("[data-view-panel-close]");
+  for (var closeIndex = 0; closeIndex < closeButtons.length; closeIndex += 1) {
+    closeButtons[closeIndex].addEventListener("click", closeDialog);
   }
 
   // A click on the backdrop closes the dialog. A click inside it lands

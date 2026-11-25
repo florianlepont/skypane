@@ -49,7 +49,7 @@ def _claim(server, cookie, code, **extra):
 
 
 def _card(page):
-    return re.search(r'<form class="pair-form".*?</form>', page, re.S).group(0)
+    return re.search(r'<form class="pair-form[ \"].*?</form>', page, re.S).group(0)
 
 
 def test_a_user_pairs_a_frame_and_becomes_its_owner(rig):
@@ -81,10 +81,10 @@ def test_a_submitted_owner_is_ignored_and_other_frames_are_unaffected(rig):
     assert _device(server.state_dir, fx.MAC_LIVE)["owner_user_id"] == seed.admin_id
 
 
-def test_an_administrator_route_claim_still_chooses_the_owner(rig):
+def test_an_administrator_claim_on_the_page_still_chooses_the_owner(rig):
     server, seed, _cookie = rig
     admin = fx.admin_cookie(server.state_dir)
-    status, _headers, _body = fx.post(server, admin, "/fleet/pair", {
+    status, _headers, _body = fx.post(server, admin, PATH, {
         "code": fx.FAKE_CODE, "owner_user_id": str(seed.owner_id)})
     assert status == 303
     assert _device(server.state_dir)["owner_user_id"] == seed.owner_id
@@ -147,8 +147,8 @@ def test_a_refused_code_is_one_alert_with_the_sentence_and_the_validity_line(rig
     assert alert.find_all("svg")
     text = alert.text()
     assert text.startswith("Code not recognised. Check the code and try again.")
-    assert "The code stays valid for about 35 minutes" in text
-    assert _card(page).count("The code stays valid for about 35 minutes") == 1
+    assert "Valid for 35 minutes" in text
+    assert _card(page).count("Valid for 35 minutes") == 1
     assert 'aria-describedby="%s"' % alert.attrs["id"] in _card(page)
     assert "press its Reset button" not in _card(page)
 
@@ -159,12 +159,12 @@ def test_a_refused_code_reads_in_french(rig):
     alert = parse_html(_card(page)).find(attrs={"role": "alert"})
     text = alert.text()
     assert text.startswith("Code non reconnu. Vérifiez le code et réessayez.")
-    assert "Le code reste valable environ" in text
+    assert "Valable 35" in text and "minutes." in text
 
 
 @pytest.mark.parametrize("lang,sentence", [
-    (None, "If your frame shows no code, press its Reset button."),
-    ("fr", "Si votre cadre n’affiche aucun code, appuyez sur son bouton Reset."),
+    (None, "Press its Reset button."),
+    ("fr", "Appuyez sur son bouton Reset."),
 ])
 def test_the_plain_form_tells_a_frame_without_a_code_to_press_reset(rig, lang, sentence):
     server, _seed, cookie = rig
@@ -296,7 +296,7 @@ def test_the_global_throttle_covers_users_and_administrators_alike(rig):
     fresh = fx.user_cookie(server.state_dir, "fresh@example.test")
     assert _claim(server, fresh, fx.FAKE_CODE)[0] == 429
     admin = fx.admin_cookie(server.state_dir)
-    assert fx.post(server, admin, "/fleet/pair", {
+    assert fx.post(server, admin, PATH, {
         "code": fx.FAKE_CODE, "owner_user_id": str(seed.owner_id)})[0] == 429
 
 
@@ -310,14 +310,11 @@ def test_an_empty_code_is_a_400_and_is_not_counted(rig, monkeypatch):
 
 
 def test_a_user_cannot_reach_the_administrator_routes(rig):
-    server, seed, cookie = rig
+    server, _seed, cookie = rig
     assert fx.get(server, cookie, "/fleet")[0] == 404
-    for path, form in (
-            ("/fleet/pair", {"code": fx.FAKE_CODE, "owner_user_id": str(seed.user_id)}),
-            ("/fleet/register", {
-                "mac": fx.MAC_NEW, "secret_sha256": fx.SECRET_HASH,
-                "hardware_type": hardware.LEGACY_KEY})):
-        assert fx.post(server, cookie, path, form)[0] == 404, path
+    assert fx.post(server, cookie, "/fleet/register", {
+        "mac": fx.MAC_NEW, "secret_sha256": fx.SECRET_HASH,
+        "hardware_type": hardware.LEGACY_KEY})[0] == 404
     assert _device(server.state_dir) is None
     assert _device(server.state_dir, fx.MAC_NEW) is None
 

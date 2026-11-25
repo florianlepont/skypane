@@ -24,7 +24,7 @@ GAP_META_RE = re.compile(
     r'<span class="airlines-gap__meta">([^<]*)<span class="cell-inline-sep">[^<]*</span>([^<]*)<')
 ITEM_RE = re.compile(r'<li class="collection-item" data-filter-text="([^"]*)".*?</li>', re.S)
 SEEN_RE = re.compile(r"Seen (once|\d+ times)")
-KNOWN_NAME_RE = re.compile(r'airlines-known__name">([^<]+)<')
+KNOWN_NAME_RE = re.compile(r'airlines-missing__name">([^<]+)<')
 SUGGESTION_MARK = "Bravo Suggest Air"
 
 
@@ -108,11 +108,11 @@ def test_admin_editor_shows_the_artwork_of_the_whole_fleet(world):
         handle.write(artwork_png())
     # Frame B's directory resolves to the one fleet directory, so the picture
     # is there for the editor opened on any frame, and the airline moves out
-    # of "known by name only".
+    # of the airlines with no artwork.
     for frame in (world.a_id, world.b_id):
         _s, body = _get(world, world.admin, "/devices/%s/airlines/manage?types=all" % frame)
         assert "illustration/zorro-air.png?v=" in body
-        assert "Zorro Air" not in KNOWN_NAME_RE.findall(body)
+        assert '<tbody class="airline-group" id="airline-zorro-air"' in body
 
 
 def test_admin_names_a_prefix_only_another_frame_saw(world):
@@ -211,12 +211,15 @@ def test_a_user_with_two_frames_sees_each_frame_on_its_own_page(world):
     assert "Quux" not in on_a and "Zorro" not in on_b
 
 
-def test_the_user_page_lists_only_seen_airlines_without_progress_or_filter_chips(world):
+def test_the_user_page_lists_only_seen_airlines_without_progress_or_a_not_seen_filter(world):
     _s, body = _get(world, world.user_a, "/devices/%s/airlines" % world.a_id)
     assert len(ITEM_RE.findall(body)) == 2
     for gone in ("collection-card--unseen", "collection-progress__bar", "<progress",
-                 "filter-chip", 'name="show"', "Not yet seen", "spotted"):
+                 'name="show"', "Not yet seen", "spotted"):
         assert gone not in body, gone
+    # The chips only narrow the airlines the frame saw: artwork and recency, never "not seen".
+    assert re.findall(r'class="filter-chip__text">([^<]*)<', body) == [
+        "All", "With artwork", "No artwork", "Seen this month"]
 
 
 def _dir(tmp_path, name, registry):

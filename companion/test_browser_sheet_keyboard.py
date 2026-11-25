@@ -31,7 +31,6 @@ _FIELD = "input:not([type=hidden]):not([type=checkbox]):not([type=radio]), selec
 # (id, persona, page, dialog id, the field to focus: a selector inside the dialog)
 SHEETS = (
     ("users-invite", "admin", "/users", "dlg-invite-user", "#invite-email"),
-    ("fleet-add-frame", "admin", "/fleet", "dlg-add-frame", "#pair-code"),
     ("fleet-reassign", "admin", "/fleet?frame={owned}&tab=access", "dlg-reassign-{slug}",
      "select"),
     ("fleet-add-co-manager", "admin", "/fleet?frame={owned}&tab=access",

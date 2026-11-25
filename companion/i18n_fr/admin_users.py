@@ -85,6 +85,21 @@ MESSAGES = {
         "Une nouvelle invitation pour une personne qui a déjà un compte Auth0 demande "
         "l’identifiant de connexion Auth0 sur le serveur "
         "(SKYPANE_AUTH0_DB_CONNECTION_ID). Voir le guide de déploiement.",
+    "admin_users.invitation_failed_custom_domain":
+        "Auth0 a répondu avec une adresse d’un autre domaine. Déclarez votre domaine "
+        "personnalisé dans SKYPANE_AUTH0_CUSTOM_DOMAIN sur le serveur.",
+    "admin_users.invitation_failed_permissions":
+        "Auth0 a refusé la demande. Donnez à l’application Management API les "
+        "permissions create:users et create:user_tickets.",
+    "admin_users.invitation_failed_connection_name":
+        "Auth0 n’a pas pu créer le compte. Vérifiez que SKYPANE_AUTH0_DB_CONNECTION "
+        "est le nom exact de la connexion de base de données.",
+    "admin_users.invitation_failed_credentials":
+        "Auth0 a refusé les identifiants du serveur. Vérifiez SKYPANE_AUTH0_DOMAIN "
+        "ainsi que l’identifiant et le secret client de la Management API.",
+    "admin_users.invitation_failed_result_url":
+        "L’adresse de cette page n’a pas pu servir d’adresse de retour. Vérifiez que "
+        "le serveur web transmet l’en-tête Host sans le modifier.",
     "admin_users.n_frames": "%d cadres",
     "admin_users.one_frame": "1 cadre",
     "admin_users.you": "Vous",

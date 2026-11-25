@@ -1,5 +1,5 @@
-"""Real-browser checks of the Rename frame dialog from its three entry points (the Home pencil,
-the Fleet header pencil and the pencil of a frame row on Account): a centred dialog on a
+"""Real-browser checks of the Rename frame dialog from its two entry points (the
+Fleet header pencil and the pencil of a frame row on Account): a centred dialog on a
 desktop and a bottom sheet on a phone with the name field focused, Save and Cancel as equal
 buttons, no sideways scroll at 360 and 1280px in both languages and both themes, Escape, Cancel
 and a tap on the scrim closing it and discarding the typed name, Save returning to the page the
@@ -18,7 +18,7 @@ DESKTOP = {"width": 1280, "height": 900}
 VIEWPORTS = (VIEWPORT_MIN_SUPPORTED, DESKTOP)
 VIEWPORT_IDS = ("360", "1280")
 LANGS = ("en", "fr")
-ENTRIES = ("home", "fleet", "account")
+ENTRIES = ("fleet", "account")
 TITLE = {"en": "Rename frame", "fr": "Renommer le cadre"}
 CANCEL = {"en": "Cancel", "fr": "Annuler"}
 ERROR = {"en": "Enter a name of 1 to 40 characters.",
@@ -36,7 +36,6 @@ class RenameRig(Rig):
     def where(self, entry):
         """(who, page path, selector of the page's own name display)."""
         return {
-            "home": ("owner", "/devices/%s/" % self.seed.owned_id, "main h1"),
             "fleet": ("admin", "/fleet?frame=%s" % self.seed.owned_id, ".fleet-head__title"),
             "account": ("owner", "/account", "li.account-frame"),
         }[entry]
@@ -64,9 +63,7 @@ def _visit(new_context, rig, entry, lang="en", viewport=DESKTOP, theme=None, **k
 
 def _press_opener(page, rig, entry, lang):
     """Tap the entry point's own pencil."""
-    if entry == "home":
-        page.locator(".title-action .btn--icon").click()
-    elif entry == "fleet":
+    if entry == "fleet":
         page.locator(".fleet-head a.fleet-icon-button[data-modal-open]").click()
     else:
         page.locator(
@@ -240,7 +237,7 @@ def test_a_refused_name_reopens_the_dialog_with_its_error_and_the_next_try_saves
 
 
 def test_a_refused_name_that_closes_goes_back_to_the_page_without_the_error(new_context, rig):
-    context, page = _open_dialog(new_context, rig, "home", "en", DESKTOP)
+    context, page = _open_dialog(new_context, rig, "account", "en", DESKTOP)
     try:
         _wait_open(page, rig)
         page.locator(rig.field).fill("   ")
@@ -286,9 +283,9 @@ def test_without_script_the_entry_point_is_a_link_to_the_dialog_and_save_and_can
 @pytest.mark.parametrize("lang", LANGS)
 def test_without_script_a_refused_name_shows_the_dialog_with_its_error(new_context, rig, lang):
     context, page = _visit(
-        new_context, rig, "home", lang, VIEWPORT_MIN_SUPPORTED, java_script_enabled=False)
+        new_context, rig, "account", lang, VIEWPORT_MIN_SUPPORTED, java_script_enabled=False)
     try:
-        _press_opener(page, rig, "home", lang)
+        _press_opener(page, rig, "account", lang)
         page.locator(rig.field).fill("   ")
         with page.expect_navigation():
             page.locator(rig.dialog + " button[type=submit]").click()
@@ -300,7 +297,7 @@ def test_without_script_a_refused_name_shows_the_dialog_with_its_error(new_conte
         context.close()
 
 
-@pytest.mark.parametrize("entry", ("home", "account"))
+@pytest.mark.parametrize("entry", ("account",))
 def test_the_old_rename_address_opens_the_dialog_on_the_page_it_came_from(
         new_context, rig, entry):
     _who, path, _shown_selector = rig.where(entry)

@@ -164,7 +164,7 @@ def test_the_empty_history_shows_the_start_state_and_no_card_or_control(rig):
     body = rig.page()
     assert "Your collection starts with the first plane" in body
     assert "Airlines show up here as your frame sees them." in body
-    assert not _cards(body) and "collection-controls" not in body
+    assert not _cards(body) and "filter-controls" not in body
     assert ">0/5<" in body
 
 
@@ -206,16 +206,20 @@ def test_rare_airlines_and_aircraft_carry_a_tier_class_and_a_word(rig):
     assert "A320" in sheets and "737-800" in sheets and "A321neo" in sheets
 
 
+def _controls_form(body):
+    return re.search(r'<form class="filter-bar [^"]*filter-controls".*?</form>', body, flags=re.S).group(0)
+
+
 def test_the_legend_sits_behind_one_info_button_in_the_bar(rig):
     rig.seed_history()
     body = _main(rig.page())
-    form = re.search(r'<form class="filter-bar collection-controls".*?</form>', body, flags=re.S).group(0)
-    menu = re.search(r'<details class="row-menu collection-legend">.*?</details>', form, flags=re.S)
+    form = _controls_form(body)
+    menu = re.search(r'<details class="row-menu filter-info">.*?</details>', form, flags=re.S)
     assert menu and 'aria-label="Rarity of airlines and aircraft"' in menu.group(0)
     assert menu.group(0).count('<ul class="rarity-legend"') == 1
     assert body.count('class="rarity-legend"') == 1
-    assert "Airlines: 4" in form
-    assert 'class="visually-hidden" role="status" data-filter-count' in form
+    count = re.search(r'<p class="filter-count" role="status" data-filter-count[^>]*>([^<]*)</p>', body)
+    assert count and count.group(1) == "4 of 4 airlines"
 
 
 def test_the_sheet_lists_three_facts_under_the_picture_and_the_rarity_pill(rig):
@@ -229,28 +233,35 @@ def test_the_sheet_lists_three_facts_under_the_picture_and_the_rarity_pill(rig):
 def test_the_bar_is_one_form_with_sort_and_count_and_a_no_script_apply(rig):
     rig.seed_history()
     body = _main(rig.page())
-    form = re.search(r'<form class="filter-bar collection-controls".*?</form>', body, flags=re.S).group(0)
+    form = _controls_form(body)
     assert form.count("<form") == 1
-    for part in ('name="q"', 'collection-controls__apply', 'data-filter-count'):
-        assert part in form
-    assert 'name="show"' not in form and "filter-chip" not in form
+    for part in ('name="q"', 'filter-controls__apply', "data-collection-form"):
+        assert part in body or part in form
+    assert 'name="show"' not in form
+    # Row 1 is the search, the sort and the info; row 2 the chips with their counts.
+    row, chips = form.split("</div><fieldset", 1)
+    assert 'name="q"' in row and "collection-sort" in row and "filter-info" in row
+    assert chips.startswith(' class="filter-bar__chips filter-bar__chips--scroll js-gate"')
     # The sort is a menu of radio rows (a no-script Apply sends the choice), not a select.
     assert "<select" not in form
     sort = re.search(r'<details class="row-menu collection-sort">.*?</details>', form, flags=re.S).group(0)
     assert re.findall(r'<input type="radio"[^>]*name="sort" value="(\w+)"', sort) == [
         "most", "rarest", "latest", "az"]
-    assert sort.count(" checked") == 1 and 'value="most" checked' in sort
-    assert 'aria-label="Sort by: Most seen"' in sort
-    assert form.index('name="q"') < form.index("collection-sort") < form.index("collection-legend")
-    assert "Airlines: 4" in form
-    assert "Airlines: 1<" in _main(rig.page(query="?q=zed"))
+    assert sort.count(" checked") == 1 and 'value="rarest" checked' in sort
+    assert 'aria-label="Sort by: Rarest"' in sort
+    assert form.index('name="q"') < form.index("collection-sort") < form.index("filter-info")
+    assert ">4 of 4 airlines<" in body
+    assert ">1 of 1 airlines<" in _main(rig.page(query="?q=zed"))
     fr = _main(rig.page(lang="fr", query="?q=zed"))
-    assert "Compagnies\u00a0: 1<" in fr and "Airlines" not in fr and "Moins de 3 passages" in fr
+    assert ">1 sur 1 compagnies<" in fr and "Moins de 3 passages" in fr
 
 
 def test_sort_and_text_are_applied_by_the_server(rig):
     rig.seed_history()
     assert len(_cards(rig.page())) == 4
+    default = [_text(card) for card in _cards(rig.page())]
+    assert "Seen once" in default[0] and "Seen 12 times" in default[3]
+    assert default == [_text(card) for card in _cards(rig.page(query="?sort=rarest"))]
     most = [_text(card) for card in _cards(rig.page(query="?sort=most"))]
     assert "Seen 12 times" in most[0] and "Seen 3 times" in most[1]
     az = _cards(rig.page(query="?sort=az"))
@@ -287,7 +298,7 @@ def test_hostile_stored_text_is_escaped(rig):
 def test_the_page_is_french_with_french_strings(rig):
     rig.seed_history()
     body = rig.page(lang="fr")
-    for text in (">Compagnies</h1>", "encore 1 pour le badge 5",
+    for text in (">Airlines</h1>", "encore 1 pour le badge 5",
                  "Les compagnies vues par votre cadre", "Vue 12 fois", "Vue une fois",
                  "Habituelle", "Occasionnelle", "Nouveau",
                  "Première observation", "Appliquer", "Les plus vues"):
@@ -320,7 +331,7 @@ def test_an_owner_cannot_post_to_the_editing_routes(rig):
 def test_the_badge_goal_follows_the_number_of_airlines_the_frame_saw(rig):
     rig.event(RARE_NAME, 30, aircraft_type="A320")
     body = _text(_main(rig.page("owner")))
-    assert "4 more for the 5 badge" in body and "Airlines: 1" in body
+    assert "4 more for the 5 badge" in body and "1 of 1 airlines" in body
     fr = _text(_main(rig.page("owner", lang="fr")))
     assert "encore 4 pour le badge 5" in fr
     for page in (body, fr):

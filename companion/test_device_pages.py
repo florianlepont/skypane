@@ -159,7 +159,8 @@ def test_silent_device_says_so_in_its_connection_tile(two_devices):
     page = get(app, "/fleet?frame=%s" % app.fleet.dev_b.id)[2]
     tile = page[page.index('<div class="fleet-tile"'):]
     tile = tile[:tile.index("</div>")]
-    assert "Has not checked in for a long time" in tile and "Last check-in" in tile
+    # A new frame wakes every 15 minutes, so its silence reads "late" (a warning).
+    assert "Has not checked in for a while" in tile and "Last check-in" in tile
 
 
 def test_live_frame_battery_page_has_no_device_states(two_devices):

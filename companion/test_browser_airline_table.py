@@ -53,7 +53,7 @@ _OWNS_CENTRE = (
 
 
 _seed = seed_airline_editor
-KNOWN_ROW = 'tbody.airline-group--known:has(.airlines-known__name:text-is("%s"))'
+KNOWN_ROW = '.airlines-missing__airline:has(.airlines-missing__name:text-is("%s"))'
 
 
 @pytest.fixture(scope="module")
@@ -183,8 +183,8 @@ def test_the_unidentified_prefix_is_a_compact_row_on_top_named_in_a_dialog(
         assert page.locator(DIALOG + "[open]").count() == 0
         row = KNOWN_ROW % "Xyz Wings"
         assert page.locator(row).count() == 1
-        assert page.locator(row + " .airlines-known__prefix").inner_text() == "XYZ"
-        assert page.locator(row + " .airlines-pill").count() == 0
+        assert page.locator(row + " .airlines-missing__prefix").inner_text() == "XYZ"
+        assert page.locator(row + " .airlines-star").count() == 0
         assert "Named by hand" not in page.locator(row).inner_text()
         saved = manual_resolutions.load_manual_resolutions(server.state_dir)
         assert saved["XYZ"]["airline_name"] == "Xyz Wings"
@@ -228,16 +228,16 @@ def test_the_chevron_expands_the_aircraft_type_sub_rows(new_context, server, nam
         first, second, third = rows.nth(0), rows.nth(1), rows.nth(2)
         # The airline's row carries no picture: only its type rows do.
         assert page.locator(TRANSAVIA + " .airlines-row .airlines-thumb").count() == 0
-        assert first.locator("th").inner_text().startswith("A320")
+        assert first.locator("th").inner_text().startswith("Airbus A320")
         assert first.locator("a.airlines-thumb").is_visible()
         assert first.locator(".row-menu__toggle").is_visible()
         assert "Uses the default" not in third.inner_text()
-        assert third.locator(".airlines-act").inner_text() == "Add artwork"
-        assert first.locator(".airlines-act").inner_text() == "Change artwork"
-        assert second.locator(".airlines-act").inner_text() == "Change artwork"
-        assert "Own artwork" in first.inner_text() and "Own artwork" in second.inner_text()
-        assert second.locator("th").inner_text().startswith("B738")
-        assert third.locator("th").inner_text().startswith("A333")
+        assert third.locator(".airlines-act:visible").get_attribute("data-tip") == "Add artwork"
+        assert first.locator(".airlines-act:visible").get_attribute("data-tip") == "Change artwork"
+        assert second.locator(".airlines-act:visible").get_attribute("data-tip") == "Change artwork"
+        assert "Own artwork" not in first.inner_text() + second.inner_text()
+        assert second.locator("th").inner_text().startswith("Boeing 737")
+        assert third.locator("th").inner_text().startswith("Airbus A330")
         assert second.locator("a.airlines-thumb").is_visible()
         if name == "1280":
             # A phone's type card leaves the views out, like the approved mockup.
@@ -483,7 +483,8 @@ _NAMES = VISIBLE_GROUPS + " .airlines-row .airlines-name--fixed"
 
 def _visible_group_count_is(page, count):
     page.wait_for_function(
-        "n => document.querySelectorAll('tbody.airline-group:not([hidden])').length === n",
+        "n => document.querySelectorAll("
+        "'tbody.airline-group:not([hidden]), .airlines-missing__item:not([hidden])').length === n",
         arg=count, timeout=5000)
 
 
@@ -491,11 +492,13 @@ def test_the_filter_finds_an_airline_by_name_type_or_prefix(new_context, server)
     context, page = _open(new_context, server, VIEWPORT_DESKTOP)
     try:
         field = page.locator("[data-filter-input]")
-        total = page.locator("tbody.airline-group").count()
-        for text, expected in (("tfv", ["Transavia France"]), ("b738", ["Transavia France"]),
-                               ("tap portugal", ["TAP Air Portugal"])):
+        tables = page.locator("tbody.airline-group").count()
+        total = tables + page.locator(".airlines-missing__item").count()
+        # "tfv" also finds Transavia's A330 row of the missing-illustrations section.
+        for text, expected, groups in (("tfv", ["Transavia France"], 2), ("b738", ["Transavia France"], 1),
+                                       ("tap portugal", ["TAP Air Portugal"], 1)):
             field.fill(text)
-            _visible_group_count_is(page, len(expected))
+            _visible_group_count_is(page, groups)
             assert page.locator(_NAMES).all_inner_texts() == expected, text
         field.fill("zzzz-nothing")
         _visible_group_count_is(page, 0)
@@ -514,12 +517,13 @@ def _chip(page, label):
 @pytest.mark.parametrize("name,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
 def test_the_chips_filter_by_kind_and_clearing_restores_every_row(
         new_context, server, name, viewport):
-    """the chips carry their counts: Unidentified shows the prefix rows, Known by name only every
-    airline without a picture (the owner-named ones too), Seen and Not seen yet split the airlines
-    of the table by sightings; All brings everything back"""
+    """the chips carry their counts: Unidentified shows the prefix rows, Missing illustrations
+    every airline x family row of the section below the table, Seen and Not seen yet split the
+    airlines of the table by sightings; All counts the three units and brings everything back"""
     context, page = _open(new_context, server, viewport)
     try:
-        total = page.locator("tbody.airline-group").count()
+        tables = page.locator("tbody.airline-group").count()
+        total = tables + page.locator(".airlines-missing__item").count()
         labels = page.locator(".filter-chip__text").all_inner_texts()
         counts = [int(count) for count in page.locator(".filter-chip__count").all_inner_texts()]
         assert labels[:2] == ["All", "Unidentified"], labels
@@ -527,8 +531,9 @@ def test_the_chips_filter_by_kind_and_clearing_restores_every_row(
         known = counts[2]
         seen, unseen = counts[3], counts[4]
         assert len(counts) == 5 and known >= 1 and seen >= 1, counts
-        assert seen + unseen == total - 1 - known, counts
-        assert labels[2] == "Known by name only", labels
+        assert seen + unseen == tables - 1, counts
+        assert known == page.locator(".airlines-missing__item").count(), counts
+        assert labels[2] == "Missing illustrations", labels
         _chip(page, "Unidentified").click()
         _visible_group_count_is(page, 1)
         assert page.locator(GAP).is_visible()
@@ -538,11 +543,11 @@ def test_the_chips_filter_by_kind_and_clearing_restores_every_row(
         _chip(page, "Not seen yet").click()
         _visible_group_count_is(page, unseen)
         assert page.locator(TRANSAVIA).is_hidden()
-        _chip(page, "Known by name only").click()
+        _chip(page, "Missing illustrations").click()
         _visible_group_count_is(page, known)
-        assert page.locator("tbody.airline-group--known:not([hidden])").count() == known
+        assert page.locator(".airlines-missing__item:not([hidden])").count() == known
         assert "Lufthansa" in page.locator(
-            "tbody.airline-group--known:not([hidden]) .airlines-known__name").all_inner_texts()
+            ".airlines-missing__head:not([hidden]) .airlines-missing__name").all_inner_texts()
         _chip(page, "All").click()
         _visible_group_count_is(page, total)
     finally:
@@ -552,7 +557,7 @@ def test_the_chips_filter_by_kind_and_clearing_restores_every_row(
 def test_a_needs_artwork_airline_opens_the_add_artwork_step(new_context, server):
     context, page = _open(new_context, server, VIEWPORT_MIN_SUPPORTED)
     try:
-        button = 'tbody.airline-group--known[data-filter-text^="lufthansa "] .airlines-known__add'
+        button = '.airlines-missing__item[data-filter-text^="lufthansa "] .airlines-missing__add'
         _settle(page, button)
         page.locator(button).click()
         dialog = page.locator(DIALOG)
@@ -560,7 +565,7 @@ def test_a_needs_artwork_airline_opens_the_add_artwork_step(new_context, server)
         assert "Lufthansa" in dialog.inner_text()
         assert dialog.locator(".resolve-upload-zone").is_visible()
         assert page.locator("#airline-lufthansa").count() == 1
-        assert page.locator("tbody.airline-group:not(.airline-group--known) .airlines-name").filter(
+        assert page.locator("tbody.airline-group .airlines-name").filter(
             has_text="Lufthansa").count() == 0
     finally:
         context.close()
@@ -636,6 +641,25 @@ def _audit_actions(state_dir):
         conn.close()
 
 
+def _add_a333_artwork_through_the_dialog(page):
+    """"Add artwork" of the A333 row opens the add-illustration dialog with the type fixed
+    (a chip, no select); the picture is chosen there and Upload sends it."""
+    page.locator(A333_ROW + " .airlines-act:visible").click()
+    dialog = page.locator("#panel-lookup-dialog")
+    dialog.wait_for(state="visible")
+    assert dialog.locator(".lightbox__heading").inner_text() == "Add an illustration"
+    assert dialog.locator(".lightbox__caption").inner_text() == "Transavia France · A333"
+    assert dialog.locator("[data-upload-type-chip]").inner_text() == "Airbus A330"
+    assert dialog.locator("#airline_artwork_type").is_hidden()
+    upload = dialog.locator(".lightbox__upload")
+    assert upload.is_disabled()
+    dialog.locator("#manual-illustration-input-dialog").set_input_files(_PNG)
+    page.wait_for_function(
+        "() => !document.querySelector('.lightbox__upload').disabled", timeout=10000)
+    with page.expect_navigation():
+        upload.click()
+
+
 def _expand_transavia(page):
     chevron = TRANSAVIA + " .airlines-expand > summary"
     _settle(page, chevron)
@@ -659,13 +683,13 @@ def test_a_type_row_is_given_a_picture_then_its_artwork_is_deleted(
         assert not os.path.exists(slot)
         # A type with no picture has no menu: it cannot be the default yet.
         assert page.locator(A333_ROW + " .row-menu__toggle").count() == 0
-        with page.expect_navigation():
-            page.locator(A333_ROW + " .airlines-act input[type=file]").set_input_files(_PNG)
+        _add_a333_artwork_through_the_dialog(page)
         page.wait_for_function(_SETTLED, timeout=15000)
         assert os.path.isfile(slot)
         _expand_transavia(page)
-        assert "Own artwork" in page.locator(A333_ROW).inner_text()
-        assert page.locator(A333_ROW + " .airlines-act").inner_text() == "Change artwork"
+        assert page.locator(A333_ROW + " a.airlines-thumb").is_visible()
+        assert "Own artwork" not in page.locator(A333_ROW).inner_text()
+        assert page.locator(A333_ROW + " .airlines-act:visible").get_attribute("data-tip") == "Change artwork"
         toggle = A333_ROW + " .row-menu__toggle"
         _settle(page, toggle)
         page.locator(toggle).click()
@@ -677,7 +701,7 @@ def test_a_type_row_is_given_a_picture_then_its_artwork_is_deleted(
         assert not os.path.exists(slot)
         _expand_transavia(page)
         assert "Uses the default" not in page.locator(A333_ROW).inner_text()
-        assert page.locator(A333_ROW + " .airlines-act").inner_text() == "Add artwork"
+        assert page.locator(A333_ROW + " .airlines-act:visible").get_attribute("data-tip") == "Add artwork"
         assert "airline.artwork_delete" in _audit_actions(server.state_dir)
     finally:
         context.close()
@@ -691,19 +715,19 @@ def test_the_type_menu_sets_the_default_type_and_deletes_only_an_uploaded_pictur
         _expand_transavia(page)
         items = page.locator(A333_ROW + " .row-menu__panel .row-menu__item")
         assert page.locator(A333_ROW + " .row-menu__toggle").count() == 0
-        with page.expect_navigation():
-            page.locator(A333_ROW + " .airlines-act input[type=file]").set_input_files(_PNG)
+        _add_a333_artwork_through_the_dialog(page)
         page.wait_for_function(_SETTLED, timeout=15000)
         _expand_transavia(page)
         page.locator(A333_ROW + " .row-menu__toggle").click()
         items.first.wait_for(state="visible")
-        assert items.all_inner_texts() == ["Use as the airline's default picture", "Delete the artwork"]
+        assert items.all_inner_texts() == ["Set as default", "Delete the artwork"]
         with page.expect_navigation():
             items.nth(0).click()
         page.wait_for_function(_SETTLED, timeout=15000)
         _expand_transavia(page)
-        star = A333_ROW + " .airlines-pill--star"
-        assert page.locator(star).inner_text() == "Default type"
+        star = A333_ROW + " .airlines-star"
+        assert page.locator(star).get_attribute("aria-label") == "Default type"
+        assert page.locator(star).inner_text().strip() == ""
         assert airline_default_types.load_default_types(server.state_dir) == {
             "transavia-france": "A333"}
         # The airline row shows the default type's code, no picture of its own.
@@ -711,7 +735,7 @@ def test_the_type_menu_sets_the_default_type_and_deletes_only_an_uploaded_pictur
         assert page.locator(TRANSAVIA + " .airlines-row .airlines-thumb__image").count() == 0
         page.locator(A333_ROW + " .row-menu__toggle").click()
         items.first.wait_for(state="visible")
-        assert items.all_inner_texts() == ["Stop using as the airline's default picture", "Delete the artwork"]
+        assert items.all_inner_texts() == ["Remove as default", "Delete the artwork"]
         with page.expect_navigation():
             items.nth(1).click()
         page.wait_for_function(_SETTLED, timeout=15000)
@@ -728,8 +752,8 @@ def test_the_type_menu_sets_the_default_type_and_deletes_only_an_uploaded_pictur
         context.close()
 
 
-@pytest.mark.parametrize("lang,set_label", (("en", "Use as the airline's default picture"),
-                                              ("fr", "Utiliser comme image par défaut de la compagnie")))
+@pytest.mark.parametrize("lang,set_label", (("en", "Set as default"),
+                                              ("fr", "Image par défaut")))
 @pytest.mark.parametrize("name,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
 def test_only_a_type_with_a_picture_offers_to_be_the_default(
         new_context, make_app_server, name, viewport, lang, set_label):
@@ -766,7 +790,7 @@ def test_every_type_of_a_fully_identified_airline_is_editable(new_context, serve
         subrows.first.wait_for(state="visible")
         for index in range(subrows.count()):
             row = subrows.nth(index)
-            assert row.locator(".airlines-act").count() == 1
+            assert row.locator(".airlines-act:visible").count() == 1
             assert "Uses the default" not in row.inner_text()
     finally:
         context.close()

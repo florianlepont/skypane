@@ -3,8 +3,8 @@ id: SEED-019
 status: dormant
 planted: 2026-11-15
 planted_during: "v1.2, Phase 65 discuss: the owner moved all battery discharge work out of Phase 65 into a dedicated phase."
-trigger_when: "Milestone v1.4, set by the owner on 2026-11-15; surface it at /gsd-new-milestone."
-target_milestone: v1.4
+trigger_when: "Milestone v1.3, set by the owner on 2026-11-15; surface it at /gsd-new-milestone."
+target_milestone: v1.3
 scope: medium
 requirement: BAT-01 (moved from Phase 65)
 ---

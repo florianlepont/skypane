@@ -67,7 +67,25 @@
     }
   }
 
+  // The bar paints the page's own gradient (see style-admin.css) so it never
+  // shows as a band: the gradient is laid out over the whole page, so the bar
+  // needs the page height and its own distance from the top of the page. While
+  // it sticks it covers the gap above it (a strip, shown only then, so the
+  // content just above it is never covered while it rests in place).
+  function paintBar() {
+    var top = parseFloat(window.getComputedStyle(nav).top) || 0;
+    var box = nav.getBoundingClientRect();
+    nav.style.setProperty("--anchors-page-h", document.documentElement.offsetHeight + "px");
+    nav.style.setProperty("--anchors-y", (box.top + window.pageYOffset) + "px");
+    if (window.pageYOffset > 0 && box.top <= top + 0.5) {
+      nav.setAttribute("data-stuck", "true");
+    } else {
+      nav.removeAttribute("data-stuck");
+    }
+  }
+
   function update() {
+    paintBar();
     var limit = window.innerHeight * VIEW_SHARE;
     var current = pairs[0];
     for (var k = 0; k < pairs.length; k++) {

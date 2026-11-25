@@ -10,7 +10,7 @@ with "All frames". Every dynamic part is escaped.
 import datetime
 
 from companion import frame_status, i18n, ui_filter, ui_groups, ui_modal, ui_time
-from companion.pages import fleet_page
+from companion.pages import fleet_page, pair_frame_page
 from companion.ui_base import escape_html, icon_html
 
 FRAME_HREF_PREFIX = "/fleet?frame="
@@ -56,13 +56,6 @@ def find_row(view, frame_id):
 
 def live_rows(view):
     return [r for r in view.rows if r.kind == fleet_page.KIND_LIVE]
-
-
-def first_to_watch(view):
-    """The live row to show when no frame is chosen: the first one in the
-    list order (a frame with a problem comes first)."""
-    live = live_rows(view)
-    return live[0] if live else None
 
 
 def _status_word(row):
@@ -135,29 +128,25 @@ def _group(label_msg, rows, view, selected_id, slug):
         attrs="data-filter-day-group")
 
 
-def _heading_html(landing, with_frame):
-    """The list's title. Beside a frame it is an `<h2>`. On the landing view
-    a phone shows it as the page's `<h1>`; when a frame is shown beside the list
-    (a wide screen), that frame's name is the `<h1>` and the list's title an `<h2>`."""
+def _heading_html(landing):
+    """The list's title. Beside a frame it is an `<h2>`. On the landing view a
+    phone shows it as the page's `<h1>`; a wide screen shows the neutral pane's
+    heading as the `<h1>` and the list's title as an `<h2>`."""
     text = _t(_FRAMES)
     if not landing:
         return '<h2 class="fleet-list__heading">%s</h2>' % text
-    if not with_frame:
-        return '<h1 class="fleet-list__heading">%s</h1>' % text
     return (
         '<h1 class="fleet-list__heading fleet-list__heading--narrow">%s</h1>'
         '<h2 class="fleet-list__heading fleet-list__heading--wide">%s</h2>' % (text, text))
 
 
-def list_panel_html(view, selected_id="", landing=False, with_frame=False):
+def list_panel_html(view, selected_id="", landing=False):
     """The list of frames: a header (title, Add a frame, search from
     `SEARCH_FROM` frames), then the Live, Waiting and Retired groups. `landing`
-    is the view with no frame chosen; `with_frame` says a frame shows beside it."""
+    is the view with no frame chosen."""
     rows = view.rows
-    add = ui_modal.trigger_html(
-        fleet_page.ADD_DIALOG_ID,
-        icon_html("icon-plus", 20) + "<span>%s</span>" % _t(fleet_page.ADD_TITLE),
-        "fleet-add-button")
+    add = '<a class="fleet-add-button" href="%s">%s<span>%s</span></a>' % (
+        pair_frame_page.PAIR_FRAME_ROUTE, icon_html("icon-plus", 20), _t(fleet_page.ADD_TITLE))
     search = ""
     empty = ""
     if len(rows) >= SEARCH_FROM:
@@ -177,7 +166,7 @@ def list_panel_html(view, selected_id="", landing=False, with_frame=False):
         '<div class="fleet-list"><div class="fleet-list__head">'
         '<div class="fleet-list__title">%s%s</div>%s'
         '</div><div class="fleet-list__body">%s%s</div></div>') % (
-            _heading_html(landing, with_frame), add, search, body, empty)
+            _heading_html(landing), add, search, body, empty)
 
 
 def switch_html(view, selected_id=""):
@@ -280,8 +269,8 @@ def other_page_html(row, view):
         block = ui_groups.group(item, label=label, label_id="fleet-other-action")
     else:
         label = i18n.t(fleet_page.PAIR_SUBMIT)
-        action = ui_modal.trigger_html(
-            fleet_page.ADD_DIALOG_ID, _esc(label), "fleet-action-button row__trailing")
+        action = '<a class="fleet-action-button row__trailing" href="%s">%s</a>' % (
+            pair_frame_page.PAIR_FRAME_ROUTE, _esc(label))
         item = ui_groups.row(label, detail=i18n.t(fleet_page.WAITING_FOR_PAIRING),
                              trailing_html=action)
         block = ui_groups.group(item, label=label, label_id="fleet-other-action")

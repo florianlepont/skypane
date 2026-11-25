@@ -79,8 +79,7 @@ def test_choosing_a_row_keeps_the_page_for_the_other_frame(new_context, app, rou
 
 def test_the_add_row_is_last_and_opens_the_pairing_flow(new_context, app):
     """a user's popover (and an administrator's on a personal page) ends with an Add a frame
-    row to the Add a frame page; on a Console page an administrator's leads to the Fleet
-    pairing dialog"""
+    row to the Add a frame page; so does the Fleet page's Add a frame button"""
     context, page = _open(
         new_context, app, _live_path(app, "/display"), viewport=VIEWPORT_DESKTOP)
     try:
@@ -91,8 +90,7 @@ def test_the_add_row_is_last_and_opens_the_pairing_flow(new_context, app):
         assert page.locator(ADD).get_attribute("href") == "/pair-frame"
         page.goto(app.server.base_url() + "/fleet")
         page.locator(".fleet-add-button").click()
-        page.wait_for_function(
-            "() => document.querySelector('dialog#dlg-add-frame').open")
+        page.wait_for_url("**/pair-frame")
     finally:
         context.close()
 
