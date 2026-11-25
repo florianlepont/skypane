@@ -105,5 +105,5 @@ Progress: [████████░░] 84%
 
 ## Session Continuity
 
-**Stopped At:** Phase 64 waves 1-3 executed (plans 64-01..64-11); waves 4-6 are owner-validated or blocked on Phase 57
-**Resume File:** .planning/workstreams/v1-2/phases/64-second-hardware-in-production-build-release-deploy-and-parit/64-12-PLAN.md
+**Stopped At:** Phase 70 context gathered
+**Resume File:** .planning/workstreams/v1-2/phases/70-private-repository-and-ci/70-CONTEXT.md
