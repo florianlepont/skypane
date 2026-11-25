@@ -772,7 +772,15 @@ Plans: TBD
 **Open decisions** (for discuss-phase): where the design system is the source of truth (the skill, a document, or the site's own stylesheet and a components page), how animations are judged (motion budget, reduced motion, performance on a phone), and whether the proposal step is a separate checkpoint with the owner before any build.
 **Must not break**: the access rules of Phases 54, 55 and 60, every golden hash of the legacy render, `stub-server/test_phase47_freeze.py`, and the English and French parity of the companion.
 
-Plans: TBD
+Plans: 22 plans (01 to 10 the check, fixes, proposals and owner validation; 11 to 22 one build plan per owner-approved proposal, strictly sequential in waves 8 to 19 because each regenerates the render baseline)
+Build plans (owner choice of 2026-11-25): 68.1-11 P16 tokenise spacing and radii (options A and B, not C), 68.1-12 P12 Components page fit and catalogue, 68.1-13 P03 table inside its rounded card, 68.1-14 P07 simpler product names and the Fleet h1, 68.1-15 P08 Account version line, 68.1-16 P04 lighter console dialogs (flows, default focus and destructive labels kept), 68.1-17 P02 one filter style, 68.1-18 P14 copy confirmation check, 68.1-19 P06 Add a frame in two steps, 68.1-20 P09 editor rows said once, 68.1-21 P10 Dark hover wash (re-measured on the real surface), 68.1-22 P11 Copied label contrast (option A).
+
+**Design-system proposals not built (Phase 68.1)** (carried as candidates, DSY-03 criterion 6):
+
+- P01 Home battery tile: v1.3 candidate (Home page work, refused by the owner on 2026-11-25).
+- P05 Editor lookup dialog height (DEV-38): v1.3 candidate (Editor page work, refused 2026-11-25).
+- P13 Flight arrives, line draws and plane flies in: v1.4 candidate (animation, refused 2026-11-25).
+- P15 Home hero, the callsign is the memorable thing: still OPEN, no build plan; the owner wants a more realistic mockup first (it carries a second uppercase/tracking exception that needs an explicit owner answer).
 
 ### Phase 69: Rear Enclosure for the 7.3 Inch Frame (Design, Print, Fit)
 

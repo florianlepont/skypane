@@ -109,7 +109,7 @@ Runs in parallel with v1.1 Phase 47 (open, untouched). Phase numbering continues
 
 - [ ] **DSY-01**: After Phase 68, the design system is checked against the deployed site (console and companion, English and French, phone and desktop, light and dark) and the result is written down.
 - [ ] **DSY-02**: Every deviation between the design system and the site is listed with a decision and settled: the site is fixed, or the design system is corrected, with no behaviour change and the render baseline regenerated with the repo's tool.
-- [ ] **DSY-03**: Improvements and animations of the design system are proposed to the owner with sketches, reasons, costs and accessibility and performance effects, and only the proposals the owner approves are built.
+- [ ] **DSY-03**: Improvements and animations of the design system are proposed to the owner with sketches, reasons, costs and accessibility and performance effects, and only the proposals the owner approves are built. Unapproved proposals (P01, P05, P13) are carried as v1.3 / v1.4 candidates in ROADMAP.md (Phase 68.1); P15 stays open until the owner has a more realistic mockup.
 
 ### Rear Enclosure
 
