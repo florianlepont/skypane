@@ -186,7 +186,6 @@ _UNAUTH_POST_REQUESTS = (
     companion_app.UPDATE_CANCEL_ROUTE,
     companion_app.RULES_DELETE_ROUTE_PREFIX + "callsign/AFR" + companion_app.RULES_DELETE_ROUTE_SUFFIX,
     "/fleet/register",
-    "/fleet/pair",
     "/pair-frame",
     "/fleet/frames/d_00000000/retire",
     "/fleet/frames/p_00000000/reactivate",

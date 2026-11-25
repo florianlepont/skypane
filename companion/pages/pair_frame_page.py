@@ -7,8 +7,8 @@ Pure markup: it reads nothing but its arguments. The typed code is
 re-rendered only into the input of the form (a lockout response, or the next
 showing after a refusal) and is
 capped; it never appears in a link, a flash or an attribute other than the
-input's value. The page has no owner field: the frame always belongs to the
-person who submits the form.
+input's value. Only an administrator's view carries an Owner field (the
+other people's page has none: their frame always belongs to them).
 """
 from typing import NamedTuple
 
@@ -18,6 +18,7 @@ from companion.ui_base import icon_html, validation_attrs
 
 PAIR_FRAME_ROUTE = "/pair-frame"
 CODE_FIELD = fleet_page.CODE_FIELD
+OWNER_FIELD = fleet_page.OWNER_FIELD
 # The flash key the paired frame's Home resolves (companion/flash.py).
 FLASH_FRAME_PAIRED = "frame_paired"
 
@@ -53,10 +54,15 @@ ADD_LINK_CLASS = "pair-link"
 
 class PairView(NamedTuple):
     """The state of a refused submission: the (capped) typed code, the
-    docked refusal or lockout toast and the code field's error."""
+    docked refusal or lockout toast and the code field's error. `owners` is
+    the administrator's (id, label) Owner choices (empty: no Owner field),
+    `owner_selected` the chosen id and `owner_error` the Owner field's error."""
     code_value: str = ""
     toast_html: str = ""
     code_error: str = ""
+    owners: tuple = ()
+    owner_selected: str = ""
+    owner_error: str = ""
 
 
 def _esc(value):
@@ -114,6 +120,24 @@ def _code_field(view):
             _t(_CODE_LABEL), CODE_FIELD, _esc(view.code_value), validation_attrs("text"), attrs, below)
 
 
+def _owner_field(view):
+    """The administrator's Owner choice; "" for everyone else."""
+    if not view.owners:
+        return ""
+    attrs, error = "", ""
+    if view.owner_error:
+        attrs = ' aria-invalid="true" aria-describedby="pair-owner-error"'
+        error = '<p class="field-error" id="pair-owner-error">%s</p>' % _esc(view.owner_error)
+    options = "".join(
+        '<option value="%s"%s>%s</option>' % (
+            _esc(value), " selected" if value == view.owner_selected else "", _esc(label))
+        for value, label in view.owners)
+    return (
+        '<div class="modal__field"><label for="pair-owner">%s</label>'
+        '<select id="pair-owner" name="%s" required%s>%s</select>%s</div>') % (
+            _t(fleet_page.PAIR_OWNER_LABEL), OWNER_FIELD, attrs, options, error)
+
+
 def render(view=PairView()):
     """The Add a frame page body."""
     # One card: heading, code field with its validity line and
@@ -125,10 +149,10 @@ def render(view=PairView()):
     form = (
         '<form class="%s pair-card reveal" method="post" action="%s">%s'
         '<div class="pair-card__main"><h2 class="text-heading pair-card__heading">%s</h2>'
-        '%s%s'
+        '%s%s%s'
         '<div class="pair-form__actions"><button type="submit">%s</button>'
         '<a class="pair-form__cancel" href="/account">%s</a></div></div>%s</form>') % (
             FORM_CLASS, PAIR_FRAME_ROUTE, ui_components.csrf_field(),
-            _t(_CARD_HEADING), view.toast_html, _code_field(view),
+            _t(_CARD_HEADING), view.toast_html, _code_field(view), _owner_field(view),
             _t(_SUBMIT), _t(_CANCEL), footer)
     return layout.page_header(i18n.t(PAIR_TITLE)) + form

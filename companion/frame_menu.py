@@ -24,10 +24,8 @@ _ADD_TEXT = i18n.msg("nav.frame_tile_add", "Add a frame")
 _SHARED_BY_TEXT = i18n.msg("account.shared_by", "Shared by %s")
 _BUTTON_TEXT = i18n.msg("nav.frame_button", "Choose a frame")
 
-# Where the Add a frame row leads: an administrator's pairing dialog on the
-# Fleet page, anyone else's own Add a frame page.
-_ADMIN_ADD_FRAME_HREF = "/fleet?pair=1"
-_USER_ADD_FRAME_HREF = "/pair-frame"
+# Where the Add a frame row leads, for an administrator and for anyone else.
+_ADD_FRAME_HREF = "/pair-frame"
 
 def _shell():
     # Imported on use: companion.ui_shell imports this module.
@@ -81,16 +79,14 @@ def _frame_row_html(device, href, is_current, now, note=""):
         }
 
 
-def _action_row_html(modifier, href, label, glyph_html, detail="", is_current=False,
-                     opener=False):
+def _action_row_html(modifier, href, label, glyph_html, detail="", is_current=False):
     return (
-        '<li><a class="%(cls)s %(cls)s--%(mod)s" href="%(href)s"%(cur)s%(open)s>'
+        '<li><a class="%(cls)s %(cls)s--%(mod)s" href="%(href)s"%(cur)s>'
         '<span class="%(cls)s__icon" aria-hidden="true">%(glyph)s</span>'
         '<span class="%(cls)s__text"><span class="%(cls)s__name">%(label)s</span>'
         '%(detail)s</span>%(check)s</a></li>') % {
             "cls": ROW_CLASS, "mod": modifier, "href": escape_html(href),
             "cur": ' aria-current="true"' if is_current else "",
-            "open": " data-modal-open" if opener else "",
             "glyph": glyph_html, "label": escape_html(label),
             "detail": (
                 '<span class="%s__seen">%s</span>' % (ROW_CLASS, escape_html(detail))
@@ -99,26 +95,18 @@ def _action_row_html(modifier, href, label, glyph_html, detail="", is_current=Fa
         }
 
 
-def add_row_html(admin=True, dialog_id=None):
-    """The Add a frame row. With `dialog_id` it opens that dialog on the page
-    (the Fleet page's pairing dialog; the hash link works without script);
-    otherwise it leads to the administrator's Fleet pairing dialog or to
-    everyone else's own Add a frame page."""
-    if dialog_id is not None:
-        from companion import ui_modal
-        href = "#" + ui_modal.validated_slug(dialog_id)
-    else:
-        href = _ADMIN_ADD_FRAME_HREF if admin else _USER_ADD_FRAME_HREF
-    return _action_row_html(
-        "add", href, i18n.t(_ADD_TEXT), "+", opener=dialog_id is not None)
+def add_row_html():
+    """The Add a frame row: a link to the Add a frame page (which offers an
+    administrator the Owner choice)."""
+    return _action_row_html("add", _ADD_FRAME_HREF, i18n.t(_ADD_TEXT), "+")
 
 
 def _add_row_for_viewer():
     """The Add a frame row for the signed-in person, or "" with none: their
-    own Add a frame page (the button only appears in the personal space)."""
+    Add a frame page (the button only appears in the personal space)."""
     if prefs.current_principal() is None:
         return ""
-    return add_row_html(admin=False)
+    return add_row_html()
 
 
 def _button_html(name, dot_html):

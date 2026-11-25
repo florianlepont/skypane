@@ -10,7 +10,7 @@ with "All frames". Every dynamic part is escaped.
 import datetime
 
 from companion import frame_status, i18n, ui_filter, ui_groups, ui_modal, ui_time
-from companion.pages import fleet_page
+from companion.pages import fleet_page, pair_frame_page
 from companion.ui_base import escape_html, icon_html
 
 FRAME_HREF_PREFIX = "/fleet?frame="
@@ -154,10 +154,8 @@ def list_panel_html(view, selected_id="", landing=False, with_frame=False):
     `SEARCH_FROM` frames), then the Live, Waiting and Retired groups. `landing`
     is the view with no frame chosen; `with_frame` says a frame shows beside it."""
     rows = view.rows
-    add = ui_modal.trigger_html(
-        fleet_page.ADD_DIALOG_ID,
-        icon_html("icon-plus", 20) + "<span>%s</span>" % _t(fleet_page.ADD_TITLE),
-        "fleet-add-button")
+    add = '<a class="fleet-add-button" href="%s">%s<span>%s</span></a>' % (
+        pair_frame_page.PAIR_FRAME_ROUTE, icon_html("icon-plus", 20), _t(fleet_page.ADD_TITLE))
     search = ""
     empty = ""
     if len(rows) >= SEARCH_FROM:
@@ -280,8 +278,8 @@ def other_page_html(row, view):
         block = ui_groups.group(item, label=label, label_id="fleet-other-action")
     else:
         label = i18n.t(fleet_page.PAIR_SUBMIT)
-        action = ui_modal.trigger_html(
-            fleet_page.ADD_DIALOG_ID, _esc(label), "fleet-action-button row__trailing")
+        action = '<a class="fleet-action-button row__trailing" href="%s">%s</a>' % (
+            pair_frame_page.PAIR_FRAME_ROUTE, _esc(label))
         item = ui_groups.row(label, detail=i18n.t(fleet_page.WAITING_FOR_PAIRING),
                              trailing_html=action)
         block = ui_groups.group(item, label=label, label_id="fleet-other-action")

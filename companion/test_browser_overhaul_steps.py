@@ -233,7 +233,7 @@ def test_a3_pair_a_frame(world, new_context):
         steps.tap(page.locator(".fleet-add-button"), "Add a frame")
         steps.type_value(page.locator("#pair-code"), fx.FAKE_CODE, "pairing code")
         steps.choose(page.locator("#pair-owner"), fx.OWNER_EMAIL, "owner")
-        steps.tap(page.locator("#dlg-add-frame button[type=submit]"), "Pair frame")
+        steps.tap(page.locator("form.pair-form button[type=submit]"), "Pair frame")
         page.wait_for_url("**/fleet")
         conn = fleet_db.connect(world.state_dir)
         try:
