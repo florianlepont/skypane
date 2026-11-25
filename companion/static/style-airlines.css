@@ -385,11 +385,11 @@ table.airlines-table {
     box-shadow: var(--shadow-card);
   }
 
-  /* The last card's bottom margin collapses out of the block-level group, so
-   * the space under it is padding: it adds to the margin and equals the side
-   * padding of the cards. */
-  .airline-group:has(details.airlines-expand[open]) {
-    padding-bottom: var(--space-sm);
+  /* The last card's bottom margin collapses out of the block-level group; a
+   * flow root keeps it inside, so the space under the last card is the gap
+   * between cards. */
+  .airline-group:not([hidden]):has(details.airlines-expand[open]) {
+    display: flow-root;
   }
 }
 

@@ -291,7 +291,7 @@ def test_a_table_row_shows_its_views_in_their_column_only(new_context, server):
 
 @pytest.mark.parametrize("theme", THEMES)
 @pytest.mark.parametrize("name,viewport", VIEWPORTS[:2], ids=[v[0] for v in VIEWPORTS[:2]])
-def test_the_last_type_card_leaves_the_space_of_the_sides_under_it(
+def test_the_last_type_card_leaves_the_gap_between_cards_under_it(
         new_context, server, name, viewport, theme):
     context, page = _open(new_context, server, viewport, "fr", theme)
     try:
@@ -303,6 +303,6 @@ def test_the_last_type_card_leaves_the_space_of_the_sides_under_it(
             return {under: edge.bottom - rows[rows.length - 1].bottom,
                     between: rows[1].top - rows[0].bottom, side: rows[0].left - edge.left}; }""")
         assert spaces["between"] > 0
-        assert spaces["under"] >= spaces["between"] and spaces["under"] >= spaces["side"] - 0.5, spaces
+        assert spaces["between"] > 0 and abs(spaces["under"] - spaces["between"]) < 0.5, spaces
     finally:
         context.close()
