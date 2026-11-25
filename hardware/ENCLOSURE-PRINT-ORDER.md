@@ -346,11 +346,25 @@ regeneration had left in it (`SkyPane_Bac_Cale.001` and `.002`; the old separate
 tray and shim objects are visible again in the file). The meshes are unchanged
 (checked by the assistant on 2026-11-24: same vertex hashes, the stand still at
 its 20 degree design, same script). The owner also recreated the Bambu Studio
-project as `print/skypane_lid.3mf`, holding the lid with no lugs (7552
+project as `print/skypane_lid.3mf` (renamed `print/skypane_print_project.3mf` on 2026-11-25), holding the lid with no lugs (7552
 triangles), the one-part tray and shim (7408) and the stand (396), and removed
 the two earlier projects `skypane_printing.3mf` and
 `skypane_tray_shim_merged.3mf`. Read by the assistant from the files (triangle
 counts), not sliced or printed.
+
+### Print project renamed and read, 2026-11-25
+
+At the owner's request the Bambu Studio project `print/skypane_lid.3mf` is now
+`print/skypane_print_project.3mf` (the old name came from the first project, which held only the
+lid). The owner had recreated it with the three current STL; read by the assistant from the file
+(not sliced, not printed): three objects with 8010 triangles (lid), 524 (stand) and 6644 (tray and
+shim), the same counts as the three STL, on two plates. Settings in the file: printer Bambu Lab X1
+Carbon, layer height 0.2 mm, Textured PEI plate, automatic brim, no raft, and **supports switched off**
+(`enable_support` = 0, type "normal(auto)", threshold 30 degrees, no per-object override). The
+one-part tray has a pocket ceiling facing down over about 19 000 mm2 (see above): with supports
+off, that ceiling is not supported unless the slicer bridges it; the owner's earlier print of the
+one-part tray used supports on automatic (reported on 2026-11-24). To be confirmed by the owner
+before printing.
 
 ### State of the files after the full check, 2026-11-24 (evening)
 
