@@ -20,6 +20,9 @@
   groups "Live / Waiting to be paired / Retired" / "En service / En attente d’appairage / Retirés".
 - Language is a cookie-backed preference (Account page and the More panel's Settings group);
   it never changes the route.
+- Known exception: the Manage access dialog in French at 360x800 is 704px tall (664px in English). It
+  fits the viewport and scrolls inside its box under the dialog's `max-height: min(85dvh, ...)` cap; that inner
+  scroll is the designed behaviour, and shortening the copy is a design change.
 - Layout must hold French: longer words wrap or ellipsise, never clip a control; check at 360px.
 - Tests: `companion/test_i18n.py` (every id has a French string, no stray placeholders),
   `companion/test_browser_french_fit.py`, the Components browser test (EN and FR).
