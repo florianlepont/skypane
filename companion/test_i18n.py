@@ -234,6 +234,8 @@ _UNCHANGED_IN_FRENCH = frozenset({
     "admin_lifecycle.action",
     # "Illustration" is the French word too, on the "+ Illustration" button.
     "airlines.missing_add",
+    # "SkyPane build <id>" is the same in French: build is the word support asks for.
+    "account.build_line",
 })
 
 

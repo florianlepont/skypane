@@ -276,6 +276,14 @@ its own. Leaving a frame opens a dialog with "Stay on this frame". A plain user'
 this page as its last cell (Account, not More: the More sheet would hold only Account); an
 administrator reaches it through More.
 
+The page ends with one quiet **build line** (`companion/build_info.py`): "SkyPane build 3f9c1ab"
+and under it "Tap to copy for support" / "Touchez pour copier (support)", both 13px in secondary
+ink (text at 70%), no uppercase, no mid-dot, a button at least 44px high with no card around it.
+The id is the first 7 hex characters of the release directory name (the real path of the code, so
+the `current` symlink is followed), else `SKYPANE_BUILD` (7 to 40 hex characters, a manual
+override no deploy file sets), else `dev`. A tap copies the whole line with the existing copy
+script (`data-copy-value`); the copied word replaces the hint line in place, in the same ink.
+
 ## Sign-in, Credits and error pages
 
 - `login_shell` (`ui_shell.py`) is a separate minimal document with no nav: a glass card whose mark
