@@ -132,13 +132,43 @@ def test_offline_systemd_analyze_gate_present_in_test_job():
     assert "systemd-analyze security --offline=true --threshold=20" in score_run
 
 
-def test_firmware_release_passes_signing_key_through_env():
+def _non_comment_text(path):
+    return "\n".join(
+        line for line in path.read_text().splitlines()
+        if not line.lstrip().startswith("#")
+    )
+
+
+def test_no_workflow_mentions_the_signing_key_secret():
+    offenders = [p.name for p in _workflow_files() if "FW_SIGNING_KEY" in p.read_text()]
+    assert not offenders, offenders
+
+
+def test_no_workflow_uses_a_deployment_environment():
+    offenders = [
+        p.name
+        for p in _workflow_files()
+        if re.search(r"^\s*environment\s*:", _non_comment_text(p), re.M)
+    ]
+    assert not offenders, offenders
+
+
+def test_firmware_release_cannot_publish_or_dispatch():
+    text = _non_comment_text(_FIRMWARE_RELEASE_YML)
+    for forbidden in (
+        "gh release create",
+        "gh workflow run",
+        "contents: write",
+        "actions: write",
+    ):
+        assert forbidden not in text, forbidden
+
+
+def test_firmware_release_uploads_unsigned_images_with_checksums():
     text = _FIRMWARE_RELEASE_YML.read_text()
-    assert "FW_SIGNING_KEY: ${{ secrets.FW_SIGNING_KEY }}" in text
-    names_and_runs = dict(_steps_by_name(text))
-    sign_run = names_and_runs.get("Sign the release image")
-    assert sign_run is not None
-    assert '"$FW_SIGNING_KEY"' in sign_run
+    assert "fw-unsigned-" in text
+    assert "SHA256SUMS" in text
+    assert "retention-days: 14" in text
 
 
 def test_webfactory_ssh_agent_with_input_unaffected():
