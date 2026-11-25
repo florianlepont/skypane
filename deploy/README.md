@@ -451,6 +451,42 @@ ssh ubuntu@<vps-ip> "sudo ln -sfn releases/<previous-sha> /opt/skypane/current \
     && sudo systemctl restart skypane-byos skypane-companion skypane-poll.timer"
 ```
 
+## Production deploy (started by hand)
+
+Production is deployed by the "Deploy to production" workflow
+(`.github/workflows/deploy.yml`), started by the owner only:
+
+```bash
+gh workflow run deploy.yml --ref main -f confirm_sha=<first 7 characters of the tip of main>
+```
+
+or Actions, Run workflow, branch `main`. A merge to `main` never deploys.
+
+The workflow fails (it never ends as a green skip) when it is started from
+a ref other than `main`, when `confirm_sha` is not the first 7 characters
+of the tip of `main`, when the commit is not the tip of `main`, or when the
+CI check "Lint, test, coverage, attribution" is absent or not successful
+for the commit. A docs-only tip has no CI run; pass the optional `ci_sha`
+input (the full SHA of the commit whose CI run counts) and the workflow
+accepts it if no shipped path differs between that commit and the tip.
+
+Every deploy imports the published firmware releases (the `Download
+firmware releases` step), and the import is idempotent, so a firmware-only
+deploy is simply a deploy of the unchanged tip.
+
+The three secrets `DEPLOY_SSH_PRIVATE_KEY`, `DEPLOY_HOST_KEY` and
+`DEPLOY_SSH_TARGET` are repository-level secrets, because deployment
+environments are not available in private repositories on the Free plan.
+
+**What this does and does not protect.** The confirmation is an
+anti-accident control, not access control. On the Free plan any workflow on
+any branch of the repository can read repository secrets, so anyone who can
+push a branch could write a workflow that uses the deploy key. The
+mitigation is a dedicated deploy key used only by this workflow: it can be
+revoked by deleting one `authorized_keys` line on the VPS. The break-glass
+route is running `deploy/deploy.sh` from the owner's laptop with a locally
+held key, which involves no GitHub secret.
+
 ## Firmware releases (OTA)
 
 Signed firmware images reach the VPS only through this same reviewed
@@ -626,8 +662,9 @@ and none may be added to a workflow: no agent performs them.
 3. Restart the services that read it: `skypane-byos`,
    `skypane-companion` and the poll units (`skypane-poll.service` and
    `skypane-poll.timer`).
-4. Run one deploy through `workflow_dispatch` of `ci.yml` (Actions,
-   "Run workflow" on `main`, then approve the `production` environment).
+4. Run one deploy through `workflow_dispatch` of `deploy.yml` (see
+   "Production deploy (started by hand)": run it on `main` with
+   `confirm_sha`; there is no approval step).
    The deploy job downloads every published release again and
    `import-dir` now imports the typed releases published earlier, which
    it had skipped while the switch was closed. Restarting alone does not
