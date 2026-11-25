@@ -4,6 +4,11 @@ What each page is made of today. Components are in `components.md`, navigation i
 `navigation.md`. Page code is under `companion/pages/`, area CSS in `companion/static/style-*.css`.
 Every page: one `h1`, sections as `section-label` + group (or a `.page-section` card for free
 content), complete and correct with scripts blocked, 360px without horizontal scroll, EN and FR.
+Every device-scoped personal page (not the Fleet console) carries the frame button
+(`frame_menu.py`): a 44px glass pill with the frame name and its status dot, top right of the
+app bar on a phone and of the content area on desktop. It opens a native `<details>` popover with
+one row per frame (name, last seen, owner line when it is not the viewer's, a check on the frame in
+view) and an "Add a frame" row.
 
 ## Home (`pages/home_page.py`, `home_state.py`, `home_flight_card.py`, `home_pills.py`, `style-home.css`)
 
@@ -92,9 +97,10 @@ offline (no contact).
 - Four tabs (`data-tabs="display"`): Departures, Arrivals, Special looks, Calendar. Each tab
   has its own route and document title; the calendar look and the add/edit special look and
   calendar-connect screens are sub-pages with their own title and a page-mode Save bar.
-- The look picker fits one 360x740 screen above the tab bar without scrolling: a 31-theme
-  swatch catalogue (colour, background, stripe; swatches 32px in 44px targets), segmented
-  controls for background and band, and a preview. The light-yellow tile has a 3px darker edge
+- The look picker is a Layout row, then a two-column grid of look cards (`.look-pick__grid`; each
+  `.runway-card` is a preview picture and a name, radios with a check), with the background and band
+  choices and a preview. It is taller than one phone screen (about 1230px at 360) and the page
+  scrolls above the tab bar. The light-yellow tile has a 3px darker edge
   (`--color-yellow-tile-edge`) so its shape shows; no other tile has one.
 - Previews are content-addressed: one URL per picture, `private`, `immutable`, cached for a year, so
   switching a tab fetches no unchanged preview and a stale or missing address never pins an image.
@@ -169,13 +175,16 @@ frame). Console label "Airline editor", bar label "Editor".
   selected row) until a row is chosen, and the list's title is the only `h1`. A list
   panel with the title, "Add a frame", a search field from 8 frames, groups Live / Waiting to be
   paired / Retired with counts, and a System row; each row is one link (status dot, name, state and
-  owner, last seen, chevron; the selected row is `aria-current` and is scrolled into view in its
+  owner, last seen, chevron; the name and the detail line are one line each and end in an ellipsis
+  rather than wrap or clip the row, as does the System tiles' meta line; the selected row is `aria-current` and is scrolled into view in its
   own column). From 1200px the list is a left column beside the frame; on a phone a bounded chip
   switch ("All frames (N)", the frame in view first, at most 8 live frames) replaces it. A pending
   or retired frame is reachable only from the list and has its own page (see below); an unknown
   `?frame=` shows the list with a not-found note. Scales to 30 frames.
 - **Frame page** (`/fleet?frame=<id>`): a header with the `h1` name, the state line and two 44px
-  icon buttons (personal view, Rename); then a State section of **three equal tiles** and the
+  icon buttons (personal view, Rename); then a State section of **three tiles** (a two-column grid:
+  Connection and Battery side by side, the wide Firmware tile spanning both columns under them, its text and
+  chevron side by side once the tile is 440px wide) and the
   Settings and Access sections stacked in one column of equal cards (on a phone, three sticky
   anchors State / Settings / Access, 44px, mark the section in view on a solid bar whose gap above (safe area and app-bar drop) is painted too; from 960px the anchors are
   hidden):
@@ -258,11 +267,14 @@ ink) and value right.
 
 Groups: My frames (one row per frame: the drawn portrait frame, name, owner line, an Owner or
 Co-manager pill, a status dot with a name and the last-seen word, never a battery percentage and
-never the hardware type; two 44px icon buttons at the row's right, "Manage access: <frame>" (a key)
-and "Leave frame" (a door), named by `aria-label`; the last row "Add a frame"), Identity (Email,
+never the hardware type; 44px icon buttons at the row's right, named by `aria-label`: on a frame
+the person owns "Rename: <frame>" (a pencil) then "Manage access: <frame>" (a key; absent when the
+frame has no access view), on a frame shared with them "Leave frame: <frame>" (a door); the last row "Add a frame"), Identity (Email,
 Role; a co-manager sees "Co-manager of N frames"), Preferences (Language and Theme segmented
 controls), **About** (a Credits row, for users and administrators alike) and Sign out as a group of
-its own. Leaving a frame opens a dialog with "Stay on this frame".
+its own. Leaving a frame opens a dialog with "Stay on this frame". A plain user's tab bar ends with
+this page as its last cell (Account, not More: the More sheet would hold only Account); an
+administrator reaches it through More.
 
 ## Sign-in, Credits and error pages
 
@@ -285,6 +297,9 @@ its own. Leaving a frame opens a dialog with "Stay on this frame".
 The living catalogue (`pages/components_page.py`): one section per family in every state,
 guarded by tests (see `components.md`). Includes the page-name table, the motion index, the
 foreign-frame marker, the scrolling chip row and the short dialog.
+It does not render `.page-section`, the fleet tiles (`.fleet-tile`, regular and `compact`), the
+`.dot--off` and `.dot--hollow` dots or the result dialog; those are read from the stylesheet and the
+pages that use them (`components.md`).
 
 ## Opening splash
 

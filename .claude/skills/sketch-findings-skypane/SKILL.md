@@ -5,7 +5,7 @@ description: The companion web app's current design system — colour and contra
 
 # SkyPane companion design system
 
-**As of:** 2026-11-25, checked against the code of the Editor missing-illustrations label branch (on origin/main `ec3a28b9`).
+**As of:** 2026-11-25, checked against the code of origin/main `c0f57e3b` (after the Fleet neutral detail pane, the Editor illustration buttons and the Editor missing-illustrations label).
 `.planning/workstreams/v1-2/ROADMAP.md` is the live record of plan status.
 
 **Keeping it current.** This skill is not updated automatically. Any PR that changes companion CSS
@@ -40,12 +40,14 @@ lines, a function at most 80 lines.
   used for every muted line, the first-visit hint, the 404 caption and the idle segment label. On a
   tinted panel (the opened Audit event) a label uses 80% so it still reaches 4.5:1.
 - **Sky + glass:** sky `#E7EEF7 > #F1F3F6 > #EDF1F6` (Dark `#12151D > #161A24 > #1A1F2B`);
-  `--glass-bg` white .72 / .09, blur 22px (tab bar and More sheet are opaque; only the More scrim blurs, 8px), all blur inside one `@supports` block.
+  `--glass-bg` white .72 / .09, blur 22px (tab bar and More sheet are opaque; only the More scrim blurs, 8px); the glass blur sits in one `@supports` block, and the
+  exceptions outside it are the More scrim and two Location scrims (8px) and the Location sidebar (26px).
 - **Radii:** control 14, card 22, sheet 28 (top corners), pill 32; portrait frame picture 5.
 - **Type:** page title clamp 30-34px phone / 40-44px desktop, 700, tracking -0.03em; section/sub-page
   22px 600; card title 17px 600; body 16; secondary 15; caption and section label 13 (the caption size
-  also sets the first-visit hint, tile meta lines and hints under controls); tab 11, chart 10.
-  No uppercase label voice. Mono only for identifiers.
+  also sets the first-visit hint, tile meta lines and hints under controls); tab label 11, chart axis 12
+  (Home statistics hours and bars 11). Headings carry -0.01em and display numerals -0.02em to -0.04em.
+  No uppercase label voice (two exceptions in `tokens-and-theming.md`). Mono only for identifiers.
 - **Spacing:** 4, 8, 16, 24, 32, 48, 64px (`--space-xs..3xl`); sibling-card gap 24px.
 - **Motion:** two durations plus a documented set of tokens (`--motion-fast` 180ms, `--motion-slow`
   2s, `--motion-enter` 400ms, stagger 60ms, spring, view-transition 260ms ...); no bare duration
@@ -59,8 +61,8 @@ lines, a function at most 80 lines.
 - **Dark / light:** Auto follows the OS; Light and Dark are explicit (`html[data-ui-theme]`);
   `theme-color` metas follow it. Every token lives in four blocks: edit all. The Location map is a
   dark map in Dark and in Auto-dark.
-- **Navigation:** below 960px one floating bottom tab bar for everyone (Personal: Home, Flights,
-  Airlines, Style, Location, More; Console: Fleet, Users, Editor, System, More with Audit inside);
+- **Navigation:** below 960px one floating bottom tab bar (Personal: Home, Flights,
+  Airlines, Style, Location, More, but a plain user's last cell is Account; Console: Fleet, Users, Editor, System, More with Audit inside);
   from 960px a glass sidebar. The same page order everywhere.
 - **Sheets and dialogs:** a bottom sheet with a field lifts above the on-screen keyboard
   (`--keyboard-inset`, set by `modal.js`); a short dialog uses the compact modifier; a question
