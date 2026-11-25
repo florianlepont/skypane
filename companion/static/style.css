@@ -1719,7 +1719,7 @@ select.visually-hidden {
   flex: none;
   height: auto;
   min-height: 44px;
-  padding: 0 12px 0 16px;
+  padding: 0 12px 0 var(--space-md);
   border: 0;
   border-radius: var(--radius-control);
   background: transparent;
@@ -5648,8 +5648,8 @@ a.btn[aria-disabled="true"] {
    * as a third line under the label it pushed the cell's icon and label up. */
   .tab-bar__pill > .nav-notification {
     position: absolute;
-    top: 8px;
-    left: calc(50% + 8px);
+    top: var(--space-sm);
+    left: calc(50% + var(--space-sm));
     margin: 0;
   }
 
@@ -6548,7 +6548,7 @@ dialog.modal--compact[open] > *,
     inset: auto 0 var(--keyboard-inset, 0px);
     width: 100%;
     max-height: min(85svh, calc(100svh - var(--keyboard-inset, 0px) - 12px));
-    padding: 33px max(16px, var(--safe-right)) 0 max(16px, var(--safe-left));
+    padding: 33px max(var(--space-md), var(--safe-right)) 0 max(var(--space-md), var(--safe-left));
   }
 
   dialog.modal.modal--compact::before {

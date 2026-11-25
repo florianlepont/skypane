@@ -317,7 +317,7 @@
   gap: 6px;
   min-height: 28px;
   box-sizing: border-box;
-  padding: 0 12px 0 8px;
+  padding: 0 12px 0 var(--space-sm);
   border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--color-text) 8%, var(--glass-solid));
   font-size: var(--font-caption-size);
