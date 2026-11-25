@@ -10,9 +10,13 @@ modules is neither rendered on that page nor named in its `EXEMPT` table with a 
 `companion/test_browser_components_page.py` checks every family's geometry and contrast at
 360 and 1280px, light and dark, English and French. The page renders each family through
 the helper the pages call, in the states that matter (default, selected, disabled, error, long
-text, empty, open/closed). It does not yet show `.page-section`, the fleet tiles (`.fleet-tile`,
-regular and `compact`), the `.dot--off` and `.dot--hollow` dots, or the result dialog (named in
-`EXEMPT`); read those from the stylesheet and the pages that use them. It is linked from the System page footer
+text, empty, open/closed). It also shows `.page-section` (plain, ok, warn, error), the fleet tiles (`.fleet-tile`: by
+status, linking with the Details mark, wide, and `compact` as on the System page) and the
+`.dot--off` and `.dot--hollow` dots, each dot beside its word. Only the result dialog (named in
+`EXEMPT`) is absent; read it from the page that makes one. The samples wrap: the docked save
+bar's message wraps in the catalogue (in a page it is one line with an ellipsis), and a switch
+placed straight in a row keeps its width. `companion/test_browser_components_fit.py` checks
+both, English and French, at 360 and 1280px. It is linked from the System page footer
 (`console_fleet_view.py`). To add a component or state: add the helper, add a family or
 state to `CATALOGUE` with French strings in `companion/i18n_fr/components.py`, run the
 browser test. Tokens: `tokens-and-theming.md`.
