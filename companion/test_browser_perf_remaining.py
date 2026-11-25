@@ -165,7 +165,7 @@ def test_the_editor_opens_an_airlines_types_on_demand_and_keeps_them_filterable(
         "g => document.querySelector(g).querySelectorAll('.airlines-subrow').length >= 2", arg=group)
     rows = page.locator(group + " .airlines-subrow")
     rows.first.wait_for(state="visible")
-    assert rows.first.locator("th").inner_text().startswith("A320")
+    assert rows.first.locator("th").inner_text().startswith("Airbus A320")
     assert page.locator(group + "[data-types-src]").count() == 0
     assert len(requested) == 1, requested
     # The filter still finds an airline by the aircraft types it holds.

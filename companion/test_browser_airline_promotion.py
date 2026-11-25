@@ -59,7 +59,7 @@ def test_artwork_uploaded_for_an_airline_without_artwork_gives_it_a_row_of_the_t
         # The airline has no picture of its own: its A333 type row shows it.
         row.locator(".airlines-expand > summary").click()
         row.locator(".airlines-subrow").first.wait_for(state="visible")
-        assert row.locator(".airlines-subrow").first.locator("th").inner_text().startswith("A333")
+        assert row.locator(".airlines-subrow").first.locator("th").inner_text().startswith("Airbus A330")
         assert row.locator(".airlines-subrow img").count() >= 1
         assert row.locator(".row-menu__toggle").count() == 1
         title = page.locator("#airlines-missing-title").inner_text()

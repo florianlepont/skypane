@@ -154,7 +154,7 @@ frame). Console label "Airline editor", bar label "Editor".
 - **Airlines table:** only airlines with artwork. The airline's name is plain text with its
   default type's picture; Rename (a dialog), Reset to the original name and Delete my name are in
   the "..." menu (even padding, 44px items, Escape closes). The chevron opens one row per aircraft
-  type, loaded lazily and quickly, with no overlap on the next row; a type row says "Own artwork" or
+  type, loaded lazily and quickly, with no overlap on the next row; a type row is labelled with its aircraft family name (interface font, 16px/600, no "(famille)"; focusable, the codes seen are a mono 14px tooltip on hover and keyboard focus beside the name, past the star, 320px wide at most; in a card they are a 13px secondary line, two lines then an ellipsis, a tap on the name expands it), the default type is a text-free star with an accessible name and its own tooltip, and it says "Own artwork" or
   "Uses the default type's artwork" and has one upload entry (Add artwork or Change artwork) and a
   menu with Set as default type and Delete the artwork (only for an uploaded picture). A refused
   name or picture reopens its dialog on that row.

@@ -6,7 +6,7 @@ import companion.i18n as i18n
 from server.plane import illustrations
 
 _ENGLISH = {
-    'a320': 'Airbus A320 family',
+    'a320': 'Airbus A320',
     'b737': 'Boeing 737',
     'atr72': 'ATR 42 / 72',
     'beechcraft1900d': 'Beechcraft 1900D',

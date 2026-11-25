@@ -61,11 +61,12 @@ def test_the_editor_lists_type_rows_only_with_the_star_on_the_default_type(
         subrows = page.locator(TRANSAVIA + " .airlines-subrow")
         subrows.first.wait_for(state="visible")
         page.wait_for_function(_SETTLED, timeout=15000)
-        codes = [subrows.nth(i).locator(".airlines-type").inner_text() for i in range(subrows.count())]
-        assert [code.split(" · ")[0] for code in codes] == ["A320", "B738", "A333"]
-        starred = page.locator(TRANSAVIA + " .airlines-pill--star")
-        assert starred.count() == 1 and starred.inner_text().strip() == STAR[lang]
-        assert starred.locator("xpath=ancestor::tr").locator(".airlines-type").inner_text() == "A320"
+        names = [subrows.nth(i).locator(".airlines-type").inner_text() for i in range(subrows.count())]
+        assert names == ["Airbus A320", "Boeing 737", "Airbus A330"]
+        starred = page.locator(TRANSAVIA + " .airlines-star")
+        assert starred.count() == 1 and starred.get_attribute("aria-label") == STAR[lang]
+        assert starred.locator("xpath=ancestor::tr").locator(".airlines-type").inner_text() == (
+            "Airbus A320")
         assert not _assert_no_page_overflow(page, "editor", viewport["width"])
         # Every airline with a picture has at least one type row to carry it.
         assert page.locator("#airline-air-france .airlines-expand").count() == 1

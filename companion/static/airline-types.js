@@ -59,6 +59,16 @@
     }
   }, true);
 
+  // In a card the designators are a two-line secondary line under the name; a
+  // tap on the name shows them all, a second tap folds them back.
+  document.addEventListener("click", function (evt) {
+    var name = evt.target && evt.target.closest ? evt.target.closest(".airlines-type") : null;
+    var label = name && name.parentNode;
+    if (label && label.classList.contains("airlines-type-label")) {
+      label.classList.toggle("is-expanded");
+    }
+  });
+
   var opened = document.querySelectorAll("details.airlines-expand[open]");
   for (var i = 0; i < opened.length; i++) {
     var group = groupOf(opened[i]);
