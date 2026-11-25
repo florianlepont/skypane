@@ -1,12 +1,15 @@
 # Contributing
 
-Thanks for your interest in SkyPane! It's a personal project, so replies
-may take a few days, but issues and pull requests are welcome.
+Thanks for your interest in SkyPane! It's a personal project and the
+repository is private: contributions are by the owner's invitation, and
+questions, proposals and patches go to the owner directly (contact on
+[github.com/florianlepont](https://github.com/florianlepont)). Replies may
+take a few days.
 
 ## Before you start
 
-- For anything bigger than a small fix, please open an issue first so we
-  can agree on the approach.
+- For anything bigger than a small fix, please talk to the owner first so
+  we can agree on the approach.
 - Set up `server/.venv` on Python 3.14 and install the dev dependencies
   with hashes enforced:
   ```bash
@@ -52,7 +55,7 @@ may take a few days, but issues and pull requests are welcome.
   this.
 - Dependency changes go in `server/requirements*.in`, then regenerate the
   hash-locked `.txt` files with `scripts/lock-deps.sh`.
-- Security problems go through private reporting, not issues — see
+- Security problems go to the owner privately — see
   [`SECURITY.md`](./SECURITY.md).
 
 ## Code language and comments
@@ -75,8 +78,8 @@ under a separate commercial licence (see [`README.md`](./README.md#licence)).
 For that to stay possible, the author needs to be able to include
 your contribution in both.
 
-By submitting a contribution (a pull request, a patch, or code in an
-issue), you agree that:
+By submitting a contribution (a pull request, a patch, or code in a
+message), you agree that:
 
 1. your contribution is licensed under the AGPL-3.0, like the rest of the
    project, **and**
