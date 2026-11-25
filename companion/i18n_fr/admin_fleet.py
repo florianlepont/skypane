@@ -100,6 +100,9 @@ MESSAGES = {
     "admin_fleet.system_unavailable":
         "Aucune information système n’est disponible pour l’instant.",
     "admin_fleet.unknown_frame": "Ce cadre est introuvable.",
+    "admin_fleet.select_frame": "Sélectionnez un cadre",
+    "admin_fleet.select_frame_hint":
+        "Choisissez un cadre dans la liste pour voir son état et ses réglages.",
     "admin_fleet.retire_this_frame": "Retirer ce cadre…",
     "admin_fleet.retire_this_frame_hint":
         "Le cadre n’affiche plus rien et libère son propriétaire.",

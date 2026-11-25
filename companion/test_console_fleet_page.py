@@ -99,8 +99,7 @@ def test_add_a_frame_lives_in_the_list_header_and_there_is_no_register_form(flee
     assert 'class="fleet-add-button" href="/pair-frame"' in head
     assert page.count('class="fleet-add-button"') == 1
     assert "frame-menu" not in page
-    assert '<h1 class="fleet-list__heading fleet-list__heading--narrow">Frames</h1>' in head
-    assert '<h2 class="fleet-list__heading fleet-list__heading--wide">Frames</h2>' in head
+    assert '<h1 class="fleet-list__heading">Frames</h1>' in head
     for text in ("Register a frame", "Register frame", 'name="mac"', 'name="secret_sha256"',
                  'action="/fleet/register"', "MAC address"):
         assert text not in page, text

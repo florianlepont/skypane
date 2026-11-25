@@ -143,12 +143,13 @@ def test_a_list_row_is_a_plain_link_that_selects_the_frame_on_desktop(
     context, page, seed = _open(
         new_context, app_server_in_process, VIEWPORT_DESKTOP, "en", "light")
     try:
-        # No frame chosen: the list and the first frame side by side.
+        # No frame chosen: the list and the neutral pane side by side.
         assert page.evaluate(_VISIBLE, ".fleet-list")
-        assert page.locator("section.fleet-block").count() == 3
+        assert page.evaluate(_VISIBLE, ".fleet-empty")
+        assert page.locator("section.fleet-block").count() == 0
         assert not page.evaluate(_VISIBLE, ".fleet-switch")
         assert page.locator("main h1:visible").count() == 1
-        assert page.locator("main h1:visible").inner_text() in ("Orly frame", "Kitchen")
+        assert page.locator("main h1:visible").inner_text() == "Frames"
         target = ".fleet-list li.fleet-frame-row > a[href='/fleet?frame=%s']" % seed.owned_id
         page.locator(target).click()
         page.wait_for_url("**/fleet?frame=%s" % seed.owned_id)
@@ -339,5 +340,42 @@ def test_the_selected_frame_is_scrolled_into_view_in_a_long_list(
             assert found["top"] >= 0 and found["bottom"] >= 0, found
             assert found["page"] == 0, found
         assert found["scrolled"] > 0, found
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("scheme", ["light", "dark"])
+def test_a_wide_screen_with_no_frame_chosen_shows_the_neutral_pane(
+        new_context, app_server_in_process, scheme):
+    context, page, _seed = _open(
+        new_context, app_server_in_process, VIEWPORT_DESKTOP, "fr", scheme)
+    try:
+        pane = page.locator(".fleet-split__main .fleet-empty")
+        assert pane.is_visible()
+        assert pane.locator("h2").inner_text() == "Sélectionnez un cadre"
+        assert pane.locator("svg.icon").is_visible()
+        # No frame data and no highlighted row; the list's title is the only h1.
+        assert page.locator(".fleet-head, .fleet-block, .fleet-frame").count() == 0
+        assert page.locator(".fleet-frame-row.is-selected, .fleet-list [aria-current]").count() == 0
+        assert page.locator("main h1").count() == 1
+        # Centred in the column beside the list and nothing overflows.
+        box = pane.bounding_box()
+        halo = pane.locator(".fleet-empty__halo").bounding_box()
+        assert abs((halo["x"] + halo["width"] / 2) - (box["x"] + box["width"] / 2)) < 2
+        assert page.url.endswith("/fleet")
+        _assert_no_page_overflow(page, "fleet landing")
+    finally:
+        context.close()
+
+
+def test_a_phone_with_no_frame_chosen_still_shows_only_the_list(
+        new_context, app_server_in_process):
+    context, page, _seed = _open(
+        new_context, app_server_in_process, VIEWPORT_MIN_SUPPORTED, "fr", "light")
+    try:
+        assert not page.locator(".fleet-empty").is_visible()
+        assert page.locator(".fleet-list").is_visible()
+        assert page.locator("main h1").inner_text() == "Cadres"
+        _assert_no_page_overflow(page, "fleet landing")
     finally:
         context.close()
