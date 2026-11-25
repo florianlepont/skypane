@@ -1788,9 +1788,40 @@ a.row-action {
     color: color-mix(in srgb, var(--color-text) 70%, transparent);
   }
 
-  /* The last row keeps the hairline's room, so it is as tall as the others. */
+  /* The card clips its table at the card's corners. While a row menu is open the
+   * clip is released so the menu can reach past the card's edge; the corner
+   * cells carry the same radius, so the corners stay round meanwhile. */
+  .users-table {
+    overflow: hidden;
+  }
+
+  .users-table:has(.row-menu[open]) {
+    overflow: visible;
+  }
+
+  /* The header row is tinted and the last row has no rule under it. */
+  .users-col {
+    background: var(--color-secondary);
+  }
+
   .users-table tbody .users-row:last-child .users-cell {
-    border-bottom-color: transparent;
+    border-bottom-width: 0;
+  }
+
+  .users-table thead .users-col:first-child {
+    border-top-left-radius: calc(var(--radius-card) - 1px);
+  }
+
+  .users-table thead .users-col:last-child {
+    border-top-right-radius: calc(var(--radius-card) - 1px);
+  }
+
+  .users-table tbody .users-row:last-child .users-cell:first-child {
+    border-bottom-left-radius: calc(var(--radius-card) - 1px);
+  }
+
+  .users-table tbody .users-row:last-child .users-cell:last-child {
+    border-bottom-right-radius: calc(var(--radius-card) - 1px);
   }
 
   .users-cell--user,

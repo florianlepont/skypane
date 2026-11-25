@@ -40,7 +40,7 @@ EDITOR = {
     "last_row": "table.airlines-table:not(.airlines-table--gaps) tbody.airline-group:last-of-type"
                 " > tr.airlines-row:first-child",
     "last_cell": "table.airlines-table:not(.airlines-table--gaps) tbody.airline-group:last-of-type"
-                 " > tr.airlines-row:first-child > td.airlines-cell--name",
+                 " > tr.airlines-row:first-child > .airlines-cell--name",
     "first_row": "table.airlines-table:not(.airlines-table--gaps) tbody.airline-group:first-of-type"
                  " > tr.airlines-row:first-child",
     "menu": "details.row-menu",

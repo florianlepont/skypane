@@ -1667,11 +1667,37 @@ body:has([data-filter-chip]:checked:not([value=""]):not([value="missing"])) .air
     vertical-align: middle;
     padding: var(--space-sm) var(--space-md);
     border-bottom: 1px solid var(--glass-hairline);
+    background: var(--color-secondary);
     font-size: var(--font-caption-size);
     font-weight: var(--weight-semibold);
     text-transform: none;
     text-align: left;
     color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  }
+
+  /* The table's caption and the "..." menus sit outside the table's box, so the
+   * card's corners are cut on the corner cells instead of by an overflow clip:
+   * the tinted header and the last row follow the card's rounded corners. */
+  .airlines-table thead .airlines-col:first-child {
+    border-top-left-radius: calc(var(--radius-card) - 1px);
+  }
+
+  .airlines-table thead .airlines-col:last-child {
+    border-top-right-radius: calc(var(--radius-card) - 1px);
+  }
+
+  .airlines-table .airline-group:last-of-type:not(:has(details.airlines-expand[open]))
+      > .airlines-row > :is(td, th):first-child,
+  .airlines-table .airline-group:last-of-type:has(details.airlines-expand[open])
+      > tr:last-child > :is(td, th):first-child {
+    border-bottom-left-radius: calc(var(--radius-card) - 1px);
+  }
+
+  .airlines-table .airline-group:last-of-type:not(:has(details.airlines-expand[open]))
+      > .airlines-row > :is(td, th):last-child,
+  .airlines-table .airline-group:last-of-type:has(details.airlines-expand[open])
+      > tr:last-child > :is(td, th):last-child {
+    border-bottom-right-radius: calc(var(--radius-card) - 1px);
   }
 
   .airlines-col--name { width: 34%; }
