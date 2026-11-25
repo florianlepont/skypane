@@ -14,6 +14,12 @@ tokens, navigation, a component or a page layout (`companion/static/style*.css`,
 Between that rule and review, the skill can be behind: when code and skill disagree, the code wins
 and the skill gets fixed.
 
+The numbers of this skill (colour tokens in Light and Dark, radii, spacing, type sizes, motion
+tokens, the 44px target, the 4.5:1 pairs) are checked against the served site by
+`companion/test_browser_design_system_drift.py`, using `companion/testdata/design_system_tokens.json`
+as the one comparison point. A PR that changes a token updates that manifest, this skill and its
+"as of" line together; the manifest is a hand-copied transcript, so skill = manifest holds by review only.
+
 ## Stack and boundaries
 
 The companion is a stdlib-only Python HTTP service under `companion/` (`ThreadingHTTPServer`),
