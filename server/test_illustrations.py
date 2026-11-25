@@ -63,24 +63,80 @@ def test_normalise_airline_key_falsy_and_non_string_returns_none():
 
 # --- classify_aircraft_type() / SHAPE_SLUGS ---------------------------------
 
-def test_classify_aircraft_type_all_seven_buckets():
-    """classify_aircraft_type() maps real designators onto all seven SHAPE_SLUGS"""
-    designator_to_expected = {
-        "A20N": "a320", "A321": "a320", "A21N": "a320", "A319": "a320", "A318": "a320",
-        "B738": "b737", "B733": "b737", "B38M": "b737",
-        "AT76": "atr72", "AT72": "atr72", "AT43": "atr72",
-        "BE9L": "beechcraft1900d",
-        "E145": "embraer", "E190": "embraer", "E195": "embraer", "E75L": "embraer",
-        "A333": "a330", "A339": "a330",
-        "A359": "a350", "A35K": "a350",
+def test_classify_aircraft_type_every_family_code_maps_to_its_family():
+    """every designator of the family table maps to its family; the catch-all slot has no code; 43 production codes all have a slot"""
+    for family, codes in ill._FAMILY_CODES.items():
+        assert family in ill.SHAPE_SLUGS
+        for code in codes.split():
+            assert ill.classify_aircraft_type(code) == family, code
+    assert set(ill._FAMILY_CODES) | {ill.OTHER_SLUG} == set(ill.SHAPE_SLUGS)
+    expected = {
+        "A20N": "a320", "A21N": "a320", "A320": "a320", "A319": "a320", "A321": "a320", "A19N": "a320",
+        "B738": "b737", "B38M": "b737", "AT45": "atr72", "AT76": "atr72", "AT75": "atr72",
+        "B190": "beechcraft1900d", "BE9L": "kingair", "E145": "erj145", "E135": "erj145",
+        "E35L": "erj145", "E190": "embraer", "E195": "embraer", "E295": "embraer",
+        "A339": "a330", "A338": "a330", "A359": "a350", "A35K": "a350", "BCS1": "a220",
+        "B788": "b787", "B789": "b787", "B77W": "b777", "B772": "b777", "B77L": "b777",
+        "B748": "b747", "B764": "b767", "CRJX": "crj", "FA8X": "falcon", "GL7T": "bizjetlarge",
+        "GL5T": "bizjetlarge", "GA7C": "bizjetlarge", "C25A": "bizjet", "C56X": "bizjet",
+        "EC45": "helicopter", "C172": "gahigh",
     }
-    for designator, expected in designator_to_expected.items():
-        got = ill.classify_aircraft_type(designator)
-        assert got == expected, "classify_aircraft_type(%r) returned %r, expected %r" % (designator, got, expected)
-    covered = set(designator_to_expected.values())
-    assert covered == set(ill.SHAPE_SLUGS), "test table covers %r, missing %r" % (
-        covered, set(ill.SHAPE_SLUGS) - covered,
-    )
+    for designator, family in expected.items():
+        assert ill.classify_aircraft_type(designator) == family, designator
+
+
+PRODUCTION_CODES = (
+    "A20N A320 A21N A319 A321 B738 B38M B737 B733 B734 B739 B736 A359 A35K A339 A332 A333 "
+    "AT45 AT76 AT75 E145 E35L B788 B789 BCS3 BCS1 B190 E190 E195 B77W B772 B77L B748 "
+    "GL7T GL5T GA7C C25A C56X FA8X CRJX B764 EC45 C172").split()
+
+
+def test_every_production_code_has_a_slot_and_an_unmapped_one_gets_other():
+    """each of the 43 production codes resolves to a family; any other designator resolves to the shared other slot, an empty one to none"""
+    assert len(set(PRODUCTION_CODES)) == 43
+    for code in PRODUCTION_CODES:
+        assert ill.type_slug(code) in ill._all_type_slugs() and ill.type_slug(code) != ill.OTHER_SLUG, code
+    for code in ("PC21", "SB20", "ZZZZ", "SF50", "A346"):
+        assert ill.classify_aircraft_type(code) is None
+        assert ill.slot_slug(code) == ill.OTHER_SLUG
+    assert ill.slot_slug("") is None and ill.slot_slug(None) is None
+
+
+def test_slugs_cannot_be_confused_in_an_artwork_key():
+    """no slug is the hyphen-tail of another, so airline_key_of_artwork splits every typed key into its airline; no built-in airline key ends in a slug"""
+    slugs = ill._all_type_slugs()
+    assert len(set(slugs)) == len(slugs)
+    for slug in slugs:
+        assert re.fullmatch(r"[a-z0-9]+(-[0-9]+)?", slug)
+        assert ill.airline_key_of_artwork("air-corsica-" + slug) == "air-corsica"
+        assert [other for other in slugs if other != slug and ("-" + slug).endswith("-" + other)] == []
+    for name in ill.target_airline_names():
+        key = ill.normalise_airline_key(name)
+        assert ill.airline_key_of_artwork(key) == key, key
+    assert ill.airline_key_of_artwork("air-caraibes-a350-1000") == "air-caraibes"
+    assert ill.airline_key_of_artwork("air-caraibes-other") == "air-caraibes"
+
+
+def test_b77w_picks_the_airline_b777_picture_then_its_default(tmp_path):
+    """a B77W flight uses {airline}-b777.png, else the airline default picture, else generic-b777"""
+    state = str(tmp_path)
+    route = {"airline_name": "Air France"}
+    own = ill.override_path_for_key("air-france-b777", state)
+    os.makedirs(os.path.dirname(own))
+    _make_fixture_png(own)
+    assert ill.select_illustration(route, "B77W", state) == own
+    assert ill.select_illustration(route, "B772", state) == own
+    assert ill.select_illustration(route, "A320", state) != own
+    neutral = ill.select_illustration({"airline_name": "Nobody Air"}, "B77W")
+    assert neutral == os.path.join(ill.ILLUSTRATION_DIR, "generic-b777.png")
+
+
+def test_every_slot_has_a_generic_picture_that_validates():
+    """each slot has a generic-{slug}.png under the illustration directory and it passes validation"""
+    for slug in ill.SHAPE_SLUGS:
+        path = os.path.join(ill.ILLUSTRATION_DIR, "generic-%s.png" % slug)
+        assert os.path.isfile(path), path
+        assert ill.validate_illustration_file(path) == []
 
 
 def test_classify_aircraft_type_normalizes_case_and_whitespace():
@@ -510,15 +566,15 @@ def test_km_malta_and_tuifly_belgium_targets_present():
         assert expected_file in filenames, "target_filenames() is missing %r: not present" % (expected_file,)
 
 
-def test_amelia_targets_present_and_total_is_52():
-    """target_filenames() contains 'amelia.png'/'amelia-embraer.png' (delivered on disk) and totals 52 entries"""
+def test_amelia_targets_present_and_total_is_70():
+    """target_filenames() contains 'amelia.png'/'amelia-erj145.png' (delivered on disk) and totals 70 entries"""
     targets = ill.target_filenames()
-    for expected_file in ("amelia.png", "amelia-embraer.png"):
+    for expected_file in ("amelia.png", "amelia-erj145.png"):
         assert expected_file in targets, "target_filenames() is missing %r: not present" % (expected_file,)
         assert os.path.isfile(os.path.join(ill.ILLUSTRATION_DIR, expected_file)), (
             "%r is a target but missing on disk - expected it to be delivered" % (expected_file,)
         )
-    assert len(targets) == 52, "target_filenames() has %d entries, expected 52" % (len(targets),)
+    assert len(targets) == 70, "target_filenames() has %d entries, expected 70" % (len(targets),)
 
 
 def test_renamed_files_exist_superseded_names_do_not():
@@ -835,7 +891,7 @@ def test_every_curated_picture_has_an_aircraft_label_unique_within_its_airline()
     assert ill.aircraft_label("Transavia France") == "B737"
     assert ill.aircraft_label("Transavia France", "a320") == "A320"
     assert ill.aircraft_label("Royal Air Maroc", "embraer") == "E190"
-    assert ill.aircraft_label("Amelia", "embraer") == "E145"
+    assert ill.aircraft_label("Amelia", "erj145") == "E145"
     assert ill.aircraft_label("No Such Airline") == ""
 
 

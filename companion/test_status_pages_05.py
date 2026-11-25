@@ -374,16 +374,16 @@ def test_health_registry_and_stats_prose_has_no_adsbdb_or_requirement_id(tmp_pat
 # ==========================================================================
 
 
-def test_exactly_52_vendored_illustration_files_are_registered():
-    """all 52 vendored illustrations normalize to the exact same pixel dimensions
+def test_exactly_70_vendored_illustration_files_are_registered():
+    """all 70 vendored illustrations normalize to the exact same pixel dimensions
     (illustration_normalize.ILLUSTRATION_TARGET_SIZE)"""
-    assert len(_VENDORED_ILLUSTRATION_FILENAMES) == 52, (
-        "expected 52 vendored illustration files, got %d" % len(_VENDORED_ILLUSTRATION_FILENAMES))
+    assert len(_VENDORED_ILLUSTRATION_FILENAMES) == 70, (
+        "expected 70 vendored illustration files, got %d" % len(_VENDORED_ILLUSTRATION_FILENAMES))
 
 
 @pytest.mark.parametrize("filename", _VENDORED_ILLUSTRATION_FILENAMES)
 def test_all_illustrations_normalize_to_identical_pixel_dimensions(filename):
-    """all 52 vendored illustrations normalize to the exact same pixel dimensions
+    """all 70 vendored illustrations normalize to the exact same pixel dimensions
     (illustration_normalize.ILLUSTRATION_TARGET_SIZE)"""
     path = os.path.join(illustrations.ILLUSTRATION_DIR, filename)
     png_bytes = illustration_normalize.normalized_png_bytes(path)
@@ -395,7 +395,7 @@ def test_all_illustrations_normalize_to_identical_pixel_dimensions(filename):
 
 @pytest.mark.parametrize("filename", _VENDORED_ILLUSTRATION_FILENAMES)
 def test_all_illustrations_serve_well_under_the_byte_ceiling(filename):
-    """all 52 vendored illustrations normalize and serve well under 65536 bytes per file,
+    """all 70 vendored illustrations normalize and serve well under 65536 bytes per file,
     the weight fix — a regression that got the dimensions right but left the served
     bytes unchanged would defeat this check"""
     path = os.path.join(illustrations.ILLUSTRATION_DIR, filename)
@@ -407,7 +407,7 @@ def test_all_illustrations_serve_well_under_the_byte_ceiling(filename):
 
 @pytest.mark.parametrize("filename", _VENDORED_ILLUSTRATION_FILENAMES)
 def test_all_illustrations_are_centred_and_unclipped(filename):
-    """all 52 vendored illustrations normalize with their painted content centred within
+    """all 70 vendored illustrations normalize with their painted content centred within
     1px on both axes and never clipped"""
     target_w, target_h = illustration_normalize.ILLUSTRATION_TARGET_SIZE
     path = os.path.join(illustrations.ILLUSTRATION_DIR, filename)

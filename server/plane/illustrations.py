@@ -267,9 +267,8 @@ _ILLUSTRATION_TARGETS = [
     ("Air Caraïbes", "a330", "D-03 mixed-fleet secondary (P-04)"),
     (
         "Amelia",
-        "embraer",
-        "Quick task 260827-kih secondary variant - Embraer E145 (E190 "
-        "shares the file per the suffix rule), chosen over the E190 "
+        "erj145",
+        "Secondary variant - Embraer E145 (an ERJ, own picture slot), chosen over the E190 "
         "because the E145 is the type on Amelia's real Orly-relevant Pau "
         "service (recorded in Phase 3.1's own fleet research, "
         "03.1-CONTEXT.md D-03). Cross-references the same AIA correction "
@@ -487,7 +486,7 @@ VARIANT_AIRCRAFT_LABELS = {
     ("Transavia France", "a320"): "A320",
     ("Royal Air Maroc", "embraer"): "E190",
     ("Air Caraïbes", "a330"): "A330",
-    ("Amelia", "embraer"): "E145",
+    ("Amelia", "erj145"): "E145",
     ("Air France Hop", "atr72"): "ATR72",
     ("Air Caraïbes", "a350-1000"): "A350-1000",
     ("Air Caraïbes", "atr72"): "ATR72",
@@ -509,10 +508,14 @@ def aircraft_label(airline_name, shape=None):
 # directory via path construction.
 _UNSAFE_KEY_RE = re.compile(r"[\\/]|\.\.")
 
-# The seven base aircraft shapes classify_aircraft_type() classifies into.
-# Order is iteration-stable (target_filenames() relies on it) but not a
-# priority ranking. Shared contract with the filename convention
-# (illustrations/{shape}.png) and render.py's caption labels.
+# The aircraft picture slots a type designator is classified into, plus the
+# catch-all `OTHER_SLUG` that every unmapped designator falls into. Order is
+# iteration-stable (target_filenames() relies on it) but not a priority
+# ranking. Shared contract with the filename convention
+# (`{airline}-{slug}.png`, `generic-{slug}.png`) and the caption labels. Slugs
+# are a-z0-9 only and none may be the tail of another after a hyphen, so an
+# artwork key splits unambiguously into airline and slot.
+OTHER_SLUG = "other"
 SHAPE_SLUGS = (
     "a320",
     "b737",
@@ -521,50 +524,71 @@ SHAPE_SLUGS = (
     "embraer",
     "a330",
     "a350",
+    "erj145",
+    "b787",
+    "a220",
+    "b777",
+    "b747",
+    "b767",
+    "b757",
+    "a380",
+    "a300",
+    "crj",
+    "falcon",
+    "bizjetlarge",
+    "bizjet",
+    "kingair",
+    "pc12",
+    "helicopter",
+    "gahigh",
+    OTHER_SLUG,
 )
 
-# ICAO type designator (uppercase) -> one of SHAPE_SLUGS. Hand-curated,
-# verified out of band, never a live lookup. A missing designator
+# Family -> ICAO type designators (uppercase) drawn with its picture.
+# Hand-curated, verified out of band, never a live lookup.
+_FAMILY_CODES = {
+    "a320": "A318 A319 A320 A321 A19N A20N A21N",
+    "b737": "B731 B732 B733 B734 B735 B736 B737 B738 B739 B37M B38M B39M B3XM",
+    "atr72": "AT43 AT44 AT45 AT46 AT72 AT73 AT75 AT76",
+    "beechcraft1900d": "B190",
+    "embraer": "E170 E75L E75S E190 E195 E290 E295",
+    "a330": "A332 A333 A338 A339",
+    "a350": "A359 A35K",
+    "erj145": "E135 E145 E45X E35L",
+    "b787": "B788 B789 B78X",
+    "a220": "BCS1 BCS3",
+    "b777": "B772 B773 B77L B77W B778 B779",
+    "b747": "B741 B742 B743 B744 B748 B74R B74S",
+    "b767": "B762 B763 B764",
+    "b757": "B752 B753",
+    "a380": "A388",
+    "a300": "A306 A30B A310",
+    "crj": "CRJ1 CRJ2 CRJ7 CRJ9 CRJX",
+    "falcon": "FA50 F900 FA7X FA8X FA6X F2TH FA10 FA20",
+    "bizjetlarge": "GLF4 GLF5 GLF6 GLEX GL5T GL7T GA7C GA5C GA6C GLF2",
+    "bizjet": (
+        "C25A C25B C25C C25M C500 C501 C510 C525 C550 C560 C56X C650 C680 C68A "
+        "C700 C750 CL30 CL35 CL60 E50P E55P E545 E550 EA50 HDJT H25B LJ35 LJ60 "
+        "LJ31 LJ40 LJ45 LJ75 G280 GALX G150 PRM1 PC24"),
+    "kingair": "BE9L BE9T BE10 BE20 BE30 B350",
+    "pc12": "PC12 TBM7 TBM8 TBM9 P46T M600",
+    "helicopter": (
+        "EC45 EC35 EC55 A109 A139 H160 AS65 S76 B412 B429 A169 A189 NH90 AS32 "
+        "EC25 BK17"),
+    "gahigh": "C172 C150 C152 C182 C206 C210 C170 C177 C180",
+}
+
+# ICAO type designator (uppercase) -> one of SHAPE_SLUGS. A missing designator
 # degrades to None (treated as "no shape"), never raises.
 _TYPE_SHAPE_BUCKETS = {
-    # A320 family: Air France, Vueling, Iberia, TAP, Transavia, easyJet,
-    # Wizz Air, Volotea, ITA Airways, Tunisair, Pegasus, La Compagnie
-    # [excluded from the target set pending re-verification]; KM Malta
-    # Airlines (A320neo primary); Amelia (A320 primary).
-    "A318": "a320", "A319": "a320", "A320": "a320", "A321": "a320",
-    "A20N": "a320", "A21N": "a320",  # A320neo / A321neo
-    # B737 family: Transavia, Air Europa, Air Algerie, Royal Air Maroc;
-    # TUIfly Belgium (737 MAX 8 primary); ASL Airlines France (adsbdb
-    # resolves the pre-2015-rebrand name "Europe Airpost", corrected on
-    # read, see enrich.py); KlasJet (737-800 primary, lower-confidence
-    # entry - see enrich.py's KLJ row).
-    "B731": "b737", "B732": "b737", "B733": "b737", "B734": "b737",
-    "B735": "b737", "B736": "b737", "B737": "b737", "B738": "b737",
-    "B739": "b737", "B37M": "b737", "B38M": "b737", "B39M": "b737",
-    "B3XM": "b737",  # MAX 7/8/9/10
-    # ATR72: Air Corsica, Chalair Aviation (Air Corsica's key was renamed
-    # from the adsbdb-resolved "CCM Airlines" to its real current name,
-    # see enrich.py); Air France Hop ATR72 secondary (see the
-    # "Air France Hop"/"atr72" row in _ILLUSTRATION_TARGETS) - ATR42
-    # designators map here too since there is no separate ATR42 shape.
-    "AT43": "atr72", "AT44": "atr72", "AT45": "atr72", "AT46": "atr72",
-    "AT72": "atr72", "AT73": "atr72", "AT75": "atr72", "AT76": "atr72",
-    # Beechcraft 1900D: Twin Jet.
-    "BE9L": "beechcraft1900d",
-    # Embraer E-Jet family: LOT Polish Airlines, Royal Air Maroc
-    # minority; Amelia's E145 secondary variant (see the
-    # "Amelia"/"embraer" row in _ILLUSTRATION_TARGETS); Air France Hop
-    # primary, E170/E175/E190, the numerically dominant regional type
-    # since HOP!'s fold-in (see the "Air France Hop" primary entry).
-    "E135": "embraer", "E145": "embraer", "E170": "embraer",
-    "E75L": "embraer", "E75S": "embraer", "E190": "embraer",
-    "E195": "embraer", "E290": "embraer", "E295": "embraer",
-    # A330 family: Air Caraibes minority; Corsair (adsbdb's CRL airline
-    # endpoint resolves the prior-brand name "Corsairfly", corrected on
-    # read, see enrich.py).
-    "A332": "a330", "A333": "a330", "A339": "a330",
-    # A350 family: Air Caraibes majority, French Bee.
-    "A359": "a350", "A35K": "a350",
+    code: family for family, codes in _FAMILY_CODES.items() for code in codes.split()}
+
+# Names the curated pictures are labelled with that are not ICAO designators
+# (see PRIMARY_AIRCRAFT_LABELS), to the family they are drawn from: the legacy
+# picture of such an airline is the picture of that family's slot.
+_LABEL_ALIASES = {
+    "A330": "a330", "A350": "a350", "ATR72": "atr72", "B1900D": "beechcraft1900d",
+    "B747": "b747", "B777": "b777", "B787": "b787", "EC145": "helicopter",
 }
 
 
@@ -586,9 +610,9 @@ def normalise_airline_key(airline_name):
 
 def classify_aircraft_type(icao_type):
     """One of SHAPE_SLUGS for a known ICAO type designator, else `None`.
-    Never raises. Always one of the seven hardcoded slugs or `None`,
-    never a value derived from the argument, so a hostile designator can
-    never reach a filesystem path.
+    Never raises. Always one of the hardcoded slugs or `None`, never a
+    value derived from the argument, so a hostile designator can never
+    reach a filesystem path.
     """
     if not isinstance(icao_type, str) or not icao_type:
         return None
@@ -609,7 +633,7 @@ def type_artwork_keys(airline_key, code):
     designator = _designator(code)
     if not airline_key or not designator or _UNSAFE_KEY_RE.search(airline_key):
         return []
-    slugs = [_TYPE_VARIANT_SLUGS.get(designator) or classify_aircraft_type(designator),
+    slugs = [slot_slug(designator),
              re.sub(r"[^a-z0-9-]", "", designator.lower())]
     keys = []
     for slug in slugs:
@@ -629,7 +653,7 @@ class TypePicture(NamedTuple):
 
 # The designator a type picture without a better label is listed under, by the
 # file-name slug of its slot.
-_SLUG_CODES = {"beechcraft1900d": "B1900D", "a350-1000": "A350-1000"}
+_SLUG_CODES = {"beechcraft1900d": "B1900D", "a350-1000": "A350-1000", OTHER_SLUG: "OTHER"}
 
 
 def _all_type_slugs():
@@ -744,8 +768,18 @@ def type_slug(code):
     sub-type slug `a350-1000` for A35K), or `None` for a designator with no
     slot. Two designators with the same slug are drawn with the same picture."""
     designator = _designator(code)
-    return (_TYPE_VARIANT_SLUGS.get(designator) or classify_aircraft_type(designator)) if designator else None
+    if not designator:
+        return None
+    return (_TYPE_VARIANT_SLUGS.get(designator) or classify_aircraft_type(designator)
+            or _LABEL_ALIASES.get(designator))
 
+
+def slot_slug(code):
+    """The picture slot an upload for the type `code` goes to: its slot
+    (`type_slug`), else the catch-all `OTHER_SLUG` shared by every type with no
+    slot of its own. `None` only for an empty or non-string designator."""
+    designator = _designator(code)
+    return (type_slug(designator) or OTHER_SLUG) if designator else None
 
 def same_type(first, second):
     """Whether two designators are the same type for pictures: equal, or
@@ -928,10 +962,12 @@ def select_illustration(route, aircraft_type=None, state_dir=None):
         airline_name = None
 
     airline_key = normalise_airline_key(airline_name)
-    shape_key = classify_aircraft_type(aircraft_type)
+    shape_key = classify_aircraft_type(aircraft_type) or (
+        OTHER_SLUG if _designator(aircraft_type) else None)
 
     # Tier 1: exact airline + shape match. A designator with a sub-type
-    # file of its own (an A350-1000) tries that file first, then its shape.
+    # file of its own (an A350-1000) tries that file first, then its shape;
+    # a type with no shape of its own uses the airline's "other" picture.
     if airline_key and shape_key:
         for slug in (_TYPE_VARIANT_SLUGS.get(_designator(aircraft_type)), shape_key):
             if not slug:
