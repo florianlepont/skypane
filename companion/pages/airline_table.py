@@ -65,6 +65,7 @@ MENU_DELETE_ART = i18n.msg("airlines.menu_delete_artwork", "Delete the artwork")
 MENU_SET_DEFAULT_TYPE = i18n.msg("airlines.menu_set_default_type", "Set as default")
 MENU_CLEAR_DEFAULT_TYPE = i18n.msg("airlines.menu_clear_default_type", "Remove as default")
 DEFAULT_TYPE_PILL = i18n.msg("airlines.default_type_pill", "Default type")
+CODES_SEEN_LABEL = i18n.msg("airlines.type_codes_seen", "Codes seen")
 VIEWS_ONE = i18n.msg("airlines.views_one", "1 view")
 VIEWS_MANY = i18n.msg("airlines.views_many", "%d views")
 NOT_SEEN_TEXT = i18n.msg("airlines.table_not_seen", "Not seen yet")
@@ -390,29 +391,61 @@ def _sub_menu_html(page, sub, row):
     return _menu_html(items, i18n.t(MENU_ARIA) % ("%s, %s" % (row["name"], sub["code"])))
 
 
-def _family_title(sub):
-    """The `title` attribute naming the aircraft family of a type row."""
-    name = airline_families.family_label(sub["slug"])
-    return ' title="%s"' % escape_html(name) if name else ""
+def _codes_text(sub):
+    """The designators seen for a type row: `B738, B737, B38M`, or a family of
+    one designator with its model name, `A339 · A330-900neo`."""
+    codes = sub["codes"]
+    if len(codes) == 1 and sub["model"] != codes[0]:
+        return "%s%s%s" % (codes[0], SUB_ROW_TYPE_SEP, sub["model"])
+    return ", ".join(codes)
+
+
+def _star_html(sub):
+    """The default type's star: an icon with its name for assistive technology
+    and a tooltip on hover and keyboard focus, no visible text."""
+    if not sub["is_default"]:
+        return ""
+    name = escape_html(i18n.t(DEFAULT_TYPE_PILL))
+    return (
+        '<span class="airlines-star" tabindex="0" role="img" aria-label="%s">%s'
+        '<span class="airlines-tip" aria-hidden="true">%s</span></span>'
+    ) % (name, layout.icon_html("icon-star", size=14), name)
+
+
+def _type_label_html(sub, row):
+    """The type row's label: the aircraft family name (focusable), the default
+    star, and the designators seen, which are a tooltip beside the name in the
+    table and a secondary line under it in a card. A row of no family name
+    shows its designator and model."""
+    family = airline_families.family_label(sub["slug"])
+    codes = _codes_text(sub)
+    if not family:
+        label = sub["code"] if sub["model"] == sub["code"] else (
+            "%s%s%s" % (sub["code"], SUB_ROW_TYPE_SEP, sub["model"]))
+        return '<span class="airlines-type">%s</span>%s' % (
+            escape_html(label), _star_html(sub))
+    codes_id = "airlines-codes-%s-%s" % (row["key"], sub["slug"])
+    described = ' aria-describedby="%s"' % escape_html(codes_id) if codes else ""
+    codes_html = (
+        '<span class="airlines-codes" id="%s"><span class="airlines-codes__label">%s </span>%s</span>'
+        % (escape_html(codes_id), escape_html(i18n.t(CODES_SEEN_LABEL)), escape_html(codes))
+        if codes else "")
+    return (
+        '<span class="airlines-type" tabindex="0"%s>%s</span>%s%s'
+    ) % (described, escape_html(family), _star_html(sub), codes_html)
 
 
 def _sub_row_html(page, sub, row):
-    label = sub["code"] if sub["model"] == sub["code"] else (
-        "%s%s%s" % (sub["code"], SUB_ROW_TYPE_SEP, sub["model"]))
-    star = (
-        '<span class="airlines-pill airlines-pill--star">%s%s</span>' % (
-            layout.icon_html("icon-star", size=14), escape_html(i18n.t(DEFAULT_TYPE_PILL)))
-        if sub["is_default"] else "")
     return (
         '<tr class="airlines-subrow">'
-        '<th scope="row" class="airlines-cell airlines-cell--name airlines-cell--type"%s>'
-        '<span class="airlines-type">%s</span>%s</th>'
+        '<th scope="row" class="airlines-cell airlines-cell--name airlines-cell--type">'
+        '<span class="airlines-type-label">%s</span></th>'
         '<td class="airlines-cell airlines-cell--prefixes"></td>'
         '<td class="airlines-cell airlines-cell--art">%s</td>'
         '<td class="airlines-cell airlines-cell--views">%s</td>'
         '<td class="airlines-cell airlines-cell--seen airlines-cell--act">%s</td>'
         '<td class="airlines-cell airlines-cell--menu">%s</td></tr>'
-    ) % (_family_title(sub), escape_html(label), star, _sub_art_html(page, sub, row),
+    ) % (_type_label_html(sub, row), _sub_art_html(page, sub, row),
          escape_html(views_text(sub["views"])), _sub_action_html(page, sub, row),
          _sub_menu_html(page, sub, row))
 
