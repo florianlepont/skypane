@@ -9,7 +9,13 @@ control; any non-GET request the browser attempts is aborted.
 
 - Python 3 and Node with the Playwright package (the script drives the system
   Chrome or Chromium; nothing is installed for you).
-- Google Chrome or Chromium on the machine.
+- Google Chrome or Chromium on the machine. On macOS the script finds Chrome,
+  Chromium, Brave and Edge in /Applications; set `SKYPANE_CAPTURE_CHROME` to a
+  browser binary to override.
+- macOS setup, once: `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm install -g playwright`
+  (the package only; the script drives your own Chrome). The script finds it
+  through `npm root -g`; set `SKYPANE_CAPTURE_NODE_PATH` to the node_modules
+  directory holding `playwright` if it lives elsewhere.
 - A signed-in administrator session on the deployed site (admin pages redirect
   or return 403 for other users; that is recorded, not treated as an error).
 

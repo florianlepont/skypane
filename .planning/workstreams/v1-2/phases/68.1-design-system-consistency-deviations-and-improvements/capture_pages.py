@@ -39,7 +39,16 @@ SESSION_COOKIE_NAME = "sp_session"
 COOKIE_ENV = "SP_CAPTURE_COOKIE"
 FETCH_TIMEOUT = 15
 NODE_PATH = "/opt/node22/lib/node_modules"
-CHROME_CANDIDATES = ("/usr/bin/google-chrome", "/usr/bin/chromium")
+NODE_PATH_ENV = "SKYPANE_CAPTURE_NODE_PATH"
+CHROME_ENV = "SKYPANE_CAPTURE_CHROME"
+CHROME_CANDIDATES = (
+    "/usr/bin/google-chrome",
+    "/usr/bin/chromium",
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    "/Applications/Chromium.app/Contents/MacOS/Chromium",
+    "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser",
+    "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+)
 
 # name -> (server, role, path template, group). Placeholders: {live}, {a1},
 # {retired}, {pending} are frame ids of the seeded fleet.
@@ -231,10 +240,33 @@ const DIALOGS = eval('(' + cfg.dialogs + ')');
 
 
 def find_chrome():
+    override = os.environ.get(CHROME_ENV)
+    if override:
+        return override if os.path.exists(override) else None
     for path in CHROME_CANDIDATES:
         if os.path.exists(path):
             return path
     return shutil.which("google-chrome") or shutil.which("chromium")
+
+
+def find_node_path():
+    """Directory holding the Node Playwright package.
+
+    SKYPANE_CAPTURE_NODE_PATH wins, then the global npm root, then the
+    default of the Linux build image.
+    """
+    override = os.environ.get(NODE_PATH_ENV)
+    if override:
+        return override
+    npm = shutil.which("npm")
+    if npm:
+        try:
+            root = subprocess.run([npm, "root", "-g"], capture_output=True, text=True, timeout=20).stdout.strip()
+        except (OSError, subprocess.SubprocessError):
+            root = ""
+        if root and os.path.isdir(os.path.join(root, "playwright")):
+            return root
+    return NODE_PATH
 
 
 def seed_server(repo, live_owner, workdir):
@@ -286,7 +318,7 @@ def run_driver(jobs, outdir, result_name, chrome, cookie_secret=None):
         json.dump(cfg, fh)
     with open(driver_path, "w") as fh:
         fh.write(NODE_DRIVER)
-    env = dict(os.environ, NODE_PATH=NODE_PATH)
+    env = dict(os.environ, NODE_PATH=find_node_path())
     for key in ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"):
         env.pop(key, None)
     env["NO_PROXY"] = "127.0.0.1"
