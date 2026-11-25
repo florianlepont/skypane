@@ -1504,7 +1504,7 @@ def test_a_row_expands_to_its_types_and_each_type_has_its_own_replace(new_contex
                 page.locator(chevron).click()
                 subrow = page.locator(TYPES_GROUP + " .airlines-subrow")
                 subrow.first.wait_for(state="visible")
-                if subrow.all_inner_texts() == [] or not subrow.first.locator("th").inner_text().startswith("A320"):
+                if subrow.all_inner_texts() == [] or not subrow.first.locator("th").inner_text().startswith("Airbus A320"):
                     raise AssertionError("unexpected types %r (%s)" % (subrow.all_inner_texts(), where))
                 action = subrow.first.locator("form.airlines-art").get_attribute("action")
                 if not action.startswith("/illustration/transavia-france-a320.png"):
@@ -1530,13 +1530,13 @@ def test_every_type_stays_listed_and_reachable_without_scripts(new_context, serv
         page.locator(chevron).wait_for(state="visible")
         page.locator(chevron).click()
         page.locator(TYPES_GROUP + " .airlines-subrow").first.wait_for(state="visible")
-        if not page.locator(TYPES_GROUP + " .airlines-subrow th").first.inner_text().startswith("A320"):
+        if not page.locator(TYPES_GROUP + " .airlines-subrow th").first.inner_text().startswith("Airbus A320"):
             raise AssertionError("expected the Transavia A320 as text")
         single = page.locator("#airline-air-france")
         single.locator(".airlines-expand > summary").click()
         row = single.locator(".airlines-subrow")
         row.first.wait_for(state="visible")
-        if row.count() != 1 or not row.first.locator("th").inner_text().startswith("A320") or (
+        if row.count() != 1 or not row.first.locator("th").inner_text().startswith("Airbus A320") or (
                 "Own artwork" not in row.first.inner_text()) or (
                 row.first.locator(".airlines-act").count() != 1):
             raise AssertionError("expected one A320 type row, editable, with its own artwork, "

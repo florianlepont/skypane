@@ -190,7 +190,7 @@ def test_plain_strings_are_refused():
 # translation. Keyed by the stable message id.
 _UNCHANGED_IN_FRENCH = frozenset({
     # Aircraft makes and models are spelled identically in French.
-    "airlines.family_b737", "airlines.family_atr72", "airlines.family_beechcraft1900d", "airlines.family_embraer", "airlines.family_a330", "airlines.family_a350", "airlines.family_erj145", "airlines.family_b787", "airlines.family_a220", "airlines.family_b777", "airlines.family_b747", "airlines.family_b767", "airlines.family_b757", "airlines.family_a380", "airlines.family_a300", "airlines.family_crj", "airlines.family_falcon", "airlines.family_kingair",
+    "airlines.family_a320", "airlines.family_b737", "airlines.family_atr72", "airlines.family_beechcraft1900d", "airlines.family_embraer", "airlines.family_a330", "airlines.family_a350", "airlines.family_erj145", "airlines.family_b787", "airlines.family_a220", "airlines.family_b777", "airlines.family_b747", "airlines.family_b767", "airlines.family_b757", "airlines.family_a380", "airlines.family_a300", "airlines.family_crj", "airlines.family_falcon", "airlines.family_kingair",
     "display.aspect",
     # "Identification" is spelled identically in French.
     "health.how_well_we_name_flights",

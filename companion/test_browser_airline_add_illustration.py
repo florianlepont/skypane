@@ -77,7 +77,7 @@ def test_from_a_type_row_the_type_is_a_fixed_chip_under_a_one_line_title(
         assert one_line
         assert dialog.locator(".lightbox__caption").inner_text() == "Transavia France · A333"
         assert dialog.locator(".upload-type-row__label").inner_text() == words["type"]
-        assert dialog.locator("[data-upload-type-chip]").inner_text() == "A333"
+        assert dialog.locator("[data-upload-type-chip]").inner_text() == "Airbus A330"
         assert dialog.locator("#airline_artwork_type").is_hidden()
         assert dialog.locator(".upload-constraints li").all_inner_texts() == words["constraints"]
         assert dialog.locator("[data-upload-drop]").count() >= 1

@@ -184,7 +184,7 @@ def test_the_unidentified_prefix_is_a_compact_row_on_top_named_in_a_dialog(
         row = KNOWN_ROW % "Xyz Wings"
         assert page.locator(row).count() == 1
         assert page.locator(row + " .airlines-missing__prefix").inner_text() == "XYZ"
-        assert page.locator(row + " .airlines-pill").count() == 0
+        assert page.locator(row + " .airlines-star").count() == 0
         assert "Named by hand" not in page.locator(row).inner_text()
         saved = manual_resolutions.load_manual_resolutions(server.state_dir)
         assert saved["XYZ"]["airline_name"] == "Xyz Wings"
@@ -228,7 +228,7 @@ def test_the_chevron_expands_the_aircraft_type_sub_rows(new_context, server, nam
         first, second, third = rows.nth(0), rows.nth(1), rows.nth(2)
         # The airline's row carries no picture: only its type rows do.
         assert page.locator(TRANSAVIA + " .airlines-row .airlines-thumb").count() == 0
-        assert first.locator("th").inner_text().startswith("A320")
+        assert first.locator("th").inner_text().startswith("Airbus A320")
         assert first.locator("a.airlines-thumb").is_visible()
         assert first.locator(".row-menu__toggle").is_visible()
         assert "Uses the default" not in third.inner_text()
@@ -236,8 +236,8 @@ def test_the_chevron_expands_the_aircraft_type_sub_rows(new_context, server, nam
         assert first.locator(".airlines-act:visible").inner_text() == "Change artwork"
         assert second.locator(".airlines-act:visible").inner_text() == "Change artwork"
         assert "Own artwork" in first.inner_text() and "Own artwork" in second.inner_text()
-        assert second.locator("th").inner_text().startswith("B738")
-        assert third.locator("th").inner_text().startswith("A333")
+        assert second.locator("th").inner_text().startswith("Boeing 737")
+        assert third.locator("th").inner_text().startswith("Airbus A330")
         assert second.locator("a.airlines-thumb").is_visible()
         if name == "1280":
             # A phone's type card leaves the views out, like the approved mockup.
@@ -649,7 +649,7 @@ def _add_a333_artwork_through_the_dialog(page):
     dialog.wait_for(state="visible")
     assert dialog.locator(".lightbox__heading").inner_text() == "Add an illustration"
     assert dialog.locator(".lightbox__caption").inner_text() == "Transavia France · A333"
-    assert dialog.locator("[data-upload-type-chip]").inner_text() == "A333"
+    assert dialog.locator("[data-upload-type-chip]").inner_text() == "Airbus A330"
     assert dialog.locator("#airline_artwork_type").is_hidden()
     upload = dialog.locator(".lightbox__upload")
     assert upload.is_disabled()
@@ -724,8 +724,9 @@ def test_the_type_menu_sets_the_default_type_and_deletes_only_an_uploaded_pictur
             items.nth(0).click()
         page.wait_for_function(_SETTLED, timeout=15000)
         _expand_transavia(page)
-        star = A333_ROW + " .airlines-pill--star"
-        assert page.locator(star).inner_text() == "Default type"
+        star = A333_ROW + " .airlines-star"
+        assert page.locator(star).get_attribute("aria-label") == "Default type"
+        assert page.locator(star).inner_text().strip() == ""
         assert airline_default_types.load_default_types(server.state_dir) == {
             "transavia-france": "A333"}
         # The airline row shows the default type's code, no picture of its own.

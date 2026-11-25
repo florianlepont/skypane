@@ -368,7 +368,8 @@ def _sub_action_html(page, sub, row):
     if sub["slot"] is None:
         return ""
     if not sub["has_own"]:
-        return add_art_trigger(page, sub, row)
+        # The dialog's chip names the family, as the type row does.
+        return add_art_trigger(page, sub, row, chip=airline_families.family_label(sub["slug"]) or None)
     return change_art_form(
         page, sub["slot"], i18n.t(MENU_CHANGE_ART), "airlines-act", sub["code_ok"])
 

@@ -144,7 +144,7 @@ def test_a_row_names_the_airframe_and_never_an_any_aircraft_label(tmp_path):
             prefs.set_request_prefs(lang=lang)
             rendered = airlines_page.render(shp.ctx(str(tmp_path)) | {"types_open": "all"})
             assert forbidden not in rendered
-            assert '<span class="airlines-type">A320</span>' in _card(rendered, "Transavia France")
+            assert ">Airbus A320</span>" in _card(rendered, "Transavia France")
     finally:
         prefs.set_request_prefs(lang="en")
 
