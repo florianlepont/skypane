@@ -7146,7 +7146,7 @@ button.row-menu__item {
 .dashboard-main[data-page-open] .reveal,
 .dashboard-main[data-page-open] .group-block:not(.history-day):not(.fleet-list-group):nth-child(-n + 6),
 .dashboard-main[data-page-open] .history-day:nth-child(-n + 3),
-.dashboard-main[data-page-open] .page-section:not(.group-block .page-section):nth-child(-n + 6),
+.dashboard-main[data-page-open] .page-section:not(.group-block .page-section, .components-state__sample .page-section):nth-child(-n + 6),
 .dashboard-main[data-page-open] .personalisation-look,
 .dashboard-main[data-page-open] .personalisation > .layout-card,
 .dashboard-main[data-page-open] .personalisation > .personalisation-nav,
@@ -7154,7 +7154,7 @@ button.row-menu__item {
 .dashboard-main[data-page-open] .fleet-split__main > .fleet-head,
 .dashboard-main[data-page-open] .fleet-split__main > .fleet-empty,
 .dashboard-main[data-page-open] .fleet-frame > .fleet-anchors,
-.dashboard-main[data-page-open] .fleet-tiles--system {
+.dashboard-main[data-page-open] .fleet-tiles--system:not(.components-state__sample .fleet-tiles--system) {
   animation:
     skypane-reveal var(--motion-enter) steps(12, end) backwards,
     skypane-reveal-fade var(--motion-enter) var(--ease-out) backwards;
