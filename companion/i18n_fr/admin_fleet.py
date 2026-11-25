@@ -91,6 +91,7 @@ MESSAGES = {
     "admin_fleet.block_state": "État",
     "admin_fleet.tabs_label": "Sections du cadre",
     "admin_fleet.tile_connection": "Dernier contact",
+    "admin_fleet.tile_last_check_in_line": "%s",
     "admin_fleet.tile_details": "Détails",
     "admin_fleet.tile_firmware": "Logiciel",
     "admin_fleet.back_to_frame": "Retour à %s",

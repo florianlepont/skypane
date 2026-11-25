@@ -83,4 +83,6 @@ def test_a_frame_with_a_check_in_states_the_last_and_the_next_connection(make_ap
 def test_the_connection_lines_are_in_french(make_app_server):
     tile = _connection_tile(make_app_server, _seed_with_check_in, "fr")
     lines = [line.text().strip() for line in tile.select(".fleet-stat")]
-    assert lines[0].startswith(_LAST_CHECK_IN["fr"]) and lines[1].startswith(_NEXT_WAKE["fr"])
+    # The tile's title says "Dernier contact": its first line is the age alone.
+    assert lines[0].lower().startswith("il y a") and _LAST_CHECK_IN["fr"] not in lines[0]
+    assert lines[1].startswith(_NEXT_WAKE["fr"])

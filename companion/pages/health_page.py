@@ -191,7 +191,9 @@ DEVICE_BATTERY_EMPTY_HEADING = i18n.msg(
 DEVICE_BATTERY_EMPTY_BODY = i18n.msg(
     "health.device_battery_empty_body", "Shown after the first check-in.")
 _ROW_UNAVAILABLE_TEXT = i18n.msg("health.row_unavailable", "Unavailable")
-_LAST_CHECK_IN_TEXT = i18n.msg("health.row_last_check_in", "Last check-in")
+# The connection tile already carries "Last contact" as its title: its first line is a template
+# around the age ("Last check-in %s"); in French it is just "%s", so that line has no label.
+_LAST_CHECK_IN_TEXT = i18n.msg("admin_fleet.tile_last_check_in_line", "Last check-in %s")
 _NEXT_WAKE_TEXT = i18n.msg("health.row_next_wake", "Next wake")
 _LAST_RUN_TEXT = i18n.msg("health.row_last_run", "Last run")
 _BATTERY_VALUE_TEMPLATE = i18n.msg("health.row_battery_value", "%d%% · %d mV")
@@ -866,13 +868,14 @@ def _connection_tile(state, now):
     device_state = state["device_state"]
     stats = []
     if ts is not None:
-        stats.append((i18n.t(_LAST_CHECK_IN_TEXT), _age_html(ts, now, _NO_CHECK_IN_TEXT)))
+        stats.append((i18n.t(_LAST_CHECK_IN_TEXT).replace("%s", "").strip(),
+                      _age_html(ts, now, _NO_CHECK_IN_TEXT)))
     if state["next_wake_clock"]:
         stats.append((i18n.t(_NEXT_WAKE_TEXT), '<span class="time-value time-value--primary">%s</span>' % escape_html(
             state["next_wake_clock"])))
     stats_html = "".join(
-        '<span class="fleet-stat"><span class="fleet-stat__k">%s</span>'
-        '<span class="fleet-stat__v">%s</span></span>' % (escape_html(label), value)
+        '<span class="fleet-stat">%s<span class="fleet-stat__v">%s</span></span>' % (
+            '<span class="fleet-stat__k">%s</span>' % escape_html(label) if label else "", value)
         for label, value in stats)
     return TileFacts(
         device_state,
