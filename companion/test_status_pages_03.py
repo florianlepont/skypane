@@ -1001,9 +1001,8 @@ def test_data_table_th_has_symmetric_nonzero_padding(css_text):
     token = re.fullmatch(r"var\((--space-[\w-]+)\)", top_raw)
     if token:
         # A spacing token stands for its px value declared in :root.
-        declared = re.search(re.escape(token.group(1)) + r":\s*(\d+)px", css_text)
-        assert declared, "expected %s to be declared as a px value in :root" % token.group(1)
-        top_raw = declared.group(1) + "px"
+        top_raw = declarations_for(css_text, ":root").get(token.group(1), "")
+        assert top_raw, "expected %s to be declared in :root" % token.group(1)
     assert top_raw.endswith("px") and top_raw[:-2].isdigit(), (
         "expected the top/bottom padding value to be a px literal or a px spacing token, got %r"
         % top_raw)
