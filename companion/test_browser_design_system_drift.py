@@ -23,6 +23,7 @@ import pytest
 
 import skypane_contrast_check
 from companion.test_browser_ux_helpers import (
+    UI_THEME_AUTO,
     UI_THEMES_EXPLICIT,
     VIEWPORT_DESKTOP,
     VIEWPORT_MIN_SUPPORTED,
@@ -188,7 +189,9 @@ def test_served_colour_tokens_equal_the_manifest(new_context, server, manifest, 
 
 def test_auto_dark_serves_the_dark_colour_tokens(new_context, server, manifest):
     with _page_at(new_context, server, "/", VIEWPORT_MIN_SUPPORTED, color_scheme="dark") as page:
-        assert page.evaluate("() => document.documentElement.hasAttribute('data-ui-theme')") is False
+        # Auto is served as data-ui-theme="auto", which no stylesheet rule overrides: the
+        # colours then follow the OS scheme.
+        assert page.evaluate("() => document.documentElement.dataset.uiTheme") == UI_THEME_AUTO
         checks = _colour_checks(manifest, "dark", skip=AUTO_DARK_NOT_ON_EVERY_PAGE)
         assert _mismatches(page, checks) == []
 
