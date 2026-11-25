@@ -69,6 +69,26 @@ def test_the_star_is_on_the_default_type_only(rig):
     assert "airlines-star" in france
 
 
+def test_the_type_row_actions_are_icon_buttons_named_for_the_airline_and_the_family(rig):
+    group = _group(_editor(rig), "transavia-france")
+    rows = re.findall(r'<tr class="airlines-subrow">.*?</tr>', group)
+    for row in rows:
+        name = re.search(r'class="airlines-type"[^>]*>([^<]*)<', row).group(1)
+        add = re.search(r'<button[^>]*airlines-act--icon[^>]*>.*?</button>', row, re.S)
+        change = re.search(r'<label class="airlines-act airlines-act--icon"[^>]*>.*?</label>', row, re.S)
+        assert (add is None) != (change is None), row
+        if add:
+            assert 'aria-label="Add an illustration for Transavia France, %s"' % name in add.group(0)
+            assert 'data-tip="Add artwork"' in add.group(0) and "icon-picture-add" in add.group(0)
+        else:
+            assert 'data-tip="Change artwork"' in change.group(0)
+            assert "Change the artwork of Transavia France, %s</span>" % name in change.group(0)
+            assert "icon-picture-edit" in change.group(0)
+        assert "airlines-act__text" not in row
+        # Without a script the add form keeps its plain text button.
+        assert "airlines-act-nojs" not in row or "airlines-act__text" in row.split("airlines-act-nojs")[1]
+
+
 def test_an_upload_without_a_type_is_refused_for_an_airline_with_no_picture(rig):
     manual_resolutions.add_entry(rig.owned_dir, "ZEP", "Zephyr Air")
     before = rig.stored()

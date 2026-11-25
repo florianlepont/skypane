@@ -232,9 +232,9 @@ def test_the_chevron_expands_the_aircraft_type_sub_rows(new_context, server, nam
         assert first.locator("a.airlines-thumb").is_visible()
         assert first.locator(".row-menu__toggle").is_visible()
         assert "Uses the default" not in third.inner_text()
-        assert third.locator(".airlines-act:visible").inner_text() == "Add artwork"
-        assert first.locator(".airlines-act:visible").inner_text() == "Change artwork"
-        assert second.locator(".airlines-act:visible").inner_text() == "Change artwork"
+        assert third.locator(".airlines-act:visible").get_attribute("data-tip") == "Add artwork"
+        assert first.locator(".airlines-act:visible").get_attribute("data-tip") == "Change artwork"
+        assert second.locator(".airlines-act:visible").get_attribute("data-tip") == "Change artwork"
         assert "Own artwork" not in first.inner_text() + second.inner_text()
         assert second.locator("th").inner_text().startswith("Boeing 737")
         assert third.locator("th").inner_text().startswith("Airbus A330")
@@ -689,7 +689,7 @@ def test_a_type_row_is_given_a_picture_then_its_artwork_is_deleted(
         _expand_transavia(page)
         assert page.locator(A333_ROW + " a.airlines-thumb").is_visible()
         assert "Own artwork" not in page.locator(A333_ROW).inner_text()
-        assert page.locator(A333_ROW + " .airlines-act:visible").inner_text() == "Change artwork"
+        assert page.locator(A333_ROW + " .airlines-act:visible").get_attribute("data-tip") == "Change artwork"
         toggle = A333_ROW + " .row-menu__toggle"
         _settle(page, toggle)
         page.locator(toggle).click()
@@ -701,7 +701,7 @@ def test_a_type_row_is_given_a_picture_then_its_artwork_is_deleted(
         assert not os.path.exists(slot)
         _expand_transavia(page)
         assert "Uses the default" not in page.locator(A333_ROW).inner_text()
-        assert page.locator(A333_ROW + " .airlines-act:visible").inner_text() == "Add artwork"
+        assert page.locator(A333_ROW + " .airlines-act:visible").get_attribute("data-tip") == "Add artwork"
         assert "airline.artwork_delete" in _audit_actions(server.state_dir)
     finally:
         context.close()

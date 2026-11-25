@@ -145,7 +145,7 @@ def test_for_an_airline_without_artwork_the_type_select_comes_first(
 
 
 @pytest.mark.parametrize("name,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
-def test_the_row_menu_sits_on_the_line_of_the_artwork_button(
+def test_the_row_menu_is_beside_the_artwork_button_in_a_table_and_under_it_in_a_card(
         new_context, make_app_server, name, viewport):
     server = make_app_server(seed=_seed, fake_providers=True)
     context, page = _open(new_context, server, viewport, "en")
@@ -156,10 +156,18 @@ def test_the_row_menu_sits_on_the_line_of_the_artwork_button(
               const button = [...row.querySelectorAll('.airlines-act')].find(e => e.offsetParent);
               const menu = row.querySelector('.row-menu__toggle');
               const mid = (e) => { const b = e.getBoundingClientRect(); return b.top + b.height / 2; };
-              return menu && button ? Math.abs(mid(button) - mid(menu)) : null;
+              const centre = (e) => { const b = e.getBoundingClientRect(); return b.left + b.width / 2; };
+              if (!menu || !button) { return null; }
+              return {beside: Math.abs(mid(button) - mid(menu)), under: mid(menu) - mid(button),
+                      aligned: Math.abs(centre(button) - centre(menu))};
             }).filter(d => d !== null)""", TRANSAVIA)
         assert centres, "no type row carries both an artwork button and a menu"
-        assert max(centres) <= 1, centres
+        for found in centres:
+            if viewport["width"] >= 1120:
+                assert found["beside"] <= 1, found
+            else:
+                # In a card the menu sits under the button, on its axis.
+                assert found["under"] >= 40 and found["aligned"] <= 1, found
         heights = page.evaluate(
             "sel => [...document.querySelectorAll(sel + ' .airlines-act')]"
             ".filter(e => e.offsetParent).map(e => e.getBoundingClientRect().height)", TRANSAVIA)

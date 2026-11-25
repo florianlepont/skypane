@@ -103,6 +103,19 @@ def test_one_row_per_airline_and_family_with_codes_and_views(missing):
         assert 'data-view-panel-fixed-type="' in row and 'aria-label="Add an illustration for Emirates, ' in row
 
 
+def test_a_row_button_is_an_icon_with_an_aria_label_and_a_tooltip_and_no_visible_text(missing):
+    _state, get = missing
+    for lang, aria, tip in (
+            ("en", "Add an illustration for Emirates, Airbus A380", "Add artwork"),
+            ("fr", "Ajouter une illustration pour Emirates, Airbus A380", "Ajouter une illustration")):
+        row = _group(html.unescape(get(lang)), "Emirates")[1][0]
+        button = re.search(r'<button[^>]*airlines-missing__add[^>]*>.*?</button>', row, re.S).group(0)
+        assert 'aria-label="%s"' % aria in button and 'data-tip="%s"' % tip in button, button
+        assert "airlines-act--icon" in button and 'href="#icon-picture-add"' in button
+        assert _text(button).strip() == ""
+        assert "+ Illustration" not in _text(row) and "airlines-missing__text" not in row
+
+
 def test_the_rows_of_an_airline_follow_its_views_and_the_airlines_follow_their_names(missing):
     _state, get = missing
     page = get()

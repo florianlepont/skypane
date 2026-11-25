@@ -74,6 +74,7 @@ MESSAGES = {
     "airlines.constraint_min_width": "Au moins 1200 px de large",
     "airlines.constraint_landscape": "Format paysage",
     "airlines.change_artwork": "Changer l’illustration",
+    "airlines.change_artwork_aria": "Changer l’illustration de %s, %s",
     "airlines.expand_types_aria": "Types d’appareil vus pour %s",
     "airlines.row_menu_aria": "Actions pour %s",
     "airlines.show_all_types": "Afficher les types d’appareil de toutes les compagnies",

@@ -60,6 +60,7 @@ MENU_ARIA = i18n.msg("airlines.row_menu_aria", "Actions for %s")
 MENU_RESET = i18n.msg("airlines.reset_original_name", "Reset to the original name")
 MENU_CHANGE_ART = i18n.msg("airlines.change_artwork", "Change artwork")
 ACTION_ADD_ART = i18n.msg("airlines.add_artwork", "Add artwork")
+CHANGE_ART_ARIA = i18n.msg("airlines.change_artwork_aria", "Change the artwork of %s, %s")
 MENU_DELETE_ART = i18n.msg("airlines.menu_delete_artwork", "Delete the artwork")
 MENU_SET_DEFAULT_TYPE = i18n.msg("airlines.menu_set_default_type", "Set as default")
 MENU_CLEAR_DEFAULT_TYPE = i18n.msg("airlines.menu_clear_default_type", "Remove as default")
@@ -138,22 +139,30 @@ def _upload_action(page, key, code):
         action, "&" if "?" in action else "?", page.DEFAULT_TYPE_QUERY_PARAM, escape_html(code))
 
 
-def change_art_form(page, key, text=None, css="row-menu__item", code=""):
+def change_art_form(page, key, text=None, css="row-menu__item", code="", aria=None, icon=""):
     """The "Change artwork" control: a label wrapping the file input of a
     form that posts to the illustration upload route. With a script it sends
-    on change; without one the Upload button sends it."""
+    on change; without one the Upload button sends it. With an `icon` the
+    control is icon-only: the icon, a visually hidden name (`aria`) and the
+    plain `text` as its tooltip."""
     label = escape_html(text or i18n.t(MENU_CHANGE_ART))
-    if css == "airlines-act":
+    tip = ""
+    if icon:
+        tip = ' data-tip="%s"' % label
+        css += " airlines-act--icon"
+        label = '%s<span class="visually-hidden">%s</span>' % (
+            layout.icon_html(icon), escape_html(aria or text or i18n.t(MENU_CHANGE_ART)))
+    elif css == "airlines-act":
         label = '<span class="airlines-act__text">%s</span>' % label
     return (
         '<form class="airlines-art" method="post" '
         'enctype="multipart/form-data" action="%s">%s'
-        '<label class="%s">%s'
+        '<label class="%s"%s>%s'
         '<input type="file" name="image" accept="image/png" class="visually-hidden" '
         'required data-autosubmit></label>'
         '<noscript><button type="submit" class="airlines-art__upload">%s</button></noscript>'
         "</form>"
-    ) % (_upload_action(page, key, code), csrf_field(), css, label,
+    ) % (_upload_action(page, key, code), csrf_field(), css, tip, label,
          escape_html(i18n.t(ART_UPLOAD_TEXT)))
 
 
@@ -349,7 +358,11 @@ def add_art_trigger(page, sub, row, inner=None, css="airlines-act", aria=None, c
     designator by default."""
     code = sub["code_ok"]
     label = "%s · %s" % (row["name"], code) if code else row["name"]
-    text = inner or '<span class="airlines-act__text">%s</span>' % escape_html(i18n.t(ACTION_ADD_ART))
+    # Without `inner` the button is the icon-only one of a type row: a 44px
+    # square named by its aria-label and a tooltip.
+    text = inner or layout.icon_html("icon-picture-add")
+    plain_css = plain_css or css
+    css = css if inner else css + " airlines-act--icon"
     fixed = '%s="%s" ' % (page.FIXED_TYPE_ATTR, escape_html(chip or code)) if code else (
         '%s="" ' % page.ASK_TYPE_ATTR)
     trigger = page._airline_card_zoom_html(
@@ -357,22 +370,27 @@ def add_art_trigger(page, sub, row, inner=None, css="airlines-act", aria=None, c
         page._illustration_url(sub["slot"], "POST"), "", "", i18n.t(page.STEP_B_TITLE),
         _upload_action(page, sub["slot"], code), "", "", "", "", "",
         aria_label=aria or "%s: %s" % (i18n.t(ACTION_ADD_ART), label), css_class=css,
-        extra_attrs=fixed)
+        extra_attrs=fixed + 'data-tip="%s" ' % escape_html(i18n.t(ACTION_ADD_ART)))
     return '<span class="js-gate airlines-act-gate">%s</span><span class="airlines-act-nojs">%s</span>' % (
-        trigger, change_art_form(page, sub["slot"], i18n.t(ACTION_ADD_ART), plain_css or css, code))
+        trigger, change_art_form(page, sub["slot"], i18n.t(ACTION_ADD_ART), plain_css, code))
 
 
 def _sub_action_html(page, sub, row):
-    """The type row's one upload entry: "Add artwork" for a type with no
-    picture, "Change artwork" for one that has it; nothing for a type no
-    picture slot exists for. The upload names the row's type."""
+    """The type row's one upload entry, an icon-only button: "Add artwork" for
+    a type with no picture, "Change artwork" for one that has it; nothing for a
+    type no picture slot exists for. The upload names the row's type."""
     if sub["slot"] is None:
         return ""
     if not sub["has_own"]:
         # The dialog's chip names the family, as the type row does.
-        return add_art_trigger(page, sub, row, chip=airline_families.family_label(sub["slug"]) or None)
+        family = airline_families.family_label(sub["slug"])
+        return add_art_trigger(
+            page, sub, row, chip=family or None,
+            aria=i18n.t(airline_missing.ADD_ARIA) % (row["name"], family or sub["code"]))
     return change_art_form(
-        page, sub["slot"], i18n.t(MENU_CHANGE_ART), "airlines-act", sub["code_ok"])
+        page, sub["slot"], i18n.t(MENU_CHANGE_ART), "airlines-act", sub["code_ok"],
+        icon="icon-picture-edit", aria=i18n.t(CHANGE_ART_ARIA) % (
+            row["name"], airline_families.family_label(sub["slug"]) or sub["code"]))
 
 
 def _sub_menu_html(page, sub, row):
