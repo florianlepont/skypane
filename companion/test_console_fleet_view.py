@@ -61,9 +61,10 @@ def test_no_frame_chosen_shows_the_list_of_every_frame(fleet):
     # The System view is not a row of the list: it has its own navigation entry.
     assert "/fleet?view=system" not in hrefs
     assert 'data-fleet-mode="list"' in page
-    # The list's title is the page's only h1; the main column is the neutral pane.
-    assert re.search(r'<h1 class="fleet-list__heading">Frames</h1>', page)
-    assert page.count("<h1") == 1
+    # A phone's title is the list's h1; a wide screen's h1 is the neutral pane's heading.
+    assert re.search(r'<h1 class="fleet-list__heading fleet-list__heading--narrow">Frames</h1>', page)
+    assert re.search(r'<h2 class="fleet-list__heading fleet-list__heading--wide">Frames</h2>', page)
+    assert page.count("<h1") == 2
     main = _main(page)
     assert "Select a frame" in main and "fleet-head" not in main and "fleet-block" not in main
     assert not [1 for _h, current in _tiles(page) if current]
@@ -76,7 +77,7 @@ def test_no_frame_chosen_shows_a_neutral_pane_with_no_frame_data(fleet):
     server, seed, cookie = fleet
     _status, _headers, page = fx.get(server, cookie, "/fleet")
     main = _main(page)
-    assert '<h2 class="fleet-empty__title">Select a frame</h2>' in main
+    assert '<h1 class="fleet-empty__title">Select a frame</h1>' in main
     assert "Choose a frame in the list to see its status and settings." in main
     assert 'href="#icon-device"' in main
     for frame_id in (seed.owned_id, seed.live_id):

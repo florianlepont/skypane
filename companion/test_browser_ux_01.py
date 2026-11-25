@@ -347,7 +347,7 @@ def test_device_reveal_and_persist_stays_in_step_with_display(page, make_app_ser
     server = make_app_server(seed=seed_state_dir, fake_providers=True)
     base_url = server.base_url()
     _login(page, base_url)
-    page.goto(base_url + "/fleet")
+    page.goto(base_url + "/fleet?frame=live")
     wake_sel = 'input[name="wake_interval_min"]'
     before = page.eval_on_selector(wake_sel, "el => el.value")
     target = "30" if before != "30" else "60"
@@ -425,7 +425,7 @@ def test_leave_guard_arms_on_uncommitted_edit_and_stays_armed_through_commit(pag
     # shares the module's read-only server.
     base_url = server.base_url()
     _login(page, base_url)
-    page.goto(base_url + "/fleet")
+    page.goto(base_url + "/fleet?frame=live")
 
     # a. Fresh load: disarmed.
     if _guard_armed(page):

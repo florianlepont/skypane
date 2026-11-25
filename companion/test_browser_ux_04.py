@@ -485,7 +485,7 @@ def test_a_rejected_value_claims_nothing_the_field_echoes_it_and_disk_is_untouch
         page = context.new_page()
         base_url = server.base_url()
         _login(page, base_url)
-        page.goto(base_url + "/fleet")
+        page.goto(base_url + "/fleet?frame=live")
 
         before = str(device_config.load_device_config(server.tmpdir)["wake_interval_s"])
         # Above the 60 minutes of server/device_config.py's WAKE_INTERVAL_MAX_S: a genuine

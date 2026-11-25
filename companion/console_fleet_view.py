@@ -374,11 +374,11 @@ def _detail_html(h, device, row, detail, frames_list):
 def empty_detail_html():
     """The neutral pane a wide screen shows beside the list while no frame is
     chosen: an icon, a short heading and one muted line, no frame data. A phone
-    hides it (the list mode shows the list only). The list's title is the page's
-    `<h1>`, so this heading is an `<h2>`."""
+    hides it (the list mode shows the list only). On a wide screen this heading is
+    the page's `<h1>`; the list's title is then an `<h2>`."""
     return (
         '<div class="fleet-empty"><div class="empty-state__halo fleet-empty__halo">%s</div>'
-        '<h2 class="fleet-empty__title">%s</h2><p class="fleet-empty__hint">%s</p></div>') % (
+        '<h1 class="fleet-empty__title">%s</h1><p class="fleet-empty__hint">%s</p></div>') % (
             icon_html("icon-device", 28), _t(_EMPTY_TITLE), _t(_EMPTY_HINT))
 
 

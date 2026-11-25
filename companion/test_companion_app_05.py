@@ -1349,7 +1349,9 @@ def test_site_wide_editorial_floor_all_six_routes_both_languages(make_app_server
     for route in measured_routes:
         for lang in ("en", "fr"):
             cookie_header = "%s; %s=%s" % (cookie, auth.UI_LANG_COOKIE_NAME, lang)
-            status, _headers, body = http_request(base + route, cookie=cookie_header)
+            # The Fleet route is measured on a frame: the bare landing is the neutral pane.
+            url = route + "?frame=live" if route == "/fleet" else route
+            status, _headers, body = http_request(base + url, cookie=cookie_header)
             assert status == 200, "%s/%s: expected an authenticated 200, got %d" % (route, lang, status)
             rendered = body.decode("utf-8", errors="replace")
             expected_lang_attr = '<html lang="%s"' % lang

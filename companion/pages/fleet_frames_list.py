@@ -129,10 +129,15 @@ def _group(label_msg, rows, view, selected_id, slug):
 
 
 def _heading_html(landing):
-    """The list's title: the page's `<h1>` on the landing view (no frame chosen,
-    nothing else titles the page), an `<h2>` beside a frame."""
-    tag = "h1" if landing else "h2"
-    return '<%s class="fleet-list__heading">%s</%s>' % (tag, _t(_FRAMES), tag)
+    """The list's title. Beside a frame it is an `<h2>`. On the landing view a
+    phone shows it as the page's `<h1>`; a wide screen shows the neutral pane's
+    heading as the `<h1>` and the list's title as an `<h2>`."""
+    text = _t(_FRAMES)
+    if not landing:
+        return '<h2 class="fleet-list__heading">%s</h2>' % text
+    return (
+        '<h1 class="fleet-list__heading fleet-list__heading--narrow">%s</h1>'
+        '<h2 class="fleet-list__heading fleet-list__heading--wide">%s</h2>' % (text, text))
 
 
 def list_panel_html(view, selected_id="", landing=False):
