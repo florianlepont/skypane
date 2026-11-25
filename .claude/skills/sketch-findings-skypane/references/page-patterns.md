@@ -132,8 +132,8 @@ Read-only, and different by role.
 Administrator only, **fleet-wide**: the airlines seen by any frame, one registry of names and one
 directory of artwork for the whole fleet (a name or picture given on one frame shows on every
 frame). Console label "Airline editor", bar label "Editor".
-- Order: the unidentified prefixes (first, compact), then the Airlines table, then the **Missing
-  illustrations** section. A filter bar with a search field and five wrapping chips with counts: All,
+- Order: the unidentified prefixes (first, compact), then the **Missing
+  illustrations** section, then the Airlines table. A filter bar with a search field and five wrapping chips with counts: All,
   Unidentified, Missing illustrations, Seen, Not seen yet.
 - **Unidentified prefix:** one compact row on a phone and desktop: the prefix, an example callsign,
   the count and last seen, and one **Name it** button (a sheet on a phone, a centred card on
@@ -141,7 +141,10 @@ frame). Console label "Airline editor", bar label "Editor".
   cached suggestion shows as a Suggestion tag with the proposed name in bold, an Edit link and a
   round 44px check (a real form), never blocking the Name it flow; a pending prefix says "Looking
   for a name".
-- **Missing illustrations · N:** N counts rows, one per airline x aircraft family without a picture
+- **Missing illustrations · N:** a sibling of the two tables: the same small label (`.airlines-label`,
+  13px 600, 70% ink, 16px indent) lifted above its list, no 22px heading and no caption sentence
+  (the sentence stays in the empty state); the section keeps `id="airlines-missing"` and is named
+  by the label (`aria-labelledby`); 24px between blocks. N counts rows, one per airline x aircraft family without a picture
   (a family is one of the picture slots, "Other" for rare designators). One solid list surface; each
   airline has a small header (name, prefix, "No artwork yet" or "<family> already done", "· n to
   do") and its rows: a dashed 44px slot, the family, the designators and views, and a 44px

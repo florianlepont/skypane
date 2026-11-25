@@ -285,3 +285,36 @@ def test_the_empty_state_says_everything_is_in_place(missing):
     assert "All illustrations are in place" in section and "icon-check" in section
     assert "<li" not in section
     assert "Toutes les illustrations sont en place" in html.unescape(get("fr"))
+
+
+def test_the_section_is_a_labelled_sibling_between_the_two_tables(missing):
+    _state, get = missing
+    page = get()
+    section = SECTION.search(page).group(0)
+    count = len(_items(page))
+    assert re.search(
+        r'<section class="airlines-missing" id="airlines-missing" aria-labelledby="airlines-missing-title">'
+        r'<p id="airlines-missing-title" class="airlines-label">Missing illustrations · %d</p>' % count,
+        section)
+    assert "<h2" not in section and "section-caption" not in section
+    assert "One row per airline and aircraft family" not in section
+    position = page.index('id="airlines-missing"')
+    assert position < page.index('<caption class="airlines-label">Airlines')
+    assert page.count('<caption class="airlines-label">') == 1
+
+
+def test_the_empty_state_keeps_the_caption_sentence_under_the_label(missing):
+    _state, get = missing
+    for _round in range(4):
+        rows = _items(get())
+        if not rows:
+            break
+        for row in rows:
+            action = re.search(r'airlines-act-nojs">.*?action="([^"]*)"', row, re.S).group(1)
+            _upload(get, html.unescape(action) + ("" if "default_type=" in action else "?default_type=A333"),
+                    _vendored_png())
+    section = SECTION.search(get()).group(0)
+    assert re.search(
+        r'class="airlines-label">Missing illustrations · 0</p>'
+        r'<p class="text-label section-caption">One row per airline and aircraft family still to illustrate\.</p>',
+        section)

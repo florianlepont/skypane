@@ -1108,19 +1108,24 @@ dialog.modal .airlines-remove {
   }
 }
 
-/* The section of missing illustrations: one list on a solid surface, a small
- * header per airline (name, prefix, state, the "..." menu of an airline with no
- * row in the table) and one row per aircraft family to illustrate. The list does
- * not clip its children: the menu panel opens over the rows below. */
+/* The section of missing illustrations: a sibling of the tables above and
+ * below it, with the same small label lifted above one list on a solid
+ * surface, a small header per airline (name, prefix, state, the "..." menu of
+ * an airline with no row in the table) and one row per aircraft family to
+ * illustrate. The list does not clip its children: the menu panel opens over
+ * the rows below. */
 .airlines-missing {
-  margin: calc(var(--space-lg) + var(--space-md)) 0 var(--space-md);
+  position: relative;
+  margin: 0 0 var(--space-lg);
+  padding-top: calc(var(--font-caption-size) * 1.4 + 6px);
 }
 
-.airlines-missing__title {
-  margin: 0 0 var(--space-xs);
+.airlines-missing > .airlines-label {
+  top: 0;
+  bottom: auto;
 }
 
-.airlines-missing__title + .section-caption {
+.airlines-missing > .section-caption {
   margin: 0 0 var(--space-md);
 }
 
