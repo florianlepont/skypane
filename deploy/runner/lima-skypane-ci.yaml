@@ -1,0 +1,62 @@
+# SkyPane CI runner VM (Lima). One VM per runner slot:
+#   limactl start --name=skypane-ci-1 deploy/runner/lima-skypane-ci.yaml
+# Edit cpus, memory and disk to what the Mac can spare per runner.
+#
+# Isolation: no host folder is mounted, no port or agent is forwarded, and
+# no Docker socket reaches macOS. Docker runs inside the VM only. Jobs run
+# as the unprivileged `runner` user.
+
+# Ubuntu LTS cloud image with an entry per architecture; Lima picks the one
+# matching the Mac. Verify the digest on the Ubuntu image page before use.
+images:
+  - location: "https://cloud-images.ubuntu.com/releases/26.04/release/ubuntu-26.04-server-cloudimg-arm64.img"
+    arch: "aarch64"
+  - location: "https://cloud-images.ubuntu.com/releases/26.04/release/ubuntu-26.04-server-cloudimg-amd64.img"
+    arch: "x86_64"
+
+cpus: 2
+memory: "6GiB"
+disk: "60GiB"
+
+# No host mounts: a job cannot read or write anything on the Mac.
+mounts: []
+
+containerd:
+  system: false
+  user: false
+
+# Nothing the VM listens on is reachable from the Mac.
+portForwards:
+  - guestIPv4: "0.0.0.0"
+    guestPortRange: [1, 65535]
+    ignore: true
+
+ssh:
+  forwardAgent: false
+  loadDotSsh: false
+
+provision:
+  - mode: system
+    script: |
+      #!/bin/bash
+      set -eux -o pipefail
+      export DEBIAN_FRONTEND=noninteractive
+      apt-get update
+      # Distro packages only. The package names that Playwright's headless
+      # shell needs differ between Ubuntu releases; compare this list with
+      # `python -m playwright install-deps --dry-run chromium` run from a
+      # checkout and extend it if the dry run names a missing package.
+      apt-get install -y --no-install-recommends \
+        ca-certificates curl git shellcheck systemd docker.io \
+        python3.14 python3.14-venv \
+        fonts-liberation fonts-noto-color-emoji fonts-unifont fonts-freefont-ttf \
+        libasound2t64 libatk-bridge2.0-0t64 libatk1.0-0t64 libcups2t64 \
+        libdbus-1-3 libdrm2 libgbm1 libglib2.0-0t64 libnspr4 libnss3 \
+        libpango-1.0-0 libx11-6 libxcb1 libxcomposite1 libxdamage1 \
+        libxext6 libxfixes3 libxkbcommon0 libxrandr2
+      # The job user: an unprivileged account with no sudo. Membership
+      # of the docker group is root-equivalent inside this VM only, which is
+      # the VM's whole purpose; it reaches nothing on the Mac.
+      id runner >/dev/null 2>&1 || useradd --create-home --shell /bin/bash runner
+      usermod -aG docker runner
+      install -d -o runner -g runner /home/runner/actions-runner

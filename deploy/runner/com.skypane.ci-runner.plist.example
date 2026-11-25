@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  SkyPane CI runner LaunchAgent, one copy per runner slot.
+
+  Copy this file to ~/Library/LaunchAgents/com.skypane.ci-runner.1.plist
+  (then .2, .3, .4), and in each copy replace every @PLACEHOLDER@:
+    @INDEX@      the slot number (1..4); also change the Label to match
+    @REPO@       owner/name of the repository
+    @LOOP_PATH@  absolute path of deploy/runner/skypane-runner-loop.sh
+    @HOME@       absolute path of your home folder
+  Plist values are never tilde-expanded by launchd. The VM for slot N is
+  named skypane-ci-N. Nothing secret belongs in this file: the loop reads
+  the token from the Keychain.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.skypane.ci-runner.@INDEX@</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>@LOOP_PATH@</string>
+    </array>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+        <key>SKYPANE_RUNNER_REPO</key>
+        <string>@REPO@</string>
+        <key>SKYPANE_RUNNER_INDEX</key>
+        <string>@INDEX@</string>
+        <key>SKYPANE_RUNNER_VM</key>
+        <string>skypane-ci-@INDEX@</string>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>ThrottleInterval</key>
+    <integer>30</integer>
+
+    <key>StandardOutPath</key>
+    <string>@HOME@/Library/Logs/skypane-ci-runner/runner-@INDEX@.log</string>
+    <key>StandardErrorPath</key>
+    <string>@HOME@/Library/Logs/skypane-ci-runner/runner-@INDEX@.log</string>
+</dict>
+</plist>

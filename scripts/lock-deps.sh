@@ -18,8 +18,12 @@ if ! command -v uv >/dev/null 2>&1; then
     exit 1
 fi
 
-# Both production (OVH VPS, Ubuntu 26.04) and CI (ubuntu-latest) are
+# Production (OVH VPS, Ubuntu 26.04) and hosted CI (ubuntu-latest) are
 # x86_64 Linux on Python 3.14, so one manylinux_2_28 target covers both.
+# The lock also carries linux aarch64 wheels (checked with `pip download
+# --only-binary=:all: --platform manylinux_2_28_aarch64 --python-version 3.14
+# --require-hashes -r server/requirements-dev.txt`), so an Apple-Silicon
+# Linux VM installs it unchanged; production stays x86_64.
 # If a future uv rejects that platform tag, fall back to the coarser
 # "linux" value (--python-platform linux).
 

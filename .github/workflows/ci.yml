@@ -1,5 +1,12 @@
 # SkyPane — CI pipeline.
 #
+# Runner: every job runs on the runner named by the repository variable
+# CI_RUNS_ON (a JSON value such as ["self-hosted","skypane-ci"]); unset means
+# GitHub-hosted ubuntu-latest. The hosted fallback is `gh variable delete
+# CI_RUNS_ON`. Every code change runs every shard because the gates in
+# scripts/ci_gates.py need the whole suite; docs-only changes are skipped by
+# the paths filter below.
+#
 # Every push and PR runs these jobs in parallel on Python 3.14 (matches
 # production), then one aggregate job:
 #   static        ruff, comment-history guard, mypy, function-size gate,
@@ -66,7 +73,10 @@ env:
 jobs:
   static:
     name: Static checks
-    runs-on: ubuntu-latest
+    # A pull request from a fork never reaches a self-hosted runner. The
+    # skipped job makes the `test` aggregate fail, which is intended.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ${{ fromJSON(vars.CI_RUNS_ON || '"ubuntu-latest"') }}
     timeout-minutes: 15
     # One group per job so a PR push cancels every in-flight job of the
     # previous push but the jobs never cancel each other.
@@ -79,10 +89,29 @@ jobs:
 
       - name: Set up Python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        if: runner.environment == 'github-hosted'
         with:
           python-version: '3.14'
           cache: pip
           cache-dependency-path: server/requirements*.txt
+
+      - name: Use the distro Python 3.14 (self-hosted)
+        # The VM image ships distro python3.14, so setup-python's tool-cache
+        # download (which may not exist for the VM's OS or architecture) is
+        # not used there; the pip cache is simply absent on that runner.
+        if: runner.environment == 'self-hosted'
+        run: |
+          set -euo pipefail
+          version="$(python3.14 --version)"
+          case "${version}" in
+            "Python 3.14."*) ;;
+            *) echo "::error::expected Python 3.14, got '${version}'"; exit 1 ;;
+          esac
+          bindir="${RUNNER_TEMP}/python-bin"
+          mkdir -p "${bindir}"
+          ln -sf "$(command -v python3.14)" "${bindir}/python"
+          ln -sf "$(command -v python3.14)" "${bindir}/python3"
+          echo "${bindir}" >> "$GITHUB_PATH"
 
       - name: Print resolved Python version
         run: python3 --version
@@ -135,7 +164,10 @@ jobs:
 
   tests-core:
     name: Tests (non-browser) ${{ matrix.shard }}
-    runs-on: ubuntu-latest
+    # A pull request from a fork never reaches a self-hosted runner. The
+    # skipped job makes the `test` aggregate fail, which is intended.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ${{ fromJSON(vars.CI_RUNS_ON || '"ubuntu-latest"') }}
     timeout-minutes: 20
     strategy:
       # A failing shard must not hide the others' results.
@@ -151,10 +183,29 @@ jobs:
 
       - name: Set up Python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        if: runner.environment == 'github-hosted'
         with:
           python-version: '3.14'
           cache: pip
           cache-dependency-path: server/requirements*.txt
+
+      - name: Use the distro Python 3.14 (self-hosted)
+        # The VM image ships distro python3.14, so setup-python's tool-cache
+        # download (which may not exist for the VM's OS or architecture) is
+        # not used there; the pip cache is simply absent on that runner.
+        if: runner.environment == 'self-hosted'
+        run: |
+          set -euo pipefail
+          version="$(python3.14 --version)"
+          case "${version}" in
+            "Python 3.14."*) ;;
+            *) echo "::error::expected Python 3.14, got '${version}'"; exit 1 ;;
+          esac
+          bindir="${RUNNER_TEMP}/python-bin"
+          mkdir -p "${bindir}"
+          ln -sf "$(command -v python3.14)" "${bindir}/python"
+          ln -sf "$(command -v python3.14)" "${bindir}/python3"
+          echo "${bindir}" >> "$GITHUB_PATH"
 
       - name: Print resolved Python version
         run: python3 --version
@@ -195,7 +246,10 @@ jobs:
 
   tests-browser:
     name: Tests (browser) ${{ matrix.shard }}
-    runs-on: ubuntu-latest
+    # A pull request from a fork never reaches a self-hosted runner. The
+    # skipped job makes the `test` aggregate fail, which is intended.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ${{ fromJSON(vars.CI_RUNS_ON || '"ubuntu-latest"') }}
     timeout-minutes: 20
     strategy:
       fail-fast: false
@@ -210,10 +264,29 @@ jobs:
 
       - name: Set up Python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        if: runner.environment == 'github-hosted'
         with:
           python-version: '3.14'
           cache: pip
           cache-dependency-path: server/requirements*.txt
+
+      - name: Use the distro Python 3.14 (self-hosted)
+        # The VM image ships distro python3.14, so setup-python's tool-cache
+        # download (which may not exist for the VM's OS or architecture) is
+        # not used there; the pip cache is simply absent on that runner.
+        if: runner.environment == 'self-hosted'
+        run: |
+          set -euo pipefail
+          version="$(python3.14 --version)"
+          case "${version}" in
+            "Python 3.14."*) ;;
+            *) echo "::error::expected Python 3.14, got '${version}'"; exit 1 ;;
+          esac
+          bindir="${RUNNER_TEMP}/python-bin"
+          mkdir -p "${bindir}"
+          ln -sf "$(command -v python3.14)" "${bindir}/python"
+          ln -sf "$(command -v python3.14)" "${bindir}/python3"
+          echo "${bindir}" >> "$GITHUB_PATH"
 
       - name: Print resolved Python version
         run: python3 --version
@@ -239,6 +312,7 @@ jobs:
           key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}-headless-shell
 
       - name: Read the runner image version
+        if: runner.environment == 'github-hosted'
         id: image
         run: echo "version=${ImageVersion:-unknown}" >> "$GITHUB_OUTPUT"
 
@@ -250,6 +324,7 @@ jobs:
         # and put back in apt's archive directory before the install, so apt
         # finds them instead of downloading. The same packages are still
         # installed; a package whose version changed is downloaded as before.
+        if: runner.environment == 'github-hosted'
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/apt-debs
@@ -259,6 +334,7 @@ jobs:
         # --only-shell installs just the headless shell binary the browser
         # tests launch (headless by default), not full Chromium; --with-deps
         # still installs the OS packages every run.
+        if: runner.environment == 'github-hosted'
         run: |
           set -euo pipefail
           if compgen -G "${HOME}/apt-debs/*.deb" > /dev/null; then
@@ -273,6 +349,11 @@ jobs:
             cp "${deb}" "${HOME}/apt-debs/"
           done
           ls -l "${HOME}/apt-debs"
+
+      - name: Install the Chromium headless shell (self-hosted)
+        # The operating-system packages are part of the VM image.
+        if: runner.environment == 'self-hosted'
+        run: server/.venv/bin/python -m playwright install --only-shell chromium
 
       - name: Run the browser test files
         # SKYPANE_REQUIRE_BROWSER: a browser test that cannot launch
@@ -306,7 +387,7 @@ jobs:
     # not leave it skipped, because the deploy workflow requires this check
     # to be green.
     if: ${{ always() }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(vars.CI_RUNS_ON || '"ubuntu-latest"') }}
     timeout-minutes: 15
     concurrency:
       group: test-${{ github.ref }}
@@ -332,10 +413,29 @@ jobs:
 
       - name: Set up Python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        if: runner.environment == 'github-hosted'
         with:
           python-version: '3.14'
           cache: pip
           cache-dependency-path: server/requirements*.txt
+
+      - name: Use the distro Python 3.14 (self-hosted)
+        # The VM image ships distro python3.14, so setup-python's tool-cache
+        # download (which may not exist for the VM's OS or architecture) is
+        # not used there; the pip cache is simply absent on that runner.
+        if: runner.environment == 'self-hosted'
+        run: |
+          set -euo pipefail
+          version="$(python3.14 --version)"
+          case "${version}" in
+            "Python 3.14."*) ;;
+            *) echo "::error::expected Python 3.14, got '${version}'"; exit 1 ;;
+          esac
+          bindir="${RUNNER_TEMP}/python-bin"
+          mkdir -p "${bindir}"
+          ln -sf "$(command -v python3.14)" "${bindir}/python"
+          ln -sf "$(command -v python3.14)" "${bindir}/python3"
+          echo "${bindir}" >> "$GITHUB_PATH"
 
       - name: Print resolved Python version
         run: python3 --version

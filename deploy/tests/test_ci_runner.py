@@ -1,0 +1,99 @@
+"""deploy/tests/test_ci_runner.py -- the CI workflows are runner-agnostic.
+
+Text scan, no YAML parser (same discipline as test_ci_secrets.py): jobs pick
+their runner from the repository variable CI_RUNS_ON with a GitHub-hosted
+default, steps needing sudo or apt run only on hosted runners, a fork pull
+request never reaches a self-hosted runner, and nothing that makes the suite
+run less than whole was added.
+"""
+
+import re
+from pathlib import Path
+
+_ROOT = Path(__file__).resolve().parent.parent.parent
+_WORKFLOWS = _ROOT / ".github" / "workflows"
+_CI = (_WORKFLOWS / "ci.yml").read_text()
+_FIRMWARE = (_WORKFLOWS / "firmware.yml").read_text()
+
+_RUNS_ON = "runs-on: ${{ fromJSON(vars.CI_RUNS_ON || '\"ubuntu-latest\"') }}"
+_HOSTED = "if: runner.environment == 'github-hosted'"
+_SELF_HOSTED = "if: runner.environment == 'self-hosted'"
+
+
+def _steps(text):
+    """Split a workflow into step blocks (text from one `- name:` to the next)."""
+    parts = re.split(r"(?m)^(?=      - name: )", text)
+    return [p for p in parts if p.startswith("      - name: ")]
+
+
+def _step_named(text, name):
+    for step in _steps(text):
+        if step.startswith(f"      - name: {name}\n"):
+            return step
+    raise AssertionError(f"no step named {name!r}")
+
+
+def test_every_ci_and_firmware_job_reads_runner_from_variable():
+    assert _CI.count(_RUNS_ON) == 4
+    assert _FIRMWARE.count(_RUNS_ON) == 3
+    assert "runs-on: ubuntu-latest" not in _CI
+    assert "runs-on: ubuntu-latest" not in _FIRMWARE
+
+
+def test_workflows_that_must_work_with_the_mac_off_stay_hosted():
+    for name in ("firmware-chain-check.yml", "firmware-release.yml", "deploy.yml"):
+        text = (_WORKFLOWS / name).read_text()
+        assert "runs-on: ubuntu-latest" in text, name
+        assert "CI_RUNS_ON" not in text, name
+
+
+def test_no_workflow_uses_pull_request_target():
+    for path in _WORKFLOWS.glob("*.yml"):
+        assert "pull_request_target" not in path.read_text(), path.name
+
+
+def test_sudo_and_apt_steps_run_on_hosted_runners_only():
+    for step in _steps(_CI):
+        if re.search(r"\bsudo\b|--with-deps", step):
+            assert _HOSTED in step, step.splitlines()[0]
+
+
+def test_setup_python_is_hosted_only_and_followed_by_a_distro_check():
+    assert _CI.count("actions/setup-python") == 4
+    assert _CI.count("Use the distro Python 3.14 (self-hosted)") == 4
+    lines = _CI.splitlines()
+    for i, line in enumerate(lines):
+        if "actions/setup-python" in line:
+            assert _HOSTED in "\n".join(lines[i + 1 : i + 3])
+    for step in _steps(_CI):
+        if step.startswith("      - name: Use the distro Python 3.14 (self-hosted)"):
+            assert _SELF_HOSTED in step
+            assert "python3.14 --version" in step
+            assert "GITHUB_PATH" in step
+
+
+def test_browser_job_installs_chromium_without_apt_on_self_hosted():
+    step = _step_named(_CI, "Install the Chromium headless shell (self-hosted)")
+    assert _SELF_HOSTED in step
+    assert "playwright install --only-shell chromium" in step
+    assert "--with-deps" not in step
+
+
+def test_pull_requests_from_forks_never_reach_the_runner():
+    guard = (
+        "if: github.event_name != 'pull_request' || "
+        "github.event.pull_request.head.repo.full_name == github.repository"
+    )
+    for job in ("static", "tests-core", "tests-browser"):
+        block = re.search(rf"(?ms)^  {job}:\n(.*?)^    steps:", _CI).group(1)
+        assert guard in block, job
+
+
+def test_no_test_is_skipped_by_path_or_weakened():
+    assert "ci_shards.py check" in _CI
+    assert "ci_gates.py" in _CI
+    assert "Combine coverage and apply the coverage floor" in _CI
+    assert "Check test totals (no failures, executed floor, skipped ceiling)" in _CI
+    assert "- '!**/*.md'" in _CI
+    assert "- '!.planning/**'" in _CI
+    assert "changes:" not in _CI

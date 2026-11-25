@@ -28,7 +28,7 @@ permissions:
 jobs:
   host-tests:
     name: Firmware host tests (hardware-free)
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(vars.CI_RUNS_ON || '"ubuntu-latest"') }}
     timeout-minutes: 5
     steps:
       - name: Check out repository
@@ -44,7 +44,7 @@ jobs:
 
   build:
     name: Build EE02 firmware image
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(vars.CI_RUNS_ON || '"ubuntu-latest"') }}
     timeout-minutes: 30
     steps:
       - name: Check out repository
@@ -83,7 +83,7 @@ jobs:
 
   build-second:
     name: Build second-board firmware image
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(vars.CI_RUNS_ON || '"ubuntu-latest"') }}
     timeout-minutes: 30
     steps:
       - name: Check out repository
