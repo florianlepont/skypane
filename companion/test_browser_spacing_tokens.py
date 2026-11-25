@@ -180,14 +180,21 @@ def server(module_app_server_factory):
     return module_app_server_factory(seed=seed_state_dir, fake_providers=True)
 
 
-def _open(new_context, server, route, lang="en", theme=None, reduced_motion=None):
+_FINISH_FINITE_ANIMATIONS = """() => Promise.all(document.getAnimations()
+  .filter((a) => a.effect && a.effect.getComputedTiming().iterations !== Infinity)
+  .map((a) => a.finished.catch(() => null)))"""
+
+
+def _open(new_context, server, route, lang="en", theme=None, reduced_motion="reduce"):
     """A signed-in 360px page on `route` in `lang`, in an explicit theme when `theme` is given.
 
-    Reduced motion is the default only without a theme: with it the shell's 0.01ms transitions
-    still start one, so `_set_ui_theme` would read the colour from before the switch."""
-    if reduced_motion is None:
-        reduced_motion = "reduce" if theme is None else "no-preference"
-    context = new_context(viewport=VIEWPORT_MIN_SUPPORTED, reduced_motion=reduced_motion)
+    The theme is switched with motion on: under reduced motion the shell's 0.01ms transitions
+    still start one, so `_set_ui_theme` would read the colour from before the switch. Reduced
+    motion is emulated once the theme has been set, and every finite animation and transition
+    is allowed to finish before anything is measured."""
+    context = new_context(
+        viewport=VIEWPORT_MIN_SUPPORTED,
+        reduced_motion="no-preference" if theme is not None else reduced_motion)
     page = context.new_page()
     _login(page, server.base_url())
     context.add_cookies([
@@ -196,6 +203,8 @@ def _open(new_context, server, route, lang="en", theme=None, reduced_motion=None
     page.wait_for_function("() => document.readyState === 'complete'", timeout=15000)
     if theme is not None:
         _set_ui_theme(page, theme)
+        page.emulate_media(reduced_motion=reduced_motion)
+    page.evaluate(_FINISH_FINITE_ANIMATIONS)
     return context, page
 
 
