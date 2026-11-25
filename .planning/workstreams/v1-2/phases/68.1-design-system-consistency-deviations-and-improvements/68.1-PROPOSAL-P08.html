@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>P08 Account version line</title>
+<style>
+:root{
+  --space-xs:4px;--space-sm:8px;--space-md:16px;--space-lg:24px;--space-xl:32px;--space-2xl:48px;
+  --radius-control:14px;--radius-card:22px;--radius-sheet:28px;--radius-pill:32px;
+  --font-caption-size:13px;--font-label-size:15px;--font-body-size:16px;--font-heading-size:22px;--font-card-title-size:17px;
+  --ease-out:cubic-bezier(.22,1,.36,1);--motion-spring:cubic-bezier(.34,1.56,.64,1);
+  --motion-fast:180ms;--motion-enter:400ms;--motion-reveal:900ms;
+}
+.t-light{
+  --sky-top:#E7EEF7;--sky-mid:#F1F3F6;--sky-bottom:#EDF1F6;
+  --glass-bg:rgba(255,255,255,.72);--glass-border:rgba(255,255,255,.85);--glass-highlight:rgba(255,255,255,.9);--glass-solid:#FFFFFF;
+  --glass-hairline:rgba(23,25,31,.1);
+  --shadow-glass:inset 0 1px 0 var(--glass-highlight),0 1px 2px rgba(18,21,27,.06),0 14px 32px -16px rgba(18,21,27,.22);
+  --bar-bg:rgba(255,255,255,.66);--bar-border:#AEB8C8;
+  --color-canvas:#F1F3F6;--color-secondary:#E9EEF5;--color-border:#DAE1EB;
+  --color-accent:#1F2430;--color-on-accent:#FFFFFF;--color-text:#17191F;
+  --color-status-ok:#16A34A;--color-status-warn:#D97706;--color-status-error:#BE123C;
+  --color-control-wash:rgba(23,25,31,.045);--seg-edge:rgba(23,25,31,.2);
+  color-scheme:light}
+.t-dark{
+  --sky-top:#12151D;--sky-mid:#161A24;--sky-bottom:#1A1F2B;
+  --glass-bg:rgba(255,255,255,.09);--glass-border:rgba(255,255,255,.16);--glass-highlight:rgba(255,255,255,.18);--glass-solid:#1C222D;
+  --glass-hairline:rgba(255,255,255,.1);
+  --shadow-glass:inset 0 1px 0 var(--glass-highlight),0 1px 2px rgba(0,0,0,.3),0 14px 32px -16px rgba(0,0,0,.55);
+  --bar-bg:rgba(20,24,34,.86);--bar-border:#46506A;
+  --color-canvas:#161A24;--color-secondary:#1C222D;--color-border:#2A3040;
+  --color-accent:#F2EFE9;--color-on-accent:#14171F;--color-text:#F1F3F6;
+  --color-status-ok:#4ADE80;--color-status-warn:#FBBF24;--color-status-error:#FB7185;
+  --color-control-wash:rgba(23,25,31,.045);--seg-edge:rgba(241,243,246,.2);
+  color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:#E4E9F0;color:#17191F;font:16px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif;padding:24px 16px 64px}
+header.doc{max-width:1500px;margin:0 auto 24px}
+header.doc h1{margin:0 0 8px;font-size:26px;letter-spacing:-.02em}
+header.doc p{margin:0 0 6px;max-width:80ch;color:#4A5160;font-size:15px}
+.stage{display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start;max-width:1500px;margin:0 auto}
+figure{margin:0}
+figcaption{font-size:13px;color:#4A5160;margin:0 0 8px}
+.phone{position:relative;width:360px;min-height:640px;overflow:hidden;border-radius:28px;border:1px solid var(--color-border);
+  background:linear-gradient(180deg,var(--sky-top) 0%,var(--sky-mid) 45%,var(--sky-bottom) 100%);
+  color:var(--color-text);padding:16px 16px 96px}
+.wide{width:min(760px,100%)}
+.phone h1{margin:8px 0 16px;font-size:32px;line-height:1.1;font-weight:700;letter-spacing:-.03em}
+.phone h2{margin:0 0 8px;font-size:22px;font-weight:600}
+.phone h3{margin:0;font-size:17px;font-weight:600}
+.cap{font-size:13px;color:color-mix(in srgb,var(--color-text) 70%,transparent)}
+.sec{font-size:15px;color:color-mix(in srgb,var(--color-text) 70%,transparent)}
+.glass{background:var(--glass-bg);border:1px solid var(--glass-border);box-shadow:var(--shadow-glass);border-radius:var(--radius-card);padding:16px;margin-bottom:16px}
+.btn{min-height:44px;padding:0 16px;border-radius:var(--radius-control);border:1px solid var(--color-border);background:var(--glass-solid);color:var(--color-text);font:inherit;font-size:15px;cursor:pointer}
+.btn.pri{background:var(--color-accent);color:var(--color-on-accent);border-color:transparent;font-weight:600}
+.btn.bad{color:var(--color-status-error)}
+.row{display:flex;align-items:center;gap:12px;min-height:44px}
+.grow{flex:1;min-width:0}
+.pill{display:inline-flex;align-items:center;min-height:32px;padding:0 12px;border-radius:var(--radius-pill);background:var(--glass-bg);border:1px solid var(--glass-border);font-size:13px}
+.seg{display:flex;gap:4px;padding:4px;border:1px solid var(--seg-edge);border-radius:var(--radius-pill);margin-bottom:16px}
+.seg span{flex:1;min-height:36px;display:flex;align-items:center;justify-content:center;border-radius:var(--radius-pill);font-size:15px;color:color-mix(in srgb,var(--color-text) 70%,transparent)}
+.seg span.on{background:var(--color-accent);color:var(--color-on-accent);font-weight:600}
+input.f{width:100%;min-height:44px;border-radius:var(--radius-control);border:1px solid var(--color-border);background:var(--glass-solid);color:var(--color-text);font:inherit;padding:0 12px}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--color-status-ok);flex:none}
+.tabbar{position:absolute;left:8px;right:8px;bottom:6px;height:68px;border-radius:var(--radius-pill);background:var(--bar-bg);border:1px solid var(--bar-border);display:flex}
+.tabbar span{flex:1;display:flex;align-items:flex-end;justify-content:center;padding-bottom:8px;font-size:11px;color:color-mix(in srgb,var(--color-text) 70%,transparent)}
+.tabbar span.on{color:var(--color-text);font-weight:600}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+a.lnk{color:var(--color-text);text-decoration:underline}
+.scrim{position:absolute;inset:0;background:rgba(10,12,18,.45)}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:var(--glass-solid);border-radius:var(--radius-sheet) var(--radius-sheet) 0 0;padding:16px;box-shadow:0 -10px 28px -12px rgba(18,21,27,.4)}
+.sheet .grab{width:36px;height:4px;border-radius:2px;background:var(--color-border);margin:0 auto 12px}
+</style>
+<header class="doc"><h1>P08 Account version line</h1><p>Owner note: the Account page shows the version. One quiet caption at the bottom (13px, secondary ink, no uppercase, no mid-dot string), a 44px+ tap area that copies it for a support request (the copy confirmation is P14).</p><p>Standalone review mockup (Phase 68.1 proposal). Sample data is invented. Nothing here is built; tokens are copied from companion/static/style.css.</p></header>
+<div class="stage">
+<figure><figcaption>Light EN</figcaption><div class="phone t-light "><h1>Account</h1><div class="glass"><h3>alice@example.test</h3><div class="cap">My frames: 2</div></div><button class="btn" style="width:100%;text-align:left;background:transparent;border-color:transparent;min-height:56px"><div class="cap">SkyPane 1.2.0, build 3f9c1ab</div><div class="cap">Tap to copy for support</div></button><div class="tabbar"><span>Home</span><span>Flights</span><span>Airlines</span><span>Place</span><span class="on">More</span></div></div></figure>
+<figure><figcaption>Dark FR</figcaption><div class="phone t-dark "><h1>Compte</h1><div class="glass"><h3>alice@example.test</h3><div class="cap">My frames: 2</div></div><button class="btn" style="width:100%;text-align:left;background:transparent;border-color:transparent;min-height:56px"><div class="cap">SkyPane 1.2.0, version 3f9c1ab</div><div class="cap">Touchez pour copier (support)</div></button><div class="tabbar"><span>Home</span><span>Flights</span><span>Airlines</span><span>Place</span><span class="on">More</span></div></div></figure>
+</div>
