@@ -5,7 +5,7 @@ description: The companion web app's current design system — colour and contra
 
 # SkyPane companion design system
 
-**As of:** 2026-11-25, checked against the code of origin/main `c0f57e3b` (after the Fleet neutral detail pane, the Editor illustration buttons and the Editor missing-illustrations label).
+**As of:** 2026-11-25, checked against the code of origin/main `ef229d21` plus the spacing and radius tokens (`--space-6/10/12/14`, `--radius-8/10/12`).
 `.planning/workstreams/v1-2/ROADMAP.md` is the live record of plan status.
 
 **Keeping it current.** This skill is not updated automatically. Any PR that changes companion CSS

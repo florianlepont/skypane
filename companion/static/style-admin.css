@@ -819,7 +819,7 @@ div.update-item__summary {
   align-items: center;
   gap: var(--space-sm);
   min-height: 32px;
-  padding: 3px 14px 3px 8px;
+  padding: 3px var(--space-14) 3px var(--space-sm);
   border: 1px solid var(--color-border);
   border-radius: 16px;
   background: var(--color-secondary);
@@ -921,7 +921,7 @@ div.update-item__summary {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: var(--space-6);
   box-sizing: border-box;
   min-height: 192px;
   padding: var(--space-md);
@@ -937,7 +937,7 @@ div.update-item__summary {
 .battery-chart__empty b {
   padding: 0 var(--space-sm);
   background: var(--color-dominant);
-  border-radius: 8px;
+  border-radius: var(--radius-8);
   color: var(--color-text);
   font-weight: var(--weight-semibold);
 }
@@ -945,7 +945,7 @@ div.update-item__summary {
 .battery-chart__empty span {
   padding: 0 var(--space-sm);
   background: var(--color-dominant);
-  border-radius: 8px;
+  border-radius: var(--radius-8);
 }
 
 .battery-chart__empty .icon {
@@ -1270,7 +1270,7 @@ a.pair-link--primary:hover {
 .pair-card__help {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
+  gap: var(--space-10);
   padding: var(--space-sm) var(--space-md);
   border-top: 1px solid var(--glass-hairline);
   background: color-mix(in srgb, var(--color-text) 4%, transparent);
@@ -1313,9 +1313,9 @@ a.pair-link--primary:hover {
 .pair-alert {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
-  margin: 10px 0;
-  padding: 12px var(--space-md);
+  gap: var(--space-12);
+  margin: var(--space-10) 0;
+  padding: var(--space-12) var(--space-md);
   border: 1px solid color-mix(in srgb, var(--color-status-error) 35%, transparent);
   border-radius: var(--radius-control);
   background: color-mix(in srgb, var(--color-status-error) 10%, transparent);
@@ -1744,7 +1744,7 @@ a.row-action {
 .users-cell--menu .row-menu__item {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-10);
   white-space: nowrap;
   overflow-wrap: normal;
 }
@@ -2659,7 +2659,7 @@ a.fleet-action-button {
   gap: var(--space-sm);
   box-sizing: border-box;
   min-height: 44px;
-  padding: 0 14px;
+  padding: 0 var(--space-14);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-pill);
   background: var(--glass-solid);
@@ -2702,7 +2702,7 @@ a.fleet-action-button {
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-sm);
-  margin: 6px 0 0;
+  margin: var(--space-6) 0 0;
   font-weight: var(--weight-semibold);
 }
 
@@ -3367,7 +3367,7 @@ a.fleet-action-button {
 .modal__effect {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
+  gap: var(--space-10);
   min-height: 44px;
   padding: var(--space-xs) 0;
 }

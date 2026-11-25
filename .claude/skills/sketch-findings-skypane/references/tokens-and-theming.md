@@ -112,7 +112,10 @@ Rules:
 `--radius-control` 14px (buttons, inputs, tracks), `--radius-card` 22px (groups, cards,
 tables), `--radius-sheet` 28px (top corners of phone sheets and dialogs), `--radius-pill`
 32px (pills, switches, floating bars), `--radius-chip` 9px (the 32px icon chip in a row),
-`--radius-frame-pic` 5px (the drawn portrait frame, never a capsule). Circles use 50%.
+`--radius-frame-pic` 5px (the drawn portrait frame, never a capsule). Three small component radii
+are named by their pixel value: `--radius-8` (check box, empty-state labels), `--radius-10` (Airlines tips,
+the code popover, the gap prefix, icon hover), `--radius-12` (thumbnails, missing-illustration slots).
+Circles use 50%. All radius tokens are theme-free: declared once in `:root`.
 
 ## Type
 
@@ -149,7 +152,10 @@ tabular numerals); mono is for identifiers.
 
 ## Spacing, layout
 
-Spacing tokens `--space-xs..3xl` = 4, 8, 16, 24, 32, 48, 64px. Sibling-card gap
+Spacing tokens `--space-xs..3xl` = 4, 8, 16, 24, 32, 48, 64px, plus four in-between steps named by
+their pixel value, because the t-shirt scale has no free step between its values: `--space-6`,
+`--space-10`, `--space-12`, `--space-14` (6, 10, 12, 14px, for dense chips, pills, menu rows, toast and
+modal fields). All spacing tokens are theme-free: declared once in `:root`. Sibling-card gap
 `--space-lg`. Minimum width 360px (320px is out of contract; keep the 320px tab-bar fit
 that is measured). Breakpoints: phone below 960px (`959.98px` in media queries), desktop
 from 960px; also `700px`, `70rem` (Airlines and list sheets), `79.5rem` (Users table). Further
@@ -157,8 +163,8 @@ component-local queries exist: 600px (`599.98px`), 1000px, 1200px (`1199px`), 12
 (`479.98px`), `379.98px`, `359.98px`, `40rem`, `30rem`, `29rem`, `26rem`, `23.75rem`; the 959px /
 959.98px and 699px / 699.98px pairs are one boundary written two ways.
 
-Spacing is token-first, not token-only: of 152 spacing literals above 3px, 23 equal a token, 87
-equal none (mostly 6, 10, 12, 14px) and 42 are geometry (see Known exceptions).
+Spacing is token-first, not token-only: the scan (`scan_token_bypass.py`) lists 60 spacing literals
+above 3px that stay literal (see Known exceptions); every repeated value sits on a token.
 
 Safe areas: `--safe-top/right/bottom/left` (every shell sets `viewport-fit=cover`); fixed
 bars, sheets, dialogs and toasts pad themselves with them. Floating tab bar tokens:
@@ -203,18 +209,21 @@ bar adds it too, including the Location page's floating parts. History:
 Each is a deliberate bypass of a token or rule above. A new token would widen the scale, so the
 literal stays; a change here is a visible change and belongs to a design decision.
 
-- **Radii off the scale.** 13 declarations use 6, 8, 10, 12, 16 or 18px (`style-airlines.css`,
-  `style-admin.css`, `style-home.css`, `style.css`), and the Home chart bar uses
-  `8px 8px 4px 4px`. Mapping them to 9 or 14px would move pixels. New components use the scale.
+- **Radii off the scale.** Three declarations use 6px (`.airlines-type`), 16px (`.battery-status`)
+  or 18px (`.splash__panel`), and the Home chart bar uses `8px 8px 4px 4px`. Mapping them to a
+  token would move pixels. A pill written as `999px` (`.upload-type-chip`) also stays: `--radius-pill`
+  would change its computed radius. New components use the scale.
 - **Font sizes with no token.** 11, 12 and 14px text and the display numerals (24px to 56px) are
   literal: each is a one-off size for a dense label or a number that is the content of a card.
   `.fleet-chip` and `.fleet-anchor` are among them.
-- **Spacing off the scale.** The 6, 10, 12, 14px family (87 literals across `style.css`,
-  `style-admin.css`, `style-airlines.css`, `style-display.css`, `style-home.css`, `style-c-console.css`,
-  `style-c-lists.css`, `style-place.css`, plus three fleet declarations) sits between 4/8/16/24 for
-  dense rows and chips. New layout uses `--space-*`.
-- **Spacing as geometry.** 42 literals are not spacing steps: negative hit-area insets, centring
-  offsets, the 240px sidebar width, map pin sizes, the Save bar offset beside the fleet column.
+- **Spacing off the scale.** One-off values with no repeat stay literal: 5, 7, 13, 18, 20, 22, 30,
+  33, 46 and 52px (optical alignment of a picture, the table cell, the filter search input, the
+  compact modal). New layout uses `--space-*`.
+- **Spacing as geometry.** Negative hit-area insets and centring offsets (-4 to -48px), the 240px
+  sidebar width, map pin sizes, the Save bar offset beside the fleet column and every `calc()` sized
+  to a fixed width stay literal. Four `calc()` indents are the width of a dot or icon, not a step:
+  8px (`.update-item__notes`), 12px (`li.entity-row`), 14px (`.home-state__dot`) and 32px
+  (`.health-row__body`); they equal a token's value by accident and the scan reports them.
 - **Light palette copied into `style-place.css`.** 11 light-palette literals (forced light ink over the
   light OSM tiles) and 3 dark map literals duplicate values of `style.css`. A Light palette change must
   be repeated there by hand.

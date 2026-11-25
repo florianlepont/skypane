@@ -426,7 +426,7 @@ button.row-menu__item:hover {
   flex-direction: row;
   gap: var(--space-xs);
   min-height: 44px;
-  padding: 0 14px;
+  padding: 0 var(--space-14);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-pill);
   background: var(--glass-solid);
@@ -476,7 +476,7 @@ button.row-menu__item:hover {
 
   .filter-bar.filter-bar--scroll-chips .filter-chip__box {
     gap: var(--space-xs);
-    padding: 0 14px;
+    padding: 0 var(--space-14);
   }
 }
 
