@@ -998,8 +998,15 @@ def test_data_table_th_has_symmetric_nonzero_padding(css_text):
     assert len(parts) == 2, (
         "expected a two-value (vertical horizontal) padding shorthand, got %r" % (padding,))
     top_raw, _horizontal = parts
+    token = re.fullmatch(r"var\((--space-[\w-]+)\)", top_raw)
+    if token:
+        # A spacing token stands for its px value declared in :root.
+        declared = re.search(re.escape(token.group(1)) + r":\s*(\d+)px", css_text)
+        assert declared, "expected %s to be declared as a px value in :root" % token.group(1)
+        top_raw = declared.group(1) + "px"
     assert top_raw.endswith("px") and top_raw[:-2].isdigit(), (
-        "expected the top/bottom padding value to be a bare px literal, got %r" % top_raw)
+        "expected the top/bottom padding value to be a px literal or a px spacing token, got %r"
+        % top_raw)
     top_px = int(top_raw[:-2])
     assert top_px > 0, (
         "expected a non-zero top padding on .data-table th — zero top padding is the real "
