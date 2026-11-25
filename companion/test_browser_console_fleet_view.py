@@ -125,7 +125,7 @@ def test_the_phone_shows_the_list_or_a_frame_and_the_desktop_both(
         assert page.evaluate(_VISIBLE, ".fleet-list")
         assert not page.evaluate(_VISIBLE, "section.fleet-block")
         assert not page.evaluate(_VISIBLE, ".fleet-switch")
-        assert page.locator("main h1:visible").inner_text() == "Frames"
+        assert page.locator("main h1:visible").inner_text() == "Fleet"
         page.locator(".fleet-list li.fleet-frame-row > a[href='/fleet?frame=%s']" % seed.owned_id).click()
         page.wait_for_url("**/fleet?frame=%s" % seed.owned_id)
         assert not page.evaluate(_VISIBLE, ".fleet-list")
