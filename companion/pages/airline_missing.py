@@ -223,8 +223,9 @@ def group_html(page, state_dir, airline, first_number):
 
 def section_html(page, state_dir, airlines):
     """`(markup, rows)` of the section for the airlines `airlines` (dicts of
-    `group_html`, in order): the title with the number of rows, the caption and
-    the list, or the empty state when nothing is missing."""
+    `group_html`, in order): the small label with the number of rows (the
+    same label as the tables', lifted above the list) and the list, or the
+    caption sentence and the empty state when nothing is missing."""
     parts = []
     count = 0
     for airline in airlines:
@@ -233,6 +234,7 @@ def section_html(page, state_dir, airlines):
     if count:
         body = '<div class="airlines-missing__list">%s</div>' % "".join(parts)
         modifier = ""
+        caption = ""
     else:
         body = (
             '<div class="airlines-missing__empty"><span class="airlines-missing__ok" '
@@ -241,9 +243,9 @@ def section_html(page, state_dir, airlines):
         ) % (layout.icon_html("icon-check", 24), escape_html(i18n.t(EMPTY_TITLE)),
              escape_html(i18n.t(EMPTY_BODY)))
         modifier = " airlines-missing--done"
+        caption = '<p class="text-label section-caption">%s</p>' % escape_html(i18n.t(CAPTION_TEXT))
     markup = (
         '<section class="airlines-missing%s" id="airlines-missing" aria-labelledby="airlines-missing-title">'
-        '<h2 id="airlines-missing-title" class="text-heading airlines-missing__title">%s</h2>'
-        '<p class="text-label section-caption">%s</p>%s</section>'
-    ) % (modifier, escape_html(title_text(count)), escape_html(i18n.t(CAPTION_TEXT)), body)
+        '<p id="airlines-missing-title" class="airlines-label">%s</p>%s%s</section>'
+    ) % (modifier, escape_html(title_text(count)), caption, body)
     return markup, count

@@ -729,8 +729,8 @@ def _missing_entry(row, prefix, with_menu, page=None):
 
 
 def table_and_chips(data):
-    """`(markup, filter chips)` for `data`: unidentified rows first, then one
-    group per airline with artwork, then the section of missing illustrations.
+    """`(markup, filter chips)` for `data`: unidentified rows first, then the
+    section of missing illustrations, then one group per airline with artwork.
     The chips carry the count of each kind of row: the section's is its number
     of rows (one airline x aircraft family each), and "All" counts the
     unidentified prefixes, the airlines of the table and those rows."""
@@ -767,7 +767,7 @@ def table_and_chips(data):
     ) % (escape_html("%s · %d" % (i18n.t(CAPTION_TEXT), len(groups))), _head_html(), "".join(groups))
     section, rows = airline_missing.section_html(page, data.state_dir, missing)
     counts[airline_rows.KIND_MISSING] = rows
-    return gap_table + table + section, airline_rows.chips(
+    return gap_table + section + table, airline_rows.chips(
         counts, len(data.gap_rows) + len(groups) + rows)
 
 
