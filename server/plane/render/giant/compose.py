@@ -227,17 +227,14 @@ def _paint_halves(canvas: Image.Image, path: Optional[str],
     canvas height."""
     if not path:
         return
-    w, _h = canvas.size
     halo = aircraft.halo_radius(canvas.size)
     cut = aircraft.cut_fraction_for_path(path)
-    large = aircraft.load_content(path, round(w * nose_plane_frac))
-    small = aircraft.load_content(path, round(w * rear_plane_frac))
-    if large is None or small is None:
+    halves = aircraft.halves_for(canvas.size, path, cut, nose_plane_frac, rear_plane_frac,
+                                 nose_left_frac, rear_right_frac, nose_center_y_frac,
+                                 rear_bottom_y_frac)
+    if halves is None:
         return
-    nose, _ = aircraft.split_halves(
-        large, aircraft.nose_cut(canvas.size, cut, nose_plane_frac, nose_left_frac))
-    _, rear = aircraft.split_halves(
-        small, aircraft.rear_cut(canvas.size, cut, rear_plane_frac, rear_right_frac))
+    nose, rear = halves
     nose_box = aircraft.nose_half(canvas.size, nose.size, nose_center_y_frac, nose_left_frac)
     aircraft.paint_aircraft(canvas, nose, nose_box[0], nose_box[1], halo)
     rear_box = aircraft.rear_half(canvas.size, rear.size, rear_bottom_y_frac, rear_right_frac)

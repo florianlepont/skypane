@@ -188,6 +188,46 @@ def rear_half(canvas_size, rear_size, bottom_y_frac=REAR_BOTTOM_Y_FRAC, right_fr
     return (right - rear_w, top, right, top + rear_h)
 
 
+# A tall aircraft (rotor, skids) can make the two halves collide when both are
+# sized from the canvas width alone. The planes are then shrunk by this factor
+# per step, at most this many times, until the halves clear each other.
+_CLEAR_SHRINK_STEP = 0.97
+_CLEAR_MAX_STEPS = 12
+
+
+def _halves_clear(nose_box, rear_box):
+    """True when the nose and rear paste rectangles share no area."""
+    n_left, n_top, _, n_bottom = nose_box
+    _, r_top, r_right, r_bottom = rear_box
+    return r_top >= n_bottom or r_bottom <= n_top or r_right <= n_left
+
+
+def halves_for(canvas_size, path, cut, nose_plane_frac=NOSE_PLANE_WIDTH_FRAC,
+               rear_plane_frac=REAR_PLANE_WIDTH_FRAC, nose_left_frac=NOSE_LEFT_X_FRAC,
+               rear_right_frac=REAR_RIGHT_X_FRAC, nose_center_y_frac=NOSE_CENTER_Y_FRAC,
+               rear_bottom_y_frac=REAR_BOTTOM_Y_FRAC):
+    """`(nose, rear)` RGBA halves of the illustration at `path`, or `None` when
+    it cannot be loaded. Both planes start at the given width shares and are
+    shrunk together only while the halves' paste rectangles overlap, so art
+    that already clears keeps its size and tall art stays off itself."""
+    width = canvas_size[0]
+    scale = 1.0
+    nose = rear = None
+    for _ in range(_CLEAR_MAX_STEPS):
+        nose_frac, rear_frac = nose_plane_frac * scale, rear_plane_frac * scale
+        large = load_content(path, round(width * nose_frac))
+        small = load_content(path, round(width * rear_frac))
+        if large is None or small is None:
+            return None
+        nose = split_halves(large, nose_cut(canvas_size, cut, nose_frac, nose_left_frac))[0]
+        rear = split_halves(small, rear_cut(canvas_size, cut, rear_frac, rear_right_frac))[1]
+        if _halves_clear(nose_half(canvas_size, nose.size, nose_center_y_frac, nose_left_frac),
+                         rear_half(canvas_size, rear.size, rear_bottom_y_frac, rear_right_frac)):
+            break
+        scale *= _CLEAR_SHRINK_STEP
+    return nose, rear
+
+
 def whole_aircraft(box, size):
     """Size and rectangle of a whole aircraft of `size` fitted, centred,
     inside `box` `(left, top, right, bottom)` keeping its aspect ratio.

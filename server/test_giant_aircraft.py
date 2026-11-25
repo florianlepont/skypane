@@ -73,22 +73,9 @@ def test_cut_avoids_a_wide_wing_in_synthetic_art():
 FRAME_SIZES = [(1200, 1600), (800, 480)]
 
 
-def _nose(name, canvas_size):
-    path = _illustration_path(name)
-    cut = aircraft.nose_cut(canvas_size, aircraft.cut_fraction_for_path(path))
-    plane = aircraft.load_content(path, round(canvas_size[0] * aircraft.NOSE_PLANE_WIDTH_FRAC))
-    return aircraft.split_halves(plane, cut)[0]
-
-
-def _rear(name, canvas_size):
-    path = _illustration_path(name)
-    cut = aircraft.rear_cut(canvas_size, aircraft.cut_fraction_for_path(path))
-    plane = aircraft.load_content(path, round(canvas_size[0] * aircraft.REAR_PLANE_WIDTH_FRAC))
-    return aircraft.split_halves(plane, cut)[1]
-
-
 def _halves(name, canvas_size):
-    return _nose(name, canvas_size), _rear(name, canvas_size)
+    path = _illustration_path(name)
+    return aircraft.halves_for(canvas_size, path, aircraft.cut_fraction_for_path(path))
 
 
 def _palette_canvas(size):
