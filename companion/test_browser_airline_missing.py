@@ -20,7 +20,7 @@ from server.plane import illustrations, manual_resolutions
 pytestmark = pytest.mark.browser
 
 _PNG = os.path.join(illustrations.ILLUSTRATION_DIR, "vueling-airlines.png")
-_SETTLED = animation_settle.SETTLED
+_SETTLED = animation_settle.SETTLED_APART_FROM_TOASTS
 SECTION = "#airlines-missing"
 ITEM = SECTION + " .airlines-missing__item"
 DIALOG = "#panel-lookup-dialog"

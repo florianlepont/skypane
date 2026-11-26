@@ -46,7 +46,7 @@ _OWNS_CENTRE = (
     "el => { const r = el.getBoundingClientRect();"
     " const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);"
     " return !!hit && (hit === el || el.contains(hit) || hit.contains(el)); }")
-_SETTLED = animation_settle.SETTLED
+_SETTLED = animation_settle.SETTLED_APART_FROM_TOASTS
 
 
 def _seed(state_dir):
