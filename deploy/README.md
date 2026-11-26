@@ -466,9 +466,32 @@ The workflow fails (it never ends as a green skip) when it is started from
 a ref other than `main`, when `confirm_sha` is not the first 7 characters
 of the tip of `main`, when the commit is not the tip of `main`, or when the
 CI check "Lint, test, coverage, attribution" is absent or not successful
-for the commit. A docs-only tip has no CI run; pass the optional `ci_sha`
-input (the full SHA of the commit whose CI run counts) and the workflow
-accepts it if no shipped path differs between that commit and the tip.
+for the commit. A tip that touched only Markdown, `.planning`, `.claude`,
+LICENSE or 3D model files under `hardware/cad` has no CI run; pass the
+optional `ci_sha` input (the full SHA of the commit whose CI run counts)
+and the workflow accepts it if no shipped path differs between that commit
+and the tip.
+
+### Which commits start CI
+
+Every change runs the whole suite (every shard, the browser tests, the
+coverage floor, the executed-test floor and the skipped ceiling) except a
+change that touches only Markdown, `.planning`, `.claude`, LICENSE or the
+3D model files (`.stl`, `.blend`, `.glb`, `.3mf`) under `hardware/cad`;
+that starts no CI run at all. No job has a path condition, so a run that
+exists is always the whole run, and the aggregate check "Lint, test,
+coverage, attribution" reports on every run that exists.
+
+- The exclusions under `hardware/cad` are by file type: any other file
+  added there (a script, a config) runs CI.
+- Markdown files that tests read, such as `COMPLIANCE.md` and
+  `firmware/SIGNING.md`, are excluded like all Markdown, as before; only
+  `deploy/README.md` and the `VENDOR.md` files are re-included.
+- GitHub evaluates a path filter against at most the first 300 changed
+  files of a push or pull request, so a change set larger than that is
+  decided on that sample. `workflow_dispatch` starts the whole suite by
+  hand.
+- A tip with no CI run is deployed by passing `ci_sha`.
 
 Every deploy imports the published firmware releases (the `Download
 firmware releases` step), and the import is idempotent, so a firmware-only
