@@ -15,6 +15,30 @@
     return;
   }
   var RESET_MS = 1500;
+  var COPIED_CLASS = "account-build--copied";
+  var SVG_NS = "http://www.w3.org/2000/svg";
+
+  // The ink check that springs in before the copied word (the stylesheet
+  // animates it, and not at all under reduced motion). Built with DOM
+  // methods only; hidden from assistive technology because the status
+  // region announces the word.
+  function buildCheck() {
+    var svg = document.createElementNS(SVG_NS, "svg");
+    svg.setAttribute("class", "account-build__check");
+    svg.setAttribute("width", "16");
+    svg.setAttribute("height", "16");
+    svg.setAttribute("viewBox", "0 0 16 16");
+    svg.setAttribute("aria-hidden", "true");
+    svg.setAttribute("focusable", "false");
+    var path = document.createElementNS(SVG_NS, "path");
+    path.setAttribute("d", "M3 8.5l3.2 3.2L13 4.8");
+    path.setAttribute("fill", "none");
+    path.setAttribute("stroke", "currentColor");
+    path.setAttribute("stroke-width", "2");
+    path.setAttribute("stroke-linecap", "round");
+    svg.appendChild(path);
+    return svg;
+  }
 
   function fallbackCopy(value) {
     var textarea = document.createElement("textarea");
@@ -40,11 +64,14 @@
     button.setAttribute("data-copy-pending", "1");
     var original = hint.textContent;
     hint.textContent = copied;
+    hint.insertBefore(buildCheck(), hint.firstChild);
+    button.classList.add(COPIED_CLASS);
     if (status) {
       status.textContent = copied;
     }
     window.setTimeout(function () {
       hint.textContent = original;
+      button.classList.remove(COPIED_CLASS);
       if (status) {
         status.textContent = "";
       }

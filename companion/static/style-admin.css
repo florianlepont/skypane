@@ -109,6 +109,17 @@
   color: var(--color-status-ok);
 }
 
+/* The check that joins the copied word: the copy glyph gives way to it, so the
+ * button keeps one icon. It draws in the button's own ink. */
+.copy-btn__check {
+  flex: none;
+  display: block;
+}
+
+.copy-btn--copied > svg.icon {
+  display: none;
+}
+
 /* The build caption that ends Account: a quiet two-line button, at least 44px
  * high. The copied word replaces the hint line in place, in the caption's own
  * ink, so the contrast of the pair does not change. */
@@ -133,6 +144,13 @@
   text-align: left;
   text-transform: none;
   cursor: pointer;
+}
+
+.account-build .account-build__check {
+  display: inline-block;
+  vertical-align: -3px;
+  margin-inline-end: var(--space-xs);
+  color: var(--color-text);
 }
 
 .account-build:hover {

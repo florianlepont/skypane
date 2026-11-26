@@ -26,6 +26,37 @@
   // The visible-confirmation window for the on-button feedback swap.
   var FEEDBACK_RESET_MS = 1500;
   var COPIED_CLASS = "copy-btn--copied";
+  var CHECK_CLASS = "copy-btn__check";
+  var SVG_NS = "http://www.w3.org/2000/svg";
+
+  // The ink check that springs in beside the copied word (the stylesheet
+  // animates it, and not at all under reduced motion). Built with DOM
+  // methods only and hidden from assistive technology: the live region
+  // announces the word.
+  function buildCheck() {
+    var svg = document.createElementNS(SVG_NS, "svg");
+    svg.setAttribute("class", CHECK_CLASS);
+    svg.setAttribute("width", "16");
+    svg.setAttribute("height", "16");
+    svg.setAttribute("viewBox", "0 0 16 16");
+    svg.setAttribute("aria-hidden", "true");
+    svg.setAttribute("focusable", "false");
+    var path = document.createElementNS(SVG_NS, "path");
+    path.setAttribute("d", "M3 8.5l3.2 3.2L13 4.8");
+    path.setAttribute("fill", "none");
+    path.setAttribute("stroke", "currentColor");
+    path.setAttribute("stroke-width", "2");
+    path.setAttribute("stroke-linecap", "round");
+    svg.appendChild(path);
+    return svg;
+  }
+
+  function removeCheck(button) {
+    var check = button.querySelector("." + CHECK_CLASS);
+    if (check) {
+      button.removeChild(check);
+    }
+  }
 
   function copiedText(button) {
     return button.getAttribute("data-copied-text") || FALLBACK_FEEDBACK_TEXT;
@@ -115,10 +146,12 @@
     button.setAttribute("data-copy-pending", "1");
     var originalLabel = labelEl.textContent;
     labelEl.textContent = feedbackText;
+    button.insertBefore(buildCheck(), labelEl);
     _toggleCopiedClass(button, true);
     window.setTimeout(function () {
       feedbackEl.textContent = "";
       labelEl.textContent = originalLabel;
+      removeCheck(button);
       _toggleCopiedClass(button, false);
       button.removeAttribute("data-copy-pending");
     }, FEEDBACK_RESET_MS);

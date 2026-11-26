@@ -47,11 +47,10 @@ _FACTS = """spec => {
       properties: [...new Set(a.effect.getKeyframes().flatMap(k => Object.keys(k)))].filter(
         p => !['offset', 'easing', 'composite', 'computedOffset'].includes(p)).sort(),
     }));
-  let fill = null, el = button;
-  while (el && !fill) {
+  const fills = [];
+  for (let el = button; el; el = el.parentElement) {
     const bg = getComputedStyle(el).backgroundColor;
-    if (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') { fill = bg; }
-    el = el.parentElement;
+    if (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') { fills.unshift(bg); }
   }
   const ctx = document.createElement('canvas').getContext('2d', {willReadFrequently: true});
   const over = (ink, under) => {
@@ -60,7 +59,7 @@ _FACTS = """spec => {
     const d = ctx.getImageData(0, 0, 1, 1).data;
     return '#' + [d[0], d[1], d[2]].map(v => v.toString(16).padStart(2, '0')).join('');
   };
-  const flat = fill ? over(fill, '#ffffff') : '#ffffff';
+  const flat = fills.reduce((under, fill) => over(fill, under), '#ffffff');
   return {
     hasCheck: !!check,
     checkHidden: check ? getComputedStyle(check).display === 'none' : null,
@@ -139,9 +138,9 @@ def _assert_confirmation(page, spec, lang, before, now):
     assert now["checkAria"] == "true", now
     assert now["checkHidden"] is False, now
     assert now["label"].endswith(COPIED[lang]), now
-    assert now["status"] == COPIED[lang] or spec is ACCOUNT, now
-    assert now["height"] >= 44 or spec is USERS, now
-    assert abs(now["height"] - before["height"]) <= 1 or spec is ACCOUNT, (before, now)
+    assert now["status"] == COPIED[lang], now
+    assert now["height"] >= 44, now
+    assert abs(now["height"] - before["height"]) <= 1, (before, now)
     assert skypane_contrast_check.contrast_ratio(now["checkInk"], now["flat"]) >= 4.5, now
     _assert_no_page_overflow(page, "copy confirmation", VIEWPORT_MIN_SUPPORTED["width"])
 

@@ -512,6 +512,33 @@ html[data-ui-theme="dark"] {
     animation: skypane-fade-in var(--motion-fast) var(--ease-out) backwards;
   }
 
+  /* A copy confirms: the check springs in on scale and opacity only and the
+   * copied word rises a few pixels, on the fast token. Under reduce none of
+   * this exists, so the check and the word appear at once. */
+  @keyframes skypane-copy-tick {
+    from {
+      transform: scale(0.4);
+      opacity: 0;
+    }
+  }
+
+  @keyframes skypane-copy-rise {
+    from {
+      transform: translateY(4px);
+      opacity: 0;
+    }
+  }
+
+  .copy-btn--copied .copy-btn__check,
+  .account-build--copied .account-build__check {
+    animation: skypane-copy-tick var(--motion-fast) var(--motion-spring) backwards;
+  }
+
+  .copy-btn--copied .copy-btn__label,
+  .account-build--copied .account-build__hint {
+    animation: skypane-copy-rise var(--motion-fast) var(--ease-out) backwards;
+  }
+
   /* The page snapshot can be shorter than the area the transition covers (a
    * phone's strip under its bottom toolbar). That strip shows this layer, not
    * the canvas colour, so it carries the colour the page gradient ends on
