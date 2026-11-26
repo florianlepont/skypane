@@ -53,7 +53,7 @@ Phase 47 measures the live frame on the live VPS. This milestone must not modify
 - [ ] **Phase 70: Private Repository and CI (Free Plan, Self-Hosted or Reduced CI)** - The whole repository becomes private without losing the owner-controlled production deploy and firmware signing, and the CI fits the private-repository limits. (added 2026-11-24 at the owner's decision: everything private; runs before Phase 66)
 - [ ] **Phase 66: Security Audit** - The whole platform (server, companion, device protocol, firmware update path, deploy and secrets) is audited, and every finding is fixed or recorded with the owner's decision. (added 2026-11-15 at the owner's request)
 - [ ] **Phase 67: Project and Code Optimisation for a Clean, Industrial Result** - The repository, the code, the tests and the documents are cleaned and made consistent so the project can be maintained and handed over like an industrial product. (added 2026-11-15 at the owner's request; Phase 59 stays last)
-- [ ] **Phase 69: Rear Enclosure for the 7.3 Inch Frame (Design, Print, Fit)** - The four printed parts (tray, lid with wall hooks, loose stand plate, centring shim) are designed, printed, fitted into an IKEA RÖDALM 13 x 18 cm frame with the second-hardware frame, and validated on the wall and on furniture. (added 2026-11-18 at the owner's request as an owner-driven parallel track, physical part of SEED-014; the administrator flashing tool stays in v1.3)
+- [x] **Phase 69: Rear Enclosure for the 7.3 Inch Frame (Design, Print, Fit)** - The four printed parts (tray, lid with wall hooks, loose stand plate, centring shim) are designed, printed, fitted into an IKEA RÖDALM 13 x 18 cm frame with the second-hardware frame, and validated on the wall and on furniture. (added 2026-11-18 at the owner's request as an owner-driven parallel track, physical part of SEED-014; the administrator flashing tool stays in v1.3)
 
 ## Phase Details
 
@@ -799,10 +799,10 @@ Build plans (owner choice of 2026-11-25): 68.1-11 P16 tokenise spacing and radii
 
 **Not in this phase**: the administrator tool for initial setup and flashing (SEED-014, v1.3), an enclosure for the 13.3 inch frame (SEED-022, owner decision of 2026-11-24), a series production method and costs (SEED-015), battery discharge measurements (SEED-019), and any firmware change.
 **Decisions** (discuss-phase, 2026-11-18): milestone v1.2 MAY CLOSE before this phase is finished; an unfinished phase carries into the next milestone (owner decision). First print on the owner's workplace Bambu printers (owner update 2026-11-18, replaces the print service), no printer purchase for now. Measurements by the owner, screen first, then frame, then ribbon, cable and masses. PETG any colour (owner update 2026-11-18), 0.4 mm nozzle, M2 self-tapping screws. Wi-Fi compared by the frame's reported RSSI, same place and access point (see `69-CONTEXT.md`).
-**Scope addition** (owner, 2026-11-24): this phase also reframes the displayed image to the visible window of the mat (the mat covers the edges of the screen's active area), see D-14 in `69-CONTEXT.md`. It is server-side rendering for the EE04 image, not firmware, and it still needs its own plan; it is not in the plans below yet and not in the success criteria.
-**Must not break**: the live frame and its configuration; nothing in this phase changes firmware or the deployed system. The enclosure work changes no code; the image reframing (plan to be written) will change rendering code and must not alter the live 13.3 inch frame's images or the files of other running phases.
+**Scope addition** (owner, 2026-11-24): this phase also reframes the displayed image to the visible window of the mat (the mat covers the edges of the screen's active area), see D-14 in `69-CONTEXT.md`. It is server-side rendering for the EE04 image, not firmware, and it was delivered by plan 69-08 (merged and deployed on 2026-11-26).
+**Must not break**: the live frame and its configuration; nothing in this phase changes firmware or the deployed system. The enclosure work changes no code; the image reframing (plan 69-08) changed rendering code and had to leave unchanged the live 13.3 inch frame's images or the files of other running phases.
 
-**Plans**: 7 plans
+**Plans**: 8 plans
 Plans:
 **Wave 1**
 
@@ -823,11 +823,15 @@ Plans:
 
 **Wave 5** *(blocked on Waves 2 and 4)*
 
-- [ ] 69-06-PLAN.md — Mechanical and safety validation (wall hooks, stand, USB-C, switch, RESET, buttons) and the Wi-Fi blocks with the enclosure and verdict (ENC-01)
+- [x] 69-06-PLAN.md — Mechanical and safety validation (wall hooks, stand, USB-C, switch, RESET, buttons) and the Wi-Fi blocks with the enclosure and verdict (done on the owner's reports, recorded in the test log and `hardware/ENCLOSURE-WIFI-TEST.md`, no summary) (ENC-01)
 
 **Wave 6** *(blocked on Wave 5)*
 
-- [ ] 69-07-PLAN.md — Final files stored, assembly note, BOM update, SEED-014 update (ENC-01)
+- [x] 69-07-PLAN.md — Final files stored, assembly note, BOM update, SEED-014 update (done 2026-11-26, no summary: `hardware/ENCLOSURE-ASSEMBLY.md`, `hardware/BOM.md`, SEED-014) (ENC-01)
+
+**Wave 5b** *(added 2026-11-26, done the same day; independent of the other plans)*
+
+- [x] 69-08-PLAN.md — Reframe the EE04 image to the visible window of the mat (D-14): owner reads the window on the assembled frame, per-hardware window in the renderer, tests, owner check (ENC-01); window read from the owner's photo on 2026-11-26, PR 614 merged and deployed on 2026-11-26, owner tested the assembled frame and reported everything good
 
 ### Phase 70: Private Repository and CI (Free Plan, Self-Hosted or Reduced CI)
 
@@ -920,4 +924,4 @@ Plans: TBD
 | 70. Private Repository and CI (Free Plan, Self-Hosted or Reduced CI) | v1.2 | 0/0 | Added 2026-11-24, not planned yet | - |
 | 66. Security Audit | v1.2 | 0/0 | Added 2026-11-15, not planned yet | - |
 | 67. Project and Code Optimisation for a Clean, Industrial Result | v1.2 | 0/0 | Added 2026-11-15, not planned yet | - |
-| 69. Rear Enclosure for the 7.3 Inch Frame (Design, Print, Fit) | v1.2 | 5/7 | In progress, owner-driven parallel track; parts printed and checked by the owner on 2026-11-26 (`69-VERIFICATION.md`); left: the Wi-Fi decision, the image reframing to the mat window (D-14, plan to write), assembly note, BOM and SEED-014 update | - |
+| 69. Rear Enclosure for the 7.3 Inch Frame (Design, Print, Fit) | v1.2 | 8/8 | Complete, closed 2026-11-26: parts printed and assembled by the owner and checked (`69-VERIFICATION.md`); Wi-Fi decided from the bare and assembled histories; image reframed to the mat window (PR 614, deployed, owner tested the assembled frame); assembly note and BOM written; hardware improvements go to SEED-022 | 2026-11-26 |

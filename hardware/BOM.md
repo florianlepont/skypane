@@ -72,6 +72,25 @@ Per D-02, this hardware is ordered **only if** plan 01-04's aggregator-API valid
 - **USB inline power meter** — rejected by D-07 in favor of the simpler time-to-depletion measurement method (no extra hardware/technical setup required).
 - **reTerminal E1004** (all-in-one alternative, $279.90 / ~€258 per CLAUDE.md) — considered and rejected under D-05; listed here only as the priced-but-rejected comparison point, not as something to order.
 
+## Enclosure for the 7.3 inch frame
+
+Added with Phase 69. Prices come from the order history and the store pages the
+owner showed on 2026-11-26 (screenshots, read by the assistant); an entry marked
+"not reported" has no price here and none is estimated. Order numbers are not
+recorded. Prices are the ones displayed, VAT included.
+
+| Item | Detail | Qty | Price | Source |
+|---|---|---|---|---|
+| IKEA RÖDALM frame, 13 x 18 cm, black | with glass and mat; the mat is not cut | 1 | 4.99 EUR as listed on the IKEA France page on 2026-11-26; the amount paid is not shown; out of stock at the shop shown | owner's screenshot of the IKEA page |
+| Printed parts: tray and shim in one part, lid, stand | Bambu Lab PLA, printed on the owner's workplace Bambu Lab X1 Carbon; brown for these prints, probably black later (owner, 2026-11-26); grams used not reported | 1 of each, from a 1 kg spool | 11 EUR per 1 kg spool (owner, 2026-11-26); the cost of the three parts is not computed | owner |
+| LiPo battery pack 3000 mAh | Kubii "Batterie 3000mAh Li-Po", 8 x 50 x 60 mm | 1 | 7.13 EUR excl. VAT (8.55 incl. 20 % VAT), looked up 2026-08-04 (the pack of the first bill of materials) | this file |
+| M2 self-tapping screws | VooGenzek, box of 800 (M2 x 4, 5, 6, 8, 10, 12, 16 and 20 mm, 100 of each), cross head, black; used for the board on the four standoffs | 8 screws from 1 box | 8.98 EUR for the box on the Amazon page the owner showed (was 9.98 EUR), displayed as 0.01 EUR per screw; the owner's order of 2026-11-19 (delivered 2026-11-20) totals 16.97 EUR together with the magnets, the price paid for the screws alone is not shown; 8 screws used: 4 of M2 x 4 mm and 4 of M2 x 6 mm (owner, 2026-11-26), about 0.08 EUR at the displayed unit price (arithmetic); what each length holds is not stated (the board is screwed on its four standoffs, reported on 2026-11-23) | owner's screenshots |
+| Neodymium magnets 6 x 2 mm | box of 100; bought on 2026-11-19 in the same order as the screws; not used in the current design (kept as a fallback for the stand) | 1 box | included in the 16.97 EUR above | owner's screenshot |
+| JST-PH 2.0 mm extension cables, 19.8 cm | 20 cables, 2 pins, male to female; ordered 2026-11-19 (delivered 2026-11-23); used in the frame (owner, 2026-11-26); what for is not stated | 1 lot | 15.99 EUR (order total) | owner's screenshot |
+| Anti-slip pads | foot of the stand; the owner has some, format and price not reported, and did not use them (2026-11-26) | not used | not reported | owner |
+
+No printer purchase is recorded.
+
 ## Order Tracking
 
 | Item | Vendor | Order number | Ordered on | Estimated delivery | Arrived on |

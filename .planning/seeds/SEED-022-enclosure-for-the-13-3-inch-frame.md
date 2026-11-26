@@ -49,7 +49,7 @@ a design to scale up.
 Reported after the first assembly; they do not block Phase 69. Not measured by the assistant.
 
 - Wall hanging on the keyhole blocks works perfectly, but the teeth of the horizontal slot are too small to be of real use: make them larger or drop them.
-- The foot of the leg touches the desk on part of its surface only, with and without the IKEA frame. Accepted with anti-slip pads and no model change; the assistant's model check does not explain it. Look at it again at the next design round.
+- The foot of the leg touches the desk on part of its surface only, with and without the IKEA frame. The owner decided on 2026-11-26 to change nothing in the model and has not used the anti-slip pads, so how it behaves with pads is not tested; the assistant's model check does not explain it. Look at it again at the next design round.
 - The pack in the 7.3 inch frame is the 3000 mAh Kubii; the 10000 mAh Soldered pack is the 13.3 inch frame's.
 
 ## Breadcrumbs

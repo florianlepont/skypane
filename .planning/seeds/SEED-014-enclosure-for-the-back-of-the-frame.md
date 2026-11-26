@@ -106,6 +106,17 @@ network, which the frame can later change without a cable.
 - `firmware/build.sh`, `firmware/flash.sh`, `firmware/SIGNING.md` (build, flash, first-image rule)
 - `stub-server/fleet_cli.py`, `stub-server/devices_cli.py` (device registration on the server)
 
+## Idea from the owner (2026-11-26): calibration at setup
+
+The calibration image used in Phase 69 (rulers every 5 pixels on the four edges,
+shown on the assembled frame) worked well to read which part of the screen the
+mat leaves visible. The owner would like it as a step of the setup of a new
+frame (assembly and initialisation): show the ruler image, read the four edges,
+and store the visible window with the frame so the server draws inside it. In
+Phase 69 the window is a fixed value of the EE04 hardware profile; a per-frame
+value would need a place to store it and a way to enter the four readings
+(companion page or flashing tool). Not designed.
+
 ## Notes
 
 Not a software milestone: GSD phases for it would track decisions, prototypes
