@@ -151,11 +151,12 @@
    * dark mode). */
   --color-overlay-icon: rgba(23, 25, 31, 0.55);
   --color-overlay-text: rgba(23, 25, 31, 0.7);
-  /* A bare <button>'s idle wash/border: the color-mix() equivalent that
-   * immediately follows each use is the real, theme-aware value: these
-   * are the fallback for a browser without color-mix() support, so they
-   * carry the light-mode-shaped value forever, same as before this was
-   * a token. */
+  /* A bare <button>'s idle border: the color-mix() equivalent that
+   * immediately follows each use is the real, theme-aware value: this is
+   * the fallback for a browser without color-mix() support, so it carries
+   * the light-mode-shaped value. --color-control-wash, the hover fill of
+   * row buttons, is theme-aware and declared in the four theme blocks:
+   * the Light value is repeated here so the default theme has one too. */
   --color-control-wash: rgba(23, 25, 31, 0.045);
   --color-control-border-subtle: rgba(23, 25, 31, 0.09);
   --shadow-control: inset 0 1px 0 rgba(255, 255, 255, .14), 0 1px 2px rgba(18, 21, 27, .14);
@@ -330,6 +331,7 @@
     --glass-highlight: rgba(255, 255, 255, 0.18);
     --glass-solid: #1C222D;
     --glass-hairline: rgba(255, 255, 255, 0.1);
+    --color-control-wash: rgba(241, 243, 246, 0.08);
     --picture-placeholder: rgba(255, 255, 255, 0.08);
     --shadow-glass: inset 0 1px 0 var(--glass-highlight), 0 1px 2px rgba(0, 0, 0, 0.3), 0 14px 32px -16px rgba(0, 0, 0, 0.55);
     --bar-bg: rgba(20, 24, 34, 0.86);
@@ -384,6 +386,7 @@ html[data-ui-theme="light"] {
   --glass-highlight: rgba(255, 255, 255, 0.9);
   --glass-solid: #FFFFFF;
   --glass-hairline: rgba(23, 25, 31, 0.1);
+  --color-control-wash: rgba(23, 25, 31, 0.045);
   --picture-placeholder: rgba(23, 25, 31, 0.07);
   --shadow-glass: inset 0 1px 0 var(--glass-highlight), 0 1px 2px rgba(18, 21, 27, 0.06), 0 14px 32px -16px rgba(18, 21, 27, 0.22);
   --bar-bg: rgba(255, 255, 255, 0.66);
@@ -437,6 +440,7 @@ html[data-ui-theme="dark"] {
   --glass-highlight: rgba(255, 255, 255, 0.18);
   --glass-solid: #1C222D;
   --glass-hairline: rgba(255, 255, 255, 0.1);
+  --color-control-wash: rgba(241, 243, 246, 0.08);
   --picture-placeholder: rgba(255, 255, 255, 0.08);
   --shadow-glass: inset 0 1px 0 var(--glass-highlight), 0 1px 2px rgba(0, 0, 0, 0.3), 0 14px 32px -16px rgba(0, 0, 0, 0.55);
   --bar-bg: rgba(20, 24, 34, 0.86);
