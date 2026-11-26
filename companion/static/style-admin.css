@@ -106,7 +106,7 @@
   white-space: nowrap;
   font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
-  color: var(--color-status-ok);
+  color: var(--color-status-ok-text);
 }
 
 /* The check that joins the copied word: the copy glyph gives way to it, so the

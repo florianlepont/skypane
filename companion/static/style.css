@@ -278,6 +278,7 @@
   --shadow-card-hover: 0 4px 12px rgba(18, 21, 27, 0.08), 0 2px 4px rgba(18, 21, 27, 0.05);
   --color-text: #17191F;
   --color-status-ok: #16A34A;
+  --color-status-ok-text: #15803D;
   --color-status-warn: #D97706;
   /* Hue ~345 (crimson), not pure red: measured too close to
    * --color-accent (dE76 22.9/15.9°) at the old value, closer than the
@@ -351,6 +352,7 @@
     --shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.35), 0 2px 4px rgba(0, 0, 0, 0.2);
     --color-text: #F1F3F6;
     --color-status-ok: #4ADE80;
+    --color-status-ok-text: #4ADE80;
     --color-status-warn: #FBBF24;
     /* Same rose family as light mode's crimson, shifted lighter for
      * dark. Was too close to the dark accent (dE76 22.3/16.9°, worse
@@ -406,6 +408,7 @@ html[data-ui-theme="light"] {
   --shadow-card-hover: 0 4px 12px rgba(18, 21, 27, 0.08), 0 2px 4px rgba(18, 21, 27, 0.05);
   --color-text: #17191F;
   --color-status-ok: #16A34A;
+  --color-status-ok-text: #15803D;
   --color-status-warn: #D97706;
   --color-status-error: #BE123C;
   /* The edge drawn round the light-yellow look tile on screen: the panel's
@@ -460,6 +463,7 @@ html[data-ui-theme="dark"] {
   --shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.35), 0 2px 4px rgba(0, 0, 0, 0.2);
   --color-text: #F1F3F6;
   --color-status-ok: #4ADE80;
+  --color-status-ok-text: #4ADE80;
   --color-status-warn: #FBBF24;
   --color-status-error: #FB7185;
   --color-yellow-tile-edge: #D9C24A;
