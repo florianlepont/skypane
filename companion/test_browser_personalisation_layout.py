@@ -51,6 +51,13 @@ def _seed_giant(state_dir):
     device_config.save_device_config(state_dir, layout="b", theme="grey")
 
 
+@pytest.fixture(scope="module")
+def read_only_server(module_app_server_factory):
+    """One seeded server for the checks below that only read pages and never save anything,
+    so a worker starts it, and renders the look previews, once for the module."""
+    return module_app_server_factory(seed=_seed_classic)
+
+
 def _open(new_context, base_url, route, lang, viewport=VIEWPORT_DESKTOP):
     context = new_context(viewport=viewport)
     context.add_cookies([{"name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
@@ -100,10 +107,10 @@ def test_picking_layout_c_saves_and_is_selected_after_a_reload(
 
 @pytest.mark.parametrize("route", CARD_ROUTES)
 def test_the_card_is_above_the_tabs_on_every_view_and_the_tabs_are_four(
-        new_context, make_app_server, route):
+        new_context, read_only_server, route):
     """the Layout card is one section above the navigation whichever tab is open, and the navigation has
     exactly Departures, Arrivals, Special looks and Calendar"""
-    server = make_app_server(seed=_seed_classic)
+    server = read_only_server
     context, page = _open(new_context, server.base_url(), route, "en")
     try:
         assert page.locator("#personalisation-layout").count() == 1
@@ -119,10 +126,10 @@ def test_the_card_is_above_the_tabs_on_every_view_and_the_tabs_are_four(
 
 
 def test_on_a_wide_screen_the_five_thumbnails_are_one_row_of_about_92_by_122(
-        new_context, make_app_server):
+        new_context, read_only_server):
     """at desktop width the five previews sit on one line, each about 92 x 122 px, the summary row and
     Change button are not shown, and the checked one is bold"""
-    server = make_app_server(seed=_seed_classic)
+    server = read_only_server
     context, page = _open(new_context, server.base_url(), layout.DISPLAY_ROUTE, "en")
     try:
         # The checked card scales 2% with a transition: measure once it has finished.
@@ -146,11 +153,11 @@ def test_on_a_wide_screen_the_five_thumbnails_are_one_row_of_about_92_by_122(
 
 @pytest.mark.parametrize("lang", ["en", "fr"])
 def test_on_a_phone_the_card_is_a_summary_row_that_opens_the_same_radios(
-        new_context, make_app_server, lang):
+        new_context, read_only_server, lang):
     """below the tablet breakpoint the card shows a 44 x 58 thumbnail, the title, the layout name and
     a Change button of at least 44 px; the five radios are hidden until Change is pressed, and picking
     one updates the summary name and picture"""
-    server = make_app_server(seed=_seed_classic)
+    server = read_only_server
     context, page = _open(
         new_context, server.base_url(), layout.DISPLAY_ROUTE, lang, VIEWPORT_PHONE)
     try:
@@ -183,9 +190,9 @@ def test_on_a_phone_the_card_is_a_summary_row_that_opens_the_same_radios(
 @pytest.mark.parametrize("lang", ["en", "fr"])
 @pytest.mark.parametrize("route", CARD_ROUTES)
 def test_the_phone_layout_card_does_not_scroll_sideways_closed_or_open(
-        new_context, make_app_server, route, lang, name, viewport):
+        new_context, read_only_server, route, lang, name, viewport):
     """at 360 and 390 px the page has no horizontal overflow with the card closed and with the picker open"""
-    server = make_app_server(seed=_seed_classic)
+    server = read_only_server
     context, page = _open(new_context, server.base_url(), route, lang, viewport)
     try:
         assert not _assert_no_page_overflow(page, "layout-card", viewport["width"])
