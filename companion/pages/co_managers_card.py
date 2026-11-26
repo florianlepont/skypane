@@ -104,19 +104,21 @@ _REMOVE_BUTTON = i18n.msg("co_managers.remove_button", "Remove")
 _REMOVE_ARIA = i18n.msg("co_managers.remove_aria", "Remove %s from this frame")
 _LEAVE_TEXT = i18n.msg("co_managers.leave", "Leave this frame")
 _LEAVE_CONSEQUENCE = i18n.msg(
-    "co_managers.leave_consequence",
-    "You will lose access to this frame and its settings. The owner or an "
-    "administrator can add you again.")
+    "co_managers.leave_loses_access", "You lose access to this frame and its settings.")
+_LEAVE_DETAIL = i18n.msg(
+    "co_managers.leave_can_be_added_again",
+    "The owner or an administrator can add you again.")
 _LEAVE_KEEP = i18n.msg("co_managers.leave_keep", "Stay on this frame")
 
 _REMOVE_FRAME_TEXT = i18n.msg("co_managers.remove_frame", "Remove this frame")
 _REMOVE_FRAME_TITLE = i18n.msg("co_managers.remove_frame_title", "Remove this frame?")
 _REMOVE_FRAME_KEEP = i18n.msg("co_managers.remove_frame_keep", "Keep this frame")
 _REMOVE_FRAME_CONSEQUENCE = i18n.msg(
-    "co_managers.remove_frame_consequence",
-    "This frame stops belonging to you and disappears from your account. Its "
-    "co-managers lose access. An administrator can assign it to someone again "
-    "later; its history is kept.")
+    "co_managers.remove_frame_leaves_your_account",
+    "This frame leaves your account and its co-managers lose access.")
+_REMOVE_FRAME_DETAIL = i18n.msg(
+    "co_managers.remove_frame_can_be_assigned_again",
+    "An administrator can assign it to someone again later; its history is kept.")
 
 _MAX_EMAIL_CHARS = 254
 
@@ -263,7 +265,7 @@ def _inline_add_row(view, device_id, return_to, prefix, in_dialog=False):
     else:
         field = _typed_field_html(device_id, prefix)
     submit = '<button type="submit">%s</button>' % _t(_ADD_SHORT if in_dialog else _ADD_BUTTON)
-    form_class = "row__form row__form--inline" if in_dialog and view.is_admin_viewer else "row__form"
+    form_class = "row__form row__form--inline" if in_dialog else "row__form"
     return (
         '<li class="row row--form"><form method="post" action="%s" '
         'class="%s" autocomplete="off">%s%s<div class="row__form-field">%s</div>%s'
@@ -439,7 +441,9 @@ def remove_frame_dialog_html(device_id, frame_name):
     """The confirmation of an owner removing their frame. The form posts no
     id; the server acts on the frame in the path, for its owner only."""
     from companion import ui_modal
-    body = '<p class="text-body">%s%s</p>' % (_warning_icon(), _t(_REMOVE_FRAME_CONSEQUENCE))
+    body = '<p class="text-body">%s%s</p>%s' % (
+        _warning_icon(), _t(_REMOVE_FRAME_CONSEQUENCE),
+        ui_modal.more_html('<p class="text-body">%s</p>' % _t(_REMOVE_FRAME_DETAIL)))
     return ui_modal.dialog_html(
         remove_frame_dialog_id(device_id), i18n.t(_REMOVE_FRAME_TITLE),
         _frame_route(device_id, REMOVE_FRAME_ROUTE), _csrf_field(), body,
@@ -451,7 +455,9 @@ def leave_dialog_html(device_id, frame_name, return_to=RETURN_ACCOUNT):
     """The confirm-only Leave this frame dialog. The form posts no id; the
     server acts on the caller's own membership."""
     from companion import ui_modal
-    body = '<p class="text-body">%s%s</p>' % (_warning_icon(), _t(_LEAVE_CONSEQUENCE))
+    body = '<p class="text-body">%s%s</p>%s' % (
+        _warning_icon(), _t(_LEAVE_CONSEQUENCE),
+        ui_modal.more_html('<p class="text-body">%s</p>' % _t(_LEAVE_DETAIL)))
     return ui_modal.dialog_html(
         leave_dialog_id(device_id), i18n.t(_LEAVE_TITLE),
         _frame_route(device_id, LEAVE_ROUTE), _csrf_field(), body,

@@ -33,9 +33,10 @@ MESSAGES = {
     "co_managers.remove_button": "Retirer",
     "co_managers.remove_aria": "Retirer %s de ce cadre",
     "co_managers.leave": "Quitter ce cadre",
-    "co_managers.leave_consequence":
-        "Vous perdrez l’accès à ce cadre et à ses réglages. Le propriétaire "
-        "ou un administrateur pourra vous ajouter de nouveau.",
+    "co_managers.leave_loses_access":
+        "Vous perdez l’accès à ce cadre et à ses réglages.",
+    "co_managers.leave_can_be_added_again":
+        "Le propriétaire ou un administrateur pourra vous ajouter de nouveau.",
     "co_managers.leave_keep": "Rester sur ce cadre",
     "co_managers.flash_added":
         "Cogestionnaire ajouté — cette personne peut désormais gérer ce cadre.",
@@ -58,10 +59,11 @@ MESSAGES = {
     "co_managers.remove_frame": "Retirer ce cadre",
     "co_managers.remove_frame_title": "Retirer ce cadre\u00a0?",
     "co_managers.remove_frame_keep": "Garder ce cadre",
-    "co_managers.remove_frame_consequence":
-        "Ce cadre cesse de vous appartenir et disparaît de votre compte. Ses "
-        "cogestionnaires perdent l’accès. Un administrateur pourra l’attribuer "
-        "de nouveau à quelqu’un\u00a0; son historique est conservé.",
+    "co_managers.remove_frame_leaves_your_account":
+        "Ce cadre quitte votre compte et ses cogestionnaires perdent l’accès.",
+    "co_managers.remove_frame_can_be_assigned_again":
+        "Un administrateur pourra l’attribuer de nouveau à quelqu’un\u00a0; son "
+        "historique est conservé.",
     "co_managers.flash_leave_noop":
         "Rien n’a changé — seuls les cogestionnaires peuvent quitter un cadre.",
 }
