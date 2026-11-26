@@ -28,6 +28,10 @@ take a few days.
   combined result and checks the JUnit totals; it is the check the
   production `deploy` job waits for. A bare `./scripts/run-all-tests.sh`
   still runs the whole suite with the coverage gate, as before.
+  Commits that touch only documentation or the 3D model files under
+  `hardware/cad` start no CI run; any change to code, or to a non-Markdown
+  file a test reads, runs everything. GitHub's path filter looks at no more
+  than the first 300 changed files.
 - To run part of the suite the way a CI shard does, set
   `SKYPANE_TEST_GROUP` (`core` or `browser`), optionally
   `SKYPANE_TEST_SHARD=INDEX/COUNT` (0-based) and `SKYPANE_JUNIT_XML=path`.

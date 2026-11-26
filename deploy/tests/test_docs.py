@@ -246,3 +246,12 @@ def test_documents_private_repository_setup():
     ):
         assert needle in section, needle
     assert "reviewer approval" not in section.lower()
+
+
+def test_ci_paths_section_states_what_skips_and_what_never_does():
+    text = _text()
+    assert "Which commits start CI" in text
+    assert "hardware/cad" in text
+    assert "ci_sha" in text
+    assert "Lint, test, coverage, attribution" in text
+    assert "docs-only tip" not in text

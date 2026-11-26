@@ -89,11 +89,27 @@ def test_pull_requests_from_forks_never_reach_the_runner():
         assert guard in block, job
 
 
-def test_no_test_is_skipped_by_path_or_weakened():
+def test_no_job_is_conditional_on_paths_and_no_gate_is_weakened():
     assert "ci_shards.py check" in _CI
     assert "ci_gates.py" in _CI
     assert "Combine coverage and apply the coverage floor" in _CI
     assert "Check test totals (no failures, executed floor, skipped ceiling)" in _CI
     assert "- '!**/*.md'" in _CI
     assert "- '!.planning/**'" in _CI
-    assert "changes:" not in _CI
+    assert not re.search(r"(?m)^  changes:", _CI)
+    assert "needs.changes" not in _CI
+    assert "dorny/paths-filter" not in _CI
+    test_job = re.search(r"(?ms)^  test:\n(.*?)^    steps:", _CI).group(1)
+    assert "if: ${{ always() }}" in test_job
+    assert "needs: [static, tests-core, tests-browser]" in test_job
+    job_level_ifs = re.findall(r"(?m)^    if: .*$", _CI)
+    guard = (
+        "    if: github.event_name != 'pull_request' || "
+        "github.event.pull_request.head.repo.full_name == github.repository"
+    )
+    assert sorted(job_level_ifs) == sorted([guard] * 3 + ["    if: ${{ always() }}"])
+
+
+def test_model_file_exclusions_appear_once_per_event():
+    for ext in ("stl", "blend", "glb", "3mf"):
+        assert _CI.count(f"- '!hardware/cad/**/*.{ext}'") == 2, ext
