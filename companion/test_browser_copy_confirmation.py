@@ -40,7 +40,7 @@ _FACTS = """spec => {
   const check = button.querySelector(spec.check);
   const label = button.querySelector(spec.label);
   const status = document.querySelector(spec.status);
-  const box = button.getBoundingClientRect();
+  const box = button.getBoundingClientRect(); // width only: the height is the layout height (offsetHeight), which a transform in flight does not change
   const running = (el) => el.getAnimations().filter(
     a => a.playState === 'running' && a.effect.getTiming().duration > 1).map(a => ({
       duration: a.effect.getTiming().duration,
@@ -70,7 +70,7 @@ _FACTS = """spec => {
       a => a.playState === 'running' && a.effect.getTiming().duration > 1).length,
     label: label.textContent.replace(/\\s+/g, ' ').trim(),
     status: status ? status.textContent : null,
-    height: box.height, width: box.width,
+    height: button.offsetHeight, width: box.width,
     checkInk: check ? over(getComputedStyle(check).color, flat) : null, flat: flat,
   };
 }"""
