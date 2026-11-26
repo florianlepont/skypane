@@ -560,3 +560,22 @@ is relaxed.
 The two OpenStreetMap rows name behaviour that the map page plan completes in
 `companion/static/place-map.js`; nothing else is open. PRIM's "revisit at v2 planning" note is a
 forward-looking reminder, not an outstanding item.
+
+## Repository hosting and CI
+
+- The repository is private, on the GitHub Free plan, owned by the
+  owner's personal account.
+- Continuous integration is meant to run on a self-hosted runner on the
+  owner's Mac, inside an isolated Linux VM (`deploy/runner/README.md`).
+  That runner is selected by the repository variable `CI_RUNS_ON`; while
+  the variable is unset, and as the fallback, CI runs on GitHub-hosted
+  runners.
+- Charge status for self-hosted runners: GitHub lists self-hosted runner
+  minutes as free today. It announced a per-minute charge, then postponed
+  it with no new date (GitHub changelog, 2025-12-16; read again in
+  November 2026). It is a watched risk: re-check the changelog before
+  relying on the free runner.
+- Firmware is signed on the owner's Mac with `scripts/fw_publish_signed.py`;
+  the signing key is not held by GitHub.
+- Production deploys are started by the owner by hand with the "Deploy to
+  production" workflow; a merge never deploys.

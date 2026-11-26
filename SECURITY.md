@@ -5,9 +5,10 @@ security reports are welcome and taken seriously.
 
 ## Reporting a vulnerability
 
-Please **do not open a public issue**. Use GitHub's private reporting
-instead: go to the repository's **Security** tab and click **Report a
-vulnerability**. Only the maintainer can see the report.
+The repository is private, so there is no public issue tracker. Report
+vulnerabilities to the maintainer privately, through the contact on
+[github.com/florianlepont](https://github.com/florianlepont), and do not
+post details anywhere public.
 
 Include what you found, how to reproduce it, and what an attacker could
 do with it. You should get a first answer within a week.
@@ -37,7 +38,9 @@ to show the issue exists; running the stack locally
 ## Secrets
 
 No credentials are committed to this repository. Real values live only
-in a gitignored file (`deploy/skypane.env`), in GitHub Actions secrets,
+in a gitignored file (`deploy/skypane.env`), in repository-level GitHub
+Actions secrets (the deploy key, its pinned host key and the deploy target;
+the firmware signing key is not held by GitHub),
 and — for the device's own Wi-Fi password, API base and enrolment
 secret — in its `secret` NVS partition, written directly by
 `firmware/provision.sh` over USB and never compiled into a firmware

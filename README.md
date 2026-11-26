@@ -206,6 +206,11 @@ Thanks to the volunteers who feed and run these services.
 
 ## Licence
 
+This repository is private and belongs to the owner's personal account.
+Access to the source is by the owner's invitation. The licences below are
+unchanged: they describe the terms under which the code is released to
+whoever receives it.
+
 SkyPane's own code and documentation are released under the
 [GNU Affero General Public License v3.0](./LICENSE) (AGPL-3.0-only).
 Some parts have other licences:
@@ -229,14 +234,13 @@ that other people use over a network.
 
 If you'd like to use SkyPane in a product or service without the AGPL's
 obligations, for example without publishing your own changes, a
-commercial licence is available. Get in touch by
-[opening an issue](https://github.com/florianlepont/skypane/issues/new)
-titled "Commercial licence", or via
+commercial licence is available. Get in touch with the owner through
 [github.com/florianlepont](https://github.com/florianlepont).
 
 Everything published before 2026-09-23 was released under the MIT
 License (the last MIT version on `main` is commit `efafc89`), and copies
-obtained under those versions stay MIT.
+obtained under those versions stay MIT, including copies already taken
+while the repository was public.
 
 ### Trademarks
 
@@ -245,14 +249,16 @@ aircraft, shown in the illustrations belong to their respective owners.
 They are used only to identify the aircraft on the runway, in a
 non-commercial project. SkyPane is not affiliated with or endorsed by any
 airline, airport operator, aircraft manufacturer or government body. If
-you hold rights in one of these marks and want it removed, please open an
-issue and it will be replaced with a generic aircraft.
+you hold rights in one of these marks and want it removed, please contact the
+owner (see the commercial licence paragraph above) and it will be
+replaced with a generic aircraft.
 
 ## Contributing
 
-Issues and pull requests are welcome — see
-[`CONTRIBUTING.md`](./CONTRIBUTING.md), which explains the licence terms
-that apply to contributions.
+The repository is private, so there is no public issue tracker or pull
+request flow. Contributions are made by invitation and sent to the owner
+privately — see [`CONTRIBUTING.md`](./CONTRIBUTING.md), which explains the
+licence terms that apply to contributions.
 
 ## Security
 

@@ -229,3 +229,20 @@ def test_firmware_releases_section_describes_the_manual_path():
     assert "reviewer approval" not in section
     assert "gh workflow run ci.yml" not in text
     assert "gh secret set FW_SIGNING_KEY" not in text
+
+
+def test_documents_private_repository_setup():
+    text = _text()
+    start = text.index("## Private repository (GitHub Free plan)")
+    assert start < text.index("## Secrets discipline")
+    end = text.index("\n## ", start + 1)
+    section = text[start:end]
+    for needle in (
+        "deploy.yml",
+        "fw_publish_signed.py",
+        "CI_RUNS_ON",
+        "branch protection",
+        "environments",
+    ):
+        assert needle in section, needle
+    assert "reviewer approval" not in section.lower()
