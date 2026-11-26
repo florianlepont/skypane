@@ -180,10 +180,16 @@ def _has_module_level_test_false(tree):
     return False
 
 
+# The one function allowed to call `browser.new_context(...)` itself: the module-scoped twin of
+# the guarded `new_context` fixture, which installs the same loopback route guard.
+G10_ALLOWED = frozenset({("companion/conftest.py", "module_new_context")})
+
+
 class _Scanner(ast.NodeVisitor):
-    def __init__(self, docstring_ids, module_chmod_exempt):
+    def __init__(self, docstring_ids, module_chmod_exempt, filename=""):
         self.docstring_ids = docstring_ids
         self.module_chmod_exempt = module_chmod_exempt
+        self.filename = filename
         self.violations = []
         self._function_stack = []
 
@@ -288,7 +294,8 @@ class _Scanner(ast.NodeVisitor):
 
         # G10: browser.new_context(...) / browser.new_page(...) / sync_playwright(...)
         if isinstance(func, ast.Attribute) and func.attr in ("new_context", "new_page") and \
-                isinstance(func.value, ast.Name) and func.value.id == "browser":
+                isinstance(func.value, ast.Name) and func.value.id == "browser" and \
+                not self._g10_exempt():
             self._add(node, "G10", "browser.%s(...)" % (func.attr,))
         if (isinstance(func, ast.Name) and func.id == "sync_playwright") or (
                 isinstance(func, ast.Attribute) and func.attr == "sync_playwright"):
@@ -329,6 +336,9 @@ class _Scanner(ast.NodeVisitor):
                 self._add(node, "G3", "%s(...) building a source path" % (label,))
 
         self.generic_visit(node)
+
+    def _g10_exempt(self):
+        return any((self.filename, fn.name) in G10_ALLOWED for fn in self._function_stack)
 
     def _chmod_is_exempt(self):
         if self.module_chmod_exempt:
@@ -566,7 +576,7 @@ def scan_source(source, filename):
     tree = ast.parse(source, filename=filename)
     docstring_ids = _collect_docstring_ids(tree)
     module_chmod_exempt = _module_mentions_requires_non_root(tree)
-    scanner = _Scanner(docstring_ids, module_chmod_exempt)
+    scanner = _Scanner(docstring_ids, module_chmod_exempt, filename)
     scanner.visit(tree)
     violations = scanner.violations
     if _is_helpers_filename(filename) and not _has_module_level_test_false(tree):
@@ -618,6 +628,10 @@ _POSITIVE_CASES = [
      "X = 1\n", "companion/test_something_helpers.py"),
     ("G10", "browser_new_context",
      "ctx = browser.new_context()\n", None),
+    ("G10", "browser_new_context_in_another_function_of_conftest",
+     "def other(browser):\n    return browser.new_context()\n", "companion/conftest.py"),
+    ("G10", "allowed_function_name_in_a_test_module",
+     "def module_new_context(browser):\n    return browser.new_context()\n", None),
     ("G10", "sync_playwright_call",
      "with sync_playwright() as p:\n    pass\n", None),
     ("G12", "import_sibling_test_module",
@@ -647,6 +661,9 @@ _POSITIVE_CASES = [
 ]
 
 _NEGATIVE_CASES = [
+    ("module_new_context_fixture_in_conftest",
+     "def module_new_context(browser):\n    return browser.new_context()\n",
+     "companion/conftest.py"),
     ("route_style_css",
      'X = http_request(server, "/static/style.css")\n', None),
     ("docstring_mentions_style_and_spec",

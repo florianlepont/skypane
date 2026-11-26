@@ -324,3 +324,36 @@ def new_context(new_context, blocked_requests):
         pytest.fail(
             "browser test made non-loopback request(s), blocked: %r"
             % (blocked_requests,))
+
+
+@pytest.fixture(scope="module")
+def module_new_context(browser, browser_context_args):
+    """A module-scoped twin of `new_context`, for read-only tests that share
+    one loaded page per parameter set instead of loading it once per test.
+
+    Every context it returns has the same loopback-only route guard and the
+    same splash opt-out as `new_context`. A non-loopback request recorded
+    while the module ran fails the module's last test at teardown, naming the
+    URL(s), exactly as the function-scoped fixture fails its test. Contexts
+    are closed when the module ends. A test that changes a shared page must
+    use `new_context` instead.
+    """
+    blocked = []
+    contexts = []
+
+    def factory(splash=False, **kwargs):
+        ctx = browser.new_context(**browser_context_args, **kwargs)
+        contexts.append(ctx)
+        ctx.route("**/*", _make_route_guard(blocked))
+        if not splash:
+            ctx.add_init_script(
+                "try { window.sessionStorage.setItem('skypane.splash', '1'); } catch (e) {}")
+        return ctx
+
+    yield factory
+
+    for ctx in contexts:
+        ctx.close()
+    if blocked:
+        pytest.fail(
+            "browser test made non-loopback request(s), blocked: %r" % (blocked,))

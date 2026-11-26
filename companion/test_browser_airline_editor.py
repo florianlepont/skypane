@@ -28,7 +28,7 @@ FRANCE_MENU = FRANCE + " .airlines-row .row-menu__toggle"
 FRANCE_DIALOG = FRANCE + " dialog"
 FRANCE_FIELD = FRANCE_DIALOG + ' input[name="airline_name"]'
 
-_SETTLED = animation_settle.SETTLED
+_SETTLED = animation_settle.SETTLED_APART_FROM_TOASTS
 _OWNS_CENTRE = (
     "sel => { const el = document.querySelector(sel); if (!el) return false;"
     " const r = el.getBoundingClientRect();"

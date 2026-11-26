@@ -46,12 +46,19 @@ _OWNS_CENTRE = (
     "el => { const r = el.getBoundingClientRect();"
     " const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);"
     " return !!hit && (hit === el || el.contains(hit) || hit.contains(el)); }")
-_SETTLED = animation_settle.SETTLED
+_SETTLED = animation_settle.SETTLED_APART_FROM_TOASTS
 
 
 def _seed(state_dir):
     seed_state_dir(state_dir)
     device_config.save_device_config(state_dir, theme=SAVED_LOOK)
+
+
+@pytest.fixture(scope="module")
+def read_only_server(module_app_server_factory):
+    """One seeded server for the checks below that only read pages and never save anything,
+    so a worker starts it, and renders the look previews, once for the module."""
+    return module_app_server_factory(seed=_seed)
 
 
 def _ready(page, route):
@@ -105,13 +112,13 @@ def _checked_theme(page):
 @pytest.mark.parametrize("viewport", [{"width": 390, "height": 844}, {"width": 360, "height": 740}],
                          ids=["390x844", "360x740"])
 def test_the_whole_look_picker_fits_one_phone_screen_above_the_tab_bar(
-        new_context, make_app_server, viewport, lang):
+        new_context, read_only_server, viewport, lang):
     """after load, with no scrolling, the picture (a little over half the width), the colour swatches, the background and band
     controls are all inside the viewport and end above the floating tab bar once the frame-level
     Layout card above the tabs is scrolled out (on a phone as short
     as 740px only the reason under a greyed choice may run below it);
     the swatches are drawn 32px inside their 44px targets"""
-    server = make_app_server(seed=_seed)
+    server = read_only_server
     context, page = _open(new_context, server.base_url(), viewport, lang=lang)
     try:
         page.wait_for_function("() => window.scrollY === 0")
@@ -144,11 +151,11 @@ def test_the_whole_look_picker_fits_one_phone_screen_above_the_tab_bar(
 @pytest.mark.parametrize("theme", UI_THEMES_EXPLICIT)
 @pytest.mark.parametrize("label,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
 def test_no_overflow_and_every_control_is_44px_and_reachable(
-        new_context, make_app_server, label, viewport, theme, lang):
+        new_context, read_only_server, label, viewport, theme, lang):
     """the look views do not scroll sideways and their nav links, colour dots and segments are at
     least 44x44 and own their centre; the Arrivals view's switch likewise; the picker has no
     Save or Reset button of its own"""
-    server = make_app_server(seed=_seed)
+    server = read_only_server
     context, page = _open(new_context, server.base_url(), viewport, lang=lang, theme=theme)
     try:
         overflow = _assert_no_page_overflow(page, "personalisation", viewport["width"])
@@ -192,10 +199,10 @@ def test_no_overflow_and_every_control_is_44px_and_reachable(
 @pytest.mark.parametrize("theme", UI_THEMES_EXPLICIT)
 @pytest.mark.parametrize("label,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
 def test_every_view_fits_the_screen_in_both_languages_and_themes(
-        new_context, make_app_server, label, viewport, theme, lang):
+        new_context, read_only_server, label, viewport, theme, lang):
     """none of the four views scrolls sideways, and the navigation holds all four links with the
     current view marked"""
-    server = make_app_server(seed=_seed)
+    server = read_only_server
     context, page = _open(new_context, server.base_url(), viewport, lang=lang, theme=theme)
     try:
         for position, (slug, route) in enumerate(VIEW_ROUTES):
@@ -213,10 +220,10 @@ def test_every_view_fits_the_screen_in_both_languages_and_themes(
 
 
 def test_on_a_phone_the_navigation_fits_without_scrolling_and_shows_the_current_link(
-        new_context, make_app_server):
+        new_context, read_only_server):
     """at 360 px the segmented control fits its column in French (no sideways scroll inside it or
     in the page) and the current link sits fully on screen"""
-    server = make_app_server(seed=_seed)
+    server = read_only_server
     context, page = _open(
         new_context, server.base_url(), VIEWPORT_MIN_SUPPORTED, lang="fr",
         route=layout.DISPLAY_CALENDAR_ROUTE)
@@ -287,11 +294,11 @@ def test_the_floating_save_bar_saves_the_look(new_context, make_app_server):
 
 @pytest.mark.parametrize("label,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
 def test_the_views_show_their_own_picture_and_cancel_restores_the_saved_look(
-        new_context, make_app_server, label, viewport):
+        new_context, read_only_server, label, viewport):
     """Departures shows its picture first; the Arrivals address shows its own picture and offers
     "Same as departures"; a choice there changes only Arrivals; Cancel puts the saved Arrivals
     look back"""
-    server = make_app_server(seed=_seed)
+    server = read_only_server
     context, page = _open(new_context, server.base_url(), viewport)
     try:
         departures = page.locator('[data-look-panel="departures"]')
@@ -330,11 +337,11 @@ def test_the_views_show_their_own_picture_and_cancel_restores_the_saved_look(
 
 
 def test_on_desktop_the_picture_and_the_picker_are_two_columns_that_fit_the_screen(
-        new_context, make_app_server):
+        new_context, read_only_server):
     """at 1280x800 the picture is on the left and the picker card on the right, side by side, and
     both end inside the first screen on Departures and on Arrivals once the frame-level Layout card
     above the tabs is scrolled out; the picture is not tiny"""
-    server = make_app_server(seed=_seed)
+    server = read_only_server
     viewport = {"width": 1280, "height": 800}
     for route in LOOK_ROUTES:
         context, page = _open(new_context, server.base_url(), viewport, route=route)
@@ -356,10 +363,10 @@ def test_on_desktop_the_picture_and_the_picker_are_two_columns_that_fit_the_scre
             context.close()
 
 
-def test_the_picker_is_in_the_page_not_a_dialog(new_context, make_app_server):
+def test_the_picker_is_in_the_page_not_a_dialog(new_context, read_only_server):
     """the picker never covers the page: no scrim, no dialog role, Escape leaves it where it is
     and the page behind it stays reachable"""
-    server = make_app_server(seed=_seed)
+    server = read_only_server
     context, page = _open(new_context, server.base_url(), VIEWPORT_MIN_SUPPORTED)
     try:
         assert page.get_attribute("[data-look-sheet]", "role") is None
@@ -379,9 +386,9 @@ def test_the_picker_is_in_the_page_not_a_dialog(new_context, make_app_server):
 
 @pytest.mark.parametrize("label,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
 def test_the_navigation_links_are_plain_links_one_view_each(
-        new_context, make_app_server, label, viewport):
+        new_context, read_only_server, label, viewport):
     """each link opens its own view at its own address, and the current link follows"""
-    server = make_app_server(seed=_seed)
+    server = read_only_server
     context, page = _open(new_context, server.base_url(), viewport, theme=None, reduced_motion="reduce")
     try:
         links = page.locator(".personalisation-nav__link")
@@ -413,10 +420,10 @@ def _thumb_covers_current_link(page):
 
 
 def test_the_highlight_is_under_the_current_link_and_never_slides_after_a_page_change(
-        new_context, make_app_server):
+        new_context, read_only_server):
     """after a click the new page shows the highlight under the current link from the start:
     the page change carries the selection, so no script slides the thumb afterwards"""
-    server = make_app_server(seed=_seed)
+    server = read_only_server
     context, page = _open(new_context, server.base_url(), VIEWPORT_DESKTOP, theme=None,
         reduced_motion="no-preference")
     context.add_init_script(
@@ -445,10 +452,10 @@ def test_the_highlight_is_under_the_current_link_and_never_slides_after_a_page_c
         context.close()
 
 
-def test_under_reduced_motion_the_highlight_does_not_slide(new_context, make_app_server):
+def test_under_reduced_motion_the_highlight_does_not_slide(new_context, read_only_server):
     """with prefers-reduced-motion the highlight sits under the current link at once: no sliding
     class, no transition time"""
-    server = make_app_server(seed=_seed)
+    server = read_only_server
     context, page = _open(new_context, server.base_url(), VIEWPORT_DESKTOP, theme=None, reduced_motion="reduce")
     try:
         with page.expect_navigation():
@@ -465,11 +472,11 @@ def test_under_reduced_motion_the_highlight_does_not_slide(new_context, make_app
 
 
 def test_without_scripts_the_links_work_and_the_look_view_offers_the_native_cards(
-        new_context, make_app_server):
+        new_context, read_only_server):
     """scripts blocked: the navigation links still open each view, the current link carries the
     highlight itself, the look cards are there, and the script-only picker is not; the Arrivals
     link opens the arrivals table"""
-    server = make_app_server(seed=_seed)
+    server = read_only_server
     with _no_js_page(new_context, server.base_url(), layout.DISPLAY_ROUTE,
                      viewport=VIEWPORT_MIN_SUPPORTED, reduced_motion="reduce") as page:
         page.wait_for_load_state("load")
@@ -491,10 +498,10 @@ def test_without_scripts_the_links_work_and_the_look_view_offers_the_native_card
 @pytest.mark.parametrize("lang,label", [("en", "Save"), ("fr", "Enregistrer")])
 @pytest.mark.parametrize("label_vp,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
 def test_the_floating_bar_save_button_is_the_short_word_on_one_line(
-        new_context, make_app_server, label_vp, viewport, lang, label):
+        new_context, read_only_server, label_vp, viewport, lang, label):
     """the floating bar's Save reads just "Save" / "Enregistrer": one line, 44px tall, inside the
     bar, with Cancel beside it"""
-    server = make_app_server(seed=_seed)
+    server = read_only_server
     context, page = _open(new_context, server.base_url(), viewport, lang=lang)
     try:
         page.click(PICKER + ' .look-dot:has(input[data-look-axis="colour"][value="green"])')

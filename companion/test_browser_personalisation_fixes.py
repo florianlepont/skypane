@@ -45,6 +45,13 @@ def _seed(state_dir):
         colour_rules.add_rule(state_dir, kind, key, "white")
 
 
+@pytest.fixture(scope="module")
+def read_only_server(module_app_server_factory):
+    """One seeded server for the checks below that only read pages and never save anything,
+    so a worker starts it, and renders the look previews, once for the module."""
+    return module_app_server_factory(seed=_seed)
+
+
 def _open(new_context, base_url, viewport, route, lang="en", theme="light"):
     context = new_context(viewport=viewport)
     context.add_cookies([{"name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
@@ -81,12 +88,12 @@ def _wait_sheet_visible(page):
 @pytest.mark.parametrize(
     "viewport", [VIEWPORT_DESKTOP, VIEWPORT_WIDE, VIEWPORT_PHONE], ids=["1280", "1440", "390"])
 def test_the_calendar_view_shows_its_own_content_and_leads_to_its_look_page(
-        new_context, make_app_server, viewport, lang, theme):
+        new_context, read_only_server, viewport, lang, theme):
     """the Calendar view holds the connect row and the calendar look row inside the list card, no
     card of another view and no popover; the row's Change link is a 44px target that opens the
     calendar look page, whose picker sits in the page and, while the look follows departures,
     explains why its choices are off"""
-    server = make_app_server(seed=_seed)
+    server = read_only_server
     context, page = _open(
         new_context, server.base_url(), viewport, layout.DISPLAY_CALENDAR_ROUTE, lang, theme)
     try:
@@ -118,9 +125,9 @@ def test_the_calendar_view_shows_its_own_content_and_leads_to_its_look_page(
 @pytest.mark.parametrize("lang", ["en", "fr"])
 @pytest.mark.parametrize(
     "viewport", [VIEWPORT_MIN_SUPPORTED, VIEWPORT_DESKTOP], ids=["360", "1280"])
-def test_the_picture_has_no_caption_under_it(new_context, make_app_server, viewport, lang, route):
+def test_the_picture_has_no_caption_under_it(new_context, read_only_server, viewport, lang, route):
     """nothing but the picture sits in the stage: no read-back text under or beside it"""
-    server = make_app_server(seed=_seed)
+    server = read_only_server
     context, page = _open(new_context, server.base_url(), viewport, route, lang)
     try:
         page.locator(SHEET + "[data-look-inline]").wait_for(state="visible")
@@ -133,10 +140,10 @@ def test_the_picture_has_no_caption_under_it(new_context, make_app_server, viewp
 
 
 @pytest.mark.parametrize("lang", ["en", "fr"])
-def test_choosing_a_background_does_not_move_the_controls(new_context, make_app_server, lang):
+def test_choosing_a_background_does_not_move_the_controls(new_context, read_only_server, lang):
     """the stripe row stays in place whatever background is chosen: the colour and background
     rows keep their height and every row keeps its top"""
-    server = make_app_server(seed=_seed)
+    server = read_only_server
     context, page = _open(new_context, server.base_url(), VIEWPORT_DESKTOP, layout.DISPLAY_ROUTE, lang)
     try:
         page.locator(SHEET + "[data-look-inline]").wait_for(state="visible")
@@ -163,11 +170,11 @@ def test_choosing_a_background_does_not_move_the_controls(new_context, make_app_
 @pytest.mark.parametrize("theme", UI_THEMES_EXPLICIT)
 @pytest.mark.parametrize("viewport", [VIEWPORT_MIN_SUPPORTED, VIEWPORT_PHONE], ids=["360", "390"])
 def test_a_special_look_row_gives_its_text_the_width(
-        new_context, make_app_server, viewport, theme, lang):
+        new_context, read_only_server, viewport, theme, lang):
     """on a phone the row's text column is at least 120px wide, the kind badge sits on one line
     and no word breaks inside itself, the picture is on the left and the Edit and Remove actions
     are 44px targets inside the row that own their centre"""
-    server = make_app_server(seed=_seed)
+    server = read_only_server
     context, page = _open(
         new_context, server.base_url(), viewport, layout.DISPLAY_SPECIAL_LOOKS_ROUTE, lang, theme)
     try:
@@ -213,9 +220,9 @@ def test_a_special_look_row_gives_its_text_the_width(
         context.close()
 
 
-def test_the_long_airline_names_show_in_full_on_a_phone(new_context, make_app_server):
+def test_the_long_airline_names_show_in_full_on_a_phone(new_context, read_only_server):
     """'Gendarmerie Nationale' and 'French Air Force' read as whole words in the row"""
-    server = make_app_server(seed=_seed)
+    server = read_only_server
     context, page = _open(
         new_context, server.base_url(), VIEWPORT_MIN_SUPPORTED, layout.DISPLAY_SPECIAL_LOOKS_ROUTE)
     try:
@@ -227,10 +234,10 @@ def test_the_long_airline_names_show_in_full_on_a_phone(new_context, make_app_se
 
 
 @pytest.mark.parametrize("route", [layout.DISPLAY_ROUTE, layout.DISPLAY_ARRIVALS_ROUTE])
-def test_without_scripts_no_dead_button_is_left_on_the_look_view(new_context, make_app_server, route):
+def test_without_scripts_no_dead_button_is_left_on_the_look_view(new_context, read_only_server, route):
     """with scripts blocked every button the page shows is a real control: the script-only
     openers stay hidden and the native look cards are the way in"""
-    server = make_app_server(seed=_seed)
+    server = read_only_server
     with _no_js_page(new_context, server.base_url(), route, viewport=VIEWPORT_PHONE,
                      reduced_motion="reduce") as page:
         page.wait_for_load_state("load")
@@ -242,9 +249,9 @@ def test_without_scripts_no_dead_button_is_left_on_the_look_view(new_context, ma
 
 
 @pytest.mark.parametrize("lang", ["en", "fr"])
-def test_switching_the_kind_of_a_new_special_look_clears_the_key(new_context, make_app_server, lang):
+def test_switching_the_kind_of_a_new_special_look_clears_the_key(new_context, read_only_server, lang):
     """a key typed for an airline does not stay in the Value field once the kind becomes Flight"""
-    server = make_app_server(seed=_seed)
+    server = read_only_server
     context, page = _open(
         new_context, server.base_url(), VIEWPORT_PHONE, layout.DISPLAY_SPECIAL_LOOK_NEW_ROUTE, lang)
     try:

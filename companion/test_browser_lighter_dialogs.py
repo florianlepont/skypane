@@ -19,8 +19,7 @@ import fleet_console_support as fx
 import skypane_contrast_check
 from co_manager_browser_support import SECOND_CO, Rig
 from companion import auth
-from companion.test_browser_ux_helpers import (
-    _SETTLE_PROBE, _login, _set_ui_theme)
+from companion.test_browser_ux_helpers import _login, _set_ui_theme
 from server import fleet_db
 
 pytestmark = pytest.mark.browser
@@ -97,7 +96,7 @@ def _context(new_context, server, lang, theme, **kwargs):
 
 
 def _settle(page, dialog):
-    page.evaluate(_SETTLE_PROBE, dialog + " .modal__title")
+    animation_settle.wait_settled(page, target=dialog)
 
 
 def _fleet_page(new_context, server, lang, theme, **kwargs):

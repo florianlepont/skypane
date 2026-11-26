@@ -24,6 +24,15 @@ SETTLED = (
     "() => document.readyState === 'complete'"
     " && " + DONE_EXPR)
 
+# The same, except that animations inside a toast (its entrance and the 6 or 12 s dwell timer that
+# runs until it hides itself) do not count. A toast is a fixed overlay, so waiting for it to go
+# says nothing about the page under it; a test that needs the toast gone says so itself.
+SETTLED_APART_FROM_TOASTS = (
+    "() => document.readyState === 'complete'"
+    " && document.getAnimations().every(a => (" + _SETTLED_ANIMATION + ")(a)"
+    " || !!(a.effect && a.effect.target && a.effect.target.closest"
+    " && a.effect.target.closest('.toast')))")
+
 # Argument: a CSS selector. The element exists and no finite animation runs on
 # it, its pseudo-elements or its descendants.
 TARGET_SETTLED = (

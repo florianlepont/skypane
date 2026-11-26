@@ -530,7 +530,10 @@ class InProcessAppServer:
         app_module.Handler.args = argparse.Namespace(
             state_dir=state_dir, geofence=None)
         self.server = quiet_server.QuietHTTPServer(("127.0.0.1", self.port), app_module.Handler)
-        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        # A short poll interval makes shutdown() return in milliseconds, not 0.5 s.
+        self.thread = threading.Thread(
+            target=self.server.serve_forever,
+            kwargs={"poll_interval": 0.01}, daemon=True)
         self.thread.start()
         if env_overrides:
             self.apply_env(env_overrides)

@@ -18,7 +18,7 @@ pytestmark = pytest.mark.browser
 _PNG = os.path.join(illustrations.ILLUSTRATION_DIR, "vueling-airlines.png")
 KNOWN = ".airlines-missing__airline"
 BUTTON = KNOWN + ":has-text('Finnair') .airlines-missing__add"
-_SETTLED = animation_settle.SETTLED
+_SETTLED = animation_settle.SETTLED_APART_FROM_TOASTS
 
 
 @pytest.mark.parametrize("lang,known_label", (("en", "Missing illustrations"), ("fr", "Illustrations manquantes")))

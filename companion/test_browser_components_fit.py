@@ -8,6 +8,7 @@ import pytest
 
 import fleet_console_support as fx
 from companion import auth
+from companion.test_browser_components_helpers import wait_until_measurable
 from companion_app_server import session_cookie_for_state_dir
 
 pytestmark = pytest.mark.browser
@@ -108,7 +109,11 @@ def server(module_app_server_factory):
     return module_app_server_factory(seed=fx.seed_users)
 
 
-def _open(new_context, server, width, theme, lang, **context_kwargs):
+def _wait_for_settled_document(page):
+    page.wait_for_function(animation_settle.SETTLED, timeout=10000)
+
+
+def _open(new_context, server, width, theme, lang, wait=wait_until_measurable, **context_kwargs):
     context = new_context(viewport=VIEWPORTS[width], color_scheme=theme, **context_kwargs)
     name, value = session_cookie_for_state_dir(server.state_dir, fx.ADMIN_EMAIL).split("=", 1)
     context.add_cookies([
@@ -117,7 +122,7 @@ def _open(new_context, server, width, theme, lang, **context_kwargs):
         {"name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": server.base_url()}])
     page = context.new_page()
     page.goto(server.base_url() + "/components")
-    page.wait_for_function(animation_settle.SETTLED, timeout=10000)
+    wait(page)
     page.evaluate(HELPERS)
     return context, page
 
@@ -125,11 +130,25 @@ def _open(new_context, server, width, theme, lang, **context_kwargs):
 PARAMS = [(w, t, lang) for w in ("360", "1280") for t in ("light", "dark") for lang in ("en", "fr")]
 
 
+@pytest.fixture(scope="module")
+def shared_components(module_new_context, server):
+    """One loaded Components page per parameter set, opened the first time a test asks for it
+    and kept for the rest of the module. Every test using it only reads the page."""
+    pages = {}
+
+    def page_for(params):
+        if params not in pages:
+            pages[params] = _open(module_new_context, server, *params)[1]
+        page = pages[params]
+        page.evaluate("() => window.scrollTo(0, 0)")
+        return page
+
+    return page_for
+
+
 @pytest.fixture(params=PARAMS, ids=["%s-%s-%s" % p for p in PARAMS])
-def components(request, new_context, server):
-    context, page = _open(new_context, server, *request.param)
-    yield page
-    context.close()
+def components(request, shared_components):
+    return shared_components(request.param)
 
 
 def test_the_wake_interval_card_and_the_unsaved_bar_show_all_their_text(components):
@@ -173,7 +192,9 @@ def test_the_new_samples_keep_text_contrast_of_four_and_a_half_to_one(components
 
 def test_nothing_is_animated_under_reduced_motion(new_context, server):
     for lang in ("en", "fr"):
-        context, page = _open(new_context, server, "360", "light", lang, reduced_motion="reduce")
+        context, page = _open(
+            new_context, server, "360", "light", lang, wait=_wait_for_settled_document,
+            reduced_motion="reduce")
         try:
             assert page.evaluate(RUNNING) == []
         finally:

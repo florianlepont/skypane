@@ -61,6 +61,20 @@ def _seed_pairings(state_dir):
     device_config.save_device_config(state_dir, layout="b", theme="grey")
 
 
+@pytest.fixture(scope="module")
+def read_only_server(module_app_server_factory):
+    """One seeded server for the checks below that only read pages and never save anything,
+    so a worker starts it, and renders the look previews, once for the module."""
+    return module_app_server_factory(seed=_seed)
+
+
+@pytest.fixture(scope="module")
+def read_only_server_with_look(module_app_server_factory):
+    """One seeded server for the checks below that only read pages and never save anything,
+    so a worker starts it, and renders the look previews, once for the module."""
+    return module_app_server_factory(seed=_seed_with_look)
+
+
 def _tab(page, view):
     return page.locator('[data-tabs="display"] a[data-pers-view="%s"]' % view)
 
@@ -149,10 +163,10 @@ def _stored_theme(server):
 
 @pytest.mark.parametrize("name,viewport,lang", CASES, ids=CASE_IDS)
 def test_tapping_a_sub_tab_with_an_unsaved_change_opens_the_dialog(
-        new_context, make_app_server, name, viewport, lang):
+        new_context, read_only_server, name, viewport, lang):
     """the dialog opens before the page changes, with the three actions in the reader's language, on the
     safest action, no cut text, 44 px targets and no sideways scroll in both themes"""
-    server = make_app_server(seed=_seed)
+    server = read_only_server
     context, page = _open(new_context, server, viewport, lang)
     try:
         start = page.url
@@ -184,9 +198,9 @@ def test_tapping_a_sub_tab_with_an_unsaved_change_opens_the_dialog(
 
 @pytest.mark.parametrize("name,viewport,lang", CASES[::2], ids=CASE_IDS[::2])
 def test_a_clean_page_navigates_and_no_dialog_opens(
-        new_context, make_app_server, name, viewport, lang):
+        new_context, read_only_server, name, viewport, lang):
     """with nothing changed, a sub-tab and a bottom tab-bar cell are plain links again"""
-    server = make_app_server(seed=_seed)
+    server = read_only_server
     context, page = _open(new_context, server, viewport, lang)
     try:
         _tap_tab(page, "arrivals")
@@ -208,10 +222,10 @@ def test_a_clean_page_navigates_and_no_dialog_opens(
 @pytest.mark.parametrize("how", ["tap", "click"])
 @pytest.mark.parametrize("name,viewport,lang", CASES[::2], ids=CASE_IDS[::2])
 def test_an_unsaved_colour_alone_opens_the_dialog(
-        new_context, make_app_server, name, viewport, lang, how):
+        new_context, read_only_server_with_look, name, viewport, lang, how):
     """a colour change with the layout untouched asks too, by touch tap and by click, and the
     browser's own prompt never replaces the dialog"""
-    server = make_app_server(seed=_seed_with_look)
+    server = read_only_server_with_look
     context, page = _open(new_context, server, viewport, lang)
     prompts = []
     page.on("dialog", lambda d: (prompts.append(d.type), d.accept()))
@@ -275,10 +289,10 @@ def test_the_bottom_tab_bar_asks_before_leaving_and_saves_on_continue(
 
 @pytest.mark.parametrize("name,viewport,lang", PHONE_CASES[:1], ids=PHONE_IDS[:1])
 def test_the_tab_pill_stays_put_while_the_dialog_holds_the_navigation(
-        new_context, make_app_server, name, viewport, lang):
+        new_context, read_only_server_with_look, name, viewport, lang):
     """a tab tapped with unsaved changes asks first: the pill never travels toward the tapped
     cell and back, it stays under the page the person is still on"""
-    server = make_app_server(seed=_seed_with_look)
+    server = read_only_server_with_look
     context, page = _open(new_context, server, viewport, lang)
     try:
         _pick_a_colour(page)
@@ -304,9 +318,9 @@ def test_the_tab_pill_stays_put_while_the_dialog_holds_the_navigation(
 
 @pytest.mark.parametrize("name,viewport,lang", PHONE_CASES, ids=PHONE_IDS)
 def test_discard_on_a_bottom_tab_leaves_without_saving(
-        new_context, make_app_server, name, viewport, lang):
+        new_context, read_only_server_with_look, name, viewport, lang):
     """Discard goes to the tapped tab and nothing is stored"""
-    server = make_app_server(seed=_seed_with_look)
+    server = read_only_server_with_look
     context, page = _open(new_context, server, viewport, lang)
     prompts = []
     page.on("dialog", lambda d: (prompts.append(d.type), d.accept()))
@@ -324,10 +338,10 @@ def test_discard_on_a_bottom_tab_leaves_without_saving(
 
 @pytest.mark.parametrize("how", ["back", "history"])
 def test_discard_then_the_browsers_back_shows_the_saved_values_and_no_bar(
-        new_context, make_app_server, how):
+        new_context, read_only_server_with_look, how):
     """Back after Discard returns to the Style page as it was saved: the colour the person threw
     away is not restored and the Unsaved changes bar stays hidden"""
-    server = make_app_server(seed=_seed_with_look)
+    server = read_only_server_with_look
     context, page = _open(new_context, server, VIEWPORT_MIN_SUPPORTED, "en")
     try:
         saved = page.evaluate(
@@ -354,9 +368,9 @@ def test_discard_then_the_browsers_back_shows_the_saved_values_and_no_bar(
         context.close()
 
 
-def test_staying_puts_the_bottom_bar_back_on_the_style_tab(new_context, make_app_server):
+def test_staying_puts_the_bottom_bar_back_on_the_style_tab(new_context, read_only_server_with_look):
     """the tab bar's own highlight follows the tap and returns to Style when the person stays"""
-    server = make_app_server(seed=_seed_with_look)
+    server = read_only_server_with_look
     context, page = _open(new_context, server, VIEWPORT_MIN_SUPPORTED, "en")
     try:
         _pick_a_colour(page)
@@ -373,9 +387,9 @@ def test_staying_puts_the_bottom_bar_back_on_the_style_tab(new_context, make_app
         context.close()
 
 
-def test_the_desktop_sidebar_asks_before_leaving(new_context, make_app_server):
+def test_the_desktop_sidebar_asks_before_leaving(new_context, read_only_server_with_look):
     """the wide screen's own navigation goes through the same question"""
-    server = make_app_server(seed=_seed_with_look)
+    server = read_only_server_with_look
     context, page = _open(new_context, server, VIEWPORT_DESKTOP, "en")
     try:
         start = page.url
@@ -390,9 +404,9 @@ def test_the_desktop_sidebar_asks_before_leaving(new_context, make_app_server):
         context.close()
 
 
-def test_a_link_inside_the_open_more_sheet_asks_too(new_context, make_app_server):
+def test_a_link_inside_the_open_more_sheet_asks_too(new_context, read_only_server_with_look):
     """the More sheet's own links (Account and the rest) go through the same question"""
-    server = make_app_server(seed=_seed_with_look)
+    server = read_only_server_with_look
     context, page = _open(new_context, server, VIEWPORT_MIN_SUPPORTED, "en")
     try:
         _pick_a_colour(page)
@@ -407,9 +421,9 @@ def test_a_link_inside_the_open_more_sheet_asks_too(new_context, make_app_server
         context.close()
 
 
-def test_a_same_page_hash_link_is_not_intercepted(new_context, make_app_server):
+def test_a_same_page_hash_link_is_not_intercepted(new_context, read_only_server_with_look):
     """the skip link jumps inside the page with the dialog never opening"""
-    server = make_app_server(seed=_seed_with_look)
+    server = read_only_server_with_look
     context, page = _open(new_context, server, VIEWPORT_DESKTOP, "en")
     try:
         _pick_a_colour(page)
@@ -446,9 +460,9 @@ def test_save_and_continue_saves_the_layout_then_opens_the_tapped_view(
 
 @pytest.mark.parametrize("name,viewport,lang", CASES, ids=CASE_IDS)
 def test_discard_opens_the_tapped_view_without_saving(
-        new_context, make_app_server, name, viewport, lang):
+        new_context, read_only_server, name, viewport, lang):
     """nothing is stored, the destination shows the stored layout and the browser's own prompt never appears"""
-    server = make_app_server(seed=_seed)
+    server = read_only_server
     context, page = _open(new_context, server, viewport, lang)
     prompts = []
     page.on("dialog", lambda d: (prompts.append(d.type), d.accept()))
@@ -469,9 +483,9 @@ def test_discard_opens_the_tapped_view_without_saving(
 @pytest.mark.parametrize("how", ["button", "escape"])
 @pytest.mark.parametrize("name,viewport,lang", CASES, ids=CASE_IDS)
 def test_stay_here_and_escape_change_nothing_and_return_the_focus(
-        new_context, make_app_server, name, viewport, lang, how):
+        new_context, read_only_server, name, viewport, lang, how):
     """the dialog closes, the page, the picked layout and the save bar stay, the tapped link has the focus"""
-    server = make_app_server(seed=_seed)
+    server = read_only_server
     context, page = _open(new_context, server, viewport, lang)
     try:
         start = page.url
@@ -498,9 +512,9 @@ def test_stay_here_and_escape_change_nothing_and_return_the_focus(
 
 
 def test_without_script_the_tabs_are_plain_links_and_the_dialog_stays_closed(
-        new_context, make_app_server):
+        new_context, read_only_server):
     """scripts blocked: the link navigates and the dialog is not shown"""
-    server = make_app_server(seed=_seed)
+    server = read_only_server
     context = new_context(viewport=VIEWPORT_DESKTOP, java_script_enabled=False)
     page = context.new_page()
     try:
@@ -515,12 +529,12 @@ def test_without_script_the_tabs_are_plain_links_and_the_dialog_stays_closed(
 
 @pytest.mark.parametrize("name,viewport,lang", CASES, ids=CASE_IDS)
 def test_the_question_has_one_status_and_two_equal_answers(
-        new_context, make_app_server, name, viewport, lang):
+        new_context, read_only_server, name, viewport, lang):
     """the bar behind the open question is out of sight so one status shows; the two answers
     are the same 48 px tall and as wide as each other, side by side on a wide screen (leave
     on the left, save on the right) and stacked on a phone (save first); the close cross
     sits at the top right of the box"""
-    server = make_app_server(seed=_seed)
+    server = read_only_server
     context, page = _open(new_context, server, viewport, lang)
     try:
         _pick_layout_c(page)
