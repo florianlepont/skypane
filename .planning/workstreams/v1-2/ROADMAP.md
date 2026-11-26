@@ -53,7 +53,7 @@ Phase 47 measures the live frame on the live VPS. This milestone must not modify
 - [ ] **Phase 70: Private Repository and CI (Free Plan, Self-Hosted or Reduced CI)** - The whole repository becomes private without losing the owner-controlled production deploy and firmware signing, and the CI fits the private-repository limits. (added 2026-11-24 at the owner's decision: everything private; runs before Phase 66)
 - [ ] **Phase 66: Security Audit** - The whole platform (server, companion, device protocol, firmware update path, deploy and secrets) is audited, and every finding is fixed or recorded with the owner's decision. (added 2026-11-15 at the owner's request)
 - [ ] **Phase 67: Project and Code Optimisation for a Clean, Industrial Result** - The repository, the code, the tests and the documents are cleaned and made consistent so the project can be maintained and handed over like an industrial product. (added 2026-11-15 at the owner's request; Phase 59 stays last)
-- [ ] **Phase 69: Rear Enclosure for the 7.3 Inch Frame (Design, Print, Fit)** - The four printed parts (tray, lid with wall hooks, loose stand plate, centring shim) are designed, printed, fitted into an IKEA RÖDALM 13 x 18 cm frame with the second-hardware frame, and validated on the wall and on furniture. (added 2026-11-18 at the owner's request as an owner-driven parallel track, physical part of SEED-014; the administrator flashing tool stays in v1.3)
+- [x] **Phase 69: Rear Enclosure for the 7.3 Inch Frame (Design, Print, Fit)** - The four printed parts (tray, lid with wall hooks, loose stand plate, centring shim) are designed, printed, fitted into an IKEA RÖDALM 13 x 18 cm frame with the second-hardware frame, and validated on the wall and on furniture. (added 2026-11-18 at the owner's request as an owner-driven parallel track, physical part of SEED-014; the administrator flashing tool stays in v1.3)
 
 ## Phase Details
 
@@ -815,19 +815,19 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 plan 69-02)*
 
-- [ ] 69-03-PLAN.md — Test-print log, calliper survey of five frames, print round A (shim and coupon plate) (ENC-01)
+- [x] 69-03-PLAN.md — Test-print log, calliper survey of five frames, print round A (shim and coupon plate) (closed by the owner's decision of 2026-11-26, not executed as written, see 69-VERIFICATION.md) (ENC-01)
 
 **Wave 4** *(blocked on Wave 3)*
 
-- [ ] 69-04-PLAN.md — Print rounds B (tray) and C (lid and stand), screw reuse test, battery gate (ENC-01)
+- [x] 69-04-PLAN.md — Print rounds B (tray) and C (lid and stand), screw reuse test, battery gate (closed by the owner's decision of 2026-11-26, not executed as written, see 69-VERIFICATION.md) (ENC-01)
 
 **Wave 5** *(blocked on Waves 2 and 4)*
 
-- [ ] 69-06-PLAN.md — Mechanical and safety validation (wall hooks, stand, USB-C, switch, RESET, buttons) and the Wi-Fi blocks with the enclosure and verdict (ENC-01)
+- [x] 69-06-PLAN.md — Mechanical and safety validation (wall hooks, stand, USB-C, switch, RESET, buttons) and the Wi-Fi blocks with the enclosure and verdict (closed by the owner's decision of 2026-11-26, not executed as written, see 69-VERIFICATION.md) (ENC-01)
 
 **Wave 6** *(blocked on Wave 5)*
 
-- [ ] 69-07-PLAN.md — Final files stored, assembly note, BOM update, SEED-014 update (ENC-01)
+- [x] 69-07-PLAN.md — Final files stored, assembly note, BOM update, SEED-014 update (closed by the owner's decision of 2026-11-26, not executed as written, see 69-VERIFICATION.md) (ENC-01)
 
 ### Phase 70: Private Repository and CI (Free Plan, Self-Hosted or Reduced CI)
 
@@ -920,4 +920,4 @@ Plans: TBD
 | 70. Private Repository and CI (Free Plan, Self-Hosted or Reduced CI) | v1.2 | 0/0 | Added 2026-11-24, not planned yet | - |
 | 66. Security Audit | v1.2 | 0/0 | Added 2026-11-15, not planned yet | - |
 | 67. Project and Code Optimisation for a Clean, Industrial Result | v1.2 | 0/0 | Added 2026-11-15, not planned yet | - |
-| 69. Rear Enclosure for the 7.3 Inch Frame (Design, Print, Fit) | v1.2 | 3/7 | In progress, owner-driven parallel track: plans 01, 02 and 05 have a summary (measurements, closeout, Wi-Fi protocol and bare-frame baseline); plans 03 (test-print log, five-frame survey, print round A), 04 (print rounds B and C), 06 (mechanical and Wi-Fi validation) and 07 (final files and documents) remain; design work continued on 2026-11-24 (stand, logo, buttons, first assembly) without a plan summary; checked 2026-11-25 | - |
+| 69. Rear Enclosure for the 7.3 Inch Frame (Design, Print, Fit) | v1.2 | 7/7 | Complete, closed 2026-11-26 by the owner's decision with open points (`69-VERIFICATION.md`): parts printed, assembled and checked by the owner (hinged leg, stop, hinge pins, lid on the frame tabs); wall hanging, USB-C and buttons access, battery fit, Wi-Fi with the enclosure, image reframing (D-14), assembly note, BOM and SEED-014 update not done | 2026-11-26 |
