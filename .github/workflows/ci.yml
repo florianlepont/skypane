@@ -3,9 +3,11 @@
 # Runner: every job runs on the runner named by the repository variable
 # CI_RUNS_ON (a JSON value such as ["self-hosted","skypane-ci"]); unset means
 # GitHub-hosted ubuntu-latest. The hosted fallback is `gh variable delete
-# CI_RUNS_ON`. Every code change runs every shard because the gates in
-# scripts/ci_gates.py need the whole suite; docs-only changes are skipped by
-# the paths filter below.
+# CI_RUNS_ON`. No job has a path condition: a run that exists is always the
+# whole run, because the gates in scripts/ci_gates.py need the whole suite.
+# A commit that touches only Markdown, planning notes, LICENSE or the 3D model
+# files under hardware/cad starts no run at all (workflow-level paths filter
+# below).
 #
 # Every push and PR runs these jobs in parallel on Python 3.14 (matches
 # production), then one aggregate job:
@@ -34,16 +36,23 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    # Skips a docs-only push (safe: main requires no status checks), but
-    # re-includes docs this job itself checks (VENDOR.md via
-    # check-attribution.sh, deploy/README.md via test_docs.py) and never
-    # excludes hardware/**/adsb-test/** since ruff lints their Python too.
+    # Skips a push that touches only Markdown, planning notes, LICENSE or 3D
+    # model files (safe: main requires no status checks), but re-includes docs
+    # this job itself checks (VENDOR.md via check-attribution.sh,
+    # deploy/README.md via test_docs.py). The 3D model files under
+    # hardware/cad are the only non-Markdown files excluded, because no code
+    # or test reads them. The exclusion is by file type, so any other file
+    # added there (a script, a config) matches `**` and runs the whole suite.
     paths:
       - '**'
       - '!**/*.md'
       - '!.planning/**'
       - '!.claude/**'
       - '!LICENSE'
+      - '!hardware/cad/**/*.stl'
+      - '!hardware/cad/**/*.blend'
+      - '!hardware/cad/**/*.glb'
+      - '!hardware/cad/**/*.3mf'
       - 'server/assets/**/VENDOR.md'
       - 'deploy/README.md'
   pull_request:
@@ -54,6 +63,10 @@ on:
       - '!.planning/**'
       - '!.claude/**'
       - '!LICENSE'
+      - '!hardware/cad/**/*.stl'
+      - '!hardware/cad/**/*.blend'
+      - '!hardware/cad/**/*.glb'
+      - '!hardware/cad/**/*.3mf'
       - 'server/assets/**/VENDOR.md'
       - 'deploy/README.md'
 

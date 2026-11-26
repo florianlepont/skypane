@@ -20,7 +20,8 @@ on:
       ci_sha:
         description: >-
           Full SHA of the commit whose CI run counts; leave empty to use the
-          tip. Needed when the tip is a docs-only commit, which has no CI run
+          tip. Needed when the tip is a commit that has no CI run
+          (documentation or 3D model files only)
         required: false
         default: ''
         type: string
@@ -85,8 +86,8 @@ jobs:
               exit 1
             fi
             git fetch --quiet --depth=1 origin "${CI_SHA}"
-            # Markdown-only changes never run CI, so they may sit between
-            # the CI commit and the tip; any shipped path may not.
+            # Commits that never run CI (Markdown, 3D model files) may sit
+            # between the CI commit and the tip; any shipped path may not.
             if ! git diff --quiet "${CI_SHA}" "${GITHUB_SHA}" -- \
                 server stub-server companion adsb-test/runway3.json deploy \
                 firmware/signing/skypane-signing-pubkey.pem \
