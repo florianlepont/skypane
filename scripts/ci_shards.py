@@ -9,8 +9,16 @@ files. Selection is always by file path: no test id is ever deselected, and a
 file is never split, so module-scoped fixtures are not duplicated.
 
 Weights come from `scripts/ci_shard_weights.json` (file path -> seconds) when
-that file exists; a file without an entry weighs its number of `def test_`
-occurrences.
+that file exists; a file without an entry weighs the median weight of the files
+of its group that have one (its number of `def test_` occurrences when the group
+has none), so a new file is not mistaken for a trivial one.
+
+To regenerate the weights, run the whole suite once with
+`--junitxml=junit-core.xml` on the core files and `--junitxml=junit-browser.xml`
+on the browser files (the file lists come from `files GROUP 0 1`), then
+`scripts/ci_shards.py weights junit-core.xml junit-browser.xml >
+scripts/ci_shard_weights.json`. Durations change with the tests, so do it after
+a change that makes tests faster or slower.
 
 Subcommands:
   files GROUP INDEX COUNT   print the shard's files, one per line
@@ -23,6 +31,7 @@ import argparse
 import fnmatch
 import json
 import os
+import statistics
 import xml.etree.ElementTree as ET
 import subprocess
 import sys
@@ -66,9 +75,17 @@ def load_weights(path=WEIGHTS_FILE):
         return json.load(handle)
 
 
-def file_weight(path, source, weights):
+def fallback_weight(group_paths, weights):
+    """The median weight of the group's files that have one, or None."""
+    known = [float(weights[p]) for p in group_paths if p in weights]
+    return statistics.median(known) if known else None
+
+
+def file_weight(path, source, weights, fallback=None):
     if path in weights:
         return float(weights[path])
+    if fallback is not None:
+        return float(fallback)
     return float(max(1, source.count("def test_")))
 
 
@@ -96,7 +113,8 @@ def build_shards(paths, sources, weights, counts):
     groups = split_groups(paths, sources)
     result = {}
     for name in GROUPS:
-        weight_of = {p: file_weight(p, sources[p], weights)
+        fallback = fallback_weight(groups[name], weights)
+        weight_of = {p: file_weight(p, sources[p], weights, fallback)
                      for p in groups[name]}
         result[name] = pack(groups[name], weight_of, counts[name])
     return result

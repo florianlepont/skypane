@@ -58,8 +58,10 @@ def test_one_shard_returns_the_whole_group():
 
 
 def test_heavy_files_land_in_different_shards_and_the_result_is_stable():
-    first = _build(2, 2, {"server/test_a.py": 100, "server/test_b.py": 90})
-    again = _build(2, 2, {"server/test_a.py": 100, "server/test_b.py": 90})
+    weights = {"server/test_a.py": 100, "server/test_b.py": 90, "server/test_c.py": 1,
+               "companion/test_plain.py": 5}
+    first = _build(2, 2, weights)
+    again = _build(2, 2, weights)
     assert first == again
     where = {p: i for i, shard in enumerate(first["core"]) for p in shard}
     assert where["server/test_a.py"] != where["server/test_b.py"]
@@ -128,6 +130,34 @@ def test_junit_times_are_summed_per_test_file(tmp_path):
     weights = shards_mod.weights_from_junit(
         [str(junit)], {"server/test_a.py", "companion/test_plain.py"})
     assert weights == {"companion/test_plain.py": 1, "server/test_a.py": 4}
+
+
+def test_a_file_without_a_weight_counts_the_median_weight_of_its_group():
+    weights = {"server/test_a.py": 10, "server/test_b.py": 30, "companion/test_plain.py": 2}
+    group = ["server/test_a.py", "server/test_b.py", "server/test_c.py"]
+    assert shards_mod.fallback_weight(group, weights) == 20.0
+    source_c, source_a = SOURCES["server/test_c.py"], SOURCES["server/test_a.py"]
+    assert shards_mod.file_weight("server/test_c.py", source_c, weights, 20.0) == 20.0
+    assert shards_mod.file_weight("server/test_a.py", source_a, weights, 20.0) == 10.0
+
+
+def test_a_group_with_no_weights_falls_back_to_the_number_of_tests():
+    assert shards_mod.fallback_weight(["server/test_a.py"], {}) is None
+    assert shards_mod.file_weight(
+        "server/test_a.py", SOURCES["server/test_a.py"], {}, None) == 9.0
+
+
+def test_an_unweighted_file_is_packed_by_the_median_not_by_its_test_count():
+    # The unweighted file has 30 tests. Weighing 10, like the two weighted files, it is packed
+    # first and shares a shard with one of them; counting its 30 tests it would sit alone.
+    weights = {"companion/test_browser_small.py": 10, "companion/test_mixed.py": 10}
+    shards = _build(2, 1, weights)
+    assert [len(shard) for shard in shards["browser"]] == [2, 1]
+
+
+def test_the_weights_file_has_no_entry_for_a_file_that_is_gone():
+    tracked = set(shards_mod.tracked_test_files())
+    assert [path for path in shards_mod.load_weights() if path not in tracked] == []
 
 
 def test_a_weight_for_a_file_that_no_longer_exists_is_ignored():
