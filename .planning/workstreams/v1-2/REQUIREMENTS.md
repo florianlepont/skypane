@@ -113,7 +113,7 @@ Runs in parallel with v1.1 Phase 47 (open, untouched). Phase numbering continues
 
 ### Rear Enclosure
 
-- [x] **ENC-01**: The second-hardware frame has a printed rear enclosure (tray, lid with wall hooks, loose stand plate, centring shim) that fits an IKEA RÖDALM 13 x 18 cm frame, hangs on a wall and stands on furniture, keeps USB-C, switch and buttons reachable, does not degrade the Wi-Fi signal, and is documented and validated by the owner.
+- [ ] **ENC-01**: The second-hardware frame has a printed rear enclosure (tray, lid with wall hooks, loose stand plate, centring shim) that fits an IKEA RÖDALM 13 x 18 cm frame, hangs on a wall and stands on furniture, keeps USB-C, switch and buttons reachable, does not degrade the Wi-Fi signal, and is documented and validated by the owner.
 
 ### Private Repository and CI
 
@@ -200,7 +200,7 @@ Coverage: 47/47 v1.2 requirements mapped, each to exactly one phase.
 | PRV-03 | Phase 70 | Pending |
 | SEC-AUD-01 | Phase 66 | Pending |
 | QUAL-01 | Phase 67 | Pending |
-| ENC-01 | Phase 69 | Complete with open points (closed 2026-11-26 by the owner's decision, see 69-VERIFICATION.md) |
+| ENC-01 | Phase 69 | In progress |
 | UX-01 | Phase 61 | Complete |
 | UX-02 | Phase 61 | Complete |
 | UX-03 | Phase 61 | Complete |
