@@ -58,7 +58,7 @@ def test_the_label_matches_the_airlines_label_and_sits_between_the_tables(
         assert label.inner_text().startswith("Illustrations manquantes · ")
         assert label.evaluate("e => e.tagName") == "P"
         assert page.locator(SECTION + " > h2").count() == 0
-        assert page.locator(SECTION + " > .section-caption").count() == 0
+        assert page.locator(SECTION + " > .section-caption").count() == 1
         airlines = page.locator(TABLES + ":not(.airlines-table--gaps) " + LABEL)
         assert label.evaluate(STYLE) == airlines.evaluate(STYLE)
         assert label.evaluate(STYLE)[:2] == ["13px", "600"]
@@ -75,7 +75,9 @@ def test_the_label_matches_the_airlines_label_and_sits_between_the_tables(
         assert tops[0] < tops[1] < tops[2], tops
         label_box = label.bounding_box()
         list_box = page.locator(SECTION + " .airlines-missing__list").bounding_box()
-        assert label_box["y"] + label_box["height"] <= list_box["y"]
-        assert list_box["y"] - (label_box["y"] + label_box["height"]) < 16
+        caption_box = page.locator(SECTION + " > .section-caption").bounding_box()
+        assert label_box["y"] + label_box["height"] <= caption_box["y"]
+        assert caption_box["y"] + caption_box["height"] <= list_box["y"]
+        assert caption_box["y"] - (label_box["y"] + label_box["height"]) < 16
     finally:
         context.close()
