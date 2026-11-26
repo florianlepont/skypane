@@ -226,6 +226,14 @@ frame). Console label "Airline editor", bar label "Editor".
   frame itself shows "This frame was removed from SkyPane. Press Reset to set it up again." on every
   hardware type. A refused pairing code on the Add a frame page is one tinted alert (icon, bold
   sentence, validity line), and the page tells a frame that shows no code to press Reset.
+- **Add a frame** (`/pair-frame`, `pair_frame_page.py`): one card holding an ordered list of two steps
+  (`.pair-steps` > `.pair-step`), each with a 17px semibold title that carries its number as text:
+  "Step 1: name it" (a Frame name field, optional, 40 characters, help line "Optional. You can change
+  it later.") and "Step 2: enter its pairing code" (the identifier-treatment code field, then the
+  administrator-only Owner field), one Add frame button and a Cancel link (44px). A blank name is
+  fine; an invalid one shows the rename error beside its field. The typed name comes back into its
+  input after a refusal (view fields on the direct answers, the `sp_pair_code` cookie on the redirect)
+  and is applied after the claim by the rename rules.
 - **System** (`/fleet?view=system`): a full-width page with the standard header (`h1` "System" and
   its purpose line, "The server behind every frame. Visible to administrators."), no frames list, no
   chips, no Add button. A warnings banner (a card with pills and the sentence), then **compact
