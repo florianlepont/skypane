@@ -10,7 +10,7 @@
 # Lint.
 ruff==0.17.6
 # Coverage measurement/gate (pytest-cov bridges to this).
-coverage==7.17.3
+coverage==7.17.4
 # Browser driver companion/test_browser_ux.py uses to prove defects a
 # string-comparison harness can't see. Dev-only: deploy/deploy.sh installs
 # server/requirements.txt only, so a browser driver never reaches the VPS.
