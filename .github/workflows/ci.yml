@@ -86,7 +86,7 @@ permissions:
 # test file lands in exactly one shard of these counts, and the `test` job
 # fails unless exactly this many shard artifacts arrive.
 env:
-  BROWSER_SHARDS: "5"
+  BROWSER_SHARDS: "6"
   CORE_SHARDS: "2"
 
 jobs:
@@ -288,7 +288,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [0, 1, 2, 3, 4]
+        shard: [0, 1, 2, 3, 4, 5]
     concurrency:
       group: test-browser-${{ matrix.shard }}-${{ github.ref }}
       cancel-in-progress: ${{ github.event_name == 'pull_request' }}

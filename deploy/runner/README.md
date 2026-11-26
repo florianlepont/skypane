@@ -35,8 +35,10 @@ are the owner's.
 
 ## Concurrency
 
-A CI run starts 8 jobs that do work (5 browser shards, 2 non-browser shards and
-`static`) and the aggregate `test` job, which only waits. The launcher runs N = 4 parallel
+A CI run starts 9 jobs that do work (6 browser shards, 2 non-browser shards and
+`static`) and the aggregate `test` job, which only waits. The 8 test jobs divide
+evenly: with 2 single-job runners that is 4 test jobs per runner, with 4 runners
+2 per runner (`static` is short and fills a gap). The launcher runs N = 4 parallel
 runners, four launchd instances of the loop (`SKYPANE_RUNNER_INDEX` 1 to 4,
 runner names `skypane-mac-<index>-<epoch>`), each with its own VM
 `skypane-ci-<index>`. Four runners start a run's shards in two waves; this
