@@ -7,6 +7,7 @@ import pytest
 
 import fleet_console_support as fx
 from companion import auth
+from companion.test_browser_components_helpers import wait_until_measurable
 from companion_app_server import session_cookie_for_state_dir
 from server import fleet_db
 
@@ -164,7 +165,7 @@ def _open(new_context, server, width, theme, lang):
         {"name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": server.base_url()}])
     page = context.new_page()
     page.goto(server.base_url() + "/components")
-    page.wait_for_function(SETTLED, timeout=10000)
+    wait_until_measurable(page)
     page.wait_for_function(
         "() => { const e = document.querySelector('.components-state .btn'); if (!e) return false;"
         " const r = e.getBoundingClientRect(); return document.elementFromPoint("
@@ -176,8 +177,30 @@ def _open(new_context, server, width, theme, lang):
 PARAMS = [(w, t, lang) for w in ("360", "1280") for t in ("light", "dark") for lang in ("en", "fr")]
 
 
+@pytest.fixture(scope="module")
+def shared_components(module_new_context, server):
+    """One loaded Components page per parameter set, opened the first time a test asks for it
+    and kept for the rest of the module. Only tests that read the page may use it."""
+    pages = {}
+
+    def page_for(params):
+        if params not in pages:
+            pages[params] = _open(module_new_context, server, *params)[1]
+        page = pages[params]
+        page.evaluate("() => window.scrollTo(0, 0)")
+        return page
+
+    return page_for
+
+
 @pytest.fixture(params=PARAMS, ids=["%s-%s-%s" % p for p in PARAMS])
-def components(request, new_context, server):
+def components(request, shared_components):
+    return shared_components(request.param)
+
+
+@pytest.fixture(params=PARAMS, ids=["%s-%s-%s" % p for p in PARAMS])
+def own_components(request, new_context, server):
+    """A page of its own, for a test that opens a dialog and so changes the page."""
     context, page = _open(new_context, server, *request.param)
     yield page
     context.close()
@@ -252,12 +275,12 @@ def test_sibling_elements_do_not_overlap(components):
     assert components.evaluate(OVERLAP) == []
 
 
-def test_a_dialog_opens_inside_the_viewport_with_forty_four_pixel_actions(components):
-    components.locator('a[data-modal-open][href="#components-dialog"]').click()
-    components.wait_for_function(
+def test_a_dialog_opens_inside_the_viewport_with_forty_four_pixel_actions(own_components):
+    own_components.locator('a[data-modal-open][href="#components-dialog"]').click()
+    own_components.wait_for_function(
         "() => { const d = document.getElementById('components-dialog'); return d && d.open; }")
-    components.wait_for_function(SETTLED)
-    box = components.evaluate(
+    own_components.wait_for_function(SETTLED)
+    box = own_components.evaluate(
         "() => { const d = document.getElementById('components-dialog').getBoundingClientRect();"
         " const w = document.documentElement.clientWidth; const h = window.innerHeight;"
         " const bad = [...document.querySelectorAll('#components-dialog button, #components-dialog a.modal__dismiss,"
@@ -268,12 +291,12 @@ def test_a_dialog_opens_inside_the_viewport_with_forty_four_pixel_actions(compon
     assert box["bad"] == [], box
 
 
-def test_the_short_dialog_opens_inside_the_viewport_with_forty_four_pixel_actions(components):
-    components.locator('a[data-modal-open][href="#components-compact"]').click()
-    components.wait_for_function(
+def test_the_short_dialog_opens_inside_the_viewport_with_forty_four_pixel_actions(own_components):
+    own_components.locator('a[data-modal-open][href="#components-compact"]').click()
+    own_components.wait_for_function(
         "() => { const d = document.getElementById('components-compact'); return d && d.open; }")
-    components.wait_for_function(SETTLED)
-    box = components.evaluate(
+    own_components.wait_for_function(SETTLED)
+    box = own_components.evaluate(
         "() => { const d = document.getElementById('components-compact').getBoundingClientRect();"
         " const w = document.documentElement.clientWidth; const h = window.innerHeight;"
         " const bad = [...document.querySelectorAll('#components-compact button,"
