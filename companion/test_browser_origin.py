@@ -41,7 +41,10 @@ class _StaticOriginServer:
 
         self.httpd = ThreadingHTTPServer(("127.0.0.1", 0), _Handler)
         self.port = self.httpd.server_address[1]
-        self._thread = threading.Thread(target=self.httpd.serve_forever, daemon=True)
+        # A short poll interval makes shutdown() return in milliseconds, not 0.5 s.
+        self._thread = threading.Thread(
+            target=self.httpd.serve_forever,
+            kwargs={"poll_interval": 0.01}, daemon=True)
 
     def base_url(self):
         return "http://127.0.0.1:%d" % self.port

@@ -73,8 +73,10 @@ class FakeAuth0:
     def start(self):
         handler = _make_handler(self)
         self._server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
+        # A short poll interval makes shutdown() return in milliseconds, not 0.5 s.
         self._thread = threading.Thread(
-            target=self._server.serve_forever, daemon=True)
+            target=self._server.serve_forever,
+            kwargs={"poll_interval": 0.01}, daemon=True)
         self._thread.start()
         return self
 
