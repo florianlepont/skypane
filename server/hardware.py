@@ -119,6 +119,16 @@ class FirmwareTarget:
 
 
 @dataclass(frozen=True)
+class VisibleWindow:
+    """The rectangle of the panel, in pixels, that stays visible once a mat
+    is fitted in front of the screen. Content is drawn inside it."""
+    x: int
+    y: int
+    width: int
+    height: int
+
+
+@dataclass(frozen=True)
 class HardwareProfile:
     key: str
     label: str
@@ -133,6 +143,9 @@ class HardwareProfile:
     gated: bool = False
     inks: frozenset[int] = ALL_SPECTRA6_INKS
     layout_family: str = LAYOUT_PORTRAIT
+    # Set only on a type whose mat hides the edges of the panel; None draws
+    # on the whole panel.
+    visible_window: VisibleWindow | None = None
 
 
 def _packed_image_bytes(width: int, height: int) -> int:
@@ -274,6 +287,11 @@ _EVALUATION = HardwareProfile(
     simulated=False,
     gated=True,
     layout_family=LAYOUT_LANDSCAPE,
+    # Read on the assembled frame behind its IKEA mat, with a ruler image,
+    # on 2026-11-26 (hardware/ENCLOSURE-VISIBLE-WINDOW.md): about 47 pixels
+    # hidden at the left, 49 at the right, 30 at the top and 1 at the bottom;
+    # one pixel of safety is kept on each side.
+    visible_window=VisibleWindow(x=48, y=30, width=702, height=448),
 )
 
 REGISTRY: Mapping[str, HardwareProfile] = types.MappingProxyType(
@@ -356,6 +374,17 @@ def _battery_problems(profile: HardwareProfile) -> list[str]:
     return problems
 
 
+def _window_problems(profile: HardwareProfile) -> list[str]:
+    window = profile.visible_window
+    if window is None:
+        return []
+    if (window.width <= 0 or window.height <= 0 or window.x < 0 or window.y < 0
+            or window.x + window.width > profile.width
+            or window.y + window.height > profile.height):
+        return [f"{profile.key}: the visible window must lie inside the panel"]
+    return []
+
+
 def registry_problems() -> list[str]:
     """Human-readable problems found in REGISTRY; empty when it is valid."""
     problems: list[str] = []
@@ -364,6 +393,7 @@ def registry_problems() -> list[str]:
             problems.extend(_battery_problems(profile))
         if profile.inks != ALL_SPECTRA6_INKS:
             problems.append(f"{profile.key}: profiles must carry all six inks")
+        problems.extend(_window_problems(profile))
         if profile.layout_family not in LAYOUT_FAMILIES:
             problems.append(f"{profile.key}: unknown layout family {profile.layout_family!r}")
         elif (profile.layout_family == LAYOUT_PORTRAIT

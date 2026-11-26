@@ -8,12 +8,13 @@ Imports `hold_screens` (for the dispatch inside `build_canvas`) and
 `glyphs` (for the two small overlay indicators); neither of those two
 modules imports this one back.
 """
+import dataclasses
 import os
 import sys
 
 from PIL import Image, ImageDraw
 
-from server import device_config, hardware, screen_layouts, themes
+from server import device_config, hardware, screen_layouts, themes, visible_window
 from server import panel_format as pf
 from server.panel_format import HEIGHT, IDX_BLACK, IDX_BLUE, IDX_GREEN, IDX_RED, IDX_WHITE, IDX_YELLOW, WIDTH
 from server.plane import dither, illustrations
@@ -497,6 +498,10 @@ def build_canvas(
     rewritten) and the profile's layout family picks the renderer; a
     landscape profile renders natively at the profile's size.
 
+    A profile with a `visible_window` draws the whole screen at the size of
+    that window and pastes it into the panel-sized canvas (the strips a mat
+    hides repeat the screen's edge), so nothing is drawn behind the mat.
+
     `layout`: a screen layout id. `None` or `"classic"` is the unchanged
     legacy picture. A giant layout id (normalised; an unknown id becomes the
     default layout, never a path or module name) draws an active flight in
@@ -510,6 +515,16 @@ def build_canvas(
     `"battery_empty"` ignores every other argument: its bytes/hash must
     stay constant for the whole parked episode.
     """
+    if profile is not None and profile.visible_window is not None:
+        window = profile.visible_window
+        drawn = build_canvas(
+            flight, state, route=route, previous_flight=previous_flight,
+            previous_route=previous_route, previous_state=previous_state, theme_id=theme_id,
+            runway_id=runway_id, source_fault=source_fault, battery_low=battery_low,
+            quiet_hours_until=quiet_hours_until, state_dir=state_dir, layout=layout,
+            profile=dataclasses.replace(
+                profile, width=window.width, height=window.height, visible_window=None))
+        return visible_window.place(drawn, (profile.width, profile.height), window)
     layout_id = None if layout is None else screen_layouts.normalise_layout_id(layout)
     giant_active = (
         layout_id is not None and screen_layouts.is_giant_layout(layout_id)
