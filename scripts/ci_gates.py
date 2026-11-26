@@ -7,8 +7,16 @@ Subcommands:
       and exits 1 when there is any failure or error, when fewer than N tests
       executed (tests minus skipped), or when more than K tests were skipped.
       A missing file, a file that is not JUnit XML, or no file at all exits 2.
+  artifacts --expected N (--with-coverage | --without-coverage) DIR
+      Counts the JUnit files (junit-*.xml) and coverage data files (.coverage)
+      under DIR. Exits 1 unless there are exactly N JUnit files and, with
+      --with-coverage, exactly N coverage files. With --without-coverage the
+      run did not measure coverage (pull requests): it prints that fact and
+      exits 1 if any coverage file is present anyway, since that means the
+      run measured and the coverage gate must not be skipped.
 """
 import argparse
+import os
 import sys
 import xml.etree.ElementTree as ET
 
@@ -74,6 +82,41 @@ def command_totals(args):
     return 1 if reasons else 0
 
 
+COVERAGE_NOT_MEASURED = "coverage: not measured on pull requests; measured on main"
+
+
+def count_files(directory):
+    """Returns (junit_files, coverage_files) found anywhere under directory."""
+    junit = coverage = 0
+    for _, _, names in os.walk(directory):
+        for name in names:
+            if name == ".coverage":
+                coverage += 1
+            elif name.startswith("junit-") and name.endswith(".xml"):
+                junit += 1
+    return junit, coverage
+
+
+def command_artifacts(args):
+    junit, coverage = count_files(args.directory)
+    print(f"expected {args.expected} shards; found {coverage} coverage files "
+          f"and {junit} JUnit files")
+    reasons = []
+    if junit != args.expected:
+        reasons.append(f"{junit} JUnit files, expected {args.expected}")
+    if args.with_coverage:
+        if coverage != args.expected:
+            reasons.append(f"{coverage} coverage files, expected {args.expected}")
+    elif coverage:
+        reasons.append(f"{coverage} coverage files found in a run that "
+                       "should not have measured coverage")
+    else:
+        print(COVERAGE_NOT_MEASURED)
+    for reason in reasons:
+        print(f"FAIL: {reason}", file=sys.stderr)
+    return 1 if reasons else 0
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     sub = parser.add_subparsers(dest="command", required=True)
@@ -81,7 +124,16 @@ def main(argv=None):
     totals.add_argument("--min-executed", type=int, default=MIN_EXECUTED)
     totals.add_argument("--max-skipped", type=int, default=MAX_SKIPPED)
     totals.add_argument("files", nargs="*")
-    return command_totals(parser.parse_args(argv))
+    artifacts = sub.add_parser("artifacts")
+    artifacts.add_argument("--expected", type=int, required=True)
+    mode = artifacts.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--with-coverage", dest="with_coverage", action="store_true")
+    mode.add_argument("--without-coverage", dest="with_coverage", action="store_false")
+    artifacts.add_argument("directory")
+    args = parser.parse_args(argv)
+    if args.command == "artifacts":
+        return command_artifacts(args)
+    return command_totals(args)
 
 
 if __name__ == "__main__":

@@ -26,6 +26,12 @@
 # pyproject.toml coverage floor to the combined result, and checks the
 # JUnit totals (no failures, executed count at or above the floor, skipped
 # count at or below the ceiling in scripts/ci_gates.py).
+# Coverage is measured on pushes to main and manual runs only. A pull
+# request runs every test, writes the JUnit report, and checks the shard
+# count and the JUnit totals exactly as main does, but the shards run with
+# SKYPANE_COVERAGE=off (no tracing, no .coverage file) and the coverage
+# steps of `test` are skipped with a visible step-summary line. A drop below
+# the floor therefore shows up on main after the merge.
 # The production deploy is not part of this file: it is the separate
 # deploy.yml, started by hand. A merge to main never deploys. Firmware
 # builds live in their own file (firmware.yml): path-restricted triggers are
@@ -237,16 +243,18 @@ jobs:
         # SKYPANE_REQUIRE_BROWSER stays on: a non-browser file that wrongly
         # needs a browser fails here instead of skipping. A partial run
         # writes coverage data only; the floor is applied to the combined
-        # data by the `test` job.
+        # data by the `test` job. SKYPANE_COVERAGE=off (pull requests only)
+        # runs every test without coverage tracing and writes no data.
         env:
           SKYPANE_REQUIRE_BROWSER: "1"
+          SKYPANE_COVERAGE: ${{ github.event_name == 'pull_request' && 'off' || 'on' }}
           SKYPANE_TEST_GROUP: core
           SKYPANE_TEST_SHARD: ${{ matrix.shard }}/${{ strategy.job-total }}
           SKYPANE_JUNIT_XML: junit-core-${{ matrix.shard }}.xml
         run: ./scripts/run-all-tests.sh
 
       - name: Upload coverage data and JUnit report
-        if: ${{ always() }}
+        if: ${{ always() && github.event_name != 'pull_request' }}
         # .coverage is a dotfile: include-hidden-files is required or the
         # coverage data is silently left out of the artifact.
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -256,6 +264,15 @@ jobs:
             .coverage
             junit-core-${{ matrix.shard }}.xml
           include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 3
+
+      - name: Upload JUnit report (pull request, coverage not measured)
+        if: ${{ always() && github.event_name == 'pull_request' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: test-data-core-${{ matrix.shard }}
+          path: junit-core-${{ matrix.shard }}.xml
           if-no-files-found: error
           retention-days: 3
 
@@ -378,13 +395,14 @@ jobs:
         # CI=true, made explicit).
         env:
           SKYPANE_REQUIRE_BROWSER: "1"
+          SKYPANE_COVERAGE: ${{ github.event_name == 'pull_request' && 'off' || 'on' }}
           SKYPANE_TEST_GROUP: browser
           SKYPANE_TEST_SHARD: ${{ matrix.shard }}/${{ strategy.job-total }}
           SKYPANE_JUNIT_XML: junit-browser-${{ matrix.shard }}.xml
         run: ./scripts/run-all-tests.sh
 
       - name: Upload coverage data and JUnit report
-        if: ${{ always() }}
+        if: ${{ always() && github.event_name != 'pull_request' }}
         # .coverage is a dotfile: include-hidden-files is required or the
         # coverage data is silently left out of the artifact.
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -394,6 +412,15 @@ jobs:
             .coverage
             junit-browser-${{ matrix.shard }}.xml
           include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 3
+
+      - name: Upload JUnit report (pull request, coverage not measured)
+        if: ${{ always() && github.event_name == 'pull_request' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: test-data-browser-${{ matrix.shard }}
+          path: junit-browser-${{ matrix.shard }}.xml
           if-no-files-found: error
           retention-days: 3
 
@@ -473,20 +500,31 @@ jobs:
 
       - name: Require one coverage file and one JUnit file per shard
         # A shard that was dropped from a matrix would otherwise just be
-        # missing from the combined result.
+        # missing from the combined result. Not a pull request: a shard
+        # without its coverage file fails here.
+        if: github.event_name != 'pull_request'
         run: |
           set -euo pipefail
           expected=$((BROWSER_SHARDS + CORE_SHARDS))
-          coverage_files="$(find test-data -name .coverage | wc -l)"
-          junit_files="$(find test-data -name 'junit-*.xml' | wc -l)"
-          echo "expected ${expected} shards; found ${coverage_files} coverage files and ${junit_files} JUnit files"
-          test "${coverage_files}" -eq "${expected}"
-          test "${junit_files}" -eq "${expected}"
+          server/.venv/bin/python scripts/ci_gates.py artifacts --expected "${expected}" --with-coverage test-data
+
+      - name: Require one JUnit file per shard (pull request, coverage not measured)
+        # Same shard-count check as above; the shards ran without coverage
+        # tracing, so a coverage file here would mean the run measured and
+        # is refused. The summary line makes the missing coverage visible.
+        if: github.event_name == 'pull_request'
+        run: |
+          set -euo pipefail
+          expected=$((BROWSER_SHARDS + CORE_SHARDS))
+          server/.venv/bin/python scripts/ci_gates.py artifacts --expected "${expected}" --without-coverage test-data | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Combine coverage and apply the coverage floor
+        # Not a pull request: pull requests run without coverage tracing and
+        # are not checked against the floor; main and manual runs are.
         # No --fail-under here: [tool.coverage.report] fail_under in
         # pyproject.toml is what applies, and coverage report exits
         # non-zero below it.
+        if: github.event_name != 'pull_request'
         run: |
           set -euo pipefail
           shopt -s nullglob
