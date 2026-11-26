@@ -1,6 +1,6 @@
 # Phase 70 Inventory: what has been public
 
-Status: draft, awaiting the owner's full-history scan and decisions (plan 70-08 Task 3).
+Status: complete. The full-history scan was run by the owner on 2026-11-26 and every row has a decision (plan 70-08 Task 3).
 No matched text, key material, e-mail address or IP address appears in this document.
 Rows carry only class, file, commit (short) and counts.
 
@@ -32,15 +32,15 @@ Sandbox run, shallow clone (tree identical to `main` at the time of the run).
 
 | Type | Tree: rows (files) | History (shallow): rows | Files / commits | Disposition | Owner decision |
 |------|--------------------|-------------------------|-----------------|-------------|----------------|
-| pem-private-key | 0 | 0 | none | none found here | |
-| aws-access-key | 0 | 0 | none | none found here | |
-| github-token | 0 | 0 | none | none found here | |
-| slack-token | 0 | 0 | none | none found here | |
-| api-key-sk | 0 | 0 | none | none found here | |
-| bearer-literal | 1 | 1 | `.planning/STATE.md`, commit `7611000` | to eyeball: likely documentation of a header shape, not a credential | |
-| assigned-secret | 15 (15) | 15 | 13 test files and fixtures plus 2 non-test files (`companion/export_api.py`, `companion/static/freshness.js`), all at commit `7611000` (list below) | likely test fixtures and UI string defaults; owner confirms by eye, file and line only | |
-| email-non-noreply | 105 (105) | 189 rows in 149 files | tree areas: `.planning` 20, `companion` 59, `server` 8, `test-support` 8, `deploy` 5, `hardware` 2, `COMPLIANCE.md` 1, `scripts` 1, `stub-server` 1 | likely test fixtures and documentation addresses; per-file owner check | |
-| ipv4-public | 24 (24) | 25 rows in 24 files | tree areas: `.planning` 15, `companion` 3, `hardware` 3, `server` 3 | VPS address is public through DNS; SSH exposure details in `.planning` are not meant to be public | |
+| pem-private-key | 0 | 0 | none | none found here | none found in the full history; no action; decided by the owner (delegated to the session, 2026-11-26) |
+| aws-access-key | 0 | 0 | none | none found here | none found; no action; decided by the owner (delegated to the session, 2026-11-26) |
+| github-token | 0 | 0 | none | none found here | none found; no action; decided by the owner (delegated to the session, 2026-11-26) |
+| slack-token | 0 | 0 | none | none found here | none found; no action; decided by the owner (delegated to the session, 2026-11-26) |
+| api-key-sk | 0 | 0 | none | none found here | none found; no action; decided by the owner (delegated to the session, 2026-11-26) |
+| bearer-literal | 1 | 1 | `.planning/STATE.md`, commit `7611000` | to eyeball: likely documentation of a header shape, not a credential | false positive (documentation text, no value) checked by the session with values masked; leave; decided by the owner (delegated to the session, 2026-11-26) |
+| assigned-secret | 15 (15) | 15 | 13 test files and fixtures plus 2 non-test files (`companion/export_api.py`, `companion/static/freshness.js`), all at commit `7611000` (list below) | likely test fixtures and UI string defaults; owner confirms by eye, file and line only | false positives: test fixtures, variable names and documentation (checked with values masked); leave, no rotation; decided by the owner (delegated to the session, 2026-11-26) |
+| email-non-noreply | 105 (105) | 189 rows in 149 files | tree areas: `.planning` 20, `companion` 59, `server` 8, `test-support` 8, `deploy` 5, `hardware` 2, `COMPLIANCE.md` 1, `scripts` 1, `stub-server` 1 | likely test fixtures and documentation addresses; per-file owner check | fictitious test addresses and one personal address in a phase 64 note; leave in the private repository; decided by the owner (delegated to the session, 2026-11-26) |
+| ipv4-public | 24 (24) | 25 rows in 24 files | tree areas: `.planning` 15, `companion` 3, `hardware` 3, `server` 3 | VPS address is public through DNS; SSH exposure details in `.planning` are not meant to be public | version numbers, reserved test addresses, and the server address (public through DNS) in two notes; leave in the private repository; decided by the owner (delegated to the session, 2026-11-26) |
 
 Files in the `assigned-secret` class (tree and history agree; to check by eye, no values here):
 
@@ -116,20 +116,20 @@ Options per row: leave, remove from the tree going forward, rotate. Decision col
 
 | Item | Options | Decision |
 |------|---------|----------|
-| Full mirror scan result (counts per type, any secret-class file/commit not in the sandbox run) | report to session | |
-| bearer-literal (1 row, `.planning/STATE.md`) | leave / remove going forward / rotate | |
-| assigned-secret (15 files listed above) | leave (fixture) / remove going forward / rotate | |
-| email-non-noreply (105 tree files) | leave / remove going forward | |
-| ipv4-public (24 tree files, VPS address and SSH details in `.planning`) | leave / remove going forward | |
-| Auth0 tenant and client identifiers, if the mirror scan shows any | leave / rotate | |
-| Signing key (never in git; was held as a GitHub environment secret) | leave / rotate through a transition release | |
-| Commercial notes: seed files | leave / remove going forward | |
-| Commercial notes: research directories | leave / remove going forward | |
-| Commercial notes: `.planning/notes/` | leave / remove going forward | |
-| Commercial notes: phase directories 68, 61, 62, 56, 64, 69 | leave / remove going forward | |
-| Personal data surfaces (name, runway and location data, `SECURITY.md`, `CONTRIBUTING.md`) | leave / remove going forward / reword | |
-| Other public surfaces (releases, artifacts, PR and issue text, workflow logs) | leave / delete artifacts and logs | |
+| Full mirror scan result (counts per type, any secret-class file/commit not in the sandbox run) | report to session | done: full mirror scan (history and pull request refs) run on the owner's machine on 2026-11-26: 821 rows, 695 e-mail-shaped, 77 public IPv4, 48 assigned-secret, 1 bearer-literal; no private key, AWS, GitHub, Slack or sk- token; decided by the owner (delegated to the session, 2026-11-26) |
+| bearer-literal (1 row, `.planning/STATE.md`) | leave / remove going forward / rotate | leave; decided by the owner (delegated to the session, 2026-11-26) |
+| assigned-secret (15 files listed above) | leave (fixture) / remove going forward / rotate | leave (fixtures and variable names, no real value); decided by the owner (delegated to the session, 2026-11-26) |
+| email-non-noreply (105 tree files) | leave / remove going forward | leave (fictitious addresses; one personal address in a phase 64 note stays in the private repository); decided by the owner (delegated to the session, 2026-11-26) |
+| ipv4-public (24 tree files, VPS address and SSH details in `.planning`) | leave / remove going forward | leave (version numbers, test addresses and the server address, public through DNS); decided by the owner (delegated to the session, 2026-11-26) |
+| Auth0 tenant and client identifiers, if the mirror scan shows any | leave / rotate | not covered by the scan classes; leave (identifiers are not secrets); decided by the owner (delegated to the session, 2026-11-26) |
+| Signing key (never in git; was held as a GitHub environment secret) | leave / rotate through a transition release | leave (key kept by the owner, held only in his encrypted vault); decided by the owner (delegated to the session, 2026-11-26) |
+| Commercial notes: seed files | leave / remove going forward | leave in the private repository; decided by the owner (delegated to the session, 2026-11-26) |
+| Commercial notes: research directories | leave / remove going forward | leave in the private repository; decided by the owner (delegated to the session, 2026-11-26) |
+| Commercial notes: `.planning/notes/` | leave / remove going forward | leave in the private repository; decided by the owner (delegated to the session, 2026-11-26) |
+| Commercial notes: phase directories 68, 61, 62, 56, 64, 69 | leave / remove going forward | leave in the private repository; decided by the owner (delegated to the session, 2026-11-26) |
+| Personal data surfaces (name, runway and location data, `SECURITY.md`, `CONTRIBUTING.md`) | leave / remove going forward / reword | leave (private repository); decided by the owner (delegated to the session, 2026-11-26) |
+| Other public surfaces (releases, artifacts, PR and issue text, workflow logs) | leave / delete artifacts and logs | leave (the repository becomes private, which hides existing logs and artifacts; copies already taken stay public); decided by the owner (delegated to the session, 2026-11-26) |
 
 ## Follow-ups
 
-To be filled after the checkpoint: every "remove from the tree going forward" decision becomes an item here and is not performed in plan 70-08.
+None. Every decision is "leave": no secret needed rotation, and nothing is removed from the tree. Optional, if the owner changes his mind later: reword the personal address and the server address in the notes of the hardware bring-up log and the phase 64 walkthrough (a removal never erases copies already taken).
