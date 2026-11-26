@@ -24,7 +24,7 @@ are the owner's.
   workflow `GITHUB_TOKEN` is `contents: read`. The deploy workflow runs on
   GitHub-hosted runners only.
 - Runners are single-use (just-in-time registration): one job, then the
-  runner is gone and its work folder is wiped.
+  runner is gone and its work folder and temporary directory are wiped.
 - The admin token that registers runners lives only in the macOS Keychain on
   the host. It reaches GitHub through curl's standard input and is never put
   on a command line or in the VM's environment.

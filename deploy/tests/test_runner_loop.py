@@ -146,6 +146,15 @@ def test_work_folder_is_wiped_after_the_job(shims):
     assert any("/_work" in arg for arg in argvs[wipes[0]])
 
 
+def test_runner_temporary_directory_is_wiped_after_the_job(shims):
+    assert _run(shims).returncode == 0
+    argvs = [c["argv"] for c in _calls(shims, "limactl")]
+    start = next(i for i, a in enumerate(argvs) if "--jitconfig" in a)
+    wipes = [i for i, a in enumerate(argvs)
+             if "find" in a and "-delete" in a and "/home/runner/tmp" in a]
+    assert wipes and min(wipes) > start
+
+
 def test_missing_repository_is_refused(shims):
     result = _run(shims, SKYPANE_RUNNER_REPO="")
     assert result.returncode == 2
