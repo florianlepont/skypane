@@ -6214,6 +6214,53 @@ dialog.modal:has(.modal__question) .modal__body {
   margin-top: var(--space-6);
 }
 
+/* The detail of a dialog: a closed native disclosure under the one sentence. Its
+ * summary is a 44px row with a chevron that turns when it opens; nothing animates. */
+.modal__more {
+  margin: 0;
+}
+
+.modal__more-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  min-height: 44px;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  font-size: var(--font-label-size);
+  list-style: none;
+  cursor: pointer;
+}
+
+.modal__more-summary::marker {
+  content: none;
+}
+
+.modal__more-summary::-webkit-details-marker {
+  display: none;
+}
+
+.modal__more-summary .icon {
+  flex: none;
+  transform: rotate(90deg);
+}
+
+.modal__more[open] > .modal__more-summary .icon {
+  transform: rotate(-90deg);
+}
+
+.modal__more-body {
+  display: grid;
+  gap: var(--space-sm);
+  padding: 0 0 var(--space-sm);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.modal__more-body > p {
+  margin: 0;
+}
+
 dialog.modal:has(.modal__question) .modal__actions {
   gap: var(--space-6);
   margin-top: var(--space-sm);

@@ -44,15 +44,20 @@ MESSAGES = {
     "admin_fleet.reassign_co_managers_lose_access":
         "Les cogestionnaires perdent l’accès à ce cadre.",
     "admin_fleet.reassign_aria": "Réattribuer %s à un autre propriétaire",
-    "admin_fleet.this_frame_will_show_a_retired_screen_and_stop_updating":
-        "Ce cadre affichera un écran « retiré » et ne se mettra plus à jour. "
+    "admin_fleet.retire_it_stops_updating":
+        "Il cesse de se mettre à jour et affiche un écran «\u00a0retiré\u00a0».",
+    "admin_fleet.retire_its_data_is_kept":
         "Ses données sont conservées et vous pourrez le réactiver plus tard.",
-    "admin_fleet.its_settings_and_history_are_erased_it_returns_to_pairing":
-        "Ses réglages et son historique sont effacés. Il repasse en association "
-        "et affiche un nouveau code.",
-    "admin_fleet.settings_history_and_gallery_on_this_frame_are_erased":
+    "admin_fleet.reactivate_settings_and_history_are_erased":
+        "Ses réglages et son historique sont effacés.",
+    "admin_fleet.reactivate_it_returns_to_pairing":
+        "Il repasse en association et affiche un nouveau code.",
+    "admin_fleet.reassign_settings_history_and_gallery_are_erased":
         "Les réglages, l’historique et la galerie de %s sur ce cadre sont "
-        "effacés. Le cadre redémarre comme un neuf.",
+        "effacés.",
+    "admin_fleet.reassign_the_frame_restarts_like_a_new_one":
+        "Le cadre redémarre comme un neuf.",
+    "admin_fleet.reassign_only_the_owner_changes": "Seul le propriétaire change.",
     "admin_fleet.only_the_owner_changes_nothing_is_erased":
         "Rien n’est effacé.",
     "admin_fleet.the_current_owner": "Le propriétaire actuel",

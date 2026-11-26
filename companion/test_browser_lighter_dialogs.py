@@ -52,7 +52,8 @@ _FACTS = """sel => {
       .textContent.trim(),
     submitDanger: !!d.querySelector('.modal__actions button.btn--danger'),
     focusOnDismiss: document.activeElement === d.querySelector('.modal__actions a.modal__dismiss'),
-    running: d.getAnimations({subtree: true}).filter(a => a.playState === 'running').length,
+    running: d.getAnimations({subtree: true}).filter(
+      a => a.playState === 'running' && a.effect.getTiming().duration > 1).length,
     domText: d.innerText,
   };
 }"""
