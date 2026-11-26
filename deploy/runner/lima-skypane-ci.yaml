@@ -33,7 +33,7 @@ portForwards:
 
 ssh:
   forwardAgent: false
-  loadDotSsh: false
+  loadDotSSHPubKeys: false
 
 provision:
   - mode: system
