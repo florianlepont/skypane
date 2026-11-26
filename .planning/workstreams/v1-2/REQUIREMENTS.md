@@ -107,9 +107,9 @@ Runs in parallel with v1.1 Phase 47 (open, untouched). Phase numbering continues
 
 ### Design System Consistency
 
-- [ ] **DSY-01**: After Phase 68, the design system is checked against the deployed site (console and companion, English and French, phone and desktop, light and dark) and the result is written down.
-- [ ] **DSY-02**: Every deviation between the design system and the site is listed with a decision and settled: the site is fixed, or the design system is corrected, with no behaviour change and the render baseline regenerated with the repo's tool.
-- [ ] **DSY-03**: Improvements and animations of the design system are proposed to the owner with sketches, reasons, costs and accessibility and performance effects, and only the proposals the owner approves are built. Unapproved proposals (P01, P05, P13, P15) are carried as v1.3 / v1.4 candidates in ROADMAP.md (Phase 68.1); the owner refused P15 on 2026-11-25 after seeing the realistic mockup, so no proposal stays open.
+- [x] **DSY-01**: After Phase 68, the design system is checked against the deployed site (console and companion, English and French, phone and desktop, light and dark) and the result is written down.
+- [x] **DSY-02**: Every deviation between the design system and the site is listed with a decision and settled: the site is fixed, or the design system is corrected, with no behaviour change and the render baseline regenerated with the repo's tool.
+- [x] **DSY-03**: Improvements and animations of the design system are proposed to the owner with sketches, reasons, costs and accessibility and performance effects, and only the proposals the owner approves are built. Unapproved proposals (P01, P05, P13, P15) are carried as v1.3 / v1.4 candidates in ROADMAP.md (Phase 68.1); the owner refused P15 on 2026-11-25 after seeing the realistic mockup, so no proposal stays open.
 
 ### Rear Enclosure
 
@@ -192,9 +192,9 @@ Coverage: 47/47 v1.2 requirements mapped, each to exactly one phase.
 | TRK-02 | Phase 65 | Complete (Orly 06/24 not in use, left untested by the owner's decision of 2026-11-18) |
 | BAT-01 | SEED-019 (v1.3) | Moved out of Phase 65 on 2026-11-15 |
 | CON-01 | Phase 68 | Complete (validated by the owner on the deployed companion, English and French, on 2026-11-24) |
-| DSY-01 | Phase 68.1 | Pending |
-| DSY-02 | Phase 68.1 | Pending |
-| DSY-03 | Phase 68.1 | Pending |
+| DSY-01 | Phase 68.1 | Complete (owner validated 2026-11-26) |
+| DSY-02 | Phase 68.1 | Complete (owner validated 2026-11-26) |
+| DSY-03 | Phase 68.1 | Complete (owner validated 2026-11-26) |
 | PRV-01 | Phase 70 | Pending |
 | PRV-02 | Phase 70 | Pending |
 | PRV-03 | Phase 70 | Pending |
