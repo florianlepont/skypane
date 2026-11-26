@@ -815,11 +815,11 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 plan 69-02)*
 
-- [ ] 69-03-PLAN.md — Test-print log, calliper survey of five frames, print round A (shim and coupon plate) (ENC-01)
+- [x] 69-03-PLAN.md — Test-print log, calliper survey of five frames, print round A (shim and coupon plate) (done on the design and recorded in the test log, no summary) (ENC-01)
 
 **Wave 4** *(blocked on Wave 3)*
 
-- [ ] 69-04-PLAN.md — Print rounds B (tray) and C (lid and stand), screw reuse test, battery gate (ENC-01)
+- [x] 69-04-PLAN.md — Print rounds B (tray) and C (lid and stand), screw reuse test, battery gate (done on the design and recorded in the test log, no summary) (ENC-01)
 
 **Wave 5** *(blocked on Waves 2 and 4)*
 
@@ -920,4 +920,4 @@ Plans: TBD
 | 70. Private Repository and CI (Free Plan, Self-Hosted or Reduced CI) | v1.2 | 0/0 | Added 2026-11-24, not planned yet | - |
 | 66. Security Audit | v1.2 | 0/0 | Added 2026-11-15, not planned yet | - |
 | 67. Project and Code Optimisation for a Clean, Industrial Result | v1.2 | 0/0 | Added 2026-11-15, not planned yet | - |
-| 69. Rear Enclosure for the 7.3 Inch Frame (Design, Print, Fit) | v1.2 | 3/7 | In progress, owner-driven parallel track: plans 01, 02 and 05 have a summary (measurements, closeout, Wi-Fi protocol and bare-frame baseline); plans 03 (test-print log, five-frame survey, print round A), 04 (print rounds B and C), 06 (mechanical and Wi-Fi validation) and 07 (final files and documents) remain; design work continued on 2026-11-24 (stand, logo, buttons, first assembly) without a plan summary; checked 2026-11-25 | - |
+| 69. Rear Enclosure for the 7.3 Inch Frame (Design, Print, Fit) | v1.2 | 5/7 | In progress, owner-driven parallel track; parts printed and checked by the owner on 2026-11-26 (`69-VERIFICATION.md`); left: the Wi-Fi decision, the image reframing to the mat window (D-14, plan to write), assembly note, BOM and SEED-014 update | - |

@@ -200,7 +200,7 @@ Coverage: 47/47 v1.2 requirements mapped, each to exactly one phase.
 | PRV-03 | Phase 70 | Pending |
 | SEC-AUD-01 | Phase 66 | Pending |
 | QUAL-01 | Phase 67 | Pending |
-| ENC-01 | Phase 69 | Pending |
+| ENC-01 | Phase 69 | In progress |
 | UX-01 | Phase 61 | Complete |
 | UX-02 | Phase 61 | Complete |
 | UX-03 | Phase 61 | Complete |

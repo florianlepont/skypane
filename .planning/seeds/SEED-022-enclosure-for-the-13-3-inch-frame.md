@@ -8,7 +8,7 @@ target_milestone: v1.3
 scope: large
 ---
 
-# SEED-022: Rear enclosure (hardware case) for the 13.3 inch frame
+# SEED-022: Hardware rework for the 13.3 inch frame (rear enclosure) and improvements of the 7.3 inch frame
 
 ## Why This Matters
 
@@ -43,6 +43,14 @@ a design to scale up.
   a split into several parts, or another method (SEED-015 for series).
 - What the 7.3 inch rounds taught: clearances in the material used, the ribbon
   slot, the battery pocket clearance, the hook and the stand.
+
+## 7.3 inch improvements reported by the owner (2026-11-26)
+
+Reported after the first assembly; they do not block Phase 69. Not measured by the assistant.
+
+- Wall hanging on the keyhole blocks works perfectly, but the teeth of the horizontal slot are too small to be of real use: make them larger or drop them.
+- The foot of the leg touches the desk on part of its surface only, with and without the IKEA frame. Accepted with anti-slip pads and no model change; the assistant's model check does not explain it. Look at it again at the next design round.
+- The pack in the 7.3 inch frame is the 3000 mAh Kubii; the 10000 mAh Soldered pack is the 13.3 inch frame's.
 
 ## Breadcrumbs
 
