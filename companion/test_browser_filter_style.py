@@ -34,7 +34,7 @@ _PROBE = """() => {
   return {
     rowChildren: [...form.querySelector('.filter-controls__row').children].map(c => c.tagName),
     formChildren: [...form.children].map(
-      c => (c.className || c.tagName).replace(/\s*js-gate/, '')),
+      c => (c.className || c.tagName).replace(/\\s*js-gate/, '')),
     countTag: count.tagName, countClass: count.className,
     countRole: count.getAttribute('role'),
     countAttr: count.hasAttribute('data-filter-count'),
