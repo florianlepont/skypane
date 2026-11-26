@@ -664,8 +664,7 @@ def _matches_html(view, result):
         text = i18n.t(_TOTAL_ONE_TEXT)
     else:
         text = i18n.t(_TOTAL_TEXT) % listed
-    return '<p class="filter-count" data-filter-count data-flights-view role="status">%s</p>' % (
-        escape_html(text))
+    return ui_filter.count_line_html(text, attrs=" data-flights-view")
 
 
 def _controls_html(view, result):

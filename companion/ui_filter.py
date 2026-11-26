@@ -203,6 +203,18 @@ def controls_html(action, search_html, sort_html, info_html, chips_html, apply_t
          escape_html(apply_text), extra_html)
 
 
+def count_line_html(text, template="", attrs=""):
+    """The one line that counts the rows under the filter controls of Flights
+    and Airlines ("34 of 148 flights"): a single status paragraph, the form's
+    next sibling. `text` and `template` (the translated text with a `#` for
+    each number, which the live filter rewrites) are escaped here. `attrs` is
+    the caller's own raw script hook, such as ` data-flights-view`: it is
+    inserted verbatim, so pass only a literal, never user input."""
+    template_attr = (' data-filter-count-template="%s"' % escape_html(template)) if template else ""
+    return '<p class="filter-count" data-filter-count%s role="status"%s>%s</p>' % (
+        attrs, template_attr, escape_html(text))
+
+
 def filter_empty_html(heading, body, action_html, attrs):
     """The soft card a search or filter that matches nothing shows: a search
     glyph in a halo, the heading, the body and the card's own Clear action

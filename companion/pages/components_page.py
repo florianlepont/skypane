@@ -883,6 +883,7 @@ EXEMPT = {
     "ui_components.toast_dismiss_html": "a part of toast_html",
     "ui_components.toast_icon_html": "a part of toast_html",
     "ui_components.toast_text_html": "a part of toast_html",
+    "ui_filter.count_line_html": "the count line Flights and Airlines write under the filter controls above, from the live numbers of their own list",
     "ui_filter.search_field_html": "the search field of the filter bar above, used on its own by the Fleet list",
     "ui_modal.error_id": "an id builder for field_error_html",
     "ui_modal.result_dialog_html": "the outcome dialog of the Users invitation (built on the compact variant of dialog_html); it carries a one-time link, so it is shown only by the page that makes one",
