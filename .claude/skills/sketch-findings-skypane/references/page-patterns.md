@@ -148,14 +148,16 @@ frame). Console label "Airline editor", bar label "Editor".
   round 44px check (a real form), never blocking the Name it flow; a pending prefix says "Looking
   for a name".
 - **Missing illustrations · N:** a sibling of the two tables: the same small label (`.airlines-label`,
-  13px 600, 70% ink, 16px indent) lifted above its list, no 22px heading and no caption sentence
-  (the sentence stays in the empty state); the section keeps `id="airlines-missing"` and is named
+  13px 600, 70% ink, 16px indent) lifted above its list, no 22px heading; one caption sentence under the label says once what
+  the "Choose type" rows mean (no sighting yet, pick the type in the dialog), never once per row,
+  and the empty state keeps its own sentence; the section keeps `id="airlines-missing"` and is named
   by the label (`aria-labelledby`); 24px between blocks. N counts rows, one per airline x aircraft family without a picture
   (a family is one of the picture slots, "Other" for rare designators). One solid list surface; each
   airline has a small header (name, prefix, "No artwork yet" or "<family> already done", "· n to
   do") and its rows: a dashed 44px slot, the family, the designators and views, and a 44px
   icon-only add button (a picture with a plus, 44px, tooltip "Add artwork", aria-label "Add an illustration for <airline>, <family>") that opens the add dialog with the family in its chip. An airline with
-  no sighting and no artwork has one "Type to choose" row whose dialog asks the type first; one with
+  no sighting and no artwork has one "Choose type" row (that label only, the airline name sits in its
+  header and in the button's aria-label) whose dialog asks the type first; one with
   art and no sighting is not listed. The "..." menu (Rename, Reset or Delete my name) is in the
   header of an airline that has no row in the table. After an upload the page reloads and the row is
   gone; an empty list says "All illustrations are in place" with a check. The chip counts the same
