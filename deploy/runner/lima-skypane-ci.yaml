@@ -46,8 +46,12 @@ provision:
       # shell needs differ between Ubuntu releases; compare this list with
       # `python -m playwright install-deps --dry-run chromium` run from a
       # checkout and extend it if the dry run names a missing package.
+      # build-essential: the firmware cross-check tests compile C with the host
+      # compiler. nodejs: the JavaScript minifier tests skip without it, and the
+      # CI gate refuses any skipped test.
       apt-get install -y --no-install-recommends \
         ca-certificates curl git shellcheck systemd docker.io \
+        build-essential nodejs \
         python3.14 python3.14-venv \
         fonts-liberation fonts-noto-color-emoji fonts-unifont fonts-freefont-ttf \
         libasound2t64 libatk-bridge2.0-0t64 libatk1.0-0t64 libcups2t64 \
