@@ -57,8 +57,7 @@ MESSAGES = {
     "airlines.missing_todo": "%d à faire",
     "airlines.missing_ask_title": "Choisir le type",
     "airlines.missing_ask_hint":
-        "Aucun passage observé pour les compagnies marquées «\u00a0Choisir le type\u00a0»\u00a0: "
-        "choisissez le type dans la fenêtre.",
+        "Aucun passage observé\u00a0: choisissez le type dans la fenêtre.",
     "airlines.missing_add_aria": "Ajouter une illustration pour %s, %s",
     "airlines.missing_add_ask_aria": "Ajouter une illustration pour %s, type à choisir",
     "airlines.artwork_aircraft_type": "Type d’avion",

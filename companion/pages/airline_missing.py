@@ -36,7 +36,7 @@ TODO_TEXT = i18n.msg("airlines.missing_todo", "%d to do")
 ASK_TITLE = i18n.msg("airlines.missing_ask_title", "Choose type")
 ASK_HINT = i18n.msg(
     "airlines.missing_ask_hint",
-    "No sighting yet for the airlines marked \u201cChoose type\u201d: pick the type in the dialog.")
+    "No sighting yet: pick the type in the dialog.")
 ADD_TEXT = i18n.msg("airlines.missing_add", "Illustration")
 ADD_ARIA = i18n.msg("airlines.missing_add_aria", "Add an illustration for %s, %s")
 ADD_ASK_ARIA = i18n.msg(

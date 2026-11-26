@@ -7,9 +7,10 @@ import animation_settle
 import pytest
 
 from companion import auth
-from companion.test_browser_airline_missing import _seed
-from companion.test_browser_components_page import HELPERS
+from companion.test_browser_airline_helpers import seed_airline_editor
 from companion.test_browser_ux_helpers import _assert_no_page_overflow, _login
+from server import history_db
+from server.plane import manual_resolutions
 
 pytestmark = pytest.mark.browser
 
@@ -19,6 +20,51 @@ SENTENCE = {"en": "No sighting yet", "fr": "Aucun passage observé"}
 OLD_LABEL = {"en": "Type to choose", "fr": "Type à choisir"}
 ACTION = {"en": "Choose type", "fr": "Choisir le type"}
 WIDTH = 360
+SIGHTINGS = (("Emirates", "A388", 4), ("Emirates", "B77W", 2), ("Korean Air", "AN24", 1))
+
+# Colours go through a 1x1 canvas so any CSS colour syntax becomes plain RGBA; a background is the
+# stack of translucent layers up to the page canvas.
+CONTRAST = """
+sel => {
+  const canvas = document.createElement('canvas'); canvas.width = canvas.height = 1;
+  const ctx = canvas.getContext('2d', {willReadFrequently: true});
+  const rgba = (css) => { ctx.clearRect(0, 0, 1, 1); ctx.fillStyle = '#000'; ctx.fillStyle = css;
+    ctx.fillRect(0, 0, 1, 1); const d = ctx.getImageData(0, 0, 1, 1).data;
+    return [d[0], d[1], d[2], d[3] / 255]; };
+  const over = (top, under) => [0, 1, 2].map((i) => top[i] * top[3] + under[i] * (1 - top[3])).concat([1]);
+  const background = (el) => { const layers = [];
+    for (let n = el; n; n = n.parentElement) layers.push(rgba(getComputedStyle(n).backgroundColor));
+    let out = matchMedia('(prefers-color-scheme: dark)').matches
+      ? rgba(getComputedStyle(document.documentElement).getPropertyValue('--color-canvas')) : [255, 255, 255, 1];
+    for (let i = layers.length - 1; i >= 0; i--) out = over(layers[i], out);
+    return out; };
+  const lum = (c) => { const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 :
+      Math.pow((v + 0.055) / 1.055, 2.4); }; return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]); };
+  const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+  const rows = [...document.querySelectorAll(sel)];
+  const texts = [document.querySelector('#airlines-missing > .section-caption'),
+    ...rows.map(r => r.querySelector('.airlines-missing__family'))];
+  return {heights: rows.map(r => r.getBoundingClientRect().height),
+    ratios: texts.map(t => { const bg = background(t);
+      return ratio(over(rgba(getComputedStyle(t).color), bg), bg); })};
+}
+"""
+
+
+def _seed(state_dir):
+    from datetime import datetime, timedelta, timezone
+    seed_airline_editor(state_dir)
+    manual_resolutions.add_entry(state_dir, "ZPH", "Zephyr Air")
+    now = datetime.now(timezone.utc)
+    number = 0
+    with history_db.open_db(state_dir) as conn:
+        for airline, code, count in SIGHTINGS:
+            for _ in range(count):
+                number += 1
+                history_db.record_runway_event(
+                    conn, ts=(now - timedelta(hours=number)).isoformat(), hex="ro%04d" % number,
+                    callsign="XXX%03d" % number, aircraft_type=code,
+                    confirmed_state="departing", airline=airline)
 
 
 def _open(new_context, server, lang, theme):
@@ -73,14 +119,7 @@ def test_the_rows_stay_forty_four_pixels_and_the_text_stays_readable(
     server = make_app_server(seed=_seed, fake_providers=True)
     context, page = _open(new_context, server, lang, theme)
     try:
-        page.evaluate(HELPERS)
-        out = page.evaluate(
-            """sel => { const c = window.__c; const rows = [...document.querySelectorAll(sel)];
-              const texts = [document.querySelector('#airlines-missing > .section-caption'),
-                ...rows.map(r => r.querySelector('.airlines-missing__family'))];
-              return {heights: rows.map(r => r.getBoundingClientRect().height),
-                ratios: texts.map(t => c.ratio(c.textColour(t, c.background(t)), c.background(t)))}; }""",
-            ASK_ROW)
+        out = page.evaluate(CONTRAST, ASK_ROW)
         assert out["heights"] and all(h >= 44 - 0.5 for h in out["heights"]), out
         assert min(out["ratios"]) >= 4.5, out
     finally:
