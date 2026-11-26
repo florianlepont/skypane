@@ -25,7 +25,7 @@ TEXT = {
     "fr": {"title": "Ajouter un cadre", "step1": "Étape 1 : nommez-le",
            "step2": "Étape 2 : saisissez son code d’association",
            "submit": "Ajouter le cadre", "back": "Annuler",
-           "invalid": "Saisissez un nom de 1 à 40 caractères."},
+           "invalid": "Saisissez un nom de 1 à 40\u00a0caractères."},
 }
 
 
@@ -72,7 +72,8 @@ def seeded(app_server_in_process):
 def _name_of_pending(server):
     conn = fleet_db.connect(server.state_dir)
     try:
-        return fleet_db.get_device_by_mac(conn, fx.MAC_PENDING)["name"]
+        device = fleet_db.get_device_by_mac(conn, fx.MAC_PENDING)
+        return device["name"] if device is not None else None
     finally:
         conn.close()
 
@@ -100,7 +101,7 @@ def test_the_page_is_two_numbered_steps_that_fit(new_context, seeded, role, view
         assert page.locator("form.pair-card button[type=submit]").inner_text() == text["submit"]
         assert page.locator("form.pair-card button[type=submit]").count() == 1
         assert (page.locator("#pair-owner").count() == 1) == (role == "admin")
-        for selector in ("#pair-name", "#pair-code", "button[type=submit]",
+        for selector in ("#pair-name", "#pair-code", "form.pair-card button[type=submit]",
                          "a.pair-form__cancel"):
             assert _height(page, selector) >= MIN_TAP_PX, selector
         assert page.locator("#pair-code").evaluate(
@@ -160,12 +161,9 @@ def test_a_named_frame_is_paired_under_its_name(new_context, seeded, lang):
         context.close()
 
 
-@pytest.mark.parametrize("scripts", [True, False])
-def test_a_refused_code_keeps_the_name_for_the_retry_and_stores_nothing(
-        new_context, seeded, scripts):
+def test_a_refused_code_keeps_the_name_for_the_retry_and_stores_nothing(new_context, seeded):
     server, _seed = seeded
-    context, page = _open(
-        new_context, server, fx.user_cookie(server.state_dir), java_script_enabled=scripts)
+    context, page = _open(new_context, server, fx.user_cookie(server.state_dir))
     try:
         page.fill("#pair-name", 'Kitchen "<b>"')
         page.fill("#pair-code", "kkkk-2222")

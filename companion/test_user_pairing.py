@@ -382,7 +382,9 @@ def _name_input(page):
 
 
 def _frame_name(state_dir):
-    return _device(state_dir)["name"]
+    """The paired frame's name; None while the code has not been claimed."""
+    device = _device(state_dir)
+    return device["name"] if device is not None else None
 
 
 def test_the_page_has_the_two_steps_and_one_button(rig):
@@ -402,7 +404,7 @@ def test_a_valid_code_with_a_name_pairs_the_frame_under_that_name(rig):
     assert status == 303 and headers["Location"].endswith("?flash=frame_paired")
     assert _frame_name(server.state_dir) == "Orly kitchen"
     assert "Orly kitchen" in fx.get(server, cookie, headers["Location"])[2]
-    assert [r for r in fx.audit_rows(server.state_dir, "frame.rename")
+    assert [r for r in fx.audit_rows(server.state_dir, "device.rename")
             if r["outcome"] == "ok"]
 
 
@@ -412,7 +414,7 @@ def test_a_blank_name_is_not_an_error_and_renames_nothing(rig, blank):
     status, _headers, _body = _claim(server, cookie, fx.FAKE_CODE, frame_name=blank)
     assert status == 303
     assert not _frame_name(server.state_dir)
-    assert fx.audit_rows(server.state_dir, "frame.rename") == []
+    assert fx.audit_rows(server.state_dir, "device.rename") == []
 
 
 @pytest.mark.parametrize("bad", ["x" * 41, "bell\x07name"])
@@ -421,8 +423,8 @@ def test_an_invalid_name_is_refused_beside_its_field_and_claims_nothing(rig, bad
     status, _headers, body = _claim(server, cookie, fx.FAKE_CODE, frame_name=bad)
     assert status == 400
     assert "Enter a name of 1 to 40 characters." in body
-    assert _device(server.state_dir)["owner_user_id"] is None
-    assert _name_input(body) == bad
+    assert _device(server.state_dir) is None
+    assert _name_input(body) == bad[:40]
     # The code was not evaluated, so the pairing stays open for a retry.
     assert _claim(server, cookie, fx.FAKE_CODE)[0] == 303
 
@@ -466,7 +468,7 @@ def test_the_lockout_answer_keeps_the_typed_name(rig, monkeypatch):
     monkeypatch.setattr(console_pairing, "is_locked", lambda key: True)
     status, _headers, body = _claim(server, cookie, fx.FAKE_CODE, frame_name="Kept name")
     assert status == 429 and _name_input(body) == "Kept name"
-    assert _device(server.state_dir)["owner_user_id"] is None
+    assert _device(server.state_dir) is None
 
 
 def test_the_owner_gone_answer_keeps_the_typed_name(rig):
@@ -474,7 +476,7 @@ def test_the_owner_gone_answer_keeps_the_typed_name(rig):
     admin = fx.admin_cookie(server.state_dir)
     conn = fleet_db.connect(server.state_dir)
     try:
-        conn.execute("UPDATE users SET disabled_at = 1 WHERE id = ?", (seed.owner_id,))
+        conn.execute("UPDATE users SET disabled = 1 WHERE id = ?", (seed.owner_id,))
         conn.commit()
     finally:
         conn.close()

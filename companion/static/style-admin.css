@@ -1303,8 +1303,28 @@ a.pair-link--primary:hover {
   }
 }
 
-.pair-card__heading {
+/* The two steps of the page: a real sequence, so an ordered list whose
+ * numbers are part of each step's title text. */
+.pair-steps {
+  display: grid;
+  gap: var(--space-lg);
   margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pair-step {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-sm);
+}
+
+.pair-step__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--font-card-title-size);
+  font-weight: var(--weight-semibold);
+  line-height: 1.25;
 }
 
 /* The code is read off the frame and typed whole: big, centred, spaced. */

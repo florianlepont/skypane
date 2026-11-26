@@ -20,7 +20,7 @@ FLASH_FRAME_RENAMED_TEXT = i18n.msg(
     "frame_name.flash_renamed", "Frame renamed — the new name shows everywhere.")
 
 TITLE = i18n.msg("frame_name.title", "Rename frame")
-_LABEL = i18n.msg("frame_name.label", "Frame name")
+LABEL = i18n.msg("frame_name.label", "Frame name")
 NAME_ERROR = i18n.msg("frame_name.error", "Enter a name of 1 to 40 characters.")
 SAVE_FAILED = i18n.msg(
     "frame_name.failed", "The name could not be saved. Try again in a moment.")
@@ -107,7 +107,7 @@ def dialog_html(device_id, name, return_to):
             ui_modal.error_id(slug, NAME_FIELD))
         error_html = ui_modal.field_error_html(slug, NAME_FIELD, error[0])
     field = ui_components.text_field_html(
-        slug + "-name", NAME_FIELD, i18n.t(_LABEL), value, "", error_html,
+        slug + "-name", NAME_FIELD, i18n.t(LABEL), value, "", error_html,
         ' maxlength="%d" required autocomplete="off" spellcheck="false"%s%s' % (
             MAX_NAME_CHARS, attrs, validation_attrs("text")))
     carried = '<input type="hidden" name="%s" value="%s">' % (
