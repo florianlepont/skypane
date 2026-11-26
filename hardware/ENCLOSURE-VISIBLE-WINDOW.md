@@ -34,7 +34,15 @@ safety on each side). It is a field of the EE04 hardware profile only; the
 each screen at the window size and pastes it into the 800 x 480 image; the
 strips the mat hides repeat the nearest edge of the screen.
 
-The owner confirmed these values on 2026-11-26 ("ces valeurs sont bonnes"), after seeing the readings and the window; this confirms the values, not yet the result on the assembled frame after deploy.
+The owner confirmed these values on 2026-11-26 ("ces valeurs sont bonnes"), after seeing the readings and the window; that confirmed the values.
 
-If a screen still shows text cut by the mat on the assembled frame, the
-readings are repeated and the four numbers corrected.
+## Result on the assembled frame
+
+The window was merged (PR 614) and deployed to production on 2026-11-26 (deploy
+run 45899235327). The owner then tested the assembled frame and reported on
+2026-11-26 that everything is good ("j'ai testé le cadre et tout est bon"),
+reported by the owner; which screens were looked at and any finer detail were
+not stated. The four numbers stay as they are.
+
+If a screen later shows text cut by the mat, the readings are repeated and the
+four numbers corrected.
