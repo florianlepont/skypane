@@ -10,6 +10,11 @@
 #   PYTHON=/other/python3       use a different interpreter
 #   JOBS=1                      serial run
 #   SKYPANE_REQUIRE_BROWSER=1   missing Chromium fails instead of skipping
+#   SKYPANE_COVERAGE=off        run every selected test without coverage
+#                               tracing (pytest --no-cov); no coverage data
+#                               file is written and no floor is applied.
+#                               on (default, also when unset) measures.
+#                               CI sets off on pull requests only.
 #
 # Running part of the suite (for parallel CI jobs); all unset by default:
 #   SKYPANE_TEST_GROUP=core|browser   run only that group's test files
@@ -40,6 +45,15 @@ if [ ! -x "${PYTHON}" ]; then
     exit 1
 fi
 
+coverage_mode="${SKYPANE_COVERAGE:-on}"
+case "${coverage_mode}" in
+    on|off) ;;
+    *)
+        echo "ERROR: SKYPANE_COVERAGE must be on or off, got '${coverage_mode}'" >&2
+        exit 2
+        ;;
+esac
+
 echo "==> Clearing stale coverage data files from any previous run"
 rm -f "${REPO_ROOT}"/.coverage "${REPO_ROOT}"/.coverage.*
 
@@ -47,7 +61,7 @@ rm -f "${REPO_ROOT}"/.coverage "${REPO_ROOT}"/.coverage.*
 # ["subprocess"]` (implies parallel=true) makes each xdist worker and
 # subprocess (byos_server.py, companion/app.py) write its own data file;
 # pytest-cov combines them all at session end.
-if [ -z "${COVERAGE_CORE:-}" ]; then
+if [ "${coverage_mode}" = "on" ] && [ -z "${COVERAGE_CORE:-}" ]; then
     py_minor="$("${PYTHON}" -c 'import sys; print(1 if sys.version_info >= (3, 12) else 0)')"
     if [ "${py_minor}" = "1" ]; then
         # Tracing overhead is negligible on 3.12+'s sysmon core (measured
@@ -100,4 +114,14 @@ if [ "${#partial_args[@]}" -gt 0 ]; then
     report_args=()
 fi
 
-exec "${PYTHON}" -m pytest -n "${JOBS:-auto}" --cov ${report_args[@]+"${report_args[@]}"} --durations=15 ${gate_args[@]+"${gate_args[@]}"} ${partial_args[@]+"${partial_args[@]}"} ${junit_args[@]+"${junit_args[@]}"} ${selection[@]+"${selection[@]}"} "$@"
+if [ "${coverage_mode}" = "off" ]; then
+    echo "==> SKYPANE_COVERAGE=off: coverage not measured, no coverage floor applied"
+    cov_args=(--no-cov)
+    report_args=()
+    gate_args=()
+    partial_args=()
+else
+    cov_args=(--cov)
+fi
+
+exec "${PYTHON}" -m pytest -n "${JOBS:-auto}" "${cov_args[@]}" ${report_args[@]+"${report_args[@]}"} --durations=15 ${gate_args[@]+"${gate_args[@]}"} ${partial_args[@]+"${partial_args[@]}"} ${junit_args[@]+"${junit_args[@]}"} ${selection[@]+"${selection[@]}"} "$@"

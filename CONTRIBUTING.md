@@ -23,11 +23,19 @@ take a few days.
 - CI runs these jobs in parallel: static checks (ruff, mypy, guards,
   shellcheck, systemd scoring, attribution), the non-browser tests in
   shards, and the browser tests in shards. One aggregate check named
-  `Lint, test, coverage, attribution` needs all of them, combines their
-  coverage data, applies the coverage floor from `pyproject.toml` to the
-  combined result and checks the JUnit totals; it is the check the
-  production `deploy` job waits for. A bare `./scripts/run-all-tests.sh`
-  still runs the whole suite with the coverage gate, as before.
+  `Lint, test, coverage, attribution` needs all of them and checks the
+  JUnit totals (no failures, executed floor, skipped ceiling); it is the
+  check the production `deploy` job waits for. Coverage is measured on
+  pushes to `main` and on manual runs only: there the aggregate check also
+  combines the shards' coverage data and applies the floor from
+  `pyproject.toml`. A pull request runs every test but without coverage
+  tracing, so it is not checked against the coverage floor; a drop shows up
+  as a red CI on `main` after the merge, and the deploy guard then refuses
+  that commit. The pull-request run says "coverage: not measured on pull
+  requests; measured on main" in its summary. A bare
+  `./scripts/run-all-tests.sh` still runs the whole suite with the coverage
+  gate; `SKYPANE_COVERAGE=off` runs it without coverage, as a pull request
+  does.
   Commits that touch only documentation or the 3D model files under
   `hardware/cad` start no CI run; any change to code, or to a non-Markdown
   file a test reads, runs everything. GitHub's path filter looks at no more

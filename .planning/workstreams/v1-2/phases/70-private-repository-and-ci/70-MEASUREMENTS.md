@@ -36,3 +36,13 @@ Method: `scripts/ci_path_filter.py measure --last 100`, once with the `ci.yml` o
 - Not measured here: an actual GitHub run on a model-only commit. After merge, a push touching only one `.stl` should start no run.
 
 The visibility flip may proceed on this point.
+
+## Coverage only on main
+
+Decision (owner, 2026-11-26; the owner works alone and wants shorter PR CI): every test still runs on every pull request and on main; only the coverage tracing and the coverage floor move to pushes to `main` and manual `workflow_dispatch` runs.
+
+Measured motivation, from `70-TEST-AUDIT.md`: twelve core files (2,783 tests), 4 workers, took 68.4 s without coverage and 79.8 s with `--cov` and `COVERAGE_CORE=sysmon`, so coverage tracing costs about 17 percent of test time (the C tracer would cost 72 percent). Not measured on the browser group or on Python 3.14.
+
+What changes: on `pull_request` the shards run with `SKYPANE_COVERAGE=off` (`pytest --no-cov`) and write only the JUnit report. The aggregate check "Lint, test, coverage, attribution" still requires every job, one JUnit file per shard and the totals gate (no failures, executed floor, skipped ceiling 0); it skips only the coverage-data steps and writes "coverage: not measured on pull requests; measured on main". On main and dispatch nothing changes. Cost: a pull request is not checked against the coverage floor, so a drop shows up as a red CI on main after the merge and the deploy guard refuses that commit.
+
+Not measured here: the time saved on a real PR run (needs a CI run after merge).

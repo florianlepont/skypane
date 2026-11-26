@@ -61,3 +61,57 @@ def test_a_missing_file_a_malformed_file_and_no_file_are_errors(tmp_path):
     assert _run("totals", str(bad)) == 2
     assert _run("totals", str(empty)) == 2
     assert _run("totals") == 2
+
+
+def _shard_dir(tmp_path, count, coverage):
+    for index in range(count):
+        shard = tmp_path / f"test-data-core-{index}"
+        shard.mkdir()
+        (shard / f"junit-core-{index}.xml").write_text("<testsuite/>")
+        if coverage:
+            (shard / ".coverage").write_text("data")
+    return str(tmp_path)
+
+
+def test_artifacts_with_coverage_needs_one_of_each_per_shard(tmp_path, capsys):
+    directory = _shard_dir(tmp_path, 3, coverage=True)
+    assert _run("artifacts", "--expected", "3", "--with-coverage", directory) == 0
+    assert "found 3 coverage files and 3 JUnit files" in capsys.readouterr().out
+    assert _run("artifacts", "--expected", "4", "--with-coverage", directory) == 1
+
+
+def test_artifacts_with_coverage_fails_when_a_coverage_file_is_missing(tmp_path):
+    directory = _shard_dir(tmp_path, 3, coverage=True)
+    (tmp_path / "test-data-core-1" / ".coverage").unlink()
+    assert _run("artifacts", "--expected", "3", "--with-coverage", directory) == 1
+
+
+def test_artifacts_with_coverage_fails_when_a_junit_file_is_missing(tmp_path):
+    directory = _shard_dir(tmp_path, 3, coverage=True)
+    (tmp_path / "test-data-core-2" / "junit-core-2.xml").unlink()
+    assert _run("artifacts", "--expected", "3", "--with-coverage", directory) == 1
+
+
+def test_artifacts_without_coverage_says_so_and_passes(tmp_path, capsys):
+    directory = _shard_dir(tmp_path, 3, coverage=False)
+    assert _run("artifacts", "--expected", "3", "--without-coverage", directory) == 0
+    out = capsys.readouterr().out
+    assert "coverage: not measured on pull requests; measured on main" in out
+
+
+def test_artifacts_without_coverage_still_counts_junit_files(tmp_path):
+    directory = _shard_dir(tmp_path, 3, coverage=False)
+    assert _run("artifacts", "--expected", "4", "--without-coverage", directory) == 1
+
+
+def test_artifacts_without_coverage_refuses_unexpected_coverage_files(tmp_path, capsys):
+    directory = _shard_dir(tmp_path, 3, coverage=True)
+    assert _run("artifacts", "--expected", "3", "--without-coverage", directory) == 1
+    assert "not measured" not in capsys.readouterr().out
+
+
+def test_artifacts_requires_a_coverage_mode(tmp_path):
+    import pytest
+
+    with pytest.raises(SystemExit):
+        _run("artifacts", "--expected", "1", str(tmp_path))

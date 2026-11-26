@@ -93,6 +93,7 @@ def test_no_job_is_conditional_on_paths_and_no_gate_is_weakened():
     assert "ci_shards.py check" in _CI
     assert "ci_gates.py" in _CI
     assert "Combine coverage and apply the coverage floor" in _CI
+    assert "--with-coverage" in _CI
     assert "Check test totals (no failures, executed floor, skipped ceiling)" in _CI
     assert "- '!**/*.md'" in _CI
     assert "- '!.planning/**'" in _CI
@@ -108,6 +109,82 @@ def test_no_job_is_conditional_on_paths_and_no_gate_is_weakened():
         "github.event.pull_request.head.repo.full_name == github.repository"
     )
     assert sorted(job_level_ifs) == sorted([guard] * 3 + ["    if: ${{ always() }}"])
+
+
+_NOT_PR = "if: github.event_name != 'pull_request'"
+_ONLY_PR = "if: github.event_name == 'pull_request'"
+_MAIN_UPLOAD = "Upload coverage data and JUnit report"
+_PR_UPLOAD = "Upload JUnit report (pull request, coverage not measured)"
+_TOTALS = "Check test totals (no failures, executed floor, skipped ceiling)"
+_COUNT_MAIN = "Require one coverage file and one JUnit file per shard"
+_COUNT_PR = "Require one JUnit file per shard (pull request, coverage not measured)"
+_FLOOR = "Combine coverage and apply the coverage floor"
+
+
+def _test_job_steps():
+    block = re.search(r"(?ms)^  test:\n.*", _CI).group(0)
+    return _steps(block)
+
+
+def test_coverage_is_measured_on_main_and_dispatch_not_on_pull_requests():
+    # Shards: the coverage switch is derived from the event, and only the
+    # pull_request event turns it off.
+    expected = (
+        "SKYPANE_COVERAGE: ${{ github.event_name == 'pull_request' "
+        "&& 'off' || 'on' }}"
+    )
+    for name in ("Run the non-browser test files", "Run the browser test files"):
+        step = _step_named(_CI, name)
+        assert expected in step, name
+        assert "\n        if:" not in step, name
+    assert _CI.count("SKYPANE_COVERAGE:") == 2
+
+    # Coverage steps of the aggregate run on every event but pull_request.
+    for name in (_COUNT_MAIN, _FLOOR):
+        assert _NOT_PR in _step_named(_CI, name), name
+    assert "--with-coverage" in _step_named(_CI, _COUNT_MAIN)
+    assert "coverage combine" in _step_named(_CI, _FLOOR)
+    assert "coverage report" in _step_named(_CI, _FLOOR)
+    assert "--fail-under=" not in _step_named(_CI, _FLOOR)
+
+    # The pull-request replacement still counts shards and says out loud that
+    # coverage was not measured.
+    pr_step = _step_named(_CI, _COUNT_PR)
+    assert _ONLY_PR in pr_step
+    assert "--without-coverage" in pr_step
+    assert "ci_gates.py artifacts --expected" in pr_step
+    assert '"$GITHUB_STEP_SUMMARY"' in pr_step
+
+
+def test_coverage_upload_fails_loudly_on_main_and_junit_always_uploads():
+    assert _CI.count(_MAIN_UPLOAD) == 2
+    assert _CI.count(_PR_UPLOAD) == 2
+    for step in _steps(_CI):
+        if step.startswith(f"      - name: {_MAIN_UPLOAD}\n"):
+            assert "if: ${{ always() && github.event_name != 'pull_request' }}" in step
+            assert "if-no-files-found: error" in step
+            assert "include-hidden-files: true" in step
+            assert "            .coverage\n" in step
+        if step.startswith(f"      - name: {_PR_UPLOAD}\n"):
+            assert "if: ${{ always() && github.event_name == 'pull_request' }}" in step
+            assert "if-no-files-found: error" in step
+            assert ".coverage" not in step
+            assert "path: junit-" in step
+
+
+def test_test_totals_gate_and_shard_check_run_on_every_event():
+    for name in ("Require every job above to have succeeded", _TOTALS):
+        assert "\n        if:" not in _step_named(_CI, name), name
+    assert "ci_gates.py totals test-data/*/junit-*.xml" in _step_named(_CI, _TOTALS)
+    # Only the coverage-data steps may be conditioned on the event.
+    conditioned = [
+        step.splitlines()[0]
+        for step in _test_job_steps()
+        if "github.event_name" in step
+    ]
+    assert sorted(conditioned) == sorted(
+        f"      - name: {name}" for name in (_COUNT_MAIN, _COUNT_PR, _FLOOR)
+    ), conditioned
 
 
 def test_model_file_exclusions_appear_once_per_event():

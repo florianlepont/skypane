@@ -475,13 +475,23 @@ and the tip.
 ### Which commits start CI
 
 Every change runs the whole suite (every shard, the browser tests, the
-coverage floor, the executed-test floor and the skipped ceiling) except a
+executed-test floor and the skipped ceiling) except a
 change that touches only Markdown, `.planning`, `.claude`, LICENSE or the
 3D model files (`.stl`, `.blend`, `.glb`, `.3mf`) under `hardware/cad`;
 that starts no CI run at all. No job has a path condition, so a run that
 exists is always the whole run, and the aggregate check "Lint, test,
 coverage, attribution" reports on every run that exists.
 
+- Coverage is measured on pushes to `main` and on `workflow_dispatch`
+  runs only. A pull request runs every test, with the same shards, the same
+  JUnit files and the same totals gate, but without coverage tracing
+  (`SKYPANE_COVERAGE=off` in `scripts/run-all-tests.sh`), and its aggregate
+  check skips the coverage-data steps and writes "coverage: not measured on
+  pull requests; measured on main" to the job summary. A pull request is
+  therefore not checked against the coverage floor: a drop shows up as a red
+  "Lint, test, coverage, attribution" on `main` after the merge, and the
+  deploy guard above then refuses that commit until a later commit on
+  `main` brings the floor back.
 - The exclusions under `hardware/cad` are by file type: any other file
   added there (a script, a config) runs CI.
 - Markdown files that tests read, such as `COMPLIANCE.md` and
