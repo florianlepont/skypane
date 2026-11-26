@@ -94,6 +94,14 @@ co-manager never receives it. Test: `test_browser_admin_personal_scope.py`.
   part of a wide screen. The modifier is on that dialog only; every other dialog keeps its own
   spacing. Used by the Users invite (address field, one Administrator checkbox, Cancel and Invite)
   and the role and delete confirmations (even margins, one sentence, no subtitle).
+- **Confirmation dialogs** (Retire, Re-activate, Reassign, Leave this frame, Remove this frame,
+  Delete user): the title is the one question, the body is one sentence, and any further detail sits
+  behind `ui_modal.more_html` (a closed native `<details class="modal__more">` whose summary "More
+  detail" / "Plus de détails" is a 44px row with a chevron that turns when it opens; no motion).
+  The confirm button names the action (Retire, Delete user, ...) in the danger style, the safe
+  button keeps the default focus, and there are exactly two actions. There is no typed-name
+  confirmation and none is added. Manage access shows the typed co-manager address on one line with
+  Add so the French sheet fits 360x800 without an inner scroll.
 - **Result dialog** (`result_dialog_html`): an open outcome dialog the server renders after a post
   (the Users invitation: a one-time link with Copy and Done, or a failure with Try again). `once`
   makes `modal.js` remove it when closed and `data-modal-return` puts the list address back, so a

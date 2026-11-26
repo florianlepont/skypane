@@ -77,6 +77,8 @@ _SAMPLE_DIALOG = i18n.msg("components.sample_dialog_title", "Rename frame")
 _SAMPLE_CONFIRM = i18n.msg("components.sample_confirm_title", "Delete this frame?")
 _SAMPLE_CONFIRM_BODY = i18n.msg(
     "components.sample_confirm_body", "This cannot be undone.")
+_SAMPLE_CONFIRM_DETAIL = i18n.msg(
+    "components.sample_confirm_detail", "Nothing else is changed.")
 _OPEN_DIALOG = i18n.msg("components.open_dialog", "Open the dialog")
 _SAMPLE_CHOICE_TITLE = i18n.msg("components.sample_choice_title", "Unsaved changes")
 _SAMPLE_CHOICE_TEXT = i18n.msg(
@@ -734,7 +736,10 @@ def _dialogs():
         field, _t(_SAVE), _t(_CANCEL), COMPONENTS_ROUTE)
     confirm = ui_modal.dialog_html(
         "components-confirm", _t(_SAMPLE_CONFIRM), COMPONENTS_ROUTE, ui_components.csrf_field(),
-        '<p class="text-body">%s</p>' % _esc(_t(_SAMPLE_CONFIRM_BODY)), _t(_DELETE), _t(_CANCEL),
+        '<p class="text-body">%s</p>%s' % (
+            _esc(_t(_SAMPLE_CONFIRM_BODY)),
+            ui_modal.more_html('<p class="text-body">%s</p>' % _esc(_t(_SAMPLE_CONFIRM_DETAIL)))),
+        _t(_DELETE), _t(_CANCEL),
         COMPONENTS_ROUTE, destructive=True, confirm_only=True)
     sections = ui_modal.sections_dialog_html(
         "components-sections", _t(_SAMPLE_DIALOG), "", "<p class=\"text-body\">%s</p>" % _esc(
@@ -859,7 +864,7 @@ CATALOGUE = (
     Family("dialogs", _M_FAMILY_DIALOGS,
            _M_FAMILY_DIALOGS_DESC,
            ("ui_modal.dialog_html", "ui_modal.choice_dialog_html", "ui_modal.sections_dialog_html",
-            "ui_modal.trigger_html", "ui_save_bar.save_bar_html",
+            "ui_modal.more_html", "ui_modal.trigger_html", "ui_save_bar.save_bar_html",
             "ui_save_bar.leave_dialog_html"), _dialogs),
     Family("motion", _M_FAMILY_MOTION, _M_FAMILY_MOTION_DESC, (), _motion),
     Family("names", _M_FAMILY_NAMES, _M_FAMILY_NAMES_DESC, (), _names),

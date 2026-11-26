@@ -192,6 +192,7 @@ MESSAGES = {
     "components.sample_dialog_title": "Renommer le cadre",
     "components.sample_confirm_title": "Supprimer ce cadre ?",
     "components.sample_confirm_body": "Cette action est irréversible.",
+    "components.sample_confirm_detail": "Rien d’autre n’est modifié.",
     "components.sample_sort": "Trier",
     "components.sample_sort_newest": "Plus récents d’abord",
     "components.sample_sort_oldest": "Plus anciens d’abord",
