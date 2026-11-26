@@ -168,7 +168,9 @@ jobs:
     # skipped job makes the `test` aggregate fail, which is intended.
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ${{ fromJSON(vars.CI_RUNS_ON || '"ubuntu-latest"') }}
-    timeout-minutes: 20
+    # Shards take 15 to 20 minutes on the self-hosted runner (CI_RUNS_ON set)
+    # against 7 to 10 on hosted ones, so the limit follows the runner.
+    timeout-minutes: ${{ vars.CI_RUNS_ON && 45 || 20 }}
     strategy:
       # A failing shard must not hide the others' results.
       fail-fast: false
@@ -250,7 +252,9 @@ jobs:
     # skipped job makes the `test` aggregate fail, which is intended.
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ${{ fromJSON(vars.CI_RUNS_ON || '"ubuntu-latest"') }}
-    timeout-minutes: 20
+    # Shards take 15 to 20 minutes on the self-hosted runner (CI_RUNS_ON set)
+    # against 7 to 10 on hosted ones, so the limit follows the runner.
+    timeout-minutes: ${{ vars.CI_RUNS_ON && 45 || 20 }}
     strategy:
       fail-fast: false
       matrix:

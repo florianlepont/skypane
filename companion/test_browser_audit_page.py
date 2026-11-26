@@ -87,17 +87,26 @@ def _relative_luminance(rgb):
 
 
 def _ink_contrast(page, locator):
-    """Contrast of an element's text as drawn: the most common pixel is the
-    surface, the pixel farthest from it is the ink."""
-    import io
-    from collections import Counter
-
-    from PIL import Image
-    image = Image.open(io.BytesIO(locator.screenshot())).convert("RGB")
-    raw = image.tobytes()
-    pixels = list(zip(raw[0::3], raw[1::3], raw[2::3]))
-    surface = Counter(pixels).most_common(1)[0][0]
-    ink = max(pixels, key=lambda p: sum((a - b) ** 2 for a, b in zip(p, surface)))
+    """Contrast of an element's text from its computed colours: the text colour
+    composited over the stack of backgrounds behind it. Sampling drawn pixels
+    would depend on how the platform anti-aliases thin glyphs."""
+    layers = locator.evaluate(
+        """e => {
+            const parse = c => (c.match(/[\\d.]+/g) || []).map(Number);
+            const out = [parse(getComputedStyle(e).color)];
+            for (let n = e; n; n = n.parentElement) {
+                const bg = parse(getComputedStyle(n).backgroundColor);
+                if (bg.length === 3) bg.push(1);
+                if (bg.length === 4 && bg[3] > 0) out.push(bg);
+            }
+            return out;
+        }""")
+    text, backgrounds = layers[0], layers[1:]
+    surface = [255.0, 255.0, 255.0]
+    for red, green, blue, alpha in reversed(backgrounds):
+        surface = [alpha * c + (1 - alpha) * s for c, s in zip((red, green, blue), surface)]
+    alpha = text[3] if len(text) == 4 else 1.0
+    ink = [alpha * c + (1 - alpha) * s for c, s in zip(text[:3], surface)]
     light, dark = sorted((_relative_luminance(ink), _relative_luminance(surface)), reverse=True)
     return (light + 0.05) / (dark + 0.05)
 
