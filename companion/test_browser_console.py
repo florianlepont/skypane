@@ -284,7 +284,7 @@ def test_console_renders_in_french(new_context, app_server_in_process):
         nav = page.locator("nav.sidebar-nav").inner_text()
         assert page.locator("nav.space-switch:visible").inner_text().split() == [
             "Mes", "cadres", "Console"]
-        for label in ("Flotte", "Utilisateurs", "Journal d’audit"):
+        for label in ("Flotte", "Utilisateurs", "Activité"):
             assert label in nav, label
         assert "Lieux" not in nav
         assert _no_sideways_scroll(page)

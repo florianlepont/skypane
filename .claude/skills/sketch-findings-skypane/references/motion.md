@@ -27,7 +27,7 @@ New motion spends a token and, if it adds a keyframe or a reduce block, updates 
 | `--motion-enter` / `--motion-stagger` | 400ms / 60ms | card entrance, per-sibling delay |
 | `--opening-opacity` | 0.6 | where the page-opening fade starts |
 | `--ease-out` | `cubic-bezier(.22,1,.36,1)` | |
-| `--motion-spring`, `--motion-spring-duration` | overshooting curve, 420ms | press release, switch thumb, sliding tab pill (only on `scale`/`transform`) |
+| `--motion-spring`, `--motion-spring-duration` | overshooting curve, 420ms | press release, switch thumb, sliding tab pill, the copy-confirmation check (only on `scale`/`transform`) |
 | `--motion-press` | 90ms | the un-sprung half of a press |
 | `--motion-view-transition` | 260ms | cross-document page change |
 | `--motion-shimmer`, `--motion-reveal` | 1.3s, 900ms | loading sweep, blur-up of a picture |
@@ -62,6 +62,13 @@ filter or a row. A bare duration literal on an animation or a transition fails t
 
 - Splash "Cadre": frame outline, e-paper refresh, scan-line logo reveal; once per browser session,
   hard cap about 3.2s; none without scripts or session storage.
+- Copy confirmation (the Users invitation link, the Account build line): `copy-button.js` and
+  `account-build.js` add an ink check (DOM-built SVG, `aria-hidden`) beside the copied word.
+  `skypane-copy-tick` (scale 0.4 to 1 and opacity, `--motion-fast`, `--motion-spring`) on the check
+  and `skypane-copy-rise` (4px rise and opacity, `--motion-fast`, `--ease-out`) on the word; both
+  keyframes and their `animation` rules sit in `style.css`'s one `no-preference` block, so under
+  reduced motion the check and the word appear at once with no animation. The word is also announced
+  by the button's live region; compositor-only, no layout change. No new token.
 - Toast: `skypane-toast-in`, the timer hairline `skypane-toast-dwell`, swipe to dismiss.
 - Home: number count-up once, a new flight slides into the recent-flights strip, the cycle ring
   fills with the elapsed share of the frame cycle and flashes green once at 100% (static under

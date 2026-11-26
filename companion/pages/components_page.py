@@ -17,6 +17,8 @@ from companion import (
     i18n, ui_components, ui_entity_list, ui_filter, ui_groups, ui_modal, ui_save_bar,
     ui_segmented)
 from companion import ui_base
+from companion import health_rows
+from companion.pages import fleet_tiles, health_page
 from companion.ui_base import escape_html
 
 COMPONENTS_ROUTE = "/components"
@@ -75,6 +77,8 @@ _SAMPLE_DIALOG = i18n.msg("components.sample_dialog_title", "Rename frame")
 _SAMPLE_CONFIRM = i18n.msg("components.sample_confirm_title", "Delete this frame?")
 _SAMPLE_CONFIRM_BODY = i18n.msg(
     "components.sample_confirm_body", "This cannot be undone.")
+_SAMPLE_CONFIRM_DETAIL = i18n.msg(
+    "components.sample_confirm_detail", "Nothing else is changed.")
 _OPEN_DIALOG = i18n.msg("components.open_dialog", "Open the dialog")
 _SAMPLE_CHOICE_TITLE = i18n.msg("components.sample_choice_title", "Unsaved changes")
 _SAMPLE_CHOICE_TEXT = i18n.msg(
@@ -128,7 +132,7 @@ _BANNER = i18n.msg(
     "components.sample_banner", "The frame has not reported for an hour")
 _STATUS_VERDICT = i18n.msg("components.sample_status_verdict", "Reporting normally")
 _STATUS_DETAIL = i18n.msg("components.sample_status_detail", "Last report two minutes ago")
-_STATUS_LABEL = i18n.msg("components.sample_status_label", "Connection")
+_STATUS_LABEL = i18n.msg("components.sample_status_label", "Last contact")
 _SECTION_HEADING = i18n.msg("components.sample_section_heading", "Display")
 _SECTION_DESCRIPTION = i18n.msg(
     "components.sample_section_description", "What the frame shows and when.")
@@ -171,6 +175,13 @@ _M_STATE_SECTION_LABEL = i18n.msg("components.state_section_label", "Section lab
 _M_STATE_SECTION_INTRO = i18n.msg("components.state_section_intro", "Section introduction")
 _M_STATE_TILES = i18n.msg("components.state_tiles", "Tiles by status")
 _M_STATE_STATUS_ROWS = i18n.msg("components.state_status_rows", "Status rows")
+_M_STATE_PAGE_SECTION = i18n.msg(
+    "components.state_page_section", "Page section, by status")
+_M_STATE_FLEET_TILES = i18n.msg("components.state_fleet_tiles", "Frame tiles, by status")
+_M_STATE_FLEET_TILE_LINK = i18n.msg(
+    "components.state_fleet_tile_link", "Frame tile that links to its details")
+_M_STATE_FLEET_TILES_COMPACT = i18n.msg(
+    "components.state_fleet_tiles_compact", "Compact tiles, as on the System page")
 _M_STATE_LINK_CARD = i18n.msg("components.state_link_card", "Link card")
 _M_STATE_LINK_CARD_PLAIN = i18n.msg("components.state_link_card_plain", "Link card, title only")
 _SAMPLE_LINK_CARD_SUB = i18n.msg("components.sample_link_card_subtitle", "Fleet, users, audit")
@@ -182,6 +193,10 @@ _M_STATE_PILL_TONES = i18n.msg("components.state_pill_tones", "Pill, status tone
 _SAMPLE_PILL_INFO = i18n.msg("components.sample_pill_info", "Update available")
 _SAMPLE_PILL_WARN = i18n.msg("components.sample_pill_warn", "Install failed")
 _M_STATE_DOTS = i18n.msg("components.state_dots", "Status dots")
+_M_STATE_DOTS_QUIET = i18n.msg(
+    "components.state_dots_quiet", "Status dots without a live signal")
+_SAMPLE_DOT_HELD = i18n.msg("components.sample_dot_held", "Resting")
+_SAMPLE_DOT_WAITING = i18n.msg("components.sample_dot_waiting", "Waiting for pairing")
 _M_STATE_CHARGING = i18n.msg("components.state_charging", "Charging pill")
 _M_STATE_TOASTS = i18n.msg("components.state_toasts", "Toasts by tone")
 _M_STATE_TOAST_ACTIONS = i18n.msg("components.state_toast_actions", "Toasts with an action")
@@ -472,6 +487,52 @@ def _menus():
 
 # --- Cards, groups and tiles --------------------------------------------------
 
+_TILE_STATES = (
+    ("ok", _SAMPLE_TILE_OK), ("warn", _SAMPLE_TILE_WARN), ("error", _SAMPLE_TILE_ERROR),
+    ("off", _SAMPLE_TILE_NEUTRAL))
+
+
+def _page_sections():
+    """The page-level card plain and in each status, as the pages draw it."""
+    return "".join(
+        '<section class="%s"><h3 class="text-heading">%s</h3><p class="text-body">%s</p></section>'
+        % (" ".join(filter(None, ("page-section", ui_components.card_status_class(
+            "page-section", status)))), _esc(_t(heading)), _esc(_t(_SECTION_DESCRIPTION)))
+        for status, heading in ((None, _SECTION_HEADING),) + _TILE_STATES[:3])
+
+
+def _frame_tiles():
+    """The frame page's State tiles in each status: the state shows in the
+    tile's icon and its words, never in colour alone."""
+    return '<ul class="fleet-tiles fleet-tiles--rows">%s</ul>' % "".join(
+        fleet_tiles._tile(
+            None, status, health_rows.STATE_ICON_IDS[status], _t(_SAMPLE_TILE),
+            _esc(_t(value)), _esc(_t(_STATUS_DETAIL)))
+        for status, value in _TILE_STATES)
+
+
+def _frame_tiles_linking():
+    """A tile that links to the page holding its story (the Details mark), and
+    the wide tile that spans the grid."""
+    return '<ul class="fleet-tiles fleet-tiles--rows">%s%s</ul>' % (
+        fleet_tiles._tile(
+            COMPONENTS_ROUTE, "ok", "icon-battery", _t(_SAMPLE_TILE),
+            _esc(_t(_SAMPLE_TILE_OK)), _esc(_t(_STATUS_DETAIL))),
+        fleet_tiles._tile(
+            COMPONENTS_ROUTE, "warn", "icon-battery", _t(_SAMPLE_TILE),
+            _esc(_t(_SAMPLE_TILE_WARN)), _esc(_t(_STATUS_DETAIL)), wide=True))
+
+
+def _frame_tiles_compact():
+    """The System page's compact tiles: the border takes the colour of a topic
+    that needs attention, and the state word stays in the headline."""
+    return fleet_tiles.system_tiles_html([
+        health_page.SystemTile(
+            "components-%s" % status, status, health_rows.STATE_ICON_IDS[status],
+            _t(_SAMPLE_TILE), _t(value), "")
+        for status, value in _TILE_STATES])
+
+
 def _cards():
     rows = (
         ui_groups.row(_t(_SAMPLE_ROW), detail=_t(_SAMPLE_ROW_DETAIL), icon="icon-device",
@@ -504,6 +565,10 @@ def _cards():
         State(_M_STATE_TILES,
               '<div class="components-tiles">%s</div>' % tiles),
         State(_M_STATE_STATUS_ROWS, status_rows),
+        State(_M_STATE_PAGE_SECTION, _page_sections()),
+        State(_M_STATE_FLEET_TILES, _frame_tiles()),
+        State(_M_STATE_FLEET_TILE_LINK, _frame_tiles_linking()),
+        State(_M_STATE_FLEET_TILES_COMPACT, _frame_tiles_compact()),
         State(_M_STATE_LINK_CARD,
               ui_components.link_card_html(
                   COMPONENTS_ROUTE, "icon-shield", _t(_SAMPLE_CARD),
@@ -592,6 +657,9 @@ def _badges():
     dots = "".join(
         '<p class="text-body">%s</p>' % ui_components.status_dot(state, _t(label))
         for state, label in (("ok", _ONLINE), ("warn", _STALE), ("error", _OFFLINE)))
+    quiet_dots = "".join(
+        '<p class="text-body">%s</p>' % ui_components.status_dot(state, _t(label))
+        for state, label in (("off", _SAMPLE_DOT_HELD), ("hollow", _SAMPLE_DOT_WAITING)))
     return [
         State(_M_STATE_PILL,
               ui_components.pill_html(_t(_SAMPLE_PILL))),
@@ -601,6 +669,7 @@ def _badges():
                 ("ok", _SAMPLE_PILL), ("info", _SAMPLE_PILL_INFO),
                 ("warn", _SAMPLE_PILL_WARN)))),
         State(_M_STATE_DOTS, dots),
+        State(_M_STATE_DOTS_QUIET, quiet_dots),
         State(_M_STATE_CHARGING,
               ui_components.battery_charging_pill_html()),
     ]
@@ -667,7 +736,10 @@ def _dialogs():
         field, _t(_SAVE), _t(_CANCEL), COMPONENTS_ROUTE)
     confirm = ui_modal.dialog_html(
         "components-confirm", _t(_SAMPLE_CONFIRM), COMPONENTS_ROUTE, ui_components.csrf_field(),
-        '<p class="text-body">%s</p>' % _esc(_t(_SAMPLE_CONFIRM_BODY)), _t(_DELETE), _t(_CANCEL),
+        '<p class="text-body">%s</p>%s' % (
+            _esc(_t(_SAMPLE_CONFIRM_BODY)),
+            ui_modal.more_html('<p class="text-body">%s</p>' % _esc(_t(_SAMPLE_CONFIRM_DETAIL)))),
+        _t(_DELETE), _t(_CANCEL),
         COMPONENTS_ROUTE, destructive=True, confirm_only=True)
     sections = ui_modal.sections_dialog_html(
         "components-sections", _t(_SAMPLE_DIALOG), "", "<p class=\"text-body\">%s</p>" % _esc(
@@ -792,7 +864,7 @@ CATALOGUE = (
     Family("dialogs", _M_FAMILY_DIALOGS,
            _M_FAMILY_DIALOGS_DESC,
            ("ui_modal.dialog_html", "ui_modal.choice_dialog_html", "ui_modal.sections_dialog_html",
-            "ui_modal.trigger_html", "ui_save_bar.save_bar_html",
+            "ui_modal.more_html", "ui_modal.trigger_html", "ui_save_bar.save_bar_html",
             "ui_save_bar.leave_dialog_html"), _dialogs),
     Family("motion", _M_FAMILY_MOTION, _M_FAMILY_MOTION_DESC, (), _motion),
     Family("names", _M_FAMILY_NAMES, _M_FAMILY_NAMES_DESC, (), _names),
@@ -811,6 +883,7 @@ EXEMPT = {
     "ui_components.toast_dismiss_html": "a part of toast_html",
     "ui_components.toast_icon_html": "a part of toast_html",
     "ui_components.toast_text_html": "a part of toast_html",
+    "ui_filter.count_line_html": "the count line Flights and Airlines write under the filter controls above, from the live numbers of their own list",
     "ui_filter.search_field_html": "the search field of the filter bar above, used on its own by the Fleet list",
     "ui_modal.error_id": "an id builder for field_error_html",
     "ui_modal.result_dialog_html": "the outcome dialog of the Users invitation (built on the compact variant of dialog_html); it carries a one-time link, so it is shown only by the page that makes one",

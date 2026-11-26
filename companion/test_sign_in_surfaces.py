@@ -349,7 +349,7 @@ def test_unrecognised_principal_clears_to_default():
 # The digest of the personal pages and the Update page. The Health and Device pages were removed, so
 # their two shells left the list; every remaining shell is byte-identical to before the removal.
 _SHELL_BASELINE_DIGEST = (
-    "4800c901e44c72557270a099145771029af37edbeb114f4b4f0eb2f061c9c407")
+    "8f206147a7c1043d7bfc8998130b2f204fece74a026c95134063a06168957747")
 
 
 def test_shell_without_a_principal_is_byte_identical_to_before():

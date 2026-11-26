@@ -120,7 +120,7 @@ _SIDEBAR_LINKS = (
     " return {text: c.textContent.trim(), h: e.getBoundingClientRect().height}; })")
 
 CONSOLE_SIDEBAR_LABELS = [
-    "Fleet", "Users", "Editor", "Audit log", "System", "Account"]
+    "Fleet", "Users", "Editor", "Activity", "System", "Account"]
 PERSONAL_SIDEBAR_LABELS = [
     "Home", "Flights", "Airlines", "Style",
     "Location", "Account"]
@@ -139,7 +139,7 @@ def test_desktop_sidebars_put_the_switch_first(
         assert [a.strip() for a in switch.locator("a").all_inner_texts()] == [
             "My frames", "Console"]
         assert page.locator(".sidebar-nav .nav-group__label").first.inner_text(
-            ).strip().lower() == "administration"
+            ).strip().lower() == "admin"
         links = page.evaluate(_SIDEBAR_LINKS)
         assert [link["text"] for link in links] == CONSOLE_SIDEBAR_LABELS
         assert all(link["h"] >= MIN_TAP_PX for link in links), links

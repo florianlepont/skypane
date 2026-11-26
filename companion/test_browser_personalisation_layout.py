@@ -7,6 +7,7 @@ On a wide screen the five thumbnails are in a row; on a phone one summary row
 with a "Change" button reveals the same radios, and the page does not scroll
 sideways at 360 and 390 px. A frame on a giant layout shows the five pairing
 cards and a picked pairing survives a save and a reload."""
+import animation_settle
 import pytest
 
 from companion import auth, layout
@@ -124,6 +125,8 @@ def test_on_a_wide_screen_the_five_thumbnails_are_one_row_of_about_92_by_122(
     server = make_app_server(seed=_seed_classic)
     context, page = _open(new_context, server.base_url(), layout.DISPLAY_ROUTE, "en")
     try:
+        # The checked card scales 2% with a transition: measure once it has finished.
+        page.wait_for_function(animation_settle.SETTLED, timeout=10000)
         previews = page.locator("#personalisation-layout .look-pick__preview")
         boxes = [previews.nth(i).bounding_box() for i in range(5)]
         centres = [b["y"] + b["height"] / 2 for b in boxes]

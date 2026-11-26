@@ -151,11 +151,12 @@
    * dark mode). */
   --color-overlay-icon: rgba(23, 25, 31, 0.55);
   --color-overlay-text: rgba(23, 25, 31, 0.7);
-  /* A bare <button>'s idle wash/border: the color-mix() equivalent that
-   * immediately follows each use is the real, theme-aware value: these
-   * are the fallback for a browser without color-mix() support, so they
-   * carry the light-mode-shaped value forever, same as before this was
-   * a token. */
+  /* A bare <button>'s idle border: the color-mix() equivalent that
+   * immediately follows each use is the real, theme-aware value: this is
+   * the fallback for a browser without color-mix() support, so it carries
+   * the light-mode-shaped value. --color-control-wash, the hover fill of
+   * row buttons, is theme-aware and declared in the four theme blocks:
+   * the Light value is repeated here so the default theme has one too. */
   --color-control-wash: rgba(23, 25, 31, 0.045);
   --color-control-border-subtle: rgba(23, 25, 31, 0.09);
   --shadow-control: inset 0 1px 0 rgba(255, 255, 255, .14), 0 1px 2px rgba(18, 21, 27, .14);
@@ -277,6 +278,7 @@
   --shadow-card-hover: 0 4px 12px rgba(18, 21, 27, 0.08), 0 2px 4px rgba(18, 21, 27, 0.05);
   --color-text: #17191F;
   --color-status-ok: #16A34A;
+  --color-status-ok-text: #15803D;
   --color-status-warn: #D97706;
   /* Hue ~345 (crimson), not pure red: measured too close to
    * --color-accent (dE76 22.9/15.9°) at the old value, closer than the
@@ -330,6 +332,7 @@
     --glass-highlight: rgba(255, 255, 255, 0.18);
     --glass-solid: #1C222D;
     --glass-hairline: rgba(255, 255, 255, 0.1);
+    --color-control-wash: rgba(241, 243, 246, 0.08);
     --picture-placeholder: rgba(255, 255, 255, 0.08);
     --shadow-glass: inset 0 1px 0 var(--glass-highlight), 0 1px 2px rgba(0, 0, 0, 0.3), 0 14px 32px -16px rgba(0, 0, 0, 0.55);
     --bar-bg: rgba(20, 24, 34, 0.86);
@@ -349,6 +352,7 @@
     --shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.35), 0 2px 4px rgba(0, 0, 0, 0.2);
     --color-text: #F1F3F6;
     --color-status-ok: #4ADE80;
+    --color-status-ok-text: #4ADE80;
     --color-status-warn: #FBBF24;
     /* Same rose family as light mode's crimson, shifted lighter for
      * dark. Was too close to the dark accent (dE76 22.3/16.9°, worse
@@ -384,6 +388,7 @@ html[data-ui-theme="light"] {
   --glass-highlight: rgba(255, 255, 255, 0.9);
   --glass-solid: #FFFFFF;
   --glass-hairline: rgba(23, 25, 31, 0.1);
+  --color-control-wash: rgba(23, 25, 31, 0.045);
   --picture-placeholder: rgba(23, 25, 31, 0.07);
   --shadow-glass: inset 0 1px 0 var(--glass-highlight), 0 1px 2px rgba(18, 21, 27, 0.06), 0 14px 32px -16px rgba(18, 21, 27, 0.22);
   --bar-bg: rgba(255, 255, 255, 0.66);
@@ -403,6 +408,7 @@ html[data-ui-theme="light"] {
   --shadow-card-hover: 0 4px 12px rgba(18, 21, 27, 0.08), 0 2px 4px rgba(18, 21, 27, 0.05);
   --color-text: #17191F;
   --color-status-ok: #16A34A;
+  --color-status-ok-text: #15803D;
   --color-status-warn: #D97706;
   --color-status-error: #BE123C;
   /* The edge drawn round the light-yellow look tile on screen: the panel's
@@ -437,6 +443,7 @@ html[data-ui-theme="dark"] {
   --glass-highlight: rgba(255, 255, 255, 0.18);
   --glass-solid: #1C222D;
   --glass-hairline: rgba(255, 255, 255, 0.1);
+  --color-control-wash: rgba(241, 243, 246, 0.08);
   --picture-placeholder: rgba(255, 255, 255, 0.08);
   --shadow-glass: inset 0 1px 0 var(--glass-highlight), 0 1px 2px rgba(0, 0, 0, 0.3), 0 14px 32px -16px rgba(0, 0, 0, 0.55);
   --bar-bg: rgba(20, 24, 34, 0.86);
@@ -456,6 +463,7 @@ html[data-ui-theme="dark"] {
   --shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.35), 0 2px 4px rgba(0, 0, 0, 0.2);
   --color-text: #F1F3F6;
   --color-status-ok: #4ADE80;
+  --color-status-ok-text: #4ADE80;
   --color-status-warn: #FBBF24;
   --color-status-error: #FB7185;
   --color-yellow-tile-edge: #D9C24A;
@@ -510,6 +518,33 @@ html[data-ui-theme="dark"] {
   dialog.modal::backdrop,
   .lightbox::backdrop {
     animation: skypane-fade-in var(--motion-fast) var(--ease-out) backwards;
+  }
+
+  /* A copy confirms: the check springs in on scale and opacity only and the
+   * copied word rises a few pixels, on the fast token. Under reduce none of
+   * this exists, so the check and the word appear at once. */
+  @keyframes skypane-copy-tick {
+    from {
+      transform: scale(0.4);
+      opacity: 0;
+    }
+  }
+
+  @keyframes skypane-copy-rise {
+    from {
+      transform: translateY(4px);
+      opacity: 0;
+    }
+  }
+
+  .copy-btn--copied .copy-btn__check,
+  .account-build--copied .account-build__check {
+    animation: skypane-copy-tick var(--motion-fast) var(--motion-spring) backwards;
+  }
+
+  .copy-btn--copied .copy-btn__label,
+  .account-build--copied .account-build__hint {
+    animation: skypane-copy-rise var(--motion-fast) var(--ease-out) backwards;
   }
 
   /* The page snapshot can be shorter than the area the transition covers (a
@@ -6214,6 +6249,53 @@ dialog.modal:has(.modal__question) .modal__body {
   margin-top: var(--space-6);
 }
 
+/* The detail of a dialog: a closed native disclosure under the one sentence. Its
+ * summary is a 44px row with a chevron that turns when it opens; nothing animates. */
+.modal__more {
+  margin: 0;
+}
+
+.modal__more-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  min-height: 44px;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  font-size: var(--font-label-size);
+  list-style: none;
+  cursor: pointer;
+}
+
+.modal__more-summary::marker {
+  content: none;
+}
+
+.modal__more-summary::-webkit-details-marker {
+  display: none;
+}
+
+.modal__more-summary .icon {
+  flex: none;
+  transform: rotate(90deg);
+}
+
+.modal__more[open] > .modal__more-summary .icon {
+  transform: rotate(-90deg);
+}
+
+.modal__more-body {
+  display: grid;
+  gap: var(--space-sm);
+  padding: 0 0 var(--space-sm);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.modal__more-body > p {
+  margin: 0;
+}
+
 dialog.modal:has(.modal__question) .modal__actions {
   gap: var(--space-6);
   margin-top: var(--space-sm);
@@ -7039,6 +7121,7 @@ button.row-menu__item {
     width: 100%;
     border-collapse: separate;
     border-spacing: 0;
+    overflow: hidden;
   }
 
   .users-table tbody {
@@ -7145,7 +7228,7 @@ button.row-menu__item {
 .dashboard-main[data-page-open] .reveal,
 .dashboard-main[data-page-open] .group-block:not(.history-day):not(.fleet-list-group):nth-child(-n + 6),
 .dashboard-main[data-page-open] .history-day:nth-child(-n + 3),
-.dashboard-main[data-page-open] .page-section:not(.group-block .page-section):nth-child(-n + 6),
+.dashboard-main[data-page-open] .page-section:not(.group-block .page-section, .components-state__sample .page-section):nth-child(-n + 6),
 .dashboard-main[data-page-open] .personalisation-look,
 .dashboard-main[data-page-open] .personalisation > .layout-card,
 .dashboard-main[data-page-open] .personalisation > .personalisation-nav,
@@ -7153,7 +7236,7 @@ button.row-menu__item {
 .dashboard-main[data-page-open] .fleet-split__main > .fleet-head,
 .dashboard-main[data-page-open] .fleet-split__main > .fleet-empty,
 .dashboard-main[data-page-open] .fleet-frame > .fleet-anchors,
-.dashboard-main[data-page-open] .fleet-tiles--system {
+.dashboard-main[data-page-open] .fleet-tiles--system:not(.components-state__sample .fleet-tiles--system) {
   animation:
     skypane-reveal var(--motion-enter) steps(12, end) backwards,
     skypane-reveal-fade var(--motion-enter) var(--ease-out) backwards;

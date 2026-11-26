@@ -75,6 +75,7 @@ AIRLINE_TYPES_SCRIPT_ROUTE = "/static/airline-types.js"
 AIRLINE_SUGGEST_SCRIPT_ROUTE = "/static/airline-suggest.js"
 UPDATE_QUESTION_SCRIPT_ROUTE = "/static/update-question.js"
 FLEET_ANCHORS_SCRIPT_ROUTE = "/static/fleet-anchors.js"
+ACCOUNT_BUILD_SCRIPT_ROUTE = "/static/account-build.js"
 # Brand icons. Browsers fetch these before any session exists (the login page
 # links them), so they are public like every other static asset.
 FAVICON_ROUTE = "/static/favicon.svg"
@@ -119,6 +120,7 @@ _AIRLINE_TYPES_JS_PATH = os.path.join(STATIC_DIR, "airline-types.js")
 _AIRLINE_SUGGEST_JS_PATH = os.path.join(STATIC_DIR, "airline-suggest.js")
 _UPDATE_QUESTION_JS_PATH = os.path.join(STATIC_DIR, "update-question.js")
 _FLEET_ANCHORS_JS_PATH = os.path.join(STATIC_DIR, "fleet-anchors.js")
+_ACCOUNT_BUILD_JS_PATH = os.path.join(STATIC_DIR, "account-build.js")
 _FAVICON_PATH = os.path.join(STATIC_DIR, "favicon.svg")
 _APPLE_TOUCH_ICON_PATH = os.path.join(STATIC_DIR, "apple-touch-icon.png")
 
@@ -196,6 +198,8 @@ STATIC_ROUTES = {
         _UPDATE_QUESTION_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
     FLEET_ANCHORS_SCRIPT_ROUTE: StaticAsset(
         _FLEET_ANCHORS_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
+    ACCOUNT_BUILD_SCRIPT_ROUTE: StaticAsset(
+        _ACCOUNT_BUILD_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
     FAVICON_ROUTE: StaticAsset(_FAVICON_PATH, "image/svg+xml", _PUBLIC_NO_CACHE),
     APPLE_TOUCH_ICON_ROUTE: StaticAsset(_APPLE_TOUCH_ICON_PATH, "image/png", _PUBLIC_NO_CACHE),
 }

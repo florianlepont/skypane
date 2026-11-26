@@ -10,9 +10,13 @@ modules is neither rendered on that page nor named in its `EXEMPT` table with a 
 `companion/test_browser_components_page.py` checks every family's geometry and contrast at
 360 and 1280px, light and dark, English and French. The page renders each family through
 the helper the pages call, in the states that matter (default, selected, disabled, error, long
-text, empty, open/closed). It does not yet show `.page-section`, the fleet tiles (`.fleet-tile`,
-regular and `compact`), the `.dot--off` and `.dot--hollow` dots, or the result dialog (named in
-`EXEMPT`); read those from the stylesheet and the pages that use them. It is linked from the System page footer
+text, empty, open/closed). It also shows `.page-section` (plain, ok, warn, error), the fleet tiles (`.fleet-tile`: by
+status, linking with the Details mark, wide, and `compact` as on the System page) and the
+`.dot--off` and `.dot--hollow` dots, each dot beside its word. Only the result dialog (named in
+`EXEMPT`) is absent; read it from the page that makes one. The samples wrap: the docked save
+bar's message wraps in the catalogue (in a page it is one line with an ellipsis), and a switch
+placed straight in a row keeps its width. `companion/test_browser_components_fit.py` checks
+both, English and French, at 360 and 1280px. It is linked from the System page footer
 (`console_fleet_view.py`). To add a component or state: add the helper, add a family or
 state to `CATALOGUE` with French strings in `companion/i18n_fr/components.py`, run the
 browser test. Tokens: `tokens-and-theming.md`.
@@ -26,11 +30,11 @@ browser test. Tokens: `tokens-and-theming.md`.
 | Switch | `switch_button_html`, `quick_switch_html` + `quick_switch_state_html` (posted switch), `form_switch_html` | `.switch` (`aria-checked`), 52x32 track, 24px knob, on = accent, off = `--color-switch-off`; the button is the 44px target; a native checkbox in `.settings-checkbox` is drawn as the same switch | a two-state setting |
 | Segmented control | `ui_segmented.segmented_radios_html`, `segmented_buttons_html`, `segmented_links_html`; chips `ui_filter.filter_bar_html`, `chip_links_html` | one glass track with `--seg-edge`; selected = solid `--seg-selected-bg` pill; 44px segments; label then count on one line; links `.personalisation-nav`, chips `.filter-chip`. `chips_scroll=True` makes the chips separate pills on one line that scrolls sideways on a phone (right edge fades, the current pill opens into view) and wraps from 960px | choosing one of 2-6 options; a longer set of kinds (Editor, Audit) |
 | Text field | `ui_components.text_field_html`, `ui_modal.field_error_html` | `.modal__field` label + full-width 44px input + help; error adds `aria-invalid` | any labelled input |
-| Search, menus | `ui_filter.controls_html` (with `server_search_html` / `named_search_html`, `sort_menu_html`, `info_menu_html`, `chips_row_html`), `search_field_html`, `ui_entity_list.row_menu_html` | the one filter module of Flights and Airlines, a GET form: row 1 is the search field (the remaining width), the sort and the info button, all 44px; row 2 the scrolling chip row with counts; the count line under it: `.filter-bar__count` in the shared module (`ui_filter`) and on the Audit page, `.entity-count` on entity lists, `.filter-count` on Flights and Airlines pages that render their own line. Sort is a 44px round icon button opening a `<details class="row-menu">` of radio rows; info opens `.filter-info__panel`. Apply is the no-script send | filtering and sorting a list; row actions |
+| Search, menus | `ui_filter.controls_html` (with `server_search_html` / `named_search_html`, `sort_menu_html`, `info_menu_html`, `chips_row_html`, `count_line_html`), `search_field_html`, `ui_entity_list.row_menu_html` | the one filter module of Flights and Airlines, a GET form: row 1 is the search field (the remaining width), the sort and the info button, all 44px; row 2 the scrolling chip row with counts; the count line under the form is ONE element, written by `ui_filter.count_line_html(text, template, attrs)` on both pages: a `<p class="filter-count" data-filter-count role="status">` (Airlines passes the template the script rewrites, Flights passes ` data-flights-view` in `attrs`, a trusted literal, so its live swap keeps finding it). `.entity-count` stays the plain row-count caption of entity lists (`ui_entity_list.count_line_html`) and `.filter-bar__count` stays inside `filter_bar_html` for other lists. Sort is a 44px round icon button opening a `<details class="row-menu">` of radio rows; info opens `.filter-info__panel`. Apply is the no-script send | filtering and sorting a list; row actions |
 | Groups and rows | `ui_groups.group`, `group_panel`, `row`, `section_label`, `chip_html` | `h2.section-label` (13px) over one glass `ul.group` of rows (min 54px, hairline between rows, 32px icon chip, label, detail, value, chevron, trailing control); `group_panel` holds free content; a group never contains a group | every list of settings, facts, entities |
 | Cards | `ui_components.stat_tile`, `status_row`, `section_intro_html`; `.page-section` | glass free-content card; `.stat-tile` survives on the Components page only | free content that cannot be rows |
 | Tiles | `pages/fleet_tiles.py` (`.fleet-tile`) | equal tiles in a grid, 44px or more, a label row, a headline, one meta line, a "Details" chevron when the tile is a link; the state is spelled out in a visually hidden word, never colour alone; a warning or error tile takes a coloured edge. Frame page: three tiles in a row, 2x2 grid never. System page: `compact` tiles, 2 columns on a phone and 3 from 960px, the chevron at the end of the label row and a one-line muted line with a plain-text `title` | a frame's or the platform's state at a glance, each tile leading to the page that holds the whole story |
-| Lists and tables | `ui_entity_list.entity_list_html`, `entity_row_html`, `count_line_html`; `ui_components.data_table` | glass table wrapper (header 12px/600, not uppercase, rows min 56px); cards or groups below 70rem where the page says so; empty table renders the empty state | entities, tabular data |
+| Lists and tables | `ui_entity_list.entity_list_html`, `entity_row_html`, `count_line_html`; `ui_components.data_table` | glass table wrapper (header 12px/600, not uppercase, rows min 56px); the Users and Editor tables sit inside their rounded card: header row tinted with `--color-secondary`, corners follow the card radius (Users clips with `overflow: hidden` and releases the clip while a row menu is open, so the menu is never cut; the Editor cuts the corner cells instead), no rule under the last row; cards or groups below 70rem where the page says so; empty table renders the empty state | entities, tabular data |
 | Pills, dots | `ui_components.pill_html(text, tone, extra_class, dot_class, attrs)`, `status_dot`, `battery_charging_pill_html` | neutral pill, tones `ok` / `info` / `warn` (`PILL_TONES`); an optional page hook class and a leading status dot; ok / warn / error / off dots plus `.dot--hollow`, always with a text label. Never hand-build a `banner__pill` | a status or count beside a title |
 | Toasts, banners | `toast_html`, `toast_link_action_html`, `toast_post_action_html`, `anomaly_banner`, `frame_notice_markup` | five tones; `.toast--docked` for a persistent state; see Toast and Foreign-frame marker below | an outcome or a standing condition |
 | Empty states | `empty_state` (plain, compact), `ui_filter.filter_empty_html` | compact inside a flush card keeps 16px inner padding; search with no match keeps counts at the whole history's | a list with nothing to show |
@@ -90,6 +94,14 @@ co-manager never receives it. Test: `test_browser_admin_personal_scope.py`.
   part of a wide screen. The modifier is on that dialog only; every other dialog keeps its own
   spacing. Used by the Users invite (address field, one Administrator checkbox, Cancel and Invite)
   and the role and delete confirmations (even margins, one sentence, no subtitle).
+- **Confirmation dialogs** (Retire, Re-activate, Reassign, Leave this frame, Remove this frame,
+  Delete user): the title is the one question, the body is one sentence, and any further detail sits
+  behind `ui_modal.more_html` (a closed native `<details class="modal__more">` whose summary "More
+  detail" / "Plus de détails" is a 44px row with a chevron that turns when it opens; no motion).
+  The confirm button names the action (Retire, Delete user, ...) in the danger style, the safe
+  button keeps the default focus, and there are exactly two actions. There is no typed-name
+  confirmation and none is added. Manage access shows the typed co-manager address on one line with
+  Add so the French sheet fits 360x800 without an inner scroll.
 - **Result dialog** (`result_dialog_html`): an open outcome dialog the server renders after a post
   (the Users invitation: a one-time link with Copy and Done, or a failure with Try again). `once`
   makes `modal.js` remove it when closed and `data-modal-return` puts the list address back, so a

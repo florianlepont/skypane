@@ -100,8 +100,9 @@ def test_deleting_a_user_from_the_menu_confirms_then_removes_them(
         dialog = _open_delete_dialog(page, seed.user_id, "Delete user")
         assert page.locator(dialog + " .modal__title").inner_text() == "Delete this user?"
         text = page.locator(dialog).inner_text()
-        assert fx.USER_EMAIL in text and "loses access to their frames" in text
-        assert "This cannot be undone." in text
+        assert fx.USER_EMAIL in text and "is removed from SkyPane for good." in text
+        page.locator(dialog + " details > summary").click()
+        assert "They lose access to their frames." in page.locator(dialog).inner_text()
         surface = page.evaluate(_SURFACE, dialog)
         assert surface["alpha"] == 1 and surface["filter"] == "none", surface
         assert page.evaluate(_REACHABLE, dialog) == []
@@ -221,8 +222,9 @@ def test_an_owner_removes_their_frame_from_the_access_dialog(
         _open_confirm(page, rrig)
         assert page.locator(rrig.confirm + " .modal__title").inner_text() == "Remove this frame?"
         text = page.locator(rrig.confirm).inner_text()
-        assert "disappears from your account" in text and "co-managers lose access" in text
-        assert "assign it to someone again" in text
+        assert "leaves your account" in text and "co-managers lose access" in text
+        page.locator(rrig.confirm + " details > summary").click()
+        assert "assign it to someone again" in page.locator(rrig.confirm).inner_text()
         surface = page.evaluate(_SURFACE, rrig.confirm)
         assert surface["alpha"] == 1 and surface["filter"] == "none", surface
         assert page.evaluate(_REACHABLE, rrig.confirm) == []

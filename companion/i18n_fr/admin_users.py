@@ -36,9 +36,9 @@ MESSAGES = {
     "admin_users.demote_keep": "Garder administrateur",
     "admin_users.delete_user_title": "Supprimer cet utilisateur\u00a0?",
     "admin_users.delete_user_keep": "Garder cet utilisateur",
-    "admin_users.delete_user_what":
-        "%s est retiré de SkyPane et perd l’accès à ses cadres. Cette action est "
-        "définitive.",
+    "admin_users.delete_user_removed_for_good":
+        "%s est retiré de SkyPane de façon définitive.",
+    "admin_users.delete_user_loses_access": "Cette personne perd l’accès à ses cadres.",
     "admin_users.unlink_identity_hint":
         "Déconnecte cette personne\u00a0; elle relie de nouveau son compte de connexion à "
         "sa prochaine connexion.",

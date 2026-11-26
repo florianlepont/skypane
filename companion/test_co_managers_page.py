@@ -190,7 +190,7 @@ def test_the_leave_dialog_is_confirm_only_destructive_and_posts_no_id():
     form = tree.select_one("form")
     assert form.attrs["action"] == PREFIX + card.LEAVE_ROUTE
     assert _hidden(form) == {"csrf_token": TOKEN}
-    assert "You will lose access to this frame" in form.text()
+    assert "You lose access to this frame" in form.text()
     assert "btn--danger" in form.select_one('button[type="submit"]').attrs["class"]
     assert form.select_one('button[type="submit"]').text() == "Leave this frame"
     keep = tree.select_one("a.modal__dismiss")

@@ -119,8 +119,13 @@ def test_the_connection_tile_states_the_last_and_next_connection_and_fits(
             assert line["x"] >= box["x"] - 0.5, (where, index, line, box)
             assert line["x"] + line["width"] <= box["x"] + box["width"] + 0.5, (where, index, line, box)
             assert line["y"] + line["height"] <= box["y"] + box["height"] + 0.5, (where, index, line, box)
-        words = ("Last check-in", "Next wake") if lang == "en" else ("Dernier contact", "Prochain réveil")
-        assert lines.nth(0).inner_text().startswith(words[0]), where
+        words = ("Last check-in", "Next wake") if lang == "en" else ("", "Prochain réveil")
+        first = lines.nth(0).inner_text()
+        if lang == "en":
+            assert first.startswith(words[0]), where
+        else:
+            # The tile's title already says "Dernier contact": its first line is the age alone.
+            assert first.strip() and not first.startswith("Dernier contact"), (where, first)
         assert lines.nth(1).inner_text().startswith(words[1]), where
     finally:
         context.close()
@@ -139,7 +144,7 @@ def test_a_tile_opens_its_page_in_one_tap_and_the_way_back_returns(
         page.wait_for_url("**/fleet?frame=*")
         assert page.locator("#fleet-section-state .fleet-tile").count() == 3
         assert page.locator("a.fleet-tile").count() == 2
-        page.locator("a.fleet-tile", has_text="Firmware").click()
+        page.locator("a.fleet-tile", has_text="Software").click()
         page.wait_for_url("**view=versions")
         assert page.locator("main h1:visible").inner_text() == "Versions"
         assert page.locator(".update-cta form button[type=submit]").is_visible()

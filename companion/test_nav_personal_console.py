@@ -27,9 +27,9 @@ PERSONAL_SIDEBAR_FR = PERSONAL_BAR_FR + ["Compte"]
 CONSOLE_BAR_EN = ["Fleet", "Users", "Editor", "System"]
 CONSOLE_BAR_FR = ["Flotte", "Équipe", "Éditeur", "Système"]
 SWITCH_TO_PERSONAL = {"en": "My frames", "fr": "Mes cadres"}
-CONSOLE_SIDEBAR_EN = ["Fleet", "Users", "Editor", "Audit log", "System", "Account"]
+CONSOLE_SIDEBAR_EN = ["Fleet", "Users", "Editor", "Activity", "System", "Account"]
 CONSOLE_SIDEBAR_FR = [
-    "Flotte", "Utilisateurs", "Éditeur", "Journal d’audit", "Système", "Compte"]
+    "Flotte", "Utilisateurs", "Éditeur", "Activité", "Système", "Compte"]
 
 
 @pytest.fixture
@@ -168,7 +168,7 @@ def test_console_frame_pages_render_in_the_console_chrome_for_each_frame(served,
         status, markup = _get(server, cookies["admin"], path)
         assert status == 200, path
         sidebar = _nav(markup, '<nav class="sidebar-nav"')
-        assert "Administration" in sidebar and "Frame tools" not in sidebar
+        assert "Admin<" in sidebar and "Frame tools" not in sidebar
         aside = markup[markup.index("<aside"):markup.index("</aside>")]
         assert 'class="space-switch__segment" href="/"' in aside
         assert ">My frames<" in aside

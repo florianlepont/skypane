@@ -71,6 +71,7 @@ MESSAGES = {
 
     # The shared modal dialog's close control (companion/ui_modal.py).
     "common.close": "Fermer",
+    "common.more_detail": "Plus de détails",
 
     # --- Flash banners ---------------------------------------------
     "common.screen_switched_on_the_frame_will_wake_up_and":

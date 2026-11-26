@@ -1,12 +1,15 @@
 # -*- coding: utf-8 -*-
 """French strings for the page where a signed-in person adds their own
-frame with the pairing code, and the entries to it. The source-side Message
+frame in two steps (name, pairing code), and the entries to it. The source-side Message
 for each id is declared in companion/pages/pair_frame_page.py."""
 
 MESSAGES = {
     "pair_frame.add_a_frame": "Ajouter un cadre",
-    "pair_frame.enter_the_code_shown_by_the_frame":
-        "Saisissez le code affiché par le cadre",
+    "pair_frame.step_1_name_it": "Étape 1\u00a0: nommez-le",
+    "pair_frame.step_2_enter_its_pairing_code":
+        "Étape 2\u00a0: saisissez son code d’association",
+    "pair_frame.optional_you_can_change_it_later":
+        "Facultatif. Vous pourrez le changer plus tard.",
     "pair_frame.no_code_on_screen": "Pas de code à l’écran\u00a0?",
     "pair_frame.pairing_code": "Code d’association",
     "pair_frame.the_code_stays_valid_for_about_35_minutes":

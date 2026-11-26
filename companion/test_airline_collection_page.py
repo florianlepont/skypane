@@ -218,7 +218,7 @@ def test_the_legend_sits_behind_one_info_button_in_the_bar(rig):
     assert menu and 'aria-label="Rarity of airlines and aircraft"' in menu.group(0)
     assert menu.group(0).count('<ul class="rarity-legend"') == 1
     assert body.count('class="rarity-legend"') == 1
-    count = re.search(r'<p class="filter-count" role="status" data-filter-count[^>]*>([^<]*)</p>', body)
+    count = re.search(r'<p class="filter-count" data-filter-count[^>]*>([^<]*)</p>', body)
     assert count and count.group(1) == "4 of 4 airlines"
 
 

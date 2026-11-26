@@ -419,6 +419,8 @@ def test_the_delete_and_confirm_buttons_are_readable(new_context, app_server_in_
         _settled(page, dialog)
         seen = page.evaluate(_COLOURS, dialog + " button[type=submit]")
         assert contrast_ratio(_hex(seen["fg"]), _hex(seen["bg"])) >= WCAG_AA_NORMAL_TEXT
-        assert _gap(page, dialog + " .modal__note", dialog + " .modal__actions") == 14
+        # The sentence, the closed disclosure and the buttons are spaced evenly.
+        assert _gap(page, dialog + " .modal__note", dialog + " .modal__more") == 14
+        assert _gap(page, dialog + " .modal__more", dialog + " .modal__actions") == 14
     finally:
         context.close()

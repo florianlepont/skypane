@@ -47,7 +47,7 @@ def test_admin_personal_sidebar_follows_the_spec():
     assert "space-switch" not in sidebar
     switch = ui_nav.space_switch_html("home")
     assert _hrefs(switch.replace("space-switch__segment", "x")) == ["/", "/fleet"]
-    assert "Advanced" not in sidebar and "Administration" not in sidebar
+    assert "Advanced" not in sidebar and "Admin<" not in sidebar
     for route in ("/update", "/health", "/device"):
         assert 'href="%s"' % route not in sidebar
         assert 'href="%s%s"' % (prefix, route) not in sidebar
@@ -59,7 +59,7 @@ def test_admin_console_sidebar_follows_the_spec():
     sidebar = layout.sidebar_nav("users", health_alert="error", device_config={})
     assert _hrefs(sidebar) == [
         "/fleet", "/users", "/airlines/manage", "/audit", "/fleet?view=system", "/account"]
-    assert "space-switch" not in sidebar and ">Administration<" in sidebar
+    assert "space-switch" not in sidebar and ">Admin<" in sidebar
     assert ">Frame tools<" not in sidebar and "Advanced" not in sidebar
     assert sidebar.count("sidebar-link--active") == 1
     assert 'href="/users" aria-current="page"' in sidebar
@@ -74,7 +74,7 @@ def test_admin_bars_follow_the_spec():
     console = ui_nav._tab_bar_html("fleet", health_alert="warn", device_config={"a": 1})
     cells = console.split('<details class="tab-bar__more">')[0]
     assert _hrefs(cells) == ["/fleet", "/users", "/airlines/manage", "/fleet?view=system"]
-    assert "System" in cells and "Audit" in console and "Admin<" not in console and "tab-bar__link--switch" not in console
+    assert "System" in cells and "Activity" in console and "Admin<" not in console and "tab-bar__link--switch" not in console
     sheet = console.split('<div class="tab-bar__more-panel">')[1]
     assert re.findall(r'<a [^>]*href="([^"]+)"', sheet) == [
         "/account", "/audit", "/"]

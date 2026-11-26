@@ -52,10 +52,10 @@ def test_nav_entries_follow_the_route_table(monkeypatch):
 
 def test_console_french_labels_are_translated():
     expected = {
-        console_routes.ADMINISTRATION_LABEL: "Administration",
+        console_routes.ADMINISTRATION_LABEL: "Admin",
         console_routes.FLEET_LABEL: "Flotte",
         console_routes.USERS_LABEL: "Utilisateurs",
-        console_routes.AUDIT_LABEL: "Journal d’audit",
+        console_routes.AUDIT_LABEL: "Activité",
         console_routes.RELEASES_LABEL: "Versions",
     }
     for label, french in expected.items():
@@ -143,7 +143,7 @@ def test_admin_sidebar_lists_the_administration_group_in_order(served):
     assert _unscoped(_hrefs(sidebar)) == [
         "/fleet", "/users", "/airlines/manage", "/audit", "/fleet?view=system", "/account"]
     group = _console_group(sidebar)
-    assert "Administration" in group
+    assert "Admin" in group
     assert "Releases<" not in sidebar
     aside = page[page.index("<aside"):page.index("</aside>")]
     assert re.search(
@@ -175,7 +175,7 @@ def test_a_user_sees_no_administration_navigation_and_no_console_page(served):
     server, cookies = served
     status, account = _get(server, cookies["owner"], "/account")
     assert status == 200
-    for needle in ("Administration", "/fleet", "/users", "/audit", "Releases"):
+    for needle in (">Admin<", "/fleet", "/users", "/audit", "Releases"):
         assert needle not in account
     refused = _get(server, cookies["owner"], "/fleet")
     unknown = _get(server, cookies["owner"], "/no-such-page-anywhere")
@@ -212,7 +212,7 @@ def test_my_views_pages_of_an_admin_carry_no_admin_tab(served):
     # Consulting the owner's frame, the way out is the notice's Back to Fleet:
     # the sheet holds no switch row.
     assert _hrefs(sheet) == ["/account"]
-    assert "Admin<" not in page and "Administration" not in _sidebar(page)
+    assert "Admin<" not in page and "Admin<" not in _sidebar(page)
 
 
 def test_the_switch_is_a_row_of_the_more_panel_for_an_admin_and_absent_for_a_user(served):
@@ -298,7 +298,7 @@ def test_a_tampered_flash_cookie_shows_nothing_on_a_console_page(served):
 def test_the_console_page_title_comes_from_the_registry(served):
     server, cookies = served
     _status, page = _get(server, cookies["admin"], "/audit")
-    assert re.search(r"<title>[^<]*Audit log", page)
+    assert re.search(r"<title>[^<]*Activity", page)
     _status, french = _get(
         server, cookies["admin"], "/audit", headers={"Accept-Language": "fr"})
-    assert re.search(r"<title>[^<]*Journal d’audit", french)
+    assert re.search(r"<title>[^<]*Activité", french)

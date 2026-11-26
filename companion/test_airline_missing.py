@@ -149,12 +149,14 @@ def test_an_airline_with_no_sighting_has_one_row_that_asks_for_the_type(missing)
     head, rows = _group(page, "Finnair")
     assert len(rows) == 1
     row = rows[0]
-    assert "Type to choose" in row and "No sighting yet" in row
+    assert "Choose type" in row and "No sighting yet" not in row
+    assert page.count("No sighting yet") == 1
     assert 'data-view-panel-ask-type=""' in row and "data-view-panel-fixed-type" not in row
     assert "No artwork yet · 1 to do" in _text(head)
-    assert "Type à choisir" in get("fr") and "Aucun passage observé" in html.unescape(get("fr"))
+    french = html.unescape(get("fr"))
+    assert "Choisir le type" in french and french.count("Aucun passage observé") == 1
     # an airline with sightings never gets the row
-    assert "Type to choose" not in _group(page, "Emirates")[1][0]
+    assert "Choose type" not in _group(page, "Emirates")[1][0]
 
 
 def test_an_airline_with_artwork_and_no_sighting_is_not_listed(missing):
@@ -296,7 +298,7 @@ def test_the_section_is_a_labelled_sibling_between_the_two_tables(missing):
         r'<section class="airlines-missing" id="airlines-missing" aria-labelledby="airlines-missing-title">'
         r'<p id="airlines-missing-title" class="airlines-label">Missing illustrations · %d</p>' % count,
         section)
-    assert "<h2" not in section and "section-caption" not in section
+    assert "<h2" not in section and section.count("section-caption") == 1
     assert "One row per airline and aircraft family" not in section
     position = page.index('id="airlines-missing"')
     assert position < page.index('<caption class="airlines-label">Airlines')

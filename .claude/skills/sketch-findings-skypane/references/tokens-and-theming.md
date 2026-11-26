@@ -24,6 +24,7 @@ No colour literal outside a `--` declaration in the shared stylesheets.
 | `--color-accent-hover` | `#343B4D` | `#E2DED5` |
 | `--color-on-accent` | `#FFFFFF` | `#14171F` |
 | `--color-status-ok` | `#16A34A` | `#4ADE80` |
+| `--color-status-ok-text` (the Copied label only) | `#15803D` | `#4ADE80` |
 | `--color-status-warn` | `#D97706` | `#FBBF24` |
 | `--color-status-error` | `#BE123C` | `#FB7185` |
 | `--color-switch-off` | `#7C8799` | `#6B7589` |
@@ -40,10 +41,9 @@ explicit Dark block. The explicit Light and Dark values and the `:root` default 
 **Tokens with one value in every theme** (defined once in `:root`, not repeated per theme):
 `--color-image-backdrop` (`#FFFFFF`, behind artwork), `--color-scrim` (black at 50%),
 `--color-overlay-icon` and `--color-overlay-text` (ink at 55% / 70%, over pictures),
-`--color-control-wash` (ink at 4.5%), `--color-control-border-subtle` (ink at 9%),
+`--color-control-border-subtle` (ink at 9%),
 `--shadow-control`, `--shadow-control-hover`, `--color-shadow-strong`, `--shadow-toast-docked`,
-`--shadow-toast-float`. `--color-control-wash` is a hover fill on a few row buttons; being
-ink-based and fixed it is faint in Dark.
+`--shadow-toast-float`.
 
 **Other `:root` tokens not tabled here:** `--weight-title` 700, `--weight-semibold` 600,
 `--weight-regular` 400; `--bar-border`, `--bar-sheen`, `--shadow-card`, `--shadow-card-hover`,
@@ -84,8 +84,14 @@ gradient so a browser that tints its bars from the root reads the gradient's fir
 | `--glass-border` / `--glass-highlight` | white .85 / .9 | white .16 / .18 |
 | `--glass-solid` (opaque fallback) | `#FFFFFF` | `#1C222D` |
 | `--glass-hairline` (row separators) | ink .10 | white .10 |
+| `--color-control-wash` (hover fill of row buttons) | `rgba(23,25,31,.045)` | `rgba(241,243,246,.08)` |
 | `--bar-bg` (tab bar, sheets) | white .66 | `rgba(20,24,34,.86)` |
 | `--pop-bg` (popovers) | white .90 | `rgba(28,34,45,.92)` |
+
+The hover wash is a hint, not a boundary (no 3:1 claimed). Measured on painted pixels: the step
+between resting and hovered fill is 1.09:1 in Light (white card, `#F5F5F5` on `#FFFFFF`) and
+1.22:1 to 1.25:1 in Dark on the real surfaces (`#1C222D` card, `#151922` popover, `#262C37`
+table header); the former single Light-shaped value gave 1.01:1 in Dark, no visible hover.
 
 Shared geometry: `--glass-blur` 22px, `--glass-saturate` 165%, `--shadow-glass` (inset
 highlight plus two soft layers), `--bar-shadow`, `--bar-sheet-shadow`, `--shadow-pop`.

@@ -43,7 +43,7 @@ ENTRANCE_SELECTORS = (".reveal-appended", ".reveal-replay",
     ".dashboard-main[data-page-open] .reveal",
     ".dashboard-main[data-page-open] .group-block:not(.history-day):not(.fleet-list-group):nth-child(-n + 6)",
     ".dashboard-main[data-page-open] .history-day:nth-child(-n + 3)",
-    ".dashboard-main[data-page-open] .page-section:not(.group-block .page-section):nth-child(-n + 6)",
+    ".dashboard-main[data-page-open] .page-section:not(.group-block .page-section, .components-state__sample .page-section):nth-child(-n + 6)",
     ".dashboard-main[data-page-open] .personalisation-look",
     ".dashboard-main[data-page-open] .personalisation > .layout-card",
     ".dashboard-main[data-page-open] .personalisation > .personalisation-nav",
@@ -51,7 +51,7 @@ ENTRANCE_SELECTORS = (".reveal-appended", ".reveal-replay",
     ".dashboard-main[data-page-open] .fleet-split__main > .fleet-head",
     ".dashboard-main[data-page-open] .fleet-split__main > .fleet-empty",
     ".dashboard-main[data-page-open] .fleet-frame > .fleet-anchors",
-    ".dashboard-main[data-page-open] .fleet-tiles--system")
+    ".dashboard-main[data-page-open] .fleet-tiles--system:not(.components-state__sample .fleet-tiles--system)")
 # A table or an empty state straight on the sky opens like a card, in its place in the order.
 OPENING_CARD_SELECTORS = (
     ".dashboard-main[data-page-open] > .empty-state",

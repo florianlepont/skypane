@@ -1,6 +1,6 @@
 """Real-browser checks of the admin console shell: the phone bar keeps its
 tap-target size, the page has no section chip row or sideways scroll on a small
-phone, and the sidebar shows the Administration group."""
+phone, and the sidebar shows the Admin group."""
 import pytest
 
 from companion import console_routes, routes
@@ -81,7 +81,7 @@ def test_desktop_has_no_chip_row_and_shows_the_administration_group(
         new_context, server, VIEWPORT_DESKTOP, console_routes.FLEET_ROUTE)
     try:
         assert page.locator(".section-subnav").count() == 0
-        group = page.locator(".sidebar-nav .nav-group:has-text('Administration')")
+        group = page.locator(".sidebar-nav .nav-group:has-text('Admin')")
         assert group.locator(".nav-group__label").is_visible()
         for path in (console_routes.FLEET_ROUTE, console_routes.USERS_ROUTE):
             assert group.locator('a[href="%s"]' % path).is_visible(), path

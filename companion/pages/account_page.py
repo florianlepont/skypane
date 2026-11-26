@@ -9,7 +9,7 @@ dot and the last-seen word.
 import time
 from typing import NamedTuple
 
-from companion import frame_status, i18n, layout, prefs, ui_components, ui_groups, ui_modal, ui_shell
+from companion import build_info, frame_status, i18n, layout, prefs, ui_components, ui_groups, ui_modal, ui_shell
 from companion.pages import co_managers_card, frame_name_page, pair_frame_page
 
 ACCOUNT_TITLE = i18n.msg("account.account", "Account")
@@ -42,6 +42,9 @@ _SIGN_OUT_TEXT = i18n.msg("common.sign_out", "Sign out")
 _CREDITS_TEXT = i18n.msg("credits.credits", "Credits")
 _ABOUT_TEXT = i18n.msg("account.about", "About")
 _CREDITS_ROW_DETAIL = i18n.msg("account.credits_detail", "Data sources and licences")
+_BUILD_LINE = i18n.msg("account.build_line", "SkyPane build %s")
+_BUILD_HINT = i18n.msg("account.build_hint", "Tap to copy for support")
+_BUILD_COPIED = i18n.msg("account.build_copied", "Copied")
 CREDITS_ROUTE = "/credits"
 
 ROLE_USER = "user"
@@ -208,6 +211,22 @@ def _frame_dialogs(frames, open_access):
     return "".join(_frame_dialog_html(f, open_access) for f in rows)
 
 
+def _build_line_html():
+    """The quiet build caption that ends the page: the build id and a hint line.
+    account-build.js copies the text and swaps the hint line for the copied word.
+    The id is validated hex."""
+    text = i18n.t(_BUILD_LINE) % build_info.build_id()
+    escape = layout.escape_html
+    return (
+        '<p class="account-build-wrap"><button type="button" class="account-build" '
+        'data-build-copy="%s" data-copied-text="%s">'
+        '<span class="account-build__id">%s</span>'
+        '<span class="account-build__hint" data-build-hint>%s</span></button>'
+        '<span class="visually-hidden" role="status" data-build-status></span></p>' % (
+            escape(text), escape(i18n.t(_BUILD_COPIED)), escape(text),
+            escape(i18n.t(_BUILD_HINT))))
+
+
 def render(identity, ui_theme="auto", frames=(), open_access="", now=None):
     """The Account page body for `identity`, listing `frames` (the caller's
     own `FrameSummary` values). `open_access` is the id of the frame whose
@@ -244,4 +263,5 @@ def render(identity, ui_theme="auto", frames=(), open_access="", now=None):
             preferences_html, label=i18n.t(_PREFERENCES_TEXT), label_id="account-preferences")
         + about_html
         + sign_out_html
+        + _build_line_html()
         + _frame_dialogs(frames, open_access))

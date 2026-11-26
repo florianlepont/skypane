@@ -44,10 +44,10 @@ ROUTES = (
     + console_components.ROUTES
 )
 
-ADMINISTRATION_LABEL = i18n.msg("nav.administration", "Administration")
+ADMINISTRATION_LABEL = i18n.msg("nav.administration", "Admin")
 FLEET_LABEL = i18n.msg("nav.fleet", "Fleet")
 USERS_LABEL = i18n.msg("nav.users", "Users")
-AUDIT_LABEL = i18n.msg("nav.audit_log", "Audit log")
+AUDIT_LABEL = i18n.msg("nav.audit_log", "Activity")
 SYSTEM_LABEL = i18n.msg("nav.system", "System")
 RELEASES_LABEL = i18n.msg("nav.releases", "Releases")
 SECTION_NAV_LABEL = i18n.msg("nav.administration_sections", "Administration sections")

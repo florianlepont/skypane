@@ -33,7 +33,7 @@ _SWITCH_LABEL = {
     "console": {"en": "My frames", "fr": "Mes cadres"},
 }
 _ACCOUNT_LABEL = {"en": "Account", "fr": "Compte"}
-_AUDIT_LABEL = {"en": "Audit log", "fr": "Journal d’audit"}
+_AUDIT_LABEL = {"en": "Activity", "fr": "Activité"}
 _CELLS = (
     "() => [...document.querySelectorAll('.tab-bar > a, .tab-bar > details')].map(e => ({"
     " label: e.querySelector('.tab-bar__label').textContent.trim(),"

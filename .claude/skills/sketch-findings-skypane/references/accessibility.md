@@ -70,6 +70,7 @@ Executable, not prose. Modules and tests:
   disabled text (3:1); the sweeps also open the Editor, the Fleet list, a frame page, Battery,
   Versions and System. The secondary ink (text at 70%) holds 4.5:1 on a card; a label on a tinted
   panel uses 80%.
+- The Copied label on a console copy button uses `--color-status-ok-text` (`#15803D` in Light, 5.02:1 on white; Dark is the status hue, 9.16:1), so the green text meets 4.5:1; the status hue of dots and icons is unchanged (3.30:1 as text on white, so it is not used for text).
 - Known, accepted: warn as body text on a white card is 3.19:1 (`STATUS_WARN_ON_CARD_PAIRS`); the state
   is carried by wording and a dot. The accent-versus-status separation floors were designed for a
   terracotta accent; with graphite and ivory they are met trivially and not revisited.

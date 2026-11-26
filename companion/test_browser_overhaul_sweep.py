@@ -328,14 +328,14 @@ def test_reworked_pages_hold_the_layout_rules(
 def test_the_fleet_page_keeps_its_name_in_the_navigation_and_the_tab_title(
         new_context, server, lang):
     """The page is Fleet / Flotte in the navigation and the tab title; its list of frames is
-    titled Frames / Cadres, as in the approved design."""
+    titled Fleet / Flotte like the navigation."""
     context, page = _open(
         new_context, server, "admin", "/fleet", None, VIEWPORT_MIN_SUPPORTED, lang, "light")
     try:
         title = page.locator("main h1:visible").inner_text().strip()
-        assert title == ("Cadres" if lang == "fr" else "Frames")
+        assert title == ("Flotte" if lang == "fr" else "Fleet")
         assert ("Flotte" if lang == "fr" else "Fleet") in page.title()
-        assert "Cadres" not in page.title()
+        assert "Cadres" not in page.title() and "Frames" not in page.title()
         nav = page.locator(".tab-bar a[aria-current='page']").inner_text().strip()
         assert nav.startswith("Flotte" if lang == "fr" else "Fleet")
     finally:

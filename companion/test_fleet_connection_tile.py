@@ -17,7 +17,7 @@ from server import device_config, history_db  # noqa: E402
 
 _LAST_CHECK_IN = {"en": "Last check-in", "fr": "Dernier contact"}
 _NEXT_WAKE = {"en": "Next wake", "fr": "Prochain réveil"}
-_CONNECTION = {"en": "Connection", "fr": "Connexion"}
+_CONNECTION = {"en": "Last contact", "fr": "Dernier contact"}
 
 
 def _seed_with_check_in(state_dir):
@@ -49,7 +49,7 @@ def _connection_tile(make_app_server, seed, lang):
     for tile in root.select(".fleet-tile"):
         if tile.select_one(".fleet-tile__label").text().strip() == _CONNECTION[lang]:
             return tile
-    raise AssertionError("no Connection tile")
+    raise AssertionError("no Last contact tile")
 
 
 def test_the_connection_tile_is_not_a_link_and_has_no_details_mark(make_app_server):
@@ -70,7 +70,7 @@ def test_no_check_in_tile_in_french_has_no_repeat(make_app_server):
     tile = _connection_tile(make_app_server, _seed_without_check_in, "fr")
     assert tile.select_one(".fleet-tile__value").text().strip()
     assert tile.select_one(".fleet-tile__meta").text().strip() == ""
-    assert _LAST_CHECK_IN["fr"] not in tile.text()
+    assert not [line for line in tile.select(".fleet-stat") if _LAST_CHECK_IN["fr"] in line.text()]
 
 
 def test_a_frame_with_a_check_in_states_the_last_and_the_next_connection(make_app_server):
@@ -83,4 +83,6 @@ def test_a_frame_with_a_check_in_states_the_last_and_the_next_connection(make_ap
 def test_the_connection_lines_are_in_french(make_app_server):
     tile = _connection_tile(make_app_server, _seed_with_check_in, "fr")
     lines = [line.text().strip() for line in tile.select(".fleet-stat")]
-    assert lines[0].startswith(_LAST_CHECK_IN["fr"]) and lines[1].startswith(_NEXT_WAKE["fr"])
+    # The tile's title says "Dernier contact": its first line is the age alone.
+    assert lines[0].lower().startswith("il y a") and _LAST_CHECK_IN["fr"] not in lines[0]
+    assert lines[1].startswith(_NEXT_WAKE["fr"])

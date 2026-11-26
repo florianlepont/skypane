@@ -4,7 +4,8 @@ One row is one airline x aircraft family that has no picture of its own: a
 dashed picture slot, the family's name, the designators seen with the views,
 and a "+ Illustration" button that opens the shared add-illustration dialog
 with the family fixed. An airline with no sighting and no artwork has one
-"Type to choose" row whose dialog asks for the type first. An airline that
+"Choose type" row whose dialog asks for the type first; the sentence that
+explains those rows is said once, as a caption above the list. An airline that
 has artwork for some families is listed for its other seen families only; one
 with artwork and no sighting is not listed. Rows sit under a small header per
 airline (name, prefix, state, rows to do); the header carries the "..." menu of
@@ -32,9 +33,10 @@ STATE_DONE = i18n.msg("airlines.missing_state_done", "%s already done")
 STATE_DONE_MANY = i18n.msg("airlines.missing_state_done_many", "%d families already done")
 STATE_HAS = i18n.msg("airlines.missing_state_has", "Has artwork")
 TODO_TEXT = i18n.msg("airlines.missing_todo", "%d to do")
-ASK_TITLE = i18n.msg("airlines.missing_ask_title", "Type to choose")
+ASK_TITLE = i18n.msg("airlines.missing_ask_title", "Choose type")
 ASK_HINT = i18n.msg(
-    "airlines.missing_ask_hint", "No sighting yet: you pick the type in the dialog")
+    "airlines.missing_ask_hint",
+    "No sighting yet: pick the type in the dialog.")
 ADD_TEXT = i18n.msg("airlines.missing_add", "Illustration")
 ADD_ARIA = i18n.msg("airlines.missing_add_aria", "Add an illustration for %s, %s")
 ADD_ASK_ARIA = i18n.msg(
@@ -178,7 +180,7 @@ def _ask_button(page, state_dir, row):
 def _item_html(page, state_dir, row, prefix, item, number):
     """One airline x family row (or the airline's "type to choose" row)."""
     if item == ASK_KIND:
-        title, detail = i18n.t(ASK_TITLE), i18n.t(ASK_HINT)
+        title, detail = i18n.t(ASK_TITLE), ""
         button = _ask_button(page, state_dir, row)
     else:
         title = _family_label(item)
@@ -186,13 +188,13 @@ def _item_html(page, state_dir, row, prefix, item, number):
             ", ".join(item["codes"]), _table().views_text(item["views"])))
         button = _family_button(page, item, row)
     filter_text = " ".join((row["name"], prefix, title, detail)).lower()
+    seen = '<span class="airlines-missing__seen">%s</span>' % escape_html(detail) if detail else ""
     return (
         '<li class="airlines-missing__item" data-filter-text="%s" data-filter-kind="%s" '
         'data-filter-group="missing-%d">%s<div class="airlines-missing__what">'
-        '<span class="airlines-missing__family">%s</span>'
-        '<span class="airlines-missing__seen">%s</span></div>%s</li>'
+        '<span class="airlines-missing__family">%s</span>%s</div>%s</li>'
     ) % (escape_html(filter_text), airline_rows.KIND_MISSING, number, _slot_html(),
-         escape_html(title), escape_html(detail), button)
+         escape_html(title), seen, button)
 
 
 def _head_html(row, prefix, count, anchor, menu_html, dialog_html):
@@ -234,7 +236,10 @@ def section_html(page, state_dir, airlines):
     if count:
         body = '<div class="airlines-missing__list">%s</div>' % "".join(parts)
         modifier = ""
-        caption = ""
+        asks = any(item == ASK_KIND for airline in airlines for item in airline["items"])
+        caption = (
+            '<p class="text-label section-caption">%s</p>' % escape_html(i18n.t(ASK_HINT))
+            if asks else "")
     else:
         body = (
             '<div class="airlines-missing__empty"><span class="airlines-missing__ok" '

@@ -14,6 +14,7 @@ import companion.i18n as i18n
 from companion.ui_base import escape_html, icon_html
 
 _CLOSE_LABEL_TEXT = i18n.msg("common.close", "Close")
+_MORE_DETAIL_TEXT = i18n.msg("common.more_detail", "More detail")
 
 # Dialog ids end up in `id=`, `href="#..."` and `aria-labelledby`, so they
 # are restricted to a lowercase slug instead of being escaped into shape.
@@ -42,6 +43,17 @@ def field_error_html(dialog_id, field, message):
     """The `.field-error` paragraph a control's `aria-describedby` points at."""
     return '<p class="field-error" id="%s" role="alert">%s</p>' % (
         escape_html(error_id(dialog_id, field)), escape_html(message))
+
+
+def more_html(detail_html):
+    """The detail of a dialog behind a closed native disclosure, so the dialog itself
+    asks one question in one sentence. The summary is a 44px row that works without
+    script; `detail_html` is already escaped."""
+    return (
+        '<details class="modal__more"><summary class="modal__more-summary">'
+        '<span>%s</span>%s</summary><div class="modal__more-body">%s</div></details>' % (
+            escape_html(i18n.t(_MORE_DETAIL_TEXT)), icon_html("icon-chevron-right", size=20),
+            detail_html))
 
 
 def trigger_html(dialog_id, label_html, extra_class="", aria_label=""):

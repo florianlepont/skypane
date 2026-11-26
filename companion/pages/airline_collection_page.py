@@ -359,10 +359,7 @@ def _search_html(view):
 def _count_html(shown, total):
     """The live count under the controls ("N of M airlines"); the script
     rewrites it as the text and the chips narrow the list."""
-    return (
-        '<p class="filter-count" role="status" data-filter-count '
-        'data-filter-count-template="%s">%s</p>'
-    ) % (escape_html(i18n.t(COUNT_TEMPLATE)), escape_html(i18n.t(COUNT_TEXT) % (shown, total)))
+    return ui_filter.count_line_html(i18n.t(COUNT_TEXT) % (shown, total), i18n.t(COUNT_TEMPLATE))
 
 
 def _info_html():

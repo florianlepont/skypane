@@ -92,9 +92,9 @@ _DEMOTE_KEEP = i18n.msg("admin_users.demote_keep", "Keep as administrator")
 _DELETE_TITLE = i18n.msg("admin_users.delete_user_title", "Delete this user?")
 _DELETE_KEEP = i18n.msg("admin_users.delete_user_keep", "Keep this user")
 _DELETE_WHAT = i18n.msg(
-    "admin_users.delete_user_what",
-    "%s is removed from SkyPane and loses access to their frames. This cannot "
-    "be undone.")
+    "admin_users.delete_user_removed_for_good", "%s is removed from SkyPane for good.")
+_DELETE_DETAIL = i18n.msg(
+    "admin_users.delete_user_loses_access", "They lose access to their frames.")
 _RENEW_BUTTON = i18n.msg("admin_users.send_new_invitation", "Send a new invitation")
 
 _INVITE_BUTTON = i18n.msg("admin_users.invite_a_user_button", "+ Invite a user")
@@ -413,7 +413,9 @@ def delete_dialog_id(row):
 
 def _delete_dialog(row):
     """The confirmation the menu's Delete user item opens."""
-    body = '<p class="modal__note">%s</p>' % _esc(i18n.t(_DELETE_WHAT) % row.email)
+    body = '<p class="modal__note">%s</p>%s' % (
+        _esc(i18n.t(_DELETE_WHAT) % row.email),
+        ui_modal.more_html('<p class="modal__note">%s</p>' % _t(_DELETE_DETAIL)))
     return ui_modal.dialog_html(
         delete_dialog_id(row), i18n.t(_DELETE_TITLE),
         _action_path(row, _routes().USER_DELETE_SUFFIX),

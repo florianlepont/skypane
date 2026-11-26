@@ -373,3 +373,140 @@ def test_a_user_with_a_frame_gets_the_add_a_frame_link(rig):
     assert [(a.attrs["href"], a.text()) for a in doc.select("li.account-add-frame a.row__main")] == [
         ("/pair-frame", "Add a frame")]
     assert "pair-link--primary" not in page
+
+
+# The optional name typed with the code (Step 1 of the page).
+
+def _name_input(page):
+    return re.search(r'id="pair-name"[^>]*value="([^"]*)"', _card(page)).group(1)
+
+
+def _frame_name(state_dir):
+    """The paired frame's name; None while the code has not been claimed."""
+    device = _device(state_dir)
+    return device["name"] if device is not None else None
+
+
+def test_the_page_has_the_two_steps_and_one_button(rig):
+    server, _seed, cookie = rig
+    page = fx.get(server, cookie, PATH)[2]
+    card = _card(page)
+    assert "Step 1: name it" in card and "Step 2: enter its pairing code" in card
+    assert card.index("pair-name") < card.index("pair-code")
+    assert card.count("<button") == 1
+    fr = fx.get(server, cookie + "; %s=fr" % auth.UI_LANG_COOKIE_NAME, PATH)[2]
+    assert "nommez-le" in _card(fr) and "Ajouter le cadre" in _card(fr)
+
+
+def test_a_valid_code_with_a_name_pairs_the_frame_under_that_name(rig):
+    server, _seed, cookie = rig
+    status, headers, _body = _claim(server, cookie, fx.FAKE_CODE, frame_name="  Orly   kitchen ")
+    assert status == 303 and headers["Location"].endswith("?flash=frame_paired")
+    assert _frame_name(server.state_dir) == "Orly kitchen"
+    assert "Orly kitchen" in fx.get(server, cookie, headers["Location"])[2]
+    assert [r for r in fx.audit_rows(server.state_dir, "device.rename")
+            if r["outcome"] == "ok"]
+
+
+@pytest.mark.parametrize("blank", ["", "   \t "])
+def test_a_blank_name_is_not_an_error_and_renames_nothing(rig, blank):
+    server, _seed, cookie = rig
+    status, _headers, _body = _claim(server, cookie, fx.FAKE_CODE, frame_name=blank)
+    assert status == 303
+    assert not _frame_name(server.state_dir)
+    assert fx.audit_rows(server.state_dir, "device.rename") == []
+
+
+@pytest.mark.parametrize("bad", ["x" * 41, "bell\x07name"])
+def test_an_invalid_name_is_refused_beside_its_field_and_claims_nothing(rig, bad):
+    server, _seed, cookie = rig
+    status, _headers, body = _claim(server, cookie, fx.FAKE_CODE, frame_name=bad)
+    assert status == 400
+    assert "Enter a name of 1 to 40 characters." in body
+    assert _device(server.state_dir) is None
+    assert _name_input(body) == bad[:40]
+    # The code was not evaluated, so the pairing stays open for a retry.
+    assert _claim(server, cookie, fx.FAKE_CODE)[0] == 303
+
+
+def test_markup_in_a_name_is_stored_as_text_and_always_escaped(rig):
+    server, _seed, cookie = rig
+    name = '"><script>x</script>'
+    status, headers, _body = _claim(server, cookie, fx.FAKE_CODE, frame_name=name)
+    assert status == 303 and _frame_name(server.state_dir) == name
+    home = fx.get(server, cookie, headers["Location"])[2]
+    assert "<script>x</script>" not in home
+
+
+def test_a_refused_code_never_stores_or_echoes_the_name_outside_its_input(rig):
+    server, _seed, cookie = rig
+    status, headers, _body = _claim(server, cookie, WRONG_CODE, frame_name="Secret Name")
+    assert status == 303 and headers["Location"] == "/pair-frame?refused=1"
+    assert "Secret" not in headers["Location"]
+    cookies = headers["Set-Cookie"]
+    assert cookies.startswith("sp_pair_code=") and "Secret" not in cookies
+    assert "Secret" not in fx.dump_database_text(server.state_dir)
+    assert not _frame_name(server.state_dir)
+    sent = _with_kept(cookie, cookies)
+    page = fx.get(server, sent, headers["Location"])[2]
+    assert _name_input(page) == "Secret Name"
+    assert "Secret" not in page.replace('value="Secret Name"', "")
+    # Once: a reload carries no cookie.
+    assert _name_input(fx.get(server, cookie, PATH)[2]) == ""
+
+
+def test_the_empty_code_answer_keeps_the_typed_name(rig):
+    server, _seed, cookie = rig
+    status, _headers, body = _claim(server, cookie, "  ", frame_name="Kept <name>")
+    assert status == 400 and _name_input(body) == "Kept &lt;name&gt;"
+    assert "Kept <name>" not in body
+    assert not _frame_name(server.state_dir)
+
+
+def test_the_lockout_answer_keeps_the_typed_name(rig, monkeypatch):
+    server, _seed, cookie = rig
+    monkeypatch.setattr(console_pairing, "is_locked", lambda key: True)
+    status, _headers, body = _claim(server, cookie, fx.FAKE_CODE, frame_name="Kept name")
+    assert status == 429 and _name_input(body) == "Kept name"
+    assert _device(server.state_dir) is None
+
+
+def test_the_owner_gone_answer_keeps_the_typed_name(rig):
+    server, seed, _cookie = rig
+    admin = fx.admin_cookie(server.state_dir)
+    conn = fleet_db.connect(server.state_dir)
+    try:
+        conn.execute("UPDATE users SET disabled = 1 WHERE id = ?", (seed.owner_id,))
+        conn.commit()
+    finally:
+        conn.close()
+    status, _headers, body = fx.post(server, admin, PATH, {
+        "code": fx.FAKE_CODE, "owner_user_id": str(seed.owner_id), "frame_name": "Kept name"})
+    assert status == 400 and _name_input(body) == "Kept name"
+    assert not _frame_name(server.state_dir)
+
+
+def test_an_over_long_name_is_cut_where_it_is_echoed(rig):
+    server, _seed, cookie = rig
+    _status, _headers, body = _claim(server, cookie, " ", frame_name="y" * 90)
+    assert _name_input(body) == "y" * 40
+
+
+@pytest.mark.parametrize("lang,sentence", [
+    ("en", "Hangar 7 now belongs to %s."), ("fr", "Hangar 7 appartient maintenant à %s.")])
+def test_an_administrator_flash_for_another_owner_names_the_applied_name(rig, lang, sentence):
+    server, seed, _cookie = rig
+    admin = fx.admin_cookie(server.state_dir) + "; %s=%s" % (auth.UI_LANG_COOKIE_NAME, lang)
+    status, headers, _body = fx.post(server, admin, PATH, {
+        "code": fx.FAKE_CODE, "owner_user_id": str(seed.owner_id), "frame_name": "Hangar 7"})
+    assert status == 303 and headers["Location"] == "/fleet"
+    page = fx.get(server, _with_kept(admin, headers["Set-Cookie"]), "/fleet")[2]
+    assert sentence % fx.OWNER_EMAIL in page
+    assert "Unnamed frame" not in page and "Cadre sans nom" not in page
+
+
+def test_a_plain_user_cannot_use_the_name_to_reach_another_frame(rig):
+    server, _seed, cookie = rig
+    before = _device(server.state_dir, fx.MAC_OWNED)["name"]
+    _claim(server, cookie, fx.FAKE_CODE, frame_name="Hijack")
+    assert _device(server.state_dir, fx.MAC_OWNED)["name"] == before

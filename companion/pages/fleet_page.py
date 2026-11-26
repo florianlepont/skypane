@@ -27,7 +27,7 @@ HASH_FIELD = "secret_sha256"
 HARDWARE_FIELD = "hardware_type"
 PAIR_QUERY_FLAG = "pair"
 
-_FRAMES_TEXT = i18n.msg("admin_fleet.frames", "Frames")
+_FRAMES_TEXT = i18n.msg("nav.fleet", "Fleet")
 # Same id and English as the frame button's, so one name reads one way.
 _LIVE_FRAME_NAME = i18n.msg("nav.device_default_name", "Orly frame")
 _UNNAMED_FRAME = i18n.msg("admin_fleet.unnamed_frame", "Unnamed frame")
@@ -64,16 +64,25 @@ _REASSIGN_CO_MANAGERS = i18n.msg(
     "Co-managers lose their access to this frame.")
 _REASSIGN_ARIA = i18n.msg("admin_fleet.reassign_aria", "Reassign %s to another owner")
 _RETIRE_SENTENCE = i18n.msg(
-    "admin_fleet.this_frame_will_show_a_retired_screen_and_stop_updating",
-    "This frame will show a retired screen and stop updating. Its data is kept "
-    "and you can re-activate it later.")
+    "admin_fleet.retire_it_stops_updating",
+    "It stops updating and shows a retired screen.")
+_RETIRE_DETAIL = i18n.msg(
+    "admin_fleet.retire_its_data_is_kept",
+    "Its data is kept and you can re-activate it later.")
 _REACTIVATE_SENTENCE = i18n.msg(
-    "admin_fleet.its_settings_and_history_are_erased_it_returns_to_pairing",
-    "Its settings and history are erased. It returns to pairing and shows a new code.")
+    "admin_fleet.reactivate_settings_and_history_are_erased",
+    "Its settings and history are erased.")
+_REACTIVATE_DETAIL = i18n.msg(
+    "admin_fleet.reactivate_it_returns_to_pairing",
+    "It returns to pairing and shows a new code.")
 _REASSIGN_SENTENCE = i18n.msg(
-    "admin_fleet.settings_history_and_gallery_on_this_frame_are_erased",
-    "%s's settings, history and gallery on this frame are erased. The frame "
-    "restarts like a new one.")
+    "admin_fleet.reassign_settings_history_and_gallery_are_erased",
+    "%s's settings, history and gallery on this frame are erased.")
+_REASSIGN_RESTARTS = i18n.msg(
+    "admin_fleet.reassign_the_frame_restarts_like_a_new_one",
+    "The frame restarts like a new one.")
+_REASSIGN_ONLY_OWNER = i18n.msg(
+    "admin_fleet.reassign_only_the_owner_changes", "Only the owner changes.")
 _REASSIGN_LIVE_SENTENCE = i18n.msg(
     "admin_fleet.only_the_owner_changes_nothing_is_erased",
     "Nothing is erased.")
@@ -228,12 +237,16 @@ def _owner_options(view, placeholder=True):
 
 
 def _frame_dialog(
-        row, dialog_id, suffix, title, sentence, body_extra, submit, dismiss,
+        row, dialog_id, suffix, title, sentence, detail, submit, dismiss,
         with_hardware=True, sentence_class="text-body", **flags):
+    """A confirmation of one frame: the question as the title, one sentence, and the
+    rest of what happens behind the closed disclosure."""
     return ui_modal.dialog_html(
         dialog_id, title % _display_name(row),
         _routes().FRAME_ACTION_PREFIX + row.frame_id + suffix, _ui().csrf_field(),
-        '<p class="%s">%s</p>%s' % (sentence_class, _esc(sentence), body_extra),
+        '<p class="%s">%s</p>%s' % (
+            sentence_class, _esc(sentence),
+            ui_modal.more_html('<p class="text-body">%s</p>' % _esc(detail))),
         i18n.t(submit), i18n.t(dismiss),
         _routes().FLEET_ROUTE if row.kind != KIND_LIVE else "%s?frame=%s&tab=access" % (
             _routes().FLEET_ROUTE, row.frame_id),
@@ -257,10 +270,12 @@ def reassign_dialog_html(row, view):
     if row.kind != KIND_LIVE:
         return ""
     if row.is_live_frame:
-        sentence = i18n.t(_REASSIGN_LIVE_SENTENCE)
+        sentence = i18n.t(_REASSIGN_ONLY_OWNER)
+        effect = i18n.t(_REASSIGN_LIVE_SENTENCE)
     else:
         sentence = i18n.t(_REASSIGN_SENTENCE) % (
             row.owner_email or i18n.t(_THIS_OWNER))
+        effect = i18n.t(_REASSIGN_RESTARTS)
     field_id = _slug("fleet-reassign", row.frame_id) + "-owner"
     field = (
         '<div class="modal__field"><label for="%s">%s</label>'
@@ -269,17 +284,18 @@ def reassign_dialog_html(row, view):
             field_id, _t(_NEW_OWNER), field_id, OWNER_FIELD,
             validation_attrs("select"), _owner_options(view),
             _t(_REASSIGN_CHOOSE_HINT)))
-    # What the change does, in two lines: a tick when nothing is lost, a
-    # warning mark when something is.
-    checks = (
+    # The one sentence is shown; the two effects sit behind the disclosure: a tick
+    # when nothing is lost, a warning mark when something is.
+    checks = ui_modal.more_html(
         '<ul class="modal__effects">%s%s</ul>' % (
-            _check_item(sentence, ok=row.is_live_frame),
+            _check_item(effect, ok=row.is_live_frame),
             _check_item(i18n.t(_REASSIGN_CO_MANAGERS), ok=False)))
+    sentence_html = '<p class="text-body">%s</p>' % _esc(sentence)
     return ui_modal.dialog_html(
         _slug("dlg-reassign", row.frame_id),
         i18n.t(_TITLE_REASSIGN) % _display_name(row),
         _routes().FRAME_ACTION_PREFIX + row.frame_id + _routes().FRAME_REASSIGN_SUFFIX,
-        _ui().csrf_field(), field + checks, i18n.t(_ACTION_REASSIGN), i18n.t(_CANCEL),
+        _ui().csrf_field(), sentence_html + field + checks, i18n.t(_ACTION_REASSIGN), i18n.t(_CANCEL),
         _routes().FLEET_ROUTE if row.kind != KIND_LIVE else "%s?frame=%s&tab=access" % (
             _routes().FLEET_ROUTE, row.frame_id),
         secondary_dismiss=True, destructive=not row.is_live_frame,
@@ -312,13 +328,14 @@ def _row_dialogs(row):
         return _frame_dialog(
             row, _slug("dlg-reactivate", row.frame_id),
             _routes().FRAME_REACTIVATE_SUFFIX, i18n.t(_TITLE_REACTIVATE),
-            i18n.t(_REACTIVATE_SENTENCE), "", _CONFIRM_REACTIVATE, _KEEP_RETIRED,
+            i18n.t(_REACTIVATE_SENTENCE), i18n.t(_REACTIVATE_DETAIL), _CONFIRM_REACTIVATE,
+            _KEEP_RETIRED,
             destructive=True, confirm_only=True, sentence_class="text-body modal__question")
     if row.kind != KIND_LIVE or row.is_live_frame:
         return ""
     return _frame_dialog(
         row, _slug("dlg-retire", row.frame_id), _routes().FRAME_RETIRE_SUFFIX,
-        i18n.t(_TITLE_RETIRE), i18n.t(_RETIRE_SENTENCE), "", _CONFIRM_RETIRE,
+        i18n.t(_TITLE_RETIRE), i18n.t(_RETIRE_SENTENCE), i18n.t(_RETIRE_DETAIL), _CONFIRM_RETIRE,
         _KEEP_FRAME, destructive=True, confirm_only=True)
 
 

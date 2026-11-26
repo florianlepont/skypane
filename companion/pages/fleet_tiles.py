@@ -22,9 +22,9 @@ _SPARK_PAD = 4
 
 _STATE_HEADING = i18n.msg("admin_fleet.block_state", "State")
 _DETAILS = i18n.msg("admin_fleet.tile_details", "Details")
-_FIRMWARE = i18n.msg("admin_fleet.tile_firmware", "Firmware")
+_FIRMWARE = i18n.msg("admin_fleet.tile_firmware", "Software")
 _NO_CHECK_IN = i18n.msg("health.row_no_check_in", "No check-in yet")
-_LABEL_CONNECTION = i18n.msg("admin_fleet.tile_connection", "Connection")
+_LABEL_CONNECTION = i18n.msg("admin_fleet.tile_connection", "Last contact")
 _LABEL_BATTERY = i18n.msg("health.row_battery", "Battery")
 
 _TONE_STATES = {"ok": "ok", "warn": "warn", "error": "error"}

@@ -174,7 +174,6 @@ MESSAGES = {
     "health.row_no_readings": "Aucun relevé pour l’instant",
     "health.row_no_check_in": "Aucune connexion pour l’instant",
     "health.row_unavailable": "Indisponible",
-    "health.row_last_check_in": "Dernier contact",
     "health.row_next_wake": "Prochain réveil",
     "health.row_last_run": "Dernière exécution",
     "health.tile_server": "Serveur",

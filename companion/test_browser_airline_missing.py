@@ -145,7 +145,7 @@ def test_the_row_without_sighting_asks_the_type_and_an_upload_removes_the_row(ne
     context, page = _open(new_context, server, SIZES[2])
     try:
         before = _rows(page)
-        row = page.locator(ITEM, has_text="Type to choose").first
+        row = page.locator(ITEM, has_text="Choose type").first
         name = row.evaluate(
             "li => { let e = li.previousElementSibling; while (!e.classList.contains('airlines-missing__head')) e = e.previousElementSibling;"
             " return e.querySelector('.airlines-missing__name').textContent; }")
@@ -196,6 +196,6 @@ def test_without_a_script_every_row_has_a_plain_upload_form(new_context, make_ap
             row = rows.nth(index)
             assert row.locator("button.airlines-missing__add").is_hidden()
             assert row.locator("form.airlines-art input[type=file]").count() == 1
-        asking = page.locator(ITEM, has_text="Type to choose").first
+        asking = page.locator(ITEM, has_text="Choose type").first
         assert asking.locator("select[name=default_type]").is_visible()
         assert asking.locator("select").evaluate("s => s.required")

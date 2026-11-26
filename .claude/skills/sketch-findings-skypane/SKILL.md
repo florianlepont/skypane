@@ -5,7 +5,7 @@ description: The companion web app's current design system — colour and contra
 
 # SkyPane companion design system
 
-**As of:** 2026-11-25, checked against the code of origin/main `ef229d21` plus the spacing and radius tokens (`--space-6/10/12/14`, `--radius-8/10/12`).
+**As of:** 2026-11-26, checked against the code of origin/main `ef229d21` plus the spacing and radius tokens (`--space-6/10/12/14`, `--radius-8/10/12`) and the two-step Add a frame page. Product names are one simple name per page: Fleet/Flotte, Admin, Activity/Activité, Software/Logiciel, Last contact/Dernier contact. The Users and Editor wide tables sit inside their rounded card with a tinted header and no last rule. Confirmation dialogs ask one question in one sentence with the detail behind a 44px disclosure. Flights and Airlines write their count line with one helper (`ui_filter.count_line_html`). A copy confirms with an ink check that springs in (see `references/motion.md`), instant under reduced motion. Add a frame (`/pair-frame`) is two numbered steps on one card (Step 1 name it, optional; Step 2 enter its pairing code). Account ends with a quiet build line ("SkyPane build <id>", tap to copy for support). The Copied label uses a darker green text token in Light (5.02:1). The hover wash (`--color-control-wash`) is theme-aware and visible in Dark (8% of the text colour). The Editor's Missing illustrations list says its "no sighting yet" sentence once, as a caption above the list. The Components page now also shows `.page-section`, `.fleet-tile`, `.dot--off` and `.dot--hollow` and wraps its samples.
 `.planning/workstreams/v1-2/ROADMAP.md` is the live record of plan status.
 
 **Keeping it current.** This skill is not updated automatically. Any PR that changes companion CSS

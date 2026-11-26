@@ -97,20 +97,25 @@ def _refuse(h, device, raw, return_to, error):
     return h.redirect("%s%s%s" % (back, "&" if "?" in back else "?", extra))
 
 
-def _store(h, device, name):
-    """Store `name` and audit it in one transaction; True when stored."""
+def store_name(h, device_id, name):
+    """Store `name` for the frame `device_id` and audit it in one transaction;
+    True when stored."""
     conn = fleet_db.connect(h.args.state_dir)
     try:
         with fleet_db.transaction(conn):
-            previous = fleet_db.rename_device(conn, device.id, name)
+            previous = fleet_db.rename_device(conn, device_id, name)
             if previous is None:
                 return False
             audit.record_in(
-                h, conn, fleet_db.ACTION_RENAME, "device", device.id, "ok",
+                h, conn, fleet_db.ACTION_RENAME, "device", device_id, "ok",
                 {"from": previous, "to": name})
     finally:
         conn.close()
     return True
+
+
+def _store(h, device, name):
+    return store_name(h, device.id, name)
 
 
 def _redirect_back(h, return_to):

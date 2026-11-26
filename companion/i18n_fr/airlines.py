@@ -55,8 +55,9 @@ MESSAGES = {
     "airlines.missing_state_done_many": "%d familles déjà illustrées",
     "airlines.missing_state_has": "Déjà illustrée",
     "airlines.missing_todo": "%d à faire",
-    "airlines.missing_ask_title": "Type à choisir",
-    "airlines.missing_ask_hint": "Aucun passage observé\u00a0: le type se choisit dans la fenêtre",
+    "airlines.missing_ask_title": "Choisir le type",
+    "airlines.missing_ask_hint":
+        "Aucun passage observé\u00a0: choisissez le type dans la fenêtre.",
     "airlines.missing_add_aria": "Ajouter une illustration pour %s, %s",
     "airlines.missing_add_ask_aria": "Ajouter une illustration pour %s, type à choisir",
     "airlines.artwork_aircraft_type": "Type d’avion",

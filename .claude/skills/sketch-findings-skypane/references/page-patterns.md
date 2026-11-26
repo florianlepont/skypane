@@ -148,14 +148,16 @@ frame). Console label "Airline editor", bar label "Editor".
   round 44px check (a real form), never blocking the Name it flow; a pending prefix says "Looking
   for a name".
 - **Missing illustrations · N:** a sibling of the two tables: the same small label (`.airlines-label`,
-  13px 600, 70% ink, 16px indent) lifted above its list, no 22px heading and no caption sentence
-  (the sentence stays in the empty state); the section keeps `id="airlines-missing"` and is named
+  13px 600, 70% ink, 16px indent) lifted above its list, no 22px heading; one caption sentence under the label says once what
+  the "Choose type" rows mean (no sighting yet, pick the type in the dialog), never once per row,
+  and the empty state keeps its own sentence; the section keeps `id="airlines-missing"` and is named
   by the label (`aria-labelledby`); 24px between blocks. N counts rows, one per airline x aircraft family without a picture
   (a family is one of the picture slots, "Other" for rare designators). One solid list surface; each
   airline has a small header (name, prefix, "No artwork yet" or "<family> already done", "· n to
   do") and its rows: a dashed 44px slot, the family, the designators and views, and a 44px
   icon-only add button (a picture with a plus, 44px, tooltip "Add artwork", aria-label "Add an illustration for <airline>, <family>") that opens the add dialog with the family in its chip. An airline with
-  no sighting and no artwork has one "Type to choose" row whose dialog asks the type first; one with
+  no sighting and no artwork has one "Choose type" row (that label only, the airline name sits in its
+  header and in the button's aria-label) whose dialog asks the type first; one with
   art and no sighting is not listed. The "..." menu (Rename, Reset or Delete my name) is in the
   header of an airline that has no row in the table. After an upload the page reloads and the row is
   gone; an empty list says "All illustrations are in place" with a check. The chip counts the same
@@ -172,7 +174,7 @@ frame). Console label "Airline editor", bar label "Editor".
 
 - **List** (`/fleet`): the page opens on the list of frames, never on the first frame; from 1200px the pane beside
   the list is a neutral "Select a frame" state (icon, short heading, one muted line, no frame data, no
-  selected row) until a row is chosen, and the list's title is the only `h1`. A list
+  selected row) until a row is chosen, and the list's title is the only `h1`. One name per page: the list's title reads Fleet / Flotte, the same as the navigation entry and the page title. A list
   panel with the title, "Add a frame", a search field from 8 frames, groups Live / Waiting to be
   paired / Retired with counts, and a System row; each row is one link (status dot, name, state and
   owner, last seen, chevron; the name and the detail line are one line each and end in an ellipsis
@@ -183,17 +185,17 @@ frame). Console label "Airline editor", bar label "Editor".
   `?frame=` shows the list with a not-found note. Scales to 30 frames.
 - **Frame page** (`/fleet?frame=<id>`): a header with the `h1` name, the state line and two 44px
   icon buttons (personal view, Rename); then a State section of **three tiles** (a two-column grid:
-  Connection and Battery side by side, the wide Firmware tile spanning both columns under them, its text and
+  Last contact and Battery side by side, the wide Software tile spanning both columns under them, its text and
   chevron side by side once the tile is 440px wide) and the
   Settings and Access sections stacked in one column of equal cards (on a phone, three sticky
   anchors State / Settings / Access, 44px, mark the section in view on a solid bar whose gap above (safe area and app-bar drop) is painted too; from 960px the anchors are
   hidden):
-  - **Connection** tile: a verdict and two lines, "Last check-in <age>" and "Next wake <clock>"; a
+  - **Last contact** tile (Dernier contact): a verdict and two lines, "Last check-in <age>" and "Next wake <clock>"; a
     plain block, not a link, no Details mark. A frame that never checked in says so once and still
     has its tiles.
   - **Battery** tile: percentage and millivolts, a verdict and a sparkline of the 90-day series;
     links to the Battery page. A low level turns the tile to a warning in words.
-  - **Firmware** tile: the running version in mono and the update headline; links to Versions.
+  - **Software** tile (Logiciel): the running version in mono and the update headline; links to Versions.
   The tiles' state is spelled out, never colour alone.
 - **Battery page** (`?frame=<id>&view=battery`, administrators only): a Back link to the frame and
   the one `h1` "Battery". The card has a 270 degree gauge with the percentage as the hero and a tick
@@ -226,6 +228,14 @@ frame). Console label "Airline editor", bar label "Editor".
   frame itself shows "This frame was removed from SkyPane. Press Reset to set it up again." on every
   hardware type. A refused pairing code on the Add a frame page is one tinted alert (icon, bold
   sentence, validity line), and the page tells a frame that shows no code to press Reset.
+- **Add a frame** (`/pair-frame`, `pair_frame_page.py`): one card holding an ordered list of two steps
+  (`.pair-steps` > `.pair-step`), each with a 17px semibold title that carries its number as text:
+  "Step 1: name it" (a Frame name field, optional, 40 characters, help line "Optional. You can change
+  it later.") and "Step 2: enter its pairing code" (the identifier-treatment code field, then the
+  administrator-only Owner field), one Add frame button and a Cancel link (44px). A blank name is
+  fine; an invalid one shows the rename error beside its field. The typed name comes back into its
+  input after a refusal (view fields on the direct answers, the `sp_pair_code` cookie on the redirect)
+  and is applied after the claim by the rename rules.
 - **System** (`/fleet?view=system`): a full-width page with the standard header (`h1` "System" and
   its purpose line, "The server behind every frame. Visible to administrators."), no frames list, no
   chips, no Add button. A warnings banner (a card with pills and the sentence), then **compact
@@ -275,6 +285,15 @@ controls), **About** (a Credits row, for users and administrators alike) and Sig
 its own. Leaving a frame opens a dialog with "Stay on this frame". A plain user's tab bar ends with
 this page as its last cell (Account, not More: the More sheet would hold only Account); an
 administrator reaches it through More.
+
+The page ends with one quiet **build line** (`companion/build_info.py`): "SkyPane build 3f9c1ab"
+and under it "Tap to copy for support" / "Touchez pour copier (support)", both 13px in secondary
+ink (text at 70%), no uppercase, no mid-dot, a button at least 44px high with no card around it.
+The id is the first 7 hex characters of the release directory name (the real path of the code, so
+the `current` symlink is followed), else `SKYPANE_BUILD` (7 to 40 hex characters, a manual
+override no deploy file sets), else `dev`. A tap copies the whole line with its own small script
+(`account-build.js`, listed in the personal space's preload list; `copy-button.js` stays a Console
+file); the copied word replaces the hint line in place, in the same ink.
 
 ## Sign-in, Credits and error pages
 

@@ -6,10 +6,10 @@ companion/ui_nav.py; this module only carries the French.
 """
 
 MESSAGES = {
-    "nav.administration": "Administration",
+    "nav.administration": "Admin",
     "nav.fleet": "Flotte",
     "nav.users": "Utilisateurs",
-    "nav.audit_log": "Journal d’audit",
+    "nav.audit_log": "Activité",
     "nav.system": "Système",
     "nav.releases": "Versions",
     "nav.administration_sections": "Sections d’administration",

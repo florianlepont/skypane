@@ -60,8 +60,8 @@ def _tiles(page):
 
 
 LABELS = {
-    "en": ["Connection", "Battery", "Firmware"],
-    "fr": ["Connexion", "Batterie", "Micrologiciel"]}
+    "en": ["Last contact", "Battery", "Software"],
+    "fr": ["Dernier contact", "Batterie", "Logiciel"]}
 DETAILS = {"en": "Details", "fr": "Détails"}
 
 

@@ -328,8 +328,8 @@ _REACTIVATED = {
 _GAPS = """d => {
   const box = s => d.querySelector(s).getBoundingClientRect();
   const sub = box('.modal__subtitle'), q = box('.modal__question'),
-        ok = box('button[type=submit]');
-  return {above: q.top - sub.bottom, below: ok.top - q.bottom, margin: getComputedStyle(
+        more = box('.modal__more');
+  return {above: q.top - sub.bottom, below: more.top - q.bottom, margin: getComputedStyle(
     d.querySelector('.modal__question')).marginTop};
 }"""
 

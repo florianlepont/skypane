@@ -11,6 +11,7 @@
       "--color-accent-hover": "#343B4D",
       "--color-on-accent": "#FFFFFF",
       "--color-status-ok": "#16A34A",
+      "--color-status-ok-text": "#15803D",
       "--color-status-warn": "#D97706",
       "--color-status-error": "#BE123C",
       "--color-switch-off": "#7C8799",
@@ -26,6 +27,7 @@
       "--glass-highlight": "rgba(255, 255, 255, 0.9)",
       "--glass-solid": "#FFFFFF",
       "--glass-hairline": "rgba(23, 25, 31, 0.1)",
+      "--color-control-wash": "rgba(23, 25, 31, 0.045)",
       "--bar-bg": "rgba(255, 255, 255, 0.66)",
       "--pop-bg": "rgba(255, 255, 255, 0.9)",
       "--color-toast-bg": "#1D2028",
@@ -42,6 +44,7 @@
       "--color-accent-hover": "#E2DED5",
       "--color-on-accent": "#14171F",
       "--color-status-ok": "#4ADE80",
+      "--color-status-ok-text": "#4ADE80",
       "--color-status-warn": "#FBBF24",
       "--color-status-error": "#FB7185",
       "--color-switch-off": "#6B7589",
@@ -57,6 +60,7 @@
       "--glass-highlight": "rgba(255, 255, 255, 0.18)",
       "--glass-solid": "#1C222D",
       "--glass-hairline": "rgba(255, 255, 255, 0.1)",
+      "--color-control-wash": "rgba(241, 243, 246, 0.08)",
       "--bar-bg": "rgba(20, 24, 34, 0.86)",
       "--pop-bg": "rgba(28, 34, 45, 0.92)",
       "--color-toast-bg": "#E9ECF1",
@@ -155,7 +159,7 @@
       {"name": "on-accent on accent", "fg": "--color-on-accent", "bg": "--color-accent"},
       {"name": "on-accent on accent hover", "fg": "--color-on-accent", "bg": "--color-accent-hover"}
     ],
-    "not_checked": "Status inks as body text (ok 3.30:1 and warn 3.19:1 on a Light card) are known and accepted in the skill, so they are not in the pairs."
+    "not_checked": "The status hue as body text (ok 3.30:1 and warn 3.19:1 on a Light card) is known and not used for ok text (the Copied label uses --color-status-ok-text); warn is accepted in the skill, so neither is in the pairs."
   },
   "targets": {
     "min_px": 44,

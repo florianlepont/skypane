@@ -106,7 +106,62 @@
   white-space: nowrap;
   font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
-  color: var(--color-status-ok);
+  color: var(--color-status-ok-text);
+}
+
+/* The check that joins the copied word: the copy glyph gives way to it, so the
+ * button keeps one icon. It draws in the button's own ink. */
+.copy-btn__check {
+  flex: none;
+  display: block;
+}
+
+.copy-btn--copied > svg.icon {
+  display: none;
+}
+
+/* The build caption that ends Account: a quiet two-line button, at least 44px
+ * high. The copied word replaces the hint line in place, in the caption's own
+ * ink, so the contrast of the pair does not change. */
+.account-build-wrap {
+  margin: var(--space-md) 0 0;
+}
+
+.account-build {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  min-height: 44px;
+  padding: var(--space-sm) var(--space-md);
+  border: none;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  font: inherit;
+  font-size: var(--font-caption-size);
+  text-align: left;
+  text-transform: none;
+  cursor: pointer;
+}
+
+.account-build .account-build__check {
+  display: inline-block;
+  vertical-align: -3px;
+  margin-inline-end: var(--space-xs);
+  color: var(--color-text);
+}
+
+.account-build:hover {
+  background: color-mix(in srgb, var(--color-text) 7%, transparent);
+}
+
+.account-build .account-build__id,
+.account-build .account-build__hint {
+  display: block;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 .audit-event + .audit-event {
@@ -1248,8 +1303,28 @@ a.pair-link--primary:hover {
   }
 }
 
-.pair-card__heading {
+/* The two steps of the page: a real sequence, so an ordered list whose
+ * numbers are part of each step's title text. */
+.pair-steps {
+  display: grid;
+  gap: var(--space-lg);
   margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pair-step {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-sm);
+}
+
+.pair-step__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--font-card-title-size);
+  font-weight: var(--weight-semibold);
+  line-height: 1.25;
 }
 
 /* The code is read off the frame and typed whole: big, centred, spaced. */
@@ -1781,6 +1856,7 @@ a.row-action {
     vertical-align: middle;
     padding: var(--space-sm);
     border-bottom: 1px solid var(--glass-hairline);
+    background: var(--color-secondary);
     font-size: 12px;
     font-weight: var(--weight-semibold);
     text-transform: none;
@@ -1788,9 +1864,34 @@ a.row-action {
     color: color-mix(in srgb, var(--color-text) 70%, transparent);
   }
 
-  /* The last row keeps the hairline's room, so it is as tall as the others. */
+  /* The card clips its table at the card's corners. While a row menu is open the
+   * clip is released so the menu can reach past the card's edge; the corner
+   * cells carry the same radius, so the corners stay round meanwhile. */
+  .users-table:has(.row-menu[open]) {
+    overflow: visible;
+  }
+
+  /* The last row has no rule under it and keeps the rule's room, so it is as
+   * tall as the others. */
   .users-table tbody .users-row:last-child .users-cell {
-    border-bottom-color: transparent;
+    border-bottom-width: 0;
+    padding-bottom: calc(var(--space-sm) + 1px);
+  }
+
+  .users-table thead .users-col:first-child {
+    border-top-left-radius: calc(var(--radius-card) - 1px);
+  }
+
+  .users-table thead .users-col:last-child {
+    border-top-right-radius: calc(var(--radius-card) - 1px);
+  }
+
+  .users-table tbody .users-row:last-child .users-cell:first-child {
+    border-bottom-left-radius: calc(var(--radius-card) - 1px);
+  }
+
+  .users-table tbody .users-row:last-child .users-cell:last-child {
+    border-bottom-right-radius: calc(var(--radius-card) - 1px);
   }
 
   .users-cell--user,
@@ -2432,8 +2533,24 @@ dialog.access-sheet .modal__actions {
 .components-state__sample > .toast,
 .components-state__sample > .modal__field,
 .components-state__sample > .page-header,
+.components-state__sample > .page-section,
+.components-state__sample > .fleet-tiles,
 .components-state__sample > .entity-list {
   flex: 1 1 100%;
+}
+
+/* A page-level card sits in the sample without the card-to-card gap it keeps in
+ * a page: the sample's own gap separates the cards. */
+.components-state .page-section {
+  margin-bottom: 0;
+}
+
+/* A control placed straight in a row (the catalogue's switch, outside the form
+ * a page wraps it in) keeps its width and leaves the text column to shrink and
+ * wrap, as the form's margin does in a page. */
+.components-state .group > .row > .switch {
+  flex: none;
+  margin-right: var(--space-md);
 }
 
 .components-state__sample > form {
@@ -2472,8 +2589,21 @@ dialog.access-sheet .modal__actions {
   gap: var(--space-sm);
 }
 
+/* The page's bar is as wide as its main column from 960px; in the catalogue it
+ * takes the width of its sample, so the message keeps room beside the buttons. */
 .components-save-bar .dirty-bar {
   position: static;
+  width: auto;
+  margin: 0;
+}
+
+/* The docked bar's message wraps in the catalogue instead of ending in an
+ * ellipsis, so the whole text of the sample is on the page in French too. */
+.components-save-bar:not(.components-save-bar--inline) .dirty-bar__message {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 /* The buttons keep the width their labels need, in French too. */
