@@ -117,7 +117,12 @@ def _profile_segment(profile):
         return None
     if hardware.REGISTRY.get(profile.key) is not profile:
         return False
-    return profile.key
+    window = profile.visible_window
+    if window is None:
+        return profile.key
+    # A window changes the picture, so it is part of the name: previews drawn
+    # before it was set are not reused.
+    return "%s-w%d-%d-%d-%d" % (profile.key, window.x, window.y, window.width, window.height)
 
 
 def chip_crop_box(profile=None):

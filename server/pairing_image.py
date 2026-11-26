@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from PIL import Image
 
-from server import hardware, pairing_code, panel_format
+from server import hardware, pairing_code, panel_format, visible_window
 from server.plane import dither
 from server.plane.render import style
 from server.plane.render.giant import status
@@ -26,7 +26,7 @@ from server.plane.render.giant import status
 # Bumped whenever the retired screen's copy or layout changes on purpose; the
 # server caches the retired panel under a name that carries it, so frames that
 # are already retired pick the new screen up at their next wake.
-RETIRED_SCREEN_REVISION = 3
+RETIRED_SCREEN_REVISION = 4
 
 
 def _pack(image: Image.Image) -> bytes:
@@ -64,10 +64,19 @@ def _fit_to_profile(
     return field
 
 
+def _framed(profile: hardware.HardwareProfile, build):
+    """`build(size)` at the panel size, or inside the profile's visible window."""
+    window = profile.visible_window
+    if window is None:
+        return build((profile.width, profile.height))
+    return visible_window.place(
+        build((window.width, window.height)), (profile.width, profile.height), window)
+
+
 def render_pairing_image(profile: hardware.HardwareProfile, code: str) -> bytes:
     """The pairing screen for `code` (raw or formatted) as packed panel nibbles."""
     shown = pairing_code.format_code(code.replace("-", "").upper())
-    return _pack(status.build_pairing((profile.width, profile.height), shown))
+    return _pack(_framed(profile, lambda size: status.build_pairing(size, shown)))
 
 
 def render_retired_image(profile: hardware.HardwareProfile) -> bytes:
@@ -78,7 +87,7 @@ def render_retired_image(profile: hardware.HardwareProfile) -> bytes:
     scaled to fit.
     """
     if profile.width > profile.height:
-        return _pack(status.build_retired((profile.width, profile.height)))
+        return _pack(_framed(profile, status.build_retired))
     reference = status.build_retired((panel_format.WIDTH, panel_format.HEIGHT))
     field = dither.dithered_state_background(
         style.DIMMED_FIELD_IDX, size=(profile.width, profile.height)

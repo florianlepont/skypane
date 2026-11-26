@@ -11,7 +11,7 @@ import pytest
 
 from PIL import Image
 
-from server import hardware, pairing_image, panel_format
+from server import hardware, pairing_image, panel_format, visible_window
 from server.plane.render.giant import status
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -142,7 +142,13 @@ def test_pairing_is_the_calm_status_composition_at_every_profile_size(
         size = (profile.width, profile.height)
         assert len(data) == (profile.width // 2) * profile.height
         assert _nibbles(data) <= LEGAL_NIBBLES
-        assert data == pairing_image._pack(status.build_pairing(size, shown))
+        window = profile.visible_window
+        if window is None:
+            expected = status.build_pairing(size, shown)
+        else:
+            expected = visible_window.place(
+                status.build_pairing((window.width, window.height), shown), size, window)
+        assert data == pairing_image._pack(expected)
         assert data == pairing_image.render_pairing_image(profile, "abcd-2345")
         assert data != pairing_image.render_pairing_image(profile, "WXYZ6789")
         # The dithered dark field, like the retired screen.

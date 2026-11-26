@@ -160,6 +160,7 @@ files = [
     "server/plane/shared_route_cache.py",
     "server/pairing_code.py",
     "server/pairing_image.py",
+    "server/visible_window.py",
     "server/fleet_ops.py",
     "server/airports.py",
     "server/detection.py",
