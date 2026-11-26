@@ -187,6 +187,23 @@ def test_test_totals_gate_and_shard_check_run_on_every_event():
     ), conditioned
 
 
+def test_shard_counts_match_the_matrices_and_split_evenly_over_runners():
+    def env_count(name):
+        return int(re.search(rf'(?m)^  {name}: "(\d+)"$', _CI).group(1))
+
+    def matrix_shards(job):
+        block = re.search(rf"(?ms)^  {job}:\n(.*?)^    steps:", _CI).group(1)
+        listed = re.search(r"shard: \[([0-9, ]+)\]", block).group(1)
+        return [int(n) for n in listed.split(",")]
+
+    for job, name in (("tests-core", "CORE_SHARDS"), ("tests-browser", "BROWSER_SHARDS")):
+        assert matrix_shards(job) == list(range(env_count(name))), job
+    # Two single-job runners and a four-runner host both get a whole number
+    # of test jobs.
+    assert (env_count("BROWSER_SHARDS") + env_count("CORE_SHARDS")) % 4 == 0
+    assert "expected=$((BROWSER_SHARDS + CORE_SHARDS))" in _CI
+
+
 def test_model_file_exclusions_appear_once_per_event():
     for ext in ("stl", "blend", "glb", "3mf"):
         assert _CI.count(f"- '!hardware/cad/**/*.{ext}'") == 2, ext

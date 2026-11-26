@@ -1406,6 +1406,12 @@ private repository gets the smaller 2-vCPU runner and a monthly allowance
 of free minutes, so a full CI run is slower than on a public repository and
 can use up the allowance.
 
+Job layout: 8 test jobs (6 browser shards, 2 non-browser shards) plus
+`static` and the aggregate `test` job. Two single-job runners run 4 test
+jobs each; a four-runner host runs 2 each. On hosted runners every extra
+shard costs one more job set-up (1 to 4 minutes billable). The wall-clock
+gain on the Mac has not been measured yet.
+
 Watched risk: GitHub announced, then postponed with no date, a per-minute
 charge for self-hosted runners. Re-check the GitHub Actions changelog
 before relying on the free runner.
