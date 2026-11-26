@@ -24,6 +24,7 @@ No colour literal outside a `--` declaration in the shared stylesheets.
 | `--color-accent-hover` | `#343B4D` | `#E2DED5` |
 | `--color-on-accent` | `#FFFFFF` | `#14171F` |
 | `--color-status-ok` | `#16A34A` | `#4ADE80` |
+| `--color-status-ok-text` (the Copied label only) | `#15803D` | `#4ADE80` |
 | `--color-status-warn` | `#D97706` | `#FBBF24` |
 | `--color-status-error` | `#BE123C` | `#FB7185` |
 | `--color-switch-off` | `#7C8799` | `#6B7589` |
