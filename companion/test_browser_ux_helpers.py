@@ -1016,6 +1016,10 @@ _SETTLE_PROBE = (
     "  for (let pass = 0; pass < 20 && running().length; pass++) {"
     "    await Promise.all(running().map(a => a.finished.catch(() => null)));"
     "  }"
+    # An element below the fold can never answer elementFromPoint, so it is brought into view
+    # first, to the same place the hit-area probe scrolls it to; otherwise the loop below
+    # would run all its frames.
+    "  el.scrollIntoView({block: 'center', inline: 'center'});"
     "  const centre = () => {"
     "    const r = el.getBoundingClientRect();"
     "    const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);"
