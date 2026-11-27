@@ -52,7 +52,7 @@ Phase 47 measures the live frame on the live VPS. This milestone must not modify
 - [x] **Phase 68.1: Design System Consistency, Deviations and Improvements (INSERTED)** - After Phase 68, the design system is checked against the real site, every deviation is listed and fixed, and improvements and animations of the design system are proposed to the owner. (added 2026-11-21 at the owner's request; depends on Phase 68; runs before Phases 66, 67 and 59)
 - [x] **Phase 70: Private Repository and CI (Free Plan, Self-Hosted or Reduced CI)** - The whole repository becomes private without losing the owner-controlled production deploy and firmware signing, and the CI fits the private-repository limits. (added 2026-11-24 at the owner's decision: everything private; runs before Phase 66) Completed 2026-11-27 for criteria 1 to 4: the pipeline is ready and measured; criteria 5 and 6 (the switch itself and the checks after it) are carried by Phase 70.1.
 - [ ] **Phase 70.1: Private Repository Switch and Post-Switch Verification** - At the close of v1.4 the owner makes the repository private himself, and everything the owner and the sessions rely on is checked to still work. (inserted 2026-11-27 at the owner's decision: the repository stays public, with hosted CI, until v1.4 closes)
-- [ ] **Phase 66: Security Audit** - The whole platform (server, companion, device protocol, firmware update path, deploy and secrets) is audited, and every finding is fixed or recorded with the owner's decision. (added 2026-11-15 at the owner's request)
+- [x] **Phase 66: Security Audit** - The whole platform (server, companion, device protocol, firmware update path, deploy and secrets) is audited, and every finding is fixed or recorded with the owner's decision. (added 2026-11-15 at the owner's request; completed 2026-11-27, audit approved by the owner; no high or critical finding, three medium findings fixed and in use)
 - [ ] **Phase 67: Project and Code Optimisation for a Clean, Industrial Result** - The repository, the code, the tests and the documents are cleaned and made consistent so the project can be maintained and handed over like an industrial product. (added 2026-11-15 at the owner's request; Phase 59 stays last)
 - [x] **Phase 69: Rear Enclosure for the 7.3 Inch Frame (Design, Print, Fit)** - The four printed parts (tray, lid with wall hooks, loose stand plate, centring shim) are designed, printed, fitted into an IKEA RÖDALM 13 x 18 cm frame with the second-hardware frame, and validated on the wall and on furniture. (added 2026-11-18 at the owner's request as an owner-driven parallel track, physical part of SEED-014; the administrator flashing tool stays in v1.3)
 
@@ -890,7 +890,27 @@ Plans:
 **Not in this phase**: legal and regulatory review (SEED-015), a third-party penetration test (listed as an option to decide), and new features.
 **Open decisions** (for discuss-phase): audit by Claude only or with an outside reviewer, how far a test against the live production host may go, and which findings may wait for the next milestone.
 
-Plans: TBD
+**Plans**: 8 plans
+Plans:
+**Wave 1**
+
+- [x] 66-01-PLAN.md — Audit protocol, severity scale, two-layer rule, pre-flight (SEC-AUD-01)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 66-02-PLAN.md — Sign-in, sessions, roles, default-deny matrix
+- [ ] 66-03-PLAN.md — Device protocol, enrolment, firmware signing, update, rollback
+- [ ] 66-04-PLAN.md — Companion input handling and admin-never-sees-photos rule
+- [ ] 66-05-PLAN.md — Server, deploy pipeline, CI, dependencies
+- [ ] 66-06-PLAN.md — Secrets, rotation, backups, logs, databases, data-source terms
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 66-07-PLAN.md — Per-finding fixes with tests, owner deploy checkpoint
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 66-08-PLAN.md — Audit document, remaining risks, post-deploy write-up of high findings
 
 ### Phase 67: Project and Code Optimisation for a Clean, Industrial Result
 
@@ -941,6 +961,6 @@ Plans: TBD
 | 68.1. Design System Consistency, Deviations and Improvements (INSERTED) | v1.2 | 22/22 | Complete, closed 2026-11-26: deviations settled, 12 owner-approved proposals built and deployed (PRs #583, #587, #590, #596), owner validated the deployed companion in English and French, Light and Dark, phone and desktop; P01, P05, P13 and P15 refused and carried as v1.3 / v1.4 candidates | 2026-11-26 |
 | 70. Private Repository and CI (Free Plan, Self-Hosted or Reduced CI) | v1.2 | 10/11 | Complete for criteria 1 to 4, closed 2026-11-27 (`70-VERIFICATION.md`): manual deploy, signing on the Mac, CI measured and decided (hosted runners while public, the Mac after the switch), inventory handled; criteria 5 and 6 moved to Phase 70.1 | 2026-11-27 |
 | 70.1. Private Repository Switch and Post-Switch Verification (INSERTED) | v1.2 | 0/1 | Waits for the close of v1.4 (owner decision of 2026-11-27); gate prepared in `70-POSTFLIP.md` | - |
-| 66. Security Audit | v1.2 | 0/0 | Added 2026-11-15, not planned yet | - |
+| 66. Security Audit | v1.2 | 8/8 | Complete | 2026-11-27 |
 | 67. Project and Code Optimisation for a Clean, Industrial Result | v1.2 | 0/0 | Added 2026-11-15, not planned yet | - |
 | 69. Rear Enclosure for the 7.3 Inch Frame (Design, Print, Fit) | v1.2 | 8/8 | Complete, closed 2026-11-26: parts printed and assembled by the owner and checked (`69-VERIFICATION.md`); Wi-Fi decided from the bare and assembled histories; image reframed to the mat window (PR 614, deployed, owner tested the assembled frame); assembly note and BOM written; hardware improvements go to SEED-022 | 2026-11-26 |
