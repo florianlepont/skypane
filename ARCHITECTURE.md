@@ -527,6 +527,146 @@ as `<public-host>`, never by its real address).
   dependencies, and restarts the two service units — no separate rollback
   mechanism exists beyond re-running the script against a working commit.
 
+## Persistent state
+
+Everything the system remembers lives under one state root on the VPS
+(`<state-root>`, `/opt/skypane/state` in production, `server/state/` in a
+checkout). The root is two things at once: the **fleet root** (files shared
+by every frame) and the **live frame's own directory** (its `state_path` is
+`"."`). Every other frame has its own directory, `devices/<id>/`, where
+`<id>` is `d_` plus eight lowercase hex digits (`server/device_dirs.py`,
+the only code that turns a stored `state_path` into a directory). The
+section was checked against the code; the access and at-rest review of
+these stores is the Phase 66 audit (`66-AUDIT.md`) and is not repeated here.
+
+### Stores and owners
+
+| Store | Where | Writers | Readers | Backed up | Notes |
+|-------|-------|---------|---------|-----------|-------|
+| `fleet.db` (SQLite, WAL, mode 0600, `user_version` 4) | root | companion (users, roles, sessions, audit, co-managers, pairing, frames); device server (token and enrolment-secret writes); `server/fleet_migrate.py` (deploy step) | companion; device server (read-only per request); poll process (`server/fleet_cycle.py`) | yes: online copy through the sqlite3 backup API, then an integrity check | tables `users`, `locations`, `devices`, `meta`, `sessions`, `pending_devices`, `audit_log`, `device_co_managers` |
+| `history.db` (SQLite, WAL, `user_version` 1) | root (live frame) and `devices/<id>/` | poll process (runway events, poll cycles, route lookups, meta, battery readings tailed from the Caddy log); companion for the few runway-event rows written by `companion/airline_fleet_world.py` | companion (Health, History, Home, export); poll process | yes, the root file and every per-frame file | tables `runway_events`, `device_health`, `meta`, `wake_epochs`, `poll_cycles`, `route_lookups` |
+| `device_config.json`, `poll_state.json`, `battery_state.json` | root and `devices/<id>/` | companion (config); poll process (poll state); device server (latest battery reading) | all three processes | yes, root and per frame | atomic writes (`server/atomic_io.py`); the config has its own lock |
+| Fleet registries: `manual_resolutions.json`, `airline_name_overrides.json`, `airline_default_types.json`, `airline_suggestions.json`, `airline_default_types_set.json`, `airline_default_types_cleared.json`, `colour_rules.json`, `calendar_rules.json` with `calendar_url.secret` | fleet root (colour and calendar rules also per frame) | companion | poll process, companion | yes | the per-frame copies of the first three are leftovers, see below |
+| Migration markers: `airline_registry_migration.json`, `illustration_migration.json`, `airline_default_types_migration.json`, `airline_default_types_set_migration.json` | root | `server/fleet_migrate.py` and the `server/plane/fleet_*` merge modules | the same modules | yes | idempotency markers: restore them together with the data they guard |
+| `devices.json`, `byos_state.json` | root | `stub-server/devices_cli.py`; device server (mirror of tokens and secrets) | device server when `fleet.db` is absent or not yet migrated; `server/fleet_migrate.py` | yes | legacy identity files, see "Duplicated or overlapping data" |
+| `live_frame_macs.json` | root | `server/device_dirs.py` | device server | yes | the one record of which frame is the live one that survives an unreadable `fleet.db` |
+| `firmware/` (`registry.json`, `device_report.json`, images) | root | `server/firmware_cli.py`; device server (`device_report.json` only) | device server; companion Update page | yes, the directory (lock files excluded) | `registry.lock` serialises registry writers |
+| `illustration_overrides/`, `illustration_conflicts/`, `gallery/` | root (overrides and gallery also per frame) | companion (overrides); poll process (gallery) | poll process, companion | yes | the per-frame override directories are leftovers after the merge |
+| Regenerable or short-lived: `panel.bin`, `fleet_status.json`, `request_ledger.json`, `adsbdb_shared_cache.json*`, `check_interval_experiment.json`, `pairing/`, `img/`, `theme_previews/`, `frame_previews/`, `*.lock`, `caddy-access*.log*` | root and per frame | various | various | no, by design | rebuilt by the next poll, or expire within hours |
+
+### Migrations
+
+There are two mechanisms, and the difference is deliberate.
+
+- **`fleet.db`** (`server/fleet_db.py`) has an ordered tuple `MIGRATIONS`.
+  Each step runs in one transaction together with its `PRAGMA user_version`
+  bump. A file whose version is newer than the code is refused and never
+  written (`FleetDbTooNew`), which is what keeps the previous release safe
+  on migrated state. Foreign keys are enabled per connection and the file
+  is created mode 0600. Migration runs as an explicit deploy step
+  (`server/fleet_migrate.py`) and again on `connect()`.
+- **`history.db`** (`server/history_db.py`) uses idempotent
+  `CREATE TABLE IF NOT EXISTS` statements plus guarded `ALTER TABLE ... ADD
+  COLUMN` steps that tolerate a "duplicate column name" race. They run once
+  per process for a given file identity, and `user_version` is only ever
+  raised. A newer file is not refused. The reason is concurrency: the poll
+  oneshot and the companion can both open a fresh or older file at the same
+  moment, so the upgrade has to be safe to run twice in parallel, which a
+  transactional, order-enforcing scheme does not give for free.
+
+Decision: **documented, not unified.** This is a provisional default: the
+two contracts differ for a reason, and a shared mechanism would touch the
+two most heavily used modules for no behavioural gain. The owner may
+override it; if so, the only logic worth sharing is the 5000 ms busy
+timeout, the WAL pragma and the `user_version` read.
+
+### Duplicated or overlapping data
+
+Each item below is kept on purpose or is data held for later. Retiring any
+of them needs an owner decision on the end of the rollback period.
+Provisional default: document, do not retire; no schema change.
+
+1. **Legacy identity mirror** (rollback safety net). The enrolment-secret
+   hash and the device token exist in `fleet.db` (`devices`,
+   `pending_devices`) and in `devices.json` / `byos_state.json`. With a
+   migrated `fleet.db` the device server reads `fleet.db`
+   (`effective_registry`, `effective_tokens`); token issue writes both and
+   leaves the legacy file untouched if the `fleet.db` write fails;
+   `devices_cli` changes are mirrored to `fleet.db` one way; the migration
+   reconcile lets the legacy file win on secret and token. This is what lets
+   the previous release keep working on the same state.
+2. **Per-frame registry leftovers** (rollback safety net). Per-frame
+   `manual_resolutions.json`, `airline_name_overrides.json`,
+   `airline_default_types.json` and `devices/<id>/illustration_overrides/`
+   were merged into the fleet root. The runtime resolves the registries
+   through `device_dirs.fleet_root_for` and no longer reads the copies; the
+   backup still includes them.
+3. **`history.db.meta` keys with no production writer** (leftover).
+   `META_PROVIDER_LAST_CALL_PREFIX` and `META_LAST_POLL_TRIGGER` are only
+   referenced by the status-key filter in `server/history_db.py`. The live
+   record of ADS-B request spacing is `request_ledger.json`
+   (`server/request_budget.py`).
+4. **`wake_epochs`** (planned data). Written by the poll cycle, read only by
+   `history_db` itself for de-duplication. It accrues data that no screen
+   uses yet; a test pins that no companion file reads it.
+5. **`legacy-admin` principal** (rollback safety net). The `sessions` table
+   still allows `principal = 'legacy-admin'` although the shared-password
+   sign-in no longer exists. Removing the value needs a schema step and
+   would break the rule that the previous release runs on migrated state.
+6. **Location helpers with no production caller** (leftover). In
+   `server/fleet_db.py`, `delete_location_if_unused`,
+   `count_locations_owned` and `location_usage_counts` have no production
+   caller since the Locations routes were removed; tests still use them.
+7. **Same-named constants** (leftover). File-name constants are defined
+   more than once (`CONFIG_FILENAME` in `server/device_dirs.py` and
+   `DEVICE_CONFIG_FILENAME` in `server/device_config.py`;
+   `REGISTRY_FILE` in the device server and `LEGACY_REGISTRY_FILE` in
+   `server/fleet_migrate.py`; a MAC pattern defined several times, with one
+   case-insensitive variant in the device server). The backup script
+   duplicates the device-id pattern on purpose, so it runs without the
+   `server` package.
+
+### Backup coverage
+
+`deploy/backup/skypane_backup.py` writes one checksummed archive per night.
+Its lists are an allow-list: an entry that is neither included nor in
+`KNOWN_EXCLUDED` is reported as drift on stdout rather than carried silently.
+
+- **Covered:** `fleet.db` and every `history.db` (online copy plus
+  integrity check); every JSON file in `INCLUDE_FILES` and
+  `DEVICE_INCLUDE_FILES`; `firmware/`, `gallery/`, `illustration_overrides/`,
+  `illustration_conflicts/`; the migration markers.
+- **Excluded by design:** the environment file, the firmware signing key and
+  the Caddy configuration and certificates are not under the state root and
+  are never archived; regenerable or short-lived state (last row of the
+  table above) is skipped because the next poll rebuilds it or it expires.
+- **Two noted gaps.** `history.db.meta.caddy_log_offset` is archived while
+  `caddy-access*.log*` is not. After a restore the stored offset can differ
+  from the fresh log; the tailer resets to 0 when the file is smaller than
+  the offset, and re-reading a range is harmless because battery readings
+  are unique on timestamp and value. `check_interval_experiment.json` is not
+  archived; it expires within 72 hours and is re-created with
+  `python3 -m server.check_interval set`.
+
+### Connections and locking
+
+- `fleet_db.connect` opens a connection per call with a 5000 ms busy
+  timeout, WAL and foreign keys on. Writes use the `transaction()` helper
+  (`BEGIN IMMEDIATE`), so a check-then-write never runs without the write
+  lock. The device server opens `connect_readonly` per request, which never
+  creates or migrates the file.
+- `history_db.connection_scope` shares one connection per thread inside the
+  scope and opens per call outside it. Read paths open the file with
+  `mode=ro` and `query_only`. Schema setup runs once per process per file
+  identity.
+- File locks use `fcntl.flock` through `atomic_io.exclusive_lock`:
+  `poll.lock` (per frame directory), `calendar_rules.lock`,
+  `device_config.lock`, `request_ledger.lock`, the route-cache lock and
+  `registry.lock` (firmware). Documented order: in-process
+  `threading.Lock`, then `poll.lock`, then `calendar_rules.lock`;
+  `device_config.lock` is never taken while another is held. No deadlock
+  was found by reading the code and nothing needs to change.
+
 ## Deliberate constraints
 
 These are choices, not omissions:

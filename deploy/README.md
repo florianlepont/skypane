@@ -884,6 +884,12 @@ logged as drift rather than silently skipped or silently included. Each
 run writes a checksummed `skypane-state-<UTC timestamp>.tar.gz` and keeps
 the newest 14 on the VPS.
 
+**What the archive covers and misses.** The "Persistent state" section of
+`ARCHITECTURE.md` lists every store with its owner and whether it is archived.
+Deliberately outside the archive: `skypane.env`, the firmware signing key, the
+Caddy configuration and certificates, and the `caddy-access.log` files. The
+security review of these files is the Phase 66 audit (`66-AUDIT.md`).
+
 **Per-device directories.** Devices beyond the live frame live in
 `<state_dir>/devices/<id>/` (id: `d_` plus 8 lowercase hex characters) with
 the same file set as the root; the live frame stays at the root and is never
