@@ -325,6 +325,23 @@ def test_battery_trend_timestamps_show_concise_format(tmp_path):
     assert " ago)" in rendered
 
 
+def test_battery_trend_ages_read_against_the_page_now_not_the_wall_clock(tmp_path, monkeypatch):
+    """the readings table's ages come from the render's own `now`: a wall clock
+    a minute ahead of it (a stalled runner) must not change any rendered age"""
+    base = shp.now()
+    readings = [
+        (shp.iso(base - timedelta(minutes=2)), 4200),
+        (shp.iso(base - timedelta(minutes=1)), 4190),
+        (shp.iso(base), 4180),
+    ]
+    shp.seed_device_health(str(tmp_path), readings)
+    monkeypatch.setattr(
+        history_db, "utc_now_iso", lambda: shp.iso(base + timedelta(seconds=61)))
+    rendered = health_page_composition.render(shp.ctx(str(tmp_path), now_value=shp.iso(base)))
+    for ts, _mv in readings:
+        assert layout.concise_timestamp_html(ts, shp.iso(base)) in rendered
+
+
 def test_battery_readings_are_shown_open_after_chart(tmp_path):
     """the readings table is shown open under its heading, and
     the chart precedes it"""

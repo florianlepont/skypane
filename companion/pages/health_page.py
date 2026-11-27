@@ -375,7 +375,7 @@ def health_state_from_signals(signals, curve=None):
     pipeline_detail_html = _pipeline_timestamp_only(
         inputs["pipeline_ts"], inputs["last_detection"], now)
     battery_html, _battery_state_unused = _battery_section(
-        inputs["trend_rows"], inputs["daily_rows"], curve)
+        inputs["trend_rows"], inputs["daily_rows"], curve, now=now)
     # Threaded through the returned dict rather than as a third
     # _battery_section() return value: that function's 2-tuple return is
     # directly unpacked by a pinned harness check.
@@ -510,7 +510,7 @@ def _battery_body_html(battery_html):
         BATTERY_SECTION_CLASS, BATTERY_SECTION_CLASS, battery_html)
 
 
-def _battery_section(trend_rows, daily_rows=None, curve=None):
+def _battery_section(trend_rows, daily_rows=None, curve=None, now=None):
     """Returns `(markup, state)` for the Battery row's details. `state`
     drives both the card-edge status modifier and
     `collect_anomalies()`'s abnormal-drop signal. The chart plots
@@ -519,7 +519,8 @@ def _battery_section(trend_rows, daily_rows=None, curve=None):
     `trend_rows`, since averaging would hide the abnormal drop the scan
     exists to catch. Empty history returns `"ok"`, not `"warn"`: an absence
     of readings must not make `collect_anomalies()` assert a drop that
-    never happened.
+    never happened. `now` is the page's own render instant, so every age
+    on the page reads against one clock; it defaults to the real clock.
     """
     if trend_rows is _DB_UNAVAILABLE:
         return _unavailable_block(), "ok"
@@ -534,7 +535,7 @@ def _battery_section(trend_rows, daily_rows=None, curve=None):
     # keeps this row's state and health_signals()'s severity
     # input reading identically from the same two early-exit cases.
     state = _battery_state(trend_rows, daily_rows, curve)
-    now = history_db.utc_now_iso()
+    now = now or history_db.utc_now_iso()
     # One predicate decides both the series and the caption, so they can
     # never disagree.
     plot_daily = _battery_daily_series_usable(daily_rows)
