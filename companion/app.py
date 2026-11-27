@@ -821,6 +821,9 @@ class Handler(
         payload = gallery_bytes(device.state_dir, requested)
         if payload is None:
             return self.send_html(404, self._not_found_page())
+        # A frame with a mat window shows only the part the mat leaves visible:
+        # the strips that fill the hidden edges of the stored image are cut off.
+        payload = theme_preview.visible_part_png(payload, device_scope.profile_for(device))
         # This route sits behind the access gate in _dispatch(), so it
         # deliberately relies on send_bytes()'s non-shared (private)
         # default rather than opting into shared cacheability.

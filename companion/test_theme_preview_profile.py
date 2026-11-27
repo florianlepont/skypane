@@ -234,3 +234,44 @@ def test_settings_pages_size_pictures_from_the_frame_profile(make_app_server, pa
         assert images, page
         for size, dims in images:
             assert dims == theme_preview.frame_preview_pixel_size(profile, size), (page, size)
+
+
+def _panel_png(size, colour=(10, 20, 30)):
+    buffer = io.BytesIO()
+    Image.new("RGB", size, colour).save(buffer, format="PNG")
+    return buffer.getvalue()
+
+
+def test_a_stored_panel_image_is_cut_to_the_mat_window():
+    window = LANDSCAPE.visible_window
+    cut = theme_preview.visible_part_png(_panel_png((LANDSCAPE.width, LANDSCAPE.height)), LANDSCAPE)
+    assert _size(cut) == (window.width, window.height)
+
+
+def test_a_stored_panel_image_is_left_alone_when_it_cannot_be_cut():
+    full = _panel_png((LANDSCAPE.width, LANDSCAPE.height))
+    assert theme_preview.visible_part_png(full, LEGACY) == full
+    other_size = _panel_png((1200, 1600))
+    assert theme_preview.visible_part_png(other_size, LANDSCAPE) == other_size
+    assert theme_preview.visible_part_png(b"not an image", LANDSCAPE) == b"not an image"
+
+
+def test_gallery_route_serves_a_frame_with_a_mat_window_cut_to_the_window(
+        app_server_in_process, monkeypatch):
+    import os
+
+    from companion import device_scope
+    from companion_app_server import http_request, login
+
+    server = app_server_in_process
+    session = login(server)
+    window = LANDSCAPE.visible_window
+    gallery = os.path.join(server.state_dir, "gallery")
+    os.makedirs(gallery, exist_ok=True)
+    with open(os.path.join(gallery, "2026-11-27T07-00-00Z.png"), "wb") as fh:
+        fh.write(_panel_png((LANDSCAPE.width, LANDSCAPE.height)))
+    monkeypatch.setattr(device_scope, "profile_for", lambda device: LANDSCAPE)
+    status, _, body = http_request(
+        server.url("/gallery/2026-11-27T07-00-00Z.png"), cookie=session)
+    assert status == 200
+    assert _size(body) == (window.width, window.height)

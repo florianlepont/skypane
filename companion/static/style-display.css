@@ -229,6 +229,7 @@ a.calendar-manage--primary:hover {
 /* A landscape frame's picture and its bezel take the canvas's 5:3 shape. */
 .look-frame__image[data-frame-shape="landscape"] {
   aspect-ratio: 5 / 3;
+  object-fit: cover;
 }
 
 /* The whole picture is the opener; its accessible name says so. */
@@ -1153,6 +1154,7 @@ button.rule-suggestion-chip {
 
 .look-pick__preview[data-frame-shape="landscape"] {
   aspect-ratio: 5 / 3;
+  object-fit: cover;
 }
 
 .look-pick__name {

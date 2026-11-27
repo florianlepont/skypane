@@ -137,6 +137,25 @@ def _visible_box(profile):
     return (window.x, window.y, window.x + window.width, window.y + window.height)
 
 
+def visible_part_png(payload, profile):
+    """`payload` (PNG bytes of a full panel image) cut to the part of the
+    panel `profile`'s mat leaves visible. Returned unchanged for a profile
+    without a window, for an image that is not the panel's size (an older
+    archive from another hardware type) and for bytes that are not an image."""
+    box = _visible_box(profile)
+    if box is None:
+        return payload
+    try:
+        with Image.open(io.BytesIO(payload)) as image:
+            if image.size != (profile.width, profile.height):
+                return payload
+            buffer = io.BytesIO()
+            image.convert("RGB").crop(box).save(buffer, format="PNG")
+            return buffer.getvalue()
+    except Exception:
+        return payload
+
+
 def chip_crop_box(profile=None):
     """The theme chip's crop box inside `profile`'s canvas. With a window it
     is as wide as the window and keeps the chip's shape, centred on the same

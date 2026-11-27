@@ -649,6 +649,7 @@ html[data-ui-theme="dark"] {
 /* A landscape frame's picture keeps its own 5:3 shape (the 800x480 canvas). */
 .preview-frame__image[data-frame-shape="landscape"] {
   aspect-ratio: 5 / 3;
+  object-fit: cover;
 }
 
 /* The app's only @keyframes block for an ambient pulse, shared by two
