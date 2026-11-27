@@ -101,23 +101,6 @@ def resolve_state(next_wake_iso, effective_interval_s, hold_reason, now):
 LONG_OVERDUE_INTERVALS = 3
 
 
-def is_long_overdue(next_wake_iso, effective_interval_s, hold_reason, now):
-    """True once `now` is more than `LONG_OVERDUE_INTERVALS` effective wake
-    intervals past the expected wake. A held (quiet-hours) frame is never
-    overdue; malformed input is simply not overdue. Never raises.
-    """
-    if hold_reason == wake.HOLD_QUIET_HOURS:
-        return False
-    if not next_wake_iso or not effective_interval_s:
-        return False
-    next_wake = _parse_reference(next_wake_iso)
-    now_parsed = _parse_reference(now)
-    if next_wake is None or now_parsed is None:
-        return False
-    cutoff = next_wake + timedelta(seconds=LONG_OVERDUE_INTERVALS * effective_interval_s)
-    return now_parsed > cutoff
-
-
 def headline_template(state):
     """The headline template for `state`. STATE_UNKNOWN degrades to
     HEADLINE_DUE, like any unrecognised state. Never raises.

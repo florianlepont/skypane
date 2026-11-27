@@ -106,14 +106,6 @@ def scope_for(subject, device):
         rows, other_owner, location_id, name, subject.may_write)
 
 
-def location_scope(handler, device):
-    """`scope_for()` for a GET; an unreadable fleet.db reads as no locations."""
-    try:
-        return scope_for(subject_for(handler, device), device)
-    except sqlite3.Error:
-        return detection_page.LocationScope()
-
-
 def _runway_errors(form):
     """Field -> message for a runway-mode post; empty when it is valid."""
     airport = form.get("airport", "")

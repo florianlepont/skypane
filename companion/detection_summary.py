@@ -6,7 +6,7 @@ agree. Nothing here reads storage: callers pass the selection
 (`server.detection.current_selection()`) and the name of the device's
 usable location, if it has one.
 """
-from companion import i18n, prefs, ui_components
+from companion import i18n, prefs
 from companion.pages import detection_page
 from server import airports, detection
 
@@ -71,29 +71,6 @@ def is_fail_safe(selection, location_name):
     """A position setting whose device has no usable location: the frame
     keeps following the default Orly runway."""
     return selection["mode"] == detection.POSITION_MODE and location_name is None
-
-
-def summary_values(selection, location_name):
-    """(value, detail, pill, tag, empty) texts for the saved setting. The
-    pill is markup; the other four are plain text for the caller to escape."""
-    if selection["mode"] == detection.POSITION_MODE and location_name is not None:
-        display_id = detection.position_display_id(selection["radius_km"])
-        value = i18n.t(SUMMARY_POSITION_VALUE) % {
-            "radius": selection["radius_km"], "location": location_name}
-        return (value, i18n.t(SUMMARY_POSITION_DETAIL), "",
-                detection.tag_text(display_id), detection.empty_heading(display_id))
-    if selection["mode"] == detection.POSITION_MODE:
-        selection = detection.current_selection({})
-    icao, designator = selection["airport"], selection["runway"]
-    airport = airports.find_airport(icao)
-    display_id = display_id_for(icao, designator)
-    value = i18n.t(SUMMARY_RUNWAY_VALUE) % {
-        "runway": designator, "airport": airport_label(airport)}
-    number = LEGACY_PILL_NUMBER.get(display_id)
-    pill = (
-        ui_components.pill_html(i18n.t(LEGACY_PILL) % {"number": number}) if number else "")
-    return (value, i18n.t(SUMMARY_RUNWAY_DETAIL), pill,
-            detection.tag_text(display_id), detection.empty_heading(display_id))
 
 
 def home_place_text(device_cfg, place):

@@ -157,20 +157,6 @@ def _block(heading_msg, items_html, extra_class="", slug="", heading=""):
             '<ul class="group">', '<ul class="group fleet-group">', 1)
 
 
-def _cards_block(heading, items_html, extra_class, slug):
-    """One labelled block whose items are separate glass cards, one per item,
-    stacked under the single label (the Health page: a card per topic)."""
-    if not items_html:
-        return ""
-    from companion import ui_groups
-    cards = "".join(
-        '<ul class="group fleet-group">%s</ul>' % item for item in items_html)
-    return '<section class="group-block fleet-block%s" id="%s%s" aria-labelledby="%s">%s%s</section>' % (
-        extra_class, fleet_tiles.SECTION_ID_PREFIX, slug, "fleet-block-" + slug,
-        ui_groups.section_label(heading, "fleet-block-" + slug),
-        '<div class="fleet-cards">%s</div>' % cards)
-
-
 def _tiles_block(heading_msg, content_html, extra_class, slug):
     """One labelled block whose content is its own run of tiles (the Settings
     form), with no glass group around it."""
