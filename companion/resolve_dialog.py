@@ -3,16 +3,10 @@
 The dialog, its data-view-panel-* trigger vocabulary and the two-step flow (name, then artwork)
 are owned by `companion/pages/airlines_page.py` and `companion/static/panel-lookup.js`. This
 module adds only what a second page needs: triggers for its own links, the same dialog with a
-hidden `return` field on the name form, a hidden trigger that reopens the dialog on the artwork
-step, and the allow-list that says where a finished flow returns to. Stdlib plus the companion
-modules below; no server package import beyond the manual-resolutions and illustrations stores
-airlines_page already reads.
+hidden `return` field on the name form, and the allow-list that says where a finished flow
+returns to. Stdlib plus the companion modules below.
 """
-import companion.device_scope as device_scope
-import companion.i18n as i18n
-from companion.layout import escape_html
 from companion.pages import airline_sheet, airlines_page as ap
-from server.plane import enrich, illustrations, manual_resolutions
 
 # Where a finished resolve flow lands. The value travels as a hidden form field (name step) or a
 # query parameter (artwork step) and is only ever looked up in `_RETURN_ROUTES`; a value outside
@@ -60,43 +54,6 @@ def _trigger_attrs_html(escaped_values):
         raise KeyError(sorted(unknown))
     return "".join(
         '%s="%s" ' % (name, escaped_values.get(name, "")) for name in _TRIGGER_VOCABULARY)
-
-
-def step_b_trigger_html(state_dir, prefix_raw, return_target):
-    """A hidden trigger that reopens the dialog on the artwork step for a prefix the owner has
-    just named, or `""`. Emitted only for a prefix with an active manual entry whose artwork is
-    still missing, judged from the registry alone; the query value is never echoed, so an
-    unknown one matches nothing."""
-    prefix = manual_resolutions.normalise_prefix(prefix_raw)
-    if prefix is None:
-        return ""
-    entry = manual_resolutions.load_manual_resolutions(state_dir).get(prefix)
-    if not isinstance(entry, dict) or enrich.static_airline_name_for_prefix(prefix):
-        return ""
-    name = entry.get("airline_name")
-    key = manual_resolutions.illustration_key_for_name(name)
-    if not key or illustrations.has_pictures(key, state_dir):
-        return ""
-    query = _return_query(return_target)
-    upload_action = device_scope.scoped(
-        "%s%s.png%s" % (
-            ap.ILLUSTRATION_ROUTE_PREFIX, escape_html(key), "?" + query if query else ""),
-        "POST")
-    heading = i18n.t(ap.STEP_B_HEADING_TEMPLATE) % escape_html(name)
-    attrs = _trigger_attrs_html({
-        ap._VIEW_PANEL_HEADING_ATTR: escape_html(i18n.t(ap.STEP_B_TITLE)),
-        ap._VIEW_PANEL_CAPTION_ATTR: escape_html(name),
-        ap._VIEW_PANEL_MODE_ATTR: ap._VIEW_PANEL_MODE_NEEDS_ARTWORK,
-        ap._VIEW_PANEL_MANUAL_ATTR: ap._VIEW_PANEL_MANUAL_ACTIVE,
-        ap._VIEW_PANEL_RESOLVE_PREFIX_ATTR: escape_html(prefix),
-        ap._VIEW_PANEL_UPLOAD_ACTION_ATTR: upload_action,
-        ap._VIEW_PANEL_DELETE_ACTION_ATTR: ap._manual_delete_action(prefix),
-        RETURN_ATTR: escape_html(return_target),
-    })
-    return '<a hidden href="%s?%s=%s" %saria-label="%s">%s</a>' % (
-        device_scope.scoped(ap.MANAGE_ROUTE), ap.RESOLVE_QUERY_PARAM, escape_html(prefix),
-        attrs, heading,
-        escape_html(name))
 
 
 def dialog_html():
