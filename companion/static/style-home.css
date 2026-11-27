@@ -293,6 +293,9 @@
 
 .home-flight__picture .preview-frame__image[data-frame-shape="landscape"] {
   aspect-ratio: 5 / 3;
+  /* A picture cut to the mat window is a little narrower than 5:3: fill the
+   * frame and let its rounded corners crop the rest. */
+  object-fit: cover;
 }
 
 .home--offline .home-strip__frame,
@@ -699,6 +702,10 @@
 .home-strip--landscape .home-strip__frame {
   width: 168px;
   aspect-ratio: 5 / 3;
+}
+
+.home-strip--landscape .home-strip__frame img {
+  object-fit: cover;
 }
 
 .home-strip__tile figcaption {
