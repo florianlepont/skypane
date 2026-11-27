@@ -49,6 +49,7 @@ from typing import Any
 
 from server import atomic_io, history_db
 from server.plane import airline_default_types, fleet_registries, illustrations
+from server.plane.fleet_default_types import _read_json
 
 MARKER_FILENAME = "airline_default_types_set_migration.json"
 ARCHIVE_FILENAME = "airline_default_types_set.json"
@@ -70,14 +71,6 @@ class SetPlan:
     @property
     def needs_write(self) -> bool:
         return not self.done and bool(self.to_set or self.unresolved)
-
-
-def _read_json(path: str) -> Any:
-    try:
-        with open(path, encoding="utf-8") as fh:
-            return json.load(fh)
-    except (OSError, ValueError):
-        return None
 
 
 def _candidate_keys(root: str) -> list[str]:
