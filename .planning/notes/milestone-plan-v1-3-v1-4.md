@@ -44,6 +44,9 @@ Theme: the frame can show photos, not only planes.
   domain or CC0, and partnerships).
 - SEED-016: a power-saving mode chosen by the user (it follows the wake interval
   per mode of photo mode; needs the Phase 47.1 measurements).
+- SEED-023 (last step of v1.4, moved from v1.2 Phase 70.1 on 2026-11-27): the owner makes the
+  repository private himself, after the pre-flip gate, and the post-switch checks
+  are run. Until then the repository stays public with CI on hosted runners.
 - The screens added by photo mode follow the design system (the console's visual
   work is Phase 68 and Phase 68.1 of v1.2).
 
