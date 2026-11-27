@@ -9,7 +9,7 @@ key-files:
 
 # Phase 66 Plan 03: Device protocol and firmware section Summary
 
-Audit section 02 written from the section template: scope, method, checks performed, medium and low items with recommendations, follow-ups. Result is `pending consolidation`.
+Audit section 02 written from the section template: scope, method, checks performed, medium and low items with recommendations, follow-ups. Result is `medium/low recorded`.
 
 ## Work done
 

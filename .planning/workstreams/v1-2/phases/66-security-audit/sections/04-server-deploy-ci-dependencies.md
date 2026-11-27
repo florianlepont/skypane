@@ -27,7 +27,7 @@ Code and configuration reading only. No real environment file was opened (the ex
 
 ## Result
 
-pending consolidation
+medium/low recorded
 
 ## Medium and low items
 

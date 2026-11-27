@@ -100,7 +100,7 @@ No value, key fragment or hash prefix is recorded. "Location" is a place name on
 
 ## Result
 
-pending consolidation
+medium/low recorded
 
 ## Medium and low items
 

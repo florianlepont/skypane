@@ -44,7 +44,7 @@ Working rules for every audit plan of this phase. Each plan reads this document 
 
 ## Section result status
 
-Every section file uses exactly one Result value, `pending consolidation`, in all areas. The final consolidation rewrites all sections at once to `no finding` or `medium/low recorded`. The identical status in every section means no section reveals which area holds a held-back item.
+Every section file uses exactly one Result value, `no finding` or `medium/low recorded`. The consolidation sets the values of all sections in one change, and the audit document repeats them, so no section stands out from the others.
 
 ## Push rule
 

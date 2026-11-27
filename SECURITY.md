@@ -46,3 +46,9 @@ secret — in its `secret` NVS partition, written directly by
 `firmware/provision.sh` over USB and never compiled into a firmware
 image; the tracked `*.example` files hold placeholders. If you ever spot
 something that looks like a real secret, please report it as above.
+
+## Audit and rotation
+
+The security audit, the rotation steps for each credential, the smallest
+token scopes, and the remaining risks and follow-ups are in
+`.planning/workstreams/v1-2/phases/66-security-audit/66-AUDIT.md`.

@@ -17,7 +17,7 @@ Review of the companion input-handling and photo-privacy area was recorded in on
 
 ## Work done
 
-- Section file written with scope, method, checks, a recommendations table and a follow-up; Result is `pending consolidation`.
+- Section file written with scope, method, checks, a recommendations table and a follow-up; Result is `medium/low recorded`.
 - Targeted companion tests and the suite-guard tests passed locally. Browser tests rely on CI.
 - No source or test file was changed. Nothing was deployed or contacted.
 

@@ -31,7 +31,7 @@ No test asserting that an administrator cannot fetch a device image was added: t
 
 ## Result
 
-pending consolidation
+medium/low recorded
 
 ## Medium and low items
 

@@ -24,7 +24,7 @@ One public-safe audit section covering the repository scans, rotation and token 
 - Completed the local history, then ran the tree and history scans with output kept outside the repository.
 - Wrote the section with counts per class, a rotation and scope table, and the backup, log, database and data-source checks.
 - Ran the targeted local tests for the scan tool, backup job, backup gate, key installer and atomic writer: all passed.
-- The section Result is `pending consolidation`; the scan reports no hit in the section file.
+- The section Result is `medium/low recorded`; the scan reports no hit in the section file.
 
 ## Commits
 

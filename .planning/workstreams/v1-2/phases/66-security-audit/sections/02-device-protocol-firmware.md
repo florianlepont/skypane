@@ -38,7 +38,7 @@ Local tests run (all passed):
 
 ## Result
 
-pending consolidation
+medium/low recorded
 
 ## Medium and low items
 

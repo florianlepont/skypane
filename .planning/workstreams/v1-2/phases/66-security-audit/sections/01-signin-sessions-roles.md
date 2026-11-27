@@ -34,7 +34,7 @@ Code and configuration reading only. No request was sent to any host. Existing l
 
 ## Result
 
-pending consolidation
+medium/low recorded
 
 ## Medium and low items
 

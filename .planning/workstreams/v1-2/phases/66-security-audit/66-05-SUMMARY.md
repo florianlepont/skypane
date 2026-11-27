@@ -17,7 +17,7 @@ Review of the server, deploy pipeline, CI and dependency area was recorded in on
 
 ## Work done
 
-- Section file written with scope, method, checks and a recommendations table; Result is `pending consolidation`.
+- Section file written with scope, method, checks and a recommendations table; Result is `medium/low recorded`.
 - No pipeline, deploy or lock file was changed. Nothing was run, deployed or contacted.
 
 ## Deviations from Plan
