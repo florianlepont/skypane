@@ -42,6 +42,8 @@ import ssl
 import threading
 import time
 import urllib.parse
+from collections.abc import Callable, Iterator, Mapping
+from typing import Any
 
 import requests
 
@@ -77,7 +79,15 @@ FetchResult = collections.namedtuple("FetchResult", "status_code content headers
 _CHUNK_SIZE = 8192
 
 
-def bounded_get(url, *, headers=None, timeout, deadline_s, max_bytes, clock=None):
+def bounded_get(
+    url: str,
+    *,
+    headers: Mapping[str, str] | None = None,
+    timeout: float | tuple[float, float],
+    deadline_s: float,
+    max_bytes: int,
+    clock: Callable[[], float] | None = None,
+) -> FetchResult:
     """GET `url` streamed, bound by a total wall-clock deadline
     (`deadline_s` seconds from this call's start) in addition to
     `timeout`'s own per-connect/per-read bound, and by `max_bytes` of
@@ -127,7 +137,7 @@ def bounded_get(url, *, headers=None, timeout, deadline_s, max_bytes, clock=None
         response.close()
 
 
-def address_is_public(ip_text):
+def address_is_public(ip_text: Any) -> bool:
     """`True` when `ip_text` parses as a public unicast address, `False`
     otherwise -- including on a parse failure.
 
@@ -151,7 +161,12 @@ def address_is_public(ip_text):
     return True
 
 
-def resolve_public_addresses(hostname, port, resolver=None, timeout_s=None):
+def resolve_public_addresses(
+    hostname: str,
+    port: int,
+    resolver: Callable[..., Any] | None = None,
+    timeout_s: float | None = None,
+) -> list[str]:
     """Resolve `hostname` exactly once (`resolver`, or `socket.getaddrinfo`
     looked up at call time) and return its addresses, de-duplicated in
     answer order, only if every one of them is a public unicast address.
@@ -172,6 +187,7 @@ def resolve_public_addresses(hostname, port, resolver=None, timeout_s=None):
     finishes (or not) in the background and its answer is discarded.
     """
     getaddrinfo = resolver or socket.getaddrinfo
+    infos: Any
     try:
         if timeout_s is None:
             infos = getaddrinfo(hostname, port, type=socket.SOCK_STREAM)
@@ -201,14 +217,16 @@ def resolve_public_addresses(hostname, port, resolver=None, timeout_s=None):
     return addresses
 
 
-def _getaddrinfo_within(getaddrinfo, hostname, port, timeout_s):
+def _getaddrinfo_within(
+    getaddrinfo: Callable[..., Any], hostname: str, port: int, timeout_s: float
+) -> Any:
     """`getaddrinfo(hostname, port)` bounded by `timeout_s` seconds of
     wall-clock time; raises `DeadlineExceeded` when the lookup is still
     running, and re-raises whatever the lookup itself raised.
     """
-    outcome = {}
+    outcome: dict[str, Any] = {}
 
-    def _lookup():
+    def _lookup() -> None:
         try:
             outcome["infos"] = getaddrinfo(hostname, port, type=socket.SOCK_STREAM)
         except BaseException as exc:
@@ -227,7 +245,7 @@ def _getaddrinfo_within(getaddrinfo, hostname, port, timeout_s):
     return outcome["infos"]
 
 
-def _time_left(deadline, clock, what):
+def _time_left(deadline: float, clock: Callable[[], float], what: str) -> float:
     """Seconds left before `deadline`, raising `DeadlineExceeded` naming
     `what` once none is left -- never a zero or negative socket timeout,
     which would switch the socket to non-blocking mode instead of failing.
@@ -238,7 +256,7 @@ def _time_left(deadline, clock, what):
     return left
 
 
-def _default_ssl_context():
+def _default_ssl_context() -> ssl.SSLContext:
     """`ssl.create_default_context()` unchanged -- hostname checking on,
     `CERT_REQUIRED`. A separate function so a test can patch it, or a
     caller can pass its own `ssl_context=` (e.g. a fake in tests).
@@ -257,7 +275,15 @@ class PinnedResponse:
     `is_redirect` only reports one is present.
     """
 
-    def __init__(self, http_response, sock, *, deadline, clock, timeout):
+    def __init__(
+        self,
+        http_response: http.client.HTTPResponse,
+        sock: Any,
+        *,
+        deadline: float,
+        clock: Callable[[], float],
+        timeout: float,
+    ) -> None:
         self._http_response = http_response
         self._sock = sock
         self._deadline = deadline
@@ -272,7 +298,7 @@ class PinnedResponse:
             and self.headers.get("Location") is not None
         )
 
-    def iter_content(self, chunk_size=8192):
+    def iter_content(self, chunk_size: int = 8192) -> Iterator[bytes]:
         """Yield the body in `chunk_size` reads. Before each read, clamps
         the underlying socket's timeout to `min(timeout, time left)` and
         raises `DeadlineExceeded` once no time is left -- the same total
@@ -290,10 +316,10 @@ class PinnedResponse:
                 return
             yield chunk
 
-    def getcode(self):
+    def getcode(self) -> int:
         return self.status_code
 
-    def close(self):
+    def close(self) -> None:
         self._http_response.close()
 
 
@@ -306,18 +332,32 @@ class _PinnedHTTPSConnection(http.client.HTTPSConnection):
     exactly the DNS-rebinding gap this module closes).
     """
 
-    def __init__(self, hostname, port, pinned_address, *, timeout, create_connection, ssl_context):
+    def __init__(
+        self,
+        hostname: str,
+        port: int,
+        pinned_address: str,
+        *,
+        timeout: float,
+        create_connection: Callable[..., Any],
+        ssl_context: ssl.SSLContext,
+    ) -> None:
         super().__init__(hostname, port, timeout=timeout)
         self._pinned_address = pinned_address
         self._create_connection = create_connection
         self._ssl_context = ssl_context
 
-    def connect(self):
+    def connect(self) -> None:
         sock = self._create_connection((self._pinned_address, self.port), self.timeout)
         self.sock = self._ssl_context.wrap_socket(sock, server_hostname=self.host)
 
 
-def _resolve_pinned_target(url, deadline, clock, resolver):
+def _resolve_pinned_target(
+    url: str,
+    deadline: float,
+    clock: Callable[[], float],
+    resolver: Callable[..., Any] | None,
+) -> tuple[str, int, str, list[str]]:
     """Parse `url` (`https` only), resolve its hostname to a checked
     address list, and return `(hostname, port, path, addresses)`.
 
@@ -348,7 +388,15 @@ def _resolve_pinned_target(url, deadline, clock, resolver):
 
 
 def _open_pinned_connection(
-        hostname, port, addresses, timeout, deadline, clock, create_connection, ssl_context):
+        hostname: str,
+        port: int,
+        addresses: list[str],
+        timeout: float,
+        deadline: float,
+        clock: Callable[[], float],
+        create_connection: Callable[..., Any],
+        ssl_context: ssl.SSLContext,
+) -> _PinnedHTTPSConnection:
     """Try each of `addresses` in order, returning the first connected
     `_PinnedHTTPSConnection`. A refused address is not itself a safety
     failure -- it just means that address is not currently reachable;
@@ -381,7 +429,18 @@ def _open_pinned_connection(
     return conn
 
 
-def _send_pinned_request(conn, method, path, hostname, port, headers, body, timeout, deadline, clock):
+def _send_pinned_request(
+        conn: _PinnedHTTPSConnection,
+        method: str,
+        path: str,
+        hostname: str,
+        port: int,
+        headers: Mapping[str, str] | None,
+        body: bytes | None,
+        timeout: float,
+        deadline: float,
+        clock: Callable[[], float],
+) -> http.client.HTTPResponse:
     """Send `method path` over the already-connected `conn`, and return
     its `http.client.HTTPResponse`.
 
@@ -423,18 +482,18 @@ def _send_pinned_request(conn, method, path, hostname, port, headers, body, time
 
 
 def pinned_request(
-    method,
-    url,
+    method: str,
+    url: str,
     *,
-    headers=None,
-    body=None,
-    timeout,
-    deadline_s,
-    resolver=None,
-    create_connection=None,
-    ssl_context=None,
-    clock=None,
-):
+    headers: Mapping[str, str] | None = None,
+    body: bytes | None = None,
+    timeout: float,
+    deadline_s: float,
+    resolver: Callable[..., Any] | None = None,
+    create_connection: Callable[..., Any] | None = None,
+    ssl_context: ssl.SSLContext | None = None,
+    clock: Callable[[], float] | None = None,
+) -> PinnedResponse:
     """Issue one HTTPS request whose connection is pinned to an address
     `resolve_public_addresses` already checked -- the DNS answer the
     safety check saw is the address the socket connects to, always, since
