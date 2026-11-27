@@ -22,14 +22,19 @@ def _run(*argv):
 
 
 def test_a_baseline_sized_report_passes(tmp_path, capsys):
-    path = _report(tmp_path, "a.xml", 12821)
+    path = _report(tmp_path, "a.xml", gates.MIN_EXECUTED)
     assert _run("totals", path) == 0
-    assert "12821 executed" in capsys.readouterr().out
+    assert f"{gates.MIN_EXECUTED} executed" in capsys.readouterr().out
+
+
+def test_one_executed_test_below_the_floor_fails(tmp_path):
+    path = _report(tmp_path, "a.xml", gates.MIN_EXECUTED - 1)
+    assert _run("totals", path) == 1
 
 
 def test_several_files_are_summed(tmp_path):
-    first = _report(tmp_path, "a.xml", 10000)
-    second = _report(tmp_path, "b.xml", 2821, wrapped=False)
+    first = _report(tmp_path, "a.xml", gates.MIN_EXECUTED - 1000)
+    second = _report(tmp_path, "b.xml", 1000, wrapped=False)
     assert _run("totals", first, second) == 0
     assert _run("totals", first) == 1
 
