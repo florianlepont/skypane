@@ -16,12 +16,16 @@ take a few days.
   python3 -m venv server/.venv
   server/.venv/bin/pip install --require-hashes -r server/requirements-dev.txt
   ```
-- Run `./scripts/run-all-tests.sh` and `server/.venv/bin/ruff check .`
+- Keep each change small and reviewable, with its own check, and never mix
+  a cleanup or refactor with a feature.
+- Run `./scripts/run-all-tests.sh`, `server/.venv/bin/ruff check .`,
+  `server/.venv/bin/mypy`, `scripts/check_comment_history.py check` and
+  `scripts/check_function_size.py check --max 80 server stub-server`
   before opening a pull request; CI runs the same commands. To run a
   subset, use pytest directly:
   `server/.venv/bin/python3 -m pytest <path> -k <expr>`.
-- CI runs these jobs in parallel: static checks (ruff, mypy, guards,
-  shellcheck, systemd scoring, attribution), the non-browser tests in
+- CI runs these jobs in parallel: static checks (ruff, mypy, the function-size and
+  comment-history guards, shellcheck, systemd scoring, attribution), the non-browser tests in
   shards, and the browser tests in shards. One aggregate check named
   `Lint, test, coverage, attribution` needs all of them and checks the
   JUnit totals (no failures, executed floor, skipped ceiling); it is the

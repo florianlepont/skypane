@@ -1,28 +1,29 @@
-# server — SkyPane Phase 2 plane-view server
+# server — SkyPane plane-view server
 
 The always-on backend that turns real ADS-B traffic over Orly runway 3 into
 the 960,000-byte Spectra 6 panel image the device downloads and displays
-(PLANE-01/02/03). This is the real server referenced in `.claude/CLAUDE.md`
-and `.planning/phases/02-plane-view-end-to-end-slice/02-RESEARCH.md` —
-`stub-server/byos_server.py` (still vendored, unchanged this plan) implements
-the device-facing protocol; the modules in this directory feed it a freshly
-rendered panel on a schedule.
+(PLANE-01/02/03). `stub-server/byos_server.py` implements the device-facing
+protocol (it is the production device server, `skypane-byos.service`); the
+modules in this directory feed it a freshly rendered panel on a schedule.
+[`ARCHITECTURE.md`](../ARCHITECTURE.md) describes the whole data flow, the
+data stores and the deploy path.
 
 ## Setup
 
-Create the virtualenv and install the two pinned runtime dependencies,
-with hashes enforced:
+Production and CI run Python 3.14 (Ubuntu 26.04's distro `python3`); a
+local virtualenv on an older 3.x also works for the tests. Create the
+virtualenv and install the pinned runtime dependencies, with hashes
+enforced:
 
 ```bash
 python3 -m venv server/.venv
 server/.venv/bin/pip install --require-hashes -r server/requirements.txt
 ```
 
-`Pillow==12.3.0` and `requests==2.34.2` are the only two runtime
-dependencies (pinned versions re-verified against PyPI at execution time
-— see `server/fixtures/README.md` and `02-RESEARCH.md`'s Package
-Legitimacy Audit for why no third-party package needed a human-verify
-gate). Any additional package must go through the same legitimacy check
+`Pillow` and `requests` are the only two direct runtime dependencies; the
+exact versions (currently `pillow==13.0.0` and `requests==2.34.2`, plus
+their transitive pins) are in `server/requirements.txt`, which is the
+source of truth. Any additional package must be checked for legitimacy
 before entering `requirements.in` (then re-locked with
 `scripts/lock-deps.sh`).
 
@@ -48,8 +49,7 @@ Or run the whole suite (server, stub-server, companion) the way CI does:
 `server/poll_loop.py` runs on a **30-second** cadence, matching Phase 1's
 validated sampler interval (`adsb-test/RESULTS.md`) and comfortably inside
 both aggregators' 1 req/s limit given one call per cycle. It is invoked as a
-systemd-timer oneshot script — the timer unit itself lands in plan 02-05, not
-this plan.
+systemd-timer oneshot script (`skypane-poll.timer`, see `deploy/`).
 
 ## Check-interval experiment
 
@@ -93,9 +93,9 @@ in production, driven by systemd units and fronted by Caddy for automatic
 HTTPS — see `deploy/README.md` for the full runbook (provisioning,
 shipping code, verifying TLS, reading logs, rolling back).
 
-**Firmware-side change (provisioning only, no rebuild):** once the server
-is deployed, a device's API base moves from the Phase 1 LAN address
-(`http://192.168.1.42:8642`) to the real `https://<public-host>` base
+**Firmware-side change (provisioning only, no rebuild):** a device's API
+base moves from a LAN address (`http://<lan-host>:8642`, used for bring-up
+against the stub server) to the real `https://<public-host>` base
 recorded in `deploy/README.md` by re-running `firmware/provision.sh
 <serial-port> --wifi-ssid <ssid> --api-base https://<public-host>` — the
 API base lives in the device's own `secret` NVS partition

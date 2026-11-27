@@ -9,13 +9,11 @@ instead of a laptop-local stub. Phase 37 hardened the operational side of
 this same box: an atomic, self-verifying deploy (`activate.sh`), nightly
 off-box backups, systemd sandboxing, and SSH hardening.
 
-**Provider note:** the original plan and its D-P2-06 decision specify
-Hetzner CX22; this deployment instead targets OVH VPS-1, an equivalent
-box (2 vCPU / 4 GB RAM / 40 GB NVMe, Ubuntu 26.04, always-on) at the
-user's explicit request after a live price/locale comparison. Every
-script and unit file below is provider-agnostic (they target "a fresh
-Ubuntu box reachable over SSH"); only this README's prose and the
-one-time human steps changed.
+**Provider note:** the deployment target is OVH VPS-1 (2 vCPU / 4 GB RAM
+/ 40 GB NVMe, Ubuntu 26.04, always-on). An earlier plan named Hetzner CX22;
+that is history only. Every script and unit file below is
+provider-agnostic (they target "a fresh Ubuntu box reachable over SSH"); only
+this README's prose and the one-time human steps are provider-specific.
 
 **SSH login note:** production logs in as the non-root `ubuntu` user with
 passwordless sudo — current Ubuntu cloud images (including this VPS's
