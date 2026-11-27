@@ -874,3 +874,64 @@ class TestArtworkMergeBackup:
                      "illustration_migration.json", "devices/" + _DEV + "/illustration_overrides/ocn.png"):
             assert kept in members, kept
         assert "not in include list" not in capsys.readouterr().out
+
+
+def _seed_via_production_writers(state_dir):
+    """Fill one frame directory only through the code that writes it in
+    production, with placeholder data."""
+    from server import device_config, state_store
+
+    state_dir = str(state_dir)
+    os.makedirs(state_dir, exist_ok=True)
+    state_store.save_poll_state(state_dir, {"placeholder": 1})
+    device_config.save_device_config(state_dir, led_enabled=False)
+    conn = history_db.connect(state_dir)
+    history_db.record_device_health(conn, "2026-09-24T00:00:00Z", battery_mv=3700)
+    conn.close()
+
+
+class TestDriftGuard:
+    def test_state_written_by_production_code_leaves_no_unclassified_file(self, tmp_path, capsys):
+        state_dir = tmp_path / "state"
+        _seed_via_production_writers(state_dir)
+        _seed_fleet_db(state_dir)
+        _seed_via_production_writers(state_dir / "devices" / _DEV)
+
+        rc, archive_dir = _run_backup(tmp_path)
+
+        assert rc == 0
+        assert "not in include list" not in capsys.readouterr().out
+        members = _members(archive_dir / _archive_names(archive_dir)[0])
+        for expected in (
+            "fleet.db", "history.db", "poll_state.json", "device_config.json",
+            "devices/%s/history.db" % _DEV, "devices/%s/poll_state.json" % _DEV,
+            "devices/%s/device_config.json" % _DEV,
+        ):
+            assert expected in members
+
+    def test_a_stray_file_is_reported_as_drift(self, tmp_path, capsys):
+        state_dir = tmp_path / "state"
+        _seed_via_production_writers(state_dir)
+        (state_dir / "unclassified_state.json").write_text("{}")
+
+        rc, _archive_dir = _run_backup(tmp_path)
+
+        assert rc == 0
+        assert "not in include list: unclassified_state.json" in capsys.readouterr().out
+
+    def test_every_persistent_filename_constant_is_backed_up_or_excluded(self):
+        from server import device_config, device_dirs, state_store
+
+        found = []
+        for module in (device_dirs, state_store, device_config):
+            for attr, value in vars(module).items():
+                if attr.endswith("_FILENAME") and isinstance(value, str):
+                    found.append((module.__name__, attr, value))
+        assert found
+        backed_up = set(skypane_backup.INCLUDE_FILES) | set(skypane_backup.DEVICE_INCLUDE_FILES)
+        unclassified = sorted(
+            "%s.%s = %r" % item
+            for item in found
+            if item[2] not in backed_up and not skypane_backup._is_known_excluded(item[2])
+        )
+        assert unclassified == []
