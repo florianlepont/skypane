@@ -207,10 +207,9 @@ Thanks to the volunteers who feed and run these services.
 
 ## Licence
 
-This repository is private and belongs to the owner's personal account.
-Access to the source is by the owner's invitation. The licences below are
-unchanged: they describe the terms under which the code is released to
-whoever receives it.
+This repository belongs to the owner's personal account and is currently
+public. The licences below describe the terms under which the code is
+released to whoever receives it.
 
 SkyPane's own code and documentation are released under the
 [GNU Affero General Public License v3.0](./LICENSE) (AGPL-3.0-only).
@@ -256,10 +255,10 @@ replaced with a generic aircraft.
 
 ## Contributing
 
-The repository is private, so there is no public issue tracker or pull
-request flow. Contributions are made by invitation and sent to the owner
-privately — see [`CONTRIBUTING.md`](./CONTRIBUTING.md), which explains the
-licence terms that apply to contributions.
+There is no public issue tracker or pull request flow. Questions, proposals
+and patches are sent to the owner directly — see
+[`CONTRIBUTING.md`](./CONTRIBUTING.md), which explains the licence terms that
+apply to contributions.
 
 ## Security
 

@@ -1,7 +1,7 @@
 # Contributing
 
 Thanks for your interest in SkyPane! It's a personal project and the
-repository is private: contributions are by the owner's invitation, and
+repository is public but has no public issue tracker or pull request flow:
 questions, proposals and patches go to the owner directly (contact on
 [github.com/florianlepont](https://github.com/florianlepont)). Replies may
 take a few days.
