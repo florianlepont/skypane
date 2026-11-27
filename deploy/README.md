@@ -507,18 +507,34 @@ Every deploy imports the published firmware releases (the `Download
 firmware releases` step), and the import is idempotent, so a firmware-only
 deploy is simply a deploy of the unchanged tip.
 
-The three secrets `DEPLOY_SSH_PRIVATE_KEY`, `DEPLOY_HOST_KEY` and
-`DEPLOY_SSH_TARGET` are repository-level secrets, because deployment
-environments are not available in private repositories on the Free plan.
+The deploy job runs in the `production` deployment environment. The three
+secrets `DEPLOY_SSH_PRIVATE_KEY`, `DEPLOY_HOST_KEY` and `DEPLOY_SSH_TARGET`
+belong in that environment, and a required reviewer on it makes every run
+wait for an explicit approval. An environment job still reads repository
+secrets, so the workflow keeps working before the move below.
+
+**Owner-side steps (repository settings, once):**
+
+1. Settings, Environments: open the `production` environment, or create it
+   with that exact name if it does not exist.
+2. Make sure all three secrets above are in the environment (a secret value
+   cannot be read back from GitHub; a lost private key is replaced by a new
+   key pair and a new `authorized_keys` line on the VPS).
+3. In the environment's protection rules, enable Required reviewers and add
+   yourself, and restrict Deployment branches to `main`.
+4. Only then delete the three repository-level copies of the secrets, so a
+   workflow on another branch can no longer read them.
+5. Start one deploy and confirm it pauses for approval before the key is
+   loaded.
 
 **What this does and does not protect.** The confirmation is an
-anti-accident control, not access control. On the Free plan any workflow on
-any branch of the repository can read repository secrets, so anyone who can
-push a branch could write a workflow that uses the deploy key. The
-mitigation is a dedicated deploy key used only by this workflow: it can be
-revoked by deleting one `authorized_keys` line on the VPS. The break-glass
-route is running `deploy/deploy.sh` from the owner's laptop with a locally
-held key, which involves no GitHub secret.
+anti-accident control, not access control. Until step 4 is done, any
+workflow on any branch can still read the repository-level secrets; after
+it, only a run approved on the environment can. A dedicated deploy key used
+only by this workflow limits the blast radius and can be revoked by
+deleting one `authorized_keys` line on the VPS. The break-glass route is
+running `deploy/deploy.sh` from the owner's laptop with a locally held key,
+which involves no GitHub secret.
 
 ## Firmware releases (OTA)
 
@@ -929,6 +945,20 @@ freshness marker `SKYPANE_OFFBOX_MARKER` in `skypane.env` points at.
 Useful commands: `launchctl kickstart -k gui/$(id -u)/com.skypane.backup-pull`
 to run it immediately, and `tail -f ~/Library/Logs/skypane-backup-pull.log`
 to watch it.
+
+**Protecting the off-box copy at rest.** The archives are plain
+`.tar.gz` files that hold device tokens, enrolment hashes, calendar feed
+addresses and fleet e-mail addresses, so the Mac that stores them must have
+full-disk encryption (FileVault) turned on. The pull client can enforce
+this: add the line `REQUIRE_DISK_ENCRYPTION=1` to
+`~/.config/skypane/backup.conf` and the pull refuses to run, before
+fetching anything, unless `fdesetup status` reports "FileVault is On". It
+is off by default, so existing installs behave exactly as before.
+Owner-side steps: turn FileVault on (System Settings, Privacy & Security),
+add that line to the config, then run the pull once with
+`launchctl kickstart -k gui/$(id -u)/com.skypane.backup-pull` and check the
+log. Keep the Mac's backup folder out of unencrypted cloud sync and
+external drives.
 
 The companion's System view reads that marker and shows "last off-box
 backup N ago", turning into a warning once the archive's own snapshot
@@ -1382,14 +1412,13 @@ Where each control lives instead:
 | Production deploy | Manual `deploy.yml` (see "Production deploy (started by hand)"): main only, `confirm_sha`, a green CI run for the commit. It uses a dedicated deploy key, and the owner has decided to rely on that key alone, with no server-side restriction of it. |
 | Firmware signing | The owner's Mac, with `scripts/fw_publish_signed.py` (see `firmware/SIGNING.md`). GitHub holds no signing key; CI only builds unsigned images. |
 | CI | The self-hosted runner kit in `deploy/runner/README.md`, selected by the repository variable `CI_RUNS_ON`. The kit exists, but the runner is still to be installed and `CI_RUNS_ON` is still unset, so CI runs on GitHub-hosted runners until the owner completes the install steps in that file. |
-| Secret handling | Repository-level secrets only; the old environments are no longer used, and the signing secret was deleted from GitHub. The owner may delete the unused environments. |
+| Secret handling | The deploy secrets live in the `production` environment once the owner-side steps in "Production deploy (started by hand)" are done; the signing secret was deleted from GitHub. |
 
 Three consequences to remember:
 
-- Repository secrets are readable by a workflow on any branch of the
-  repository, so anyone who can push a branch can use the deploy key.
-  Write access to the repository is therefore the ability to dispatch
-  `deploy.yml` and read those secrets.
+- Repository-level secrets are readable by a workflow on any branch of the
+  repository. Keep the deploy secrets in the `production` environment only,
+  with a required reviewer, so write access alone does not release them.
 - Branches pushed by assistant sessions run their code on the Mac runner
   once it is live, inside its isolated VM.
 - Environment settings cannot be edited once the repository is private, so
