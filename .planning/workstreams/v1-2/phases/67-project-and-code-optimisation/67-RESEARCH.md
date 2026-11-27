@@ -462,20 +462,20 @@ assert "not in include list" not in capsys.readouterr().out   # no persistent fi
 | A7 | `sys.modules` alias shims behave identically on Python 3.14 | Module moves | Low: documented import-system behaviour, verified on 3.13 |
 | A8 | `workflow_dispatch` runs measure coverage (so a branch can be measured before the ratchet) | Pitfall 3 | Low: `70-MEASUREMENTS.md` says main and dispatch measure; confirm the dispatch inputs allow a non-main ref |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Unify the two migration mechanisms, or document them?**
+[RESOLVED: provisional default document-not-unify; plan 02 documents, plans 11/12 carry the owner override.] 1. **Unify the two migration mechanisms, or document them?**
    - Known: fleet uses ordered transactional migrations with refusal of newer files; history uses concurrent-safe idempotent steps.
    - Unclear: owner appetite for refactoring two hot, audited modules in a no-behaviour-change phase.
    - Recommendation: document and pin; no unification (A2).
-2. **How far should `server/` be regrouped?**
+[RESOLVED: three groups with shims in plans 13/14/15; owner override via plans 11/12.] 2. **How far should `server/` be regrouped?**
    - Recommendation: three low-fan-in groups with shims; leave `fleet_db`, `history_db`, `device_config`, `poll_loop` (A3). Ask the owner once at plan time.
-3. **`wake_epochs`, the `legacy-admin` principal, per-device registry copies and the legacy dual-write: retire?**
+[RESOLVED: documented, not retired (plan 02); end-of-rollback date asked in plans 11/12.] 3. **`wake_epochs`, the `legacy-admin` principal, per-device registry copies and the legacy dual-write: retire?**
    - All are rollback safety nets or planned future data; retiring any is a behaviour or schema change (needs schema v5 and ends the "previous release runs on migrated state" guarantee). Recommendation: document; ask the owner for an end date of the rollback period; no code change in this phase.
-4. **Licence headers on 879 Python files (SPDX) or a gate only?** Owner decision; the AGPL root plus NOTICE already covers the files.
-5. **Tested-but-unused production API (about 30 functions):** keep and label as test seams (recommended), or delete with their tests (conflicts with D-05 and the executed-test floor)?
-6. **39 remote branches:** the planner should output a table (name, ahead/behind, last commit) for the owner; no deletion without approval.
-7. **Extending the function-size gate to `companion deploy` edits `.github/workflows/ci.yml`:** confirm the owner is fine with a CI edit in this phase (Phase 70 closed CI work).
+[RESOLVED: decision only, no mass edit; listed in plan 11, deferred in plan 16.] 4. **Licence headers on 879 Python files (SPDX) or a gate only?** Owner decision; the AGPL root plus NOTICE already covers the files.
+[RESOLVED: keep as test seams, delete only the 9 zero-reference functions (plan 06); owner override via plans 11/12.] 5. **Tested-but-unused production API (about 30 functions):** keep and label as test seams (recommended), or delete with their tests (conflicts with D-05 and the executed-test floor)?
+[RESOLVED: table in plan 11, deletion only with owner approval in plan 12.] 6. **39 remote branches:** the planner should output a table (name, ahead/behind, last commit) for the owner; no deletion without approval.
+[RESOLVED: default yes, listed as an owner item in plan 11; plan 10 only tightens CI.] 7. **Extending the function-size gate to `companion deploy` edits `.github/workflows/ci.yml`:** confirm the owner is fine with a CI edit in this phase (Phase 70 closed CI work).
 
 ## Environment Availability
 

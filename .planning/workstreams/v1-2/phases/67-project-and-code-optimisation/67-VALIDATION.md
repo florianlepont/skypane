@@ -2,7 +2,7 @@
 phase: 67
 slug: project-and-code-optimisation
 status: draft
-nyquist_compliant: false
+nyquist_compliant: true
 wave_0_complete: false
 created: 2026-11-27
 ---
@@ -29,7 +29,28 @@ Source of truth: the "Validation Architecture" section of `67-RESEARCH.md` (per-
 
 ## Per-Task Verification Map
 
-Filled by the planner per task; every task names its automated command (see research proof table). Status: pending.
+| Task | Plan | Wave | Requirement | Automated command | Status |
+|------|------|------|-------------|-------------------|--------|
+| 01-1 baseline doc | 01 | 1 | QUAL-01 | grep checks on 67-BASELINE.md (commit line, sha256, no IP) | pending |
+| 01-2 MIN_EXECUTED | 01 | 1 | QUAL-01 | `pytest test-support/test_ci_gates.py` | pending |
+| 02-1 state map | 02 | 2 | QUAL-01 | backticked-path resolution script over ARCHITECTURE.md | pending |
+| 02-2 deploy README link | 02 | 2 | QUAL-01 | `pytest deploy/tests/test_docs.py deploy/tests/test_backup.py server/test_fleet_migrate.py` | pending |
+| 03-1 backup drift guard | 03 | 2 | QUAL-01 | `pytest deploy/tests/test_backup.py` | pending |
+| 03-2 leftover constants | 03 | 2 | QUAL-01 | freeze + goldens + history tests, ruff, mypy | pending |
+| 04-1 flaky fix | 04 | 2 | QUAL-01 | ruff + collect-only id check; 30 CI runs (manual) | pending |
+| 05-1 ARCHITECTURE rewrite | 05 | 3 | QUAL-01 | path-resolution and stale-claim script | pending |
+| 05-2 CLAUDE.md pointer | 05 | 3 | QUAL-01 | grep assertions, comment-history check | pending |
+| 06-1, 06-2 dead code | 06 | 2 | QUAL-01 | ruff, name grep, i18n and golden tests, mypy | pending |
+| 07-1, 07-2 server duplicates | 07 | 3 | QUAL-01 | fleet registry tests, goldens, mypy | pending |
+| 08-1, 08-2 companion duplicates | 08 | 3 | QUAL-01 | non-browser companion suite, ruff, mypy | pending |
+| 09-1, 09-2 types | 09 | 4 | QUAL-01 | `mypy`, core suite | pending |
+| 10-1, 10-2 gates | 10 | 4 | QUAL-01 | check_function_size over five roots, workflow tests | pending |
+| 11-1, 11-2 docs and owner list | 11 | 4 | QUAL-01 | docs tests, comment-history, grep checks | pending |
+| 12-1..3 owner decisions | 12 | 5 | QUAL-01 | checkpoints; branch list vs approved names (manual) | pending |
+| 13-1, 13-2 firmware move | 13 | 6 | QUAL-01 | shim tests, import boundaries, units, mypy, core suite | pending |
+| 14-1, 14-2 polling move | 14 | 7 | QUAL-01 | shim tests, poll_loop --help, units, mypy, core suite | pending |
+| 15-1..3 pairing move and doc | 15 | 8 | QUAL-01 | shim tests, `-k pairing`, path-resolution script | pending |
+| 16-1..3 after record, ratchet | 16 | 9 | QUAL-01 | collected-id comm, CI TOTAL (manual checkpoint), comment-history | pending |
 
 ## Wave 0 Requirements
 
