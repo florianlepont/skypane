@@ -4,15 +4,15 @@ milestone: v1.2
 milestone_name: Fleet platform
 current_plan: 11
 status: verifying
-stopped_at: Phase 64 waves 1-3 executed (plans 64-01..64-11); waves 4-6 are owner-validated or blocked on Phase 57
-last_updated: "2026-11-25T09:32:50.821Z"
+stopped_at: "Phase 70 closed 2026-11-27 for criteria 1 to 4; Phase 70.1 (switch to private) waits for the close of v1.3"
+last_updated: "2026-11-27T10:06:17.842Z"
 last_activity: 2026-11-25
 progress:
-  total_phases: 24
+  total_phases: 25
   completed_phases: 17
-  total_plans: 249
-  completed_plans: 364
-  percent: 71
+  total_plans: 273
+  completed_plans: 391
+  percent: 68
 ---
 
 # Project State
@@ -88,6 +88,7 @@ Progress: [████████░░] 84%
 - Phase 64 added 2026-11-14 at the owner's request: Second Hardware in Production (build, release, deploy and parity with the first type), HW2-03 to HW2-05. The owner asked whether the second screen could be managed as the first one is; two read-only audits (server and companion, firmware and release pipeline) found the gap in the plan: Phase 57 releases the live frame only and Phase 58 validates the board with throwaway-key bench images, so nothing builds, publishes or deploys a release for the second type. Findings, re-checked against `main`, in `64-AUDIT.md`. Runs before Phase 59, which stays last.
 
 - Phase 58 closed 2026-11-15 by the owner with the battery model provisional: the unit passed cable flash, signed OTA bench, floor refusal and the four pairing checks; no valid discharge sample exists, so no battery value was measured. Real battery data is expected from production use (Phase 64); the discharge validation is SEED-019 (v1.3). Evidence in `58-03-SUMMARY.md`, `58-04-SUMMARY.md` and `hardware/SECOND-HARDWARE-VALIDATION.md`.
+- Phase 70.1 inserted: Phase 70 closed on 2026-11-27 for criteria 1 to 4; criteria 5 and 6 moved here (switch to private at the close of v1.3, owner decision); CI stays on hosted runners until then
 
 ### Pending Todos
 
