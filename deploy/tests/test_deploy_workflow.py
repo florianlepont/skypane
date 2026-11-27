@@ -1,4 +1,4 @@
-"""deploy.yml: manual-only trigger, no environment, and the guard steps.
+"""deploy.yml: manual-only trigger, protected environment, and the guard steps.
 
 The guard steps' run: bodies are extracted from the workflow and executed
 with bash against shims for git and gh, so no test touches the network.
@@ -52,10 +52,25 @@ def test_trigger_is_workflow_dispatch_only():
     assert not re.search(r"^\s*(push|pull_request|schedule|workflow_run):", text, re.M)
 
 
-def test_no_environment_and_no_job_level_if():
-    text = _DEPLOY_YML.read_text()
-    assert "environment:" not in text
-    assert not re.search(r"^    if:", text, re.M)
+def _job_header_lines():
+    """Lines of the deploy job between its key and its first `steps:`."""
+    lines = _DEPLOY_YML.read_text().splitlines()
+    start = lines.index("  deploy:")
+    end = next(i for i in range(start, len(lines)) if lines[i] == "    steps:")
+    return lines[start + 1:end]
+
+
+def test_deploy_job_is_bound_to_the_production_environment():
+    header = [ln for ln in _job_header_lines() if not ln.lstrip().startswith("#")]
+    assert "    environment: production" in header
+    # Exactly one environment binding in the whole workflow.
+    code = [ln for ln in _DEPLOY_YML.read_text().splitlines()
+            if not ln.lstrip().startswith("#")]
+    assert sum(1 for ln in code if re.match(r"^\s*environment\s*:", ln)) == 1
+
+
+def test_no_job_level_if():
+    assert not re.search(r"^    if:", _DEPLOY_YML.read_text(), re.M)
 
 
 def test_permissions_and_concurrency():
