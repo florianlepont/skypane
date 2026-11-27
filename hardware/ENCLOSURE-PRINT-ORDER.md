@@ -462,6 +462,79 @@ orientations.
   anti-slip pads), the hanging with the leg folded. The lid, the tray and the leg
   must be reprinted.
 
+### Hinge lugs reinforced after both snapped at assembly, 2026-11-27
+
+Reported by the owner on 2026-11-27 with a photo: at assembly both hinge lugs of the
+printed PLA lid broke off cleanly, and the two small fragments lay loose on the
+lid plate. The lugs were thin vertical walls (5 x 7 mm, 6 mm high) standing on a
+plate of only 1.5 mm, with the hole 0.8 mm above the plate, and the print layers lie
+across their height, so a sideways load tries to split the layers apart at the base.
+What the owner was doing at the moment of the break, and which load did it, is not
+stated; the first assembly of 2026-11-26 had snapped the pins in without breakage.
+The owner asked for both fixes together: thicker lugs with fillets or triangular ribs
+at the base, and a socle under them that spreads the load over the 1.5 mm plate.
+Nothing is measured; every number below is a design value.
+
+- Kept as they were: the 3.4 mm pin hole with its three crush ribs, the 2.7 mm snap-in
+  throat open upward, the 6 mm height of the lug, the axis (from (-51, 31) at 45 degrees,
+  38 mm long, hole centre 2.5 mm above the lid back). The leg (`print/skypane_stand.stl`)
+  is not changed: its volume (15789.0 mm3) and 524 triangles are the same as before.
+- Thicker lug: 6 mm along the axis instead of 5, grown outward only, so the inner face
+  stays 0.4 mm from the leg ear and the leg swing is unchanged (pin engagement 4.2 mm of
+  the 6 mm). It could not grow more: the lug at the start of the axis has the hook rail
+  block about 2 mm from its corner, and the lug at the far end about 1.5 mm from the
+  portrait hook block.
+- Socle under each lug: 1.5 mm high, 10 mm each side of the axis and 9.5 mm along it
+  (6 mm of lug and 3.5 mm beyond the outer face), flush with the inner face of the lug.
+  It is trimmed where something else is close: the socle of the first lug stops at
+  y = 21.5 mm (1.5 mm from the hook rail block, which ends at y = 20) and at x = -64 mm
+  (2 mm from the lid edge); the socle of the second lug stops at x = -13.5 mm (1.0 mm
+  from the portrait hook block, which starts at x = -12.5). Nothing touches the logo,
+  the engraved letters, the footprint grooves or the hooks (checked on a height map of
+  the lid around both lugs).
+- Base fillets: on both sides of each lug, 45 degree slopes from the socle (half-width
+  7.5 mm at 1.5 mm high) up to a ledge at 3.5 mm high (half-width 5.5 mm). Above the
+  ledge the two throat arms keep their original width (2.15 mm each side of the throat),
+  so the force needed to snap a pin in is not raised more than the thicker lug alone
+  does.
+- Two triangular ribs on the outer face of each lug, on both sides of the pin hole (from
+  1.9 to 5.5 mm off the axis, 3.6 mm thick each), 3 mm long on the socle and 3 mm high.
+  The hole stays open between them.
+- Design values for the base, compared with the previous lug (same load direction,
+  rectangular section; not measured, no material data used): section modulus across the
+  axis at the top of the socle about 225 mm3 against 41 mm3 (5.5 times), at the foot of
+  the throat arms about 121 mm3 against 41 mm3 (3 times); contact area on the lid up to
+  about 190 mm2 before trimming against 35 mm2.
+- Checked on the model (Blender 5.3.0, local MCP session): the leg swept from folded to
+  open (every 6 degrees up to 48) touches the lid only in the pin hole zone, as before
+  (the crush ribs); no contact with the socle, fillets or ribs. Lid: 8268 triangles,
+  volume 40486.6 mm3 (+505.4 mm3, about +0.7 g in PLA at 1.3 g/cm3), mesh closed with no
+  open edge (also checked on the exported STL and on the mesh in the 3mf); bounding box
+  unchanged (132 x 182 x 11.2 mm). Tray and shim part (6644 triangles, 55855.2 mm3) and leg
+  unchanged.
+- Printing (PLA, Bambu X1 Carbon, PEI plate), same pose as before: the lid lies face
+  down and the lugs grow upward. The socle is 1.5 mm (about 7 layers of 0.2 mm), the
+  fillets, the ledge and the ribs all face upward at 45 degrees or flat, so no support and
+  no new overhang; the only bridge is the 3.4 mm pin hole, as before. No new wall thinner
+  than 3 mm (the throat arms, 2.15 mm, are unchanged). The layers still lie across the
+  height of the lug, which is why the base is widened instead of relying on the layer
+  bond; four or more wall loops on the lugs are advisable (a slicer choice, not tested).
+- Found while reading the geometry, not changed: the pins are forced through a 2.7 mm
+  throat with a 3 mm pin, an interference of 0.3 mm that only the two thin throat arms
+  absorb; by the beam formula (an estimate with PLA at about 3.5 GPa) that bends the arms
+  well past what PLA usually survives, so the break may have come from forcing the pins
+  in rather than from the later load. The owner asked to keep the 2.7 mm throat, so it
+  stays; if the new lugs also break during snap-in, widen the throat to about 3.0 mm and
+  rely on the crush ribs for the hold.
+- To reprint: the lid only (`print/skypane_lid.stl`, or the updated project
+  `print/skypane_print_project.3mf`). The tray and shim part and the leg are unchanged.
+- Not checked, because nothing is printed: whether the new lugs survive the snap-in of
+  the pins and use, the real strength of the layers at the base, the clearance of the
+  trimmed socles against the hook blocks on a real print, the friction and the snap-in force
+  with the thicker lug, and the fit of the pins.
+- The 3mf was updated with the new lid mesh only; its stored preview images and slicing
+  summary still show the earlier lid and must be refreshed by slicing again in Bambu Studio.
+
 ### Stand redesigned with a wide foot, 2026-11-24
 
 Superseded the same day by the hinged leg described just above (owner request); kept as the record of the intermediate design, which was merged but is no longer in the files.
