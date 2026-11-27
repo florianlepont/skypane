@@ -1271,6 +1271,29 @@ def test_draw_module_emits_no_script_and_no_external_reference():
         assert label
 
 
+def test_the_page_shell_escaper_and_the_drawing_escaper_agree_on_hostile_input():
+    """layout.escape_html and draw.escape return the same, fully escaped text for hostile
+    markup, quote and entity inputs, for non-strings and for None"""
+    cases = [
+        ("<script>alert(1)</script>", "&lt;script&gt;alert(1)&lt;/script&gt;"),
+        ('" onmouseover="x', "&quot; onmouseover=&quot;x"),
+        ("' onfocus='x", "&#x27; onfocus=&#x27;x"),
+        ("&amp; &lt; &#60;", "&amp;amp; &amp;lt; &amp;#60;"),
+        ("<img src=x onerror=alert(1)>&\"'", "&lt;img src=x onerror=alert(1)&gt;&amp;&quot;&#x27;"),
+        ("", ""),
+        ("plain text", "plain text"),
+        (None, ""),
+        (0, "0"),
+        (1.5, "1.5"),
+        (True, "True"),
+        (b"<b>", "b&#x27;&lt;b&gt;&#x27;"),
+        (["<a>"], "[&#x27;&lt;a&gt;&#x27;]"),
+    ]
+    for value, expected in cases:
+        assert layout.escape_html(value) == expected, repr(value)
+        assert draw.escape(value) == expected, repr(value)
+
+
 def test_draw_module_escapes_every_interpolated_value():
     """companion/draw.py escapes every interpolated value through its one escape() helper —
     all five dangerous characters, in element content and in attribute values alike, with no
