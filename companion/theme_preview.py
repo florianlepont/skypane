@@ -12,6 +12,7 @@ flight is a cache miss, never a stale hit.
 """
 import hashlib
 import io
+import math
 import os
 import re
 
@@ -121,15 +122,39 @@ def _profile_segment(profile):
     if window is None:
         return profile.key
     # A window changes the picture, so it is part of the name: previews drawn
-    # before it was set are not reused.
-    return "%s-w%d-%d-%d-%d" % (profile.key, window.x, window.y, window.width, window.height)
+    # before it was set, or before they were cut to it, are not reused.
+    return "%s-v%d-%d-%d-%d" % (profile.key, window.x, window.y, window.width, window.height)
+
+
+def _visible_box(profile):
+    """The (left, top, right, bottom) of the part of `profile`'s canvas that
+    its mat leaves visible, or `None` when it has no window. Previews show
+    only this part: the strips the mat hides repeat the screen's edge and
+    would look like artefacts."""
+    window = None if _is_legacy_profile(profile) else profile.visible_window
+    if window is None:
+        return None
+    return (window.x, window.y, window.x + window.width, window.y + window.height)
 
 
 def chip_crop_box(profile=None):
-    """The theme chip's crop box inside `profile`'s canvas."""
+    """The theme chip's crop box inside `profile`'s canvas. With a window it
+    is as wide as the window and keeps the chip's shape, centred on the same
+    row as the unwindowed box."""
     if _is_portrait_canvas(profile):
         return THEME_PREVIEW_CROP_BOX
-    return THEME_PREVIEW_CROP_BOX_LANDSCAPE
+    box = THEME_PREVIEW_CROP_BOX_LANDSCAPE
+    visible = _visible_box(profile)
+    if visible is None:
+        return box
+    chip_w, chip_h = THEME_PREVIEW_SIZE
+    step = chip_w // math.gcd(chip_w, chip_h)
+    width = (visible[2] - visible[0]) // step * step
+    height = width // step * (chip_h // math.gcd(chip_w, chip_h))
+    left = visible[0] + (visible[2] - visible[0] - width) // 2
+    top = (box[1] + box[3]) // 2 - height // 2
+    top = max(visible[1], min(top, visible[3] - height))
+    return (left, top, left + width, top + height)
 
 
 def layout_key(layout):
@@ -457,6 +482,10 @@ def frame_preview_pixel_size(profile, size):
     if _is_portrait_canvas(profile):
         return FRAME_PREVIEW_PIXEL_SIZES[size]
     factor = frame_preview_reduce_factor(profile, size)
+    visible = _visible_box(profile)
+    if visible is not None:
+        # Image.reduce() rounds up.
+        return (-(-(visible[2] - visible[0]) // factor), -(-(visible[3] - visible[1]) // factor))
     return (profile.width // factor, profile.height // factor)
 
 
@@ -486,7 +515,11 @@ def frame_preview_png_bytes(theme_id, state, size, layout=None, profile=None, st
         state_dir=state_dir,
     )
     # RGB before reducing, for the same reason preview_png_bytes() gives.
-    reduced = canvas.convert("RGB").reduce(frame_preview_reduce_factor(profile, size))
+    rgb = canvas.convert("RGB")
+    visible = _visible_box(profile)
+    if visible is not None:
+        rgb = rgb.crop(visible)
+    reduced = rgb.reduce(frame_preview_reduce_factor(profile, size))
     buffer = io.BytesIO()
     reduced.save(buffer, format="PNG", optimize=True)
     return buffer.getvalue()

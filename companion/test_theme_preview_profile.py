@@ -8,6 +8,7 @@ from PIL import Image
 
 from companion import theme_preview
 from server import hardware
+from server.plane import render
 
 LEGACY = hardware.REGISTRY[hardware.LEGACY_KEY]
 LANDSCAPE = hardware.REGISTRY[hardware.EVALUATION_KEY]
@@ -86,9 +87,39 @@ def test_a_portrait_clone_keeps_the_portrait_shape(size):
 def test_landscape_frame_preview_png_has_the_landscape_size(size, state):
     width, height = theme_preview.frame_preview_pixel_size(LANDSCAPE, size)
     assert width > height
-    assert width * LANDSCAPE.height == height * LANDSCAPE.width
+    window = LANDSCAPE.visible_window
+    shown_w, shown_h = (LANDSCAPE.width, LANDSCAPE.height) if window is None else (
+        window.width, window.height)
+    factor = theme_preview.frame_preview_reduce_factor(LANDSCAPE, size)
+    assert (width, height) == (-(-shown_w // factor), -(-shown_h // factor))
     payload = theme_preview.frame_preview_png_bytes("white", state, size, profile=LANDSCAPE)
     assert _size(payload) == (width, height)
+
+
+def test_a_windowed_preview_is_the_visible_window_with_no_replicated_strip():
+    window = LANDSCAPE.visible_window
+    assert window is not None
+    canvas = render.build_canvas(
+        theme_preview.THEME_PREVIEW_FLIGHT, "overhead", route=theme_preview.THEME_PREVIEW_ROUTE,
+        previous_flight=theme_preview.THEME_PREVIEW_PREVIOUS_FLIGHT,
+        previous_route=theme_preview.THEME_PREVIEW_PREVIOUS_ROUTE,
+        previous_state=theme_preview.FRAME_PREVIEW_STATE_ARRIVING, theme_id="black",
+        layout="a", profile=LANDSCAPE)
+    inner = canvas.convert("RGB").crop(
+        (window.x, window.y, window.x + window.width, window.y + window.height))
+    payload = theme_preview.frame_preview_png_bytes(
+        "black", "overhead", "large", layout="a", profile=LANDSCAPE)
+    shown = Image.open(io.BytesIO(payload)).convert("RGB")
+    assert list(shown.getdata()) == list(inner.reduce(2).getdata())
+
+
+def test_a_windowed_chip_stays_inside_the_window_and_keeps_the_chip_shape():
+    window = LANDSCAPE.visible_window
+    x0, y0, x1, y1 = theme_preview.chip_crop_box(LANDSCAPE)
+    assert window.x <= x0 < x1 <= window.x + window.width
+    assert window.y <= y0 < y1 <= window.y + window.height
+    chip_w, chip_h = theme_preview.THEME_PREVIEW_SIZE
+    assert (x1 - x0) * chip_h == (y1 - y0) * chip_w
 
 
 def test_landscape_chip_keeps_the_chip_size_and_a_crop_inside_the_canvas():
