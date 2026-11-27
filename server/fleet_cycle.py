@@ -246,20 +246,6 @@ def runnable_devices(
     return keep, skipped
 
 
-def geofence_resolver(geofence_path: str | None) -> Resolver:
-    """Resolver giving every device the zone of one shared geofence file."""
-    cache: dict[str, Any] = {}
-
-    def resolve(device: FleetDevice) -> tuple[fleet_zones.Zone, dict[str, Any]]:
-        if "zone" not in cache:
-            data = detect.load_geofence(geofence_path)
-            cache["zone"] = (fleet_zones.zone_from_geofence(data), data)
-        zone, data = cache["zone"]
-        return zone, data
-
-    return resolve
-
-
 def detection_resolver(geofence_path: str | None) -> Resolver:
     """Resolver giving each device the zone of its own detection setting.
 

@@ -247,13 +247,6 @@ def _merged_sightings(conns):
     return merged
 
 
-def sightings_across(state_dirs):
-    """The folded sightings of every frame in `state_dirs` merged newest
-    first. A frame whose history cannot be read contributes nothing."""
-    with contextlib.ExitStack() as stack:
-        return _merged_sightings(_open_all(state_dirs, stack))
-
-
 def _overrides_digest(overrides):
     return tuple(sorted((str(k), repr(v)) for k, v in (overrides or {}).items()))
 

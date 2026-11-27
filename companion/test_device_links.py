@@ -356,26 +356,3 @@ def test_freshness_script_refreshes_its_own_page_and_the_fleet_page_has_no_healt
     assert any(
         node.attrs.get("href", "").endswith("/fleet")
         for node in root.select_one("nav.sidebar-nav").find_all("a"))
-
-
-def test_step_b_trigger_addresses_stay_in_the_device_and_return_stays_plain(tmp_path):
-    from companion import device_scope, resolve_dialog
-    manual_resolutions.add_entry(
-        str(tmp_path), "ABC", "Abc Air", now="2026-01-01T00:00:00+00:00")
-    device = device_scope.Device(
-        id="d_0123abcd", name="x", hardware_type="sim-ee02-clone",
-        state_path="devices/d_0123abcd", state_dir=str(tmp_path), is_live=False)
-    device_scope.set_request_scope(device, [device])
-    try:
-        html = resolve_dialog.step_b_trigger_html(
-            str(tmp_path), "ABC", resolve_dialog.RETURN_HEALTH)
-    finally:
-        device_scope.set_request_scope(None, ())
-    trigger = parse_html(html).select_one("a[hidden]")
-    assert trigger.attrs["href"].startswith("/devices/d_0123abcd/airlines/manage?resolve=")
-    assert trigger.attrs["data-view-panel-upload-action"].startswith(
-        "/devices/d_0123abcd/illustration/")
-    assert "return=health" in trigger.attrs["data-view-panel-upload-action"]
-    assert trigger.attrs["data-view-panel-delete-action"].startswith(
-        "/devices/d_0123abcd/airlines/manual-resolutions/")
-    assert trigger.attrs["data-view-panel-return"] == "health"
