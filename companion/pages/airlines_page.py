@@ -628,7 +628,7 @@ def _artwork_files(type_key, state_dir):
     )
 
 
-def _type_fields(card, type_key, type_title, is_base, has_art):
+def _type_fields(card, type_key, is_base, has_art):
     """The twelve per-trigger values for one type section, in
     `_airline_card_manual_fields()`'s order. Only the airline-level
     (base) section carries the manual-resolution values; a type with no
@@ -661,7 +661,7 @@ def _type_trigger_html(card, type_id, type_label, type_key, css_class, inner_htm
     title = card["name"] if is_base else "%s, %s" % (card["name"], type_label)
     (mode, _has_manual, _superseded, manual_value, resolve_prefix_value, heading_value,
      upload_action_value, delete_action_value, manual_note_value, first_seen_value,
-     last_seen_value, count_value) = _type_fields(card, type_key, title, is_base, has_art)
+     last_seen_value, count_value) = _type_fields(card, type_key, is_base, has_art)
     image_url = _illustration_url(type_key)
     busted_image_url = image_url + _illustration_cache_buster(type_key, card["state_dir"])
     if mode == _VIEW_PANEL_MODE_NEEDS_ARTWORK or not has_art:
@@ -717,37 +717,6 @@ def _gap_rows_for_grid(state_dir, manual_registry=None):
     shown = eligible[:GAP_BLOCK_CAP]
     overflow_count = max(0, len(eligible) - GAP_BLOCK_CAP)
     return shown, overflow_count
-
-
-def _gap_trigger_attrs_html(row, now=None):
-    """The `data-view-panel-*` vocabulary of an unidentified prefix's "Name
-    it" link, which opens the shared dialog in its gap mode. `row` is one of
-    `_gap_rows_for_grid()`'s five-field tuples. `example_callsign` is coerced
-    to `str()`, since a hand-edited `poll_state.json` can hold another type
-    there. Every attribute is present, empty where unused, so a click never
-    inherits the previous trigger's values. Returns the attributes with a
-    trailing space.
-    """
-    prefix, count, first_seen, last_seen, example_callsign = row
-    if not isinstance(example_callsign, str):
-        example_callsign = str(example_callsign)
-    return (
-        '%s="" %s="%s" %s="%s" %s="%s" '
-        '%s="" %s="%s" %s="%s" '
-        '%s="%s" %s="%s" %s="%s" %s'
-    ) % (
-        _VIEW_PANEL_SRC_ATTR,
-        _VIEW_PANEL_CAPTION_ATTR, escape_html(example_callsign),
-        _VIEW_PANEL_HEADING_ATTR, i18n.t(RESOLVE_HEADING),
-        _VIEW_PANEL_MODE_ATTR, _VIEW_PANEL_MODE_GAP,
-        _VIEW_PANEL_MANUAL_ATTR,
-        _VIEW_PANEL_SCOPE_ATTR, "",
-        _VIEW_PANEL_RESOLVE_PREFIX_ATTR, escape_html(prefix),
-        _VIEW_PANEL_FIRST_SEEN_ATTR, escape_html(_seen_attribute_text(first_seen, now)),
-        _VIEW_PANEL_LAST_SEEN_ATTR, escape_html(_seen_attribute_text(last_seen, now)),
-        _VIEW_PANEL_COUNT_ATTR, escape_html(count),
-        _sheet_attrs_html(airline_sheet.EMPTY_ATTR_VALUES),
-    )
 
 
 def _gap_overflow_html(overflow_count):

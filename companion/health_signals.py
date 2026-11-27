@@ -472,18 +472,6 @@ def battery_dropped(trend_rows):
     return battery_status(trend_rows) != "ok"
 
 
-def battery_both_sentences(anomalies, trend_rows):
-    """`anomalies` with the abnormal-drop sentence added right after the
-    low-battery one when both hold (the frame Health page's banner names
-    both). Unchanged when the low sentence is absent or the drop is."""
-    low = i18n.t(_BATTERY_LOW_TEXT)
-    dropped = i18n.t(_BATTERY_DROPPED_ABNORMALLY_TEXT)
-    if low not in anomalies or dropped in anomalies or not battery_dropped(trend_rows):
-        return list(anomalies)
-    at = anomalies.index(low) + 1
-    return list(anomalies[:at]) + [dropped] + list(anomalies[at:])
-
-
 def _battery_state(trend_rows, daily_rows=None, curve=None, curve_known=True):
     """The Battery row's verdict alone, with no markup built: `"warn"` for
     an abnormal drop (`battery_status()`) or a latest reading under the

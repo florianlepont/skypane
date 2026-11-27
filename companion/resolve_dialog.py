@@ -62,25 +62,6 @@ def _trigger_attrs_html(escaped_values):
         '%s="%s" ' % (name, escaped_values.get(name, "")) for name in _TRIGGER_VOCABULARY)
 
 
-def trigger_attrs_html(row, now, return_target):
-    """The attributes that make an element open the dialog on the name step for the
-    unresolved-prefix `row` (a registry tuple of prefix, count, first seen, last seen, example
-    callsign). The values are the ones an Airlines gap card writes."""
-    prefix, count, first_seen, last_seen, example_callsign = row
-    escaped_prefix = escape_html(prefix)
-    return _trigger_attrs_html({
-        ap._VIEW_PANEL_CAPTION_ATTR: escape_html(example_callsign),
-        ap._VIEW_PANEL_HEADING_ATTR: i18n.t(ap.RESOLVE_HEADING),
-        ap._VIEW_PANEL_MODE_ATTR: ap._VIEW_PANEL_MODE_GAP,
-        ap._VIEW_PANEL_SCOPE_ATTR: "",
-        ap._VIEW_PANEL_RESOLVE_PREFIX_ATTR: escaped_prefix,
-        ap._VIEW_PANEL_FIRST_SEEN_ATTR: escape_html(ap._seen_attribute_text(first_seen, now)),
-        ap._VIEW_PANEL_LAST_SEEN_ATTR: escape_html(ap._seen_attribute_text(last_seen, now)),
-        ap._VIEW_PANEL_COUNT_ATTR: escape_html(count),
-        RETURN_ATTR: escape_html(return_target),
-    })
-
-
 def step_b_trigger_html(state_dir, prefix_raw, return_target):
     """A hidden trigger that reopens the dialog on the artwork step for a prefix the owner has
     just named, or `""`. Emitted only for a prefix with an active manual entry whose artwork is

@@ -91,19 +91,6 @@ def _cached_normalized_png_bytes(path, mtime_ns):
     return normalized_png_bytes(path)
 
 
-def cached_normalized_png_bytes(path):
-    """`normalized_png_bytes(path)`, cached per process and keyed on `path`
-    plus the file's current mtime (nanoseconds) — a replaced asset on disk
-    still gets picked up, since a changed mtime is a cache miss. Raises
-    `OSError` if `path` cannot be stat'd, exactly like `normalized_png_bytes`
-    would raise opening a missing file — callers already handle that
-    (`Handler._serve_illustration_image()`'s existing `except OSError`
-    branch).
-    """
-    mtime_ns = os.stat(path).st_mtime_ns
-    return _cached_normalized_png_bytes(path, mtime_ns)
-
-
 # The widths the gallery may ask for with `?w=`: the list rows (88 CSS px
 # at up to 3x) and the collection cards (up to 325 CSS px). Any other value
 # gets the normalized PNG, so a request can never pick an arbitrary size.
