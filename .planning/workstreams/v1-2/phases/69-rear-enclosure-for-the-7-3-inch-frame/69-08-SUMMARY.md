@@ -24,6 +24,17 @@ requirements: [ENC-01]
    everything is good, reported by the owner; which screens were looked at was
    not detailed.
 
+## Follow-up: companion images (2026-11-27)
+
+After the deploy the owner saw the strips that fill the hidden edges in the
+companion too, reported by the owner (the panel image itself was fine):
+
+- Style page previews: fixed in PR 618, deployed on 2026-11-27.
+- Home picture, Flights thumbnails and image lightbox (they read the stored
+  gallery image), and the picture tiles leaving side gaps once cut (they now
+  fill their frame, the rounded corners crop a little): draft PR 620, not
+  merged or deployed yet. Not checked visually by the assistant.
+
 ## Not done or not verified
 
 - Nothing was measured by the assistant on the assembled frame.
