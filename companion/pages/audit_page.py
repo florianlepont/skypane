@@ -17,6 +17,7 @@ from typing import NamedTuple
 
 from companion import i18n, ui_filter, ui_time
 from companion.ui_base import LOCAL_TZ, escape_html, icon_html
+from companion.ui_base import lazy_ui_components as _ui
 
 PAGE_SIZE = 50
 CATEGORY_QUERY = "category"
@@ -170,12 +171,6 @@ class AuditView(NamedTuple):
     total: int
     page: int
     now: datetime.datetime
-
-
-def _ui():
-    # Imported on use: this page loads while the navigation is still importing.
-    from companion import ui_components
-    return ui_components
 
 
 def _esc(value):

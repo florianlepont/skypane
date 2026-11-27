@@ -14,7 +14,6 @@ must import and use it rather than the stdlib `html` module directly, or
 build markup without going through this helper. One helper makes the
 escaping obligation auditable with a single grep across the package.
 """
-import html
 from zoneinfo import ZoneInfo
 
 # companion.frame_state is a shared, page-independent module; importing it
@@ -23,6 +22,11 @@ from zoneinfo import ZoneInfo
 # ui_components.py's frame_strip_html() reads.
 import companion.frame_state as frame_state
 import companion.i18n as i18n
+
+# The one HTML escaper lives in companion.draw (stdlib-only, so drawings can
+# use it without importing the page shell); this module re-exports it under the
+# name every page imports.
+from companion.draw import escape as escape_html
 
 SITE_TITLE = "SkyPane"
 
@@ -1225,18 +1229,17 @@ def validation_attrs(kind):
     return attrs
 
 
-def escape_html(value):
-    """Coerce `value` to its escaped string form for safe HTML interpolation.
+def lazy_ui_components():
+    # Imported on use: the page modules load while the navigation is still importing.
+    from companion import ui_components
+    return ui_components
 
-    `None` becomes an empty string; any other non-string is coerced via
-    str() first. Never raises, so a malformed upstream value degrades to an
-    escaped string instead of crashing a page render.
-    """
-    if value is None:
-        return ""
-    if not isinstance(value, str):
-        value = str(value)
-    return html.escape(value, quote=True)
+
+def lazy_console_routes():
+    # Imported on use: companion.console_routes imports the route modules,
+    # which import the pages.
+    from companion import console_routes
+    return console_routes
 
 
 def head_meta_html(ui_theme):

@@ -17,6 +17,7 @@ import sqlite3
 from urllib.parse import parse_qs, urlsplit
 
 from companion import audit, console_flash, device_scope, i18n, route_types
+from companion.console_pairing import owner_choice as _owner_choice
 from companion.pages import audit_page, fleet_page
 from server import device_dirs, fleet_db, fleet_ops
 
@@ -117,12 +118,6 @@ def busy_guard(state_dir):
             yield False
             return
         yield True
-
-
-def _owner_choice(raw):
-    """The chosen owner id, or None when it is not a plain integer."""
-    text = raw.strip()
-    return int(text) if text.isascii() and text.isdigit() and len(text) < 10 else None
 
 
 def _back(flash_key, **params):
