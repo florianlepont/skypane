@@ -894,7 +894,7 @@ Plans:
 Plans:
 **Wave 1**
 
-- [ ] 66-01-PLAN.md — Audit protocol, severity scale, two-layer rule, pre-flight (SEC-AUD-01)
+- [x] 66-01-PLAN.md — Audit protocol, severity scale, two-layer rule, pre-flight (SEC-AUD-01)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -960,6 +960,6 @@ Plans: TBD
 | 68. Console and Companion Visual Improvements | v1.2 | 36/36 | Complete, closed 2026-11-24: all plans built and deployed (last: #547, #555, #557, #558); CON-01 validated by the owner on the deployed site in English and French; the owner's editor remarks of 2026-11-24 were delivered and deployed on 2026-11-25 (#562 to #566, #568, #569, #574, #575 and the real generic silhouettes); Phase 68.1 follows | 2026-11-24 |
 | 68.1. Design System Consistency, Deviations and Improvements (INSERTED) | v1.2 | 22/22 | Complete, closed 2026-11-26: deviations settled, 12 owner-approved proposals built and deployed (PRs #583, #587, #590, #596), owner validated the deployed companion in English and French, Light and Dark, phone and desktop; P01, P05, P13 and P15 refused and carried as v1.3 / v1.4 candidates | 2026-11-26 |
 | 70. Private Repository and CI (Free Plan, Self-Hosted or Reduced CI) | v1.2 | 0/0 | Added 2026-11-24, not planned yet | - |
-| 66. Security Audit | v1.2 | 0/0 | Added 2026-11-15, not planned yet | - |
+| 66. Security Audit | v1.2 | 1/8 | In Progress|  |
 | 67. Project and Code Optimisation for a Clean, Industrial Result | v1.2 | 0/0 | Added 2026-11-15, not planned yet | - |
 | 69. Rear Enclosure for the 7.3 Inch Frame (Design, Print, Fit) | v1.2 | 8/8 | Complete, closed 2026-11-26: parts printed and assembled by the owner and checked (`69-VERIFICATION.md`); Wi-Fi decided from the bare and assembled histories; image reframed to the mat window (PR 614, deployed, owner tested the assembled frame); assembly note and BOM written; hardware improvements go to SEED-022 | 2026-11-26 |
