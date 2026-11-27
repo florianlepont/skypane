@@ -505,14 +505,14 @@ Nothing is measured; every number below is a design value.
   as they were. Contact area on the lid up to about 155 mm2 before trimming against 35 mm2.
 - Checked on the model (Blender 5.3.0, local MCP session): the leg swept from folded to
   open (every 6 degrees up to 48) touches the lid only in the pin hole zone, as before
-  (the crush ribs); no contact with the socle, fillets or ribs. Lid: 8712 triangles,
+  (the crush ribs); no contact with the socle or the fillets. Lid: 8712 triangles,
   volume 40306.8 mm3 (+325.6 mm3, about +0.4 g in PLA at 1.3 g/cm3), mesh closed with no
   open edge (also checked on the exported STL and on the mesh in the 3mf); bounding box
   unchanged (132 x 182 x 11.2 mm). Tray and shim part (6644 triangles, 55855.2 mm3) and leg
   unchanged.
 - Printing (PLA, Bambu X1 Carbon, PEI plate), same pose as before: the lid lies face
   down and the lugs grow upward. The socle is 1.5 mm (about 7 layers of 0.2 mm), the
-  fillets and the ribs are concave curves that face upward, so no support and
+  the fillets are concave curves that face upward, so no support and
   no new overhang; the only bridge is the 3.4 mm pin hole, as before. No new wall thinner
   than 3 mm (the throat arms, 2.15 mm, are unchanged). The layers still lie across the
   height of the lug, which is why the base is widened instead of relying on the layer
