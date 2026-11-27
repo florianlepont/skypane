@@ -17,7 +17,7 @@ This document is written for a public repository. It records what was checked, h
 |----------|-------|-------|
 | Critical | 0 | No critical finding |
 | High | 0 | No high finding |
-| Medium | 3 (D-1, S-2, S-3) | D-1 and S-2 fixed and deployed (2026-11-27); S-3 fix merged, owner-side Mac step pending (see "Medium items") |
+| Medium | 3 (D-1, S-2, S-3) | all three fixed and in use (2026-11-27, see "Medium items") |
 | Low | 21 | Recorded as recommendations |
 | Informational | 2 | Recorded |
 
@@ -31,7 +31,7 @@ No high or critical finding exists, so there is nothing held back and the deploy
 |---|-----------|--------|
 | 1 | A written audit records what was checked, how, and the result, for each area | Met: the chapters below and the five section files |
 | 2 | Each finding has a severity; every high one is fixed and tested or accepted in writing | Met: no high or critical finding. Every finding carries a severity |
-| 3 | Fixes keep the golden hashes, the freeze test and the live frame's release path, and are deployed through the gated pipeline | Met for the deploy fix: pull requests #627 and #629 are merged, the owner-side settings are done, and one manual deploy through the gated workflow paused for approval and succeeded (2026-11-27). The backup fix (#628) is merged; its Mac-side setting is the one open owner step. Both changes touch only the deploy workflow, its tests, the backup pull script and the deploy README |
+| 3 | Fixes keep the golden hashes, the freeze test and the live frame's release path, and are deployed through the gated pipeline | Met for the deploy fix: pull requests #627 and #629 are merged, the owner-side settings are done, and one manual deploy through the gated workflow paused for approval and succeeded (2026-11-27). The backup fix (#628) is merged and its Mac-side setting is in place: the pull ran with the disk-encryption requirement on. Both changes touch only the deploy workflow, its tests, the backup pull script and the deploy README |
 | 4 | Secrets checked, rotation steps written, token scopes smallest that work | Met: see "Secrets and rotation". No unexplained hit in the tree or the full history |
 | 5 | Remaining risks and follow-ups for the next two milestones are listed | Met: see "Remaining risks and follow-ups" |
 
@@ -116,7 +116,7 @@ Each chapter gives what was checked, how, and the Result. The Result value is th
 | ID | Area | Recommendation | State |
 |----|------|----------------|-------|
 | D-1, S-2 | Deploy approval: the deploy secrets are repository-level, so any workflow on any branch can read them, and the typed confirmation is an accident guard only | Bind the deploy job to a protected `production` environment with a required reviewer; move the secrets there | Fixed and deployed: #627 merged, secrets moved to the protected environment with a required reviewer and a `main` branch rule, repository-level copies deleted, the previous deploy key revoked on the host, one gated deploy succeeded (tests listed in the ledger) |
-| S-3 | Backups at rest: the off-box copy lives on a Mac volume whose encryption was neither stated nor checked | State and test the disk-encryption requirement; consider encrypting archives before the pull | Fix merged, Mac-side owner step pending: #628 adds an opt-in disk-encryption check to the pull and documents the requirement. Encrypting archives before the pull stays a follow-up |
+| S-3 | Backups at rest: the off-box copy lives on a Mac volume whose encryption was neither stated nor checked | State and test the disk-encryption requirement; consider encrypting archives before the pull | Fixed and in use: #628 merged, disk encryption on, the opt-in requirement set on the Mac, one pull completed with it. #628 adds an opt-in disk-encryption check to the pull and documents the requirement. Encrypting archives before the pull stays a follow-up |
 
 Neither fix is merged or deployed. They are recorded as proposed, not as fixed. Details and the owner-side steps are in `66-FIX-LEDGER.md` and under "Owner actions".
 
@@ -203,7 +203,7 @@ For the next milestones:
 ## Owner actions
 
 1. Done (2026-11-27): #627 merged, secrets in the `production` environment with a required reviewer, repository-level copies deleted, old deploy key revoked, one gated deploy succeeded.
-2. Open: #628 is merged; turn disk encryption on for the Mac that holds the backup copy, add the opt-in setting to the Mac backup configuration, and run the pull once.
+2. Done (2026-11-27): #628 is merged, disk encryption is on for the Mac that holds the backup copy, the opt-in setting is in its backup configuration, and one pull completed with it.
 3. Confirm in the Auth0 tenant that self sign-up is disabled.
 4. Decide which low items to schedule, and the at-rest policy for backups (S-3 follow-up).
 5. Plan an outside penetration test before any commercial launch.
