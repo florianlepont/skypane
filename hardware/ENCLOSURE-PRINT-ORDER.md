@@ -484,8 +484,8 @@ Nothing is measured; every number below is a design value.
   the 6 mm). It could not grow more: the lug at the start of the axis has the hook rail
   block about 2 mm from its corner, and the lug at the far end about 1.5 mm from the
   portrait hook block.
-- Socle under each lug: 1.5 mm high, 10 mm each side of the axis and 9.5 mm along it
-  (6 mm of lug and 3.5 mm beyond the outer face), flush with the inner face of the lug,
+- Socle under each lug: 1.5 mm high, 10 mm each side of the axis and 8 mm along it
+  (6 mm of lug and 2 mm beyond the outer face), flush with the inner face of the lug,
   with 3 mm rounded corners. It is trimmed where something else is close: the socle of the
   first lug stops at y = 21.5 mm (1.5 mm from the hook rail block, which ends at y = 20) and
   at x = -64 mm (2 mm from the lid edge); the socle of the second lug stops at x = -13.5 mm
@@ -497,18 +497,16 @@ Nothing is measured; every number below is a design value.
   high). The throat arms keep their original width (2.15 mm each side of the throat), so
   the force needed to snap a pin in is not raised more than the thicker lug alone does.
   The top edges of the lug have a 0.5 mm chamfer.
-- Two curved ribs on the outer face of each lug, on both sides of the pin hole (from 1.9
-  to 5.5 mm off the axis, 3.6 mm thick each): a concave quarter circle of 3 mm radius from
-  the socle up the face. The hole stays open between them.
+- No rib on the outer face: the load of the leg goes through the pins across the axis, which the socle and the side fillets carry; the leg ear only pushes on the inner face of the lug if the leg slides along the axis, and it has 0.4 mm of play. A first version had two ribs there; they were removed on the same day because they carried no real load and brought the socle closer to the hook blocks.
 - Design values for the base, compared with the previous lug (same load direction,
   rectangular section; not measured, no material data used): section modulus across the
   axis at the top of the socle about 169 mm3 against 41 mm3 (4 times); at the foot of the
   throat arms the gain is only about 1.3 times, because the arms were deliberately left
-  as they were. Contact area on the lid up to about 185 mm2 before trimming against 35 mm2.
+  as they were. Contact area on the lid up to about 155 mm2 before trimming against 35 mm2.
 - Checked on the model (Blender 5.3.0, local MCP session): the leg swept from folded to
   open (every 6 degrees up to 48) touches the lid only in the pin hole zone, as before
-  (the crush ribs); no contact with the socle, fillets or ribs. Lid: 8894 triangles,
-  volume 40370.0 mm3 (+388.8 mm3, about +0.5 g in PLA at 1.3 g/cm3), mesh closed with no
+  (the crush ribs); no contact with the socle, fillets or ribs. Lid: 8712 triangles,
+  volume 40306.8 mm3 (+325.6 mm3, about +0.4 g in PLA at 1.3 g/cm3), mesh closed with no
   open edge (also checked on the exported STL and on the mesh in the 3mf); bounding box
   unchanged (132 x 182 x 11.2 mm). Tray and shim part (6644 triangles, 55855.2 mm3) and leg
   unchanged.
