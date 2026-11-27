@@ -23,8 +23,10 @@ import xml.etree.ElementTree as ET
 # The number of tests the suite must execute and the number it may skip, as
 # measured on the CI run of 2026-11-27 on main (run 45993237674: 17,598
 # executed, none skipped). The executed floor may only go up; the skipped
-# ceiling only down.
-MIN_EXECUTED = 17598
+# ceiling only down, with one exception: on 2026-11-27 it was lowered by 7 (to
+# 17,591) because the owner approved deleting four functions that only tests
+# called, together with the 7 tests that exercised only them.
+MIN_EXECUTED = 17591
 MAX_SKIPPED = 0
 
 
