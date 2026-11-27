@@ -50,7 +50,14 @@ Source of truth: the "Validation Architecture" section of `67-RESEARCH.md` (per-
 | 13-1, 13-2 firmware move | 13 | 6 | QUAL-01 | shim tests, import boundaries, units, mypy, core suite | pending |
 | 14-1, 14-2 polling move | 14 | 7 | QUAL-01 | shim tests, poll_loop --help, units, mypy, core suite | pending |
 | 15-1..3 pairing move and doc | 15 | 8 | QUAL-01 | shim tests, `-k pairing`, path-resolution script | pending |
-| 16-1..3 after record, ratchet | 16 | 9 | QUAL-01 | collected-id comm, CI TOTAL (manual checkpoint), comment-history | pending |
+| 17-1..3 unify migrations | 17 | 9 | QUAL-01 | `pytest server/test_sqlite_migrations.py deploy/tests/test_backup.py` plus freeze, goldens, fleet_migrate | pending |
+| 18-1..3 owner retirement gate | 18 | 10 | QUAL-01 | grep checks on 67-RETIREMENT-GATE.md (read-only commands, decisions, no IP/hash); owner checkpoint (manual) | pending |
+| 19-1..3 identity mirror | 19 | 11 | QUAL-01 | `pytest stub-server server/test_retire_legacy_state.py`, freeze unchanged (skips if G1 not approved) | pending |
+| 20-1..2 per-device copies | 20 | 12 | QUAL-01 | `pytest server stub-server deploy/tests`, quarantine CLI tests (skips if G2 not approved) | pending |
+| 21-1..2 legacy-admin, schema 5 | 21 | 13 | QUAL-01 | `pytest server/test_fleet_schema5.py -k "access_matrix or backup"` (skips if G3 not approved) | pending |
+| 22-1..3 leftovers, history schema 2 | 22 | 14 | QUAL-01 | `pytest server/test_history_schema2.py server/test_config_history.py`, ci_gates tests (task parts skip per G4/G5) | pending |
+| 23-1..2 docs and runbook | 23 | 15 | QUAL-01 | path-resolution script, `pytest deploy/tests/test_docs.py` | pending |
+| 16-1..3 after record, ratchet | 16 | 16 | QUAL-01 | collected-id comm, CI TOTAL (manual checkpoint), comment-history | pending |
 
 ## Wave 0 Requirements
 
@@ -62,6 +69,7 @@ Source of truth: the "Validation Architecture" section of `67-RESEARCH.md` (per-
 |----------|-------------|------------|-------------------|
 | Flaky test repeated 30x | QUAL-01 | browser tests do not run in this environment | CI repeated runs of the one test |
 | Remote branch deletion | QUAL-01 | owner approval required | list branches, owner approves |
+| Rollback period over; each retirement G1-G6 | QUAL-01 | production DB not visible to the executor | owner runs read-only commands from 67-RETIREMENT-GATE.md and pastes counts |
 
 ## Validation Sign-Off
 

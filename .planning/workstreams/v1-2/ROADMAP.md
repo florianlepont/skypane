@@ -939,7 +939,14 @@ Plans:
 - [ ] 67-13-PLAN.md - Module move 1: firmware group with shims
 - [ ] 67-14-PLAN.md - Module move 2: polling-support group with shims
 - [ ] 67-15-PLAN.md - Module move 3: pairing group with shims
-- [ ] 67-16-PLAN.md - After record and coverage-floor ratchet
+- [ ] 67-17-PLAN.md - Unify the SQLite migration mechanism of fleet.db and history.db (D-12)
+- [ ] 67-18-PLAN.md - Owner gate: rollback period over, retirement items, read-only checks (D-12)
+- [ ] 67-19-PLAN.md - Retire the identity mirror (devices.json, byos_state.json) with an owner-run quarantine command
+- [ ] 67-20-PLAN.md - Retire per-device registry and artwork copies and their merge code
+- [ ] 67-21-PLAN.md - Retire the legacy-admin session principal (fleet.db schema 5)
+- [ ] 67-22-PLAN.md - Remove leftovers: META_LAST_POLL_TRIGGER, location helpers, wake_epochs (history schema 2)
+- [ ] 67-23-PLAN.md - Documentation and owner runbook for the retirement deploy
+- [ ] 67-16-PLAN.md - After record and coverage-floor ratchet (runs last)
 
 
 ## Progress
