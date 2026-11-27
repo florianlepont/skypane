@@ -514,7 +514,7 @@ Nothing is measured; every number below is a design value.
   unchanged.
 - Printing (PLA, Bambu X1 Carbon, PEI plate), same pose as before: the lid lies face
   down and the lugs grow upward. The socle is 1.5 mm (about 7 layers of 0.2 mm), the
-  fillets, the ledge and the ribs all face upward at 45 degrees or flat, so no support and
+  fillets and the ribs are concave curves that face upward, so no support and
   no new overhang; the only bridge is the 3.4 mm pin hole, as before. No new wall thinner
   than 3 mm (the throat arms, 2.15 mm, are unchanged). The layers still lie across the
   height of the lug, which is why the base is widened instead of relying on the layer
