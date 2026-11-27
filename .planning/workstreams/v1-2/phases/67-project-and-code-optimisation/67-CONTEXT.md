@@ -36,7 +36,7 @@ Make the repository read, build, test and ship like an industrial product: consi
   - The owner will run the read-only production checks of plan 18 (G1 to G6) and paste the results. Plans 19 to 22 act only on those pasted results.
   - `wake_epochs` is KEPT (G4 = KEEP): the plan 22 table drop does not run. The owner will revisit it only if the link between battery life and wake interval is abandoned.
   - The fleet.db fallback is RETIRED (G1 = approved in principle): the device server reads identity from fleet.db only and refuses to answer if fleet.db is unreadable. Recovery is the nightly backup. The legacy files are quarantined by the owner-run tool, never deleted. Plan 19 still waits for the owner's G1 check result.
-  - Still to answer: the end of rollback for fleet.db (G3, schema 5, `legacy-admin` principal).
+  - The end of rollback for fleet.db is ACCEPTED in principle (G3 = approved, confirmed after an explanation of the check): schema 5 drops the `legacy-admin` principal, and the previous release then refuses fleet.db, so recovery is the nightly backup. Plan 21 still waits for the owner's pasted G3 count (`SELECT principal, COUNT(*) FROM sessions GROUP BY principal;`, counts and the words only) and the G6 written confirmation that the rollback period is over. Deploy stays manual.
 
 ### Claude's Discretion
 - Exact PR split, naming choices, which dead code qualifies, and test-suite speed-ups beyond items 1-6 already done in `70-TEST-SPEED-SUMMARY.md`.
