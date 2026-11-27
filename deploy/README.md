@@ -930,6 +930,20 @@ Useful commands: `launchctl kickstart -k gui/$(id -u)/com.skypane.backup-pull`
 to run it immediately, and `tail -f ~/Library/Logs/skypane-backup-pull.log`
 to watch it.
 
+**Protecting the off-box copy at rest.** The archives are plain
+`.tar.gz` files that hold device tokens, enrolment hashes, calendar feed
+addresses and fleet e-mail addresses, so the Mac that stores them must have
+full-disk encryption (FileVault) turned on. The pull client can enforce
+this: add the line `REQUIRE_DISK_ENCRYPTION=1` to
+`~/.config/skypane/backup.conf` and the pull refuses to run, before
+fetching anything, unless `fdesetup status` reports "FileVault is On". It
+is off by default, so existing installs behave exactly as before.
+Owner-side steps: turn FileVault on (System Settings, Privacy & Security),
+add that line to the config, then run the pull once with
+`launchctl kickstart -k gui/$(id -u)/com.skypane.backup-pull` and check the
+log. Keep the Mac's backup folder out of unencrypted cloud sync and
+external drives.
+
 The companion's System view reads that marker and shows "last off-box
 backup N ago", turning into a warning once the archive's own snapshot
 timestamp is more than 3 days old, or if no pull has ever happened.

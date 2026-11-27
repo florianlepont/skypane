@@ -72,7 +72,7 @@ def _seed_archive(archive_dir, name, content):
     return sha
 
 
-def _run_pull(tmp_path, archive_dir, pulled_dir, dest, list_fail_count=0):
+def _run_pull(tmp_path, archive_dir, pulled_dir, dest, list_fail_count=0, extra_conf="", fdesetup_out=None):
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir(exist_ok=True)
     _write_executable(bin_dir / "ssh", _FAKE_SSH)
@@ -83,8 +83,11 @@ def _run_pull(tmp_path, archive_dir, pulled_dir, dest, list_fail_count=0):
     conf_dir.mkdir(exist_ok=True)
     conf_path = conf_dir / "backup.conf"
     conf_path.write_text(
-        "TARGET=skypane-backup@example.invalid\nKEY=%s\nDEST=%s\n" % (tmp_path / "key", dest)
+        "TARGET=skypane-backup@example.invalid\nKEY=%s\nDEST=%s\n%s"
+        % (tmp_path / "key", dest, extra_conf)
     )
+    if fdesetup_out is not None:
+        _write_executable(bin_dir / "fdesetup", "#!/bin/sh\necho '%s'\n" % fdesetup_out)
 
     env = dict(os.environ)
     env["PATH"] = "%s:%s" % (bin_dir, env.get("PATH", ""))
@@ -99,6 +102,47 @@ def _run_pull(tmp_path, archive_dir, pulled_dir, dest, list_fail_count=0):
         env["FAKE_SSH_LIST_COUNTER_FILE"] = str(tmp_path / "list-fail-counter")
 
     return subprocess.run(["/bin/sh", str(_PULL_SCRIPT)], env=env, capture_output=True)
+
+
+class TestDiskEncryptionGate:
+    def _seed(self, tmp_path):
+        archive_dir = tmp_path / "archives"
+        _seed_archive(archive_dir, "skypane-state-20260901T000000Z.tar.gz", b"x")
+        return archive_dir, tmp_path / "pulled", tmp_path / "dest"
+
+    def test_default_does_not_consult_disk_encryption(self, tmp_path):
+        archive_dir, pulled, dest = self._seed(tmp_path)
+        result = _run_pull(tmp_path, archive_dir, pulled, dest, fdesetup_out="FileVault is Off.")
+        assert result.returncode == 0, result.stderr.decode()
+        assert any(dest.iterdir())
+
+    def test_required_and_on_pulls(self, tmp_path):
+        archive_dir, pulled, dest = self._seed(tmp_path)
+        result = _run_pull(
+            tmp_path, archive_dir, pulled, dest,
+            extra_conf="REQUIRE_DISK_ENCRYPTION=1\n", fdesetup_out="FileVault is On.",
+        )
+        assert result.returncode == 0, result.stderr.decode()
+        assert any(dest.iterdir())
+
+    def test_required_and_off_refuses_before_fetching(self, tmp_path):
+        archive_dir, pulled, dest = self._seed(tmp_path)
+        result = _run_pull(
+            tmp_path, archive_dir, pulled, dest,
+            extra_conf="REQUIRE_DISK_ENCRYPTION=1\n", fdesetup_out="FileVault is Off.",
+        )
+        assert result.returncode == 1
+        assert b"FileVault" in result.stderr
+        assert not dest.exists()
+        assert not (pulled / "last-pull").exists()
+
+    def test_required_without_fdesetup_refuses(self, tmp_path):
+        archive_dir, pulled, dest = self._seed(tmp_path)
+        result = _run_pull(
+            tmp_path, archive_dir, pulled, dest, extra_conf="REQUIRE_DISK_ENCRYPTION=1\n",
+        )
+        assert result.returncode == 1
+        assert not dest.exists()
 
 
 class TestPullDownloadVerifyAck:

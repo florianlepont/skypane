@@ -9,6 +9,10 @@
 #
 # Config: ${SKYPANE_BACKUP_CONF:-$HOME/.config/skypane/backup.conf}, three
 # lines: TARGET=user@host, KEY=/path/to/private/key, DEST=/path/to/backups
+# Optional fourth line: REQUIRE_DISK_ENCRYPTION=1 makes the pull refuse to
+# run unless macOS FileVault reports On (archives are plain tar.gz, so the
+# Mac's disk encryption is what protects them at rest). Unset or 0 keeps
+# the default behaviour.
 #
 # POSIX sh only - macOS ships /bin/bash 3.2, so this deliberately avoids
 # every bash-ism (double-bracket conditionals, arrays, the array-reading
@@ -37,6 +41,15 @@ DEST=$(_conf_get DEST)
 if [ -z "$TARGET" ] || [ -z "$KEY" ] || [ -z "$DEST" ]; then
     echo "skypane-backup-pull: TARGET/KEY/DEST must all be set in $CONF" >&2
     exit 1
+fi
+
+REQUIRE_ENC=$(_conf_get REQUIRE_DISK_ENCRYPTION)
+if [ "$REQUIRE_ENC" = "1" ]; then
+    # Fail closed: a missing fdesetup or any status other than On refuses.
+    if ! fdesetup status 2>/dev/null | grep -q 'FileVault is On'; then
+        echo "skypane-backup-pull: REQUIRE_DISK_ENCRYPTION=1 but FileVault is not confirmed On; refusing to pull" >&2
+        exit 1
+    fi
 fi
 
 mkdir -p "$DEST"
