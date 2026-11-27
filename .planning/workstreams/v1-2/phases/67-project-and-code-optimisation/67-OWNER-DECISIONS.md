@@ -122,6 +122,16 @@ Candidates with 0 references are the only ones that could be removed
 without breaking a link; seeds and sketches are still owner ideas, so the
 recommendation is to keep all of them unless the owner says otherwise.
 
+### 2b. Outcome of the planning-note review (owner, 2026-11-27)
+
+Deleted: `.planning/research/questions.md`, `.planning/debug/overhead-style-state.md`,
+`.planning/sketches/WRAP-UP-SUMMARY.md`,
+`.planning/sketches/phase-44-companion/general-directions.html`, SEED-021.
+Kept: `.planning/MILESTONES.md` (read by the workflow tooling), SEED-016, SEED-018,
+SEED-011, SEED-019, SEED-022. SEED-011 was first chosen for deletion, then kept by the
+owner after seeing that ten other documents cite it by identifier (the reference
+count above was by file name and missed this).
+
 ## 3. Open decisions
 
 Each row is a provisional default, owner may override. The owner-answer
@@ -129,16 +139,16 @@ column is empty until filled.
 
 | # | Decision | Provisional default | Owner answer |
 |---|---|---|---|
-| 1 | Hide or drop the tested-but-unused API (about 30 functions that only tests call) | provisional default, owner may override: keep as test seams, list the names in the plan that owns the list | |
-| 2 | SPDX headers on the 879 Python files | provisional default, owner may override: decision or CI gate only, no mass edit | |
+| 1 | Hide or drop the tested-but-unused API (about 30 functions that only tests call) | provisional default, owner may override: keep as test seams, list the names in the plan that owns the list | Delete the test-only functions together with their tests (owner, 2026-11-27); needs a new plan and one lowering of `MIN_EXECUTED` to the measured count |
+| 2 | SPDX headers on the 879 Python files | provisional default, owner may override: decision or CI gate only, no mass edit | Add `SPDX-License-Identifier: AGPL-3.0-only` to all Python files without a header (owner, 2026-11-27); files that already carry Apache-2.0, MIT or 0BSD keep theirs; plus a CI rule for new files |
 | 3 | How far server modules are regrouped | provisional default, owner may override (accepted as in the plans per D-13): three groups, `firmware_*`, polling-support, pairing; one group per PR with `sys.modules` alias shims; `fleet_db`, `history_db`, `device_config`, `poll_loop` stay where they are | |
-| 4 | Ruff `B` rules | provisional default, owner may override: not adopted; the B023 findings are listed for a later review | |
+| 4 | Ruff `B` rules | provisional default, owner may override: not adopted; the B023 findings are listed for a later review | Not adopted in this phase (owner, 2026-11-27) |
 | 5 | Function-size gate extension to companion, deploy and scripts | provisional default, owner may override (accepted per D-13): yes; plan 10 only tightens CI and edits one `ci.yml` step | |
-| 6 | Remote branch deletion | provisional default, owner may override: nothing deleted; only per-name approval in plan 12 | |
-| 7 | Planning-note cleanup (section 2) | provisional default, owner may override: nothing deleted; zero-reference candidates reviewed by the owner one by one | |
-| 8 | README "Licence" and "Contributing" sections say the repository is private | provisional default, owner may override: left as written until the visibility change closes in Phase 70.1, then reworded in one change | |
-| 9 | `pyproject.toml` comment still says the local venv is 3.11 (it is 3.13 here, 3.14 in CI and production) | provisional default, owner may override: fix the comment in the next code-touching change, not in this docs-only plan | |
-| 10 | Dependency upgrades (section 4) | provisional default, owner may override: none needed now; re-run the advisory lookup before each release | |
+| 6 | Remote branch deletion | provisional default, owner may override: nothing deleted; only per-name approval in plan 12 | All 40 branches deleted by the owner on 2026-11-27 |
+| 7 | Planning-note cleanup (section 2) | provisional default, owner may override: nothing deleted; zero-reference candidates reviewed by the owner one by one | Decided one by one (owner, 2026-11-27); see section 2b |
+| 8 | README "Licence" and "Contributing" sections say the repository is private | provisional default, owner may override: left as written until the visibility change closes in Phase 70.1, then reworded in one change | Fixed now (owner, 2026-11-27): the README and CONTRIBUTING sections say the repository is currently public; to be reworded again when the visibility changes |
+| 9 | `pyproject.toml` comment still says the local venv is 3.11 (it is 3.13 here, 3.14 in CI and production) | provisional default, owner may override: fix the comment in the next code-touching change, not in this docs-only plan | Fixed now in a small comment-only change (owner, 2026-11-27) |
+| 10 | Dependency upgrades (section 4) | provisional default, owner may override: none needed now; re-run the advisory lookup before each release | No upgrades now; re-run the advisory lookup before each release (owner, 2026-11-27) |
 
 Rows already answered are in section 0 and are not repeated here
 (migration mechanism, rollback-era duplicates, leftovers, `wake_epochs`,
