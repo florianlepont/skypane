@@ -51,7 +51,7 @@ Phase 47 measures the live frame on the live VPS. This milestone must not modify
 - [x] **Phase 68: Console and Companion Visual Improvements** - The visual improvements the owner lists for the console and the companion are made, within the design system, before the security audit and the code cleanup so that those two work on the final code. (added 2026-11-16 at the owner's request, moved up from v1.4 SEED-020; runs before Phase 66; completed 2026-11-24, validated by the owner on the deployed site)
 - [x] **Phase 68.1: Design System Consistency, Deviations and Improvements (INSERTED)** - After Phase 68, the design system is checked against the real site, every deviation is listed and fixed, and improvements and animations of the design system are proposed to the owner. (added 2026-11-21 at the owner's request; depends on Phase 68; runs before Phases 66, 67 and 59)
 - [x] **Phase 70: Private Repository and CI (Free Plan, Self-Hosted or Reduced CI)** - The whole repository becomes private without losing the owner-controlled production deploy and firmware signing, and the CI fits the private-repository limits. (added 2026-11-24 at the owner's decision: everything private; runs before Phase 66) Completed 2026-11-27 for criteria 1 to 4: the pipeline is ready and measured; criteria 5 and 6 (the switch itself and the checks after it) are carried by Phase 70.1.
-- [ ] **Phase 70.1: Private Repository Switch and Post-Switch Verification** - At the close of v1.4 the owner makes the repository private himself, and everything the owner and the sessions rely on is checked to still work. (inserted 2026-11-27 at the owner's decision: the repository stays public, with hosted CI, until v1.4 closes)
+- [x] **Phase 70.1: Private Repository Switch and Post-Switch Verification** - Moved to milestone v1.4 on 2026-11-27 at the owner's request (SEED-023): it is no longer part of v1.2 and does not block the close of v1.2. The repository stays public, with CI on hosted runners, until the close of v1.4.
 - [x] **Phase 66: Security Audit** - The whole platform (server, companion, device protocol, firmware update path, deploy and secrets) is audited, and every finding is fixed or recorded with the owner's decision. (added 2026-11-15 at the owner's request; completed 2026-11-27, audit approved by the owner; no high or critical finding, three medium findings fixed and in use)
 - [ ] **Phase 67: Project and Code Optimisation for a Clean, Industrial Result** - The repository, the code, the tests and the documents are cleaned and made consistent so the project can be maintained and handed over like an industrial product. (added 2026-11-15 at the owner's request; Phase 59 stays last)
 - [x] **Phase 69: Rear Enclosure for the 7.3 Inch Frame (Design, Print, Fit)** - The four printed parts (tray, lid with wall hooks, loose stand plate, centring shim) are designed, printed, fitted into an IKEA RÖDALM 13 x 18 cm frame with the second-hardware frame, and validated on the wall and on furniture. (added 2026-11-18 at the owner's request as an owner-driven parallel track, physical part of SEED-014; the administrator flashing tool stays in v1.3)
@@ -855,22 +855,11 @@ Plans:
 
 **Outcome (2026-11-27):** criteria 1 to 4 are met: manual deploy proven, firmware signed on the owner's Mac, the CI measured and the choice recorded (hosted runners while the repository is public, the owner's Mac after the switch), the inventory handled. Requirement PRV-02 is complete. Criteria 5 and 6 depend on the switch, which the owner makes at the close of v1.4, so they moved to Phase 70.1. Evidence: `70-EVIDENCE.md`, `70-MEASUREMENTS.md`, `70-INVENTORY.md`, `70-POSTFLIP.md` (pre-flip gate), `70-TEST-AUDIT.md`.
 
-Plans: 70-01 to 70-09 and 70-06b complete; 70-10 (gate, switch, post-switch checks) is carried by Phase 70.1
+Plans: 70-01 to 70-09 and 70-06b complete; 70-10 (gate, switch, post-switch checks) is carried by SEED-023 in milestone v1.4
 
-### Phase 70.1: Private Repository Switch and Post-Switch Verification (INSERTED)
+### Phase 70.1: Private Repository Switch and Post-Switch Verification (MOVED TO v1.4)
 
-**Goal**: At the close of v1.4 the repository becomes private, by the owner's own act, and the owner and the sessions still have everything they rely on.
-**Depends on**: Phase 70 (the pipeline, the signing on the Mac, the inventory and the documents), and the close of v1.4 (owner decision of 2026-11-27: the repository stays public, with CI on hosted runners, until then).
-**Requirements**: PRV-01, PRV-03
-**Success Criteria** (what must be TRUE):
-
-  1. The pre-flip gate in `70-POSTFLIP.md` is fully `pass` (token scope of the sessions' GitHub integration, fork pull request settings and approval of outside collaborators, a fresh firmware artifact, the self-hosted charge status re-read, `CI_RUNS_ON` set to the Mac runner), and the owner makes the repository private himself, last.
-  2. After the switch: sessions can push branches, open draft pull requests and read CI status and logs; CI runs green on the Mac runner and once on the hosted fallback (private-repository minutes recorded); the production deploy, the nightly backup, the release download in CI and Dependabot work; the owner can still run a firmware release (dry run of the signing on the Mac against the private repository).
-  3. No part of the setup assumes environments, branch protection, rulesets or secret scanning, and the documents describe the private repository.
-
-**Plans**: 1 plan
-Plans:
-- [ ] 70-10-PLAN.md (the gate, the switch and the post-switch checks; written in Phase 70, carried over here)
+**Moved on 2026-11-27 at the owner's request: this phase is part of milestone v1.4, not of v1.2, and it does not block the close of v1.2.** Its content, success criteria and the gate to pass before the owner makes the repository private himself are kept in `.planning/seeds/SEED-023-private-repository-switch.md` (target milestone v1.4, last step of that milestone). Requirements PRV-01 and PRV-03 move with it. Phase 70 stays complete for criteria 1 to 4 (`70-VERIFICATION.md`); the plan `70-10-PLAN.md` and the gate `70-POSTFLIP.md` stay where they are and are carried by the seed.
 
 ### Phase 66: Security Audit
 
@@ -960,7 +949,7 @@ Plans: TBD
 | 68. Console and Companion Visual Improvements | v1.2 | 36/36 | Complete, closed 2026-11-24: all plans built and deployed (last: #547, #555, #557, #558); CON-01 validated by the owner on the deployed site in English and French; the owner's editor remarks of 2026-11-24 were delivered and deployed on 2026-11-25 (#562 to #566, #568, #569, #574, #575 and the real generic silhouettes); Phase 68.1 follows | 2026-11-24 |
 | 68.1. Design System Consistency, Deviations and Improvements (INSERTED) | v1.2 | 22/22 | Complete, closed 2026-11-26: deviations settled, 12 owner-approved proposals built and deployed (PRs #583, #587, #590, #596), owner validated the deployed companion in English and French, Light and Dark, phone and desktop; P01, P05, P13 and P15 refused and carried as v1.3 / v1.4 candidates | 2026-11-26 |
 | 70. Private Repository and CI (Free Plan, Self-Hosted or Reduced CI) | v1.2 | 10/11 | Complete for criteria 1 to 4, closed 2026-11-27 (`70-VERIFICATION.md`): manual deploy, signing on the Mac, CI measured and decided (hosted runners while public, the Mac after the switch), inventory handled; criteria 5 and 6 moved to Phase 70.1 | 2026-11-27 |
-| 70.1. Private Repository Switch and Post-Switch Verification (INSERTED) | v1.2 | 0/1 | Waits for the close of v1.4 (owner decision of 2026-11-27); gate prepared in `70-POSTFLIP.md` | - |
+| 70.1. Private Repository Switch and Post-Switch Verification | v1.4 | - | Moved to milestone v1.4 on 2026-11-27 (SEED-023); not part of v1.2, does not block its close | - |
 | 66. Security Audit | v1.2 | 8/8 | Complete | 2026-11-27 |
 | 67. Project and Code Optimisation for a Clean, Industrial Result | v1.2 | 0/0 | Added 2026-11-15, not planned yet | - |
 | 69. Rear Enclosure for the 7.3 Inch Frame (Design, Print, Fit) | v1.2 | 8/8 | Complete, closed 2026-11-26: parts printed and assembled by the owner and checked (`69-VERIFICATION.md`); Wi-Fi decided from the bare and assembled histories; image reframed to the mat window (PR 614, deployed, owner tested the assembled frame); assembly note and BOM written; hardware improvements go to SEED-022 | 2026-11-26 |

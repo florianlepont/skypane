@@ -90,6 +90,7 @@ Progress: [████████░░] 84%
 - Phase 58 closed 2026-11-15 by the owner with the battery model provisional: the unit passed cable flash, signed OTA bench, floor refusal and the four pairing checks; no valid discharge sample exists, so no battery value was measured. Real battery data is expected from production use (Phase 64); the discharge validation is SEED-019 (v1.3). Evidence in `58-03-SUMMARY.md`, `58-04-SUMMARY.md` and `hardware/SECOND-HARDWARE-VALIDATION.md`.
 - Phase 70.1 inserted: Phase 70 closed on 2026-11-27 for criteria 1 to 4; criteria 5 and 6 moved here (switch to private at the close of v1.4, owner decision); CI stays on hosted runners until then
 - Phase 70.1 edited: Owner decision 2026-11-27: the switch to private moves from the close of v1.3 to the close of v1.4; CI stays on hosted runners until then
+- Phase 70.1 moved out of v1.2 on 2026-11-27 at the owner's request: it becomes SEED-023 in milestone v1.4 (the last step of v1.4) and no longer blocks the close of v1.2. PRV-01 and PRV-03 move with it.
 
 ### Pending Todos
 

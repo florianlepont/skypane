@@ -117,9 +117,9 @@ Runs in parallel with v1.1 Phase 47 (open, untouched). Phase numbering continues
 
 ### Private Repository and CI
 
-- [ ] **PRV-01**: The repository is private (owner's decision of 2026-11-24) and the production deploy and the firmware signing stay under the owner's explicit control on the owner's GitHub plan, proven before the visibility changes.
+- [ ] **PRV-01** (moved to milestone v1.4, SEED-023, on 2026-11-27; no longer in v1.2): The repository is private (owner's decision of 2026-11-24) and the production deploy and the firmware signing stay under the owner's explicit control on the owner's GitHub plan, proven before the visibility changes.
 - [x] **PRV-02**: The CI fits the private-repository limits, with measured minutes before and after, no test skipped to save minutes, and the browser tests still run on every code change.
-- [ ] **PRV-03**: What was public is inventoried and anything sensitive is rotated, removed or recorded with the owner's decision, and everything the owner and the sessions rely on keeps working after the switch.
+- [ ] **PRV-03** (moved to milestone v1.4, SEED-023, on 2026-11-27; no longer in v1.2): What was public is inventoried and anything sensitive is rotated, removed or recorded with the owner's decision, and everything the owner and the sessions rely on keeps working after the switch.
 
 ### Security and Quality
 
@@ -195,9 +195,9 @@ Coverage: 47/47 v1.2 requirements mapped, each to exactly one phase.
 | DSY-01 | Phase 68.1 | Complete (owner validated 2026-11-26) |
 | DSY-02 | Phase 68.1 | Complete (owner validated 2026-11-26) |
 | DSY-03 | Phase 68.1 | Complete (owner validated 2026-11-26) |
-| PRV-01 | Phase 70.1 | Pending |
+| PRV-01 | SEED-023 (v1.4) | Moved out of v1.2 on 2026-11-27 |
 | PRV-02 | Phase 70 | Complete |
-| PRV-03 | Phase 70.1 | Pending |
+| PRV-03 | SEED-023 (v1.4) | Moved out of v1.2 on 2026-11-27 |
 | SEC-AUD-01 | Phase 66 | Complete |
 | QUAL-01 | Phase 67 | Pending |
 | ENC-01 | Phase 69 | Complete |
