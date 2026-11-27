@@ -515,10 +515,13 @@ secrets, so the workflow keeps working before the move below.
 
 **Owner-side steps (repository settings, once):**
 
-1. Settings, Environments, New environment, named `production`.
-2. Add the three secrets above to the environment (same values).
+1. Settings, Environments: open the `production` environment, or create it
+   with that exact name if it does not exist.
+2. Make sure all three secrets above are in the environment (a secret value
+   cannot be read back from GitHub; a lost private key is replaced by a new
+   key pair and a new `authorized_keys` line on the VPS).
 3. In the environment's protection rules, enable Required reviewers and add
-   yourself. Optionally restrict Deployment branches to `main`.
+   yourself, and restrict Deployment branches to `main`.
 4. Only then delete the three repository-level copies of the secrets, so a
    workflow on another branch can no longer read them.
 5. Start one deploy and confirm it pauses for approval before the key is
