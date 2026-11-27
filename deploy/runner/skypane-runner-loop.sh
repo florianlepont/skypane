@@ -4,7 +4,7 @@
 # Runs on the owner's Mac (under launchd, see com.skypane.ci-runner.plist.example).
 # Each iteration asks GitHub for a just-in-time runner configuration, starts
 # exactly one runner process inside the Linux VM with it, waits for that one
-# job to finish, then wipes the runner work folder. The runner process in the
+# job to finish, then wipes the runner work folder and the runner's temporary directory. The runner process in the
 # VM never sees the admin token: the token is read from the macOS Keychain,
 # handed to curl on its standard input as a config line (so it is on no
 # command line and in no environment), and only the single-use runner
@@ -22,6 +22,9 @@ set -euo pipefail
 
 KEYCHAIN_SERVICE="skypane-runner-pat"
 RUNNER_HOME="/home/runner/actions-runner"
+# The tests write their temporary directories here (pytest-of-runner, browser
+# profiles), outside the work folder: left alone it grows by gigabytes.
+RUNNER_TEMP_HOME="/home/runner/tmp"
 LABELS='"self-hosted","skypane-ci"'
 RETRY_SECONDS=30
 
@@ -68,6 +71,7 @@ request_jit_config() {
 
 wipe_work_folder() {
     limactl shell "${VM}" -- sudo -n -u runner -H find "${RUNNER_HOME}/_work" -mindepth 1 -delete || true
+    limactl shell "${VM}" -- sudo -n -u runner -H find "${RUNNER_TEMP_HOME}" -mindepth 1 -delete || true
 }
 
 run_one_job() {
