@@ -57,7 +57,9 @@ Source of truth: the "Validation Architecture" section of `67-RESEARCH.md` (per-
 | 21-1..2 legacy-admin, schema 5 | 21 | 13 | QUAL-01 | `pytest server/test_fleet_schema5.py -k "access_matrix or backup"` (skips if G3 not approved) | pending |
 | 22-1..3 leftovers, history schema 2 | 22 | 14 | QUAL-01 | `pytest server/test_history_schema2.py server/test_config_history.py`, ci_gates tests (task parts skip per G4/G5) | pending |
 | 23-1..2 docs and runbook | 23 | 15 | QUAL-01 | path-resolution script, `pytest deploy/tests/test_docs.py` | pending |
-| 16-1..3 after record, ratchet | 16 | 16 | QUAL-01 | collected-id comm, CI TOTAL (manual checkpoint), comment-history | pending |
+| 24-1..4 test-only API deletion | 24 | 5 | QUAL-01 | collected-id diff equals listed removed ids, freeze, goldens, ruff, mypy, ci_gates tests; owner review of 67-TEST-ONLY-API.md (manual) | pending |
+| 25-1..4 SPDX headers and gate | 25 | 16 | QUAL-01 | `check_spdx_headers.py check`, numstat 1/0 per file, compileall, collected-id equality, workflow tests; owner sample review (manual) | pending |
+| 16-1..3 after record, ratchet | 16 | 17 | QUAL-01 | collected-id comm, CI TOTAL (manual checkpoint), comment-history | pending |
 
 ## Wave 0 Requirements
 
