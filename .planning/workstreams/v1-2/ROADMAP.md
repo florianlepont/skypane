@@ -936,6 +936,7 @@ Plans:
 - [ ] 67-10-PLAN.md - Function-size gate widened (companion, deploy, scripts)
 - [ ] 67-11-PLAN.md - README drift fixes and owner decision list
 - [ ] 67-12-PLAN.md - Owner checkpoint: branches, planning notes, overrides
+- [ ] 67-24-PLAN.md - Delete functions only tests call, with their tests, after owner review (D-14)
 - [ ] 67-13-PLAN.md - Module move 1: firmware group with shims
 - [ ] 67-14-PLAN.md - Module move 2: polling-support group with shims
 - [ ] 67-15-PLAN.md - Module move 3: pairing group with shims
@@ -946,6 +947,7 @@ Plans:
 - [ ] 67-21-PLAN.md - Retire the legacy-admin session principal (fleet.db schema 5)
 - [ ] 67-22-PLAN.md - Remove leftovers: META_LAST_POLL_TRIGGER, location helpers, wake_epochs (history schema 2)
 - [ ] 67-23-PLAN.md - Documentation and owner runbook for the retirement deploy
+- [ ] 67-25-PLAN.md - SPDX AGPL-3.0-only headers on all Python files plus a CI rule (D-14)
 - [ ] 67-16-PLAN.md - After record and coverage-floor ratchet (runs last)
 
 
