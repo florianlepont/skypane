@@ -922,9 +922,9 @@ Plans:
 **Not in this phase**: new features, the comment-history debt (Phase 59, which follows), and anything that changes the firmware image of the live frame.
 **Open decisions** (for discuss-phase): which areas to clean first by value, how much structural change is acceptable before the next milestone, and whether to raise the coverage floor.
 
-**Plans:** 16 plans
+**Plans:** 1/16 plans executed
 Plans:
-- [ ] 67-01-PLAN.md - Baseline record and executed-test floor ratchet
+- [x] 67-01-PLAN.md - Baseline record and executed-test floor ratchet
 - [ ] 67-02-PLAN.md - Persistent state map in ARCHITECTURE.md
 - [ ] 67-03-PLAN.md - Backup drift-guard test and unreferenced leftover constants
 - [ ] 67-04-PLAN.md - Flaky picture-lightbox browser test fix (CI repetition checkpoint)
@@ -969,5 +969,5 @@ Plans:
 | 70. Private Repository and CI (Free Plan, Self-Hosted or Reduced CI) | v1.2 | 10/11 | Complete for criteria 1 to 4, closed 2026-11-27 (`70-VERIFICATION.md`): manual deploy, signing on the Mac, CI measured and decided (hosted runners while public, the Mac after the switch), inventory handled; criteria 5 and 6 moved to Phase 70.1 | 2026-11-27 |
 | 70.1. Private Repository Switch and Post-Switch Verification | v1.4 | - | Moved to milestone v1.4 on 2026-11-27 (SEED-023); not part of v1.2, does not block its close | - |
 | 66. Security Audit | v1.2 | 8/8 | Complete | 2026-11-27 |
-| 67. Project and Code Optimisation for a Clean, Industrial Result | v1.2 | 0/0 | Added 2026-11-15, not planned yet | - |
+| 67. Project and Code Optimisation for a Clean, Industrial Result | v1.2 | 1/16 | In Progress|  |
 | 69. Rear Enclosure for the 7.3 Inch Frame (Design, Print, Fit) | v1.2 | 8/8 | Complete, closed 2026-11-26: parts printed and assembled by the owner and checked (`69-VERIFICATION.md`); Wi-Fi decided from the bare and assembled histories; image reframed to the mat window (PR 614, deployed, owner tested the assembled frame); assembly note and BOM written; hardware improvements go to SEED-022 | 2026-11-26 |

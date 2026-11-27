@@ -21,9 +21,10 @@ import sys
 import xml.etree.ElementTree as ET
 
 # The number of tests the suite must execute and the number it may skip, as
-# measured on the last full run of the unsplit job (12,821 passed, none
-# skipped). The executed floor may only go up; the skipped ceiling only down.
-MIN_EXECUTED = 12821
+# measured on the CI run of 2026-11-27 on main (run 45993237674: 17,598
+# executed, none skipped). The executed floor may only go up; the skipped
+# ceiling only down.
+MIN_EXECUTED = 17598
 MAX_SKIPPED = 0
 
 
