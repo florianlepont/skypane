@@ -32,8 +32,10 @@ companion too, reported by the owner (the panel image itself was fine):
 - Style page previews: fixed in PR 618, deployed on 2026-11-27.
 - Home picture, Flights thumbnails and image lightbox (they read the stored
   gallery image), and the picture tiles leaving side gaps once cut (they now
-  fill their frame, the rounded corners crop a little): draft PR 620, not
-  merged or deployed yet. Not checked visually by the assistant.
+  fill their frame, the rounded corners crop a little): PR 620, merged and
+  deployed on 2026-11-27. The owner validated the changes ("je valide les
+  modifs"), reported by the owner; which pages were looked at was not
+  detailed. Not checked visually by the assistant.
 
 ## Not done or not verified
 
