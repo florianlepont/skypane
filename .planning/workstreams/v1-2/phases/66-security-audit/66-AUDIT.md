@@ -192,7 +192,7 @@ For the next milestones:
 2. **Wi-Fi setup.** The setup flow will handle the home network password and the first enrolment secret; it needs its own threat check (transport, where secrets are held, how a lost device is revoked).
 3. **Update policy, including anti-rollback.** Decide floor raising for security releases (DP-5), how a lost or compromised signing key is handled in the field, and whether to enable hardware secure boot and flash encryption (intentionally off today).
 4. **Outside penetration test before any commercial launch.** This audit is a single-reviewer, read-only review; it did not test the live system.
-5. **Auth0 tenant self sign-up check.** The sign-in design relies on invitation only; confirm in the tenant settings that self sign-up is disabled (not visible from code).
+5. **Auth0 tenant self sign-up check: done by the owner on 2026-11-27.** Only the application's own user database is enabled for the application (the default database and the social connections are disabled for it), and sign-ups are disabled on that database. Follow-up: the tenant is tagged as a development tenant; plan a production tenant before wider use.
 6. **Known-vulnerability check in CI** over the lock files (D-4); it was not run in this audit.
 7. **Encrypted off-box backups.** Decide the at-rest policy beyond the opt-in disk-encryption check (S-3), for instance encrypting archives to a public key before the pull.
 8. **Deploy approval model.** Complete the owner-side steps of the environment gate (D-1, S-2); revisit before any additional person gets repository write access.
@@ -204,7 +204,7 @@ For the next milestones:
 
 1. Done (2026-11-27): #627 merged, secrets in the `production` environment with a required reviewer, repository-level copies deleted, old deploy key revoked, one gated deploy succeeded.
 2. Done (2026-11-27): #628 is merged, disk encryption is on for the Mac that holds the backup copy, the opt-in setting is in its backup configuration, and one pull completed with it.
-3. Confirm in the Auth0 tenant that self sign-up is disabled.
+3. Done (2026-11-27): self sign-up is disabled in the Auth0 tenant (see follow-up 5).
 4. Decide which low items to schedule, and the at-rest policy for backups (S-3 follow-up).
 5. Plan an outside penetration test before any commercial launch.
 6. Approve this document while the repository is public (final checkpoint of the plan).

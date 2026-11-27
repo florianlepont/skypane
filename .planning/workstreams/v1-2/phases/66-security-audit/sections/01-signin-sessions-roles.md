@@ -44,6 +44,6 @@ medium/low recorded
 
 ## Follow-ups for next milestones
 
-- Confirm in the identity provider tenant that self sign-up is disabled, since the sign-in path relies on invitation (tenant setting, not visible from code).
+- Self sign-up is disabled in the identity provider tenant (checked by the owner on 2026-11-27); the sign-in path relies on invitation.
 - ID-token signature is not verified locally because the token arrives straight from the provider over TLS in the code exchange; this is documented in the module and is within the protocol rules. Revisit if any other token source is ever accepted.
 - Callback and sign-out have no per-client throttle of their own; the callback is bounded by the attempt table and requires a live attempt cookie. Revisit with the deploy-area review of the reverse proxy.
