@@ -933,7 +933,25 @@ Plans:
 **Not in this phase**: new features, the comment-history debt (Phase 59, which follows), and anything that changes the firmware image of the live frame.
 **Open decisions** (for discuss-phase): which areas to clean first by value, how much structural change is acceptable before the next milestone, and whether to raise the coverage floor.
 
-Plans: TBD
+**Plans:** 16 plans
+Plans:
+- [ ] 67-01-PLAN.md - Baseline record and executed-test floor ratchet
+- [ ] 67-02-PLAN.md - Persistent state map in ARCHITECTURE.md
+- [ ] 67-03-PLAN.md - Backup drift-guard test and unreferenced leftover constants
+- [ ] 67-04-PLAN.md - Flaky picture-lightbox browser test fix (CI repetition checkpoint)
+- [ ] 67-05-PLAN.md - ARCHITECTURE.md claim-by-claim rewrite and CLAUDE.md pointer
+- [ ] 67-06-PLAN.md - Delete nine zero-reference functions
+- [ ] 67-07-PLAN.md - Server-side duplicated helpers
+- [ ] 67-08-PLAN.md - Companion-side duplicated helpers
+- [ ] 67-09-PLAN.md - Type coverage (mypy list, two annotated modules)
+- [ ] 67-10-PLAN.md - Function-size gate widened (companion, deploy, scripts)
+- [ ] 67-11-PLAN.md - README drift fixes and owner decision list
+- [ ] 67-12-PLAN.md - Owner checkpoint: branches, planning notes, overrides
+- [ ] 67-13-PLAN.md - Module move 1: firmware group with shims
+- [ ] 67-14-PLAN.md - Module move 2: polling-support group with shims
+- [ ] 67-15-PLAN.md - Module move 3: pairing group with shims
+- [ ] 67-16-PLAN.md - After record and coverage-floor ratchet
+
 
 ## Progress
 
