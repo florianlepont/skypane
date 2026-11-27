@@ -128,8 +128,9 @@ Deleted: `.planning/research/questions.md`, `.planning/debug/overhead-style-stat
 `.planning/sketches/WRAP-UP-SUMMARY.md`,
 `.planning/sketches/phase-44-companion/general-directions.html`, SEED-021.
 Kept: `.planning/MILESTONES.md` (read by the workflow tooling), SEED-016, SEED-018,
-SEED-019, SEED-022. Held: SEED-011 (owner chose delete, but ten other documents
-cite it by identifier; the reference count above was by file name and missed this).
+SEED-011, SEED-019, SEED-022. SEED-011 was first chosen for deletion, then kept by the
+owner after seeing that ten other documents cite it by identifier (the reference
+count above was by file name and missed this).
 
 ## 3. Open decisions
 
