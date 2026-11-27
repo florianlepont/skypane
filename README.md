@@ -83,7 +83,8 @@ apart.
 
 ## Running it locally
 
-Requires Python 3.14.
+Production and CI run Python 3.14. The code also runs the tests on an
+older local 3.x (for example 3.13).
 
 ```bash
 python3 -m venv server/.venv
