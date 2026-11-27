@@ -16,7 +16,8 @@ Context given to the owner before the decision: 22 of the last 52 commits were d
 - Machine: laptop, Apple Silicon (M5 chip), 16 GB of memory, arm64 (no emulation needed for the tests).
 - Uptime: on almost all the time, no detailed schedule; a laptop sleeps when the lid is closed, so the runner serves jobs only while the Mac is awake (see the runner README).
 - Sizing agreed: 2 single-use runners, one VM each, about 5 GB per VM, instead of the 4 runners of the kit's default; expected wall-clock per full run about 25 to 35 minutes (to be measured).
-- Free disk space: to be confirmed by the owner (at least 60 GB advised).
+- Free disk space (read from the Mac on 2026-11-27): 27 GB free; the two VMs have a 20 GB disk each.
+- Machine as measured on 2026-11-27: 10 cores, 16 GB; each VM 4 CPUs, 5 GiB of memory, 20 GiB disk (aarch64); `JOBS=2` test workers per job. The sizing line above (25 to 35 minutes) turned out too optimistic: see "Before and after".
 
 ## CI path splitting
 
@@ -46,3 +47,52 @@ Measured motivation, from `70-TEST-AUDIT.md`: twelve core files (2,783 tests), 4
 What changes: on `pull_request` the shards run with `SKYPANE_COVERAGE=off` (`pytest --no-cov`) and write only the JUnit report. The aggregate check "Lint, test, coverage, attribution" still requires every job, one JUnit file per shard and the totals gate (no failures, executed floor, skipped ceiling 0); it skips only the coverage-data steps and writes "coverage: not measured on pull requests; measured on main". On main and dispatch nothing changes. Cost: a pull request is not checked against the coverage floor, so a drop shows up as a red CI on main after the merge and the deploy guard refuses that commit.
 
 Not measured here: the time saved on a real PR run (needs a CI run after merge).
+
+## Runner install
+
+Dates: installed and registered on 2026-11-25 and 2026-11-26 (owner's Mac, Lima VMs, launchd loops).
+
+- runners: 2 (one single-use runner per VM, a new just-in-time registration for every job)
+- runner idle and visible: yes (GitHub showed both runners online and busy on 2026-11-26; the owner's local session read the same)
+- variable set: yes, `CI_RUNS_ON` = `["self-hosted","skypane-ci"]`; the owner removes it while the repository is public to get fast hosted runs, and sets it again before the flip
+- collaborators: none
+- outside collaborators approval required: to be confirmed by the owner before the flip
+- fork PR workflows disabled: to be confirmed by the owner before the flip (the fork-pull-request guard in `ci.yml` is in place)
+
+Problems found and fixed while running real CI on the VMs (2026-11-26): `/tmp` in RAM filled by test data (fixed with `TMPDIR=/home/runner/tmp`, later a wipe after every job); too many xdist workers for 5 GiB (`JOBS=2`); no C compiler (4 firmware cross-check tests errored) and no `node` (33 minifier tests skipped, which the gate refuses): both added to the VM definition; the Mac went to sleep and killed two jobs (kept awake with `caffeinate`); the 20-minute job limit cancelled four jobs (now 45 minutes when `CI_RUNS_ON` is set).
+
+## Before and after
+
+baseline billable minutes: 60 (run 45337958006, hosted, 2-core Linux, each job rounded up per minute; about 17 runs a day)
+
+Hosted fallback (repository still public, so nothing is billed today): runs 1485 and 1487 took about 10 minutes of wall-clock each. Billable minutes if the repository were private: about 55 to 60 per run, read from the job times of run 1487 (static 1; core 6 and 7; browser 10, 9, 10 and two more of the same size); hosted minutes on the private repository were not measured because the repository is public. hosted fallback billable minutes: about 60 (estimate, not measured)
+
+Mac runner (2 runners, VMs of 4 CPUs, 5 GiB, 2 test workers per job):
+
+| Run | What | Wall-clock | Runner time of the test jobs | Longest job |
+|---|---|---|---|---|
+| 1483 (2026-11-26, first complete run) | before the VM fixes | 82 minutes | invalid: sleep, missing tools, 20-minute limit | 20 minutes |
+| 1490 (PR) | after the VM fixes, coverage on | 57 minutes, one job failed once and passed on re-run | about 114 minutes over 7 jobs | 19.3 minutes |
+| 1492 (PR, no coverage) | after the test speed changes | not isolated (shared the runners with other runs) | about 91 minutes over 7 jobs | 14.7 minutes |
+| 1498 (main, coverage on) | after the speed changes | 67 minutes, shared | about 77 minutes over 7 jobs | 12.3 minutes |
+| PR run of the 8-shard change | 8 test jobs, no coverage | not isolated | about 87 minutes over 8 jobs | 12.6 minutes |
+
+wall-clock per run: Mac about 50 to 60 minutes when the runners are not shared (57 minutes measured once on 2026-11-26, 67 minutes shared); hosted fallback about 10 minutes. A clean, solo run of the final layout was not measured: the runners were always shared with other runs.
+
+runners: 2
+
+Test speed work (audit in `70-TEST-AUDIT.md`, merged 2026-11-26): about 20 percent less runner time for the test jobs (114 to 91 minutes), and coverage only on `main` (about 17 percent of test time measured on core files). The eight-shard layout shows no measurable gain on two runners (87 minutes over 8 jobs against 77 over 7 with coverage on); its value is balance (four jobs per runner) and four-runner hosts.
+
+Gate numbers (read from the gate on green runs 1498 and 1504): skipped: 0 (the gate refuses any skipped test and both runs passed it); executed: 17552 test items collected (`pytest --collect-only`), against the gate floor of 12,821, which is not changed; browser shards run: 6 (8 test jobs with the 2 core shards).
+
+Monthly minutes (estimates from the inputs, not measurements): before, about 500 runs a month at 60 billable minutes is about 30,000 against about 2,000 included; with the Mac runner, the hosted minutes left are the deploy (about 1 per deploy), the firmware release build (about 3 per release) and the daily CA chain check (about 30 a month), so well under 100. A month entirely on hosted runners at the path-filtered rate (about 300 runs of 60 minutes) would be about 18,000 minutes, about $96 above the $12 of included compute at $0.006 per minute.
+
+charge status: postponed with no new date (2026-11-27): GitHub's changelog says it is "postponing the announced billing change for self-hosted GitHub Actions to take time to re-evaluate our approach"; the billing documentation lists self-hosted runners as free and not reducing the included compute. The included compute on GitHub Free is $12 a month, about 2,000 Linux 2-core minutes at $0.006 per minute (arithmetic, not stated on the page). Re-check before the flip and again by 2026-12-24.
+
+## Decision record: where CI runs
+
+Interim state (2026-11-27): CI runs on the owner's Mac when `CI_RUNS_ON` is set and on hosted runners when it is not; hosted runs are free while the repository is public. The docs-only skip, the path filter and the owner's decision of 2026-11-26 are in force; no test is skipped for a change to code and the browser tests run on every change to code.
+
+Options considered (decision above): keep the Mac (free, about 50 to 60 minutes per run, sleeps, shared with the owner's work), a second-hand mini PC with four runners (about 150 to 250 euros once, about 25 to 30 minutes expected, not measured), or the paid hosted minutes (about $96 a month at the current rate, not recommended). Recommendation recorded: the mini PC; the Mac is acceptable until it is bought. Mac settings tried or still open: `JOBS=3` on one VM (not tried), a shard count that divides evenly (done, 8 test jobs).
+
+decision (owner, 2026-11-27): the repository stays public, with CI on GitHub's hosted runners (free and unlimited while public, about 10 minutes per run), until the close of v1.3; the visibility flip to private happens at that close. After the flip CI runs on the owner's Mac (`CI_RUNS_ON` set again just before the flip). Until then `CI_RUNS_ON` stays unset, and the mini PC is not needed yet.
