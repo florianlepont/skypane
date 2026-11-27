@@ -5,13 +5,13 @@ milestone_name: Fleet platform
 current_plan: 11
 status: Phase 66 closed; Phase 67 not planned yet
 stopped_at: Phase 67 context gathered
-last_updated: "2026-11-27T13:51:25.323Z"
+last_updated: "2026-11-27T14:14:54.708Z"
 last_activity: 2026-11-27
 progress:
   total_phases: 25
   completed_phases: 19
-  total_plans: 281
-  completed_plans: 401
+  total_plans: 297
+  completed_plans: 402
   percent: 76
 ---
 
