@@ -27,6 +27,7 @@ import sys
 import threading
 import zoneinfo
 from functools import lru_cache
+from typing import Any
 
 # Allow both `import server.device_config` (package import) and direct
 # script execution: sys.path[0] is server/ itself when this file is
@@ -145,11 +146,11 @@ DEVICE_CONFIG_LOCK_TIMEOUT_S = 10.0
 _SAVE_LOCK = threading.Lock()
 
 
-def device_config_path(state_dir):
+def device_config_path(state_dir: str) -> str:
     return os.path.join(state_dir, DEVICE_CONFIG_FILENAME)
 
 
-def normalise_theme_id(value):
+def normalise_theme_id(value: Any) -> str:
     """`value` unchanged if it's a string member of `THEMES`, else
     `DEFAULT_THEME_ID`. Never raises.
     """
@@ -158,7 +159,7 @@ def normalise_theme_id(value):
     return DEFAULT_THEME_ID
 
 
-def normalise_theme_arriving(value):
+def normalise_theme_arriving(value: Any) -> str | None:
     """`value` unchanged if it's a string member of `THEMES`, else None -
     never raises. Unlike `normalise_theme_id()`, degrades to `None`
     (meaning "no override, same as `theme`"), not to a documented
@@ -169,7 +170,7 @@ def normalise_theme_arriving(value):
     return None
 
 
-def normalise_calendar_theme_id(value):
+def normalise_calendar_theme_id(value: Any) -> str | None:
     """`value` unchanged if it's a string member of `THEMES`, else None -
     never raises. `None` means "no calendar theme chosen"; degrading to
     `DEFAULT_THEME_ID` instead would look like a calendar match happened
@@ -182,7 +183,7 @@ def normalise_calendar_theme_id(value):
     return None
 
 
-def normalise_runway_id(value):
+def normalise_runway_id(value: Any) -> str:
     """Same contract as normalise_theme_id(), against RUNWAYS/DEFAULT_RUNWAY_ID."""
     if isinstance(value, str) and value in RUNWAYS:
         return value
@@ -191,7 +192,7 @@ def normalise_runway_id(value):
 
 
 
-def normalise_led_enabled(value):
+def normalise_led_enabled(value: Any) -> bool:
     """`value` unchanged if `isinstance(value, bool)`, else
     `DEFAULT_LED_ENABLED`. Never raises; an int like 0/1 is not a bool
     and degrades to the default, intentionally.
@@ -201,7 +202,7 @@ def normalise_led_enabled(value):
     return DEFAULT_LED_ENABLED
 
 
-def normalise_quiet_hours_enabled(value):
+def normalise_quiet_hours_enabled(value: Any) -> bool:
     """Same bool-or-default contract as normalise_led_enabled(), against
     `DEFAULT_QUIET_HOURS_ENABLED`.
     """
@@ -210,7 +211,7 @@ def normalise_quiet_hours_enabled(value):
     return DEFAULT_QUIET_HOURS_ENABLED
 
 
-def normalise_display_enabled(value):
+def normalise_display_enabled(value: Any) -> bool:
     """Same bool-or-default contract as normalise_led_enabled(), against
     `DEFAULT_DISPLAY_ENABLED`. Because the default is True, every
     degradation path (missing/unreadable/malformed config) leaves the
@@ -221,7 +222,7 @@ def normalise_display_enabled(value):
     return DEFAULT_DISPLAY_ENABLED
 
 
-def normalise_wake_interval_s(value):
+def normalise_wake_interval_s(value: Any) -> int | None:
     """`value` unchanged if it's a positive int (not bool) within
     [WAKE_INTERVAL_MIN_S, WAKE_INTERVAL_MAX_S], else None - meaning
     "never explicitly set", not "degraded to a default" (there is none).
@@ -234,7 +235,7 @@ def normalise_wake_interval_s(value):
 
 
 @lru_cache(maxsize=1)
-def _known_timezones():
+def _known_timezones() -> frozenset[str]:
     """The IANA zone names this host knows, read once. Membership here is
     checked before any `ZoneInfo` is built, so a path-like string never
     reaches the filesystem.
@@ -242,7 +243,7 @@ def _known_timezones():
     return frozenset(zoneinfo.available_timezones())
 
 
-def normalise_timezone(value):
+def normalise_timezone(value: Any) -> str:
     """`value` unchanged if it is a known IANA zone name, else
     `DEFAULT_TIMEZONE`. Never raises.
     """
@@ -251,7 +252,7 @@ def normalise_timezone(value):
     return DEFAULT_TIMEZONE
 
 
-def normalise_detection(value):
+def normalise_detection(value: Any) -> dict[str, Any] | None:
     """A fresh dict holding exactly the known keys of a well-shaped
     detection value, else None. Shape only: whether the airport or runway
     exists is the catalogue's question, answered outside this leaf module.
@@ -276,7 +277,7 @@ def normalise_detection(value):
     return None
 
 
-def load_device_config(state_dir):
+def load_device_config(state_dir: str) -> dict[str, Any]:
     """Read device_config.json; a missing/unreadable/malformed/non-dict
     file falls back to an empty dict, never raises. Always returns all
     thirteen keys with valid values via the normalise_*() functions above,
@@ -316,7 +317,7 @@ def load_device_config(state_dir):
     }
 
 
-def _validate_detection(detection):
+def _validate_detection(detection: object) -> None:
     """`detection`'s own validation: `None` and `CLEAR_DETECTION` pass;
     anything else must already be a well-shaped detection object.
     """
@@ -326,7 +327,7 @@ def _validate_detection(detection):
         raise ValueError("invalid detection value %r" % (detection,))
 
 
-def _validate_layout(layout):
+def _validate_layout(layout: object) -> None:
     """`layout`'s own validation: `None` means not supplied; anything else
     must be a known layout id.
     """
@@ -336,7 +337,7 @@ def _validate_layout(layout):
         raise ValueError("unknown layout id (expected one of %r)" % (screen_layouts.LAYOUT_IDS,))
 
 
-def _validate_timezone(timezone):
+def _validate_timezone(timezone: object) -> None:
     """`timezone`'s own validation: `None` means not supplied; anything
     else must be a string naming a known IANA zone. Fails closed when the
     host has no time zone database at all.
@@ -350,7 +351,7 @@ def _validate_timezone(timezone):
         raise ValueError("unknown timezone %r (expected an IANA zone name such as %r)" % (timezone, DEFAULT_TIMEZONE))
 
 
-def _validate_theme_fields(theme, theme_arriving, calendar_theme_id):
+def _validate_theme_fields(theme: Any, theme_arriving: Any, calendar_theme_id: Any) -> None:
     """`theme`/`theme_arriving`/`calendar_theme_id`'s own validation,
     extracted from `save_device_config()` verbatim - same messages, same
     order. See `save_device_config()`'s docstring for the three-state
@@ -367,7 +368,7 @@ def _validate_theme_fields(theme, theme_arriving, calendar_theme_id):
         raise ValueError("unknown calendar_theme_id %r (expected None, the empty string, or one of %r)" % (calendar_theme_id, THEME_IDS))
 
 
-def _validate_runway_and_flags(tracked_runway, led_enabled, display_enabled):
+def _validate_runway_and_flags(tracked_runway: Any, led_enabled: Any, display_enabled: Any) -> None:
     """`tracked_runway`/`led_enabled`/`display_enabled`'s own
     validation, extracted from `save_device_config()` verbatim.
     """
@@ -379,7 +380,7 @@ def _validate_runway_and_flags(tracked_runway, led_enabled, display_enabled):
         raise ValueError("display_enabled must be a bool, got %r" % (display_enabled,))
 
 
-def _validate_quiet_hours(quiet_hours_enabled, quiet_hours_start, quiet_hours_end):
+def _validate_quiet_hours(quiet_hours_enabled: Any, quiet_hours_start: Any, quiet_hours_end: Any) -> None:
     """`quiet_hours_enabled`/`quiet_hours_start`/`quiet_hours_end`'s own
     validation, extracted from `save_device_config()` verbatim.
     """
@@ -391,7 +392,7 @@ def _validate_quiet_hours(quiet_hours_enabled, quiet_hours_start, quiet_hours_en
         raise ValueError("quiet_hours_end must be a 24-hour zero-padded HH:MM string, got %r" % (quiet_hours_end,))
 
 
-def _validate_wake_interval(wake_interval_s):
+def _validate_wake_interval(wake_interval_s: Any) -> None:
     """`wake_interval_s`'s own validation, extracted from
     `save_device_config()` verbatim.
     """
@@ -407,11 +408,13 @@ def _validate_wake_interval(wake_interval_s):
 
 
 def _merged_config(
-    current, theme=None, theme_arriving=None, calendar_theme_id=None, tracked_runway=None,
-    led_enabled=None, quiet_hours_enabled=None, quiet_hours_start=None, quiet_hours_end=None,
-    wake_interval_s=None, display_enabled=None, timezone=None, detection=None,
-    layout=None,
-):
+    current: dict[str, Any], theme: Any = None, theme_arriving: Any = None,
+    calendar_theme_id: Any = None, tracked_runway: Any = None,
+    led_enabled: Any = None, quiet_hours_enabled: Any = None, quiet_hours_start: Any = None,
+    quiet_hours_end: Any = None, wake_interval_s: Any = None, display_enabled: Any = None,
+    timezone: Any = None, detection: Any = None,
+    layout: Any = None,
+) -> dict[str, Any]:
     """The dict `save_device_config()` writes (ten keys, plus `timezone`
     only when it differs from `DEFAULT_TIMEZONE` and `detection` only
     when set, `layout` only when it differs from the default): every supplied
@@ -456,11 +459,12 @@ def _merged_config(
 
 
 def save_device_config(
-    state_dir, theme=None, theme_arriving=None, tracked_runway=None, led_enabled=None,
-    quiet_hours_enabled=None, quiet_hours_start=None, quiet_hours_end=None,
-    wake_interval_s=None, display_enabled=None, calendar_theme_id=None, timezone=None,
-    detection=None, layout=None,
-):
+    state_dir: str, theme: Any = None, theme_arriving: Any = None, tracked_runway: Any = None,
+    led_enabled: Any = None, quiet_hours_enabled: Any = None, quiet_hours_start: Any = None,
+    quiet_hours_end: Any = None, wake_interval_s: Any = None, display_enabled: Any = None,
+    calendar_theme_id: Any = None, timezone: Any = None,
+    detection: Any = None, layout: Any = None,
+) -> None:
     """Validate and persist any subset of the device settings; `None`
     means "not supplied, carry the current on-disk value forward" for
     every field. An invalid non-None value raises `ValueError` naming the
@@ -526,13 +530,13 @@ def save_device_config(
             atomic_io.atomic_write(device_config_path(state_dir), json.dumps(new_config, indent=1))
 
 
-def runway_tag_text(runway_id):
+def runway_tag_text(runway_id: str) -> str:
     return RUNWAYS[runway_id]["tag_text"]
 
 
-def runway_empty_heading(runway_id):
+def runway_empty_heading(runway_id: str) -> str:
     return RUNWAYS[runway_id]["empty_heading"]
 
 
-def runway_label(runway_id):
+def runway_label(runway_id: str) -> str:
     return RUNWAYS[runway_id]["label"]
