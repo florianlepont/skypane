@@ -13,6 +13,8 @@ from typing import NamedTuple
 
 from companion import device_scope, frame_status, i18n, ui_modal
 from companion.ui_base import escape_html, icon_html, validation_attrs
+from companion.ui_base import lazy_console_routes as _routes
+from companion.ui_base import lazy_ui_components as _ui
 
 KIND_LIVE = frame_status.KIND_LIVE
 KIND_PENDING = frame_status.KIND_PENDING
@@ -181,19 +183,6 @@ def sort_rows(rows):
         rows, key=lambda row: (
             _KIND_ORDER[row.kind], _problem_rank(row), row.name.casefold(),
             row.frame_id))
-
-
-def _routes():
-    # Imported on use: companion.console_routes imports the route modules,
-    # which import this page.
-    from companion import console_routes
-    return console_routes
-
-
-def _ui():
-    # Imported on use: this page loads while the navigation is still importing.
-    from companion import ui_components
-    return ui_components
 
 
 def _esc(value):

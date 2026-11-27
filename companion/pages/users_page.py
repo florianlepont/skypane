@@ -17,6 +17,8 @@ from typing import NamedTuple
 
 from companion import i18n, ui_base, ui_entity_list, ui_modal, ui_time
 from companion.ui_base import escape_html, icon_html
+from companion.ui_base import lazy_console_routes as _routes
+from companion.ui_base import lazy_ui_components as _ui
 
 EMAIL_FIELD = "email"
 ROLE_FIELD = "role"
@@ -249,18 +251,6 @@ def status_of(row):
     # A recorded sign-in means the person has signed in, whatever the identity
     # link says: the invited mark never sits beside a last sign-in time.
     return STATUS_ACTIVE if row.has_identity or row.last_seen is not None else STATUS_INVITED
-
-
-def _routes():
-    # Imported on use: companion.console_routes imports the route modules.
-    from companion import console_routes
-    return console_routes
-
-
-def _ui():
-    # Imported on use: this page loads while the navigation is still importing.
-    from companion import ui_components
-    return ui_components
 
 
 def _esc(value):
