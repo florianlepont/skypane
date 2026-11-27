@@ -530,8 +530,8 @@ Nothing is measured; every number below is a design value.
   the pins and use, the real strength of the layers at the base, the clearance of the
   trimmed socles against the hook blocks on a real print, the friction and the snap-in force
   with the thicker lug, and the fit of the pins.
-- The 3mf was updated with the new lid mesh only; its stored preview images and slicing
-  summary still show the earlier lid and must be refreshed by slicing again in Bambu Studio.
+- The 3mf holds the new lid mesh and was sliced again in Bambu Studio by the owner on
+  2026-11-27 (previews and slicing summary refreshed; the slicing settings used are not stated).
 
 ### Stand redesigned with a wide foot, 2026-11-24
 
