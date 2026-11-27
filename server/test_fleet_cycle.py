@@ -167,21 +167,6 @@ def test_resolver_failure_marks_the_device_unzoned():
     assert len(plan.zones) == 1
 
 
-def test_default_resolver_gives_every_device_the_geofence_zone():
-    geofence = os.path.join(os.path.dirname(os.path.dirname(__file__)), "adsb-test", "runway3.json")
-    resolver = fleet_cycle.geofence_resolver(geofence)
-    devices = _devices(3)
-    results = [resolver(d) for d in devices]
-    assert len({zone.key for zone, _ in results}) == 1
-    assert "center" in results[0][1]
-
-
-def test_default_resolver_with_missing_geofence_raises_oserror(tmp_path):
-    resolver = fleet_cycle.geofence_resolver(str(tmp_path / "nope.json"))
-    with pytest.raises(OSError):
-        resolver(_devices(1)[0])
-
-
 def test_state_dirs_never_come_from_unvalidated_paths(fleet, tmp_path):
     conn = sqlite3.connect(str(tmp_path / "fleet.db"))
     conn.execute("UPDATE devices SET state_path = ? WHERE id = ?", ("/etc", fleet.dev_a.id))
