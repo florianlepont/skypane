@@ -890,7 +890,27 @@ Plans:
 **Not in this phase**: legal and regulatory review (SEED-015), a third-party penetration test (listed as an option to decide), and new features.
 **Open decisions** (for discuss-phase): audit by Claude only or with an outside reviewer, how far a test against the live production host may go, and which findings may wait for the next milestone.
 
-Plans: TBD
+**Plans**: 8 plans
+Plans:
+**Wave 1**
+
+- [ ] 66-01-PLAN.md — Audit protocol, severity scale, two-layer rule, pre-flight (SEC-AUD-01)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 66-02-PLAN.md — Sign-in, sessions, roles, default-deny matrix
+- [ ] 66-03-PLAN.md — Device protocol, enrolment, firmware signing, update, rollback
+- [ ] 66-04-PLAN.md — Companion input handling and admin-never-sees-photos rule
+- [ ] 66-05-PLAN.md — Server, deploy pipeline, CI, dependencies
+- [ ] 66-06-PLAN.md — Secrets, rotation, backups, logs, databases, data-source terms
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 66-07-PLAN.md — Per-finding fixes with tests, owner deploy checkpoint
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 66-08-PLAN.md — Audit document, remaining risks, post-deploy write-up of high findings
 
 ### Phase 67: Project and Code Optimisation for a Clean, Industrial Result
 
