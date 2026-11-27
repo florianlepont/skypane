@@ -50,7 +50,8 @@ Phase 47 measures the live frame on the live VPS. This milestone must not modify
 - [x] **Phase 65: Detection Robustness (Runway 3 and Multi-Airport Validation)** - The detection tracks the right aircraft on Paris-Orly runway 3, on the other Orly runways and on other French airports: what a device shows matches an independent source. (added 2026-11-15 at the owner's request; battery work moved out to SEED-019 for v1.3 on 2026-11-15; scope widened to several runways and airports on 2026-11-15; completed 2026-11-18, Orly 06/24 left untested by the owner's decision; Phase 59 stays last)
 - [x] **Phase 68: Console and Companion Visual Improvements** - The visual improvements the owner lists for the console and the companion are made, within the design system, before the security audit and the code cleanup so that those two work on the final code. (added 2026-11-16 at the owner's request, moved up from v1.4 SEED-020; runs before Phase 66; completed 2026-11-24, validated by the owner on the deployed site)
 - [x] **Phase 68.1: Design System Consistency, Deviations and Improvements (INSERTED)** - After Phase 68, the design system is checked against the real site, every deviation is listed and fixed, and improvements and animations of the design system are proposed to the owner. (added 2026-11-21 at the owner's request; depends on Phase 68; runs before Phases 66, 67 and 59)
-- [ ] **Phase 70: Private Repository and CI (Free Plan, Self-Hosted or Reduced CI)** - The whole repository becomes private without losing the owner-controlled production deploy and firmware signing, and the CI fits the private-repository limits. (added 2026-11-24 at the owner's decision: everything private; runs before Phase 66)
+- [x] **Phase 70: Private Repository and CI (Free Plan, Self-Hosted or Reduced CI)** - The whole repository becomes private without losing the owner-controlled production deploy and firmware signing, and the CI fits the private-repository limits. (added 2026-11-24 at the owner's decision: everything private; runs before Phase 66) Completed 2026-11-27 for criteria 1 to 4: the pipeline is ready and measured; criteria 5 and 6 (the switch itself and the checks after it) are carried by Phase 70.1.
+- [ ] **Phase 70.1: Private Repository Switch and Post-Switch Verification** - At the close of v1.3 the owner makes the repository private himself, and everything the owner and the sessions rely on is checked to still work. (inserted 2026-11-27 at the owner's decision: the repository stays public, with hosted CI, until v1.3 closes)
 - [ ] **Phase 66: Security Audit** - The whole platform (server, companion, device protocol, firmware update path, deploy and secrets) is audited, and every finding is fixed or recorded with the owner's decision. (added 2026-11-15 at the owner's request)
 - [ ] **Phase 67: Project and Code Optimisation for a Clean, Industrial Result** - The repository, the code, the tests and the documents are cleaned and made consistent so the project can be maintained and handed over like an industrial product. (added 2026-11-15 at the owner's request; Phase 59 stays last)
 - [x] **Phase 69: Rear Enclosure for the 7.3 Inch Frame (Design, Print, Fit)** - The four printed parts (tray, lid with wall hooks, loose stand plate, centring shim) are designed, printed, fitted into an IKEA RÖDALM 13 x 18 cm frame with the second-hardware frame, and validated on the wall and on furniture. (added 2026-11-18 at the owner's request as an owner-driven parallel track, physical part of SEED-014; the administrator flashing tool stays in v1.3)
@@ -845,14 +846,31 @@ Plans:
   2. The firmware signing key never sits in a repository secret that a workflow can read freely: signing is done on the owner's computer, or behind a control that works on the plan in use. The release path of the live frame and its signed image stay unchanged, and a signed test release is imported by the server.
   3. The CI fits the plan: the choice is made and recorded between a self-hosted runner (where it runs, how it is secured, whether GitHub charges for it), a reduced CI (docs-only changes skip the heavy jobs, jobs split by changed paths), a paid plan or a mix, with the measured minutes per run and the monthly total before and after. No test is skipped to save minutes, and the browser tests still run on every change to code.
   4. A written inventory of what has been public so far is kept: secrets and personal data to rotate or remove, the planning notes with commercial content, and the fact that copies already taken stay public. Anything sensitive found is handled (rotated or recorded with the owner's decision).
-  5. After the switch, everything the owner and the sessions use still works: sessions can open and push branches and draft pull requests and read CI logs, the production deploy, the nightly backup and the release download in CI (`gh release download`) work, Dependabot still opens its pull requests, and the owner can still run a firmware release.
-  6. The repository is private, and the documents (`deploy/README.md`, `firmware/SIGNING.md`, `COMPLIANCE.md`, `README.md` licence section) describe the new setup.
+  5. (Moved to Phase 70.1, 2026-11-27.) After the switch, everything the owner and the sessions use still works.
+  6. (Moved to Phase 70.1, 2026-11-27.) The repository is private, and the documents describe the new setup; the documents were merged while the repository is still public.
 
 **Not in this phase**: moving to another git platform, splitting the repository, and any legal review of the licences (SEED-015).
 **Open decisions** (for discuss-phase): where a self-hosted runner would run (the owner's Mac, a second small server, not the production server) or whether a paid plan or an organisation is preferred, how the manual deploy and local signing are operated day to day, and when exactly to flip the visibility (after criteria 1 to 3 pass).
 **Must not break**: the live frame, production, the signed firmware release path, and the golden hashes and freeze test.
 
-Plans: TBD
+**Outcome (2026-11-27):** criteria 1 to 4 are met: manual deploy proven, firmware signed on the owner's Mac, the CI measured and the choice recorded (hosted runners while the repository is public, the owner's Mac after the switch), the inventory handled. Requirement PRV-02 is complete. Criteria 5 and 6 depend on the switch, which the owner makes at the close of v1.3, so they moved to Phase 70.1. Evidence: `70-EVIDENCE.md`, `70-MEASUREMENTS.md`, `70-INVENTORY.md`, `70-POSTFLIP.md` (pre-flip gate), `70-TEST-AUDIT.md`.
+
+Plans: 70-01 to 70-09 and 70-06b complete; 70-10 (gate, switch, post-switch checks) is carried by Phase 70.1
+
+### Phase 70.1: Private Repository Switch and Post-Switch Verification (INSERTED)
+
+**Goal**: At the close of v1.3 the repository becomes private, by the owner's own act, and the owner and the sessions still have everything they rely on.
+**Depends on**: Phase 70 (the pipeline, the signing on the Mac, the inventory and the documents), and the close of v1.3 (owner decision of 2026-11-27: the repository stays public, with CI on hosted runners, until then).
+**Requirements**: PRV-01, PRV-03
+**Success Criteria** (what must be TRUE):
+
+  1. The pre-flip gate in `70-POSTFLIP.md` is fully `pass` (token scope of the sessions' GitHub integration, fork pull request settings and approval of outside collaborators, a fresh firmware artifact, the self-hosted charge status re-read, `CI_RUNS_ON` set to the Mac runner), and the owner makes the repository private himself, last.
+  2. After the switch: sessions can push branches, open draft pull requests and read CI status and logs; CI runs green on the Mac runner and once on the hosted fallback (private-repository minutes recorded); the production deploy, the nightly backup, the release download in CI and Dependabot work; the owner can still run a firmware release (dry run of the signing on the Mac against the private repository).
+  3. No part of the setup assumes environments, branch protection, rulesets or secret scanning, and the documents describe the private repository.
+
+**Plans**: 1 plan
+Plans:
+- [ ] 70-10-PLAN.md (the gate, the switch and the post-switch checks; written in Phase 70, carried over here)
 
 ### Phase 66: Security Audit
 
