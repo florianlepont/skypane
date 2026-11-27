@@ -3,10 +3,10 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Fleet platform
 current_plan: 11
-status: verifying
-stopped_at: Phase 70 context gathered
+status: ready_to_plan
+stopped_at: Phase 66 closed; Phase 67 not started
 last_updated: "2026-11-27T10:17:45.144Z"
-last_activity: 2026-11-25
+last_activity: 2026-11-27
 progress:
   total_phases: 25
   completed_phases: 17
@@ -20,14 +20,14 @@ progress:
 ## Project Reference
 
 **Core Value:** Glancing at the frame tells you, in real time, which plane is taking off or landing right now — while also being a satisfying ambient piece on the wall.
-**Current focus:** Phase 49 — per-hardware-ota-registry
+**Current focus:** Phase 67 — project and code optimisation (Phase 66 closed 2026-11-27)
 
 ## Current Position
 
-Phase: 49 (per-hardware-ota-registry) — ready for verification
-Plan: 11 of 11 (all plans complete)
-Status: Phase complete — ready for verification
-Last activity: 2026-11-25
+Phase: 66 (security-audit) — complete and verified
+Next: Phase 67
+Status: Phase 66 closed; Phase 67 not planned yet
+Last activity: 2026-11-27
 
 Progress: [████████░░] 84%
 
@@ -109,5 +109,5 @@ Progress: [████████░░] 84%
 
 ## Session Continuity
 
-**Stopped At:** Phase 70 context gathered
-**Resume File:** .planning/workstreams/v1-2/phases/70-private-repository-and-ci/70-CONTEXT.md
+**Stopped At:** Phase 66 closed; Phase 67 not started
+**Resume File:** None
