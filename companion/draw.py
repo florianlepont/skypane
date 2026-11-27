@@ -851,64 +851,6 @@ def grid_cell_size(width=CARD_DRAWING_WIDTH_PX, columns=None):
     return (width - CELL_GAP_PX * (columns - 1)) / float(columns)
 
 
-def regularity_grid(cells, width=CARD_DRAWING_WIDTH_PX, label=None):
-    """`(markup, dropped)` — a grid of square cells, one per bucket, laid
-    out oldest-first left to right and top to bottom.
-
-    `cells` is an iterable of `(state, title)` pairs; `state` is a
-    wake.classify_check_in_gap() verdict (anything else paints as no
-    observation) and `title` is the caller's text for that bucket. A
-    missing or blank title raises: a coloured cell with nothing naming
-    what it judged is a verdict nobody can check.
-
-    `dropped` counts the oldest buckets that did not fit inside
-    GRID_MAX_ROWS rows; the cells kept are the newest, so the drawing
-    never shows a window that already ended. No cells draws nothing and
-    drops nothing — the empty case belongs to the caller.
-    """
-    try:
-        supplied = list(cells)
-    except TypeError:
-        return "", 0
-    if not supplied:
-        return "", 0
-
-    columns = grid_columns(width)
-    size = grid_cell_size(width, columns)
-    capacity = columns * GRID_MAX_ROWS
-    kept = supplied[-capacity:]
-    dropped = len(supplied) - len(kept)
-    rows = int(math.ceil(len(kept) / float(columns)))
-
-    step = size + CELL_GAP_PX
-    shapes = []
-    for index, entry in enumerate(kept):
-        try:
-            state, text = entry
-        except (TypeError, ValueError):
-            raise ValueError(
-                "a regularity-grid cell is a (state, title) pair — a cell with no title "
-                "is a coloured verdict with nothing naming what it judged (got %r)"
-                % (entry,))
-        if not isinstance(text, str) or not text.strip():
-            raise ValueError(
-                "a regularity-grid cell needs a title naming the bucket it judged: a "
-                "coloured cell whose reading nobody can check is a claim, not a "
-                "drawing (got %r)" % (text,))
-        column = index % columns
-        row = index // columns
-        shapes.append(rect(
-            "%s %s" % (DRAWING_CELL_CLASS, cell_class(state)),
-            round(column * step, 2), round(row * step, 2),
-            round(size, 2), round(size, 2), attrs={"title": text}))
-
-    height = rows * size + CELL_GAP_PX * (rows - 1)
-    markup = unit_canvas(
-        DRAWING_FIGURE_CLASS, shapes, round(width, 2), round(height, 2),
-        label=label, hidden=label is None)
-    return markup, dropped
-
-
 # --- internals --------------------------------------------------------
 
 def _require_class(class_name):
