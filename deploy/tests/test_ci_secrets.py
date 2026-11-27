@@ -144,11 +144,12 @@ def test_no_workflow_mentions_the_signing_key_secret():
     assert not offenders, offenders
 
 
-def test_no_workflow_uses_a_deployment_environment():
+def test_only_the_deploy_workflow_uses_a_deployment_environment():
     offenders = [
         p.name
         for p in _workflow_files()
-        if re.search(r"^\s*environment\s*:", _non_comment_text(p), re.M)
+        if p.name != "deploy.yml"
+        and re.search(r"^\s*environment\s*:", _non_comment_text(p), re.M)
     ]
     assert not offenders, offenders
 

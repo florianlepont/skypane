@@ -2,12 +2,14 @@
 #
 # Started by hand only (workflow_dispatch); a merge to main never deploys.
 # It runs on a GitHub-hosted runner so it works while any personal machine
-# is off. There is deliberately no deployment environment and no job-level
-# condition: a refusal must fail the run loudly, never end as a green skip.
+# is off. The job is bound to the `production` environment so the deploy
+# secrets can live there and a required reviewer can gate the run. There is
+# deliberately no job-level condition: a refusal must fail the run loudly,
+# never end as a green skip.
 #
-# The confirmation is an anti-accident control, not access control: any
-# workflow on any branch of the repository can read repository secrets on
-# this plan. See deploy/README.md, "Production deploy (started by hand)".
+# The confirmation is an anti-accident control, not access control; access
+# control is the environment's required reviewer and its secrets. See
+# deploy/README.md, "Production deploy (started by hand)".
 name: Deploy to production
 
 on:
@@ -36,6 +38,9 @@ jobs:
     name: Deploy to production
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # Environment secrets are only released to this job after the
+    # environment's protection rules (required reviewers) pass.
+    environment: production
     # cancel-in-progress: false means a running deploy is never killed
     # mid-rsync; a newer queued deploy only supersedes an older pending one.
     concurrency:
