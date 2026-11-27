@@ -51,6 +51,7 @@ from typing import Any
 
 from server import atomic_io
 from server.plane import fleet_registries, illustrations
+from server.plane.fleet_registries import _merged_hashes
 
 MARKER_FILENAME = "illustration_migration.json"
 CONFLICTS_DIRNAME = "illustration_conflicts"
@@ -143,13 +144,6 @@ def _read_marker(root: str) -> dict[str, Any]:
     except (OSError, ValueError):
         return {}
     return data if isinstance(data, dict) else {}
-
-
-def _merged_hashes(marker: dict[str, Any]) -> dict[str, str]:
-    raw = marker.get("merged")
-    if not isinstance(raw, dict):
-        return {}
-    return {k: v for k, v in raw.items() if isinstance(k, str) and isinstance(v, str)}
 
 
 def _candidate_problem(root: str, name: str, info: os.stat_result, path: str) -> str:
