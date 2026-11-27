@@ -123,7 +123,7 @@ Runs in parallel with v1.1 Phase 47 (open, untouched). Phase numbering continues
 
 ### Security and Quality
 
-- [ ] **SEC-AUD-01**: The whole platform is audited for security (sign-in, roles, device protocol, firmware update, companion inputs, server and deploy, dependencies, secrets, backups, logs); every finding is fixed and tested, or accepted by the owner in writing.
+- [x] **SEC-AUD-01**: The whole platform is audited for security (sign-in, roles, device protocol, firmware update, companion inputs, server and deploy, dependencies, secrets, backups, logs); every finding is fixed and tested, or accepted by the owner in writing.
 - [ ] **QUAL-01**: The repository, code, tests and documents are cleaned and made consistent, with a measured before and after record, an architecture document, no behaviour change, and no weakened CI gate.
 
 ### Debt
@@ -198,7 +198,7 @@ Coverage: 47/47 v1.2 requirements mapped, each to exactly one phase.
 | PRV-01 | Phase 70.1 | Pending |
 | PRV-02 | Phase 70 | Complete |
 | PRV-03 | Phase 70.1 | Pending |
-| SEC-AUD-01 | Phase 66 | Pending |
+| SEC-AUD-01 | Phase 66 | Complete |
 | QUAL-01 | Phase 67 | Pending |
 | ENC-01 | Phase 69 | Complete |
 | UX-01 | Phase 61 | Complete |
