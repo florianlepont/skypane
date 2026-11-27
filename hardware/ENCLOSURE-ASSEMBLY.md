@@ -41,7 +41,13 @@ of the stand (the owner has some and did not use them).
 5. Fit the lid on the frame tabs. No screw holds it: the owner found the screws
    useless on 2026-11-24 and the lugs were removed.
 6. Snap the two pins of the leg into the hinge lugs of the lid. Reported by the
-   owner on 2026-11-26: the pins snap in and hold.
+   owner on 2026-11-26: the pins snap in and hold. Reported on 2026-11-27: both
+   lugs of that lid then broke off at assembly (PLA, 1.5 mm plate); the lid was
+   redesigned with thicker lugs on a socle (`ENCLOSURE-PRINT-ORDER.md`, entry of
+   2026-11-27) and must be reprinted. Advice for the new lid, not tested: lay the
+   lid flat on a table with the lugs over the table, not over the edge, and press
+   one pin down into its throat at a time, straight down; do not lever the leg
+   sideways while a pin is half in.
 
 ## Using it
 
@@ -67,7 +73,8 @@ of the stand (the owner has some and did not use them).
   their limits are in `ENCLOSURE-WIFI-TEST.md`); the interleaved test was not
   done.
 - The 3 mm printed PLA hinge pins and the thin lid plate (1.5 mm) were not
-  stressed beyond the checks above.
+  stressed beyond the checks above; the first hinge lugs of the lid broke at
+  assembly (2026-11-27), and the reinforced lugs are not printed yet.
 - Taking the frame apart again risks breaking the printed PLA threads of the
   screw holes (owner, 2026-11-26).
 - The displayed image is reframed to the mat opening by the server for the EE04
