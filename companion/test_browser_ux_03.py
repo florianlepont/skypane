@@ -369,7 +369,10 @@ def test_a_refresh_keeps_every_picture_action_working(new_context, make_app_serv
                 "expected the newest flight to head the list with its own picture link, got %r"
                 % (seen["topName"],))
         page.locator("tr[data-flight-row] a[data-view-panel-src]").first.click()
-        if not page.locator("#panel-lookup-dialog").evaluate("el => el.open"):
+        dialog = page.locator("#panel-lookup-dialog")
+        # The lightbox opens once its picture has loaded, so wait for it rather than sampling at once.
+        dialog.wait_for(state="visible")
+        if not dialog.evaluate("el => el.open"):
             raise AssertionError("expected a swapped-in picture link to open the lightbox")
     finally:
         context.close()
