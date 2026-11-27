@@ -175,6 +175,73 @@ def _js_last_word(text):
     return m.group(1) if m else ""
 
 
+def _js_skip_string(source, i):
+    """Index just past the quoted string whose opening quote is at `i`."""
+    n = len(source)
+    quote = source[i]
+    i += 1
+    while i < n and source[i] != quote:
+        if source[i] == "\\":
+            i += 2
+            continue
+        i += 1
+    return i + 1
+
+
+def _js_skip_template(source, i):
+    """Index just past the template literal whose backtick is at `i`."""
+    n = len(source)
+    i += 1
+    depth = 0
+    while i < n:
+        if source[i] == "\\":
+            i += 2
+            continue
+        if source[i] == "`" and depth == 0:
+            return i + 1
+        if source[i] == "$" and i + 1 < n and source[i + 1] == "{":
+            depth += 1
+            i += 2
+            continue
+        if source[i] == "}" and depth > 0:
+            depth -= 1
+        i += 1
+    return i
+
+
+def _js_skip_regex(source, i):
+    """Index just past the regex literal (and its flags) starting at `i`."""
+    n = len(source)
+    i += 1
+    in_class = False
+    while i < n:
+        if source[i] == "\\":
+            i += 2
+            continue
+        if source[i] == "[":
+            in_class = True
+        elif source[i] == "]":
+            in_class = False
+        elif source[i] == "/" and not in_class:
+            i += 1
+            break
+        elif source[i] == "\n":
+            break
+        i += 1
+    while i < n and source[i].isalpha():
+        i += 1
+    return i
+
+
+def _js_slash_starts_regex(source, i):
+    tail = source[max(0, i - 30):i].rstrip()
+    return (
+        tail == ""
+        or tail[-1] in "(,=:[!&|?{};"
+        or _js_last_word(tail) in _JS_REGEX_CONTEXT_KEYWORDS
+    )
+
+
 def _js_chunks(source):
     """Split JS source into ("code" | "comment", text) chunks: string,
     template-literal and regex-literal aware, so a `//` inside a URL string
@@ -191,33 +258,10 @@ def _js_chunks(source):
     while i < n:
         c = source[i]
         if c in "\"'":
-            i += 1
-            while i < n and source[i] != c:
-                if source[i] == "\\":
-                    i += 2
-                    continue
-                i += 1
-            i += 1
+            i = _js_skip_string(source, i)
             continue
         if c == "`":
-            i += 1
-            depth = 0
-            while i < n:
-                if source[i] == "\\":
-                    i += 2
-                    continue
-                if source[i] == "`" and depth == 0:
-                    i += 1
-                    break
-                if source[i] == "$" and i + 1 < n and source[i + 1] == "{":
-                    depth += 1
-                    i += 2
-                    continue
-                if source[i] == "}" and depth > 0:
-                    depth -= 1
-                    i += 1
-                    continue
-                i += 1
+            i = _js_skip_template(source, i)
             continue
         if c == "/" and i + 1 < n and source[i + 1] == "/":
             flush(i)
@@ -237,34 +281,8 @@ def _js_chunks(source):
             chunks.append(("comment", source[start:i]))
             code_start = i
             continue
-        if c == "/":
-            tail = source[max(0, i - 30):i].rstrip()
-            is_regex_context = (
-                tail == ""
-                or tail[-1] in "(,=:[!&|?{};"
-                or _js_last_word(tail) in _JS_REGEX_CONTEXT_KEYWORDS
-            )
-            if is_regex_context:
-                i += 1
-                in_class = False
-                while i < n:
-                    if source[i] == "\\":
-                        i += 2
-                        continue
-                    if source[i] == "[":
-                        in_class = True
-                    elif source[i] == "]":
-                        in_class = False
-                    elif source[i] == "/" and not in_class:
-                        i += 1
-                        break
-                    elif source[i] == "\n":
-                        break
-                    i += 1
-                while i < n and source[i].isalpha():
-                    i += 1
-                continue
-            i += 1
+        if c == "/" and _js_slash_starts_regex(source, i):
+            i = _js_skip_regex(source, i)
             continue
         i += 1
     flush(n)
