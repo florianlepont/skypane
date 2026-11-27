@@ -146,9 +146,9 @@ column is empty until filled.
 | 5 | Function-size gate extension to companion, deploy and scripts | provisional default, owner may override (accepted per D-13): yes; plan 10 only tightens CI and edits one `ci.yml` step | |
 | 6 | Remote branch deletion | provisional default, owner may override: nothing deleted; only per-name approval in plan 12 | All 40 branches deleted by the owner on 2026-11-27 |
 | 7 | Planning-note cleanup (section 2) | provisional default, owner may override: nothing deleted; zero-reference candidates reviewed by the owner one by one | Decided one by one (owner, 2026-11-27); see section 2b |
-| 8 | README "Licence" and "Contributing" sections say the repository is private | provisional default, owner may override: left as written until the visibility change closes in Phase 70.1, then reworded in one change | |
-| 9 | `pyproject.toml` comment still says the local venv is 3.11 (it is 3.13 here, 3.14 in CI and production) | provisional default, owner may override: fix the comment in the next code-touching change, not in this docs-only plan | |
-| 10 | Dependency upgrades (section 4) | provisional default, owner may override: none needed now; re-run the advisory lookup before each release | |
+| 8 | README "Licence" and "Contributing" sections say the repository is private | provisional default, owner may override: left as written until the visibility change closes in Phase 70.1, then reworded in one change | Fixed now (owner, 2026-11-27): the README and CONTRIBUTING sections say the repository is currently public; to be reworded again when the visibility changes |
+| 9 | `pyproject.toml` comment still says the local venv is 3.11 (it is 3.13 here, 3.14 in CI and production) | provisional default, owner may override: fix the comment in the next code-touching change, not in this docs-only plan | Fixed now in a small comment-only change (owner, 2026-11-27) |
+| 10 | Dependency upgrades (section 4) | provisional default, owner may override: none needed now; re-run the advisory lookup before each release | No upgrades now; re-run the advisory lookup before each release (owner, 2026-11-27) |
 
 Rows already answered are in section 0 and are not repeated here
 (migration mechanism, rollback-era duplicates, leftovers, `wake_epochs`,
