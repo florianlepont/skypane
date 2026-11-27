@@ -190,6 +190,7 @@ files = [
     "server/fleet_cycle.py",
     "server/plane/fleet_default_types.py",
     "server/plane/render/landscape_common.py",
+    "server/http_fetch.py",
 ]
 
 # mypy's own `strict` preset is a global-only switch; these per-flag
@@ -237,6 +238,7 @@ module = [
     "server.plane.render.giant.palette_check",
     "server.plane.render.giant.compose_c",
     "server.plane.render.giant.geometry_landscape",
+    "server.http_fetch",
 ]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
