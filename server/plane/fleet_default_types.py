@@ -5,13 +5,11 @@ picture (livery).
 A default type is only offered, and accepted, for a type the airline has
 artwork for (`illustrations.has_type_livery`). Defaults stored before that
 rule can name a type with no picture. This module clears each of them once, at
-deploy time (`server.fleet_migrate`), after the per-frame registries and
-artwork have been merged into the fleet root.
+deploy time (`server.fleet_migrate`).
 
 Invariants:
 - Default types are fleet-wide: `<root>/airline_default_types.json` is the
-  only file read and written. Per-frame files are frozen copies and are never
-  touched.
+  only file read and written.
 - Every cleared entry is first appended to
   `<root>/airline_default_types_cleared.json` (airline key, type, source, time),
   so nothing is lost silently; the entry is cleared next and the marker
@@ -19,8 +17,7 @@ Invariants:
 - The marker is written only by a run that cleared something; once it exists
   a run does nothing, so a default stored later is never touched by a later
   deploy. A run that finds nothing to clear writes nothing at all. A dry run writes nothing; it judges the
-  fleet root as it is now (artwork or defaults still waiting in the per-frame
-  merge are not counted).
+  fleet root as it is now.
 - Output names airline keys, type codes and counts only.
 """
 from __future__ import annotations

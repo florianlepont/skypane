@@ -190,3 +190,170 @@ def test_the_quarantine_directory_is_in_the_backup_allow_list():
     assert retire.QUARANTINE_DIRNAME in backup.INCLUDE_DIRS
     for name in retire.LEGACY_FILES:
         assert name in backup.INCLUDE_FILES
+
+
+# ---- per-frame registry and artwork copies --------------------------------
+
+FRAME_A, FRAME_B = "d_0000000a", "d_0000000b"
+ROOT_FILES = {
+    "manual_resolutions.json": b'{"OCN": "root"}',
+    "airline_name_overrides.json": b'{"OCN": "root names"}',
+    "airline_default_types.json": b'{"air-france": "A320"}',
+    "airline_registry_migration.json": b"{}",
+    "illustration_migration.json": b"{}",
+}
+
+
+def _put(path, data=b"{}"):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "wb") as fh:
+        fh.write(data)
+
+
+@pytest.fixture
+def frames(tmp_path):
+    """A state root with no identity file, two frames holding copies of the
+    three registries and a picture, the root registries, the root artwork
+    and both merge markers."""
+    root = str(tmp_path)
+    for name, data in ROOT_FILES.items():
+        _put(os.path.join(root, name), data)
+    _put(os.path.join(root, "illustration_overrides", "ocn.png"), b"root-picture")
+    for frame in (FRAME_A, FRAME_B):
+        for name in retire.FRAME_COPY_FILES:
+            _put(os.path.join(root, "devices", frame, name), b'{"copy": "%s"}' % frame.encode())
+        _put(os.path.join(root, "devices", frame, "illustration_overrides", "ocn.png"), b"frame-picture")
+    _put(os.path.join(root, "devices", FRAME_A, "poll_state.json"), b"{}")
+    return root
+
+
+def _files(root):
+    out = {}
+    for base, _dirs, names in os.walk(root):
+        for name in names:
+            path = os.path.join(base, name)
+            with open(path, "rb") as fh:
+                out[os.path.relpath(path, root)] = fh.read()
+    return out
+
+
+def _frame_run(root, *flags):
+    code, lines = retire.run(root, "--apply" in flags, today=DAY)
+    return code, "\n".join(lines)
+
+
+def test_frame_dry_run_lists_names_and_sizes_and_changes_nothing(frames):
+    before = _files(frames)
+    code, out = _frame_run(frames)
+    assert code == 0
+    assert "per-frame copies present: 8" in out
+    assert "devices/%s/manual_resolutions.json: 22 bytes" % FRAME_A in out
+    assert "devices/%s/illustration_overrides: 1 file(s)" % FRAME_B in out
+    assert "dry run: would move 8 per-frame copies into retired-legacy/%s/devices" % DAY in out
+    assert _files(frames) == before
+    for leaked in ("frame-picture", "root names", "copy\""):
+        assert leaked not in out
+
+
+def test_frame_apply_moves_each_copy_and_leaves_the_root_untouched(frames):
+    before = _files(frames)
+    code, out = _frame_run(frames, "--apply")
+    assert code == 0
+    assert "moved 8 per-frame copies into retired-legacy/%s/devices" % DAY in out
+    after = _files(frames)
+    for name, data in ROOT_FILES.items():
+        assert after[name] == data
+    assert after["illustration_overrides/ocn.png"] == b"root-picture"
+    assert after["devices/%s/poll_state.json" % FRAME_A] == b"{}"
+    moved = os.path.join("retired-legacy", DAY, "devices")
+    for frame in (FRAME_A, FRAME_B):
+        for name in retire.FRAME_COPY_FILES:
+            rel = os.path.join("devices", frame, name)
+            assert rel not in after
+            assert after[os.path.join(moved, frame, name)] == before[rel]
+        assert after[os.path.join(moved, frame, "illustration_overrides", "ocn.png")] == b"frame-picture"
+        assert not os.path.exists(os.path.join(frames, "devices", frame, "illustration_overrides"))
+    assert len(after) == len(before)
+
+
+def test_frame_second_apply_does_nothing(frames):
+    assert _frame_run(frames, "--apply")[0] == 0
+    after_first = _files(frames)
+    code, out = _frame_run(frames, "--apply")
+    assert code == 0
+    assert out.startswith("nothing to do")
+    assert "per-frame" not in out
+    assert _files(frames) == after_first
+
+
+@pytest.mark.parametrize("flags", [(), ("--apply",)])
+@pytest.mark.parametrize("marker", ["airline_registry_migration.json", "illustration_migration.json"])
+def test_a_missing_merge_marker_refuses_and_moves_nothing(frames, flags, marker):
+    os.unlink(os.path.join(frames, marker))
+    before = _files(frames)
+    code, out = _frame_run(frames, *flags)
+    assert code == 2
+    assert "refused: merge marker missing" in out and marker in out
+    assert _files(frames) == before
+
+
+def test_no_marker_is_needed_for_a_kind_of_copy_that_is_absent(tmp_path):
+    root = str(tmp_path)
+    _put(os.path.join(root, "airline_registry_migration.json"))
+    _put(os.path.join(root, "devices", FRAME_A, "manual_resolutions.json"))
+    os.makedirs(os.path.join(root, "devices", FRAME_A, "illustration_overrides"))
+    code, _out = _frame_run(root, "--apply")
+    assert code == 0
+    moved = os.path.join(root, "retired-legacy", DAY, "devices", FRAME_A)
+    assert os.path.isfile(os.path.join(moved, "manual_resolutions.json"))
+    assert os.path.isdir(os.path.join(moved, "illustration_overrides"))
+
+
+def test_symlinks_and_odd_names_are_reported_and_left_alone(frames, tmp_path_factory):
+    outside = str(tmp_path_factory.mktemp("outside"))
+    _put(os.path.join(outside, "manual_resolutions.json"), b"outside")
+    _put(os.path.join(outside, "illustration_overrides", "x.png"), b"outside")
+    devices = os.path.join(frames, "devices")
+    os.symlink(outside, os.path.join(devices, "d_0000000c"))
+    os.makedirs(os.path.join(devices, "not-an-id"))
+    _put(os.path.join(devices, "not-an-id", "manual_resolutions.json"), b"odd")
+    linked_file = os.path.join(devices, FRAME_B, "airline_default_types.json")
+    os.unlink(linked_file)
+    os.symlink(os.path.join(outside, "manual_resolutions.json"), linked_file)
+    linked_dir = os.path.join(devices, FRAME_B, "illustration_overrides")
+    os.rename(linked_dir, linked_dir + ".real")
+    os.symlink(os.path.join(outside, "illustration_overrides"), linked_dir)
+    code, out = _frame_run(frames, "--apply")
+    assert code == 0
+    assert "skipped: devices/d_0000000c is a symlink" in out
+    assert "skipped: 1 entry of devices/ not named like a frame id" in out
+    assert "skipped: devices/%s/airline_default_types.json is a symlink" % FRAME_B in out
+    assert "skipped: devices/%s/illustration_overrides is a symlink" % FRAME_B in out
+    assert os.path.islink(os.path.join(devices, "d_0000000c"))
+    assert os.path.islink(linked_dir) and os.path.islink(linked_file)
+    assert _files(outside) == {"manual_resolutions.json": b"outside",
+                               os.path.join("illustration_overrides", "x.png"): b"outside"}
+    assert os.path.isfile(os.path.join(devices, "not-an-id", "manual_resolutions.json"))
+    assert "outside" not in out and "odd" not in out
+
+
+def test_an_existing_frame_target_is_never_overwritten(frames):
+    target = os.path.join(frames, "retired-legacy", DAY, "devices", FRAME_B, "manual_resolutions.json")
+    _put(target, b"earlier")
+    before = _files(frames)
+    code, out = _frame_run(frames, "--apply")
+    assert code == 2
+    assert "already exists in the quarantine directory" in out
+    assert _files(frames) == before
+
+
+def test_the_frame_step_does_not_hide_a_refused_identity_step(seeded):
+    # The identity files are present but fleet.db lacks them: exit 2 even
+    # though the frame step alone would succeed.
+    _put(os.path.join(seeded.state_dir, "devices", FRAME_A, "manual_resolutions.json"))
+    _put(os.path.join(seeded.state_dir, "airline_registry_migration.json"))
+    os.unlink(os.path.join(seeded.state_dir, "fleet.db"))
+    code, out = retire.run(seeded.state_dir, False, today=DAY)
+    assert code == 2
+    assert "refused: fleet.db is absent or not migrated" in out
+    assert "per-frame copies present: 1" in out
