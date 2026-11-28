@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The Health page's Battery card: the chart (a range fitted to the data, the
 low-battery line only when the data is near it, an end value, three date ticks)
 and the card around it (percentage default, the Level column, the verdict

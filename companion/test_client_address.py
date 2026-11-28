@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Tests the client_ip()/login_throttle_key() helpers behind the sign-in
 start throttle, and the companion's bind address handling.
 

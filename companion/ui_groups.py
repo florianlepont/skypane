@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The grouped-list components every page is built from: a section label, a
 group (one glass surface holding rows) and a row.
 

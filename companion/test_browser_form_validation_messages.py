@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Form validation sentences come from the page's own language, not from the browser's: the
 invite email field says what is wrong in French on a French page and clears the message as
 soon as the person edits it."""

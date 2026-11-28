@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Poll-cycle behaviour of the check-interval experiment: the flight image
 changes at most once per saved wake interval, hold screens are never
 delayed, and with the experiment off nothing differs.

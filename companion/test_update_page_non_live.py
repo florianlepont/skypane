@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The Update card and version history of a frame that is not the live one:
 the registry and the device report live in the root state directory (where
 byos and the firmware CLI keep them), while the frame's own directory holds

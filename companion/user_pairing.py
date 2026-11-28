@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The user-scope pairing routes: any signed-in person adds their own frame
 with the code shown on the frame.
 

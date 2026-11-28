@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Hold/status screens in the giant-lettering design (portrait, 1200x1600).
 
     PYTHONPATH=. python3 design-exploration/plane-screen/mock_states.py OUT_DIR FONT_DIR

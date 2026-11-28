@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The Account page and a plain user's whole experience over real HTTP: the
 page itself, uniform 404s for everything else, a coherent error-page shell
 and preference redirects that stay on /account.

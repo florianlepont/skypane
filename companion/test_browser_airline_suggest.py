@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the suggested airline names in the Airlines editor
 (administrator, Chromium): a pending row becomes a suggestion row without a
 page load, one request at a time and at most three per load; the check names

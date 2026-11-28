@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser check that the action button of a retired frame's page (Re-activate) and of a
 pending frame's page (Pair frame) keeps the same right margin as the text keeps on its left."""
 import pytest

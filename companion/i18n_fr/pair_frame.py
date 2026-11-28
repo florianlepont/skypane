@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# SPDX-License-Identifier: AGPL-3.0-only
 """French strings for the page where a signed-in person adds their own
 frame in two steps (name, pairing code), and the entries to it. The source-side Message
 for each id is declared in companion/pages/pair_frame_page.py."""

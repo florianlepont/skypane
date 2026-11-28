@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The Users page and its five actions over real HTTP: the page's guard
 states, invite, role change, disable and enable, identity unlink, the
 last-administrator and self-action guards (including two concurrent

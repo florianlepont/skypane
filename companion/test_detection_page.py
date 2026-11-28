@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The Detection page over a real in-process server: search and pick an
 airport and runway without scripts, the validated runway POST, the route x
 role x owner outcomes, the French strings and the read-only GET contract.

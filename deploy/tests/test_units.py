@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """deploy/tests/test_units.py -- systemd unit hardening + release-layout
 paths. Enforces the shared hardening directive table and the measured
 offline exposure scores.

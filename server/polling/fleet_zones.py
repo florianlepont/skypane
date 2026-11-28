@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Pure zone identity, capacity ordering and device activity rules.
 
 A zone is the exact (centre latitude, centre longitude, radius) triple a

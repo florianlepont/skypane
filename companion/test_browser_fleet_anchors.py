@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the phone sections of a frame's page: State, Settings and Access stacked
 under three anchors that stay at the top while the page scrolls, each 44 px and fitting 360 and
 390 px in English and French, the section in view marked current, plain links that work without

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Tests `companion/auth.py`'s password/session-token/cookie/login-throttle
 contract (Section 1) and `companion/layout.py`'s escaping/page-shell/
 nav/component-builder contract (Section 2), plus five checks that fetch

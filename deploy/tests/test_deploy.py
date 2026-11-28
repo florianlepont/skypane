@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """deploy/tests/test_deploy.py -- deploy/deploy.sh. Runs the real
 repository (git archive needs a real repo to work against -- this test
 does not use the fake_root fixtures) with a fake `ssh` stub on PATH that

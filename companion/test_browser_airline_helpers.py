@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Seed shared by the airline editor's browser tests."""
 __test__ = False
 

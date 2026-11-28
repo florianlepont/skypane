@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of Home's ambient motion: the status dot breathes while the page is
 in use and stops under reduced motion; a thin ring around the frame picture fills as the time to
 the next update runs out (the same instant the title block's sentence reads), ticks without a

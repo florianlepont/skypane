@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Runway-configuration inference: is the aircraft using runway 3 right
 now departing or arriving?
 

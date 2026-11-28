@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The notification Home shows while the frame's dot is amber or red.
 
 It says what is wrong in one short sentence from figures the server already holds

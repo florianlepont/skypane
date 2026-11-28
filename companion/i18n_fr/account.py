@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# SPDX-License-Identifier: AGPL-3.0-only
 """French strings for the sign-in surfaces (login card with Auth0 and the
 legacy shared password, the refusals, the generic sign-in
 errors, the sign-in/sign-out interstitial), the Account page, and the

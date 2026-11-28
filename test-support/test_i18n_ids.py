@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Unit tests for i18n_ids.slug_for()/ids_for_area() — the deterministic
 English-to-slug rule shared by the i18n stable-ID migration effort.
 """

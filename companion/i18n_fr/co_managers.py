@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# SPDX-License-Identifier: AGPL-3.0-only
 """French strings for frame co-management: the Manage access and Leave dialogs and
 the flash toasts.
 

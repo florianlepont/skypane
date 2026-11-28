@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Health, the Airline editor and the airline write routes are the
 administrator's: an owner and a co-manager get the unknown-path 404, an
 administrator reaches them on any frame, an anonymous caller is sent to

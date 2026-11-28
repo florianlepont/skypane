@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The typed `PageContext` every page module's `render()`/`handle_post()`
 receives, and the builder that assembles one per request — moved out of
 `companion/app.py`, replacing the `_LazyContext` dict subclass

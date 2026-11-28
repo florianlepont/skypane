@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Selection validation, the legacy/catalogue storage split and the
 read-back record the settings page shows."""
 import json

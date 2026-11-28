@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the Users page rows: an email cut with an ellipsis instead of broken
 mid-word, a status pill (Active, Invited) and a You mark with readable ink, an explained disabled
 switch on the signed-in administrator's own row and a co-manager's frame count."""

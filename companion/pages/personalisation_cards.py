@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The Personalisation page's body: the frame's Layout card, one navigation
 (Departures, Arrivals, Special looks, Calendar) and the one view it points at.
 A frame that tracks a position has one look for every aircraft, so its

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The Home page title: the frame's name as the page's one `<h1>`.
 
 Renaming a frame lives in Account (and the Fleet header), not on Home. The

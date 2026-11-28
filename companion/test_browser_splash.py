@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the opening splash and the loading indicators: the splash shows once
 per session on a first visit, leaves the page inert while it plays and interactive after, is
 skipped on the second visit, without scripts and (as a static logo) under reduced motion, keeps

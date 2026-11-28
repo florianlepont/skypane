@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Browser checks for the map of the Location page: tiles, the draggable pin and
 its fields, the attribution, the failure modes (tile host down, library blocked) and the Referer
 the tile host receives.

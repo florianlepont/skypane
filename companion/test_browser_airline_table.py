@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the Console Airlines editor table: at 360 and 1280 px, in English and
 French and in both themes, nothing overflows and every control (the chevron, the artwork, the "..."
 menu, "Name it") is at least 44 px and owns its centre; the chevron expands the aircraft-type

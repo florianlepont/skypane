@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Self-tests for efficiency_probe.py: prove the PROBE MECHANICS work -
 each counter counts what it says it counts and restores what it patches
 - never today's inefficiency numbers. A later plan in this phase changes

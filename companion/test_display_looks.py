@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Behaviour tests for the Display page's look card: the colour x style
 reading of the theme registry, the served no-script tables, the look
 sheet's model, the full-frame preview route and its cache, and real

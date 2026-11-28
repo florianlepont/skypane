@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Unit tests for the named steps run_once's split introduces in
 server/poll_cycle.py - CycleContext and its step functions:
 

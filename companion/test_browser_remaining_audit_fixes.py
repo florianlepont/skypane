@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the last audit points: the Access tab's person rows on a phone, the
 Users list's Invited badge, the nearest-airport offer on a phone, the Location map's edge tint
 and the Searching row of the place search."""

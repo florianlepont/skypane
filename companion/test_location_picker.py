@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The Display page no longer carries a location picker and its save never
 assigns a place: the controls are absent for every role, a crafted
 `location_id` posted to the settings form moves nothing and writes no audit

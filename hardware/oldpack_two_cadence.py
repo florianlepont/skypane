@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Compare the old-pack battery test at two wake intervals.
 
 Reads the `device_health` export of the test (JSON Lines) and run one's

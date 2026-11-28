@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The Fleet register handler and an administrator's pairing on the Add a frame
 page over real HTTP: validation, the identical refusal, throttling, audit
 contents, the concurrent claim, the owner choice and CSRF and role gating."""

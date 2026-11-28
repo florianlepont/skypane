@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Tests the rules-editor's suggestion chips and its two "always full,
 never collapsed" disclosures, and the whole Calendar card's render()/
 handle_post() contract - status verdict/detail across every branch,

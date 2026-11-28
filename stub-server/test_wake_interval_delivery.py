@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """A wake interval saved through the companion Device settings handler is
 what a healthy frame receives as sleep_s, and the safety pins still win.
 

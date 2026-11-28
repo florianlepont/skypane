@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Tests the illustration override's own effects (the normalization
 pipeline, the exact-one-file write, the untouched vendored original, and
 `select_illustration()`'s resolution), the illustration upload's

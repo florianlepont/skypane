@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# SPDX-License-Identifier: AGPL-3.0-only
 """French strings for the Components reference page. The source-side Message
 for each id is declared in companion/pages/components_page.py."""
 

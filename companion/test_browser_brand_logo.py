@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the SkyPane brand lockup: at 390 and 1280 px in both themes the mark sits
 beside the live "SkyPane" text in the sidebar (desktop) or the app bar (phone) without overflowing or
 changing the title's height, it paints with the theme's ink and one accent stroke, the brand adds

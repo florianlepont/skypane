@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Tests `auth.post_origin_ok()` and the `do_POST()` Origin/Sec-Fetch-Site
 gate that rejects any cross-site POST (login included) with a localized
 403, before any routing or form read.

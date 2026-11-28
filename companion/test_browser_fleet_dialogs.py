@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser flows of the Fleet dialogs and of the Add a frame page they lead
 to: pair a frame in four actions, refuse a wrong code with the page shown
 again, retire in two actions (the one

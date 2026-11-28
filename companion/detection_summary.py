@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The wording that describes a device's saved detection setting.
 
 One place builds the sentence, the frame-text rows and the legacy runway

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Behaviour of the console helpers: the lockout throttle, the audit
 helpers and the one-shot flash cookie."""
 import base64

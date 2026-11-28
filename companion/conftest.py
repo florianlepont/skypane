@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 # companion/conftest.py: the ONE shared companion/app.py test-server
 # fixture family every companion test module builds on, instead of
 # copying its own Harness class.

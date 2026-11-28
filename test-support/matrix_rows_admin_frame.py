@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Access-matrix rows for the routes only an administrator reaches, on the
 served frame and, under a `/devices/<id>` prefix, on any frame: the
 Airline editor and the airline write routes. An owner user and a co-manager

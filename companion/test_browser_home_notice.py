@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Browser proof of the Home notification for an amber or red dot, in Chromium at 360 and
 1280 px, in English and French, in both themes, for an owner, a co-manager and an administrator:
 it is visible, unclipped and free of horizontal overflow, the Contact an administrator link is a

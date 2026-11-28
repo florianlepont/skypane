@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Static-asset allowlist and in-memory revalidation cache behind
 `companion/app.py`'s pre-auth CSS/JS routes.
 

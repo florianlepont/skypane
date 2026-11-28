@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The Locations console routes are gone: every method and principal gets the
 same 404 an unknown path gets, and the places other pages keep still work."""
 import pytest

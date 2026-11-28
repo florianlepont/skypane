@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the Look view's picker (/display): the colour, background and band
 choices sit in the page under the Departures/Arrivals picture, swap that picture live and disable
 the combinations the frame has no theme for with their reason, the dirty bar's Save persists the

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The retired Update address still moves every signed-in role to the page that
 replaced it, keeping the chosen frame (an administrator lands on the Versions
 page of the frame, an owner or user on their own Home); the retired Health and

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """scripts/runway_external_compare.py -- compares recorded runway events with
 an independent reference file (flight-tracking history or airport timetable).
 

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Sign and publish a firmware release on the owner's own machine.
 
 CI builds both boards' images for a fw-v* tag and uploads them unsigned,

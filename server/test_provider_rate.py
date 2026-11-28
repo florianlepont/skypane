@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Behaviour tests for keeping the ADS-B request budget across back-to-back
 poll cycles (and processes): a standalone cycle fetches only through the
 persisted request ledger in the state root.

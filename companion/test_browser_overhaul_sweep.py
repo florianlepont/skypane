@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Cross-page sweep of the reworked companion in a real browser.
 
 Every reworked page (Fleet, Users, Audit log, Releases, Account, Home,

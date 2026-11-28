@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser geometry and contrast checks of the admin Components page, at 360 and 1280 px,
 light and dark, English and French: no overflow, labels centred in segmented controls and buttons,
 selected against unselected contrast in every segmented control, 44px tap targets, a switch knob

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """An airline has no picture of its own: its pictures are those of its aircraft types.
 `type_pictures` lists them by type code (built-in files, fleet-wide uploads and the legacy
 `{airline}.png`, which counts as the picture of its airframe type); the runtime picks them in the

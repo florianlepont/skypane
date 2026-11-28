@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """companion/ui_shell.py: the two full-HTML5-document builders — `login_shell()`
 for the pre-authentication page and `page_shell()` for every authenticated
 page — plus the script-ordering constants (`SHELL_SCRIPT_ORDER`,

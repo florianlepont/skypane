@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Fonts, text fitting, tracked (letter-spaced) text, and the main/
 previous flight text blocks - plain layout and the diagonal-band variant
 alike.

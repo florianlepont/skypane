@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Legibility floor over the whole theme catalogue.
 
 Colours are the panel palette's, a dithered (soft) ink lightened toward

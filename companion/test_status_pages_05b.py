@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Companion status-page tests: `layout.relative_time_html()`'s <time
 data-relative> wrapping, the French health catalogue, the Airlines
 gallery's header/card count/chips/search-filter bar and its non-goal

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The resolution-statistics reads and wording ("How well we name flights")
 extracted out of
 companion/pages/health_page.py to keep that file under the companion

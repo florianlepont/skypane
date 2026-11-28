@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The firmware's X-Wake-Stats formatter and the server parser agree.
 
 Compiles the real firmware formatter (firmware/main/wake_telemetry.c) with

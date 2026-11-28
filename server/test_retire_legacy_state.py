@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Tests for server/retire_legacy_state.py: dry run by default, move only
 with --apply after a parity check against fleet.db, never delete, idempotent,
 and output that names files and counts only."""

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The estimated "probably charging" status: the pure estimate over per-wake
 battery readings (calibrated on the discharge run's real readings and the one
 real unplug), and the pill it drives on Home's battery dial and Health's

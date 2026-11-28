@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """One-call fixture: the live frame plus two simulated devices.
 
 `seed_two_device_fleet(state_dir)` seeds the live frame's state directory,

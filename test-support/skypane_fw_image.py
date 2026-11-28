@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Synthetic ESP application image builder for tests.
 
 Produces structurally valid images (header, one segment holding the 256-byte

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Behaviour of the single frame status resolver and its rendered dot."""
 import re
 from types import SimpleNamespace

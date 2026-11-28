@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Renaming an airline the owner named by hand: POST /airlines/rename/manual is the
 administrator's, carries the session token, renames every prefix of the carrier in one
 write, refuses a name another airline has, carries the artwork and the default aircraft

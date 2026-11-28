@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """How the companion spells a built-in airline name on screen.
 
 The built-in name is a key: it feeds the frame's render and the illustration

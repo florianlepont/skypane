@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Image container: the framed body the server sends to a frame.
 
 Layout (little endian, 24 bytes, struct format "<4sBBHHHBBHII"):

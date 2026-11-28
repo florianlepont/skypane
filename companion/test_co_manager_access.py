@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """A co-manager over real HTTP: reaches and changes the shared frame like its
 owner, is shut out of the admin and owner-only routes, and loses everything
 the moment the membership row is removed. Outsiders keep getting the same 404

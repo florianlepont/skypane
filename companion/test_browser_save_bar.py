@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks that every page with something to save shows the SAME floating Cancel and
 Save bar: the same width, height and distance from the bottom of the viewport, the same position
 across the pages of one viewport, the same structure (a message, then Cancel, then Save, 44px

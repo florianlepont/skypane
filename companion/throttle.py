@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """A failure-count lockout throttle for guessable secrets (pairing codes).
 
 State is in memory and per process: a companion restart forgets every

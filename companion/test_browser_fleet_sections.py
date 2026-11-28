@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the Fleet page from 960px: one column of sections (State, Settings,
 Access), each present once and in that order at 1280 and 1440px, every fact shown once, every
 setting edited inline (no dialog) and saved through the page's unsaved-changes bar, the version

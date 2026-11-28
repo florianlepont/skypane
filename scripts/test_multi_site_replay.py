@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Tests for scripts/multi_site_replay.py: a recorded session (the raw provider
 answers kept by multi_site_run.py) is replayed through the unchanged fleet
 cycle on a fresh scratch root. Fake clock and a route table read from the

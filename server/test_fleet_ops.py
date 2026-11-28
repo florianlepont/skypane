@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Tests for server.fleet_ops: register, claim, retire, re-activate, reassign."""
 import contextlib
 import hmac

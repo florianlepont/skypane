@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Device-aware dispatch: a request under /devices/<id>/ reads that device's
 directory only; an unknown id is a 404 page; the live frame's un-prefixed
 URLs keep reading the root. Real app subprocess over a seeded two-device fleet.

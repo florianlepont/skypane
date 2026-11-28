@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Behaviour of scripts/ci_path_filter.py: GitHub path-filter semantics, the
 workflow reader, and the commit-range measurement on throwaway repositories."""
 import importlib.util

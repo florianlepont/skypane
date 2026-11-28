@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The admin-only Components reference page: who can open it, that it is not in the
 navigation, that it renders every catalogued helper (so a new helper cannot skip
 the page) and that every public helper of the component modules is catalogued or

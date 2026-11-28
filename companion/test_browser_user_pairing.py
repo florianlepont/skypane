@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of a user adding their own frame: the empty state a
 person with no frame sees, the Add a frame entries (Account link, last tile
 of the frame strip), the code page and its refusal, success landing on the

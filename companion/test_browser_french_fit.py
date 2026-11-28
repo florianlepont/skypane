@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks that French wording, which runs longer than English, is never cut:
 the owner row of a frame's Access tab on a phone, the role select of the Users table on a
 desktop, and the "Applies to" segments of the special-look form on a phone."""

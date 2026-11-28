@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Prints job and step durations of GitHub Actions runs. Stdlib only.
 
 Data comes from the REST API through `gh api` (the GraphQL endpoint that

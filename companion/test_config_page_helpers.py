@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Shared seeding helpers for the `companion/test_config_page*.py` family.
 Not a test module itself — `__test__ = False` keeps pytest from
 collecting it directly (enforced by test_suite_guards.py's G9 rule).

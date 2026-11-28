@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The Personalisation page's layout and pairing pickers.
 
 Two pieces of markup, both native radios that belong to the settings form,

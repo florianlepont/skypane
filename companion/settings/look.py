@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The Display page's "look" vocabulary: every registry theme read as
 three independent choices (Colour, Background, Diagonal stripe), and the
 markup built on that reading.

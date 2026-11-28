@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Each page links the core stylesheet and the area sheets of its own family, in that order; a
 page the map does not name links every area sheet, so it never lacks a rule."""
 import pytest

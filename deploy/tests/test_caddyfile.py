@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """deploy/tests/test_caddyfile.py -- render_caddyfile.sh + HSTS.
 
 Runs render_caddyfile.sh as a real subprocess (it is a shell script, not

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The companion's HTTP server: a `ThreadingHTTPServer` that stays quiet when
 the browser aborts a response.
 

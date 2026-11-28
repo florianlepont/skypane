@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Where each audience lands: the role landing after sign-in, the default
 frame of a user, the 303 from an un-prefixed frame page to the same page
 under that frame, and /login while signed in. Every check goes through a

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Home's title block: the frame's name, its state and the next update.
 
 One section, `home-frame-state`, that `freshness.js` and the quick switches

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Contract tests for server/plane/runway_config.py's runway inference
 with its deadband and hold-last-state behaviour.
 

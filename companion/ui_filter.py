@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """companion/ui_filter.py: the one filter-bar component Flights, Airlines
 and Health's unresolved-prefix list share, driven client-side by
 static/list-filter.js's `[data-filter-*]` attribute contract.

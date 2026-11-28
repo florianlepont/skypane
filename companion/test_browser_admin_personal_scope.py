@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser flow of an administrator opening someone else's frame from
 Fleet: the detail header's icon buttons, Open personal view, the Viewing-owner strip, the personal
 pages keeping the frame's address, and Back to Fleet. At 360 and 1280 px, in

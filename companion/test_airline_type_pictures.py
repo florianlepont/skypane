@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """An airline has no picture of its own, only its aircraft types have: the Editor lists the
 type rows alone (the star on the default type), an upload always names a type, and the first
 picture of an airline makes its type the airline's default."""

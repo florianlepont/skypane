@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Stdlib (+ repo modules) measurement instruments for the phase's six
 efficiency findings: SQLite connections/schema-runs/statements/commits,
 `time.sleep` calls, `poll_state.json` writes, per-route byte weight, and a

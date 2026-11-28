@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The Personalisation calendar connection: one status row plus the connection page.
 
 Served-HTML checks for every state the row can show (not connected, waiting, connected N,

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The state behind the Fleet page's tiles, the frame's Battery page and the
 System view.
 

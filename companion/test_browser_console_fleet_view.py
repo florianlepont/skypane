@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the Console Fleet view: the list of frames and the frame switch, the
 sections of one frame in one column on desktop and a phone's tab showing its own, nothing
 overflowing at 360 and 1280px in either theme and language, 44px targets, and a fleet of 30

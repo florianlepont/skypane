@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Companion status-page tests: the shared regularity-grid drawing, row verdicts, and Paris-local-time
 and resolution-rate copy.
 

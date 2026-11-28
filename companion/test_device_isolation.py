@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """End to end: the companion and the BYOS server run over one seeded state
 directory. Polling or configuring one device changes what the BYOS serves that
 device and nothing about another device or the live frame, and no request is

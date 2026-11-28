@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Browser checks that the phone app bar starts lower in an iPhone Home Screen web app, and only
 there. iOS 27 draws a frost over the top of a Home Screen web app's window, over the page, fading
 out about 36px below the status bar; there the bar starts 24px lower, so the logo, the wordmark and

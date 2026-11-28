@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """run_once with a hardware profile: native rendering and profile thresholds.
 
 The profile=None path is the legacy live frame; the golden and end-to-end

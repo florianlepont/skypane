@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Two simulated devices through a real BYOS subprocess: each frame is
 authenticated to its own fleet.db row and served from its own directory,
 while the live frame keeps its exact legacy behaviour."""

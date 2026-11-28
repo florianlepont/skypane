@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Splits the test files into groups and shards. Stdlib only.
 
 A file belongs to the `browser` group when its name contains "browser" or its

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of small fit and target-size defects: a search hint that is not cut,
 44px targets on suggestion chips and stand-alone links, a tab bar whose cells line up, focus
 that is never left under the floating tab bar, and cards that keep to the page column."""

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The companion's screen-type registry: lets Display/Device pages
 render *per screen type* instead of assuming one fixed frame. Each
 screen type declares which settings groups it supports, in which

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """scripts/multi_site_setup.py -- creates a scratch state root with simulated
 devices, each on a chosen airport and runway.
 

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Cross-device adsbdb answer cache.
 
 `SharedRouteTransport` wraps an adsbdb transport (`(callsign, timeout) ->

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Strict parser for the X-Wake-Stats request header.
 
 The value comes from a device and is untrusted: a semicolon-separated

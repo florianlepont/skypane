@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Behaviour of the board argument of firmware/tests/check_production_config.sh built mode."""
 
 import shutil

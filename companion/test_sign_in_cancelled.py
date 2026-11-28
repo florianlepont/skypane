@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """A sign-in cancelled at the identity provider ends on the sign-in page at an
 address of its own, so a reload or Back shows the same calm message instead of
 the error a consumed attempt would give."""

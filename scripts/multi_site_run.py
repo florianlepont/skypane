@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """scripts/multi_site_run.py -- runs the unchanged fleet cycle over a scratch
 state root (see multi_site_setup.py) for a number of cycles or until a time,
 and keeps the raw provider answers of every zone fetch for later replay.

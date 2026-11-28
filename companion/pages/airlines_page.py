@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The Airlines editor for every airline the frame recognizes, plus the
 operator flow to resolve an unidentified flight and manage manual
 resolutions.

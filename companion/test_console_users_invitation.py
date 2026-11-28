@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The invitation behind POST /users/invite, against the loopback fake Auth0:
 the local invite is committed first and stays the access gate, the link is
 shown once in a never-cached response and held nowhere else, a second invite

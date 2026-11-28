@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The title block and the pills of Home: the wording of each state, the next
 update, the Screen switch with its native POST, the Quiet hours opener, the
 battery pill, the persisted effect and flash, and the precedence of the

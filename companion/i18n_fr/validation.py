@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# SPDX-License-Identifier: AGPL-3.0-only
 """French strings for the form validation messages (companion/ui_base.py's
 validation_attrs()), shown by static/submit-guard.js in place of the
 browser's own English bubbles."""

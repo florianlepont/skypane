@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# SPDX-License-Identifier: AGPL-3.0-only
 """French strings for the Users page and its result toasts. The source-side
 Message for each id is declared in companion/pages/users_page.py and
 companion/console_users.py; this module only carries the French.

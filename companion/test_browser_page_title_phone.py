@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the page title and its spacing on phones: every page has exactly one <h1>
 at every supported width (Home's is visually hidden: its visible title is the frame state headline),
 and on a phone the title sits at most PHONE_TITLE_GAP_MAX below the

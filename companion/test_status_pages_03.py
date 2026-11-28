@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Companion status-page tests: compute_health_state()'s never-ran-pipeline
 detail, overall_severity()'s widened precedence table, Health's page-header
 shape, the rows card and its two groups, the Identification row, the registry

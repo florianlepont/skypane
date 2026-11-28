@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Pairing codes: issue, normalise, hash and match.
 
 A pairing code is the only secret of the frame pairing flow. It is shown on

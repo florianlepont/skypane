@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The ONE shared companion/app.py test-server implementation. Every
 companion test that needs `Harness`-shaped behaviour (`_InProcessHarness`,
 `http_request`, `_NoRedirectHandler`) gets it from `companion/conftest.py`'s

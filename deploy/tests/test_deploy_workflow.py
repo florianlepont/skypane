@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """deploy.yml: manual-only trigger, protected environment, and the guard steps.
 
 The guard steps' run: bodies are extracted from the workflow and executed

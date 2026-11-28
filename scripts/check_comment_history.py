@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Finds project-history references in source comments and docstrings, and
 proves that a comment-only edit left the code unchanged. Stdlib only.
 

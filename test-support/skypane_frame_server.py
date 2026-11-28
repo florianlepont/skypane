@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Reusable byos_server.py subprocess harness.
 
 Starts the real stub-server/byos_server.py on a free loopback port over a

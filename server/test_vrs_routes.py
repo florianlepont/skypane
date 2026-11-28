@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Routes from the VRS standing data, asked before adsbdb.
 
 Measured on 2026-11-17 against Flightradar24 (155 flights at four airports):

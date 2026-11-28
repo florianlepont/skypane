@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Co-manager access over HTTP: the ownership gate admits a membership row,
 reads it on every request and fails closed when the table is unavailable.
 """

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser check that the action of a retired frame's page on the Fleet page is reachable.
 
 A retired frame opens its own page whose one action is Re-activate. The button must be fully in

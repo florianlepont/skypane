@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Shared settings-form helpers: field-error rendering, the settings
 form's own id, the "Current" badge and the dirty-tracking section
 attribute, plus the "next wake" caption suffix and the checkbox/value

@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# SPDX-License-Identifier: AGPL-3.0-only
 """French strings for the Calendar row's status line and its Manage sheet
 (companion/settings/calendar.py), keyed by stable message id (see
 companion/i18n.py's Message/msg()). Every id is declared at its own

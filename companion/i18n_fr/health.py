@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# SPDX-License-Identifier: AGPL-3.0-only
 """French strings for companion/layout.py's language-aware date
 helpers and for the Health page (companion/pages/health_page.py),
 companion/health_signals.py and companion/battery_chart.py. Every entry

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the lighter console dialogs at 360x800, English and French, Light and
 Dark: Retire, Re-activate and Reassign (Fleet), Manage access, Leave and Remove this frame
 (Account), Delete user (Users).

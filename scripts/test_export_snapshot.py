@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Tests for scripts/export_snapshot.py: manifest writer and fetch-error handling.
 
 No network is opened: the fetch callable is injected.

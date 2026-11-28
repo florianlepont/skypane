@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """deploy/tests/conftest.py -- fake-root fixtures for deploy/activate.sh and
 deploy/deploy.sh. activate.sh reads every system path from an overridable
 variable, so a tmp tree plus PATH-stubbed systemctl/curl/caddy/runuser/

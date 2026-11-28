@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The Battery page's full-page composition, kept for the render-level tests of
 the battery row and the charts that the Fleet page still uses. The server
 serves the row inside the Fleet page; `render` exists here only so those

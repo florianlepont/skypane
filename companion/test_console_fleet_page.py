@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The admin Fleet page: the list of frames, the pages of a pending and a retired
 frame, dialogs by state, absence of secret material, the empty state, role
 gating and French rendering."""

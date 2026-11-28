@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser check that the status chip of a version row sits in the same place on every row:
 on the version's own line, a fixed gap to its right, whatever the chip's width (Newest, Running)
 and the language, from the narrowest supported phone to a desktop."""

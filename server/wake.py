@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The effective wake interval and derived device-staleness thresholds,
 shared across the server and companion app.
 

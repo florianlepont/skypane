@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Behaviour tests for the optional frozen reference interval of
 `logtools.py run-report` and for `logtools.py reference-interval`.
 

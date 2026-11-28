@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Keeps a refused pairing code, and the frame name typed with it, for the
 next showing of the form.
 

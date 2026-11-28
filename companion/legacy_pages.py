@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Old page addresses that still arrive from bookmarks, and the page each one
 moved to. Every target is a literal route path; a signed-in person is sent to it
 under their own default frame, never to an administrator page. An administrator

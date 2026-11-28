@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Palette quantization: the shared full-6-color Floyd-Steinberg dithering
 helper the per-airline illustration path (render.draw_illustration())
 consumes.

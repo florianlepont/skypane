@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The airline sheet's data and vocabulary: what a row of the Airlines
 table edits (the airline's name, shown with its callsign prefixes) and the
 `data-view-panel-*` attribute names the shared dialog reads.

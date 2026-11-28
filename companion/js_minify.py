@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Served JavaScript without its comments.
 
 The scripts under `companion/static/` keep their long explanatory comments in

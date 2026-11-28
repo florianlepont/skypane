@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The one-time clearing of default aircraft types that have no picture: plan and
 apply, the archive, the marker and the report lines."""
 import json

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Browser checks of the Personalisation selector (Departures, Arrivals, Layout, Special
 looks, Calendar): one segmented control that fits a 360 px phone in English and French without scrolling sideways or
 clipping a label, four 44px segments inside one track, exactly one current segment, a labelled

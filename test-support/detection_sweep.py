@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Deterministic aircraft lattice and comparison helpers for detection tests.
 
 Fully deterministic: the same call always yields the same records. Positions come

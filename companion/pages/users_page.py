@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The Users page body: every user as one table row (email, a role select that
 saves on change, frame count, last sign-in, an Active switch and a "..." menu
 of rare actions; a card on a phone) plus the invite dialog the header button

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Per-wake energy model: fit when the data can separate the unknowns, refuse
 when it cannot. Standard library only.
 

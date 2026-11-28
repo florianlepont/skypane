@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Home's title: the frame's name is the page's one h1, with no rename pencil
 or dialog for anyone (renaming lives in Account). Every assertion reads the
 served page."""

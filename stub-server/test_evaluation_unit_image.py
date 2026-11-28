@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """The evaluation unit's hardware type through a real BYOS subprocess: a
 device of that type is served exactly one 800x480 packed frame whose hash
 matches, the live frame keeps its legacy answer, and with the gate off the

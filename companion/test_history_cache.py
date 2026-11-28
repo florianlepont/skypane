@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The folded history is reused between requests and recomputed after any write."""
 import pytest
 

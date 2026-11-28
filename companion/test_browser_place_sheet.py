@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Browser checks for the Location sheet: My position is the first tab and the default for a frame
 with nothing saved; on a phone the nearest-airport offer is a one-line button and the sheet stays within
 28% of the viewport; Save and Cancel are a bar that appears on a change (the top right of the compact card above the

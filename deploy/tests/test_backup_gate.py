@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """deploy/tests/test_backup_gate.py -- the forced-command gate. Runs
 deploy/backup/backup_gate.py as a real subprocess (the gate itself runs
 under /usr/bin/python3 outside the venv, via sshd's `command=`) with

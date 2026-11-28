@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The Airlines editor's two suggestion routes (administrators only).
 
 POST /airlines/suggest asks for the proposed name of one unidentified prefix

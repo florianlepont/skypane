@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """companion/ui_modal.py: the shared modal dialog component.
 
 A dialog is a native `<dialog class="modal">` rendered into the page next to

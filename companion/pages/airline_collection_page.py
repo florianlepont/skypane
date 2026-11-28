@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The Airline collection (`/airlines`): a read-only, quiet page of the
 airlines the frame the page is opened on has spotted, the same for every
 role: only airlines that frame saw are listed. Frame access is decided by the

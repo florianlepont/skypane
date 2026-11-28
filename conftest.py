@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 # Repo-root conftest.py: collected before any test file, so this is where
 # the shared contract from test-support/ (network guard, fake provider) is
 # wired into every pytest run regardless of which subdirectory it targets.

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Zone identity, serving order and device activity rules."""
 
 import random

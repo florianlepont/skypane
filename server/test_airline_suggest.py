@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """AI-suggested airline names: the request, the reply validation, the cache, the
 caps, the failure handling and the real HTTP client against a loopback fake."""
 import json

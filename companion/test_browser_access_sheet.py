@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the Manage access sheet on a phone (opened from
 Account), the small drawn frame picture in the frame popover and the Account
 rows, and the Owner / Co-manager marks of the Account page."""

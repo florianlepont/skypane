@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Plain-request (no browser) tests for the Update page's Install/Cancel
 POST flows: POST /update/install's two-step server-side confirmation
 and POST /update/cancel's cancel-until-acknowledged

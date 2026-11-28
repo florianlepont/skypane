@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the Airline editor (/airlines/manage, administrator only): it opens in the
 Console chrome with no frame strip (one global list) at 360 and 1280 px, in English and French, in both themes, with
 no sideways scroll and every control at least 44 px and owning its centre. It is reached from the

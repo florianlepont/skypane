@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The Flights page's query: which stored flights match a search, a direction
 and a sort, how many of each direction match, and the page of them to show.
 

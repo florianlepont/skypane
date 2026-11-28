@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Pins the `PRAGMA user_version` outcomes of fleet.db and history.db.
 
 Both databases are migrated by the shared mechanism in

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Contract tests for server/plane/name_overrides.py - the owner's airline
 name overrides. Every fixture is `tmp_path`."""
 import json

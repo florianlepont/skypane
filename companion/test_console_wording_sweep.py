@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Wording that must read the same everywhere: the document title carries the frame's name
 for every role, and the live frame's default name is translated in the Fleet heading as it is
 in the frame button."""

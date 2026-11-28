@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser check that the hit-area helper measures a control only once the animation or
 transition carrying it has finished, and is not held up by animations that never will.
 """

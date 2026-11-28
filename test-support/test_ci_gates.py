@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Behaviour of scripts/ci_gates.py on constructed JUnit files."""
 import importlib.util
 import pathlib

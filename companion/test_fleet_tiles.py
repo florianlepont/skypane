@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The State section of a frame's page (three tiles; all but Connection carry a Details
 link) and the two pages the tiles open: Battery (the level, trend and readings) and Versions (the
 installed version, the update and every release), served by the real app and read as markup."""

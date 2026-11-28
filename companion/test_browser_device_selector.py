@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the frame button for plain users: a user with two frames switches
 frame from Display and stays on Display, a one-frame user sees the button with only the Add a
 frame row, the popover fits at 360px and 1280px in both languages and colour schemes with 44px

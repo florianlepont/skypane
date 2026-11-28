@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Behaviour checks of the Flights page's server-side view, read from the markup `render()`
 produces: the search covers the whole history (an old call sign beyond the first page is
 found, with the number of matches), the direction chips count the whole history under the

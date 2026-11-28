@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """The five field/lettering pairings of the giant-lettering screen and the
 mapping from every stored theme id onto one of them.
 

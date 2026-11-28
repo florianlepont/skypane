@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """A fleet.db plus real device directories for tests that run the companion's
 real handlers with no stubs.
 

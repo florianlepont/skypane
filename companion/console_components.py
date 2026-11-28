@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The admin-only Components reference page: GET /components.
 
 Reachable by an administrator only (anyone else gets the unknown-path 404 from

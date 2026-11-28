@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Contract tests for server/plane/calendar_rules.py - phase 16's hand-rolled
 RFC 5545 subset parser, its JSON registry, fetch hardening (SSRF/redirect/
 size/secret-leak guards), refresh orchestration, calendar-theme matching and

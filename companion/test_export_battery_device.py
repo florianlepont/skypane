@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """GET /api/export/battery-history?device=<id>: the same read-only export for
 one registered frame's own history.db, through the same bearer token.
 

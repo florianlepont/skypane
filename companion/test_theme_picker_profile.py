@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The Display page's theme pickers offer only the themes the device's
 hardware profile can draw; every real profile offers all of them."""
 import dataclasses

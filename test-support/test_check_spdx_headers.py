@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Tests for scripts/check_spdx_headers.py, the SPDX header gate.
 
 The script is run as a subprocess over throwaway git repositories; each test

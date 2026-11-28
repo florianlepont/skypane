@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Browser checks for the place search of the Location page: a request only on a
 submitted query or once the typing pauses, one at a time with a lock afterwards, the exact request the search service
 gets (parameters, Referer, no credentials), result handling that never executes markup, and the

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The stored history is folded once for every page that reads it: Flights and
 the Airlines collection share one fold of the same rows, whatever the order or
 the mix of requests, and a new flight costs one fold, not one per page. What

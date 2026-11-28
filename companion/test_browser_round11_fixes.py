@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the owner's round 11 fixes: the Users Active switch is a whole standard
 switch (the knob inside a track whose colour tells on from off), the Airlines editor's type rows
 line up with the airline rows without any cell overlapping another, the Flights sort is the

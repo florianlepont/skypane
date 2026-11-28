@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Behaviour of scripts/run-all-tests.sh's SKYPANE_COVERAGE switch.
 
 The script is copied into a scratch tree (it deletes .coverage files in its

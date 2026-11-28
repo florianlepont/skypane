@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """byos_server.py's listen address and the absence of any secret in its
 argv or environment.
 

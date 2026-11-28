@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Guards that server/poll_loop.py is only an entrypoint, and that the
 companion and the poll-cycle library depend on it in no direction:
 

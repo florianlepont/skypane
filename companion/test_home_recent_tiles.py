@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Behaviour checks for Home's recent-flights strip, read from the page the companion app
 serves: one tile per flight (picture box, callsign, direction and age) and a "See all flights"
 link in the heading; the arrival, departure and overhead wording in English and French; no

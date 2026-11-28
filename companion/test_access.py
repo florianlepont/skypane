@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Pure-function tests for the default-deny decision and ownership gate."""
 import itertools
 

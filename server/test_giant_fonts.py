@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Behaviour tests for the giant-lettering Anton loader."""
 import hashlib
 import os

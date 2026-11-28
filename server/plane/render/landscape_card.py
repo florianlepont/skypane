@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Active flight card (departing / arriving) for the native landscape layout
 family.
 

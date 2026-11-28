@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The deploy-time migration command prints the default-type lines the operator
 reads in the activate log: the dry run says what it would clear, the real run
 what it cleared, then the defaults it would set or set by rule, a second run that there is

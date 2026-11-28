@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The Settings page: theme/runway/LED/quiet-hours/wake-interval/
 calendar controls, rendered and validated against
 `server.device_config`'s own registries, plus the per-flight

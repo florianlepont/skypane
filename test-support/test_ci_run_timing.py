@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Behaviour of scripts/ci_run_timing.py on recorded job data (no network)."""
 import importlib.util
 import pathlib

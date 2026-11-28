@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Tests for scripts/exposure_scan.py on throwaway git repositories.
 
 Every secret-looking value is assembled from fragments at test time so that

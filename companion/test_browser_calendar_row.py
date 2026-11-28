@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the calendar status row's layout on the Display page: on a desktop the
 "Choose calendar" button sits on the right of the same row as the text, vertically centred, and
 never makes the row taller than its tile plus two text lines; on a phone it takes the row's full

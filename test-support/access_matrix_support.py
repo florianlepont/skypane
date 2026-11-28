@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Seed helpers and recording stubs for the route x principal x owner matrix
 in companion/test_access_matrix.py.
 

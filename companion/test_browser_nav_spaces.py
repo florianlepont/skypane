@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the Console and personal navigation: destination
 cells that fill the bar without wrapped or clipped labels at 360px in English
 and French, the space switch, the desktop sidebars, no administrator vocabulary for a user,

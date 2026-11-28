@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Per-airline aircraft illustration selection.
 
 Selection keys off `route["airline_name"]`. Coverage combines `adsbdb`'s

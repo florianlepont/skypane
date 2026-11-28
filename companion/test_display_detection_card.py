@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The Display page holds none of the Location controls (no
 card, no location picker, no time zone select), the Location
 page carries them, the Device page and the removed Runway card stay absent,

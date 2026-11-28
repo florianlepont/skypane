@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the icon-only add and change picture buttons of the airline editor: a 44px
 square named for the airline and the family, a tooltip on hover and keyboard focus, the same button in
 the missing illustrations section, and a type card that is shorter on a phone than a text button made

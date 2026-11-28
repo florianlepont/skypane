@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of colour and edges, read from what is painted: a switch whose off track and
 thumb hold 3:1 against the card and each other in both themes, the dark map label and the "..."
 menu item at 4.5:1, a Location sheet header that wraps instead of ellipsizing, and a floating tab

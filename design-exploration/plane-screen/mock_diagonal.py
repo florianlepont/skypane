@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The diagonal band of the current renderer, brought into the giant-lettering design.
 
     PYTHONPATH=. python3 design-exploration/plane-screen/mock_diagonal.py OUT_DIR FONT_DIR

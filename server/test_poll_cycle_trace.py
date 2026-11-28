@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The `poll_cycles` trace: which cycles are recorded, what a row holds, how
 old rows are pruned, and how the read-only export copes with an older
 database.

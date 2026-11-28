@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the Users dialogs: the invite sheet that stays above the phone's
 on-screen keyboard, the even spacing of the short dialogs, the invitation link shown once (copy,
 selection fallback, gone after Done), the failure dialog with its retry, the scripts-blocked

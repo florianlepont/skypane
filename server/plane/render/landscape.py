@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Single entry point of the native landscape layout family.
 
 Mirrors `layout.build_canvas` for a landscape `HardwareProfile`: active

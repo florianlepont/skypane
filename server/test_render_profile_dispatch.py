@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """build_canvas dispatches on the hardware profile; None stays the legacy path."""
 import dataclasses
 

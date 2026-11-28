@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Behaviour tests for a user principal's navigation: the sidebar, the phone
 tab bar and the wordmark link, all derived from the route table so a link
 exists only for a page the user can open.

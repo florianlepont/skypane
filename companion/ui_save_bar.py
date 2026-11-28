@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """companion/ui_save_bar.py: the one floating Cancel and Save bar.
 
 Every page with something to save renders this bar and nothing else: the

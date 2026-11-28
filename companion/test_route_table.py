@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Table-driven auth coverage for `companion/routes.py`'s ROUTES table:
 every route not explicitly public is proven, by enumerating the real
 table against a real running server, to answer an unauthenticated

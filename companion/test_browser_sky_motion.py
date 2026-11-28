@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the background and motion foundations: Light is one pale sky and Dark
 one ink gradient whatever the local hour (there is no time-of-day sky and no data-sky
 attribute), text stays readable over every stop and through the glass, the gradient is painted

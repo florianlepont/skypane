@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 import pytest
 
 from server import screen_layouts as sl

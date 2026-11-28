@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """The single shared home of battery and quiet-hours policy: the battery-low
 and BATTERY EMPTY hysteresis pair, the battery discharge curve, the
 wake/sleep constants and the quiet-hours window arithmetic, used by the

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Tests for scripts/check_function_size.py, the function-size gate.
 
 Loads the tool by file path (it is a standalone script, not a package),

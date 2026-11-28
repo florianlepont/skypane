@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The public credits page: loads and validates companion/credits.json and
 renders it as the page body. Pure markup apart from reading the one fixed
 data file; the route handler lives in companion/app.py.

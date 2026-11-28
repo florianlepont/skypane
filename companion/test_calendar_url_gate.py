@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The combined settings form applies the same calendar-address gate as the
 calendar sheet's connect route: a private or loopback link is refused at
 save and never reaches `calendar_url.secret`, over the real handlers."""

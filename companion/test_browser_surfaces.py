@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the one glass tier and the grouped-list components: rows are at
 least 44px (54px) tall with a visible focus ring, long values truncate with an ellipsis, the
 value text reads over the glass in both themes, the audited surfaces carry the glass token

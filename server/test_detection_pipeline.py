@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Pipeline-level proof that selection, zone and frame text follow one
 per-device detection spec, and that the live Orly frame behaves the same
 whether its geometry comes from the generated document or the legacy file."""

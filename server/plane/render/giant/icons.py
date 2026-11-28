@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Status glyphs drawn larger than their native size without stair-stepping.
 
 The production `glyphs.draw_*_icon` functions are reused unchanged: they draw

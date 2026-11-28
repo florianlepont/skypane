@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The single SSRF gate for user-configured outbound URLs.
 
 The calendar feed URL (`server.plane.calendar_rules`) is the one

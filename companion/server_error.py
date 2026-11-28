@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The answer to an error no handler expected: a 500 page instead of a
 dropped connection.
 

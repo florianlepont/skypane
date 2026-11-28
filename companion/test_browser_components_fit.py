@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the admin Components page: the two samples that used to clip now wrap,
 and the families the catalogue was missing (`.page-section`, `.fleet-tile` and its compact form,
 `.dot--off`, `.dot--hollow`) are on the page, drawn by the product stylesheet.

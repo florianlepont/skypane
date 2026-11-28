@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Tests the screen-registry split (scope_groups()/screens.py), the
 Diagnostic LED's single-switch contract, the Display/Device supersection
 structure (section-intro headings, the --nested modifier count, the

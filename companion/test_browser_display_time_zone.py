@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Browser checks for Display after the time zone, the place and the quiet hours moved away:
 Display has no location card, no location picker, no time zone select and no quiet-hours control,
 the Quiet hours dialog on Home carries the note that links to the details card of the Location

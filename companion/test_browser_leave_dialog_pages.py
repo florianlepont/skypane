@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks that the unsaved-changes dialog belongs to the save
 bar, not to one page: every page family with a bar (Style, a Style form page,
 Calendar connect, Location, the Fleet settings) asks the same

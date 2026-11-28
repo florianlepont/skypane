@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Behaviour of the runway-mode detection spec against the real catalogue."""
 
 import json

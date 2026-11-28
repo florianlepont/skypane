@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The strict multipart reader behind the illustration upload.
 
 The form posts two parts, in this order: the anti-forgery token as a plain

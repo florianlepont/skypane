@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the estimated "Probably charging" pill: in Health's Battery row it
 is visible and the personal Home never shows it; it stays on one line inside its container and the page at
 360, 390 and 1280 px in both languages and both themes, and takes nothing from the controls

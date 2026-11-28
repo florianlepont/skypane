@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Stdlib parser and target validator for ESP application images.
 
 The layout follows the ESP-IDF v5.3.1 application image format: a 24-byte

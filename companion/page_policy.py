@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Content-Security-Policy and Permissions-Policy pairs for HTML responses.
 
 Every response carries DEFAULT_PAGE_POLICY unless the handler that renders it

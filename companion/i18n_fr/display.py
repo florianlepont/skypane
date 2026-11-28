@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# SPDX-License-Identifier: AGPL-3.0-only
 """French strings for the Display and Device pages, keyed by stable
 message id (see companion/i18n.py's Message/msg()). Every id is
 declared at its own display site, in companion/pages/config_page.py or

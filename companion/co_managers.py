@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Add, remove and leave handlers for a frame's co-managers.
 
 Security invariants:

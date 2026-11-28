@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Behaviour tests for two display bugs seen on the real frame:
 
   * a departing aircraft on its take-off roll (vertical rate inside the

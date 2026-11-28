@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """scripts/multi_site_export.py -- writes the runway_events and poll_cycles of
 scratch-fleet devices in the exact line format of /api/export/flights and
 /api/export/poll-cycles, so runway_compare.py and runway_external_compare.py

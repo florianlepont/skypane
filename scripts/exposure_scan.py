@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Lists secret-looking strings, e-mail addresses and public IPv4 literals in a
 git repository, in the working tree or in the full history. Stdlib only.
 

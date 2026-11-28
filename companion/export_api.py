@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Read-only exports under /api/export/, protected by one bearer token:
 
   battery-history  the `device_health` table, JSON Lines

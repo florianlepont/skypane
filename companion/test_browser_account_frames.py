@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the My frames card on Account: an owner adds a
 co-manager through Manage access (the dialog reopens), a co-manager leaves
 through Leave frame and lands on a valid page, owned frames offer Manage

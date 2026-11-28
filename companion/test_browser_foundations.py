@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the visual foundations on representative pages: titles and card
 titles sit on the one type scale with the system display face (no serif anywhere), no label is
 tracked uppercase, every corner radius is one of the three radius tokens, the fixed bars, sheets

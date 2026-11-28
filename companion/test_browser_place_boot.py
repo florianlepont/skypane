@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Browser checks for the Location page's first moments and its airport pick: the map really is
 full-bleed on a phone (no pale band above or below it), a designed loading state shows from the
 first paint with scripts on and never the plain form, the plain form stays complete with scripts

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Rendered-HTML and unauthenticated-response equality against the
 committed baseline (`companion/testdata/render_baseline.json`) — the
 "no rendered-output change" proof this behaviour-preserving refactor

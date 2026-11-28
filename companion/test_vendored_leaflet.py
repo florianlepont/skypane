@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The vendored Leaflet files: served publicly, byte-pinned, free of dynamic-code
 and network primitives, and without the library's marker images."""
 import hashlib

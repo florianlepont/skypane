@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """One-time clean-up of the airlines' default aircraft types that have no
 picture (livery).
 

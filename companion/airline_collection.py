@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Read model of the Airline collection: which airlines the frame has seen.
 
 Everything comes from the frame's own `runway_events` plus the curated

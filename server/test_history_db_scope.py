@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 from skypane_history_helpers import ingest_caddy_battery_log
 #!/usr/bin/env python3
 """Contract tests for server/history_db.py's connection scope, schema-once

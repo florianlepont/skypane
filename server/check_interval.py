@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Opt-in experiment that separates the frame's check interval from its
 redraw interval.
 

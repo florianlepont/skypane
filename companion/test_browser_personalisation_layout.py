@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the frame-level Layout card above the Personalisation
 tabs and of the pairing picker, in English and French: the card is on every
 view and is not a navigation link; picking layout C raises the save bar with

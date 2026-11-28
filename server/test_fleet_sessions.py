@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Tests for server/fleet_sessions.py: hash-only sessions with absolute and
 idle limits, fresh role/disabled reads, and invite-only identity linking."""
 import hashlib

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Companion Update page tests: the nav entry/icon/French label, and the
 served page itself across every update state, the rollback banner, the
 version-history table and both languages.

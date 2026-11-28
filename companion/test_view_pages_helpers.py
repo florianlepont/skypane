@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Shared seeding/render helpers for the `companion/test_view_pages*.py`
 test family. Not a test module itself — `__test__ = False` keeps pytest
 from ever collecting it directly.

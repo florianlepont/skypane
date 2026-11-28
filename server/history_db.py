@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """SQLite history store behind the health trend, the flight log, and
 resolution statistics, plus the Caddy access-log tailer that is the only
 permitted path to device battery telemetry.

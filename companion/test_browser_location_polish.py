@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the Location page details and the phone tab bar labels: the radius slider has a
 name and speaks kilometres and a typed radius past the limit is pulled back to the limit, the privacy
 caption gives way once something is typed, the runway cards keep the length and the surface each on

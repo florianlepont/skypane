@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Behaviour checks for the Flights phone list (below 960 px), read from the page the
 companion app serves: one glass group per day with one row per flight (plane chip, callsign
 and route, airline and aircraft, age and direction); the picture thumbnail as the row's one

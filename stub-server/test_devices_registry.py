@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Contract harness for byos_server.py's per-device enrolment registry,
 which lives in fleet.db.
 

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """What the live poll reads for a frame's position, pinned to literal values,
 and proof that saving a frame's own position leaves every other frame's
 reading, the schema and the poll's read path untouched."""

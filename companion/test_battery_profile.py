@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The companion battery arithmetic follows a hardware profile's curve,
 and reads exactly as before on the legacy curve."""
 import dataclasses

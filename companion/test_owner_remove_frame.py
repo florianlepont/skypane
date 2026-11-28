@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """An owner removing their own frame over real HTTP: the owner alone may do
 it, the live frame is refused and untouched, co-managers lose access, the
 history is kept, and the Account dialog offers it to the owner only."""

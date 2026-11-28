@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The files every other destination of the navigation needs, listed so the
 opening splash can fetch them while it plays.
 

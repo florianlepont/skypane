@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The grouped-list components, asserted on the markup they produce and on the page that
 uses them: one `<h2>` label per group, links and buttons only where a row acts, a control
 beside (never inside) a link and no group inside a group."""

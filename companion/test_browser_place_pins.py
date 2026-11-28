@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Browser checks for the airport pins, the tap-to-place hint and the typed suggestions of the
 Location page, with both external hosts answered by `page.route`
 (test-support/place_map_support.py): a fresh page draws a tappable pin for every airport of

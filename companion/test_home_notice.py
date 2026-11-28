@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The Home notification for an amber or red dot: what it says per status
 key (English and French), the administrator contact (mailto or plain text),
 escaping of hostile values, the roles that see it, and that it adds no route.

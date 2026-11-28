@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The sign-in refusal and failure messages and the first-arrival welcome,
 through a real in-process companion and the loopback fake Auth0. The
 unverified-email page is chosen from the sign-in outcome's reason, after the

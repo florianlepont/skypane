@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """companion/frame_menu.py: the frame button and its popover.
 
 A glass button in the top bar of every device-scoped page (phone: the right

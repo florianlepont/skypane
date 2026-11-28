@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Unattended windowed sampler over query_aggregator's providers.
 
 Repeatedly queries both aggregators over a real time window and writes one

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser proof that an administrator moving between the Console and My frame sees the
 chrome stay put: the logo, the space switch and (on a phone) every tab bar cell sit at the same
 position and size in both views, at 360, 390 and 1280 px, in both languages. The Console bar has

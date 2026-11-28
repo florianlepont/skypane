@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """scripts/check_cert_chain.py -- proves the TLS certificate chain a host
 serves still leads to one of the trusted roots compiled into the firmware
 (firmware/main/certs). Stdlib + the openssl CLI via subprocess, argument

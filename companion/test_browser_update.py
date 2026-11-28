@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Browser checks for the Update page: its call-to-action card and compact
 version rows at every supported width, and the Install/Cancel action flows: the
 JS question dialog versus the no-JS-safe server

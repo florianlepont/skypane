@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 # Only ever reached via PYTHONPATH, and only when a test's own child_env()
 # put TEST_SUPPORT_DIR on that PYTHONPATH - never deployed (deploy/deploy.sh
 # rsyncs server/, stub-server/, companion/ only, never test-support/).

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Co-management flash toasts and audit labels, and the add, remove and leave
 routes over real HTTP: audit rows, the single refusal, CSRF and role gates."""
 import html

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The "Missing illustrations" section of the Airlines editor: one row per airline x aircraft
 family without a picture, grouped under a small header per airline; an airline with no sighting and
 no artwork has one "type to choose" row; the chip, the title and the page count agree; an upload

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """AI-suggested names for unidentified callsign prefixes.
 
 An unidentified prefix (three letters such as OCN) is sent to a small Claude

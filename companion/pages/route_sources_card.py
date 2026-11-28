@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The System page's route directory cards.
 
 Two topics after Identification: the status of each route directory (VRS

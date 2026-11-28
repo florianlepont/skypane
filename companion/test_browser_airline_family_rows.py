@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the type rows of the airline editor: the row is labelled with its aircraft
 family name (no "(famille)" suffix, interface font), the default type is a star with no text but an
 accessible name, and the designators seen are a tooltip on hover and keyboard focus in the table and a

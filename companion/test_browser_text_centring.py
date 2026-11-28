@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser check that the text of every chip, pill and button sits in the middle of its box,
 on both axes, whatever the system font's metrics are.
 

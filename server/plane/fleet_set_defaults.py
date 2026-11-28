@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """One-time choice of a default aircraft type for every airline that has
 pictures but none.
 

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """companion/ui_components.py: the shared, escaped HTML component library —
 toasts (flash outcomes and persistent alerts), status dots/rows, stat tiles, the quick-switch control pair, the
 Frame strip (home_page.py's and config_page.py's shared Display summary),

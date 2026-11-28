@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The legacy-geofence kill switch, end to end through the fleet cycle.
 
 The switch puts the legacy Orly ids back on the hand-tuned geofence file. It

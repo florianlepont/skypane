@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks that the "Missing illustrations" label is a sibling of the other two labels of
 the Editor: the same size, weight and colour as the "Airlines" label at 390 and 1280 px in light and
 dark, and the section sits between the unidentified table and the airlines table, in the markup and

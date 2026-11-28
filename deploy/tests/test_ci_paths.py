@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """deploy/tests/test_ci_paths.py -- the CI paths filter can only skip inert files.
 
 The only non-Markdown files that start no CI run are the 3D model files under

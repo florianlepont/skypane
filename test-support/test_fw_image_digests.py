@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The synthetic firmware image builder's output is pinned byte for byte.
 
 Each entry maps 'size|signed|corrupt|modulus|version' to (length, sha256 of

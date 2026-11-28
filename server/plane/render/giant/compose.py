@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Portrait compositors for the giant-lettering layouts.
 
 Every layout is built in the same order: field, band (diagonal only), giant

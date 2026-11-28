@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The Diagnostic LED settings group: the Device page's LED on/off card
 plus its own Frame-strip quick-switch form, and the runway diagram route
 prefix.

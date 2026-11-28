@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The Console Airlines editor as one table.
 
 One `<tbody>` per airline: the airline's row (its name as plain text, callsign

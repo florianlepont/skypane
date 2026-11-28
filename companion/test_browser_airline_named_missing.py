@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the rule "an airline without artwork is listed in the missing-illustrations
 section": an airline the owner named by hand, or by accepting a suggestion, has a header with its
 menu there (not a row in the table of airlines with artwork); the title, the chip and the rows

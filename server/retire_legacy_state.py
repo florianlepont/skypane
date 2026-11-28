@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Move the retired legacy files into a quarantine directory.
 
 Run as `python3 -m server.retire_legacy_state --state-dir DIR [--apply]`

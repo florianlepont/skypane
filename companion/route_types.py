@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The route-table vocabulary: matcher shapes, `Access` policies and the
 `Route` entry. Kept apart from `companion/routes.py` so the console route
 modules can declare routes without importing the table that aggregates

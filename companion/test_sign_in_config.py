@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Auth0 is the only sign-in: startup requires a complete configuration,
 retired variables are ignored, and legacy session rows and POST /login are
 inert.

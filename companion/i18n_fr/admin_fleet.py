@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# SPDX-License-Identifier: AGPL-3.0-only
 """French strings for the admin Fleet page: the frame list, its dialogs and
 the result toasts. The source-side Message for each id is declared in
 companion/pages/fleet_page.py and companion/console_pairing.py; this module

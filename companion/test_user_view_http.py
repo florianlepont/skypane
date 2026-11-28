@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The reduced user view over the real handlers: a fleet with provisioned
 device directories, no stubbed routes, real session cookies. Proves page and
 derived-image access (owner, another user, admin), the identical 404, and the

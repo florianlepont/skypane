@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """scripts/fw_release_assets.py: which release assets the deploy downloads."""
 import subprocess
 import sys

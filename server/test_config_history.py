@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Contract tests for server/device_config.py (the theme + tracked-runway
 registry and its validated, atomic JSON side-file) and server/history_db.py
 (the SQLite history store behind the health trend, the flight log, the

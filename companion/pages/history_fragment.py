@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The Flights list served as a bare fragment: list-filter.js asks for the
 list alone when a search, a chip or the sort changes, and for the next
 flights alone on Load more, so neither answer carries the page around the

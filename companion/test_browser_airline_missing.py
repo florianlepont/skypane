@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the Editor's "Missing illustrations" section: a row per airline x aircraft
 family under a small airline header, a 44px "+ Illustration" button that opens the add dialog with
 the family fixed (or the type select first for an airline with no sighting), an upload that removes

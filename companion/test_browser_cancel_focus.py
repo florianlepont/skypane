@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Cancel in the save bar: the bar leaves and keyboard focus goes back to the
 control that was changed, so the next Tab continues from where the person was
 instead of from the top of the page."""

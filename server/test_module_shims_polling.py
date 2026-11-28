@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """The polling-support modules live in the `server.polling` package; the old
 flat module names are sys.modules alias shims. These tests prove every old
 name is the very same module object as the new one (so monkeypatch and

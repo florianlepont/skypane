@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Seven horizontal ways to place the aircraft over the giant destination lettering.
 
 Standalone exploration: does not touch server/plane/render. Run from the repo

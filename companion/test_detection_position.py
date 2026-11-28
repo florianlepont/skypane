@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Position mode of the Location page over a real in-process
 server: the older location-and-radius POST with its server-side checks, the
 hidden-field rule, the older location POST, and the owner / admin scoping of

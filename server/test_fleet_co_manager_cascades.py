@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Co-manager clean-up on reassign, retire and delete, and the location rule."""
 import json
 import sqlite3

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The request budget holds across real, overlapping processes."""
 from __future__ import annotations
 

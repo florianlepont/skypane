@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The Settings address (the twin of the settings form's POST) lands on the Style page
 for every signed-in role, the old History and Preview addresses are not found,
 and a refusal shown to

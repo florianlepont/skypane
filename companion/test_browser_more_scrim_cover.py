@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The dimmed, blurred layer behind the open More sheet covers everything the window shows: the
 whole window on every page, and on the Location page of an iPhone also the map that runs above and
 below the page, which iOS draws under the status bar and under a tab's toolbar and which a fixed

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The Rename frame dialog: one name field, Save and Cancel.
 
 Pure markup: it takes the frame's id and current name and reads the request's

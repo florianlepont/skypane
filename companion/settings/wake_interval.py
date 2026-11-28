@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The Wake interval settings group: the freshness/battery-life gauge
 text, the range slider and `wake_interval_group()` itself.
 """

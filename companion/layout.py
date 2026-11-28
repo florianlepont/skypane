@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """companion/layout.py: the public facade for the companion service's page
 shell and component library.
 

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The SkyPane logo as served: the favicon and apple-touch-icon links on every page type, the
 public static routes behind them, the brand lockup in the sidebar and the phone app bar, and the
 login card's own copy of the mark. Everything is asserted on served bytes (HTML, SVG, PNG), never

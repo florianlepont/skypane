@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """scripts/fw_release_manifest.py -- generates the release manifest
 `server.firmware_registry.publish_release` expects (version,
 hardware_type, build, sha256, size, released_at, commit, notes), plus an

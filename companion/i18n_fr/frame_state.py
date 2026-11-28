@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# SPDX-License-Identifier: AGPL-3.0-only
 """French strings for the frame-state held headline and the two delay
 sentences companion/frame_state.py owns outright (the due headline, the
 late headline and the unknown-delay sentence are keyed in sibling

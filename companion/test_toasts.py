@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Behaviour tests for the toast family, against the HTML and assets a real
 companion/app.py serves: every flash key's tone and ARIA role, the
 title/detail split in both languages, the no-script dismiss link, the

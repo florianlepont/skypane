@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The System view's route directory cards: the status of each directory and
 the flights each one answered, read from the counters the poll cycle writes.
 

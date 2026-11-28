@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Fleet enumeration, activity and hold gating, and zone grouping."""
 import dataclasses
 import json

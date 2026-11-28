@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Browser checks for the Flights phone list (day groups of flight rows below 960 px): no
 horizontal overflow at 390 and 360 px in both themes and both languages, flat glass day groups
 and centred direction segments, the icon-only picture action at the 44px floor and operable

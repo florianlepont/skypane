@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Browser checks for how the Location page's map opens and how its airport pins are drawn:
 it opens centred on the frame's airport, a zoomed-out view groups airports into numbered
 bubbles that account for every airport, tapping a bubble zooms in, the followed airport is

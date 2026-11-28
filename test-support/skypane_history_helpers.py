@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Convenience helpers for exercising the history log ingestion API."""
 from server.history_db import read_caddy_battery_log, apply_caddy_battery_log
 

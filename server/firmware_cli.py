@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Compatibility alias: this module is server.firmware.cli. Run as
 `python3 -m server.firmware_cli` it executes that module's main()."""
 import sys

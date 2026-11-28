@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the Access section on Fleet and the Account
 "Shared by" line: the two-action add flow, section geometry and tap targets at
 360 and 1280px in both languages and themes, the page returning to the frame after each

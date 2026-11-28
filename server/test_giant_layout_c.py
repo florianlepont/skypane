@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Behaviour tests for layout C: lettering on top, whole aircraft at the bottom."""
 import pytest
 

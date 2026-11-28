@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The Auth0 Management variables in deploy/skypane.env.example are
 documented as commented-out placeholders and never carry a real value."""
 

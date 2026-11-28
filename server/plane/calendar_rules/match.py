@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Calendar-theme matching: compares a detected, enriched flight against
 the loaded registry and the operator's chosen theme.
 

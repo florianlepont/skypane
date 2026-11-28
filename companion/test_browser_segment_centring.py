@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Browser check that the label of every segmented control and filter chip is centred in its
 segment (Departures / Arrivals count tabs, the Personalisation tabs, the theme switch, the tab
 bar, the space switch), at 360 px and 1280 px in both languages. A label that does not fit and

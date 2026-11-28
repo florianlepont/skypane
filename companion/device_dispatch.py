@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Device resolution for a request and the Referer-based redirect target,
 moved out of `companion/app.py`'s `Handler`. Packaged as a
 `DeviceDispatchMixin` `Handler` inherits, like `SignInMixin`.

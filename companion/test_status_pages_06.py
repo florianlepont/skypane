@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Companion status-page tests: the lightbox replace form, the drag-and-drop
 upload affordance, the coverage-gap block, manual-resolution card states,
 the conditional resolve section, the delete-form, and the Frame-strip and

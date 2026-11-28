@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Shared setup for the per-device companion tests: an app subprocess serving
 a seeded two-device fleet (plus a landscape device), and file snapshots that
 ignore the harness's own bookkeeping files. Not a test module itself.

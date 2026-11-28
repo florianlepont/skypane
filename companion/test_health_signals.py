@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Tests for companion/health_signals.py's markup-free severity path:
 `health_signals()`, `safe_health_signals()` and
 `companion/pages/health_page.py`'s `health_state_from_signals()`.

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Step counts of the walkthrough tasks, measured in a real browser.
 
 Each task is driven through a counter that adds one for every tap, every typed

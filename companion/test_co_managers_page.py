@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The Manage access and Leave dialogs, the Fleet wiring and the Account
 "Shared" mark: dialog markup, the view builder's guards, the return_to
 whitelist, and the leave toast. Assertions read served HTML, never source."""

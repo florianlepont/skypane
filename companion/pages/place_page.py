@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The Location and detection page: where the frame is and what it follows.
 
 With the map running the map fills the page. One search field floats at its

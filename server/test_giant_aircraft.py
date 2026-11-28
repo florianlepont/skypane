@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Behaviour tests for aircraft cutting and placement in the giant layouts."""
 import os
 

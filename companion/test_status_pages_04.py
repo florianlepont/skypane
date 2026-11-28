@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Companion status-page tests: the registry card's heading rhythm, the
 Identification row's prose table opt-out, the registry's mobile card
 representation, the battery readout split, the auto-refresh pill, the Health

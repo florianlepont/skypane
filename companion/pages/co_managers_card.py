@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Frame co-management: the three POST route paths, the form field names, the
 flash keys and their texts, and the pure markup of the Manage access and Leave
 this frame dialogs, so the handlers, the dialogs and the flash registry all

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser check of tapping a flight picture that has not loaded yet: the dialog never opens
 as an empty box, the thumbnail keeps its loading placeholder meanwhile, and the dialog opens with
 the picture once it has arrived (or on a second tap if the network stalls)."""

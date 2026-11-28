@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Render-level behaviour tests for the reduced user view of Display, Home
 and Health: what a user principal's served markup omits, that the nav dot,
 Home attention row and freshness token follow the frame only, and that

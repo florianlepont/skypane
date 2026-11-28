@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Behaviour tests of the two navigation sets over real in-process requests: the
 personal navigation is the same for an administrator and a user looking at the
 same frame (apart from the bar's last cell: Account for a user, More for an

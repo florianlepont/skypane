@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Fleet database: users, roles, locations and devices in one SQLite file.
 
 Leaf module: stdlib plus `server.hardware` and `server.atomic_io`. It must

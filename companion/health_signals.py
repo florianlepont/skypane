@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """companion/health_signals.py: the markup-free half of Health's severity
 computation — every state the nav-tab dot and the full Health page banner
 need, with zero HTML built.

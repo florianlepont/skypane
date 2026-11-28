@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Every tracked Python file declares its licence with an SPDX line. Stdlib only.
 
 The project's own code is AGPL-3.0-only, so a file without any SPDX line gets

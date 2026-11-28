@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """deploy/tests/test_cert_chain_check.py -- offline proof of
 scripts/check_cert_chain.py's `verify` decision, against throwaway
 fixture chains this file generates itself with the `openssl` CLI (no

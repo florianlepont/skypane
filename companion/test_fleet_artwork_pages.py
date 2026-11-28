@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Uploaded artwork is fleet-wide: a picture added through one frame lives in
 the fleet root's `illustration_overrides/` directory and is listed, served,
 cache-busted and deletable from every other frame. The upload route's

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Behaviour tests for stub-server/byos_server.py's hardening work:
 
 - `_atomic_write`, byos's local same-directory-mkstemp atomic writer,

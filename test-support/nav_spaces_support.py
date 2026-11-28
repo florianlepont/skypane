@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Shared browser helpers for the navigation tests: signed-in administrator and
 user pages in a chosen viewport, language and theme, and the equal-cells check
 of the phone tab bar (each cell follows its label and the cells together fill the bar)."""

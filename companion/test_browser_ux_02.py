@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Browser checks for both `<dialog>`s' entrance/exit motion, the live theme preview's
 crossfade, the image-hold skeletons, the login card's layout, the
 focused desktop/mobile navigation, the mobile nav's close

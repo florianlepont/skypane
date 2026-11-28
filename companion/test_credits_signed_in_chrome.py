@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The credits page for a signed-in person carries no navigation at all (no sidebar, tab bar,
 space switch, frame button or Console entries): only a back link to Account. A visitor with no
 session still gets the page as before. Every assertion reads the served page or a browser."""

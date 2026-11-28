@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Thin re-export shim over server/wake.py.
 
 The real arithmetic lives in server/wake.py so server/poll_cycle.py can

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Airline, illustration, colour-rule and calendar actions posted under
 /devices/<id>/ change that device's directory only (the airline name
 registries are fleet-wide and live at the state root), and every redirect stays

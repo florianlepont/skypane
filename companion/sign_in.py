@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The Auth0 sign-in handlers moved out of `companion/app.py`'s `Handler`:
 the start route, the callback, and sign-out. Packaged as a `SignInMixin`
 `Handler` inherits, like `SettingsActionsMixin`.

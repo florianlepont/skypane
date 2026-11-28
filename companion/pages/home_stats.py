@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Home's statistics card: today's flights on a per-hour timeline, and the last
 seven days as bars with the most seen airline.
 

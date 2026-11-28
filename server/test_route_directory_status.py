@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Per-directory route lookup counters and the "answered by" mark.
 
 Every assertion reads what the history database holds after a real poll

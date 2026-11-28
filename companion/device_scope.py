@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Which device a companion request is for, where its directory is, whether
 it can be polled from here, and whether it looks offline.
 

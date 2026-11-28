@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The on-disk `calendar_rules.json` registry and `calendar_url.secret`
 accessor pair: file paths, the cross-process lock, load/write/save,
 retention windowing/capping, the throttle predicate and the secret-file

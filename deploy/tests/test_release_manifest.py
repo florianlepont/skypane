@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """deploy/tests/test_release_manifest.py -- proves
 scripts/fw_release_manifest.py generates a release manifest and notes
 body entirely from git and the image file, against throwaway git

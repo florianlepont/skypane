@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The one per-request browser preference this package resolves:
 language. Page-independent, stdlib-only (contextvars).
 

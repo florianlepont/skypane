@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The render CLI's --layout option: classic by default, any layout id on request."""
 import pytest
 

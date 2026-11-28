@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The background and motion language on the SERVED stylesheet: every text colour stays readable
 against every stop of the pale Light sky and of the Dark ink gradient both directly on the page and through the frosted-glass surfaces, the
 glass has a solid fallback outside its @supports block, and the single reduced-motion rule

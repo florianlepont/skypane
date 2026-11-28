@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The human name of each aircraft picture slot (the families of
 `illustrations.SHAPE_SLUGS`), English and French, for the Airlines editor.
 `family_label(slug)` is the translated name, or "" for a slot with none (a

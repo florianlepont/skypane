@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Tests for fleet_db.save_frame_position / frame_position: a private row per
 frame, in-place updates, no-op saves and copy-on-write for shared rows."""
 import pytest

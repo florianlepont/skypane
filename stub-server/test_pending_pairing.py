@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """A registered but unassigned (pending) frame and a retired frame through a
 real byos_server.py subprocess: enrolment, the pairing and retired screens,
 code rotation, claim hand-over, and isolation from the live frame's state."""

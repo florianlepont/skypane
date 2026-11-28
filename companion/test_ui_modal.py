@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The shared modal dialog: helper markup contract and the assets that make it
 work (modal.js and the dialog.modal rules). Browser behaviour of the
 component is asserted on the first page that adopts it."""

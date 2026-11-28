@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The behaviour-over-source-text guard: a meta-test that
 fails if a companion test module reads a `.planning`/UI-SPEC
 file, reads a production source file as text, inspects source with

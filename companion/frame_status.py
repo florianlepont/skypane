@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The one status dot of a frame.
 
 `frame_status(row)` turns a frame row into a single dot class and a single

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """The systemd-timer oneshot entrypoint: detect -> render -> atomic swap.
 
 Poll cadence: 30 seconds, inside both aggregators' 1 req/s limit. No

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """An error no handler expected, over real HTTP: the caller gets a translated
 500 page with the app's own chrome and a way back instead of a dropped
 connection, the page says nothing about the error itself, the error is logged

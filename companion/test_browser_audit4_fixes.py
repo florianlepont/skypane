@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the fourth audit's visual findings: the form-page Save bar that appears
 only on a change, user cards (e-mail wrapping, role select), the sidebar (one line per item, a
 focus ring hugging its item), the System column, the hero ring, the tab strip insets, the picture

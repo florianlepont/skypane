@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# SPDX-License-Identifier: AGPL-3.0-only
 """French strings for the Display page's look card: the two pictures,
 the look sheet's three choices, the colour x style table, the Special
 looks list and the "New special look" form. Keyed by stable message id;

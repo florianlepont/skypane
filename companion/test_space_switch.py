@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The two-segment Console / My frame switch as served: only an administrator
 gets it, it sits in two places (phone strip and sidebar top), the current
 space is marked by aria-current and a check glyph, and both segments are

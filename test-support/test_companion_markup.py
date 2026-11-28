@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Self-tests for companion_markup.py's HTML/CSS/JS structural parsers:
 every idiom a companion test needs instead of grepping served source
 text as a raw string.

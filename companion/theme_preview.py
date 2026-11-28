@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """On-demand, disk-cached rendered theme previews for the Settings theme
 picker. Renders through `server.plane.render.build_canvas()` (a real
 Pillow image to crop/downscale), not a cheap CSS/SVG mockup and not

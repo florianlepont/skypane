@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The battery pill of Home's pills row, shown to every signed-in person.
 
 A quiet static pill: the battery icon, the word and the charge. A low or very

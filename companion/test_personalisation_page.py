@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The Personalisation page over a real in-process server: the title, the
 one navigation and its four views (Departures at /display, then
 /display/arrivals, /display/special-looks and /display/calendar, one view each)

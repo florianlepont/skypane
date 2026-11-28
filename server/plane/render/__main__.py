@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """`python3 -m server.plane.render` entry point - run from the repo root
 so `server.*` resolves. See `cli.py`'s module docstring for the flags.
 """

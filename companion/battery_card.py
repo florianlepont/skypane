@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """companion/battery_card.py: the body of the Health page's Battery row.
 
 A gauge with the level as its hero and the voltage beside it, one

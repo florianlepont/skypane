@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Deterministic render-snapshot harness for the companion app.
 
 Produces (and, via `main()`, writes) `companion/testdata/render_baseline.json`:

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Browser checks for the scripts-blocked accordion's own operability/save floor, the Touch
 Targets measurement sweep over the palette/usage-row/rule-add controls, the no-JS floor's
 save-to-disk proof, the restored dirty bar's settle contract, a server-side validation

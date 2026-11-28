@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of Rename on an airline the owner named by hand: the menu item and the
 dialog in the missing-illustrations section and in the table, at phone and desktop sizes, English
 and French, light and dark; 44 px hit areas, no horizontal overflow, a 100-character name

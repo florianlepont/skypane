@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """The field-validation freeze list, enforced by running code.
 
 stub-server/measured_fields_freeze.json names what the on-wall field

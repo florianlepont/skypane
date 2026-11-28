@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Companion status-page tests, last slice: the tab bar's margin-fit/More-
 sheet/French-label contracts, freshness.js's backoff ladder and breathing-
 dot mechanism, the Health-tile/Frame-strip agreement, the two server-

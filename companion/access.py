@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Default-deny access decision and the device ownership gate.
 
 Pure functions over plain values: no sqlite3, no server imports, no I/O.

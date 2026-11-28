@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """A signed-in person adds their own frame with the pairing code over real
 HTTP: ownership, audit, the identical refusal, the shared throttles, role
 and CSRF gating, and the empty state of a person with no frame."""

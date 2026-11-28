@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks that the Editor's "Missing illustrations" list says the shared "no sighting
 yet, pick the type in the dialog" sentence once, above the list, and not once per row: each row that
 asks for the type shows one short action label, keeps an accessible name that carries its airline,

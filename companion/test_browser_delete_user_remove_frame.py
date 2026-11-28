@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser flows of the two removal dialogs: an administrator deleting a
 user from the Users "..." menu, and an owner removing their frame from the
 Manage access dialog. Each is checked at 360 and 1280px, in both languages and

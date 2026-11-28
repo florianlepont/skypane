@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Three reworks of the band layout, in the same art direction as the others.
 
     PYTHONPATH=. python3 design-exploration/plane-screen/mock_band_rework.py OUT_DIR FONT_DIR

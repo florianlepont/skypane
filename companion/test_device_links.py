@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Links, forms and image URLs rendered on a non-live device's pages stay under
 that device's /devices/<id> prefix, the live frame's included once it has a
 fleet row; global routes never carry it. Real app subprocess over a seeded

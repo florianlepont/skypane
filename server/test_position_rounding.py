@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """A device's home position leaves the host only rounded to two decimals."""
 
 from __future__ import annotations

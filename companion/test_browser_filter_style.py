@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser check that Flights and Airlines draw the same filter: one controls form followed
 by exactly one status count line in the same place, with the same look, 44px targets and an
 accessible search name, in English and French, Light and Dark, at 360 and 1280 px; and that the

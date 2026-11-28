@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The poll-cycle library: detect -> infer -> enrich -> render -> publish
 (atomic panel/gallery write) -> record (history.db). Shared by the
 systemd-timer entrypoint module (a thin `argparse`/`main()` wrapper

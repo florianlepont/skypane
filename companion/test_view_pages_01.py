@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Companion view-page tests: `history_page.py`'s empty state, newest-first
 ordering, the reused render-module presentation mappings, monospace/escaping
 contracts, the merged When/Flight cells, the Corroboration column's

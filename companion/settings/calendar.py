@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The Calendar settings group: the one-line connection status row on the
 Personalisation page, the connection page that holds every control (paste or
 replace the link, disconnect), the two-step disconnect confirmation page,

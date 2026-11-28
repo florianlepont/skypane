@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the admin console shell: the phone bar keeps its
 tap-target size, the page has no section chip row or sideways scroll on a small
 phone, and the sidebar shows the Admin group."""

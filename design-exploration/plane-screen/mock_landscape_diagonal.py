@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The diagonal-band design on the 800x480 landscape panel.
 
     PYTHONPATH=. python3 design-exploration/plane-screen/mock_landscape_diagonal.py OUT_DIR FONT_DIR

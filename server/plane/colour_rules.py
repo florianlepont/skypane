@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """The per-flight colour-rule registry plus the single effective-theme
 resolution function every render of a displayed flight goes through.
 

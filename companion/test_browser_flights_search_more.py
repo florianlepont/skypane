@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Browser checks of the Flights search, empty state, sort and Load more. The shared filter
 controls sit under the title in two rows (search, sort and info; then the direction chips with
 their counts) at every width from 320 to 1280 px in English and French, every control 44px, and

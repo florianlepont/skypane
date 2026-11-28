@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Golden-image guard for the 1200x1600 panel render.
 
 Every case renders a packed panel and compares its SHA-256 (and byte

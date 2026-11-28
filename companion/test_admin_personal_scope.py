@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """An administrator's personal pages follow the same frame rule as a user's:
 the un-prefixed page moves to the same page of their default own or
 co-managed frame (or to the account page when they have none), every frame

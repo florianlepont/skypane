@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The Flights page: a compact log of the latest aircraft the frame has
 shown, built from `server.history_db.recent_runway_events()`, reusing
 `server.plane.render`'s presentation-only mappings

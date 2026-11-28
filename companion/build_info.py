@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The short build id the Account page shows for a support request.
 
 The release is staged under `<root>/releases/<40-hex git sha>/` and the service runs

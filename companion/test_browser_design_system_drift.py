@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser drift check between the design system and the served site.
 
 `companion/testdata/design_system_tokens.json` records the numbers the design-system skill

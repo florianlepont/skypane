@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Who sees which airlines. Two users each own a frame, the administrator owns
 the live frame; every frame has its own sightings and unidentified prefixes
 (`airline_fleet_world`). The administrator's editor lists the whole fleet: every

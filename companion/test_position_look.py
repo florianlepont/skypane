@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The one look of a frame that tracks a position, over a real in-process
 server: its Style page lists a single Look view in place of Departures and
 Arrivals, the address of Arrivals opens it, its picture is an overhead render,

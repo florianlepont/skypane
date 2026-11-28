@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Shared fixture-seeding and formatting helpers for the `companion/
 test_status_pages*.py` test family: `server/history_db.py` writers, a
 `server/state_store.py` seeding wrapper, a manual_resolutions.py seeding

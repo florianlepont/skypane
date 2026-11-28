@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Per-device routing: the route table declares which routes act on one
 device, and `routes.match()` resolves those (and only those) under a
 `/devices/<id>` prefix. Runtime route-table output only.

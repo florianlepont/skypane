@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# SPDX-License-Identifier: AGPL-3.0-only
 """French strings for the Detection page: the summary of the saved setting,
 the airport search and the inline errors.
 

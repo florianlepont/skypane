@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The primary layout with different lettering fonts.
 
     PYTHONPATH=. python3 design-exploration/plane-screen/mock_fonts.py OUT_DIR FONT_DIR

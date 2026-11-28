@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Layout-aware theme and frame previews: the picture differs per layout,
 the caches never share a file across layouts, and the routes accept a
 layout only from the allow-list.

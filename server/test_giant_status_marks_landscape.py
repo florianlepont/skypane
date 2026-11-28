@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Landscape giant status screens: the battery-low glyph and source-fault
 badge sit at the top right, on blank pixels, readable and apart."""
 import pytest

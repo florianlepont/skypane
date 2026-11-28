@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """deploy/tests/test_docs.py -- deploy/README.md corrections: the "fully
 reproducible" claim is gone, backups/restore are documented, the
 release-layout deploy flow replaces the old rsync description, env

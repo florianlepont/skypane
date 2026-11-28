@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Band, frame, top labels, illustration load/resize/cache/placement, and
 the two canvas builders (`build_canvas`/`render_panel`) that assemble a
 whole panel: the diagonal band and top-row labels, then the main/previous

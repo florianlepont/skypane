@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Deploy-time operator CLI for server/firmware/registry.py.
 
 Run as `python3 -m server.firmware_cli` from a directory that has

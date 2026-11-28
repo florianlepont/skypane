@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# SPDX-License-Identifier: AGPL-3.0-only
 """French strings for the login page, the 404 and 403 pages, the shared
 "Sign out" control, and every flash-banner template in
 companion/flash.py's FLASH_MESSAGES dict. Every entry is migrated onto

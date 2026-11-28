@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The shared count line of the Flights and Airlines filter controls."""
 from companion import ui_filter
 

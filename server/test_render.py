@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Contract tests for server/plane/render.py's two-flight poster layout.
 
 Runs under server/.venv's interpreter - render.py transitively imports

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Access-matrix rows for the place save and the quiet-hours window save.
 
 The place save adds no route (POST /detection is already an owner-device

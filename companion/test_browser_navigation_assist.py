@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the three navigation helpers: the opening splash plays at every
 opening of the site (a new tab) and not on in-app navigation, the destinations behind the
 navigation links are warmed on idle and on intent without ever touching a route with side

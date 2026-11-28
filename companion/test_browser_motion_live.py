@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Browser checks for the live Home and the phone's pull to refresh on Flights.
 
 Every check reads the real served page in a real browser: the text the countdown shows over

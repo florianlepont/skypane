@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The State section of a frame's page: three tiles (connection, battery,
 firmware). The connection tile states the last and the next connection
 itself; the other two are links with a Details mark to the page that holds

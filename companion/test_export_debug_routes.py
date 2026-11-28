@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The read-only debugging exports next to /api/export/battery-history:
 flights and poll-cycles (JSON Lines) and status (one JSON object).
 

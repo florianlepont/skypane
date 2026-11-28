@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Behaviour tests for server/poll_cycle.py's write-once-only-if-changed,
 compact poll_state.json save.
 

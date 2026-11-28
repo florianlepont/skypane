@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Browser checks for the SVG-drawing scenario group: the battery gauge, the battery chart's
 area/line/threshold and the absence of a regularity grid, all on Health, plus the rows card's
 alignment and width.

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """One-shot result toast carried across a post-redirect-get by a cookie.
 
 The cookie holds display state only: a registered key and short string

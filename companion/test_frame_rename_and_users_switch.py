@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Rename a frame, the Active switch of the Users page answering a fetch, the
 Update confirmation without a made-up time, the pairing message naming a frame
 without a name, and the retired Update address under a frame prefix. Every

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """deploy/tests/test_runner_loop.py -- deploy/runner/skypane-runner-loop.sh run
 as a real subprocess with `security`, `curl`, `limactl` and `sleep` replaced
 by recording shims on PATH. No network, no VM, no Keychain.

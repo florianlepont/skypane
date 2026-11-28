@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Giant-lettering render family: oversized destination lettering set in
 Anton, with the aircraft placed over it. `build_canvas` is the entry point
 the layout dispatcher calls.

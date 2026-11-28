@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The wait that makes the admin Components page ready to measure, shared by its browser tests."""
 import animation_settle
 

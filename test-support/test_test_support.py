@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Self-tests for skypane_test_support.py / sitecustomize.py: prove the
 non-loopback network guard actually trips (connect and DNS, in-process and
 in a child interpreter), loopback stays usable, and the fake provider

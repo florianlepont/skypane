@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks that an airline has no picture of its own, only its aircraft types do: at 360
 and 1280 px, in English and French, the Editor's airline row carries no picture and lists its type
 rows (one per type, the star on the default type, no "All types" row), and the user's Airlines

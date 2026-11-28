@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Render companion/static/apple-touch-icon.png (180x180) from the logo's
 home-screen tile with a headless Chromium.
 

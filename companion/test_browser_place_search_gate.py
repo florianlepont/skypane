@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The typed suggestion and the submitted search share one gate: never two address-search requests
 at once, at least a second between two starts, and an Enter on a query already asked (in flight
 or answered) sends nothing more. The page's fetch is wrapped to time and overlap each request;
