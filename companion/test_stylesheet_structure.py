@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Parser-based structural guards on the SERVED stylesheet: no selector declared in
 more than one rule of the same at-rule context, and no colour literal outside a
 custom-property definition.

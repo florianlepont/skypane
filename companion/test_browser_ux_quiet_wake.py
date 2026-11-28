@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Browser checks for the quiet-hours window editor on Home and the wake-interval slider.
 
 The quiet window is edited in the Home dialog (two native time fields, three presets, a

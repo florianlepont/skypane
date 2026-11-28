@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Companion view-page tests: most of the JS-source contracts
 (panel-lookup.js, list-filter.js, freshness.js), the
 Airlines resolve-dialog action row and unresolved-airline link, Flights'

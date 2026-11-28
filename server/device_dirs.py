@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Maps a fleet.db `state_path` to a directory under the state root.
 
 Leaf module: stdlib plus `server.atomic_io` and `server.panel_format`.

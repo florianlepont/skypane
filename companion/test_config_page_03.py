@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Tests handle_post()'s field-level `errors` dict, the retired LED-route/
 helper-symbol guards, runway-image detection, cross-file DOM-contract guards
 between config_page.py and its static assets (dirty-state.js, style.css),

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """A flight the poll cycle detected but dropped before it was drawn is stored
 without a direction, a route or a picture. The Flights page lists it like any
 other flight and the page does not fail on it.

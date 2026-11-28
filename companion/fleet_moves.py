@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Where the form redirects land: the matching view of the Console Fleet page
 (a frame's Settings or Versions page), and where the Update page sends a
 person who has a frame of the requested type.

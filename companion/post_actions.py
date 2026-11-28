@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The settings-action POST handlers moved out of `companion/app.py`'s
 `Handler`: illustration replace, the two-step manual-resolution flow,
 the colour-rules add/delete pair, and the calendar connect/disconnect

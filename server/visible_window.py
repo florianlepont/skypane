@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Draw a screen inside the part of a panel that a mat leaves visible."""
 from __future__ import annotations
 

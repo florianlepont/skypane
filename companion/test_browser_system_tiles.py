@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the System page's tiles: six equal tiles at least 44 px tall, nothing
 overflowing at 320, 390 and 1440 px in English and French and both themes, the warning tile's
 state spelled out, and a tile bringing its block into view."""

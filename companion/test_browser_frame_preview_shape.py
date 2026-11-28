@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks that every frame picture's container follows the frame's own shape.
 
 A landscape frame (800x480) shows its picture in a container wider than tall with no bands

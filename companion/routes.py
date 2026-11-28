@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The one route table `companion/app.py`'s `Handler._dispatch()` walks:
 every GET and POST route declared exactly once as `(method, matcher,
 handler, access)`.

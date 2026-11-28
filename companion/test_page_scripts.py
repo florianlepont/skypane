@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Per-page script coverage: every authenticated page loads only the shell
 scripts its own hooks need, with no build step.
 

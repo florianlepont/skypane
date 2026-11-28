@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser structure checks of the Console pages on the grouped-list language: the Fleet
 blocks are glass groups under a section label with nothing nested, the Users table and the
 Airline editor keep header and row geometry, the unidentified rows sit in their own labelled card above the table, the

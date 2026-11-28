@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Served-page checks for fixes that need no browser: below-the-fold pictures,
 the refused special look redrawn from its own address."""
 import re

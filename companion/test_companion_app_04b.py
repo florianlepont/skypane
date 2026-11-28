@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Tests the redirect/static-CSS hardening headers, the session-gated
 POST /ui-theme and POST /logout, the POST /ui-lang round trip and its
 no-session gate, language resolution (Accept-Language, the sp_ui_lang

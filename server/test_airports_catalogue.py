@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """France runway catalogue: offline build rules, data checks and loader."""
 
 import importlib.util

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The Quiet hours dialog on Home and the route it posts to, over a real
 in-process server: the served dialog markup, the save that writes only the
 three quiet-hours keys, refusals that write nothing, csrf and the outcome

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The Fleet page body: every frame as one list row (a status dot, the
 frame name, its owner and an actions menu) plus the dialogs the header
 button and the row menus open.

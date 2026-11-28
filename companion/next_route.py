@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The sign-in `next` destination: which same-site addresses a sign-in may
 send the browser back to.
 

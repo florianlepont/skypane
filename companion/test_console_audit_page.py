@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The read-only Audit log page and the release audit events, over real HTTP."""
 import hashlib
 import re

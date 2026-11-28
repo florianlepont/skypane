@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Round-trip, compact-format, persist-if-changed and fail-open tests for
 server/state_store.py: the single owner of poll_state.json and the
 read-only reader of byos's battery_state.json.

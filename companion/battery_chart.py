@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """companion/battery_chart.py: the battery-trend sparkline, built entirely
 on companion/draw.py's shared scale and shape primitives.
 

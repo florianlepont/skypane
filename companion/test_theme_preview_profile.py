@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Theme and frame previews follow the frame's hardware profile and read
 exactly as before on the legacy profile."""
 import hashlib

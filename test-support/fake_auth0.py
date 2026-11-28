@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """A loopback stand-in for Auth0, for tests.
 
 It enforces what the companion relies on - PKCE S256, an exact registered

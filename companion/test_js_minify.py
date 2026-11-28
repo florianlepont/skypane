@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Served scripts lose their comments and nothing else."""
 import glob
 import os

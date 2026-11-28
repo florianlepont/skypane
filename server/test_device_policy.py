@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Golden-value and fallback tests for server/device_policy.py: the shared,
 stdlib-only battery and quiet-hours policy used by the poll cycle, the byos
 device endpoint and the companion.

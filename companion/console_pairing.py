@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Admin console routes for the pairing area: the Fleet page, frame
 registration, and the shared pairing-code claim.
 

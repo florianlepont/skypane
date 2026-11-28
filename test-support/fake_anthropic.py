@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """A loopback stand-in for the Anthropic Messages API, for tests.
 
 It answers POST /v1/messages with scripted statuses and bodies in the real

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the page-speed work: Home's ambient loops rest after a minute
 without a touch and wake on a touch, the splash script is fetched only when the splash
 plays, scripts and the stylesheet are fetched from versioned long-lived URLs that a warm

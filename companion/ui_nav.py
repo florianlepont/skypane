@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """companion/ui_nav.py: the two navigation renderers (desktop sidebar, sub-960px
 bottom tab bar and its hamburger preferences panel) plus the language/theme
 switch forms and sign-out control they share, and the freshness-swap

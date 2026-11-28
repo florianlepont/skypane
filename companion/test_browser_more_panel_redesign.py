@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser proof of the redesigned More panel on a phone: a grab handle,
 the account row with the person's initial, for an administrator a Console card
 (tinted, accent border, accent icon tile, title, subtitle, accent chevron), a

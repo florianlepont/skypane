@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser flows of the phone More sheet and the tab bar around it: theme and language set
 with one tap inside the sheet (and kept after a reload), Sign out two taps from any page, the
 sheet's other rows, French tab labels that never touch at 360px, and the administrator's Account

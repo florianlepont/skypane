@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Shared by the co-management browser tests: a seeded fleet whose "Kitchen"
 frame is owned by a user with a long address and co-managed by another one,
 plus the page-opening and overflow helpers both test modules use."""

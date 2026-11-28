@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The Airlines editor's aircraft-type rows of one airline, served as a bare
 fragment: the table lists each airline closed and airline-types.js asks for
 the rows of a group when its chevron first opens, so the page does not carry

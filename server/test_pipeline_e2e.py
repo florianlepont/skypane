@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """End-to-end contract test: server/poll_cycle.py's run_once() through the
 real stub-server/byos_server.py device protocol.
 

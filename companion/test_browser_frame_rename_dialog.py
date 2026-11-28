@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the Rename frame dialog from its two entry points (the
 Fleet header pencil and the pencil of a frame row on Account): a centred dialog on a
 desktop and a bottom sheet on a phone with the name field focused, Save and Cancel as equal

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Contract tests for server/plane/illustrations.py's per-airline
 illustration selection module.
 

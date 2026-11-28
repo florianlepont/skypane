@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Behaviour tests for test-support/skypane_contrast_check.py's WCAG contrast and
 signal-separation math, run against the colour tokens companion/app.py
 actually SERVES over HTTP — never against companion/static/style.css

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The light freshness check's server-computed input token, moved out of
 `companion/app.py`: built from a route's own inputs alone (a handful of
 `stat()` calls, one small `SELECT` through the request's own scoped

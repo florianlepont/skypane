@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Which area stylesheets a page links after the core one.
 
 `static/style.css` holds what every page needs; the rules only one family of

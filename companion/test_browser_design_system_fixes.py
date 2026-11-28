@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of two hard rules of the design system on the served pages, at 360 and
 1280 px in English and French: every visible form field has an accessible name (a visually
 hidden `<label for>` counts, as it does for a screen reader), and the stand-alone links of the

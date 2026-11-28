@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The Auth0 authorization-code sign-in against the loopback fake: the happy
 paths, every way the callback can be hostile or broken, invite-only
 refusals, the `next` whitelist and sign-out.

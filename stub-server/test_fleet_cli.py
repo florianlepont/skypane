@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Tests for fleet_cli.py: users, locations and one-owner devices managed
 through the CLI. fleet.db is the only identity store: no command reads or
 writes the legacy device files."""

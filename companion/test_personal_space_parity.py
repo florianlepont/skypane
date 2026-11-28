@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The personal space is identical for an administrator and a user: for the same
 frame state, every personal page carries the same navigation links, the same
 form controls and the same body, whoever looks at it. The space switch and the

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Contract tests for server/net/safe_fetch.py - the one SSRF gate the
 calendar feed fetch (server/plane/calendar_rules.py) calls.
 

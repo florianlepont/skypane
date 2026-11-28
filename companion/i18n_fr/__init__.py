@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The French translation catalogue package: one module per page, merged
 into BY_ID (stable-ID-keyed) at import time.
 

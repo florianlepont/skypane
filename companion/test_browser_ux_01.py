@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Browser checks for the Flights row-level picture action, the Flights/Airlines/Health filter-bar
 meta rows, the Airlines two-per-row grid, Health's registry table and no-JS floor, the settings
 pages' reveal/persist/leave-guard family, the Frame strip switch, and the runway

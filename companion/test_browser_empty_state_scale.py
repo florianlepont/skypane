@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Browser checks for the compact empty state: the heading is in the Emphasis size and the UI
 face (not the serif display stack, not 22 px), a page-level one keeps readable padding, and
 nothing overflows, in both themes, both languages and at 360 and 1280 px."""

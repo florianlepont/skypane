@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The Airlines resolve dialog used from another page (Health).
 
 The dialog, its data-view-panel-* trigger vocabulary and the two-step flow (name, then artwork)

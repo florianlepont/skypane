@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser proof that every result and every dialog behaves the same way: a success message
 after an action is the one floating toast above the tab bar and never pushes the page; the calendar
 disconnect dialog is a bottom sheet on a phone and a centred dialog on a wide screen like the others; a refused

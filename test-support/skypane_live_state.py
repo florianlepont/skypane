@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Synthetic, production-shaped state directory for migration tests.
 
 Every value generated here is synthetic. The shapes match the files a live

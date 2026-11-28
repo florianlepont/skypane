@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Deterministic Spectra 6 panel .bin generator for stub-server testing.
 
 Original to this repository (not vendored). Stdlib-only. Produces a

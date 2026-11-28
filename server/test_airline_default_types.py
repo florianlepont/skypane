@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The owner's default aircraft type per airline: the file contract (never-raising load,
 validate-before-write, the cap) and the round trip."""
 import json

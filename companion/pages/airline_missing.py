@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The "Missing illustrations" section of the Airlines editor.
 
 One row is one airline x aircraft family that has no picture of its own: a

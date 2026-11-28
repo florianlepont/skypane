@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the admin Fleet page's list of frames (live, pending and retired
 rows) and the selected frame's header. No table and no sideways scroll at 360 and 1280px,
 English and French, light and dark; one status dot per row with its accessible name, in the same

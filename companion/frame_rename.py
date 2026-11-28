@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Rename a frame: the POST that stores the name from the Rename dialog, and the
 GET that sends the person to the page that holds the dialog.
 

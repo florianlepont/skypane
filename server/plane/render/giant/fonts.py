@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Anton loader and glyph-support helpers for the giant-lettering family.
 
 Imports nothing from `server.plane.render.layout` (that module imports the

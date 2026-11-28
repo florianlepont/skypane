@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the five pairing cards on the special look form and the
 Calendar look page of a frame on a giant layout, in English and French, at desktop
 and phone widths: a stored theme that is no pairing shows the pairing it maps to,

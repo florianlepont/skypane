@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Server-side sessions over real HTTP: the cookie is an opaque token whose
 sha256 is the only thing fleet.db holds, a principal is rebuilt from the
 database on every request, and a store failure answers 503.

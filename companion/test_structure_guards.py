@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """File-length and function-length guards for the companion app's
 production code.
 

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The build id shown on Account: a 7-hex short id taken from the release directory the code
 runs from (through its real path, since the service runs from a `current` symlink), else from
 `SKYPANE_BUILD`, else `dev`. Nothing but hex ever comes out."""

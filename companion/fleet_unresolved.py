@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The unidentified callsign prefixes of the whole fleet, merged.
 
 Each frame's poll loop keeps its own `unresolved_prefixes` registry in its

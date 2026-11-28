@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# SPDX-License-Identifier: AGPL-3.0-only
 """French strings for the Flights page
 (companion/pages/history_page.py). Every entry is migrated onto a
 stable message id: the source-side Message is declared where the

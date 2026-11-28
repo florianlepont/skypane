@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Migration tooling for the companion's stable message IDs — not
 production code, imported only by one-off migration codemods (run from
 the session scratchpad, never committed) and by this module's own unit

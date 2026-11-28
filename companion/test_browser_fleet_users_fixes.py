@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the Fleet and Users fixes: the Users Active switch acts in place
 (no page load, scroll and focus kept), a typed wake interval is not snapped by the slider, and the System view is one
 column with counts at the right edge. Every read waits for a settled page first."""

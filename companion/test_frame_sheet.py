@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The frame tile strip markup: the strip, the tile contents and the two list
 rules (personal pages and Console frame pages), in English and French. Rendered in-process over a seeded fleet.
 """

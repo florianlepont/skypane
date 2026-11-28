@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Shared geometry for the native landscape layout family.
 
 Every dimension derives from the canvas size handed in, so the same code

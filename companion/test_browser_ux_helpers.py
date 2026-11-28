@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Shared constants and helpers for the companion browser tests: viewport sizes, seed_state_dir(),
 login/save/theme/keyboard/upload/geometry probes, quiet-hours arc decoders, and markup helpers.
 Holds no tests (`__test__ = False`); this module exists only to be imported.

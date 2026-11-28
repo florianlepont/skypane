@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Single source of truth for the Spectra 6 panel byte format and palette.
 
 Duplicates (never imports) stub-server/make_test_panel.py's WIDTH/HEIGHT/

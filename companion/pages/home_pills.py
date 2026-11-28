@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The row of pills under Home's flight card: the Screen switch, the Quiet
 hours opener, the place link and the battery pill.
 

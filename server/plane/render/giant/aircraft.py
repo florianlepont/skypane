@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Aircraft handling for the giant-lettering layouts.
 
 Pure geometry (crop point, paste rectangles) is kept apart from painting.

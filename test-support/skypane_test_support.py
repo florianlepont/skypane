@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Shared test contracts used both by pytest (in-process) and by child
 interpreters launched from a test (companion/app.py, stub-server/byos_server.py,
 and any other subprocess a harness starts). A guard installed only in the

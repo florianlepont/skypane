@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The airline editor's resolve step: its Upload and Delete my name buttons are
 the shared buttons, 44px tall at 360 and 1280px in English and French, in the
 page's own panel (scripts blocked, the deep link), in the add-artwork dialog the

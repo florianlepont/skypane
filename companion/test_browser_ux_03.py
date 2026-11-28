@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Browser checks for the expired-countdown wording floor, Home's swap rules
 (focus-holding region, [data-pending] region, dirty-settings-form stand-down, hidden-tab
 zero-requests, the frame picture's fade-only-on-change), the Display fallback save at 360px,

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The direction word (DEPARTING / ARRIVING / OVERHEAD) on every giant layout,
 portrait and landscape: it is drawn as ink in the top-left corner and never
 touches the lettering or the aircraft. Names are lettered without hyphens."""

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Default-deny proof: every route in `routes.ROUTES` against every kind of
 caller, plus the owner dimension on a test-only device-scoped probe family.
 

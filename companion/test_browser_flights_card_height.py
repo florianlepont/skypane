@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Every Flights card has the one height the stylesheet declares (its content-visibility
 intrinsic size), whatever the airline name, the route or the language, so the browser can skip
 cards that are off screen without moving the scroll position."""

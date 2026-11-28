@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Pure-stdlib WCAG 2.1 SC 1.4.3 relative-luminance/contrast-ratio
 calculator, reproduced from the published spec
 (https://www.w3.org/TR/WCAG21/#dfn-relative-luminance,

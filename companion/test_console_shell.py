@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The admin console's shell: route aggregation, navigation derived from the
 route table, the section sub-nav, the Releases entry and the page shell
 method."""

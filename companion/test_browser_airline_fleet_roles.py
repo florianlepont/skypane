@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of who sees which airlines: the administrator's editor
 lists the airlines and the merged unidentified prefixes of the whole fleet, a
 user's Airlines page lists only what their own frame saw and never carries

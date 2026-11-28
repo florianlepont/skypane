@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Rendering tests for the sign-in surfaces: the login card in each
 presence of Auth0, the not-invited refusal,
 the generic sign-in errors, the interstitial, the Account page and the

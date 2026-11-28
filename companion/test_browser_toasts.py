@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the toast family: with scripts a flash toast floats
 top centre over the content column on desktop and above the tab bar on a
 phone without moving the page; success and info hide on their own after the

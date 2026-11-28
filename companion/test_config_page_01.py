@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Tests companion.pages.config_page's render() group layout, led_group(),
 quiet_hours_group(), wake_interval_group(), handle_post()'s
 display_enabled/quiet_hours resolution and its theme-only-save guard, the

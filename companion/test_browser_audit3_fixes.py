@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the third audit's visual fixes: a long frame name next to the logo,
 the Flights picture dialog as one panel, the phone tab bar, a single-line entity row's dot,
 the Users table's addresses and the quiet-hours times in a 12-hour browser."""

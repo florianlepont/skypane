@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Golden-image guard for the giant-lettering screens.
 
 Every case renders a canvas and compares its SHA-256 (and byte count) to

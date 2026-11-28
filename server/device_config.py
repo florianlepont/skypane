@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Single source of truth for every user-settable SkyPane device setting -
 the theme id, tracked-runway id, and related settings, picked on the
 companion web page and consumed on the device's next scheduled poll.

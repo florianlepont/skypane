@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Compatibility alias: this module is server.polling.request_budget."""
 import sys
 from typing import TYPE_CHECKING

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The frame button and popover in the personal space: which frames it lists for a
 user and for an administrator, the same-page links, the Add a frame row and
 the escaping of names and owner emails. Rendered in-process over a

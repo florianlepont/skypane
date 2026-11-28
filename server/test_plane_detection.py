@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Contract tests for server/plane/detect.py's geofence filter, the
 D-P2-01 multi-aircraft selection rule, and the runway-3 identification
 gate added by the runway3-false-positive debug session (2026-08-27).

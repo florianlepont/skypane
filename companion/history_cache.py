@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """A per-process cache of what the history pages derive from `history.db`.
 
 Flights, the Airlines collection and the Airline editor each fold the whole

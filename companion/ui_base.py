@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """companion/ui_base.py: the foundation layer of the companion service's page
 shell and component library — module-wide constants (site title, local
 timezone, nav route/label tables, icon sprite, quick-action and frame-strip

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of Home's place pill: the whole pill is a tap target of at least 44 px in
 both themes, its text is centred in it, nothing overflows at 360 px, and a tap leads to the
 Location page of the same frame."""

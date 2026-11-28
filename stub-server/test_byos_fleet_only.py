@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Device-server identity outcomes: fleet.db is the only source.
 
 Frames are registered in a migrated fleet.db (the legacy devices.json and

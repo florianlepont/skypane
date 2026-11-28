@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The cross-process poll-cycle lock's reproduction: two OS processes, each
 200 iterations of a locked read-increment-save cycle against the same
 `poll_state.json`, must end at counter == 400 with zero exceptions in

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Light freshness check: a conditional GET on a page's own URL, answered
 with a bodiless 304 from a server-computed input token, with the page
 never rendered to answer an unchanged tick.

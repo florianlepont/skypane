@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser geometry of the tab bar and the More sheet on tablet widths: both are capped
 at 460px and centred instead of stretching across the screen, the dim layer still covers the
 whole viewport, the pill stays inside its cell, and a phone keeps the full-width bar."""

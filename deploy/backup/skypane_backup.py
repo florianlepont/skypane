@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """SkyPane nightly off-box-ready state snapshot.
 
 Runs on the VPS as user `skypane` from `skypane-backup.service`, writing

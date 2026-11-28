@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Per-session anti-forgery token: derivation, dispatcher check and ordering,
 form field emitter, and the existing protected routes."""
 import hashlib

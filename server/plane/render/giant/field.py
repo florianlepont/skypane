@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Field and small-text ink patterns for the giant-lettering pairings.
 
 All patterns are "P" images holding panel palette indices only; no RGB

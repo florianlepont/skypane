@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Deleting a user record: the guards, the child rows, atomicity, and the
 owner-checked retire used when an owner removes their own frame."""
 import pytest

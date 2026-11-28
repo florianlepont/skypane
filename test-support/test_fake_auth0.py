@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Tests for test-support/fake_auth0.py, driven over real loopback HTTP."""
 
 import base64

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser check that the spacing and radius tokens move no pixel.
 
 The stylesheets name the repeated off-scale spacing values (6, 10, 12 and 14px) and radii (8, 10

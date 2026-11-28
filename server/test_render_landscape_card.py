@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Landscape flight card renders natively at the profile's size."""
 import dataclasses
 from collections import Counter

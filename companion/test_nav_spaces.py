@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Behaviour tests for the two administrator spaces, Console and the personal space:
 which bar, sidebar and More sheet each page gets, the space switch, and that
 the space follows the page and the principal role and nothing else.

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Tests for scripts/check_comment_history.py, the comment-history guard.
 
 Loads the tool by file path (it is a standalone script, not a package) and

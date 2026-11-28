@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks that the button variants look the same on every page, whichever area
 stylesheets the page links: a danger button is a transparent button with an error border and
 error ink (never the filled primary), a primary button is the filled accent one, and the

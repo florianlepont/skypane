@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Landscape (800x480) adaptations of the giant-lettering design.
 
     PYTHONPATH=. python3 design-exploration/plane-screen/mock_landscape.py OUT_DIR FONT_DIR

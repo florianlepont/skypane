@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Behaviour of the check-interval experiment predicate and its CLI."""
 import json
 import os

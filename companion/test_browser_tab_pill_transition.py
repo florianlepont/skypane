@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser check that the tab bar's pill glides on every page change.
 
 A cross-document view transition glides the pill only when an element carrying the pill's

@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# SPDX-License-Identifier: AGPL-3.0-only
 """French strings for companion/screens.py's screen label. Theme names are
 not shown here: the Display page describes a theme by its look
 (companion/i18n_fr/look.py).

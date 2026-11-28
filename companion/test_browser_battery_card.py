@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the Health page's Battery card: Percentage is the default unit, the
 readings table keeps a Level column, the four states read in words and an icon (normal, low,
 charging, too little data), the targets are 44px or more, the status pill and the charging pill

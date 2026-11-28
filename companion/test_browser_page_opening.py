@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The page opening and the tab strips, read in a real browser.
 
 Every page opens the same way: the shell marks <main> with data-page-open and the page header

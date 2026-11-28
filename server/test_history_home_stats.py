@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Behaviour checks for the read-only aggregates behind Home's statistics card:
 the per-hour timeline of one local day, the seven daily totals, and the most
 seen and new airlines; zero-filled, in the frame's own time zone, scoped to the

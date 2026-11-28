@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The Auth0 Management client against the loopback fake: invitation ticket
 for a new and an existing user, the not-configured path, failure results,
 and proof that no secret, token or ticket link leaks into logs, results or

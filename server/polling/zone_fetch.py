@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Budgeted fetch of one zone from the fleet's ADS-B providers.
 
 `fetch_zone` is the only way the fleet reads a zone. It queries the default

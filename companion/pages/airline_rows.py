@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Row markup of the Airlines editor that the table assembles.
 
 An unidentified prefix is one compact row: the prefix, what was seen on its

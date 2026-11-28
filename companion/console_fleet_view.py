@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The Console Fleet page: the list of frames and the views it opens.
 
 `/fleet` shows the list of frames (live, pending and retired, each a link to

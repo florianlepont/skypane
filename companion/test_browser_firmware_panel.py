@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Browser checks for the Fleet device page's "Device and version" panel: the
 summary of what is on the frame, the one update card, the flat version history
 and its release-notes disclosure, at phone and desktop widths, in both

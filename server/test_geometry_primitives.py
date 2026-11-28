@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Size-aware canvas, packing and dithered-background primitives."""
 import subprocess
 import sys

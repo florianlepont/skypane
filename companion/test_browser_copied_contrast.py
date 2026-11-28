@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the contrast of the "Copied" label on a console copy button (the invitation
 link of Users): the word is at least 4.5:1 against what is behind it in Light and Dark, English and
 French, at 360 px; in Light it is the dark green of the text token, while the status hue itself

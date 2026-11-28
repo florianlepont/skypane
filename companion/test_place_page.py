@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The Location page over a real in-process server: the card
 order, the airport list and the data the map script reads, the controls of the
 details card, and the plain no-script save (`action=save_place`) with its

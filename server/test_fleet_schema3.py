@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Tests for fleet.db schema 3: pending_devices, audit_log, location owners,
 and the pending / location / user-guard API built on them."""
 import sqlite3

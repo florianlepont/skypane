@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """A page the browser restores from its back/forward cache is checked against the session before
 it is shown: hidden at once, revealed only when the server confirms the same session, otherwise
 sent to sign-in with the expired notice. The cacheable header is only served to a browser that

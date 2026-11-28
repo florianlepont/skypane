@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Role-conditional reductions for the signed-in user (non-admin) view.
 
 Pure helpers: no sqlite, no file or network access. Page renderers ask

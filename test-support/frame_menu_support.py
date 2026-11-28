@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Shared selectors and waits for tests of the frame button and its popover."""
 
 MENU = "details.frame-menu"

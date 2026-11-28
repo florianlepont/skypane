@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Cycle-level tests for the firmware reconcile step server/poll_cycle.py
 runs every poll cycle: folding server/firmware_registry.py's
 apply_reconcile() into the registry.

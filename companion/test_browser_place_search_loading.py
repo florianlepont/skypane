@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Browser checks of the place search's feedback: while the geocoder has not answered, the
 suggestion list ends in a Searching row with a small spinner (shown as soon as the visitor types,
 under the airport matches), which the answer replaces by the places, by "No place found" for an

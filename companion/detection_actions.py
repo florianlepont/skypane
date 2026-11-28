@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """POST /detection: store a device's detection choice or a saved location.
 
 The route's access policy has already decided that the caller owns the

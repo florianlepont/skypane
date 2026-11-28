@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The login card's markup, and the shared 404/403 error-page bodies,
 moved out of `companion/app.py`. Every function here is pure markup: it
 takes whatever request state it needs (the resolved UI theme, the

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Which airline an artwork file belongs to, for the message that names it.
 
 The key comes from an address the person used to upload a picture; it is only

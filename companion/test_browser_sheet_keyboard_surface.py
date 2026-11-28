@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser check that a phone bottom sheet lifted over the on-screen keyboard keeps its own
 surface below its bottom edge: the zone between the sheet and the keyboard (iOS leaves its
 autofill bar transparent) shows the sheet, not the page behind, and adds no page size."""

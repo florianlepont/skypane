@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Hold screens (empty, quiet hours, display off, battery empty, no
 connection, updating) for the native landscape layout family.
 

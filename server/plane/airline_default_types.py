@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """The owner's default aircraft type per airline: `{airline illustration key:
 type code}`, stored in `{fleet root}/airline_default_types.json`, one file
 for every frame.

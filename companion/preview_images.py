@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Theme and frame preview PNG routes, moved out of `companion/app.py`'s
 `Handler`. Packaged as a `PreviewImagesMixin` `Handler` inherits, like
 `DeviceDispatchMixin`.

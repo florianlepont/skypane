@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Behaviour tests for the per-wake energy model in `wakemodel.py`.
 
 Every export here is synthetic. `build_export` is the documented generator: it

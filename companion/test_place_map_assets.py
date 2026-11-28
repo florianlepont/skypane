@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """What the Location page links and serves for the map: the
 library and its stylesheet and the first-party script on this page only, the
 words the script shows (in both languages), and no library marker image

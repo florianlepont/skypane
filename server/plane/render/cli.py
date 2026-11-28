@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Manual-QA preview CLI: `python3 -m server.plane.render --state ... --out
 ... --preview ...`. No live enrichment lookup of its own - that is
 poll_loop.py's job - so `build_parser()`'s route-shaping flags hand-build

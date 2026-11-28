@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Pairing code issue, normalisation, hashing and constant-time matching."""
 from __future__ import annotations
 

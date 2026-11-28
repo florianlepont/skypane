@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The one shared "animations have settled" wait for real-browser tests.
 
 A page-wide wait for `document.getAnimations()` to be empty hangs or flakes as

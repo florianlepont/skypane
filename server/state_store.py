@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """The single owner of `<state_dir>/poll_state.json` and the read-only
 reader of byos's `<state_dir>/battery_state.json`.
 

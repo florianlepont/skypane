@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of Home's title block, flight card and strip for a landscape frame on a
 phone.
 

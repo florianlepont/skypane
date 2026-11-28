@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the Personalisation fixes: the Calendar view shows its own content and its
 look popover opens fully visible (not clipped by the list) on a desktop and a phone, with the
 follows-departures state explained; the Departures and Arrivals pictures carry no caption; the

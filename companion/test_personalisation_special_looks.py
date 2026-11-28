@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The Special looks card of Personalisation over a real in-process server: the rules list, the
 Remove confirm dialog (named dismiss that takes the initial focus, csrf, escaped values), the
 compact empty state and the unchanged delete route, in English and French.

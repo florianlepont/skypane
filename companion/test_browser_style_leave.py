@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Leaving a Style page through an in-app link with anything unsaved asks in
 the page's own dialog: Save and continue persists the change and lands on the
 tapped destination, Discard leaves without saving, Stay here (and Escape)

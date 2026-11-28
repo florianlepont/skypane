@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The System page's detail cards and warnings banner.
 
 One card per topic (flight data, data sources, identification, the route

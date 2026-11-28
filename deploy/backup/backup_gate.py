@@ -1,4 +1,5 @@
 #!/usr/bin/python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """The forced-command gate for the `skypane-backup` pull key.
 
 Wired into `skypane-backup`'s `authorized_keys` as `restrict,command=...

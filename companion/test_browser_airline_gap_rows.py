@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """The unidentified-prefix rows of the airline editor read `callsign · views · date time` with no
 relative age ("il y a 83 j" / "83 d ago"), on a phone and a desktop, in English and French."""
 import re

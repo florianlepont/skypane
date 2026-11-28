@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser geometry of the floating tab bar and the phone top bar: 8px side margins, 68px
 high, a pill 6px above the home-indicator inset (forced with --safe-bottom), opaque (the More
 sheet too), the

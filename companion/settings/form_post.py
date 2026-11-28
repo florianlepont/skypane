@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Per-settings-group validate-and-resolve helpers for the settings
 page module's handle_post().
 

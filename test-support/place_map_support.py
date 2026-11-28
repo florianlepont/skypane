@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Shared rig for the Location and detection page's browser tests.
 
 Both external map hosts are answered from the test, never from the network:

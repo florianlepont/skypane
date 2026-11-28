@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Computed-style probe for the companion app: a measuring instrument, not a test.
 
 Visits the six NAV_TABS routes plus /login, at two viewport widths and both explicit

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the Audit log page: no sideways scroll at the
 smallest phone width, cards on a phone and the table on a desktop, chips and
 pager links with a 44px touch target."""

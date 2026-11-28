@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Spacing scale, typography roles, state colours, headline copy, and the
 frame/band/battery geometry constants for the plane panel renderer.
 

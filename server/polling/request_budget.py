@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Persisted global ADS-B request budget shared by every process.
 
 The fleet may send at most one ADS-B request per second in total, whatever

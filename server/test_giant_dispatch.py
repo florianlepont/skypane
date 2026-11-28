@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """build_canvas dispatch on the screen layout, and the poll cycle's layout pass."""
 import json
 import os

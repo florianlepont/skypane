@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Companion view-page tests, last slice: Home's French render, the status
 card's localised timestamps, the Frame/Flight-data tile verdicts, Home's
 degrade-with-nothing contracts, the day band's emitter contracts, Health's

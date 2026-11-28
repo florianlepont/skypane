@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The Display page's look card: two large live pictures of the frame
 (departures and arrivals), the "Special looks" column built by
 `companion.settings.calendar` and `companion.settings.rules`, and the

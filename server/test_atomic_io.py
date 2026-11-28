@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Behaviour tests for server/atomic_io.py: atomic_write, staged_write and
 exclusive_lock.
 

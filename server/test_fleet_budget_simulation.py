@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Fleet-scale proofs of the ADS-B request budget with a fake clock.
 
 A 100-device fleet is served by `run_fleet` with a fake clock shared by the

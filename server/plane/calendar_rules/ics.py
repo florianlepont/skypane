@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """RFC 5545 subset parser: turns an untrusted iCal feed body into a
 bounded, validated list of match-candidate entries.
 

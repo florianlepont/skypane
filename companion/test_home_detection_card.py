@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Home's place pill names what the frame really follows (the airport and
 runway, or the place and radius of position mode) and links to the Location
 page; it follows the frame it is rendered for, reads the same stored setting

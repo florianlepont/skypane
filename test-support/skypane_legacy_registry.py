@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Registry documents in the pre-fleet on-disk shape: no hardware_type and
 no build on any release, no top-level hardware_type.
 

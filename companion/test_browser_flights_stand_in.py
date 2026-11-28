@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the Flights phone rows that have no archived render of their own:
 the stand-in lead (the airline's illustration, else a plane icon) is a 56 by 36 non-interactive
 box that never overflows the row at 360 px in both themes, its illustration really loads,

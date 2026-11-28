@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The airline sheet: an Airlines row opens one place to rename an
 airline, see its built-in callsign prefixes and replace its artwork, one
 aircraft type at a time. Served-HTML checks on the page, POST-route checks on the two new

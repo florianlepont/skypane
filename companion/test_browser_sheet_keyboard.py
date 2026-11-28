@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser check that every phone bottom sheet with a field keeps the focused field, and the
 whole sheet, above the on-screen keyboard.
 

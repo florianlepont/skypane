@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the product names: one simple name per page, the same in the
 navigation, the page title and the heading, in English and French, in both themes, at 360 and
 1280 px. Fleet/Flotte, Admin, Activity/Activite (the audit page), Software/Logiciel (a frame's

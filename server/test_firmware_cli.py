@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Behaviour tests for server/firmware_cli.py -- the deploy-time operator
 CLI that publishes releases into server/firmware_registry.py.
 

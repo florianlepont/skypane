@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """A modifier rule must not load before its base rule's sheet at equal specificity.
 
 A page links the core sheet and then its area sheets (`companion/page_styles.py`).

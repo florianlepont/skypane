@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The Quiet hours settings group: the window-arithmetic helpers, the
 24h dial SVG/handles/readout, and `quiet_hours_group()` itself.
 """

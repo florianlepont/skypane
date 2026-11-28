@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Cookie attributes, the authorize request and application output of the
 Auth0 sign-in, read from the real response bytes of a companion
 subprocess against the loopback fake.

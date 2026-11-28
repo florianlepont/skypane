@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Pins what the fleet-root registries, the fleet-root artwork directory and
 `server.fleet_migrate` do on an install that has no per-frame registry or
 artwork copies: the readers resolve every frame to the fleet root, and the

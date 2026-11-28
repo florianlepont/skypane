@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """End-to-end and live-frame regression for per-hardware OTA.
 
 Two groups of scenarios, both driven through the real publish, schedule,

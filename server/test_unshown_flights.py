@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Every aircraft the poll cycle detects leaves a record, even when the
 display queue drops it before it is drawn, and the queue serves the aircraft
 seen last.

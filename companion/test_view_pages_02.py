@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Companion view-page tests: the icon-only row toggle, the summary/detail
 row split's copy buttons and CSS, the render-gallery section's retirement
 in favour of the per-row View-panel lightbox, `panel-lookup.js`'s own

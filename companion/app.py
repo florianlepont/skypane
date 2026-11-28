@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """SkyPane companion service: a stdlib `ThreadingHTTPServer` with a
 hand-rolled route table, run as its own systemd unit, separate from the
 vendored device-protocol server in `stub-server/`.

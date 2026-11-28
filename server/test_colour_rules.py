@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Contract tests for server/plane/colour_rules.py - the per-flight
 colour-rule registry and its resolver.
 

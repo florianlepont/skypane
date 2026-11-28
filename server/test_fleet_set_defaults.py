@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The one-time choice of a default aircraft type for every airline that has pictures and none:
 the rules a/b/c/d, the dry run, the archive, the marker and the report lines."""
 import json

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the Editor's add-illustration dialog: one short title with the airline
 (and the type) as its subtitle, the aircraft type fixed as a chip when the dialog is opened from
 a type row and chosen first (a select) when it is opened for an airline without artwork, one

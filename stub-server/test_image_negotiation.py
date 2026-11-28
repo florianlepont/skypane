@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Legacy display behaviour of byos_server.py, pinned to committed constants.
 
 A frame that sends no image-format announcement (or one the server cannot

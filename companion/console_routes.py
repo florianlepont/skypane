@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The admin console's route paths, route aggregator and navigation entries.
 
 Each console page and action lives in its own module (`console_pairing`,

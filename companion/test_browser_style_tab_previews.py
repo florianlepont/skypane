@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser check of the frame preview images across Style tab switches: a preview keeps one
 content-addressed URL on every tab, the browser is told it never expires (so a tab switch, even
 after the short lifetime an unaddressed image has, does not ask the server again), no unchanged

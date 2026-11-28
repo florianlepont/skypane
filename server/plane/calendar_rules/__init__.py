@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Calendar-sourced theme input: parses an operator's iCal feed into a
 bounded list of match candidates for `match_calendar_theme()`.
 

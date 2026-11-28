@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the calendar connection page: it is a page (no modal) reached from the
 status row's one button at 390 and 1280 px in both languages and both themes with usable controls
 (>= 44 px targets, 16 px field) and no overflow; the floating Cancel and Connect bar sits above the

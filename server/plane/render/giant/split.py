@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Automatic splitting of a destination name into stacked lettering lines.
 
 Each line is stretched to the full frame width, so the lines must have

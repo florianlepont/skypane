@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Behaviour tests for the role-conditional user view: the settings form
 policy that stops a user principal changing admin-only settings, the role
 helpers, and the frame-only severity helper. Render-level checks for the

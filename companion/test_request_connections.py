@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """One SQLite connection per companion request.
 
 `companion/app.py`'s `do_GET`/`do_POST` each open one

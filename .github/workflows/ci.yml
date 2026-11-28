@@ -151,6 +151,11 @@ jobs:
         # whole tracked tree.
         run: server/.venv/bin/python scripts/check_comment_history.py check
 
+      - name: SPDX header gate (every tracked Python file)
+        # Each tracked .py file must carry an SPDX-License-Identifier line;
+        # `scripts/check_spdx_headers.py write` adds the project default.
+        run: server/.venv/bin/python scripts/check_spdx_headers.py check
+
       - name: Type check (blocking; module list lives in pyproject.toml)
         run: server/.venv/bin/mypy
 

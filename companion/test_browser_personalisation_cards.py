@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the Special looks and Calendar views of Personalisation (/display/special-looks
 and /display/calendar): at 360
 and 1280 px, in English and French, in both themes, nothing overflows sideways and each Remove

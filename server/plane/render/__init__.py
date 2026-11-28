@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Panel renderer for the plane view: departure and arrival cards for the
 watched runway, plus an empty state.
 

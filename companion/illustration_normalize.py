@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Server-side aircraft-illustration normalization for the companion
 Airlines gallery. Source files carry differently-sized padding, so
 rendering them raw gave an inconsistent card-for-card aspect ratio

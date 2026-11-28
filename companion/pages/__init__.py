@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The per-tab page-builder contract every module in this package follows.
 
 Tabs are grouped into the personal pages (Home, Flights, Location

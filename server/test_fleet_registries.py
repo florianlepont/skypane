@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The frame directory listing: the root first, then valid device directories
 in sorted id order; links, odd names and plain files are skipped."""
 import os

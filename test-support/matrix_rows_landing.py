@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Access-matrix rows for the user landing behaviour. No route is added;
 `ROWS` and `SAMPLES` stay empty so the module merges like the others.
 

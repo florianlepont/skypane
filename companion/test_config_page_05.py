@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Tests the retired delay-wording guard, the settings-pages editorial
 floor, live authenticated companion/app.py HTTP round trips (save
 confirmation, PRG redirect + flash cleanup, the retired LED route, the

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The Account page body: the caller's own frames first, then who is signed
 in and the browser preferences. Pure markup: it takes the signed-in identity
 and a sequence of the caller's own frame summaries as arguments and reads

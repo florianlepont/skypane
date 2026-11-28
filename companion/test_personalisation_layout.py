@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The Personalisation tab's Layout card and the pairing picker, over a real
 in-process server: the frame-level Layout card above the style tabs (once on
 every view, not a navigation link, the old address redirecting), the five layout cards with their saved and selected

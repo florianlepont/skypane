@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Behaviour tests for the landscape (800x480) giant layouts."""
 import pytest
 

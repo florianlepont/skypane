@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Behaviour tests for server/http_fetch.py: bounded_get's total
 wall-clock deadline and byte cap over a streamed requests.get(), and
 pinned_request's single-resolution, checked-address-only HTTPS

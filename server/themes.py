@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """The theme registry and its presentation accessors.
 
 `THEMES`' keys are stable on-disk values in `device_config.json` -

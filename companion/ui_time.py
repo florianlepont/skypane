@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """companion/ui_time.py: timestamp parsing and the app's relative/absolute
 time renderers — the "s/m/h/d" age-bucket ladder (`_age_bucket`) and its
 three readings (age, future, duration), the `<time data-relative>` element

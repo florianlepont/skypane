@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the two-step Add a frame page: Step 1 names the
 frame, Step 2 takes its pairing code, one Add frame button; English and French
 at 360 and 1280px in both themes, 44px targets, no sideways scroll, readable

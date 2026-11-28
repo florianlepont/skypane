@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The companion's server stays quiet when a browser aborts a response and
 still reports every other exception."""
 from http.server import BaseHTTPRequestHandler

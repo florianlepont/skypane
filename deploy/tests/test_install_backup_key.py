@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """deploy/tests/test_install_backup_key.py -- deploy/backup/install-backup-key.sh,
 run as a real subprocess against a tmp BACKUP_HOME with
 SKYPANE_KEY_ALLOW_NONROOT=1 and a stub `chown` on PATH (the script's only

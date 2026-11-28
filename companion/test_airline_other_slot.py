@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """A type with no picture family of its own is one "Other" row per airline that always has an upload
 control, and its picture is what a flight of such a type is drawn with. Checked over HTTP against a
 real server and against the picture selection."""

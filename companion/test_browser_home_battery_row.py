@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the battery pill on Home: it is there for a plain user (not only an
 administrator) in the pills row, in English and French at 360 and 1280 px, in both themes, for the
 four states (normal, low, no reading, probably charging); its text is centred in the capsule, a low

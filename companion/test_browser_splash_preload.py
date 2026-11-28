@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks that the opening splash fetches, while it plays, every file the other
 destinations of the navigation need: the list it is given names each reachable page's own
 stylesheets and scripts (it fails if a page's file is missing), it is role-aware (a plain user's

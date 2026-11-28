@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Companion status-page tests: `health_page`'s freshness signals, `wake.py`'s
 staleness thresholds, `layout.py`'s timestamps, and the battery section.
 

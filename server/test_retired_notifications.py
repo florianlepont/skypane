@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """State written by an older version that still carries a stored push-alert
 group must keep loading, must never reach a caller, and must be dropped on
 the next write; and the poll cycle must never make an outbound push request.

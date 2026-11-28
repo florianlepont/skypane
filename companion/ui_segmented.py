@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The one segmented control: a track of equal segments with one selected.
 
 Three forms share one look (the stylesheet's `--seg-*` tokens) and one set of

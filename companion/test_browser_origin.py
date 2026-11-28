@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Browser-level proof that a cross-origin POST is rejected while same-origin forms and the
 quick-switch fetch keep working (companion/test_post_origin.py checks the same behaviour over
 plain HTTP, without a browser).

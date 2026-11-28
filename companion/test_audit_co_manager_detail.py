@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The Audit page shows who a co-manager row is about and why it exists, for
 rows written by the real add, remove, leave, reassign, disable and retire
 paths, without ever rendering the stored detail."""

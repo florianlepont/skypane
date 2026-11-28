@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Cache headers of a rendered HTML page.
 
 Every page is session-gated, so the default answer is `no-store`: nothing may

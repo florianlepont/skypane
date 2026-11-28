@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Tests the JS gate/motion budget style.css contracts, the login page
 (Auth0 link only, no script, POST /login gone, deep-link return,
 open-redirect rejection, the dedicated login_shell()), the document-language regression

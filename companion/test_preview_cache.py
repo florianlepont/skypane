@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Behaviour tests for companion/theme_preview.py's on-disk cache
 (atomic writes, stale-signature pruning, a file-count bound) and for
 companion/illustration_normalize.py's bounded in-memory cache.

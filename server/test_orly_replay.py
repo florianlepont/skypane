@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The generated detection documents reproduce the hand-tuned Orly geofence.
 
 Every comparison is strict equality: candidate sets, tagged geometry and

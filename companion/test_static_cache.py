@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Static-asset revalidation: a strong quoted ETag, a Last-Modified date, and a
 Cache-Control carrying `no-cache` (never `max-age`) on every CSS/JS route; a
 bodiless 304 on a matching conditional request per RFC 9110 13.2.2; the underlying file

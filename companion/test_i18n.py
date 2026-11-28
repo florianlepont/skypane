@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Behaviour tests for companion/i18n.py, companion/prefs.py and the
 companion/i18n_fr/ catalogue package.
 

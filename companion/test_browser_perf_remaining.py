@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the page-speed work on the Location map and list, the airline
 editor, the tab bar's first-paint marker and the phone glass: the tab bar precedes the page
 body, the airport list is filled from the map's catalogue, only pins near the screen are

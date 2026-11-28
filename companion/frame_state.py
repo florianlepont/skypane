@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The one frame-state resolution and the one delay sentence.
 
 Returns a state name and a template-key string only, never HTML or

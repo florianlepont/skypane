@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Behaviour of the strict X-Wake-Stats parser."""
 import os
 import sys

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Deterministic pairing and retired e-ink screens."""
 from __future__ import annotations
 

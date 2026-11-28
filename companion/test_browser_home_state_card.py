@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of Home's title block and pills: the blocks stack in the approved order
 and stay inside the content column at every width from 1280 down to 360 px, the Screen pill is
 one 44px switch (keyboard, whole-pill tap, scripts blocked, flipped in place with the state

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Tests for fleet.db schema 4: the device_co_managers table, its triggers and
 the co-manager API."""
 import sqlite3

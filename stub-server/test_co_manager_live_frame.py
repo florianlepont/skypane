@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Co-managers do not change the live frame.
 
 A live-like state directory is migrated into fleet.db, the live frame is

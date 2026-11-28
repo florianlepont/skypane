@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The read accessor of the airlines known by name only."""
 from server.plane import enrich
 

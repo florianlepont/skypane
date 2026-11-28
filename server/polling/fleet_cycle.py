@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Fleet poll cycle: which devices to serve, grouped by the zone they poll.
 
 `load_fleet` lists the devices of the state root, `runnable_devices` drops

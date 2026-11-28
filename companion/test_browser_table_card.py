@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the table-in-a-rounded-card look on the Users table (wide table, from
 79.5rem) and the Editor airline table (wide table, from 70rem), in English and French and in
 both themes.

@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# SPDX-License-Identifier: AGPL-3.0-only
 """French strings for the Update page: the call-to-action card, the
 update state words, the rollback banner, the scheduled/install sentences
 and the version list.

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Server-side sessions and invite-only identity linking for the companion.
 
 Leaf module: stdlib plus `server.fleet_db`. It never imports the companion,

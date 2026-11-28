@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Browser checks for the motion layer: picture placeholders and blur-up, spring press
 feedback, the tab bar's sliding pill and the spring switch with its tick.
 

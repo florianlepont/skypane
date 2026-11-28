@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The primary layout with different destination names (hand-split lines).
 
     PYTHONPATH=. python3 design-exploration/plane-screen/mock_cities.py OUT_DIR

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """scripts/fw_publish_signed.py with every external tool faked.
 
 `run` is the script's single subprocess seam; the fake below plays git, gh,

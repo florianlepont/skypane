@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """An unknown asset-like path gets an empty, briefly cacheable 404; an unknown page keeps the 404 page."""
 from companion_app_server import InProcessAppServer, http_request
 

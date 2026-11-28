@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Contract tests for server/poll_cycle.py's two-deep flight history - the
 engineering consequence of the current+previous two-flight poster layout:
 a genuinely new detection (different ICAO hex) must shift the old

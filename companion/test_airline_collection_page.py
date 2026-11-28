@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """GET /airlines is the read-only Airline collection for an administrator, an
 owner and a co-manager alike: the airlines the frame has seen (and only those),
 badges, sort and search, cards and a sheet per card, with no way to edit anything. Real in-process requests, no browser."""

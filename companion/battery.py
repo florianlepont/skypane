@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The shared battery-percentage estimate for the SkyPane companion
 service. Page-independent, stdlib-only, so home_page.py and
 health_page.py can share one estimate without importing each other.

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Tests for scripts/multi_site_run.py and scripts/multi_site_export.py.
 
 Fake fetchers, runners and clocks only: no network, no sleeping, and every

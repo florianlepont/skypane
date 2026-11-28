@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Auth0 sign-in pieces for the companion: configuration, PKCE, the
 authorize and logout URLs, ID-token claim validation, the token-endpoint
 call and the pre-login attempt table.

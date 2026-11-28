@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """deploy/tests/test_ci_runner.py -- the CI workflows are runner-agnostic.
 
 Text scan, no YAML parser (same discipline as test_ci_secrets.py): jobs pick

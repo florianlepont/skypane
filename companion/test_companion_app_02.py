@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Tests the rest of `companion/layout.py`'s nav contract (the hamburger
 dropdown, the bottom tab bar, the three-file nav DOM-contract guard),
 `companion.app.parse_single_uploaded_file()`'s multipart parser,

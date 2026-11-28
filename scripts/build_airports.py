@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Build the France runway catalogue from a committed OurAirports subset.
 
 Default mode is offline and deterministic: it reads only the two committed

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Hand-drawn glyphs and small status indicators: the five centred hold
 glyphs (power ring, crescent, empty battery, alert triangle, runway
 strip), plus the two small indicators overlaid on ANY canvas - the

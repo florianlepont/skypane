@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Seed and request helpers for the Fleet page and pairing handler tests.
 
 No pytest import. Every code, secret and MAC here is a made-up test value;

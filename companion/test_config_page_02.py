@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Tests companion.pages.config_page's quiet-window arithmetic and dial
 (span/arc/readout/handles/pair seam), remaining render()/
 dirty-bar markup, and

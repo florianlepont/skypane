@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Browser check that an airport's code label never pokes out from under, or over, the details
 card, the sheet or a control floating on the Location map, on a wide screen and a phone, and that
 a label returns once it clears them."""

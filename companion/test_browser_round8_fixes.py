@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the owner's round 8 straight fixes: opaque dialogs with a Save that is
 reachable without scrolling, the Flights search clear of the frame button, the Location sheet's
 runway cards and mode switch, the Fleet sub-tab thumb, the picture dialog's backdrop, the

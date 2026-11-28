@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """deploy/tests/test_activate.py -- deploy/activate.sh. Runs it as a real
 bash subprocess against the fake-root fixtures in conftest.py
 (systemctl/curl/caddy/runuser/journalctl/chown stubs on PATH), so the

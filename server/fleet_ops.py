@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Server-side frame operations: register, claim, retire, re-activate, reassign.
 
 Leaf module shared by the console handlers and the CLI so each operation is

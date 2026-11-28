@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Evidence-first browser walkthrough for the authenticated companion routes.
 
 The module keeps production code untouched.  It records the base companion

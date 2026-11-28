@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Auth0 sign-in and sign-out in real Chromium. The app is served from
 127.0.0.1 while the fake identity provider is advertised as localhost, so
 the hop to the provider is genuinely cross-site: the browser applies its

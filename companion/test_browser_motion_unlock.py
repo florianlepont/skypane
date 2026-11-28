@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the picture dialog and the airline card unlock.
 
 The Flights picture dialog shows the picture alone (no card behind it) in both themes, closes by

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Two users, two frames and one administrator, each frame with its own
 sightings and unresolved callsign prefixes: the shared world of the
 role-split Airlines tests."""

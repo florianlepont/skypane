@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Behaviour tests for the `checkin-gaps` subcommand in `logtools.py`.
 
 Every export is synthetic and built in tmp_path: check-ins at known spacings,

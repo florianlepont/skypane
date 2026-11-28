@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of Home's title block: the frame name is the page's one h1 (32px on a
 phone, 44px on a desktop, also for a long name) with no rename pencil beside it,
 the "i" at the end of the next-update sentence is a 44px control drawing a small round

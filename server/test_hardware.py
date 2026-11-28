@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Tests for server/hardware.py: the legacy profile is pinned to the shared
 constants, simulated types are env-gated, and production config never
 enables them."""

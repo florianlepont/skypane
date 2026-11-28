@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Stretched, strictly binary Anton lettering lines.
 
 Every line is drawn large, scaled so its capital height fills the slot and

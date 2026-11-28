@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The calm status screens: watching, quiet hours, display off, battery empty,
 no connection, updating and retired.
 

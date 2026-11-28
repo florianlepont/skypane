@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Tests the companion Health page's off-box backup freshness card.
 
 Native pytest (conftest.py fixtures and the no-network socket guard

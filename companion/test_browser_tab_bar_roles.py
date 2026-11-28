@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser proof of the phone tab bar's content. The personal bar is Home,
 Flights, Airlines, Style, Place and then, for an administrator, More (Accueil,
 Vols, Airlines, Style, Lieu, Plus) or, for a plain user, Account (Compte): a

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Tests for server/fleet_migrate.py: identity-preserving, idempotent,
 previewable import of the legacy device files into fleet.db."""
 import json

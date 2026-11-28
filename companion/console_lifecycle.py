@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Admin console routes for the lifecycle area: reassign, retire and
 re-activate a frame, and the read-only Audit log page.
 

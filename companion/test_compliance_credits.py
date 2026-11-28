@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Every credited source has a matching section in COMPLIANCE.md, and the
 served credits page carries the OurAirports description in both languages.
 """

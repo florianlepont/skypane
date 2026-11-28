@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Behaviour tests for the `sleep-trend` estimator in `logtools.py`.
 
 Every input is synthetic and built in tmp_path or in memory: a battery whose

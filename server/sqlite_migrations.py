@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """One schema-migration mechanism for fleet.db and history.db.
 
 A database is described by an ordered tuple of `Step`s and a `Policy`:

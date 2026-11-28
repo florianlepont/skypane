@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Admin console routes for the users area: the Users page, invite, role
 change, disable, enable, identity unlink and delete.
 

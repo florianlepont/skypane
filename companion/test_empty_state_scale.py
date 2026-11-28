@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Every empty-state block outside the filter empty state uses the compact scale: an
 Emphasis-sized heading and a label-sized body, never the 22 px serif heading form."""
 import pytest

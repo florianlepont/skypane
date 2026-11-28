@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Shared helpers for the battery-history export tests that need a request,
 a bearer header or seeded `device_health` rows."""
 import json

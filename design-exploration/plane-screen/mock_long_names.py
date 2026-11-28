@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Long destination names on each of the three retained aircraft layouts.
 
     PYTHONPATH=. python3 design-exploration/plane-screen/mock_long_names.py OUT_DIR

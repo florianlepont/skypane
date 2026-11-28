@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The row card of a frame's Battery page, and the state vocabulary shared by
 the Fleet tiles and the System cards.
 

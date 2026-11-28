@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Self-tests for companion/conftest.py's shared app-server fixtures and
 test-support/companion_app_server.py. Proves the behaviour every other
 test module relies on: real subprocess lifecycle, process-group

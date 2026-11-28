@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Single-shot geofenced live query against adsb.fi and airplanes.live.
 
 Stdlib-only (urllib.request) - both aggregators are free, unauthenticated,

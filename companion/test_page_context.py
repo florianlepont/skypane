@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Lazy `PageContext` (`companion/page_context.py`) and markup-free
 severity.
 

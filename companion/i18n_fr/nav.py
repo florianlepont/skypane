@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# SPDX-License-Identifier: AGPL-3.0-only
 """French strings for the nav labels and the nav-footer switches.
 
 The nav labels are fixed: Accueil, Vols, Airlines,

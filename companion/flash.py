@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The flash-message vocabulary and its text/role resolution, moved out
 of `companion/app.py`: the FLASH_KEY_* aliases (each defined exactly
 once in `companion/pages/config_page.py`, `companion/pages/airlines_page.py`

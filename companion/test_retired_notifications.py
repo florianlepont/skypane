@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The Device page, its routes and its settings save carry no push-alert
 feature, and a device_config.json written by an older version that still
 holds a stored alert group keeps loading without ever surfacing it.

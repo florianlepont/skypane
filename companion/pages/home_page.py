@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The Home page: answers whether the frame is alive, what it is showing, how
 busy the runway has been and what it showed recently.
 

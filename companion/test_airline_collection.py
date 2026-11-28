@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The Airline collection read model: counts, rarity, newness and badges
 computed from a seeded runway_events history and the curated airline list."""
 from datetime import datetime, timedelta, timezone

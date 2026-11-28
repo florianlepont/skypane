@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the Settings tiles of a frame's page: the wake interval as one control in
 minutes (field, step buttons, shortcuts, "Default" tag) over the posted seconds, and the wide
 Diagnostic LED tile. Both fit at 360 px and on a desktop, in English and French."""

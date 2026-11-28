@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The page where a signed-in person adds their own frame in two steps (an
 optional name, then the pairing code shown on the frame's screen), and the entry points to it (the
 primary action of the empty My frames state and the secondary link under a

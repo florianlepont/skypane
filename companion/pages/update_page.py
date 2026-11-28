@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The Update page: a call-to-action card (up to date, or the one newer
 release to install), the full release list as compact one-line rows, and
 the Install/Cancel action markup.

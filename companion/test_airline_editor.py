@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The Airline editor at /airlines/manage: an administrator keeps every editing
 capability with the same validation and refusals, and every edit returns to the
 editor; an owner and a co-manager are refused and nothing is written. Checks run

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Browser checks for the phone's draggable bottom sheets and the swipeable floating toast.
 
 Every check drives the real served page with a real pointer: the box the sheet or toast occupies,

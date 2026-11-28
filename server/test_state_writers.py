@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Behaviour tests proving server/device_config.py, server/plane/colour_rules.py
 and server/plane/manual_resolutions.py write their state files through
 server/atomic_io.py: no lost update on a concurrently-saved

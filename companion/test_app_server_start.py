@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """The shared test server must be serving from ITS OWN process when start() returns, even when
 the port it was given is already held by another server."""
 import companion_app_server

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Frame authentication is independent of the companion's sign-in.
 
 A frame authenticates to the byos server with its MAC and provisioning

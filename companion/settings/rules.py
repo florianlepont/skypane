@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The colour-rules settings group: the per-flight rules shown as the
 Special looks list (rows with Edit and Remove, and the Add link) and the page
 that creates or edits one rule (kind, key, the look, recent suggestions).

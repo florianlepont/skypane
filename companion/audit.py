@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Audit-log helpers for console handlers.
 
 The actor and source address come from the handler, never from request

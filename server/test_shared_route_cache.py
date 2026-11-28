@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Behaviour tests for the cross-device adsbdb answer cache."""
 
 from __future__ import annotations

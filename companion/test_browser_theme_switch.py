@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the theme and language segmented switches on the Account page: in both languages and from 320px up to desktop, no segment's label
 overflows its own box and neighbouring labels never intersect. A deliberately oversized label
 is clipped inside its own segment, so a future longer translation cannot collide either."""

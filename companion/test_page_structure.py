@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """What assistive technology and the browser's history read before anything
 else, over real HTTP: the first heading of a page is its h1, the sign-in page
 has a main landmark, no heading repeats its parent's text, and the tab or

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """A profile with a visible window draws inside it; nothing else changes."""
 import dataclasses
 

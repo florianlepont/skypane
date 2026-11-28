@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """scripts/export_snapshot.py -- saves the production export routes into a
 directory, with a MANIFEST.json (row count and sha256 per file).
 

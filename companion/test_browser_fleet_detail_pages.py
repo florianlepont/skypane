@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the two pages the State tiles open, Battery and Versions: no list column,
 one visible h1, a 44 px way back to the frame, nothing overflowing at 360, 390 and 1440 px in
 English and French and both themes, the battery row open, and a tile reaching its page in one tap."""

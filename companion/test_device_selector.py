@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The frame switcher: rendered only for several frames, on device-scoped
 pages only, working without script, never leaking a secret, and switching
 through a validated redirect. Real app subprocess over a seeded fleet.

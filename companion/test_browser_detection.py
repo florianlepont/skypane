@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Browser checks for the per-device Location page: the scripts-blocked flow, the
 submit rule per mode, the Search button's quiet style against the accent Save, and (scripts on)
 the dirty bar, Cancel and leave-guard behaviour. Layout and hit targets are measured in

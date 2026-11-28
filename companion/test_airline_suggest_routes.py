@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """POST /airlines/suggest and /airlines/suggest/reject: administrators only, the
 prefix re-checked against the live registry, the service reached only through
 the injected fake, nothing applied without the resolve route, and the key

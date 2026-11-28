@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Per-device detection spec for runway and position modes.
 
 `spec_for` turns a device's stored configuration into a zone to poll and a

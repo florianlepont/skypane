@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """A form posted after the session ended, over real HTTP: the person is sent to
 sign in with the page the form was on as the way back and with the notice that
 unsaved changes were not kept, whether the session cookie is stale or gone; an

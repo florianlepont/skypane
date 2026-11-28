@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Airline names are fleet-wide: a name, override or default type set on one
 frame is read by every other frame's editor, and the unidentified-row guard
 refuses a prefix another frame already named."""

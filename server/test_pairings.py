@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Behaviour tests for server/pairings.py: the theme-to-pairing mapping."""
 import pytest
 

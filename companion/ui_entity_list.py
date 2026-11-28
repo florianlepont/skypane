@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """companion/ui_entity_list.py: the shared list of entities (frames, users).
 
 One `ul.entity-list` of `li.entity-row` rows, each a dot (optional), a text

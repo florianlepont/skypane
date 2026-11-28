@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The Audit log page body: a read-only, newest-first table of platform
 events with filter chips and pagination.
 

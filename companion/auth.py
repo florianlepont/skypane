@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Session-token, cookie and client-address helpers for the SkyPane
 companion service. Stdlib-only: must never import Pillow, sqlite3, or anything under
 server/.

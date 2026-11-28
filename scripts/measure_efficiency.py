@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Prints the phase's before/after efficiency tables in markdown: per-route
 byte weight and request time, first-load weight, static-file revalidation,
 freshness-tick behaviour, and the poll cycle's wall time/counts across the

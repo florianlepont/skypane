@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The Components page: every shared UI component in every state, rendered
 through the same Python helpers the pages use (never copied markup).
 

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """byos device authentication against fleet.db only: an absent, unmigrated,
 corrupt or too-new fleet.db refuses every request (the legacy identity files
 are never consulted), enrolment writes fleet.db only, there is no shared

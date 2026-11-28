@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The way back from an expired form: the refusal page links to the page the
 form came from (reloading would send the same stale request again), and says
 so in the caller's language."""

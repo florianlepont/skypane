@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Portrait compositor for layout C: the giant lettering compressed into the
 top of the frame and the whole aircraft below it at the bottom. No band is
 drawn; the field is the same plain pattern as the other layouts.

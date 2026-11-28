@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The server-side firmware release registry: the single definition of
 what has been published, what is scheduled for the frame, and what
 happened on the device's last few attempts.

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Home's flight card: the picture the frame shows beside the flight it shows.
 
 The picture is the newest archived render (the figure `freshness.js` swaps

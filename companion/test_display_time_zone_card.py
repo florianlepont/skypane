@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Served Display markup: there is no Time zone select; the Quiet hours card keeps its controls and
 says its hours follow the time zone, linking to the Location page's details card."""
 import re

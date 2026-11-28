@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """End-to-end and unit contract tests for byos_server.py's OTA surface:
 the firmware offer in GET /device/v1/display, the device report it is
 derived from and records into firmware/device_report.json, and the

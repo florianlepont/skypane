@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The HTTP methods a page does not serve, over real HTTP: HEAD answers like
 GET without a body (uptime checks and link previews use it); any other
 method answers 405 with the app's own page and an Allow header, never the

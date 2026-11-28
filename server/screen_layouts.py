@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """The screen layouts a frame can show and the one default they share.
 
   * classic    the original layout.

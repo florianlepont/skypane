@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Read-only internal-consistency analysis of an exported runway snapshot.
 
 Reads runway_events.jsonl and poll_cycles.jsonl from a snapshot directory

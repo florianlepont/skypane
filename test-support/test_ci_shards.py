@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Behaviour of scripts/ci_shards.py: groups and shards cover every file once."""
 import importlib.util
 import pathlib

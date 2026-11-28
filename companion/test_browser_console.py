@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the admin console (Fleet, Users, Locations, Audit
 log) and of the reduced view a plain user gets: layout at the smallest phone
 width, 44px touch targets, operation with scripts blocked, both themes, French,

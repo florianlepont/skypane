@@ -533,6 +533,7 @@
  "stub-server/test_wake_stats_header.py": 4,
  "test-support/test_check_comment_history.py": 3,
  "test-support/test_check_function_size.py": 1,
+ "test-support/test_check_spdx_headers.py": 2,
  "test-support/test_ci_gates.py": 1,
  "test-support/test_ci_run_timing.py": 1,
  "test-support/test_ci_shards.py": 1,

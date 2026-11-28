@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Behaviour tests for server/firmware_registry.py: the release registry
 storage, publish/schedule/cancel, and the pure offer/reconcile/view
 functions every other OTA surface uses.

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The cookie that keeps a refused pairing code, and the optional frame name
 typed with it, for the next showing of the form."""
 from companion import pair_code_cookie as cookie

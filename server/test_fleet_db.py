@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Tests for server/fleet_db.py: schema constraints, atomic migrations,
 file modes, read-only access and the change-only status file."""
 import os

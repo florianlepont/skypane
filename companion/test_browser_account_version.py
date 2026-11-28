@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the build line at the end of Account: one quiet caption (`SkyPane
 build <id>`, 13px, secondary ink, no uppercase, no mid-dot) with a hint line, a tap area of at
 least 44px, a tap that copies the version text, a copied label that stays inside the card in

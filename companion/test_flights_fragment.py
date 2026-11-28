@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The Flights list as a bare fragment, over real HTTP: a search, a chip or a sort is answered
 with the list only (no page shell), and Load more with the next flights only, so neither
 downloads again what the page already shows. The plain page addresses are unchanged."""

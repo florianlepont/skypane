@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Browser checks that, on a phone, the Location sheet is one compact card: the airport (name on
 one line, its codes under it) with Cancel and Save at the right of the same row while something is
 unsaved, the runway chips in one row under it, and no separate unsaved-changes strip over the map.

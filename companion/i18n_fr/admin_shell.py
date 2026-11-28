@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# SPDX-License-Identifier: AGPL-3.0-only
 """French strings for the admin console shell: the Administration navigation
 group, and the section sub-nav label. The source-side
 Message for each id is declared in companion/console_routes.py and

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Browser checks for Home's recent-flights strip: no horizontal overflow at 390 and 360 px in
 both themes and both languages, a 44 px heading row with a 44 px "See all flights" link, portrait
 tiles of 112 px with a 3:4 picture box that shows the whole picture (contain), captions that stay

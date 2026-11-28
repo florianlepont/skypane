@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser check that the personal frame button is drawn on personal pages only: an
 administrator's Console pages (Health, Device, Update, per frame or global) have none, the
 personal pages of the same frame keep it."""

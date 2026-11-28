@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Delete user over real HTTP: the owned-frame, self and last-administrator
 refusals, what a successful delete removes (sessions, co-manager rows, the
 user record), and the audit trail that keeps the e-mail."""

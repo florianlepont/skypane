@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """The project's first runtime-writable identity namespace.
 
 Before this module, every airline identity `enrich.airline_from_callsign()`

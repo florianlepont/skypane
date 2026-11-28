@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """deploy/tests/test_mac_pull.py -- the Mac-side pull script and its
 launchd installer. Runs both POSIX sh scripts as real
 subprocesses under /bin/sh (dash on Linux, which enforces POSIX - the

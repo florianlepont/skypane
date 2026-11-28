@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser check that the round buttons over the Location map (Use my position, Show all of
 France, the map credits) are real buttons: 44 px round, an opaque fill and a visible edge, so they
 do not blend into the map, in the light theme, the dark theme and the automatic dark theme.

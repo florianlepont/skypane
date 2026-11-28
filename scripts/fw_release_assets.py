@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Select the GitHub Release assets the production deploy downloads.
 
 Reads the asset names of one release (one per line on stdin) and prints,

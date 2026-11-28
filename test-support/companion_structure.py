@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """AST-based structural measurement of the companion app's production
 source: file line counts and per-function code-line counts.
 

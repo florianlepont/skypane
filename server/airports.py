@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Read-only France runway catalogue and airport search.
 
 The catalogue is the committed server/data/airports_fr.json, generated

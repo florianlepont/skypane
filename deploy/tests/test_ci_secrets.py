@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """deploy/tests/test_ci_secrets.py -- no secret spliced into a run: script,
 plus the offline systemd-analyze CI gate.
 

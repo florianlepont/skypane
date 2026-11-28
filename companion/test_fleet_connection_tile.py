@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The frame's Connection tile on the Fleet page states the last and the next connection
 itself (there is no connection detail page): a frame that never checked in says so once, in the
 verdict."""

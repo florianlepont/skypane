@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """POST /detection with action save_place over a real in-process server: both
 modes, refusals that write nothing, copy-on-write of the position row,
 live-frame safety, csrf and the access outcomes for each kind of caller.

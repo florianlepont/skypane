@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Landscape (800x480) geometry of the giant-lettering layouts.
 
 Horizontal values are fractions of the width, vertical values fractions of

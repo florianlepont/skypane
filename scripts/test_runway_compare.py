@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Tests for scripts/runway_compare.py: one test per internal-consistency class.
 
 Fixtures are small synthetic JSON Lines files written to tmp_path.

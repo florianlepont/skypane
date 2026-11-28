@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Browser checks for the Location page: the scripts-blocked save with both
 external map hosts aborted, and the measured layout (card order, two columns from 960 px, no
 sideways scroll, 44 px hit targets) at 360 and 1280 px in English and French, light and dark.

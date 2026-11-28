@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Home, Health and Flights for a selected device: each page shows only that
 device's own data, the approved empty and unreachable states, and keeps its
 links inside the device. Real app subprocess over a seeded two-device fleet.

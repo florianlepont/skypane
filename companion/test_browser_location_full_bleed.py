@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser check that on a phone the Location map fills the window from the very top edge
 to the very bottom edge (under the status bar and the tab bar surroundings) while the header,
 search field and chips stay below a forced safe-area inset, in both themes."""

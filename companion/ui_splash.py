@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The opening splash's server-rendered overlay.
 
 The "Cadre" splash: a blank frame outline draws itself, the e-paper refresh

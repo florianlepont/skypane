@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Tests for server/firmware_image.py: parser and target validation on
 synthetic images from the shared test-support builder."""
 import base64

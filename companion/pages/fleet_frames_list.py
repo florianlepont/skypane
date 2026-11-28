@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The Fleet page's list of frames, the frame switch and the pages of a pending
 or retired frame.
 

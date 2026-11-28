@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The System page's tiles (Server, Data sources, Identification, the two route topics, Off-box backup), served by the
 real app and read as markup."""
 import datetime

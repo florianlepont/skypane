@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the copy confirmation: when a copy button succeeds, a check springs in
 on scale and opacity only (180ms) and the label rises 4px; under reduced motion the same check
 and word appear at once with no animation running. The word (Copied / Copié) is also announced

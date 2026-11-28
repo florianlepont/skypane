@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Register a frame's identity (MAC, secret hash, token) in fleet.db.
 
 The device server reads identity from fleet.db only, so a test that needs

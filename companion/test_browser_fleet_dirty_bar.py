@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the Fleet settings save bar: once a setting changes, the bar sits at
 the bottom of the viewport (above the floating tab bar on a phone, inside the content column
 on a desktop), is as wide as that column, says "Unsaved changes" with Cancel and Save, keeps

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Home's recent-flights strip: a heading with the link to Flights, then one
 portrait tile per recent flight with its callsign and "Arrival · 12 min".
 

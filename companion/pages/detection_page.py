@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Shared parts of the Location and detection page: the route and form
 constants, the messages the page and its POST handler use, the query-string
 reader, and the save bar.

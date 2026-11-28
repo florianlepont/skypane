@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The System view no longer lists unresolved prefixes or opens a resolve dialog (the Airlines table
 resolves them in place). Route checks against a real server for the return target the resolve
 flow still accepts (an allow-list, never an open redirect) and for its refusals. Nothing here

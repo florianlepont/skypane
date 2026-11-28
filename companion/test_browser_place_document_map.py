@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Browser checks that, on a phone, the Location map is document content rather than a fixed layer:
 the map sits inside the page container from above the window's top edge to below its bottom edge,
 and the header, search, chips, offer, sheet and tab bar stay where they were. Pinch and pan (wheel

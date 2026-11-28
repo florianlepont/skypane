@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """deploy/tests/test_provision.py -- deploy/harden_sshd.sh, run as a real
 subprocess against a fake sshd_config.d and stub sshd/systemctl, plus
 text/syntax checks on deploy/provision.sh's release layout, env

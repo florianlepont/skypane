@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser flows of the Users table: invite in a few actions, a duplicate
 email refused with the dialog reopened, a role change that asks before it
 saves, the Active switch, unlink and Delete user in the "..." menu, the guard sentences,

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Seeds shared by the Health Battery browser tests: a run of readings at an hourly cadence
 (charging or discharging) written through the history database and the device config."""
 from datetime import datetime, timedelta, timezone

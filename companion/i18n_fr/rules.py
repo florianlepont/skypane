@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# SPDX-License-Identifier: AGPL-3.0-only
 """French strings for the Flight colours section
 (companion/settings/rules.py's rule_form_html()/_rule_row_html()
 and rules_usage_row_html()'s rules usage panel), keyed by stable

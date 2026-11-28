@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The five non-active-flight canvases: empty (watching), quiet hours,
 display off, battery empty, and no-connection. All five funnel through
 one of two shared compositions (`_build_hold_canvas`/

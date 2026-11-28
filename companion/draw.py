@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """companion/draw.py: the shared SVG geometry and emission primitives for
 every drawing the SkyPane companion service renders.
 

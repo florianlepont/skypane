@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Every companion surface that prints a battery percentage uses the curve of
 the frame's own hardware profile: Console fleet rows, pending-pairing rows,
 the frame switcher status row and the account frame summary."""

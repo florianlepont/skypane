@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Served-markup checks of the third audit's visual fixes: the sheet and the
 pages are read through their render functions or over HTTP, never from source."""
 import re

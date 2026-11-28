@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Tests for server/image_container.py against the shared golden fixtures.
 
 The same manifest.txt and .bin files are read by the C reader tests, so the

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Settings saved and quick switches flipped under /devices/<id>/ change only
 that device's device_config.json; every redirect stays inside the device.
 Real app subprocess over a seeded two-device fleet.

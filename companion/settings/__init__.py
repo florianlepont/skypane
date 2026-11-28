@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The Settings page's rendering, split one module per settings group
 (theme/aspect, runway/LED, quiet hours, wake interval, calendar,
 colour rules) plus a shared `form` module of field-error and

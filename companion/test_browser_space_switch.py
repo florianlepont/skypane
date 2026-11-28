@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser proof of the Console / My frame switch. Desktop: the two-segment
 switch at the top of the sidebar, both segments 44px high and hit-testable, the
 current one marked by aria-current and a different fill, no wrapping and no

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Response policy headers: only the location and detection page widens the
 Content-Security-Policy and allows geolocation; every other response keeps the
 default pair and names neither external map host."""

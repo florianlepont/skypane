@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Tests for scripts/runway_external_compare.py: sampling and reference join."""
 import os
 import sys

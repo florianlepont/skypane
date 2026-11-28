@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Each real hardware profile's OTA image bound equals the ota_0 slot size."""
 import re
 from pathlib import Path

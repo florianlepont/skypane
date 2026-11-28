@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Behaviour tests for the two-run battery model in `logtools.py`.
 
 The pure functions are called on synthetic numbers with known answers. The

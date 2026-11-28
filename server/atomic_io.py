@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Stdlib-only atomic file writes for every state file this project owns.
 
 Every state file (poll_state.json, panel.bin, the device registry, calendar

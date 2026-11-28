@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Reusable non-plumbing test doubles for the `companion/test_companion_
 app*.py` family: calendar-transport fakes, a public-hostname DNS fake,
 and a poll-state seeding helper. Not a test module itself — `__test__ =

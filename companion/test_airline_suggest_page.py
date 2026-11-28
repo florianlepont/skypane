@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The Airlines editor's rows with a suggested airline name, served over HTTP:
 the Suggestion tag, Edit and the check, the pending lookup, the silent
 fallback to "Name it", the Edit dialog, and the guarantee that rendering a

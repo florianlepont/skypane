@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """What Flights and Home share about a flight: the fold that makes a pass
 stored twice read as one flight, and the route fallback wording.
 Page modules cannot import each other, which is why these helpers live here.

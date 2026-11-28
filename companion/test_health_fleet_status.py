@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Tests the Fleet System view's fleet database fallback anomaly.
 
 byos writes fleet_status.json when it falls back to the legacy device

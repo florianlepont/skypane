@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The head metadata of every page shell variant: the viewport covers the device (so the
 safe-area insets are non-zero on a notched phone), and both theme-color tags are present and
 match the page background the stylesheet paints, so the Safari bars never show a near-black

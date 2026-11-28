@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Bounded outbound HTTP for SkyPane's own outgoing calls.
 
 `bounded_get` adds a total wall-clock deadline over a streamed

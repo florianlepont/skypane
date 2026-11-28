@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Auth0 Management API client: create a database user and a password-change
 ticket so an invited person can set a password and sign in.
 

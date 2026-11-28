@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Behaviour tests for `logtools.py run-report`.
 
 Every export here is synthetic and built in tmp_path; nothing is read from

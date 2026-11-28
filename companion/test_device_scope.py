@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """companion/device_scope.py: device lookup, per-device poll locks, request
 scope helpers, poll capability and offline status. Real fleet.db and state
 directories seeded through the shared two-device fixture.

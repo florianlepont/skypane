@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser check that the page background reaches the very bottom of the screen on a short
 page: the bottom-most pixel row matches the one 200 px above it (within the few levels the gradient itself spans), in both themes, at 390x844 and
 360x640, also when the document is shorter than the visible window (a phone browser whose toolbars

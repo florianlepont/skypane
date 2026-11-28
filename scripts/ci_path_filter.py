@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """GitHub paths-filter matcher for .github/workflows/ci.yml. Stdlib only.
 
 Reads the `paths:` list of the workflow's `push` and `pull_request` events

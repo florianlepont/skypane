@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Consistency check between a resolved route and the airport the frame
 watches.
 

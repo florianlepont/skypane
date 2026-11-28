@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """X-Hw-Type handling of GET /device/v1/display.
 
 A frame that sends no claim is served exactly as before. A well-formed

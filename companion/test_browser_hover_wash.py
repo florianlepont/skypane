@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the hover wash (`--color-control-wash`): the fill under a hovered row
 button is visible in Dark on the surfaces the buttons really sit on (read from painted pixels, not
 from a mockup colour), the Light value stays exactly as it was, text on a hovered control keeps at

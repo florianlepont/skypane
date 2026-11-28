@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser round trip of an airline with no artwork: the button of its "type to choose" row in the
 missing-illustrations section opens the shared dialog, the uploaded picture goes through the real
 route, and the airline then has a row of the main table (picture, name, prefix, views, menu) and no

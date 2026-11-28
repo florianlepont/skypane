@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The shared entity list: helper markup contract and the served rules.
 Browser behaviour of the list is asserted on the pages that adopt it."""
 from companion import ui_entity_list as el

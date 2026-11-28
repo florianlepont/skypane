@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """deploy/tests/test_backup.py -- the nightly snapshot job. Exercises the
 archive-name regex and CLI contract enforced by
 deploy/backup/skypane_backup.py, loaded directly by path (importlib)

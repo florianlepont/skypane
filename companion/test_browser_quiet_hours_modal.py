@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Browser proof of the Quiet hours dialog on Home: it opens from the schedule link on its title (no
 field takes the focus), Tab stays inside it, Esc closes it and returns focus to the schedule link, the presets
 fill both fields, saving writes only the three quiet-hours keys and updates Home, a refused value

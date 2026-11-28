@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Turn a sample_window.py run's JSONL files into the viability metrics the
 RTL-SDR-fallback decision is made on.
 

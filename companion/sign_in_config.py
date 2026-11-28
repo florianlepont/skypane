@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Startup validation of the sign-in environment: Auth0 is the only way to
 sign in, so a complete Auth0 configuration is required to serve at all."""
 from companion import oidc

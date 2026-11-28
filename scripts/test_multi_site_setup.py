@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Tests for scripts/multi_site_setup.py: the scratch fleet and its guards.
 
 Every directory is a pytest tmp_path; nothing reads or writes a real state root.

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """End-to-end poll-cycle contract tests for stub-server/byos_server.py.
 
 Generates a deterministic panel image with make_test_panel.py, launches

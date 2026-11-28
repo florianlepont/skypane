@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Landscape compositors for the giant-lettering layouts. Same order as the
 portrait ones (field, band, lettering, aircraft, small text), with the
 destination on one stretched line; the geometry lives in `geometry_landscape`.

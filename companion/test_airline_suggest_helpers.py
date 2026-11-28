@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Shared rig for the airline-name suggestion tests: an in-process companion
 with a seeded fleet, one frame holding unidentified prefixes, the suggestion
 service switched on with a dummy key and a counting fake in place of the

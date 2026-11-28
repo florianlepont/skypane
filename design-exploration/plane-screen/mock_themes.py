@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The giant-lettering layout rendered in every colour theme of the registry.
 
 Standalone exploration: reads server.themes, does not touch the renderer.

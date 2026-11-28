@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the route directory cards on the System view: both directories and the
 answered-by bar are visible without a tap, the bar has width, and nothing overflows at 360 and 1280 px in
 English and French and both themes."""

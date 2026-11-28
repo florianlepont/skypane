@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """An already-retired frame picks up the current retired screen at its next
 wake: an old cached retired.bin is never served, and the wake interval stays."""
 import hashlib

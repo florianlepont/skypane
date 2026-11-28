@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser proof of the frame button and its popover for an administrator who owns every
 frame: the page kept across frames, the Add a frame row and the pairing flow it opens, Escape,
 outside tap, focus return and aria state, geometry at 360, 390 and 1440 px in both languages and

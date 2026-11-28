@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Stdlib-only structural parsers for the markup and stylesheets
 `companion/app.py` serves, plus a small JS comment/string stripper.
 

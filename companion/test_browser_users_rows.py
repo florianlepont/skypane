@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the Users rows from a tablet width up: every address is one line
 that ends in an ellipsis when it is too long (the whole address is its title and the row's
 name), the last sign-in never wraps, and rows that show the same parts are equally tall."""

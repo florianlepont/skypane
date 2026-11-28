@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser checks of the Airlines collection (/airlines), which lists only the airlines the
 frame has seen: at 360 and 1280 px, in English and French, in both themes, nothing overflows
 sideways, every card, field and button is at least 44 px high and owns its centre, the next goal and

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The two static e-ink screens of the pairing flow: pairing and retired.
 
 Both use the calm status composition at the profile's own size, portrait or

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The Console Fleet view: the list of frames (live, pending, retired) with its
 Add a frame control, the frame switch, the three sections of the
 selected frame (State, Settings, Access) and the System

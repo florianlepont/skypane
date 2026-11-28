@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """The X-Wake-Stats request header on the byos request path.
 
 A non-live (fleet) device's poll stores the wake columns in that device's

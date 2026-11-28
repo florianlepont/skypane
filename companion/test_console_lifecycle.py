@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Reassign, retire and re-activate over real HTTP: data handling, the live
 frame guard, access loss for the previous owner, refusals and CSRF/role gates."""
 import hashlib

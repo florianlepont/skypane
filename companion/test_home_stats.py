@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Behaviour checks for Home's statistics card builder: the Day and Week views as native
 radios (no script), the per-hour timeline, the seven bars, the most seen airline, the
 zero state, English and French, and escaping. Parsed from the markup, never read as source."""

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Import the live frame's legacy identity files into fleet.db.
 
 Run as `python3 -m server.fleet_migrate --state-dir DIR --owner-email E

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Measures the size (and, for `report`, nothing more than the size) of every
 function in a Python source tree. Stdlib only.
 

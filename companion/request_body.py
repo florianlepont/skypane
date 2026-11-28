@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The shared request-body drain behind `companion/app.py`'s
 `Handler.read_form()` and `Handler._read_upload_body()`: one capped
 read-then-drain loop, so the two callers differ only in their own cap

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser check that the page is one continuous sky under the phone status bar: with the
 safe-area inset forced to 59px (a Dynamic Island), the first 200px of the page, the strip the
 status bar sits over included, has no lighter band than the page gradient (read from a

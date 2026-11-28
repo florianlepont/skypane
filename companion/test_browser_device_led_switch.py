@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Browser checks for the Device page Diagnostic LED switch: no accent-coloured box around the
 switch or its region at rest, while the keyboard focus ring stays visible.
 """

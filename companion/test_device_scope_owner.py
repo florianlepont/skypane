@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Owner-aware device scope: a user's device list, URL prefix, selector and
 post-POST redirect are confined to the frames they own, and the live frame
 is only ever reached through its real id. Admin behaviour is unchanged.

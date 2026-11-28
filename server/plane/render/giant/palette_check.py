@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Palette legality check for the giant-lettering family.
 
 Kept apart from the classic renderer's check: a very light field (yellow at

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Tests the second half of the static-script gauntlet: dirty-state.js's
 own animation contract, freshness.js/panel-lookup.js/flash-cleanup.js/
 confirm-submit.js/theme-preview.js/flight-rows.js/

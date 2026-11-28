@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
 """Freeze-safety siblings for pending and retired frames.
 
 stub-server/test_phase47_freeze.py and measured_fields_freeze.json stay as

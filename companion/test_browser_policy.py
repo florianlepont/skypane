@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Self-tests for the missing-browser policy and loopback-only browser guard: a missing or
 unlaunchable Chromium fails in CI (SKYPANE_REQUIRE_BROWSER=1) and is a visible skip locally,
 and a browser context can never reach a non-loopback host.

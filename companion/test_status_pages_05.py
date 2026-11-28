@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Companion status-page tests: Home/the Frame strip's freshness line,
 countdown and picture fade, `layout.stat_tile()`'s tooltip, the vendored
 illustrations' normalized-output contract, `page_shell()`'s theme forms,

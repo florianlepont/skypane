@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Exploration mock-up: giant destination letters, sliced aircraft on top.
 
 Standalone: does not touch server/plane/render. Run from the repo root:

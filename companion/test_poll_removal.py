@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The companion no longer offers a manual poll: the pages carry no poll
 form or cooldown script, the stylesheet/script set has no cooldown asset, and
 the per-device poll lock that calendar-connect syncs take stays per directory.

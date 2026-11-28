@@ -86,6 +86,10 @@ take a few days.
   history belongs in git and `.planning/`, not the code.
 - `scripts/check_comment_history.py check` enforces this in CI, scanning
   every tracked code file.
+- Every tracked Python file starts with an SPDX line (after a shebang or
+  encoding line): `# SPDX-License-Identifier: AGPL-3.0-only` for SkyPane's
+  own code. `scripts/check_spdx_headers.py check` enforces this in CI and
+  `scripts/check_spdx_headers.py write` adds the line to new files.
 
 ## Licence of contributions
 

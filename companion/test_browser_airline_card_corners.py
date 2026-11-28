@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Real-browser check that on a phone an opened airline row never paints a square fill outside the
 rounded corners of the airline card: for the first, a middle and the last airline, opened and
 closed, in both themes, a pixel just outside each corner arc is the page background."""
