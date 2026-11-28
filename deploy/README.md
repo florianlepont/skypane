@@ -240,12 +240,15 @@ section.
 
 Each frame carries its own enrolment secret in flash, never a value
 shared across devices. This VPS stores only the SHA-256 hash of that
-secret, in a small registry file (`devices.json` in
-`${SKYPANE_STATE_DIR}`), managed with `stub-server/devices_cli.py`.
-`POST /device/v1/setup` issues a fresh bearer token only when the MAC
-is registered and the presented secret hashes to the value on file; a
-wrong secret (including a stale shared one, or another device's) is
-refused and the device's existing token keeps working.
+secret, in `fleet.db` (`devices` for a paired frame, `pending_devices` for
+a frame waiting to be paired); the device server reads it from there on
+every request and from nowhere else. `POST /device/v1/setup` issues a
+fresh bearer token only when the MAC is registered and the presented
+secret hashes to the value on file; a wrong secret (including a stale
+shared one, or another device's) is refused and the device's existing token
+keeps working. If `fleet.db` is absent, not migrated, unreadable or newer
+than the release, every frame is refused (setup 403, display and log 401)
+until it answers again: there is no fallback to another file.
 
 1. **Provision a frame.** Connect it over USB and run
    `firmware/provision.sh <serial-port>` — it generates a random secret,
@@ -253,33 +256,47 @@ refused and the device's existing token keeps working.
    secret's SHA-256 hash.
 
 2. **Register it on the VPS**, using the MAC and hash `provision.sh`
-   just printed:
+   just printed (the frame then shows a pairing code, see "Pairing,
+   retiring and re-activating a frame"):
 
    ```bash
-   ssh <ssh-target> "sudo -u skypane /opt/skypane/venv/bin/python3 /opt/skypane/current/stub-server/devices_cli.py --state-dir /opt/skypane/state add --mac <mac> --secret-sha256 <hash>"
+   FLEET="sudo -u skypane /opt/skypane/venv/bin/python3 /opt/skypane/current/stub-server/fleet_cli.py --state-dir /opt/skypane/state"
+   ssh <ssh-target> "$FLEET devices register-pending --mac <mac> --secret-sha256 <hash>"
    ```
 
-   Takes effect immediately — `byos_server.py` re-reads the registry on
-   every setup request, so no restart is needed.
+   Takes effect immediately: `byos_server.py` reads `fleet.db` on every
+   request, so no restart is needed.
 
 3. **List or remove devices** the same way:
 
    ```bash
-   ssh <ssh-target> "sudo -u skypane /opt/skypane/venv/bin/python3 /opt/skypane/current/stub-server/devices_cli.py --state-dir /opt/skypane/state list"
-   ssh <ssh-target> "sudo -u skypane /opt/skypane/venv/bin/python3 /opt/skypane/current/stub-server/devices_cli.py --state-dir /opt/skypane/state remove --mac <mac>"
+   ssh <ssh-target> "$FLEET devices list"
+   ssh <ssh-target> "$FLEET devices pending-list"
+   ssh <ssh-target> "$FLEET devices remove --mac <mac>"
    ```
 
-4. **Force a re-enrolment** (e.g. a suspected leaked token) with
-   `revoke-token`. Stop `skypane-byos` first — the running process keeps
-   tokens in memory and would otherwise overwrite the edit with its own
-   copy on its next write — then start it again after:
+4. **Re-provisioning** (running `provision.sh` again generates a new
+   secret) needs the stored hash replaced. For a registered frame:
 
    ```bash
-   ssh <ssh-target> "sudo systemctl stop skypane-byos && sudo -u skypane /opt/skypane/venv/bin/python3 /opt/skypane/current/stub-server/devices_cli.py --state-dir /opt/skypane/state revoke-token --mac <mac> && sudo systemctl start skypane-byos"
+   ssh <ssh-target> "$FLEET devices replace-secret --mac <mac> --secret-sha256 <hash>"
+   ```
+
+   A frame still waiting to be paired is removed (`devices remove`) and
+   registered again with `register-pending`.
+
+5. **Force a re-enrolment** (e.g. a suspected leaked token) with
+   `revoke-token`. No restart is needed:
+
+   ```bash
+   ssh <ssh-target> "$FLEET devices revoke-token --mac <mac>"
    ```
 
    The frame re-enrols with its own secret on its next wake, with no
    reflash and no other operator action.
+
+`fleet_cli.py` is the only operator tool: the earlier registry-file tool
+no longer exists.
 
 ## Fleet database
 
@@ -299,10 +316,22 @@ migration never runs at service start.
   /opt/skypane/state [--owner-email <address>] --dry-run` reports what
   would change and writes nothing; running the real migration twice leaves
   the database as it was.
-- **Expand only.** The legacy `devices.json` and `byos_state.json` are never
-  modified or removed by the migration and stay valid, so rolling back to
-  the previous release works. A later roll-forward reconciles anything
-  that was written only to the legacy files in the meantime.
+- **Expand only, one-time import.** `fleet_migrate` can still import a
+  legacy `devices.json` and `byos_state.json` into `fleet.db`, and never
+  modifies or removes them. The device server no longer reads or writes
+  those two files: they are retired, and the owner-run command in "Retiring
+  the legacy files (owner runbook)" moves them aside. The same step brings
+  `fleet.db` to schema 5 (see "Schema v5 and rollback"), after which the
+  previous release can no longer be put back on this state.
+- **Two migration policies, one mechanism.** `server/sqlite_migrations.py`
+  runs the schema steps of both databases. `fleet.db` uses `immediate`/
+  `refuse`: each step runs in one `BEGIN IMMEDIATE` transaction with its
+  version bump, and a file newer than the code is refused and never written.
+  `history.db` uses `idempotent`/`keep`: its steps are all safe to run twice,
+  run on every first open of a file in a process (the poll oneshot and the
+  companion can open a fresh or older file at the same moment), and a newer
+  file is kept, not refused. `python3 -m server.sqlite_migrations report
+  --state-dir /opt/skypane/state` shows both read-only.
 - **Pending frames are skipped.** A legacy MAC that is already a pending
   (or retired) frame in `fleet.db` is not imported as a device, since the
   pairing flow owns it; the migration prints `skip device <mac>: already a
@@ -320,9 +349,9 @@ migration never runs at service start.
   ```
 
   `devices assign`, `set-location`, `remove`, `revoke-token` and
-  `users disable|enable` complete the set. The legacy
-  `stub-server/devices_cli.py` still works and mirrors its changes into a
-  migrated database.
+  `users disable|enable`, `register-pending`, `pending-list`,
+  `replace-secret` and `retire`/`reactivate` complete the set. It writes
+  `fleet.db` only.
 - **Backup and restore.** `fleet.db` is in every nightly archive as a
   consistent online copy (its `-wal`/`-shm` files are never archived). To
   restore it, stop `skypane-byos`, extract `fleet.db` from the tarball into
@@ -332,39 +361,112 @@ migration never runs at service start.
   (`ok`, `absent` or `fault`) for the companion's health signals (the
   navigation dot and the System view). It is derived, so it is not backed up.
 
-## Retiring the rollback-era data (owner runbook)
+## Retiring the legacy files (owner runbook)
 
-The legacy identity files, the per-frame registry and artwork copies, the
-`legacy-admin` session principal and a few unused helpers are still in place.
-The owner has asked for them to be retired, but each retirement waits for
-read-only checks on the real state. Retiring ends the ability to put the
-previous release back on the current data; recovery is then the nightly
-backup (see "Backups" and "Restore"). `wake_epochs` is kept by decision.
-`ARCHITECTURE.md` ("Duplicated or overlapping data") describes what is still
-in place. Run these steps in order, on the VPS, as the service user:
+The owner approved retiring the rollback-era data on 2026-11-28 (the
+decisions are recorded in
+`.planning/workstreams/v1-2/phases/67-project-and-code-optimisation/67-RETIREMENT-GATE.md`;
+`wake_epochs` was decided KEEP and is untouched). What the release does and
+does not change:
 
-1. **Deploy the release that contains the report command.** It is the
-   release that carries `server/sqlite_migrations.py` with its `report`
-   command, through the normal manual production deploy (see "Production
-   deploy"). Until it is deployed, the checks below cannot run.
-2. **Run the `report` command** of `server.sqlite_migrations` against the
-   state directory, from the current release directory (the exact line is
-   "Step 0" of the gate document). It is read-only. If a line says
-   `unreadable`, or `fleet.db` says `newer`, stop and tell the developer.
-3. **Run the checks of the gate document**, in the order it gives
-   (`.planning/workstreams/v1-2/phases/67-project-and-code-optimisation/67-RETIREMENT-GATE.md`):
-   the `fleet_migrate` dry-run, the count comparison, the listing of
-   per-frame copies and the session-principal count. None of them writes.
-4. **Paste the results** into the gate document and set one decision per
-   item (APPROVED, NOT APPROVED or KEEP). Paste only counts and the words the
-   commands printed: never values, tokens, hashes, host names, addresses or
-   device MACs, because the repository is public.
-5. **What happens next.** Only items marked APPROVED are retired, each in its
-   own change that is reviewed and deployed by hand by the owner; the legacy
-   files are moved aside by an owner-run tool and never deleted, and a
-   backup and a `--dry-run` come first. Items not approved stay as they are.
-   After the last retirement lands, this section and the matching paragraphs
-   of `ARCHITECTURE.md` are rewritten to describe what was actually retired.
+- The device server reads identity from `fleet.db` only. `devices.json` and
+  `byos_state.json` are neither read nor written; the earlier registry tool is gone.
+- The merge of per-frame airline registries and artwork into the fleet root
+  is gone, and the backup no longer lists the per-frame copies.
+- `fleet.db` goes to **schema 5** during the deploy (the `legacy-admin`
+  session value is removed from `sessions`). **The previous release cannot
+  open a schema 5 file** (it stops with "newer than supported"), so after
+  the schema step the previous release can no longer be put back on this
+  state. The way back is the nightly backup (see "Schema v5 and rollback"
+  and "Restore"). The deploy itself stays manual and is run by the owner;
+  nothing below deploys anything.
+- The legacy files are not deleted by the release. A separate owner-run
+  command, `server.retire_legacy_state`, moves them aside. Nothing is ever
+  deleted by it.
+
+Run the steps in order, on the VPS, as the service user. Commands that start
+with `python3 -m server.` must run from the release directory, as in the
+examples.
+
+1. **Before the deploy, read only.** From the current (old) release:
+
+   ```bash
+   sudo -u skypane /bin/sh -c 'cd /opt/skypane/current && exec /opt/skypane/venv/bin/python3 -m server.fleet_migrate --state-dir /opt/skypane/state --dry-run'
+   sudo -u skypane /bin/sh -c 'cd /opt/skypane/current && exec /opt/skypane/venv/bin/python3 -m server.sqlite_migrations report --state-dir /opt/skypane/state'
+   ```
+
+   Good: the dry run prints `nothing to do` (it writes nothing). The report
+   prints one line per database. If the report answers `No module named
+   server.sqlite_migrations`, the running release predates the command: skip
+   it, the same report is run after the deploy (step 4). Its exit status is
+   0 when nothing is pending (a missing database and a database newer than
+   the release also exit 0), 3 when a step is pending (on `fleet.db` at
+   schema 4 from the new release, step 5 is listed with the number of
+   `legacy-admin` session rows it would delete), and 2 when a file cannot be
+   read. Stop on 2, or on a `newer` line you did not expect.
+2. **Confirm the backup.** The deploy takes its own backup right before the
+   migration, but check that the nightly one exists and verifies:
+
+   ```bash
+   sudo sh -c 'cd /var/lib/skypane-backup/archives && ls -1t skypane-state-*.tar.gz | head -2'
+   sudo sh -c 'cd /var/lib/skypane-backup/archives && sha256sum -c "$(ls -1t skypane-state-*.tar.gz | head -1).sha256"'
+   ```
+
+   Good: a recent archive and `OK` from the checksum. Keep that archive
+   name: it is the schema 4 recovery point.
+3. **Deploy** with the usual manual process ("Production deploy (started by
+   hand)"). `activate.sh` backs up, runs `fleet_migrate --dry-run` (which
+   prints `upgrade fleet.db schema 4 -> 5`) and then the migration, all
+   before the swap; any failure leaves the old release serving.
+4. **After the services restart, check and quarantine.** First the report
+   again, from the new release:
+
+   ```bash
+   sudo -u skypane /bin/sh -c 'cd /opt/skypane/current && exec /opt/skypane/venv/bin/python3 -m server.sqlite_migrations report --state-dir /opt/skypane/state'
+   ```
+
+   Good: `fleet.db ok current=5 target=5 pending=0`, exit status 0. Then the
+   quarantine, dry run first. It lists the legacy files and per-frame copies
+   it finds, with counts and sizes only, and changes nothing:
+
+   ```bash
+   sudo -u skypane /bin/sh -c 'cd /opt/skypane/current && exec /opt/skypane/venv/bin/python3 -m server.retire_legacy_state --state-dir /opt/skypane/state'
+   ```
+
+   If the output is what you expect, run it again with `--apply`:
+
+   ```bash
+   sudo -u skypane /bin/sh -c 'cd /opt/skypane/current && exec /opt/skypane/venv/bin/python3 -m server.retire_legacy_state --state-dir /opt/skypane/state --apply'
+   ```
+
+   It renames the files into `/opt/skypane/state/retired-legacy/<UTC date>/`
+   (per-frame copies under `devices/<id>/` inside it), keeps their mode,
+   deletes nothing and overwrites nothing. A second run prints `nothing to
+   do`. It refuses with exit status 2, moving nothing, if `fleet.db` is not
+   migrated or readable, if a legacy device is missing from `fleet.db`, or
+   if a per-frame copy exists without its older marker file. A secret or
+   token that differs from `fleet.db` is only reported: since this release
+   `fleet.db` is the only writer, so it holds the newer value.
+5. **Verify.** The Fleet page lists every frame; a frame wakes and receives
+   its image; `systemctl status skypane-byos skypane-companion` is active;
+   the next nightly backup run prints no `not in include list` line for the
+   moved files (they are archived under `retired-legacy/`).
+6. **Restore, if needed.** To undo only the quarantine, stop `skypane-byos`
+   and move the files back with `mv` as the `skypane` user, for example
+   `mv retired-legacy/<UTC date>/devices.json .`; they are then ignored by
+   the release, so this is only for inspection. To go back to the previous
+   release, restore the archive from step 2 together with that release: stop
+   the services, follow "Restore" below with that archive (it brings back a
+   schema 4 `fleet.db`), point `current` at the previous release, start the
+   services. Whatever was written to `fleet.db` after the backup is lost.
+
+Two policies explain the exit codes and refusals above: `fleet.db` migrates
+immediately and refuses a newer file, `history.db` migrates idempotently and
+keeps a newer file (see "Fleet database"). The previous release, started on
+a schema 5 `fleet.db`, shows a fleet fault in Health and cannot read
+identity from it; it falls back to the legacy files only while they are
+still in place, and not at all once quarantined. Do not rely on `activate.sh`'s automatic swap-back after the schema
+step has run, since it restores the code and not the data.
 
 ## Pairing, retiring and re-activating a frame
 
@@ -377,8 +479,7 @@ administrators only) or with `fleet_cli.py`. Nothing here deploys anything.
    `$FLEET devices register-pending --mac <mac> --secret-sha256 <hash>
    [--hardware <type>]`. The console has no form for this step (it only
    pairs frames that are already registered); only the command line
-   registers a frame. The frame has no owner yet and no legacy file is
-   written for it. `$FLEET devices pending-list` shows pending and retired
+   registers a frame. The frame has no owner yet. `$FLEET devices pending-list` shows pending and retired
    frames.
 
    For a second hardware type, `fleet_cli.py` reads the second-hardware
@@ -450,7 +551,9 @@ files, never `state/`, `.venv/` or `skypane.env`) into
   server.fleet_migrate` as `skypane`, in that order and **before the
   swap**. Any non-zero exit aborts the deploy with the previous release
   still current. The migration is idempotent, so redeploying a sha repeats
-  both steps without effect. See "Fleet database" below.
+  both steps without effect. See "Fleet database" below. It brings
+  `fleet.db` to schema 5, which the previous release cannot open (see
+  "Schema v5 and rollback").
 - Atomically swaps `/opt/skypane/current` (a symlink) to point at the new
   release and restarts `skypane-byos`/`skypane-companion`/
   `skypane-poll.timer`.
@@ -472,7 +575,10 @@ files, never `state/`, `.venv/` or `skypane.env`) into
   `/etc/caddy/sites/` present — refusing to touch anything if not.
 
 **Manual rollback:** normally you don't need one — a failing deploy rolls
-itself back automatically. To deliberately revert to an already-deployed,
+itself back automatically. Both rollbacks swap the code only. Once the
+schema 5 step has run, the previous release cannot open `fleet.db` and
+the way back is a nightly archive taken before that deploy (see "Retiring
+the legacy files (owner runbook)"). To deliberately revert to an already-deployed,
 already-probed-good release (for example, a behavioural regression only
 noticed after a deploy that itself probed fine), point `current` at it
 directly and restart:
@@ -661,7 +767,7 @@ prints one line per release as before; with others it prints a
 `[<key>]` heading per type, and `list --hardware-type <key>` shows one.
 
 The firmware store lives under `/opt/skypane/state/firmware/`, so it
-is included in the nightly backup's allow-list alongside `devices.json`
+is included in the nightly backup's allow-list alongside `fleet.db`
 and `gallery/` (see "Backups" below) — each archive grows by roughly
 1 MB per kept release, since every release stays forever.
 
@@ -765,101 +871,44 @@ imported stay in the state directory and nothing is deleted.
 The airline vocabulary is one per fleet. `manual_resolutions.json` (names
 given by hand), `airline_name_overrides.json` (renamed built-in airlines) and
 `airline_default_types.json` (default aircraft type) live once, in the state
-root, and every frame's editor and poll cycle reads that one file. Before this
-release each frame had its own copy under `devices/<id>/`; the live frame's
-copy was already the root file.
-
-Uploaded artwork is fleet-wide too. Every picture lives once, in
+root, and every frame's editor and poll cycle reads that one file. Uploaded
+artwork is fleet-wide too: every picture lives once, in
 `<state root>/illustration_overrides/<key>.png` (per-type pictures
-`<key>-<slug>.png` included): the live frame's directory was already that
-directory, so the poll render path, the Airlines editor, the previews, the
-upload and delete routes of every frame all read and write it. Before this
-release each other frame kept its pictures under
-`devices/<id>/illustration_overrides/`.
+`<key>-<slug>.png` included), and the poll render path, the Airlines editor,
+the previews, the upload and delete routes of every frame all read and write
+that directory.
 
-The same `fleet_migrate` step that imports `fleet.db` merges the per-frame
-files into the root files, before the symlink swap, after the automatic
-pre-migration backup (which archives the root and every per-frame file). It
-never runs at service start, and a failed write exits 1 and stops the deploy.
-
-- **Conflict rule** (one total order, the same on every run): for a prefix
-  named differently on several frames the entry with the newest `created_at`
-  wins; on a tie the live frame (root) wins, then the lowest frame id; an
-  unparsable stamp counts as the oldest. Default types carry no stamp: root,
-  then the lowest frame id. Nothing is discarded: every loser is printed with
-  both names and both stamps, and the last 50 are kept in
-  `airline_registry_migration.json`. An override that would take the name of
-  another built-in airline (or of another airline's override), and entries
-  beyond the 200 (names, overrides) or 300 (types) cap, are not merged and
-  are printed.
-- **Reading the log.** Lines start with `airline names:`. `would merge N
-  per-frame file(s)` (dry-run) or `merged N per-frame file(s)` (real run) is
-  followed by one `<registry>: A added, R replaced` line per registry, then
-  one `conflict <registry> <prefix>: keep '<name>' [frame <id>, <stamp>] over
-  '<name>' [frame <id>, <stamp>]` line per conflict and `not merged ...` /
-  `skipped ...` lines for refusals (symlinked or oversized or invalid files).
-  `airline names: nothing to do` means every per-frame file was merged
-  already. An install with no per-frame registry file prints nothing.
-- **Idempotent.** The marker `airline_registry_migration.json` records the
-  SHA-256 of every per-frame file already merged. A second run changes no
-  byte, and a name deleted from the root afterwards is not brought back. A
-  per-frame file that changed since (see the rollback caveat) is merged once
-  more.
-- **Expand only.** The per-frame files are never modified, renamed or deleted
-  by this release. They become frozen copies that nothing reads or writes; they
-  disappear with their frame. A later release removes them after the rollback
-  window.
-
-**Artwork merge.** The same step (before the swap, after the same
-pre-migration backup, never at service start) merges every
-`devices/<id>/illustration_overrides/` into the fleet directory.
-
-- **Conflict rule.** When the fleet directory and one or more frames hold
-  different bytes under the same file name, the file with the latest
-  modification time wins; on a tie the fleet file wins, then the lowest frame
-  id. Copies keep the source's modification time. Identical bytes are not a
-  conflict. Every loser, a replaced fleet file included, is first copied to
-  `illustration_conflicts/<frame id or live>/<file name>` (a numeric suffix
-  `.1`, `.2` before `.png` keeps an earlier archive of different bytes); no
-  page or render reads that folder, and the nightly backup archives it.
-- **What is merged.** Only regular files (never symlinks) named `<key>.png`
-  (lowercase letters, digits, hyphens), at most 4 MiB, and accepted by the
-  same PNG, size and pixel-cap check as an upload. Dot-files and `*.tmp`
-  leftovers, symlinked directories and anything else are skipped, reported by
-  name and reason, and never deleted. At most 1000 files and 256 MiB are added
-  to the fleet directory per run (latest first); the rest stay pending for the
-  next run.
-- **Reading the log.** Lines start with `artwork:`. `would merge N picture(s)
-  from M frame(s) into the fleet directory: A new, R replaced, I identical, C
-  conflict(s)` (dry-run) or `merged ...` (real run), then one `conflict
-  <file>: keep [frame <id>, <time>, <size>] over [frame <id>, <time>, <size>]`
-  line per loser, and `skipped ...` / `not merged ...` lines. `artwork: nothing
-  to do` means every per-frame picture was merged already. An install with no
-  per-frame pictures prints nothing.
-- **Idempotent, expand only.** `illustration_migration.json` records the
-  SHA-256 of every per-frame picture merged, so a second run changes nothing
-  and a picture deleted from the fleet directory afterwards is not brought
-  back. The per-frame image directories are never modified, renamed or
-  deleted; they become frozen copies that disappear with their frame, and a
-  later release removes them after the rollback window.
+Earlier releases kept a copy of these files per frame under `devices/<id>/`
+and merged them into the root at deploy time. That merge no longer exists:
+`fleet_migrate` prints no `airline names:` or `artwork:` line, writes no
+`airline_registry_migration.json`, `illustration_migration.json` or
+`illustration_conflicts/`, and a per-frame copy is neither read nor archived.
+A copy that is still on disk is reported by the nightly backup as
+`not in include list: devices/<id>/<name>` until it is moved aside by
+`server.retire_legacy_state` (see "Retiring the legacy files (owner
+runbook)"); the moved copies are archived under `retired-legacy/`. The older
+marker files and `illustration_conflicts/` stay in the backup lists while
+they exist. The quarantine step refuses to move a registry copy unless
+`airline_registry_migration.json` is in the state root, and a picture
+directory unless `illustration_migration.json` is: without the marker the
+copy may never have been merged.
 
 ### Default aircraft types without a picture
 
 An airline's default aircraft type is only accepted for a type the airline has
 a picture for (built in or an upload). Defaults stored before that rule are
-cleared once by `server.fleet_migrate`, after the airline-names and artwork
-merges, in the same backup, dry-run and real-run steps as the rest.
+cleared once by `server.fleet_migrate`, in the same backup, dry-run and
+real-run steps as the rest.
 
 - **Reading the log.** Lines start with `airline default types:`. `would clear
   N` (dry run) or `cleared N` (real run), then one `<airline key>: <type>` line
   per entry; `airline default types: nothing to do` when none lacks a picture or
-  the run already happened. The dry run judges the fleet root as it is before
-  the merges of the same run.
+  the run already happened. The dry run judges the fleet root as it is.
 - **Nothing is lost.** Each cleared entry is first appended to
   `airline_default_types_cleared.json` (airline key, type, source, time) in the
   state root; `airline_default_types_migration.json` marks the run and is
   written last. Both are in the backup. Only a run that clears something writes
-  anything. Per-frame files are never touched.
+  anything.
 - **After a deploy.** Check the log for the two lines, open the Editor and see
   that the cleared airlines show no default type, and read the archive file to
   restore any entry on purpose (upload the type's picture first, then set it).
@@ -885,9 +934,8 @@ airframe gives the most seen typed picture, or the airline is reported
   line each; `airline default types: nothing to do` once the run has happened
   (the clearing prints its own `nothing to do` line too). Expect about forty
   `rule a` lines on the first deploy: every built-in airline gets its airframe.
-  The dry run judges the fleet root as it is before the merges of the same run
-  (a picture or default still pending in the per-frame merge is not counted); it
-  does count the defaults the clearing is about to remove as gone.
+  The dry run judges the fleet root as it is; it does count the defaults the
+  clearing is about to remove as gone.
 - **Nothing is lost.** Every default set is first appended to
   `airline_default_types_set.json` (airline key, type, rule, time) in the state
   root; `airline_default_types_set_migration.json` marks the run and is written
@@ -907,8 +955,8 @@ consistent online copy of `history.db` and `fleet.db` with SQLite's own backup A
 (never a raw copy of the live `-wal`/`-shm` files), and copies everything
 else that cannot be regenerated from an **include list** — device
 tokens, device/colour/calendar/manual-resolution config, the airline
-name overrides, default aircraft types, AI-suggestion cache and the airline merge marker, the calendar
-secret, uploaded illustration overrides (and the `illustration_conflicts/` archive and its marker), the poll enrichment cache, and
+name overrides, default aircraft types, AI-suggestion cache and the migration markers, the calendar
+secret, uploaded illustration overrides (and the `illustration_conflicts/` archive and its marker, while they exist), the `retired-legacy/` quarantine directory, the poll enrichment cache, and
 `gallery/` (the last ~25 rendered panels — kept for the visual history,
 per D-24). Regenerable or short-lived files (`panel.bin`, theme and frame preview caches, the shared route
 cache, the ADS-B request ledger, the check-interval experiment file, Caddy's access log) are excluded. An unlisted top-level file in `state/` is
@@ -927,40 +975,22 @@ security review of these files is the Phase 66 audit (`66-AUDIT.md`).
 the same file set as the root; the live frame stays at the root and is never
 moved. The backup archives each `devices/<id>/` entry under the same path in
 the archive: `device_config.json`, `poll_state.json`, `battery_state.json`,
-the calendar, colour, manual-resolution, airline name override and default-type files and `illustration_overrides/` (frozen copies since the airline names and artwork became fleet-wide; the rollback source),
+the calendar and colour files,
 `gallery/` and a WAL-safe snapshot of `history.db`. It does not archive
 `panel.bin`, `img/`, lock files, temp files, WAL/SHM files or symlinks. A
 directory under `devices/` with a malformed name, or an unexpected file
-inside a device directory, is logged as drift. Restoring an archive into an
+inside a device directory (a leftover per-frame airline registry file or
+`illustration_overrides/` copy, for example), is logged as drift until
+`server.retire_legacy_state` moves it into `retired-legacy/`. Restoring an archive into an
 empty directory recreates every `devices/<id>/`.
 
-**Rollback caveat (expand-only).** The previous release ignores `devices/`
-and the `timezone` key: it drops the key on its next save, which reverts
-that device to Paris. A device created through the CLI is also written to the
-legacy `devices.json` and `byos_state.json`, so the previous release
-authenticates it and would serve it the live frame's image. This only affects
-devices created after this change; none exist in production yet.
-
-**Rollback caveat (airline names).** The previous release reads the airline
-files per frame, so after a rollback every non-live frame sees its own old
-names again, and names given or changed after the upgrade exist only in the
-root files (the previous release reads them for the live frame only). A later
-roll-forward merges again only the per-frame files that changed in the
-meantime (their hash differs from the marker), by the same conflict rule,
-which can bring back a name that was deleted fleet-wide before the rollback:
-re-check the Airlines editor after a roll-forward that followed a rollback.
-The merge runs for a few milliseconds before the symlink swap while the
-previous release may still write the live frame's root file; the
-pre-migration backup exists and a re-run is idempotent.
-
-**Rollback caveat (artwork).** The previous release reads per-frame image
-directories, so after a rollback every non-live frame sees its own old
-pictures again, and pictures added after the upgrade exist only in the root
-directory (visible to the previous release on the live frame only). A later
-roll-forward merges again only the per-frame pictures whose hash changed in
-the meantime, by the same rule, which can bring back a picture deleted
-fleet-wide before the rollback: re-check the Airlines editor after a
-roll-forward that followed a rollback.
+**Rollback caveat (schema 5).** The previous release cannot use the current
+state: it refuses `fleet.db` at schema 5, and it expects the legacy identity
+files and the per-frame airline copies that this release no longer keeps in
+step. It also ignores `devices/` and the `timezone` key. Putting it back
+therefore means restoring a nightly archive taken before the schema 5 deploy
+(see "Retiring the legacy files (owner runbook)" and "Restore"); whatever
+was written afterwards is lost.
 
 **The off-box copy is pulled, not pushed.** A dedicated `skypane-backup`
 system user (never a member of the `skypane` group, so it can never write
@@ -1153,6 +1183,9 @@ query values.
 
 ### Schema v3 and rollback
 
+(Historical: this describes the release that introduced schema 3. Schema 5
+ends the rollback path described here; see "Schema v5 and rollback".)
+
 The pairing and console release adds schema 3 (pending frames, the audit
 log, a location owner column). The `activate.sh` dry-run prints
 `upgrade fleet.db schema 2 -> 3`; the migration runs after the backup and
@@ -1164,6 +1197,27 @@ fail with 401 and then 403 and back off for up to 6 hours. Frames that
 existed before the upgrade keep working from the legacy files. Restoring a
 backup taken at schema 3 needs this release or later.
 
+### Schema v5 and rollback
+
+The retirement release adds schema 5: the `sessions` table is rebuilt so
+that `principal` can only be `user` and `user_id` is `NOT NULL`, and any
+`legacy-admin` row (an expired session of the removed shared-password
+sign-in) is deleted; the deploy log prints `fleet.db schema 5: removed N
+legacy-admin session row(s)` when there was one. User sessions, their
+columns and both indexes are kept. The step runs in one transaction after
+the backup and before the symlink swap, and verifies the row counts and the
+foreign keys before it commits; a failure rolls back and leaves a schema 4
+file. The `activate.sh` dry-run prints `upgrade fleet.db schema 4 -> 5`, and
+`python3 -m server.sqlite_migrations report` on a schema 4 file lists
+`step=5:sessions-user-principal-only` with the row count.
+
+Unlike schemas 3 and 4 this is **not rollback-safe**: the previous release
+(schema 4 code) refuses a schema 5 file as too new (`FleetDbTooNew`), and
+the legacy identity files it would fall back to are retired. The recovery
+is the nightly backup: restore the last archive taken before the deploy
+(a schema 4 file) with the previous release, accepting the loss of what was
+written since. A backup taken at schema 5 needs this release or later.
+
 ### Schema v4 and rollback
 
 The device co-management release adds schema 4: one table
@@ -1172,9 +1226,10 @@ from also being a co-manager of the same frame. No existing table or row
 changes, so the live frame's registry entry, files and image are untouched.
 The `activate.sh` dry-run prints `upgrade fleet.db schema 3 -> 4`; the
 migration runs after the backup and before the symlink swap, and is
-expand-only. The previous release (schema 3) refuses a schema 4 `fleet.db`
-as too new (`FleetDbTooNew`) and falls back to the legacy files, exactly as
-it does for schemas 2 and 3; Health shows a fleet fault until the new
+expand-only. The previous release at the time (schema 3) refused a schema 4 `fleet.db`
+as too new (`FleetDbTooNew`) and fell back to the legacy files, exactly as
+it did for schemas 2 and 3 (historical: the legacy files are retired, and
+schema 5 ends this rollback path); Health shows a fleet fault until the new
 release is live again. While rolled back, co-managers cannot reach the
 companion fleet store, and the frame itself keeps polling from the legacy
 files. Rolling forward again needs no manual step, because the table and its
@@ -1182,6 +1237,8 @@ rows survive. Restoring a backup taken at schema 4 needs this release or
 later.
 
 ### Schema v2 and rollback
+
+(Historical, see "Schema v5 and rollback".)
 
 `fleet_migrate` upgrades `fleet.db` from schema 1 to 2 before the symlink
 swap, as the `skypane` user, after the backup. The previous release's byos
@@ -1417,8 +1474,8 @@ and carries `IPAddressDeny=any` + `IPAddressAllow=localhost`: byos makes
 no outbound connections and Caddy on loopback is its only client.
 `ufw deny 8642/tcp` (plus ufw's own default-deny-incoming policy) stays
 as a second layer. byos takes no secret on its command line or in its
-environment — enrolment uses the per-device registry (`devices.json`,
-see "Device enrolment (per-device secret)" above). To check on the VPS:
+environment — enrolment uses the per-device secret hashes in `fleet.db`
+(see "Device enrolment (per-device secret)" above). To check on the VPS:
 
 ```bash
 sudo ss -ltnp | grep -E ':8642 '   # expect 127.0.0.1:8642 only
@@ -1429,7 +1486,9 @@ pgrep -af byos_server.py           # expect --bind 127.0.0.1 and no --secret
 
 See "Ship the code" above: `activate.sh` already rolls a *failing* deploy
 back to the previous release automatically, and prints the manual command
-for deliberately reverting to an older, already-working release. Code and
+for deliberately reverting to an older, already-working release (a
+release from before `fleet.db` schema 5 cannot run on today's state; see
+"Schema v5 and rollback"). Code and
 configuration are reproducible from this repository at any commit — but
 `/opt/skypane/state` (flight history, device tokens, settings, uploaded
 illustrations, `gallery/`) is not, which is exactly why it is backed up
@@ -1504,11 +1563,11 @@ After changing visibility, the runner or the tokens, check in this order:
 No cloud-provider API token is used in this flow (the OVH VPS is created
 by hand in the console — see the one-time human steps above). Each
 frame's enrolment secret lives only in that frame's own flash; this VPS
-stores only its SHA-256 hash, in `devices.json` under
+stores only its SHA-256 hash, in `fleet.db` under
 `${SKYPANE_STATE_DIR}`. `skypane.env.example` carries placeholders only
 for what remains a real secret there (the Auth0 client secret); the
 real `skypane.env` is root:root 0600, gitignored (`deploy/.gitignore`),
-and lives solely on the VPS, same as `devices.json`. The `skypane-backup`
+and lives solely on the VPS. The `skypane-backup`
 pull key is restricted by its forced command to `list`/`get`/`ack` over
 the archives directory only — it can never read `skypane.env` or open a
 shell (see "Backups" above). Before any commit touching this directory,

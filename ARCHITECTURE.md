@@ -282,19 +282,25 @@ Detection and rendering:
   SSRF-safety gate its feed fetch calls.
 - `server/plane/colour_rules.py`, `server/plane/manual_resolutions.py`,
   `server/plane/name_overrides.py`, `server/plane/airline_default_types.py`:
-  the per-airline registries; `server/plane/fleet_registries.py`,
-  `fleet_artwork.py`, `fleet_default_types.py` and `fleet_set_defaults.py`
-  merge them to the fleet root at deploy time.
+  the per-airline registries, read from the fleet root for every frame.
+  `server/plane/fleet_registries.py` only lists the frame directories
+  (`frame_state_dirs`); `fleet_default_types.py` and `fleet_set_defaults.py`
+  are the two one-time default-type steps `server/fleet_migrate.py` runs at
+  deploy time.
 
 Fleet data:
 
 - `server/fleet_db.py`: the `fleet.db` schema, migrations and connections;
-  `server/fleet_migrate.py`: the deploy-time import of the legacy identity
-  files; `server/fleet_ops.py`: register, claim, retire, reassign;
+  `server/fleet_migrate.py`: the deploy-time, expand-only import of the
+  retired legacy identity files into `fleet.db` (kept as a tool);
+  `server/retire_legacy_state.py`: the owner-run command that moves the
+  retired legacy files aside; `server/fleet_ops.py`: register, claim, retire, reassign;
   `server/fleet_sessions.py`: sessions and invite-only identity linking.
 - `server/device_dirs.py`: the only code that turns a stored `state_path`
   into a directory. `server/device_config.py`: per-frame configuration.
-- `server/history_db.py`: `history.db`.
+- `server/history_db.py`: `history.db`. `server/sqlite_migrations.py`: the
+  one schema-step mechanism both databases use, and its read-only `report`
+  command.
 - `server/hardware.py`: hardware profiles. `server/firmware/` (`registry.py`,
   `image.py`, `cli.py`): OTA.
 - `server/pairing/` (`pairings.py`, `code.py`, `image.py`): the pairing flow
@@ -313,7 +319,7 @@ aliases of the moved modules, kept so existing importers, tests and
 `server/history_db.py` and `server/device_config.py` stay in place.
 
 Other processes: `stub-server/byos_server.py` (device protocol),
-`stub-server/devices_cli.py` and `stub-server/fleet_cli.py` (operator CLIs),
+`stub-server/fleet_cli.py` (the operator CLI),
 `companion/app.py` (configuration web app; its single route table is
 `companion/routes.py`, its pages are in `companion/pages/` and its form
 handlers in `companion/settings/`), and `deploy/backup/skypane_backup.py`.
@@ -758,10 +764,11 @@ NVS partition, provisioned once over USB by `firmware/provision.sh`) and, on a
 match, receives a bearer token, sent as `Authorization: Bearer <token>` on
 every subsequent `/display` and `/log` call. A wrong or unregistered secret
 leaves any existing token untouched, so one compromised device's secret cannot
-be used to hijack another's enrolment. `devices.json` and `byos_state.json`
-are a legacy mirror kept in step so the previous release keeps working on the
-same state (see "Duplicated or overlapping data" below); when `fleet.db` is
-absent or not yet migrated the device server falls back to them. The device
+be used to hijack another's enrolment. The device server reads the secret
+hashes and tokens from `fleet.db` only: when `fleet.db` is absent, not yet
+migrated, unreadable or newer than the code, it refuses every setup request
+(403) and every display or log request (401) rather than falling back to
+anything (see "Duplicated or overlapping data" below). The device
 never accepts inbound connections at any point: it is poll-only, with no
 listening socket of its own.
 
@@ -793,6 +800,9 @@ CI run exists for the commit. Then:
    goes red while the previous release keeps serving. Old releases are pruned
    (the last five are kept). Re-running `activate.sh` for the SHA that is
    already current only restarts and re-probes.
+   The swap-back restores code, not data: `fleet.db` is at schema 5, which
+   the previous release refuses (see "Schema 5 and the previous release"
+   under "Persistent state").
 
 State (`/opt/skypane/state`) lives on the VPS's local disk and is not part of
 a release; the code of a release is fully reproducible from this repository,
@@ -814,15 +824,16 @@ these stores is the Phase 66 audit (`66-AUDIT.md`) and is not repeated here.
 
 | Store | Where | Writers | Readers | Backed up | Notes |
 |-------|-------|---------|---------|-----------|-------|
-| `fleet.db` (SQLite, WAL, mode 0600, `user_version` 4) | root | companion (users, roles, sessions, audit, co-managers, pairing, frames); device server (token and enrolment-secret writes); `server/fleet_migrate.py` (deploy step) | companion; device server (read-only per request); poll process (`server/polling/fleet_cycle.py`) | yes: online copy through the sqlite3 backup API, then an integrity check | tables `users`, `locations`, `devices`, `meta`, `sessions`, `pending_devices`, `audit_log`, `device_co_managers` |
+| `fleet.db` (SQLite, WAL, mode 0600, `user_version` 5) | root | companion (users, roles, sessions, audit, co-managers, pairing, frames); device server (token and enrolment-secret writes); `stub-server/fleet_cli.py`; `server/fleet_migrate.py` (deploy step) | companion; device server (read-only per request, the only identity source); poll process (`server/polling/fleet_cycle.py`) | yes: online copy through the sqlite3 backup API, then an integrity check | tables `users`, `locations`, `devices`, `meta`, `sessions`, `pending_devices`, `audit_log`, `device_co_managers` |
 | `history.db` (SQLite, WAL, `user_version` 1) | root (live frame) and `devices/<id>/` | poll process (runway events, poll cycles, route lookups, meta, battery readings tailed from the Caddy log); companion for the few runway-event rows written by `companion/airline_fleet_world.py` | companion (Health, History, Home, export); poll process | yes, the root file and every per-frame file | tables `runway_events`, `device_health`, `meta`, `wake_epochs`, `poll_cycles`, `route_lookups` |
 | `device_config.json`, `poll_state.json`, `battery_state.json` | root and `devices/<id>/` | companion (config); poll process (poll state); device server (latest battery reading) | all three processes | yes, root and per frame | atomic writes (`server/atomic_io.py`); the config has its own lock |
-| Fleet registries: `manual_resolutions.json`, `airline_name_overrides.json`, `airline_default_types.json`, `airline_suggestions.json`, `airline_default_types_set.json`, `airline_default_types_cleared.json`, `colour_rules.json`, `calendar_rules.json` with `calendar_url.secret` | fleet root (colour and calendar rules also per frame) | companion | poll process, companion | yes | the per-frame copies of the first three are leftovers, see below |
-| Migration markers: `airline_registry_migration.json`, `illustration_migration.json`, `airline_default_types_migration.json`, `airline_default_types_set_migration.json` | root | `server/fleet_migrate.py` and the `server/plane/fleet_*` merge modules | the same modules | yes | idempotency markers: restore them together with the data they guard |
-| `devices.json`, `byos_state.json` | root | `stub-server/devices_cli.py`; device server (mirror of tokens and secrets) | device server when `fleet.db` is absent or not yet migrated; `server/fleet_migrate.py` | yes | legacy identity files, see "Duplicated or overlapping data" |
-| `live_frame_macs.json` | root | `server/device_dirs.py` | device server | yes | the one record of which frame is the live one that survives an unreadable `fleet.db` |
+| Fleet registries: `manual_resolutions.json`, `airline_name_overrides.json`, `airline_default_types.json`, `airline_suggestions.json`, `airline_default_types_set.json`, `airline_default_types_cleared.json`, `colour_rules.json`, `calendar_rules.json` with `calendar_url.secret` | fleet root (colour and calendar rules also per frame) | companion | poll process, companion | yes | read from the fleet root for every frame; the per-frame copies of the first three are no longer read or backed up, and `server/retire_legacy_state.py` moves any that remain into `retired-legacy/` |
+| Migration markers: `airline_default_types_migration.json`, `airline_default_types_set_migration.json`; older markers `airline_registry_migration.json`, `illustration_migration.json` | root | `server/plane/fleet_default_types.py` and `fleet_set_defaults.py` (run by `server/fleet_migrate.py`); nothing writes the two older markers any more | the same two modules; `server/retire_legacy_state.py` reads the two older markers | yes | idempotency markers: restore them together with the data they guard; the two older ones only matter while a per-frame copy still exists |
+| `devices.json`, `byos_state.json` (retired) | root, until quarantined | nothing: the release neither reads nor writes them | `server/fleet_migrate.py` (one-time import) and `server/retire_legacy_state.py` only | yes while present | retired identity files; the owner-run `python3 -m server.retire_legacy_state` moves them into `retired-legacy/<UTC date>/`, see "Duplicated or overlapping data" |
+| `retired-legacy/<UTC date>/` | root | `server/retire_legacy_state.py --apply` (rename only, never deletes) | nobody (kept for recovery) | yes | the quarantine directory: the retired identity files at its top and any per-frame copies under `devices/<id>/` |
+| `live_frame_macs.json` | root | `server/device_dirs.py` | device server | yes | the one record of which frame is the live one that survives an unreadable `fleet.db` (only used in the short window where `fleet.db` stops answering after a request was authenticated) |
 | `firmware/` (`registry.json`, `device_report.json`, images) | root | `server/firmware/cli.py`; device server (`device_report.json` only) | device server; companion Update page | yes, the directory (lock files excluded) | `registry.lock` serialises registry writers |
-| `illustration_overrides/`, `illustration_conflicts/`, `gallery/` | root (overrides and gallery also per frame) | companion (overrides); poll process (gallery) | poll process, companion | yes | the per-frame override directories are leftovers after the merge |
+| `illustration_overrides/`, `illustration_conflicts/`, `gallery/` | root (gallery also per frame) | companion (overrides); poll process (gallery) | poll process, companion | yes (root) | read and written at the fleet root for every frame; a per-frame override directory is no longer read or backed up, and is moved into `retired-legacy/` by `server/retire_legacy_state.py`; no code writes `illustration_conflicts/` any more, it is archived while it exists |
 | Regenerable or short-lived: `panel.bin`, `fleet_status.json`, `request_ledger.json`, `adsbdb_shared_cache.json*`, `check_interval_experiment.json`, `pairing/`, `img/`, `theme_previews/`, `frame_previews/`, `*.lock`, `caddy-access*.log*` | root and per frame | various | various | no, by design | rebuilt by the next poll, or expire within hours |
 
 ### Migrations
@@ -836,8 +847,10 @@ is deliberate and is the policy, not separate code.
   Each step runs in one `BEGIN IMMEDIATE` transaction together with its
   `PRAGMA user_version` bump, and a step already applied by a concurrent
   opener is skipped after the version is re-read. A file whose version is
-  newer than the code is refused and never written (`FleetDbTooNew`), which
-  is what keeps the previous release safe on migrated state. Foreign keys
+  newer than the code is refused and never written (`FleetDbTooNew`). The
+  refusal is what protects the data once a release has raised the version:
+  since schema 5 the previous release stops with "newer than supported" on
+  the current file (see "Duplicated or overlapping data"). Foreign keys
   are enabled per connection and the file is created mode 0600. Migration
   runs as an explicit deploy step (`server/fleet_migrate.py`) and again on
   `connect()`.
@@ -853,7 +866,12 @@ is deliberate and is the policy, not separate code.
 
 The 5000 ms busy timeout (`BUSY_TIMEOUT_MS`), the WAL pragma and the
 `user_version` read are shared too. The unification changed no schema, no
-version number, no file mode and no access rule.
+version number, no file mode and no access rule. The schema steps since then
+are ordinary steps of this mechanism: step 5 of `fleet.db`
+(`sessions-user-principal-only`, `server/fleet_db.py`) rebuilds `sessions`
+so that `principal` can only be `'user'` and `user_id` is `NOT NULL`, and
+deletes any `legacy-admin` rows (all expired; the count is printed).
+`history.db` stays at `user_version` 1.
 
 The module also has a read-only command, `python3 -m server.sqlite_migrations
 report --state-dir <state-root>`. It prints one line per database
@@ -862,60 +880,96 @@ status (`ok`, `pending`, `newer`, `absent` or `unreadable`), the current and
 target version and the pending steps, and writes nothing. Exit status 0 means
 nothing is pending (an `absent` file and a `newer` file also exit 0), 3 that a
 step is pending, 2 that a file could not be read; the worst code wins, so an
-unreadable file beats a pending step. The retirement runbook in `deploy/README.md` uses it first.
+unreadable file beats a pending step. The retirement runbook in `deploy/README.md` runs it before and after the
+deploy; on a schema 4 file it lists step 5 and the number of `legacy-admin`
+rows it would delete.
 
 ### Duplicated or overlapping data
 
-Each item below is still in place today. Items 1, 2, 3, 5 and 6 were kept
-as a rollback safety net or as leftovers; the owner has asked for their
-retirement, but nothing is retired yet. Each retirement is gated on the
-owner's read-only production checks, pasted into the retirement gate
-document (`.planning/workstreams/v1-2/phases/67-project-and-code-optimisation/67-RETIREMENT-GATE.md`),
-and ends the ability to put the previous release back on the current data
-(recovery is then the nightly backup). Until those checks are pasted and
-approved, everything below describes the code as it runs. Item 4
-(`wake_epochs`) is kept by decision. No schema change is applied to
-production by the project; deploys stay manual.
+The owner approved the retirement of the rollback-era copies on 2026-11-28
+(`.planning/workstreams/v1-2/phases/67-project-and-code-optimisation/67-RETIREMENT-GATE.md`,
+items G1, G2, G3, G5 and G6; G4 `wake_epochs` was decided KEEP). Code
+for each approved item is on main; no production data is changed by a
+release itself, and deploys stay manual. The one consequence that matters:
+**the previous release cannot run on the current state.** It refuses a
+`fleet.db` at schema 5 as newer than it supports, and it still reads files
+the current release no longer keeps in step. Recovery is the nightly backup
+(see `deploy/README.md`, "Schema v5 and rollback").
 
-1. **Legacy identity mirror** (rollback safety net). The enrolment-secret
-   hash and the device token exist in `fleet.db` (`devices`,
-   `pending_devices`) and in `devices.json` / `byos_state.json`. With a
-   migrated `fleet.db` the device server reads `fleet.db`
-   (`effective_registry`, `effective_tokens`); token issue writes both and
-   leaves the legacy file untouched if the `fleet.db` write fails;
-   `devices_cli` changes are mirrored to `fleet.db` one way; the migration
-   reconcile lets the legacy file win on secret and token. This is what lets
-   the previous release keep working on the same state.
-2. **Per-frame registry leftovers** (rollback safety net). Per-frame
-   `manual_resolutions.json`, `airline_name_overrides.json`,
+1. **Legacy identity mirror: retired.** The enrolment-secret hash and the
+   device token live in `fleet.db` only (`devices`, `pending_devices`). The
+   device server (`effective_registry`, `effective_tokens` in
+   `stub-server/byos_server.py`) neither reads nor writes `devices.json` and
+   `byos_state.json`, has no fallback to them, and fails closed when
+   `fleet.db` cannot answer. The `devices_cli` tool is deleted;
+   `stub-server/fleet_cli.py` writes `fleet.db` only (`devices
+   register-pending`, `devices replace-secret`, `devices revoke-token`).
+   `server/fleet_migrate.py` keeps its expand-only import of the two files
+   as a tool. The files themselves are not deleted: the owner-run
+   `python3 -m server.retire_legacy_state --state-dir <state-root> [--apply]`
+   moves them into `retired-legacy/<UTC date>/` (see below).
+2. **Per-frame registry and artwork copies: retired.** The runtime has only
+   ever resolved the registries and the artwork through
+   `device_dirs.fleet_root_for`. The merge code that folded
+   `devices/<id>/manual_resolutions.json`, `airline_name_overrides.json`,
    `airline_default_types.json` and `devices/<id>/illustration_overrides/`
-   were merged into the fleet root. The runtime resolves the registries
-   through `device_dirs.fleet_root_for` and no longer reads the copies; the
-   backup still includes them.
-3. **`history.db.meta` keys with no production writer** (leftover).
-   `META_PROVIDER_LAST_CALL_PREFIX` and `META_LAST_POLL_TRIGGER` are only
-   referenced by the status-key filter in `server/history_db.py`. The live
-   record of ADS-B request spacing is `request_ledger.json`
+   into the fleet root (the `fleet_artwork` module and the merge half of
+   `server/plane/fleet_registries.py`) is removed, and the backup no longer
+   lists the per-frame names. A copy that still exists is reported by the
+   backup as drift until `server/retire_legacy_state.py` moves it into
+   `retired-legacy/<UTC date>/devices/<id>/`.
+3. **`history.db.meta` key `last_poll_trigger`: retired.** Nothing wrote it;
+   `META_LAST_POLL_TRIGGER` and its entry in the status-key filter are
+   removed from `server/history_db.py`, and a stored row would simply be
+   ignored. `META_PROVIDER_LAST_CALL_PREFIX` stays (the status export reads
+   it). The live record of ADS-B request spacing is `request_ledger.json`
    (`server/polling/request_budget.py`).
-4. **`wake_epochs`** (planned data). Written by the poll cycle, read only by
-   `history_db` itself for de-duplication. It accrues data that no screen
-   uses yet; a test pins that no companion file reads it.
-5. **`legacy-admin` principal** (rollback safety net). The `sessions` table
-   still allows `principal = 'legacy-admin'` although the shared-password
-   sign-in no longer exists. Removing the value needs a schema step and
-   would break the rule that the previous release runs on migrated state.
-6. **Location helpers with no production caller** (leftover). In
-   `server/fleet_db.py`, `delete_location_if_unused`,
-   `count_locations_owned` and `location_usage_counts` have no production
-   caller since the Locations routes were removed; tests still use them.
-7. **Same-named constants** (leftover). File-name constants are defined
-   more than once (`CONFIG_FILENAME` in `server/device_dirs.py` and
-   `DEVICE_CONFIG_FILENAME` in `server/device_config.py`;
-   `REGISTRY_FILE` in the device server and `LEGACY_REGISTRY_FILE` in
-   `server/fleet_migrate.py`; a MAC pattern defined several times, with one
-   case-insensitive variant in the device server). The backup script
-   duplicates the device-id pattern on purpose, so it runs without the
-   `server` package.
+4. **`wake_epochs`: kept, by the owner's decision (G4).** Written by the poll
+   cycle, read only by `history_db` itself for de-duplication. It accrues
+   data that no screen uses yet; a test pins that no companion file reads
+   it. Revisit only if the link between battery life and wake interval is
+   dropped. `history.db` has no schema 2.
+5. **`legacy-admin` principal: retired by schema 5.** `fleet.db` step 5
+   rebuilds `sessions` so that `principal` allows only `'user'`, and removes
+   `PRINCIPAL_LEGACY_ADMIN` from the code. The shared-password sign-in no
+   longer exists, so any such row was an expired session.
+6. **Location helpers with no production caller: removed.**
+   `delete_location_if_unused`, `count_locations_owned` and
+   `location_usage_counts` are gone from `server/fleet_db.py`. The
+   `LocationInUse` exception class is still defined and no longer raised.
+7. **Same-named constants** (leftover, unchanged). File-name constants are
+   defined more than once (`CONFIG_FILENAME` in `server/device_dirs.py` and
+   `DEVICE_CONFIG_FILENAME` in `server/device_config.py`; a MAC pattern
+   defined several times in `server/fleet_db.py`, `server/fleet_ops.py`,
+   `server/fleet_migrate.py`, `companion/console_pairing.py` and, with one
+   case-insensitive variant, `stub-server/byos_server.py`). The backup
+   script duplicates the device-id pattern on purpose, so it runs without
+   the `server` package.
+
+**The quarantine directory.** `python3 -m server.retire_legacy_state
+--state-dir <state-root>` (run from a release directory, like
+`server/fleet_migrate.py`) is a dry run: it names the legacy files and
+per-frame copies it finds, with counts and sizes and never a value, and
+changes nothing. With `--apply` it renames them into
+`<state-root>/retired-legacy/<UTC date>/` (per-frame copies under
+`devices/<id>/` inside it). It never deletes and never overwrites; it
+refuses (exit 2) unless `fleet.db` is migrated and holds every device the
+legacy files register, and, for per-frame copies, unless the matching
+older marker file exists in the state root. Running it again with nothing
+left prints `nothing to do`. The directory is in the nightly backup.
+
+### Schema 5 and the previous release
+
+`fleet.db` at `user_version` 5 cannot be opened by the previous release
+(schema 4 code): it refuses the file with `FleetDbTooNew` ("newer than
+supported") and never writes it. The previous release also expects the
+legacy files and per-frame copies the current release no longer maintains.
+So once the schema step has run, putting the previous release back is not a
+supported rollback: the way back is to restore the nightly backup taken
+before the deploy (a schema 4 file) together with the previous release, and
+lose what was written since. `deploy/activate.sh` takes that backup and runs
+the migration before the swap; its automatic swap-back after a failed probe
+restores the previous code only and does not restore the data.
 
 ### Backup coverage
 
@@ -926,7 +980,12 @@ Its lists are an allow-list: an entry that is neither included nor in
 - **Covered:** `fleet.db` and every `history.db` (online copy plus
   integrity check); every JSON file in `INCLUDE_FILES` and
   `DEVICE_INCLUDE_FILES`; `firmware/`, `gallery/`, `illustration_overrides/`,
-  `illustration_conflicts/`; the migration markers.
+  `illustration_conflicts/`; the migration markers; `retired-legacy/` (the
+  quarantine directory). `devices.json` and `byos_state.json` stay in the
+  list while they exist. The per-device lists no longer name the three
+  per-frame registry files or `illustration_overrides/`: a copy still
+  present in a `devices/<id>/` directory is reported as drift until it is
+  quarantined, and then archived under `retired-legacy/`.
 - **Excluded by design:** the environment file, the firmware signing key and
   the Caddy configuration and certificates are not under the state root and
   are never archived; regenerable or short-lived state (last row of the
