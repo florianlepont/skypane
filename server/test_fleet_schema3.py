@@ -391,7 +391,6 @@ def test_location_visibility_by_owner(conn):
     theirs = fleet_db.add_location(conn, "Theirs", 48.2, 2.2, "Europe/Paris", u2)
     assert {r["id"] for r in fleet_db.list_locations_for(conn, a, True)} == {legacy, mine, theirs}
     assert [r["id"] for r in fleet_db.list_locations_for(conn, u1, False)] == [mine]
-    assert fleet_db.count_locations_owned(conn, u1) == 1
     assert fleet_db.get_location(conn, legacy)["owner_user_id"] is None
     assert fleet_db.get_location(conn, 999) is None
 
@@ -405,13 +404,7 @@ def test_update_and_delete_location(conn):
         fleet_db.update_location(conn, loc, "", 43.0, 5.0, "Europe/Paris")
     assert not fleet_db.update_location(conn, 999, "x", 1.0, 1.0, "Europe/Paris")
     did = fleet_db.add_device(conn, MAC, SECRET, hardware.LEGACY_KEY, a, location_id=loc)
-    assert fleet_db.location_usage_counts(conn) == {loc: 1}
-    with pytest.raises(fleet_db.LocationInUse):
-        fleet_db.delete_location_if_unused(conn, loc)
-    assert fleet_db.get_location(conn, loc) is not None
     assert fleet_db.set_device_location_checked(conn, did, None, a, True)
-    assert fleet_db.delete_location_if_unused(conn, loc)
-    assert not fleet_db.delete_location_if_unused(conn, loc)
 
 
 def test_set_device_location_checked_enforces_owners(conn):

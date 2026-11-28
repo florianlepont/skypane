@@ -50,7 +50,6 @@ META_LAST_PIPELINE_RUN = "last_pipeline_run"
 META_LAST_DETECTION = "last_detection"
 META_SOURCE_FAULT = "source_fault"
 META_CADDY_LOG_OFFSET = "caddy_log_offset"
-META_LAST_POLL_TRIGGER = "last_poll_trigger"
 
 # Prefix for one meta key per ADS-B provider name (e.g.
 # "provider_last_call:adsbfi"), holding that provider's own last-call
@@ -849,7 +848,6 @@ EXPORT_TABLES = {
 # never an offset or anything a caller could use to read other files.
 _STATUS_META_KEYS = (
     META_LAST_PIPELINE_RUN, META_LAST_DETECTION, META_SOURCE_FAULT,
-    META_LAST_POLL_TRIGGER,
 )
 
 

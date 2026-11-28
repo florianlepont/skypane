@@ -870,49 +870,6 @@ def update_location(
     return cur.rowcount > 0
 
 
-def delete_location_if_unused(conn: sqlite3.Connection, location_id: int) -> bool:
-    """Delete a location no device uses. Raises LocationInUse when one does;
-    False for an unknown id. Run inside the caller's transaction so the
-    check and the delete cannot interleave with an assignment.
-    """
-    with _atomic(conn):
-        if conn.execute(
-            "SELECT 1 FROM devices WHERE location_id = ?", (location_id,)
-        ).fetchone():
-            raise LocationInUse(location_id)
-        return conn.execute(
-            "DELETE FROM locations WHERE id = ?", (location_id,)
-        ).rowcount > 0
-
-
-def count_locations_owned(conn: sqlite3.Connection, user_id: int) -> int:
-    row = conn.execute(
-        "SELECT count(*) FROM locations WHERE owner_user_id = ?", (user_id,)
-    ).fetchone()
-    return int(row[0])
-
-
-def location_usage_counts(
-    conn: sqlite3.Connection, owner_user_id: int | None = None
-) -> dict[int, int]:
-    """Devices per location id (locations no device uses are absent).
-
-    With `owner_user_id`, only that user's devices are counted, so a viewer
-    never learns how many frames of other owners use a location.
-    """
-    where = "location_id IS NOT NULL"
-    args: tuple[int, ...] = ()
-    if owner_user_id is not None:
-        where += " AND owner_user_id = ?"
-        args = (owner_user_id,)
-    rows = conn.execute(
-        "SELECT location_id, count(*) AS n FROM devices WHERE "
-        + where + " GROUP BY location_id",
-        args,
-    )
-    return {int(r["location_id"]): int(r["n"]) for r in rows}
-
-
 def set_device_location_checked(
     conn: sqlite3.Connection,
     device_id: str,
