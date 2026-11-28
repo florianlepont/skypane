@@ -1036,7 +1036,7 @@ class TestRestoreThenMigrate:
         before = self._tree(restored)
         lines, code = sqlite_migrations.report(str(restored))
         assert code == 3
-        assert lines[0].startswith("fleet.db pending current=2 target=4 pending=2 step=3:")
+        assert lines[0].startswith("fleet.db pending current=2 target=5 pending=3 step=3:")
         assert lines[1] == "history.db absent"
         assert lines[2].startswith("devices/%s/history.db pending current=0 target=1" % _DEV)
         assert self._tree(restored) == before
@@ -1045,7 +1045,7 @@ class TestRestoreThenMigrate:
         history_db.connect(str(restored / "devices" / _DEV)).close()
         lines, code = sqlite_migrations.report(str(restored))
         assert code == 0
-        assert lines[0] == "fleet.db ok current=4 target=4 pending=0"
+        assert lines[0] == "fleet.db ok current=5 target=5 pending=0"
         assert lines[2] == "devices/%s/history.db ok current=1 target=1 pending=0" % _DEV
 
         conn = fleet_db.connect_readonly(str(restored))
@@ -1062,4 +1062,51 @@ class TestRestoreThenMigrate:
         fleet_db.connect(str(restored)).close()
         history_db._SCHEMA_READY.clear()
         history_db.connect(str(restored / "devices" / _DEV)).close()
+        assert self._tree(restored) == settled
+
+    def test_schema_4_backup_with_sessions_migrates_to_5_and_is_stable(self, tmp_path):
+        import sqlite3
+
+        from server import sqlite_migrations
+
+        source = tmp_path / "state"
+        source.mkdir()
+        raw = sqlite3.connect(fleet_db.fleet_db_path(str(source)), isolation_level=None)
+        fleet_db.migrate_schema(raw, fleet_db.MIGRATIONS[:4])
+        raw.execute("PRAGMA foreign_keys=ON")
+        raw.execute("INSERT INTO users (email, role, created_at) "
+                    "VALUES ('a@example.org', 'user', 't')")
+        kept = [("h%d" % i, 1, "user", 100 + i, 200 + i, 900000 + i) for i in range(3)]
+        raw.executemany("INSERT INTO sessions VALUES (?, ?, ?, ?, ?, ?)", kept)
+        raw.execute("INSERT INTO sessions VALUES ('old', NULL, 'legacy-admin', 1, 1, 2)")
+        raw.close()
+
+        restored = tmp_path / "restored"
+        restored.mkdir()
+        skypane_backup.snapshot_db(
+            fleet_db.fleet_db_path(str(source)), fleet_db.fleet_db_path(str(restored)))
+
+        before = self._tree(restored)
+        lines, code = sqlite_migrations.report(str(restored))
+        assert code == 3
+        assert lines[0] == (
+            "fleet.db pending current=4 target=5 pending=1 "
+            "step=5:sessions-user-principal-only:"
+            "rebuilds-table:sessions,removes-legacy-admin-rows:1")
+        assert self._tree(restored) == before
+
+        fleet_db.connect(str(restored)).close()
+        lines, code = sqlite_migrations.report(str(restored))
+        assert code == 0
+        assert lines[0] == "fleet.db ok current=5 target=5 pending=0"
+        check = sqlite3.connect(fleet_db.fleet_db_path(str(restored)))
+        try:
+            rows = check.execute("SELECT * FROM sessions ORDER BY id_hash").fetchall()
+        finally:
+            check.close()
+        assert rows == kept
+
+        fleet_db.connect(str(restored)).close()
+        settled = self._tree(restored)
+        fleet_db.connect(str(restored)).close()
         assert self._tree(restored) == settled

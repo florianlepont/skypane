@@ -252,18 +252,95 @@ def _migrate_v4(conn: sqlite3.Connection) -> None:
     )
 
 
-MIGRATIONS: tuple[Migration, ...] = (_migrate_v1, _migrate_v2, _migrate_v3, _migrate_v4)
+_SESSION_COLUMNS = "id_hash, user_id, principal, created_at, last_seen_at, expires_at"
+
+
+def _copy_user_sessions(conn: sqlite3.Connection) -> None:
+    """Copy every 'user' session row, in rowid order, into sessions_new."""
+    conn.execute(
+        f"INSERT INTO sessions_new ({_SESSION_COLUMNS}) "
+        f"SELECT {_SESSION_COLUMNS} FROM sessions WHERE principal = 'user' "
+        "ORDER BY rowid"
+    )
+
+
+def _count_rows(conn: sqlite3.Connection, table: str) -> int:
+    # `table` is one of two fixed names from this module, never input.
+    return int(conn.execute("SELECT COUNT(*) FROM " + table).fetchone()[0])
+
+
+def _migrate_v5(conn: sqlite3.Connection) -> None:
+    # Rebuild `sessions` so the principal can only be 'user' and a session
+    # always names a user. Runs inside the caller's BEGIN IMMEDIATE, so a
+    # failure anywhere (including the checks below) rolls the whole step
+    # back and the file stays at schema 4. Rows with the retired
+    # 'legacy-admin' principal are expired old-format sessions: they are
+    # counted, not copied, and the count is reported.
+    # No other table references `sessions`, so the rebuild needs no
+    # PRAGMA foreign_keys toggle (which is a no-op inside a transaction
+    # anyway); foreign_key_check below proves nothing was left dangling.
+    before = _count_rows(conn, "sessions")
+    retired = int(conn.execute(
+        "SELECT COUNT(*) FROM sessions WHERE principal = 'legacy-admin'"
+    ).fetchone()[0])
+    conn.execute(
+        "CREATE TABLE sessions_new ("
+        " id_hash TEXT PRIMARY KEY,"
+        " user_id INTEGER NOT NULL REFERENCES users(id),"
+        " principal TEXT NOT NULL CHECK (principal = 'user'),"
+        " created_at INTEGER NOT NULL,"
+        " last_seen_at INTEGER NOT NULL,"
+        " expires_at INTEGER NOT NULL)"
+    )
+    _copy_user_sessions(conn)
+    copied = _count_rows(conn, "sessions_new")
+    if copied != before - retired:
+        raise FleetDbError(
+            f"sessions rebuild row count mismatch: {before} rows, "
+            f"{retired} retired, {copied} copied"
+        )
+    conn.execute("DROP TABLE sessions")
+    conn.execute("ALTER TABLE sessions_new RENAME TO sessions")
+    conn.execute("CREATE INDEX sessions_user ON sessions (user_id)")
+    conn.execute("CREATE INDEX sessions_expires ON sessions (expires_at)")
+    if _count_rows(conn, "sessions") != copied:
+        raise FleetDbError("sessions rebuild row count mismatch after rename")
+    if conn.execute("PRAGMA foreign_key_check(sessions)").fetchall():
+        raise FleetDbError("sessions rebuild left a dangling user reference")
+    if retired:
+        print(f"fleet.db schema 5: removed {retired} legacy-admin session row(s)",
+              flush=True)
+
+
+def _impact_v5(conn: sqlite3.Connection) -> str:
+    # Report only: how many retired-principal rows the step would remove. A
+    # file old enough to lack `sessions` has none.
+    has_table = conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'sessions'"
+    ).fetchone()
+    count = 0
+    if has_table:
+        count = int(conn.execute(
+            "SELECT COUNT(*) FROM sessions WHERE principal = 'legacy-admin'"
+        ).fetchone()[0])
+    return f"rebuilds-table:sessions,removes-legacy-admin-rows:{count}"
+
+
+MIGRATIONS: tuple[Migration, ...] = (
+    _migrate_v1, _migrate_v2, _migrate_v3, _migrate_v4, _migrate_v5)
 SCHEMA_VERSION = len(MIGRATIONS)
 
-# Report text for each step above, in order: a name and what it adds. Words
-# only, no spaces, so a report line stays one space-separated record.
-_STEP_DETAILS: tuple[tuple[str, str], ...] = (
+# Report text for each step above, in order: a name and what it changes
+# (fixed text, or a read-only function of the connection). Words only, no
+# spaces, so a report line stays one space-separated record.
+_STEP_DETAILS: tuple[tuple[str, str | Callable[[sqlite3.Connection], str]], ...] = (
     ("initial-schema", "creates-tables:users,locations,devices,meta"),
     ("sessions", "creates-table:sessions,indexes:2"),
     ("pending-devices-and-owned-locations",
      "adds-column:locations.owner_user_id,creates-tables:pending_devices,audit_log,"
      "index:1,triggers:2"),
     ("device-co-managers", "creates-table:device_co_managers,index:1,triggers:2"),
+    ("sessions-user-principal-only", _impact_v5),
 )
 
 FLEET_POLICY = Policy(
@@ -284,7 +361,9 @@ def _steps_for(migrations: tuple[Migration, ...]) -> tuple[Step, ...]:
     steps = []
     for index, migration in enumerate(migrations):
         name, impact = _STEP_DETAILS[index] if named else (f"step-{index + 1}", "unknown")
-        steps.append(Step(index + 1, name, migration, _fixed_impact(impact)))
+        steps.append(Step(
+            index + 1, name, migration,
+            impact if callable(impact) else _fixed_impact(impact)))
     return tuple(steps)
 
 

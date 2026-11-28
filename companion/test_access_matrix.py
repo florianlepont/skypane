@@ -21,6 +21,7 @@ anonymous is sent to sign-in, a role below the route's minimum gets the
 unknown-path 404, and the device is only looked up after that decision (an
 anonymous caller gets the same sign-in redirect for an unknown id).
 """
+import sqlite3
 import time
 
 import pytest
@@ -33,7 +34,8 @@ from companion_app_server import (
 from fake_auth0 import FakeAuth0
 from access_matrix_support import (
     ADMIN_EMAIL, OTHER_EMAIL, OWNER_EMAIL, REACHED_BODY, Recorder, probe_path,
-    probe_routes, seed_matrix_fleet, session_cookie_for, stub_routes)
+    plant_legacy_session_row, probe_routes, seed_matrix_fleet, session_cookie_for,
+    stub_routes)
 import matrix_rows_admin_frame
 import matrix_rows_co_managers
 import matrix_rows_landing
@@ -864,11 +866,24 @@ def test_an_expired_session_is_refused(rig, stubbed):
     _expect_signed_out(rig, cookie)
 
 
+def test_the_database_refuses_to_store_a_legacy_session(rig):
+    def stored():
+        conn = rig.conn()
+        try:
+            return conn.execute("SELECT COUNT(*) FROM sessions").fetchone()[0]
+        finally:
+            conn.close()
+
+    before = stored()
+    with pytest.raises(sqlite3.IntegrityError):
+        session_cookie_for(rig.state_dir, "legacy-admin", None, int(time.time()))
+    assert stored() == before
+
+
 @pytest.mark.parametrize("retired_flag", [None, "0", "1"])
 def test_a_legacy_session_is_refused_whatever_the_retired_flag_says(
         rig, stubbed, retired_flag):
-    cookie = session_cookie_for(
-        rig.state_dir, fleet_sessions.PRINCIPAL_LEGACY_ADMIN, None, int(time.time()))
+    cookie = plant_legacy_session_row(rig.state_dir, int(time.time()))
     rig.server.apply_env({"SKYPANE_LEGACY_PASSWORD_LOGIN": retired_flag})
     try:
         status, headers, _b = rig.request("GET", "/", cookie)
