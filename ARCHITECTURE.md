@@ -827,35 +827,55 @@ these stores is the Phase 66 audit (`66-AUDIT.md`) and is not repeated here.
 
 ### Migrations
 
-There are two mechanisms, and the difference is deliberate.
+One shared module, `server/sqlite_migrations.py`, runs the schema steps of
+both databases. A step is a numbered function; each database passes its own
+ordered steps and picks one of two policies. The difference between the two
+is deliberate and is the policy, not separate code.
 
-- **`fleet.db`** (`server/fleet_db.py`) has an ordered tuple `MIGRATIONS`.
-  Each step runs in one transaction together with its `PRAGMA user_version`
-  bump. A file whose version is newer than the code is refused and never
-  written (`FleetDbTooNew`), which is what keeps the previous release safe
-  on migrated state. Foreign keys are enabled per connection and the file
-  is created mode 0600. Migration runs as an explicit deploy step
-  (`server/fleet_migrate.py`) and again on `connect()`.
-- **`history.db`** (`server/history_db.py`) uses idempotent
-  `CREATE TABLE IF NOT EXISTS` statements plus guarded `ALTER TABLE ... ADD
-  COLUMN` steps that tolerate a "duplicate column name" race. They run once
-  per process for a given file identity, and `user_version` is only ever
-  raised. A newer file is not refused. The reason is concurrency: the poll
-  oneshot and the companion can both open a fresh or older file at the same
-  moment, so the upgrade has to be safe to run twice in parallel, which a
-  transactional, order-enforcing scheme does not give for free.
+- **`fleet.db`** (`server/fleet_db.py`) uses the policy `immediate`/`refuse`.
+  Each step runs in one `BEGIN IMMEDIATE` transaction together with its
+  `PRAGMA user_version` bump, and a step already applied by a concurrent
+  opener is skipped after the version is re-read. A file whose version is
+  newer than the code is refused and never written (`FleetDbTooNew`), which
+  is what keeps the previous release safe on migrated state. Foreign keys
+  are enabled per connection and the file is created mode 0600. Migration
+  runs as an explicit deploy step (`server/fleet_migrate.py`) and again on
+  `connect()`.
+- **`history.db`** (`server/history_db.py`) uses the policy
+  `idempotent`/`keep`. The steps are `CREATE TABLE IF NOT EXISTS`
+  statements plus guarded `ALTER TABLE ... ADD COLUMN` steps that tolerate a
+  "duplicate column name" race. All of them run on every first open of a file
+  identity in a process (so a file stamped current that lost a table is
+  repaired), and `user_version` is only ever raised. A newer file is kept,
+  not refused. The reason is concurrency: the poll oneshot and the companion
+  can both open a fresh or older file at the same moment, so the upgrade has
+  to be safe to run twice in parallel.
 
-Decision: **documented, not unified.** This is a provisional default: the
-two contracts differ for a reason, and a shared mechanism would touch the
-two most heavily used modules for no behavioural gain. The owner may
-override it; if so, the only logic worth sharing is the 5000 ms busy
-timeout, the WAL pragma and the `user_version` read.
+The 5000 ms busy timeout (`BUSY_TIMEOUT_MS`), the WAL pragma and the
+`user_version` read are shared too. The unification changed no schema, no
+version number, no file mode and no access rule.
+
+The module also has a read-only command, `python3 -m server.sqlite_migrations
+report --state-dir <state-root>`. It prints one line per database
+(`fleet.db`, the root `history.db`, every `devices/<id>/history.db`) with the
+status (`ok`, `pending`, `newer`, `absent` or `unreadable`), the current and
+target version and the pending steps, and writes nothing. Exit status 0 means
+nothing is pending (an `absent` file and a `newer` file also exit 0), 3 that a
+step is pending, 2 that a file could not be read; the worst code wins, so an
+unreadable file beats a pending step. The retirement runbook in `deploy/README.md` uses it first.
 
 ### Duplicated or overlapping data
 
-Each item below is kept on purpose or is data held for later. Retiring any
-of them needs an owner decision on the end of the rollback period.
-Provisional default: document, do not retire; no schema change.
+Each item below is still in place today. Items 1, 2, 3, 5 and 6 were kept
+as a rollback safety net or as leftovers; the owner has asked for their
+retirement, but nothing is retired yet. Each retirement is gated on the
+owner's read-only production checks, pasted into the retirement gate
+document (`.planning/workstreams/v1-2/phases/67-project-and-code-optimisation/67-RETIREMENT-GATE.md`),
+and ends the ability to put the previous release back on the current data
+(recovery is then the nightly backup). Until those checks are pasted and
+approved, everything below describes the code as it runs. Item 4
+(`wake_epochs`) is kept by decision. No schema change is applied to
+production by the project; deploys stay manual.
 
 1. **Legacy identity mirror** (rollback safety net). The enrolment-secret
    hash and the device token exist in `fleet.db` (`devices`,
