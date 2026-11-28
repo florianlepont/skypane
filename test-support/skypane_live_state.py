@@ -9,19 +9,22 @@ point SKYPANE_LIVE_STATE_COPY at it to replay against that instead. Unset
 """
 from __future__ import annotations
 
+import contextlib
 import hashlib
+import io
 import json
 import os
 import shutil
 from types import SimpleNamespace
 
-from server import atomic_io, state_store
+from server import atomic_io, fleet_migrate, state_store
 
 COPY_ENV_VAR = "SKYPANE_LIVE_STATE_COPY"
 
 DEFAULT_MAC = "aa:bb:cc:dd:ee:01"
 DEFAULT_SECRET_HEX = "0123456789abcdef" * 4
 DEFAULT_TOKEN = "tok-" + "f" * 40
+OWNER_EMAIL = "owner@example.com"
 
 _PANEL_BYTES = 960000
 
@@ -63,11 +66,32 @@ def seed_live_like_state(
     mac: str = DEFAULT_MAC,
     secret_hex: str = DEFAULT_SECRET_HEX,
     token: str = DEFAULT_TOKEN,
+    migrated: bool = True,
 ) -> SimpleNamespace:
-    """Populate `state_dir` like a live frame's state directory."""
+    """Populate `state_dir` like a live frame's state directory.
+
+    The device server reads identity from fleet.db only, so by default the
+    legacy files are imported into a migrated fleet.db through the same
+    one-time import the deployment runs (the legacy files stay in place).
+    Pass `migrated=False` for the pre-import state a migration test needs.
+    """
     copy = os.environ.get(COPY_ENV_VAR)
     if copy:
-        return _copy_identity(copy, state_dir)
+        seeded = _copy_identity(copy, state_dir)
+        return _migrate_seeded(seeded) if migrated else seeded
+    seeded = _seed_legacy_files(state_dir, mac, secret_hex, token)
+    return _migrate_seeded(seeded) if migrated else seeded
+
+
+def _migrate_seeded(seeded: SimpleNamespace) -> SimpleNamespace:
+    with contextlib.redirect_stdout(io.StringIO()):
+        fleet_migrate.migrate(seeded.state_dir, OWNER_EMAIL, dry_run=False)
+    return seeded
+
+
+def _seed_legacy_files(
+    state_dir: str, mac: str, secret_hex: str, token: str
+) -> SimpleNamespace:
     os.makedirs(state_dir, exist_ok=True)
     _write_json(
         os.path.join(state_dir, "devices.json"),

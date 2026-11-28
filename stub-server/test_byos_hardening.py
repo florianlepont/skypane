@@ -3,8 +3,7 @@
 
 - `_atomic_write`, byos's local same-directory-mkstemp atomic writer,
   proven to share `server/atomic_io.py`'s observable contract by a test
-  parametrised over both callables, plus its three writers (`save_state`,
-  `save_registry`, `save_battery_state`).
+  parametrised over both callables, plus its writer `save_battery_state`.
 - Content-addressed `img/<sha256>.bin` publishing, so the device always
   downloads the bytes it was told about.
 - Request hardening: bounded/validated `Content-Length`, a socket timeout
@@ -48,9 +47,10 @@ if _TEST_SUPPORT_DIR not in sys.path:
     sys.path.insert(0, _TEST_SUPPORT_DIR)
 
 from server import atomic_io  # noqa: E402 - path bootstrap above must run first
+import skypane_fleet_identity as fleet_identity  # noqa: E402
 from skypane_test_support import child_env  # noqa: E402
 
-# A fixed MAC/token pair seeded directly into byos_state.json (never through
+# A fixed MAC/token pair seeded directly into fleet.db (never through
 # the /device/v1/setup handshake, which stub-server/test_devices_registry.py
 # already covers) so tests here can call /device/v1/display and
 # /device/v1/log directly with a known bearer token.
@@ -136,7 +136,7 @@ def _raw_request(port, request_line, header_lines, body=b"", read_timeout=5.0):
 
 class Harness:
     """Owns one byos_server.py subprocess: a free port, the caller's
-    tmp_path as --state-dir, and a seeded byos_state.json carrying
+    tmp_path as --state-dir, and a seeded fleet.db carrying
     KNOWN_TOKEN for KNOWN_MAC - so callers can drive /device/v1/display
     and /device/v1/log without the /device/v1/setup handshake. Callers
     must run stop() in a finally block - never leaves an orphaned server
@@ -151,8 +151,9 @@ class Harness:
         self.proc = None
         with open(self.image_path, "wb") as fh:
             fh.write(image_bytes if image_bytes is not None else make_panel_bytes(0))
-        with open(os.path.join(self.tmpdir, "byos_state.json"), "w") as fh:
-            json.dump({"tokens": {KNOWN_MAC: KNOWN_TOKEN}}, fh)
+        fleet_identity.register_device(
+            self.tmpdir, KNOWN_MAC, hashlib.sha256(b"unused-secret").hexdigest(),
+            token=KNOWN_TOKEN)
 
     @staticmethod
     def _pick_free_port():
@@ -325,53 +326,15 @@ def test_atomic_write_parity_concurrent_threads_write_one_complete_payload(write
     assert _temp_leftovers(str(tmp_path)) == []
 
 
-def test_save_registry_leaves_devices_json_mode_0600(byos_module, tmp_path):
-    """save_registry() leaves devices.json at mode 0600"""
+def test_save_battery_state_leaves_no_temp_and_valid_json(byos_module, tmp_path):
+    """save_battery_state() leaves no temp file and valid, round-trippable JSON"""
     tmpdir = str(tmp_path)
-    registry = {"devices": {KNOWN_MAC: {"secret_sha256": "a" * 64}}}
-    byos_module.save_registry(tmpdir, registry)
-    path = byos_module.registry_path(tmpdir)
-    assert stat.S_IMODE(os.stat(path).st_mode) == 0o600
-    with open(path) as fh:
-        assert json.load(fh) == registry
-    assert _temp_leftovers(tmpdir) == []
-
-
-def test_save_state_and_save_battery_state_leave_no_temp_and_valid_json(byos_module, tmp_path):
-    """save_state() and save_battery_state() leave no temp file and valid, round-trippable JSON"""
-    tmpdir = str(tmp_path)
-    byos_module.save_state(tmpdir, {"tokens": {KNOWN_MAC: KNOWN_TOKEN}})
     byos_module.save_battery_state(tmpdir, 3700)
     assert _temp_leftovers(tmpdir) == []
-    with open(byos_module.state_path(tmpdir)) as fh:
-        assert json.load(fh) == {"tokens": {KNOWN_MAC: KNOWN_TOKEN}}
     with open(byos_module.battery_state_path(tmpdir)) as fh:
         battery = json.load(fh)
     assert battery["battery_mv"] == 3700
     assert isinstance(battery["received_at"], float)
-
-
-def test_save_state_concurrent_threads_no_exception(byos_module, tmp_path):
-    """Two threads calling save_state() concurrently, 100 times each, raise no exception -
-    today both would share byos_state.json.tmp and could collide"""
-    tmpdir = str(tmp_path)
-    errors = []
-
-    def worker(tag):
-        try:
-            for i in range(100):
-                byos_module.save_state(tmpdir, {"tokens": {tag: "%d" % i}})
-        except Exception as exc:
-            errors.append(exc)
-
-    threads = [threading.Thread(target=worker, args=("t%d" % t,)) for t in range(2)]
-    for t in threads:
-        t.start()
-    for t in threads:
-        t.join()
-
-    assert errors == []
-    assert _temp_leftovers(tmpdir) == []
 
 
 # --- Content-addressed image download --------------------------------------

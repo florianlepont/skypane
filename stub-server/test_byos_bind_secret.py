@@ -4,7 +4,7 @@ argv or environment.
 
 Production runs byos behind Caddy with `--bind 127.0.0.1`; the default
 stays 0.0.0.0 so the LAN stub flow keeps working. Enrolment is gated by
-the per-device registry (devices.json, SHA-256 hashes only), so byos
+the per-device registry (fleet.db, SHA-256 hashes only), so byos
 needs no secret on its command line or in its environment - these tests
 start it with neither and prove a registered frame still enrols.
 

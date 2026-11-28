@@ -876,6 +876,25 @@ class TestArtworkMergeBackup:
         assert "not in include list" not in capsys.readouterr().out
 
 
+class TestQuarantineBackup:
+    def test_quarantined_identity_files_reach_the_archive_without_drift(self, tmp_path, capsys):
+        from server import retire_legacy_state
+
+        state_dir = tmp_path / "state"
+        _seed_minimal_state(state_dir)
+        quarantine = state_dir / retire_legacy_state.QUARANTINE_DIRNAME / "2030-01-02"
+        quarantine.mkdir(parents=True)
+        for name in retire_legacy_state.LEGACY_FILES:
+            (quarantine / name).write_text("{}")
+
+        rc, archive_dir = _run_backup(tmp_path)
+        assert rc == 0
+        members = _members(archive_dir / _archive_names(archive_dir)[0])
+        for name in retire_legacy_state.LEGACY_FILES:
+            assert "%s/2030-01-02/%s" % (retire_legacy_state.QUARANTINE_DIRNAME, name) in members
+        assert "not in include list" not in capsys.readouterr().out
+
+
 def _seed_via_production_writers(state_dir):
     """Fill one frame directory only through the code that writes it in
     production, with placeholder data."""

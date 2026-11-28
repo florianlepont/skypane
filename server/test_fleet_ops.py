@@ -272,7 +272,7 @@ def _second_user(conn):
 
 
 def _live_device(conn, root, owner):
-    ns = live.seed_live_like_state(root)
+    ns = live.seed_live_like_state(root, migrated=False)
     did = fleet_db.add_device(conn, ns.mac, SECRET, HW, owner, token="live-tok")
     return did
 

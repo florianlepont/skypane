@@ -1,7 +1,7 @@
 """One-call fixture: the live frame plus two simulated devices.
 
 `seed_two_device_fleet(state_dir)` seeds the live frame's state directory,
-imports it into fleet.db the way the production migration does, then adds
+imports it into fleet.db the way the production migration does (the seeder runs that import), then adds
 two `sim-ee02-clone` devices (and optionally a landscape one), each with
 its own directory under `devices/`, its own panel image (a distinct fill
 byte), its own secret and its own token.
@@ -23,13 +23,12 @@ from types import SimpleNamespace
 
 import skypane_live_state as live_state
 
-from server import device_dirs, fleet_db, fleet_migrate, hardware
+from server import device_dirs, fleet_db, hardware
 
 _STUB_DIR = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "stub-server")
 if _STUB_DIR not in sys.path:
     sys.path.insert(0, _STUB_DIR)
-import byos_server  # noqa: E402
 
 OWNER_EMAIL = "owner@example.com"
 FILL_A = 0x22
@@ -83,11 +82,6 @@ def _simulated_device(
     profile = hardware.get_profile(hardware_type, os.environ)
     directory = device_dirs.provision_device_dir(
         state_dir, device_id, profile.width, profile.height, fill=fill)
-    # Legacy dual write, as `fleet_cli devices add` does.
-    byos_server.register_device(state_dir, mac, secret_sha)
-    legacy = byos_server.load_state(state_dir)
-    legacy["tokens"][mac] = token
-    byos_server.save_state(state_dir, legacy)
     return SimpleNamespace(
         id=device_id, mac=mac, secret_hex=secret_hex, token=token,
         state_dir=directory, fill=fill, hardware_type=hardware_type)
@@ -103,7 +97,6 @@ def seed_two_device_fleet(
     `landscape_type` is the hardware type of the optional third device.
     """
     seeded = live_state.seed_live_like_state(state_dir)
-    fleet_migrate.migrate(state_dir, OWNER_EMAIL, dry_run=False)
     conn = fleet_db.connect(state_dir)
     try:
         live_row = fleet_db.get_device_by_mac(conn, seeded.mac)

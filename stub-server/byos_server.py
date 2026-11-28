@@ -26,11 +26,11 @@ IMG_KEEP files) before answering, so GET /img/<sha>.bin always serves
 exactly the bytes that hash names, even if the on-disk --image changes
 before the device downloads; any other /img/ path, or a hash never
 published, is 404. Enrolment is gated by a per-device registry
-(devices.json in --state-dir maps
+(fleet.db in --state-dir maps
 each MAC to the SHA-256 of its own enrolment secret, managed with
-stub-server/devices_cli.py); a missing or unreadable registry refuses
-every enrolment rather than falling back to open. Issued tokens live
-in byos_state.json inside --state-dir, so restarts don't strand frames.
+stub-server/fleet_cli.py); a missing, unmigrated or unreadable fleet.db
+refuses every enrolment and every poll rather than falling back to open.
+Issued tokens live in fleet.db too, so restarts don't strand frames.
 
 GET /device/v1/display's sleep_s is the companion app's saved
 wake_interval_s (or --sleep; while the opt-in check-interval experiment of
@@ -77,7 +77,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 # server/state_store.py use: the deployed layout already ships server/
 # next to stub-server/ (deploy/skypane-byos.service's WorkingDirectory),
 # so this always resolves from the file's own location, never a
-# cwd-relative path. Insert only if absent - devices_cli.py and the test
+# cwd-relative path. Insert only if absent - fleet_cli.py and the test
 # harnesses below may load this file more than once per process.
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _REPO_ROOT not in sys.path:
@@ -101,7 +101,7 @@ BATTERY_MV_MAX = 10000
 # wake_interval_s bounds, the off-state check-in cadence and the
 # battery-critical parked cadence/recovery threshold: bindings to
 # server/device_policy.py's shared objects, kept under these historical
-# names since the handlers below, devices_cli.py and the tests still
+# names since the handlers below, fleet_cli.py and the tests still
 # resolve them here.
 _HHMM_RE = device_policy.HHMM_RE
 QUIET_HOURS_TZ = device_policy.QUIET_HOURS_TZ
@@ -147,8 +147,7 @@ def _atomic_write(path, data, mode=None):
     set on the temp file's descriptor before any byte is written, never
     chmod'ed after the rename, fsynced before the rename, temp removed
     and the exception re-raised on any failure) - kept as a local copy
-    for the files byos alone owns (byos_state.json, devices.json,
-    img/*.bin), independent of the shared server.device_policy and
+    for the files byos alone owns (img/*.bin), independent of the shared server.device_policy and
     server.state_store modules this file now imports for quiet-hours,
     battery-critical policy and the poll_state.json latch read; a
     behaviour-parity test in test_byos_hardening.py pins this copy and
@@ -198,38 +197,13 @@ def _atomic_write(path, data, mode=None):
                 pass
 
 
-def state_path(state_dir):
-    return os.path.join(state_dir, "byos_state.json")
-
-
-def load_state(state_dir):
-    try:
-        with open(state_path(state_dir)) as fh:
-            return json.load(fh)
-    except (OSError, ValueError):
-        return {"tokens": {}}
-
-
-def save_state(state_dir, state):
-    _atomic_write(state_path(state_dir), json.dumps(state, indent=1))
-
-
 # --- Per-device enrolment registry -----------------------------------
 #
-# Maps each MAC to the SHA-256 hex digest of its own enrolment secret,
-# never the secret itself: {"devices": {mac: {"secret_sha256": hex}}}.
-# Closes the gap a single shared --secret left open - anyone who learned
-# the one shared value could re-enrol (and hijack) any device. Re-enrolling
-# a MAC requires that MAC's own secret; a wrong one (including another
-# device's) leaves the existing token untouched.
-REGISTRY_FILE = "devices.json"
-
+# fleet.db maps each MAC to the SHA-256 hex digest of its own enrolment
+# secret, never the secret itself: {"devices": {mac: {"secret_sha256": hex}}}.
+# Re-enrolling a MAC requires that MAC's own secret; a wrong one (including
+# another device's) leaves the existing token untouched.
 _MAC_RE = re.compile(r"\A([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}\Z")
-_SHA256_HEX_RE = re.compile(r"\A[0-9a-f]{64}\Z")
-
-
-def registry_path(state_dir):
-    return os.path.join(state_dir, REGISTRY_FILE)
 
 
 def normalize_mac(value):
@@ -240,55 +214,6 @@ def normalize_mac(value):
     if not isinstance(value, str) or not _MAC_RE.match(value):
         return None
     return value.lower()
-
-
-def load_registry(state_dir):
-    """Load <state_dir>/devices.json as {"devices": {mac: {"secret_sha256": hex}}}.
-    Fails CLOSED (the opposite of load_state()'s fail-open contract
-    above): any missing, unreadable, malformed, or wrongly-shaped
-    document returns an empty registry, so corruption enrols nobody
-    rather than everybody.
-    """
-    try:
-        with open(registry_path(state_dir)) as fh:
-            data = json.load(fh)
-    except (OSError, ValueError):
-        return {"devices": {}}
-    if not isinstance(data, dict) or not isinstance(data.get("devices"), dict):
-        return {"devices": {}}
-    return data
-
-
-def save_registry(state_dir, registry):
-    """Atomically write `registry` to devices.json via _atomic_write with
-    mode=0o600 (set on the temp file's descriptor before any byte is
-    written, never chmod'ed after the rename, so the registry is never
-    briefly world-readable). Holds only SHA-256 hashes, never a plaintext
-    secret.
-    """
-    _atomic_write(registry_path(state_dir), json.dumps(registry, indent=1), mode=0o600)
-
-
-def register_device(state_dir, mac, secret_sha256, replace=False):
-    """Add (or, with replace=True, overwrite) one MAC's registry entry.
-    Returns the normalized MAC. Raises ValueError for a malformed
-    mac/secret_sha256, or for an already-registered MAC when replace is
-    False - devices_cli.py turns that into a non-zero exit rather than
-    a silent no-op or accidental overwrite.
-    """
-    normalized = normalize_mac(mac)
-    if normalized is None:
-        raise ValueError("not a MAC address: %r" % (mac,))
-    if not isinstance(secret_sha256, str) or not _SHA256_HEX_RE.match(secret_sha256):
-        raise ValueError(
-            "secret_sha256 must be 64 lowercase hex characters: %r" % (secret_sha256,))
-    registry = load_registry(state_dir)
-    if normalized in registry["devices"] and not replace:
-        raise ValueError(
-            "%s is already registered (pass replace=True to overwrite)" % normalized)
-    registry["devices"][normalized] = {"secret_sha256": secret_sha256}
-    save_registry(state_dir, registry)
-    return normalized
 
 
 def secret_matches(registry, mac, presented):
@@ -311,12 +236,11 @@ def secret_matches(registry, mac, presented):
 
 # --- fleet.db bridge ---------------------------------------------------
 #
-# Once fleet.db carries the migrated marker it is the identity source
-# (MAC, secret hash, token), read at request time. Otherwise the legacy
-# files are used. Exactly one source answers per call, never a union, and
-# an unreadable, corrupt or too-new fleet.db degrades to the legacy files
-# rather than to allow-all. Enrolment writes the token to both stores so a
-# previous release reading only the legacy files still authenticates.
+# fleet.db, once it carries the migrated marker, is the only identity
+# source (MAC, secret hash, token), read at request time. An absent,
+# unmigrated, unreadable, corrupt or too-new fleet.db fails closed: the
+# registry and the token set are empty, so every enrolment and every
+# authenticated request is refused. It never degrades to allow-all.
 _fleet_status_cache = {}
 _fleet_status_lock = threading.Lock()
 
@@ -344,7 +268,7 @@ def _note_fleet_status(state_dir, status, detail=""):
 
 def _fleet_view(state_dir):
     """{"registry", "tokens"} from a migrated, readable fleet.db, or None
-    when identity must come from the legacy files. Never raises.
+    when fleet.db cannot answer (callers then refuse). Never raises.
     """
     try:
         conn = fleet_db.connect_readonly(state_dir)
@@ -384,41 +308,35 @@ def _merged_fleet_view(conn):
 
 def effective_registry(state_dir):
     view = _fleet_view(state_dir)
-    return view["registry"] if view is not None else load_registry(state_dir)
+    return view["registry"] if view is not None else {"devices": {}}
 
 
-def effective_tokens(state_dir, legacy_state):
+def effective_tokens(state_dir):
     view = _fleet_view(state_dir)
-    return view["tokens"] if view is not None else legacy_state["tokens"]
+    return view["tokens"] if view is not None else {}
 
 
-def issue_token(state_dir, state, mac):
-    """Generate and store a device token; None when the fleet.db write
-    fails (the legacy file is then left untouched, so no token is known
-    to only one store).
+def issue_token(state_dir, mac):
+    """Generate and store a device token in fleet.db (a registered frame's
+    row, else a pending or retired frame's); None when the write fails.
     """
     token = secrets.token_hex(32)
-    if _fleet_view(state_dir) is not None:
+    try:
+        conn = fleet_db.connect(state_dir, create=False)
         try:
-            conn = fleet_db.connect(state_dir, create=False)
-            try:
-                with fleet_db.transaction(conn):
-                    if not fleet_db.set_device_token(conn, mac, token):
-                        # A pending or retired frame keeps its token in
-                        # fleet.db only; the legacy files never see it.
-                        if fleet_db.set_pending_token(conn, mac, token):
-                            return token
-                        return None
-            finally:
-                conn.close()
-        except (fleet_db.FleetDbError, sqlite3.Error, OSError):
-            return None
-    state["tokens"][mac] = token
-    save_state(state_dir, state)
-    return token
+            with fleet_db.transaction(conn):
+                if fleet_db.set_device_token(conn, mac, token):
+                    return token
+                if fleet_db.set_pending_token(conn, mac, token):
+                    return token
+                return None
+        finally:
+            conn.close()
+    except (fleet_db.FleetDbError, sqlite3.Error, OSError):
+        return None
 
 
-def _enrol(state_dir, state, body):
+def _enrol(state_dir, body):
     """(http_status, payload) for POST /device/v1/setup."""
     mac = normalize_mac(body.get("mac")) if isinstance(body, dict) else None
     if mac is None:
@@ -430,60 +348,12 @@ def _enrol(state_dir, state, body):
     if not secret_matches(registry, mac, body.get("provision_secret")):
         print("setup: %s refused (bad secret)" % mac)
         return 401, {"detail": "bad secret"}
-    token = issue_token(state_dir, state, mac)
+    token = issue_token(state_dir, mac)
     if token is None:
         print("setup: %s enrolment unavailable" % mac)
         return 503, {"detail": "enrolment unavailable"}
     print("setup: %s enrolled (hw_rev=%s)" % (mac, body.get("hw_rev", "?")))
     return 200, {"device_token": token}
-
-
-def mirror_to_fleet(state_dir, op, mac, secret_sha256=None):
-    """Mirror a legacy devices_cli change into a migrated fleet.db.
-    op is "add", "replace", "remove" or "revoke". Returns None when
-    there is nothing to mirror or it succeeded, else a short message
-    that never carries a token or hash. Never raises.
-    """
-    try:
-        probe = fleet_db.connect_readonly(state_dir)
-    except fleet_db.FleetDbAbsent:
-        return None
-    except (fleet_db.FleetDbError, sqlite3.Error, OSError) as exc:
-        return type(exc).__name__
-    try:
-        if fleet_db.meta_get(probe, fleet_db.META_MIGRATED) is None:
-            return None
-    except sqlite3.Error as exc:
-        return type(exc).__name__
-    finally:
-        probe.close()
-    try:
-        conn = fleet_db.connect(state_dir, create=False)
-        try:
-            with fleet_db.transaction(conn):
-                _apply_mirror(conn, op, mac, secret_sha256)
-        finally:
-            conn.close()
-    except (fleet_db.FleetDbError, sqlite3.Error, OSError, ValueError) as exc:
-        return type(exc).__name__
-    return None
-
-
-def _apply_mirror(conn, op, mac, secret_sha256):
-    if op == "remove":
-        fleet_db.remove_device(conn, mac)
-    elif op == "revoke":
-        fleet_db.set_device_token(conn, mac, None)
-    elif fleet_db.get_device_by_mac(conn, mac) is not None:
-        fleet_db.set_device_secret(conn, mac, secret_sha256)
-    elif fleet_db.get_pending_by_mac(conn, mac) is not None:
-        raise ValueError("MAC is pending")
-    else:
-        owner = fleet_db.meta_get(conn, fleet_db.META_BOOTSTRAP_OWNER)
-        if owner is None:
-            raise ValueError("no bootstrap owner")
-        fleet_db.add_device(conn, mac, secret_sha256, hardware.LEGACY_KEY,
-                            int(owner))
 
 
 def device_config_path(state_dir):
@@ -923,8 +793,8 @@ def _resolve_device_id(state, presented_token):
     return None
 
 
-# Returned by _fleet_device_type() when identity must come from the
-# legacy files (fleet.db absent, unmigrated or faulted).
+# Returned by _fleet_device_type() when fleet.db cannot answer (absent,
+# unmigrated or faulted).
 _FLEET_UNAVAILABLE = object()
 _UNSET = object()
 _unresolved_logged = set()
@@ -998,14 +868,12 @@ def _log_unresolved_type_once(mac, stored):
 def resolve_hardware_type(state_dir, mac):
     """The hardware type key the server assigned to `mac`, or None when
     it cannot be resolved (no fleet.db row, a key that is unknown or not
-    available here). Fails closed: with fleet.db unavailable only a MAC in
-    the legacy devices.json registry resolves, to the legacy type, so a
-    device that exists only in fleet.db is never offered the legacy
-    binary.
+    available here). Fails closed: with fleet.db unavailable nothing
+    resolves, so no firmware is offered.
     """
     stored = _fleet_device_type(state_dir, mac)
     if stored is _FLEET_UNAVAILABLE:
-        return hardware.LEGACY_KEY if mac in load_registry(state_dir)["devices"] else None
+        return None
     if stored is None:
         return None
     if not hardware.is_known(stored) or stored not in hardware.available_types():
@@ -1033,7 +901,7 @@ _NO_DEVICE = object()
 _STATE_UNAVAILABLE = object()
 
 
-def _authenticate_device(headers, state_dir, legacy_state):
+def _authenticate_device(headers, state_dir):
     """The MAC whose token the request presents, or None. Every candidate
     is compared with hmac.compare_digest and the loop never exits early,
     so timing does not reveal which token (if any) matched.
@@ -1043,7 +911,7 @@ def _authenticate_device(headers, state_dir, legacy_state):
         return None
     presented = auth[len("Bearer "):].encode("utf-8", "surrogateescape")
     matched = None
-    candidates = effective_tokens(state_dir, legacy_state)
+    candidates = effective_tokens(state_dir)
     for mac, stored in list(candidates.items()):
         stored_bytes = stored.encode("utf-8", "surrogateescape")
         if hmac.compare_digest(presented, stored_bytes):
@@ -1121,7 +989,7 @@ def _pending_context(state_dir, mac):
     return PendingContext(row)
 
 
-def _device_context(args, state, mac):
+def _device_context(args, mac):
     """The DeviceContext for `mac`, or _NO_DEVICE (answer 401) when fleet.db
     is usable but has no row for it, or _STATE_UNAVAILABLE (answer 503)
     when the stored state_path or hardware type cannot be used. With
@@ -1264,7 +1132,7 @@ def _write_device_report(state_dir, doc):
 
 
 def _record_device_report_and_offer(
-        state_dir, state, headers, image_url_scheme, host, device_state_dir=None,
+        state_dir, headers, image_url_scheme, host, device_state_dir=None,
         hardware_type=_UNSET, withhold_offer=False):
     """The single call GET /device/v1/display makes for the whole OTA
     offer contract: parse this request's X-Fw-Version/X-Ota-Result,
@@ -1287,7 +1155,7 @@ def _record_device_report_and_offer(
     auth = headers.get("Authorization", "")
     presented = auth[len("Bearer "):] if auth.startswith("Bearer ") else None
     device_id = _resolve_device_id(
-        {"tokens": effective_tokens(state_dir, state)}, presented)
+        {"tokens": effective_tokens(state_dir)}, presented)
     if device_id is None:
         return None
     # Resolved once per poll, before any lock is taken: the SQLite read
@@ -1524,7 +1392,6 @@ def _pending_response(args, headers, row):
 class Handler(BaseHTTPRequestHandler):
     server_version = "flightportrait-byos-example"
     args = None
-    state = None
     timeout = REQUEST_TIMEOUT_S
 
     def send_json(self, code, obj):
@@ -1582,7 +1449,7 @@ class Handler(BaseHTTPRequestHandler):
             return False
         presented = auth[len("Bearer "):].encode("utf-8", "surrogateescape")
         matched = False
-        candidates = effective_tokens(self.args.state_dir, self.state)
+        candidates = effective_tokens(self.args.state_dir)
         for stored in list(candidates.values()):
             stored_bytes = stored.encode("utf-8", "surrogateescape")
             if hmac.compare_digest(presented, stored_bytes):
@@ -1604,7 +1471,7 @@ class Handler(BaseHTTPRequestHandler):
             body = self.read_body_json()
             if body is _BAD_LENGTH:
                 return None  # read_body_json() already answered 400/413
-            status, payload = _enrol(self.args.state_dir, self.state, body)
+            status, payload = _enrol(self.args.state_dir, body)
             return self.send_json(status, payload)
         if self.path == "/device/v1/log":
             if not self.bearer_ok():
@@ -1696,10 +1563,10 @@ class Handler(BaseHTTPRequestHandler):
         return self.send_json(status, payload)
 
     def _handle_display(self):
-        mac = _authenticate_device(self.headers, self.args.state_dir, self.state)
+        mac = _authenticate_device(self.headers, self.args.state_dir)
         if mac is None:
             return self.send_json(401, {"detail": "unknown token"})
-        ctx = _device_context(self.args, self.state, mac)
+        ctx = _device_context(self.args, mac)
         if ctx is _NO_DEVICE:
             return self.send_json(401, {"detail": "unknown token"})
         if ctx is _STATE_UNAVAILABLE:
@@ -1742,7 +1609,7 @@ class Handler(BaseHTTPRequestHandler):
         host = self.headers.get("Host", "localhost")
         try:
             offer = _record_device_report_and_offer(
-                self.args.state_dir, self.state, self.headers,
+                self.args.state_dir, self.headers,
                 self.args.image_url_scheme, host, ctx.state_dir,
                 hardware_type=resolved, withhold_offer=contradiction)
         except OSError:
@@ -1845,11 +1712,11 @@ def main():
                          "client.")
     ap.add_argument("--secret", default="",
                     help="retired: ignored; enrolment uses the per-device "
-                         "registry (devices.json)")
+                         "registry in fleet.db")
     ap.add_argument("--sleep", type=int, default=3600,
                     help="sleep_s handed to the frame (default 3600)")
     ap.add_argument("--state-dir", default=None,
-                    help="parent directory for byos_state.json "
+                    help="state directory holding fleet.db "
                          "(default: the directory containing this script)")
     ap.add_argument("--image-url-scheme", choices=["http", "https"],
                     default="http",
@@ -1873,12 +1740,11 @@ def main():
         # unit still passing the old flag (mid-migration) starts cleanly
         # instead of crash-looping on an unrecognized argument.
         print("WARNING: --secret is retired and grants nothing; register "
-              "devices with stub-server/devices_cli.py instead (writes "
-              "devices.json in --state-dir)", file=sys.stderr)
+              "devices with stub-server/fleet_cli.py instead (writes "
+              "fleet.db in --state-dir)", file=sys.stderr)
     sys.stdout.reconfigure(line_buffering=True)
 
     Handler.args = args
-    Handler.state = load_state(args.state_dir)
     _fleet_view(args.state_dir)
     Handler.timeout = args.request_timeout
     server = ThreadingHTTPServer((args.bind, args.port), Handler)

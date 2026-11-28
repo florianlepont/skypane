@@ -4,8 +4,6 @@ previewable import of the legacy device files into fleet.db."""
 import json
 import os
 import stat
-import subprocess
-import sys
 import zoneinfo
 
 import pytest
@@ -14,14 +12,13 @@ import server.fleet_db as fleet_db
 import server.fleet_migrate as fleet_migrate
 import server.hardware as hardware
 import skypane_live_state as live
-from skypane_test_support import child_env
 
 OWNER = "owner@example.com"
 
 
 @pytest.fixture
 def seeded(tmp_path):
-    return live.seed_live_like_state(str(tmp_path))
+    return live.seed_live_like_state(str(tmp_path), migrated=False)
 
 
 def _run(seeded, *extra, owner=OWNER):
@@ -259,13 +256,10 @@ def test_remove_then_migrate_succeeds_in_both_modes(seeded, capsys):
     _write(seeded.devices_path, registry)
     _write(seeded.state_path,
            {"tokens": {seeded.mac: seeded.token, second: "second-token"}})
-    cli = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                       "stub-server", "devices_cli.py")
-    result = subprocess.run(
-        [sys.executable, cli, "--state-dir", seeded.state_dir, "remove", "--mac", second],
-        capture_output=True, text=True, env=child_env(),
-    )
-    assert result.returncode == 0, result.stderr
+    # The legacy files as an earlier removal of the second frame left them.
+    del registry["devices"][second]
+    _write(seeded.devices_path, registry)
+    _write(seeded.state_path, {"tokens": {seeded.mac: seeded.token}})
 
     assert _run(seeded, "--dry-run") == 0
     assert _run(seeded) == 0

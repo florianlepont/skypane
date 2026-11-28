@@ -52,10 +52,11 @@ if _TEST_SUPPORT_DIR not in sys.path:
 
 from server import atomic_io, device_policy, firmware_registry, fleet_db, state_store  # noqa: E402 - path bootstrap above must run first
 from server import hardware  # noqa: E402
+import skypane_fleet_identity as fleet_identity  # noqa: E402
 from skypane_test_support import child_env  # noqa: E402
 from skypane_fw_image import build_image  # noqa: E402
 
-# A fixed MAC/token pair seeded directly into byos_state.json (never
+# A fixed MAC/token pair seeded directly into fleet.db (never
 # through the /device/v1/setup handshake, which stub-server/
 # test_devices_registry.py already covers), so every test here can call
 # /device/v1/display directly with a known bearer token and a known
@@ -152,9 +153,6 @@ def publish_test_release(state_dir, version, image_bytes=None, commit="a" * 40, 
     return sha256, image_bytes
 
 
-TOKEN_STATE = {"tokens": {KNOWN_MAC: KNOWN_TOKEN}}
-
-
 def _auth(headers):
     """`headers` plus the bearer header of the known test device."""
     return dict(headers, Authorization="Bearer %s" % KNOWN_TOKEN)
@@ -163,7 +161,7 @@ def _auth(headers):
 class Harness:
     """Owns one byos_server.py subprocess: a free port, the caller's
     tmp_path as --state-dir, a generated panel image, and a seeded
-    byos_state.json carrying KNOWN_TOKEN for KNOWN_MAC - so tests can
+    fleet.db row carrying KNOWN_TOKEN for KNOWN_MAC - so tests can
     drive /device/v1/display directly, and separately call
     server/firmware_registry.py's own publish_release()/
     schedule_release()/cancel_schedule() against the same --state-dir.
@@ -179,8 +177,8 @@ class Harness:
         self.proc = None
         with open(self.image_path, "wb") as fh:
             fh.write(bytes([0x11]) * IMAGE_BYTES)
-        with open(os.path.join(self.tmpdir, "byos_state.json"), "w") as fh:
-            json.dump({"tokens": {KNOWN_MAC: KNOWN_TOKEN}}, fh)
+        fleet_identity.register_device(
+            self.tmpdir, KNOWN_MAC, "0" * 64, token=KNOWN_TOKEN)
 
     @staticmethod
     def _pick_free_port():
@@ -248,16 +246,6 @@ class Harness:
 @pytest.fixture(scope="module")
 def byos_module():
     return load_byos_module()
-
-
-@pytest.fixture(autouse=True)
-def _legacy_device_registered(tmp_path):
-    """The known test device is enrolled in the legacy devices.json
-    registry, the only place a frame without a fleet.db row resolves to
-    the legacy hardware type from.
-    """
-    with open(os.path.join(str(tmp_path), "devices.json"), "w") as fh:
-        json.dump({"devices": {KNOWN_MAC: {"secret_sha256": "0" * 64}}}, fh)
 
 
 # --- The offer in GET /device/v1/display ----------------------------------
@@ -596,6 +584,7 @@ def test_cancel_cannot_race_the_offer_decision(byos_module, tmp_path):
     otherwise be paused inside.
     """
     state_dir = str(tmp_path)
+    fleet_identity.register_device(state_dir, KNOWN_MAC, "0" * 64, token=KNOWN_TOKEN)
     publish_test_release(state_dir, "fw-v1.1.0")
     assert firmware_registry.schedule_release(state_dir, "fw-v1.1.0", running_version=None) == "scheduled"
 
@@ -616,7 +605,7 @@ def test_cancel_cannot_race_the_offer_decision(byos_module, tmp_path):
     with mock.patch.object(byos_module.firmware_registry, "compute_offer", side_effect=slow_compute_offer):
         thread.start()
         offer = byos_module._record_device_report_and_offer(
-            state_dir, TOKEN_STATE, _auth({"X-Fw-Version": "fw-v1.0.0"}), "http", "example.org")
+            state_dir, _auth({"X-Fw-Version": "fw-v1.0.0"}), "http", "example.org")
     thread.join(5)
     assert not thread.is_alive(), "cancel_schedule() did not return within the join timeout"
 
@@ -640,6 +629,7 @@ def test_stale_resent_result_does_not_close_a_different_schedule(byos_module, tm
     schedule whose version the result actually names.
     """
     state_dir = str(tmp_path)
+    fleet_identity.register_device(state_dir, KNOWN_MAC, "0" * 64, token=KNOWN_TOKEN)
     publish_test_release(state_dir, "fw-v1.3.0")
     publish_test_release(state_dir, "fw-v1.4.0")
     assert firmware_registry.schedule_release(state_dir, "fw-v1.3.0", running_version=None) == "scheduled"
@@ -647,7 +637,7 @@ def test_stale_resent_result_does_not_close_a_different_schedule(byos_module, tm
     # S1 (v1.3.0) installs; byos records it, but (from the device's own
     # point of view) the response never arrives.
     offer1 = byos_module._record_device_report_and_offer(
-        state_dir, TOKEN_STATE,
+        state_dir,
         _auth({"X-Fw-Version": "fw-v1.3.0", "X-Ota-Result": "installed;fw-v1.3.0"}),
         "http", "example.org")
     assert offer1 is None  # already running the scheduled version
@@ -663,7 +653,7 @@ def test_stale_resent_result_does_not_close_a_different_schedule(byos_module, tm
     # The device, still waiting for its own confirmation of the S1
     # install, resends the SAME result on its next wake.
     byos_module._record_device_report_and_offer(
-        state_dir, TOKEN_STATE,
+        state_dir,
         _auth({"X-Fw-Version": "fw-v1.3.0", "X-Ota-Result": "installed;fw-v1.3.0"}),
         "http", "example.org")
 
@@ -696,6 +686,7 @@ def test_next_seq_stays_monotonic_against_a_reset_device_report(byos_module, tmp
     result never closes its schedule.
     """
     state_dir = str(tmp_path)
+    fleet_identity.register_device(state_dir, KNOWN_MAC, "0" * 64, token=KNOWN_TOKEN)
     publish_test_release(state_dir, "fw-v1.1.0")
     assert firmware_registry.schedule_release(state_dir, "fw-v1.1.0", running_version=None) == "scheduled"
 
@@ -708,7 +699,7 @@ def test_next_seq_stays_monotonic_against_a_reset_device_report(byos_module, tmp
     assert not os.path.exists(firmware_registry.device_report_path(state_dir))
 
     byos_module._record_device_report_and_offer(
-        state_dir, TOKEN_STATE, _auth({"X-Fw-Version": "fw-v1.0.0"}), "http", "example.org")
+        state_dir, _auth({"X-Fw-Version": "fw-v1.0.0"}), "http", "example.org")
 
     device_report = firmware_registry.load_device_report(state_dir)
     entry = device_report["devices"][KNOWN_MAC]
@@ -871,6 +862,7 @@ def test_serve_firmware_image_streams_in_fixed_size_chunks(byos_module, tmp_path
 
 def test_unmatched_token_records_nothing_and_offers_nothing(byos_module, tmp_path):
     state_dir = str(tmp_path)
+    fleet_identity.register_device(state_dir, KNOWN_MAC, "0" * 64, token=KNOWN_TOKEN)
     publish_test_release(state_dir, "fw-v1.1.0")
     assert firmware_registry.schedule_release(state_dir, "fw-v1.1.0", running_version=None) == "scheduled"
     for headers in (
@@ -878,19 +870,20 @@ def test_unmatched_token_records_nothing_and_offers_nothing(byos_module, tmp_pat
         {"X-Fw-Version": "fw-v1.0.0", "Authorization": "Bearer not-a-known-token"},
     ):
         offer = byos_module._record_device_report_and_offer(
-            state_dir, TOKEN_STATE, headers, "http", "example.org")
+            state_dir, headers, "http", "example.org")
         assert offer is None
     assert not os.path.exists(firmware_registry.device_report_path(state_dir))
 
 
 def test_legacy_default_bucket_survives_valid_poll(byos_module, tmp_path):
     state_dir = str(tmp_path)
+    fleet_identity.register_device(state_dir, KNOWN_MAC, "0" * 64, token=KNOWN_TOKEN)
     os.makedirs(os.path.join(state_dir, "firmware"))
     legacy = {"fw_version": "old", "reported_at": "2026-01-01T00:00:00+00:00", "events": []}
     with open(firmware_registry.device_report_path(state_dir), "w") as fh:
         json.dump({"schema": 1, "next_seq": 0, "devices": {"default": legacy}}, fh)
     byos_module._record_device_report_and_offer(
-        state_dir, TOKEN_STATE, _auth({"X-Fw-Version": "fw-v1.0.0"}), "http", "example.org")
+        state_dir, _auth({"X-Fw-Version": "fw-v1.0.0"}), "http", "example.org")
     report = firmware_registry.load_device_report(state_dir)
     assert report["devices"].get("default") == legacy
     assert report["devices"][KNOWN_MAC]["fw_version"] == "fw-v1.0.0"
@@ -909,7 +902,6 @@ def test_resolve_device_id_returns_none_when_nothing_matches(byos_module):
 SIM_KEY = hardware.SIM_CLONE_KEY
 SIM_MAC = "aa:bb:cc:dd:ee:02"
 SIM_TOKEN = "ef" * 32
-FLEET_TOKEN_STATE = {"tokens": {}}
 
 
 @pytest.fixture
@@ -948,9 +940,9 @@ def publish_and_schedule(state_dir, version, hardware_type):
     return manifest["sha256"]
 
 
-def poll(byos_module, state_dir, token, headers=None, state=None):
+def poll(byos_module, state_dir, token, headers=None):
     return byos_module._record_device_report_and_offer(
-        state_dir, state if state is not None else FLEET_TOKEN_STATE,
+        state_dir,
         {"X-Fw-Version": "fw-v1.0.0", **(headers or {}), "Authorization": "Bearer %s" % token},
         "http", "example.org")
 
@@ -1016,20 +1008,6 @@ def test_hardware_mac_without_a_fleet_row_resolves_to_nothing(byos_module, tmp_p
     assert byos_module.resolve_hardware_type(state_dir, SIM_MAC) is None
 
 
-def test_hardware_fallback_serves_the_legacy_device_and_refuses_a_fleet_only_one(byos_module, tmp_path, sim_gate):
-    state_dir = str(tmp_path)
-    publish_and_schedule(state_dir, "fw-v1.1.0", hardware.LEGACY_KEY)
-    state = {"tokens": {KNOWN_MAC: KNOWN_TOKEN, SIM_MAC: SIM_TOKEN}}
-
-    for prepare in (lambda: None, lambda: open(fleet_db.fleet_db_path(state_dir), "w").close()):
-        prepare()
-        legacy_offer = poll(byos_module, state_dir, KNOWN_TOKEN, state=state)
-        assert legacy_offer is not None and legacy_offer["version"] == "fw-v1.1.0"
-        assert poll(byos_module, state_dir, SIM_TOKEN, state=state) is None
-        assert report_entry(state_dir, KNOWN_MAC)["hardware_type"] == hardware.LEGACY_KEY
-        assert report_entry(state_dir, SIM_MAC)["hardware_type"] == firmware_registry.UNRESOLVED_TYPE
-
-
 def test_hardware_claimed_by_the_device_has_no_effect(byos_module, tmp_path, sim_gate):
     state_dir = str(tmp_path)
     seed_fleet(state_dir, [(KNOWN_MAC, KNOWN_TOKEN, hardware.LEGACY_KEY),
@@ -1080,9 +1058,10 @@ def test_hardware_type_is_resolved_once_outside_the_locks(byos_module, tmp_path)
 
 def test_hardware_legacy_frame_offer_matches_a_registry_without_types(byos_module, tmp_path):
     state_dir = str(tmp_path)
+    seed_fleet(state_dir, [(KNOWN_MAC, KNOWN_TOKEN, hardware.LEGACY_KEY)])
     publish_test_release(state_dir, "fw-v1.1.0")
     assert firmware_registry.schedule_release(state_dir, "fw-v1.1.0", running_version=None) == "scheduled"
-    offer = poll(byos_module, state_dir, KNOWN_TOKEN, state=TOKEN_STATE)
+    offer = poll(byos_module, state_dir, KNOWN_TOKEN)
     assert set(offer) == {"version", "url", "sha256", "size"}
     assert offer["version"] == "fw-v1.1.0"
 
@@ -1091,13 +1070,13 @@ def test_hardware_unresolved_device_is_stamped_and_leaves_the_legacy_document_un
     state_dir = str(tmp_path)
     publish_test_release(state_dir, "fw-v1.1.0")
     assert firmware_registry.schedule_release(state_dir, "fw-v1.1.0", running_version=None) == "scheduled"
-    state = {"tokens": {SIM_MAC: SIM_TOKEN}}
+    seed_fleet(state_dir, [(SIM_MAC, SIM_TOKEN, SIM_KEY)])
     legacy_path = firmware_registry.registry_path(state_dir)
     with open(legacy_path, "rb") as fh:
         legacy_before = fh.read()
 
-    assert poll(byos_module, state_dir, SIM_TOKEN, state=state) is None
-    poll(byos_module, state_dir, SIM_TOKEN, state=state,
+    assert poll(byos_module, state_dir, SIM_TOKEN) is None
+    poll(byos_module, state_dir, SIM_TOKEN,
          headers={"X-Fw-Version": "fw-v1.1.0", "X-Ota-Result": "installed;fw-v1.1.0"})
     entry = report_entry(state_dir, SIM_MAC)
     assert entry["hardware_type"] == firmware_registry.UNRESOLVED_TYPE

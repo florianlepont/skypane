@@ -4,7 +4,7 @@ Description=SkyPane BYOS device-protocol server (stub-server/byos_server.py)
 # reverse-proxies 127.0.0.1:${SKYPANE_BYOS_PORT}): byos listens on
 # 127.0.0.1 only, the IP filter below drops anything non-loopback, and
 # provision.sh's ufw denies the port from outside. No secret is passed:
-# enrolment uses the per-device registry (devices.json in the state dir).
+# enrolment uses the per-device registry in fleet.db (in the state dir).
 After=network-online.target
 Wants=network-online.target
 

@@ -3,12 +3,10 @@
 # SPDX-License-Identifier: Apache-2.0
 """Operator CLI for the fleet database (users, locations, devices).
 
-Stdlib only. Manages fleet.db and keeps the legacy device files that the
-byos server still reads (devices.json, byos_state.json) in step: every
-device add, remove and token revoke is mirrored there through byos_server's
-own registry functions, so the on-disk format has one definition. Creates
-fleet.db mode 0600 on first use but never marks it migrated; that is the
-job of `python3 -m server.fleet_migrate`.
+Stdlib only. Manages fleet.db, the only identity source of the device
+server. Creates fleet.db mode 0600 on first use but never marks it
+migrated; that is the job of `python3 -m server.fleet_migrate`, which a
+device server refuses to serve without.
 
 --state-dir is required, with no default: an operator names the directory
 explicitly, so a stale path can never be guessed into editing the wrong
@@ -30,6 +28,8 @@ Usage:
     fleet_cli.py --state-dir DIR devices register-pending --mac M \\
         --secret-sha256 H [--hardware T]
     fleet_cli.py --state-dir DIR devices pending-list
+    fleet_cli.py --state-dir DIR devices replace-secret --mac M \\
+        --secret-sha256 H
     fleet_cli.py --state-dir DIR devices retire --id d_xxxxxxxx
     fleet_cli.py --state-dir DIR devices reactivate --id p_xxxxxxxx
     fleet_cli.py --state-dir DIR devices set-location --mac M --location-id N
@@ -54,13 +54,6 @@ from server import (  # noqa: E402
 )
 
 CLI_ACTOR = fleet_db.AuditActor(None, "cli", None)
-
-RESTART_CAUTION = (
-    "warning: byos keeps its registry and issued tokens in memory - stop "
-    "skypane-byos before this edit and start it again after, or the "
-    "running process will write its own copy back"
-)
-
 
 def _fail(message, code=2):
     print("error: %s" % message, file=sys.stderr)
@@ -176,8 +169,6 @@ def cmd_devices_add(args):
         return _fail(
             "a live frame already exists; add this device with "
             "--state-path auto so it gets its own directory")
-    # The legacy write runs inside the transaction: if it raises, the
-    # insert is rolled back and the two stores stay equal.
     new_id = None
     created_dir = None
     try:
@@ -193,7 +184,6 @@ def cmd_devices_add(args):
                 device_dirs.record_live_macs(args.state_dir, live_macs)
                 created_dir = device_dirs.provision_device_dir(
                     args.state_dir, new_id, profile.width, profile.height)
-            byos_server.register_device(args.state_dir, mac, args.secret_sha256)
     except BaseException:
         # The row is rolled back; do not leave its directory behind.
         if created_dir is not None:
@@ -297,41 +287,19 @@ def cmd_devices_set_location(args):
     return 0
 
 
-def _mirror_remove(state_dir, mac):
-    registry = byos_server.load_registry(state_dir)
-    if mac in registry["devices"]:
-        del registry["devices"][mac]
-        byos_server.save_registry(state_dir, registry)
-    state = byos_server.load_state(state_dir)
-    if mac in state.get("tokens", {}):
-        del state["tokens"][mac]
-        byos_server.save_state(state_dir, state)
-
-
-def _legacy_has(state_dir, mac):
-    registry = byos_server.load_registry(state_dir)
-    state = byos_server.load_state(state_dir)
-    return mac in registry["devices"] or mac in state.get("tokens", {})
-
-
 def _remove_pending(args, conn, mac):
-    """Delete a pending or retired frame's row and pairing directory; the
-    legacy files are touched only when they know the MAC. None when there
-    is no such row, else whether a legacy mirror ran.
+    """Delete a pending or retired frame's row and pairing directory.
+    False when there is no such row.
     """
     row = fleet_db.get_pending_by_mac(conn, mac)
     if row is None:
-        return None
-    mirrored = False
+        return False
     with fleet_db.transaction(conn):
         fleet_db.delete_pending(conn, str(row["id"]))
-        if _legacy_has(args.state_dir, mac):
-            _mirror_remove(args.state_dir, mac)
-            mirrored = True
     shutil.rmtree(
         fleet_ops.pairing_dir(args.state_dir, str(row["id"])),
         ignore_errors=True)
-    return mirrored
+    return True
 
 
 def cmd_devices_remove(args):
@@ -341,29 +309,32 @@ def cmd_devices_remove(args):
     conn = _open(args)
     with fleet_db.transaction(conn):
         found = fleet_db.remove_device(conn, mac)
-        if found:
-            _mirror_remove(args.state_dir, mac)
-    if not found:
-        mirrored = _remove_pending(args, conn, mac)
-        if mirrored is None:
-            return _fail("%s is not registered" % mac, 1)
-        print("removed %s" % mac)
-        if mirrored:
-            print(RESTART_CAUTION)
-        return 0
+    if not found and not _remove_pending(args, conn, mac):
+        return _fail("%s is not registered" % mac, 1)
     print("removed %s" % mac)
-    print(RESTART_CAUTION)
     return 0
 
 
-def _mirror_revoke(state_dir, mac):
-    """Drop the legacy token; True when one was present."""
-    state = byos_server.load_state(state_dir)
-    if mac not in state.get("tokens", {}):
-        return False
-    del state["tokens"][mac]
-    byos_server.save_state(state_dir, state)
-    return True
+def cmd_devices_replace_secret(args):
+    """Swap the stored enrolment secret hash of a registered frame, for a
+    frame whose secret was regenerated by re-running firmware/provision.sh.
+    The owner, state and issued token are kept; the frame enrols again
+    with its new secret.
+    """
+    mac = _mac_or_none(args.mac)
+    if mac is None:
+        return _fail("not a MAC address: %r" % (args.mac,))
+    conn = _open(args)
+    if fleet_db.get_pending_by_mac(conn, mac) is not None:
+        return _fail(
+            "%s is a pending frame: remove it, then register it again with "
+            "register-pending" % mac, 1)
+    with fleet_db.transaction(conn):
+        found = fleet_db.set_device_secret(conn, mac, args.secret_sha256)
+    if not found:
+        return _fail("%s is not registered" % mac, 1)
+    print("replaced the secret of %s" % mac)
+    return 0
 
 
 def cmd_devices_revoke_token(args):
@@ -372,15 +343,11 @@ def cmd_devices_revoke_token(args):
         return _fail("not a MAC address: %r" % (args.mac,))
     conn = _open(args)
     row = fleet_db.get_device_by_mac(conn, mac)
-    had_db_token = row is not None and row["token"] is not None
-    with fleet_db.transaction(conn):
-        if had_db_token:
-            fleet_db.set_device_token(conn, mac, None)
-        had_legacy_token = _mirror_revoke(args.state_dir, mac)
-    if not (had_db_token or had_legacy_token):
+    if row is None or row["token"] is None:
         return _fail("%s has no issued token" % mac, 1)
+    with fleet_db.transaction(conn):
+        fleet_db.set_device_token(conn, mac, None)
     print("revoked %s's token" % mac)
-    print(RESTART_CAUTION)
     return 0
 
 
@@ -473,6 +440,12 @@ def _add_devices(sub):
     remove = verbs.add_parser("remove", help="unregister a device")
     remove.add_argument("--mac", required=True)
     remove.set_defaults(func=cmd_devices_remove)
+    repl = verbs.add_parser(
+        "replace-secret", help="replace a registered frame's enrolment secret hash")
+    repl.add_argument("--mac", required=True)
+    repl.add_argument("--secret-sha256", required=True,
+                      help="sha256(secret_hex) - 64 lowercase hex characters")
+    repl.set_defaults(func=cmd_devices_replace_secret)
     revoke = verbs.add_parser("revoke-token", help="delete a device's bearer token")
     revoke.add_argument("--mac", required=True)
     revoke.set_defaults(func=cmd_devices_revoke_token)

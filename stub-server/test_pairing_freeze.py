@@ -22,7 +22,7 @@ for _p in (REPO_ROOT, os.path.join(REPO_ROOT, "test-support")):
 from skypane_frame_server import FrameServer  # noqa: E402
 from skypane_live_state import seed_live_like_state, snapshot_dir  # noqa: E402
 
-from server import fleet_db, fleet_migrate, fleet_ops, hardware  # noqa: E402
+from server import fleet_db, fleet_ops, hardware  # noqa: E402
 
 FREEZE_PATH = os.path.join(HERE, "measured_fields_freeze.json")
 OWNER_EMAIL = "owner@example.com"
@@ -59,7 +59,6 @@ def _read(path):
 
 def _seed(state_dir, with_pending):
     live = seed_live_like_state(state_dir)
-    fleet_migrate.migrate(state_dir, OWNER_EMAIL, dry_run=False)
     if with_pending:
         conn = fleet_db.connect(state_dir, create=False)
         try:

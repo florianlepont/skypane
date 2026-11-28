@@ -265,22 +265,6 @@ def test_pending_image_route_rejects_bad_paths(world):
         assert _get(base + bad)[0] == 404, bad
 
 
-def test_legacy_mirror_refuses_a_pending_mac(world):
-    conn = _db(world.state_dir)
-    try:
-        with fleet_db.transaction(conn):
-            with pytest.raises(ValueError):
-                byos_server._apply_mirror(conn, "add", PENDING_MAC, PENDING_SECRET_SHA)
-        count = conn.execute(
-            "SELECT count(*) FROM devices WHERE mac = ?", (PENDING_MAC,)
-        ).fetchone()[0]
-    finally:
-        conn.close()
-    assert count == 0
-    assert byos_server.mirror_to_fleet(
-        world.state_dir, "add", PENDING_MAC, PENDING_SECRET_SHA) is not None
-
-
 def test_database_never_holds_the_plaintext_code(tmp_path, monkeypatch):
     state_dir = str(tmp_path)
     seed_live_like_state(state_dir)

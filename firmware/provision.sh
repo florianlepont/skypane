@@ -37,8 +37,8 @@
 # registration commands and the secret-partition CSV (Wi-Fi password
 # redacted) without touching hardware and without ever prompting for the
 # password. Every run (dry or real) generates a NEW enrolment secret, so
-# re-running for an already-provisioned device means the registry entry
-# must be replaced (--replace below).
+# re-running for an already-provisioned device means the stored hash in
+# fleet.db must be replaced (see the note this script prints).
 #
 # Live-frame guard (same rules and exit code as flash-second.sh): the live
 # frame is a different board on the same kind of USB cable, and writing a new
@@ -564,12 +564,17 @@ else
 fi
 echo "Registry line: ${MAC} ${HASH}"
 echo ""
-echo "Register on the local stub server:"
-echo "  python3 stub-server/devices_cli.py --state-dir <state-dir> add --mac ${MAC} --secret-sha256 ${HASH} --replace"
+echo "The device server reads frame identity from fleet.db only."
 echo ""
-echo "Register on the VPS:"
-echo "  ssh <ssh-target> \"sudo -u skypane /opt/skypane/venv/bin/python3 /opt/skypane/current/stub-server/devices_cli.py --state-dir /opt/skypane/state add --mac ${MAC} --secret-sha256 ${HASH} --replace\""
+echo "Register on the VPS (a new frame; it then shows a pairing code - pair it in the companion console):"
+echo "  ssh <ssh-target> \"sudo -u skypane /opt/skypane/venv/bin/python3 /opt/skypane/current/stub-server/fleet_cli.py --state-dir /opt/skypane/state devices register-pending --mac ${MAC} --secret-sha256 ${HASH}\""
+echo ""
+echo "Register on the local stub server (first, once per state directory:"
+echo "python3 -m server.fleet_migrate --state-dir <state-dir> --owner-email <email>):"
+echo "  python3 stub-server/fleet_cli.py --state-dir <state-dir> devices add --mac ${MAC} --secret-sha256 ${HASH} --owner-email <email>"
 echo ""
 echo "Note: re-running this script generates a NEW secret for ${MAC}, so the" \
-     "registry entry must be replaced - that is why --replace is in both" \
-     "commands above."
+     "stored hash must be replaced. A frame already registered or paired:" \
+     "run the same command with 'devices replace-secret --mac ${MAC}" \
+     "--secret-sha256 ${HASH}' instead. A frame still pending: run" \
+     "'devices remove --mac ${MAC}' and then register-pending again."
