@@ -103,8 +103,8 @@ omit = [
 ]
 
 [tool.coverage.report]
-# Floor derivation: measured 93.38% total on 2026-09-25 (CPython 3.14.0rc2, ./scripts/run-all-tests.sh as non-root); ratchets upward only, never down.
-fail_under = 93
+# Floor derivation: measured 96.20% total (30083 statements, 1143 missed) on 2026-11-28 by the push CI run on main, all test shards including the browser shards (CPython 3.14.10); the floor is the whole-number part of that value. It ratchets upward only, never down.
+fail_under = 96
 
 [tool.mypy]
 # Production and CI run Ubuntu 26.04's distro python3 (3.14); a local venv may
