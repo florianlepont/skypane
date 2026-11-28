@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Tests for fleet_cli.py: users, locations and one-owner devices managed
-through the CLI, with every device change mirrored into the legacy files."""
+through the CLI. fleet.db is the only identity store: no command reads or
+writes the legacy device files."""
 import hashlib
 import importlib.util
 import os
@@ -26,7 +27,6 @@ def _load(name, path):
 
 
 fleet_cli = _load("fleet_cli_under_test", CLI_PATH)
-byos_server = fleet_cli.byos_server
 fleet_db = fleet_cli.fleet_db
 
 MAC = "aa:bb:cc:dd:ee:01"
@@ -63,6 +63,15 @@ def db_rows(sd):
     conn = fleet_db.connect_readonly(sd)
     try:
         return fleet_db.list_devices(conn)
+    finally:
+        conn.close()
+
+
+def give_token(sd, mac, token=TOKEN):
+    conn = fleet_db.connect(sd)
+    try:
+        with fleet_db.transaction(conn):
+            assert fleet_db.set_device_token(conn, mac, token)
     finally:
         conn.close()
 
@@ -200,24 +209,23 @@ def test_locations_add_list_and_validation(sd, capsys):
                "--longitude", "2", "--timezone", "Mars/Base") == 2
 
 
-def test_devices_add_mirrors_to_legacy_and_remove_restores_bytes(sd):
+def test_devices_add_and_remove_touch_fleet_db_only(sd):
     add_owner(sd)
-    assert not os.path.exists(byos_server.registry_path(sd))
     assert add_device(sd) == 0
-    assert byos_server.load_registry(sd)["devices"][MAC]["secret_sha256"] == SECRET
     assert add_device(sd, OTHER_MAC, SECRET2, "--state-path", "auto") == 0
-    original = read(byos_server.registry_path(sd))
     assert add_device(sd, "aa:bb:cc:dd:ee:03", SECRET, "--state-path", "auto") == 0
     assert run(sd, "devices", "remove", "--mac", "aa:bb:cc:dd:ee:03") == 0
-    assert read(byos_server.registry_path(sd)) == original
+    assert sorted(r["mac"] for r in db_rows(sd)) == [MAC, OTHER_MAC]
+    assert legacy_bytes(sd) == {name: None for name in LEGACY_FILES}
 
 
-def test_devices_add_rolls_back_when_legacy_write_fails(sd, capsys):
+def test_devices_add_refuses_a_mac_that_is_already_registered(sd, capsys):
     add_owner(sd)
-    byos_server.register_device(sd, MAC, SECRET)
-    assert add_device(sd) == 2
-    assert fleet_db.list_devices(fleet_db.connect_readonly(sd)) == []
-    assert "already registered" in capsys.readouterr().err
+    assert add_device(sd) == 0
+    capsys.readouterr()
+    assert add_device(sd, MAC, SECRET2, "--state-path", "auto") == 2
+    assert [r["mac"] for r in db_rows(sd)] == [MAC]
+    assert "error:" in capsys.readouterr().err
 
 
 def test_devices_add_validation_and_unknown_owner(sd):
@@ -226,7 +234,7 @@ def test_devices_add_validation_and_unknown_owner(sd):
     assert add_device(sd, MAC, "zz") == 2
     assert run(sd, "devices", "add", "--mac", MAC, "--secret-sha256", SECRET,
                "--owner-email", "ghost@example.com") == 1
-    assert not os.path.exists(byos_server.registry_path(sd))
+    assert db_rows(sd) == []
 
 
 def test_simulated_hardware_needs_the_environment_gate(sd, monkeypatch):
@@ -239,9 +247,7 @@ def test_simulated_hardware_needs_the_environment_gate(sd, monkeypatch):
 def test_devices_list_hides_tokens_and_full_hashes(sd, capsys):
     add_owner(sd)
     assert add_device(sd, MAC, SECRET, "--name", "Frame") == 0
-    state = byos_server.load_state(sd)
-    state["tokens"][MAC] = TOKEN
-    byos_server.save_state(sd, state)
+    give_token(sd, MAC)
     capsys.readouterr()
     assert run(sd, "devices", "list") == 0
     out = capsys.readouterr().out
@@ -273,18 +279,19 @@ def test_devices_set_location(sd):
     assert run(sd, "devices", "set-location", "--mac", OTHER_MAC, "--location-id", "1") == 1
 
 
-def test_devices_remove_clears_registry_and_token(sd, capsys):
+def test_devices_remove_clears_the_row_and_its_token(sd, capsys):
     add_owner(sd)
     assert add_device(sd) == 0
-    state = byos_server.load_state(sd)
-    state["tokens"][MAC] = TOKEN
-    byos_server.save_state(sd, state)
+    give_token(sd, MAC)
     capsys.readouterr()
     assert run(sd, "devices", "remove", "--mac", MAC) == 0
-    assert "skypane-byos" in capsys.readouterr().out
-    assert MAC not in byos_server.load_registry(sd)["devices"]
-    assert MAC not in byos_server.load_state(sd)["tokens"]
+    assert capsys.readouterr().out == "removed %s\n" % MAC
     assert db_rows(sd) == []
+    conn = fleet_db.connect_readonly(sd)
+    try:
+        assert fleet_db.tokens_by_mac(conn) == {}
+    finally:
+        conn.close()
     assert run(sd, "devices", "remove", "--mac", MAC) == 1
 
 
@@ -292,14 +299,8 @@ def test_devices_revoke_token(sd):
     add_owner(sd)
     assert add_device(sd) == 0
     assert run(sd, "devices", "revoke-token", "--mac", MAC) == 1
-    state = byos_server.load_state(sd)
-    state["tokens"][MAC] = TOKEN
-    byos_server.save_state(sd, state)
-    conn = fleet_db.connect(sd)
-    fleet_db.set_device_token(conn, MAC, TOKEN)
-    conn.close()
+    give_token(sd, MAC)
     assert run(sd, "devices", "revoke-token", "--mac", MAC) == 0
-    assert MAC not in byos_server.load_state(sd)["tokens"]
     conn = fleet_db.connect_readonly(sd)
     try:
         assert fleet_db.get_device_by_mac(conn, MAC)["token"] is None
@@ -359,7 +360,7 @@ def test_devices_add_state_path_auto_provisions_directory(sd, monkeypatch, capsy
     assert len(read(os.path.join(directory, "panel.bin"))) == (profile.width // 2) * profile.height
     assert os.path.exists(os.path.join(directory, "device_config.json"))
     assert not os.path.exists(os.path.join(directory, "poll_state.json"))
-    assert byos_server.load_registry(sd)["devices"][MAC]["secret_sha256"] == SECRET
+    assert db_rows(sd)[0]["secret_prefix"] == SECRET[:12]
 
 
 def test_devices_add_without_flag_output_and_layout_unchanged(sd, capsys):
@@ -379,7 +380,6 @@ def test_devices_add_second_default_is_refused_with_a_clear_message(sd, capsys):
     err = capsys.readouterr().err
     assert "--state-path auto" in err
     assert [r["mac"] for r in db_rows(sd)] == [MAC]
-    assert OTHER_MAC not in byos_server.load_registry(sd)["devices"]
     assert not os.path.exists(os.path.join(sd, "devices"))
 
 
@@ -398,17 +398,6 @@ def test_devices_add_auto_records_the_live_mac_before_devices_appear(sd, monkeyp
     assert add_device(sd, OTHER_MAC, SECRET2, "--hardware-type", "sim-ee02-clone",
                       "--state-path", "auto") == 0
     assert fleet_cli.device_dirs.read_live_macs(sd) == frozenset({MAC})
-
-
-def test_devices_add_auto_rollback_removes_directory(sd, monkeypatch):
-    monkeypatch.setenv("SKYPANE_SIM_HARDWARE", "1")
-    add_owner(sd)
-    byos_server.register_device(sd, MAC, SECRET)
-    assert add_device(sd, MAC, SECRET, "--hardware-type", "sim-ee02-clone",
-                      "--state-path", "auto") == 2
-    assert db_rows(sd) == []
-    devices = os.path.join(sd, "devices")
-    assert not os.path.isdir(devices) or os.listdir(devices) == []
 
 
 # ---- pending and retired frames ----------------------------------------
@@ -447,7 +436,6 @@ def test_register_pending_writes_fleet_db_only(sd, capsys):
     rows = pending_rows(sd)
     assert [r["mac"] for r in rows] == [PENDING_MAC]
     assert "pending id %s" % rows[0]["id"] in out
-    assert fleet_cli.RESTART_CAUTION not in out
     assert legacy_bytes(sd) == before
     assert run(sd, "devices", "register-pending", "--mac", "aa:bb:cc:dd:ee:51",
                "--secret-sha256", "not-hex") == 2
@@ -519,8 +507,7 @@ def test_remove_pending_deletes_row_and_pairing_dir_only(sd, capsys):
     legacy_before = legacy_bytes(sd)
     capsys.readouterr()
     assert run(sd, "devices", "remove", "--mac", PENDING_MAC) == 0
-    out = capsys.readouterr().out
-    assert fleet_cli.RESTART_CAUTION not in out
+    assert capsys.readouterr().out == "removed %s\n" % PENDING_MAC
     assert pending_rows(sd) == []
     assert not os.path.exists(pairing)
     assert [r["mac"] for r in db_rows(sd)] == [MAC]
@@ -528,14 +515,38 @@ def test_remove_pending_deletes_row_and_pairing_dir_only(sd, capsys):
     assert run(sd, "devices", "remove", "--mac", PENDING_MAC) == 1
 
 
-def test_remove_pending_mirrors_when_legacy_knows_the_mac(sd, capsys):
+def test_replace_secret_swaps_the_hash_and_keeps_owner_and_token(sd, capsys):
+    add_owner(sd)
+    assert add_device(sd) == 0
+    give_token(sd, MAC)
+    capsys.readouterr()
+    assert run(sd, "devices", "replace-secret", "--mac", MAC,
+               "--secret-sha256", SECRET2) == 0
+    assert capsys.readouterr().out == "replaced the secret of %s\n" % MAC
+    conn = fleet_db.connect_readonly(sd)
+    try:
+        row = fleet_db.get_device_by_mac(conn, MAC)
+    finally:
+        conn.close()
+    assert row["secret_sha256"] == SECRET2
+    assert row["token"] == TOKEN
+    assert row["owner_user_id"] is not None
+
+
+def test_replace_secret_refuses_unknown_pending_and_malformed(sd, capsys):
     add_owner(sd)
     assert register_pending(sd) == 0
-    byos_server.register_device(sd, PENDING_MAC, SECRET)
     capsys.readouterr()
-    assert run(sd, "devices", "remove", "--mac", PENDING_MAC) == 0
-    assert fleet_cli.RESTART_CAUTION in capsys.readouterr().out
-    assert PENDING_MAC not in byos_server.load_registry(sd)["devices"]
+    assert run(sd, "devices", "replace-secret", "--mac", OTHER_MAC,
+               "--secret-sha256", SECRET2) == 1
+    assert run(sd, "devices", "replace-secret", "--mac", PENDING_MAC,
+               "--secret-sha256", SECRET2) == 1
+    assert "register-pending" in capsys.readouterr().err
+    assert add_device(sd) == 0
+    assert run(sd, "devices", "replace-secret", "--mac", MAC,
+               "--secret-sha256", "not-hex") == 2
+    assert run(sd, "devices", "replace-secret", "--mac", "nope",
+               "--secret-sha256", SECRET2) == 2
 
 
 def test_assign_wipes_a_non_live_frame_and_keeps_the_live_one(sd):

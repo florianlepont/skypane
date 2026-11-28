@@ -345,8 +345,7 @@ def test_two_device_fleet_tokens_authenticate(tmp_path):
     import byos_server
 
     fleet = tdf.seed_two_device_fleet(str(tmp_path))
-    tokens = byos_server.effective_tokens(
-        str(tmp_path), byos_server.load_state(str(tmp_path)))
+    tokens = byos_server.effective_tokens(str(tmp_path))
     for dev in (fleet.live, fleet.dev_a, fleet.dev_b):
         assert tokens[dev.mac] == dev.token
         assert tdf.device_headers(dev)["Authorization"] == "Bearer %s" % dev.token
@@ -358,7 +357,7 @@ def test_two_device_fleet_leaves_live_frame_files_untouched(tmp_path):
     import skypane_two_device_fleet as tdf
 
     root = str(tmp_path)
-    live.seed_live_like_state(root)
+    live.seed_live_like_state(root, migrated=False)
     before = live.snapshot_dir(root)
     # Re-seeding the same directory rewrites the live files with the same
     # content; compare content digests of the files only the live frame owns.
@@ -366,12 +365,7 @@ def test_two_device_fleet_leaves_live_frame_files_untouched(tmp_path):
     shutil.rmtree(root)
     tdf.seed_two_device_fleet(root)
     after = live.snapshot_dir(root)
-    # The legacy registries are rewritten by the dual write by design, and
-    # fleet.db plus devices/ belong to the fleet, not to the live frame.
-    shared = {"devices.json", "byos_state.json"}
     for rel, (digest, _mtime) in before.items():
-        if rel in shared:
-            continue
         assert after[rel][0] == digest, rel
 
 

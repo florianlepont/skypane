@@ -45,6 +45,7 @@ import server.device_config as device_config  # noqa: E402
 import server.device_policy as device_policy  # noqa: E402
 import server.wake as server_wake  # noqa: E402
 from companion.pages import config_page  # noqa: E402
+import skypane_fleet_identity as fleet_identity  # noqa: E402
 from skypane_test_support import child_env  # noqa: E402
 
 CANDIDATE_INTERVALS = (60, 300, 600, 900, 1800, 3600)
@@ -100,7 +101,7 @@ class FrameServer:
         image_path = os.path.join(self.state_dir, "panel.bin")
         with open(image_path, "wb") as fh:
             fh.write(bytes(IMAGE_BYTES))
-        load_byos_module().register_device(
+        fleet_identity.register_device(
             self.state_dir, TEST_MAC,
             hashlib.sha256(ENROL_SECRET.encode("ascii")).hexdigest(), replace=True)
         # pick_free_port() releases the port before the child binds it, so a

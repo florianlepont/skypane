@@ -72,6 +72,7 @@ import server.device_config as device_config  # noqa: E402 - see the module docs
 import server.device_policy as device_policy  # noqa: E402 - see the module docstring
 import server.state_store as state_store  # noqa: E402 - see the module docstring
 import server.wake as server_wake  # noqa: E402 - see the module docstring
+import skypane_fleet_identity as fleet_identity  # noqa: E402
 from skypane_test_support import child_env  # noqa: E402
 
 
@@ -205,9 +206,8 @@ class Harness:
     def start_server(self, sleep_s=300, image_url_scheme=None):
         # Setup is registry-gated: register both fixture MACs against this
         # instance's own --state-dir before the subprocess starts.
-        byos_module = load_byos_module()
         for mac in ("aa:bb:cc:dd:ee:01", "aa:bb:cc:dd:ee:02"):
-            byos_module.register_device(
+            fleet_identity.register_device(
                 self.tmpdir, mac,
                 hashlib.sha256(HARNESS_ENROL_SECRET.encode("ascii")).hexdigest(),
                 replace=True)

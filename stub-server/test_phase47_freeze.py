@@ -452,17 +452,6 @@ def test_replay_sleep_s_survives_migration(variant, tmp_path, servers):
     assert after[0]["sleep_s"] == expected
 
 
-def test_previous_release_readers_still_accept_the_migrated_state(tmp_path, servers):
-    live = seed_live_like_state(str(tmp_path))
-    replay_across_migration(live, servers)
-    byos = load_byos_module()
-    registry = byos.load_registry(live.state_dir)
-    assert live.mac in registry["devices"]
-    if live.secret_hex is not None:
-        assert byos.secret_matches(registry, live.mac, live.secret_hex)
-    assert byos.load_state(live.state_dir)["tokens"][live.mac] == live.token
-
-
 def fleet_db_main_file(state_dir):
     path = fleet_db.fleet_db_path(state_dir)
     return sha_of_file(path), os.stat(path).st_mtime_ns

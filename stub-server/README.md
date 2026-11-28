@@ -56,18 +56,28 @@ on the VPS rather than by a locally-run stub — see `deploy/README.md`.
 
 ## Enrol a device
 
-`POST /device/v1/setup` is gated by a per-device registry
-(`devices.json` in `--state-dir`) — a MAC must be registered, with the
-SHA-256 of its own secret, before it can enrol. Register one with
-`stub-server/devices_cli.py`, pointed at the same `--state-dir` the
-server above is using:
+`POST /device/v1/setup` is gated by the per-device registry in `fleet.db`
+(in `--state-dir`) — a MAC must be registered there, with the SHA-256 of its
+own secret, before it can enrol. A state directory that has no migrated
+`fleet.db` refuses every enrolment and every poll. Create it once, with an
+owner address of your choice:
 
 ```bash
-python3 stub-server/devices_cli.py --state-dir <dir> add --mac aa:bb:cc:dd:ee:ff --secret-sha256 <64-hex-sha256-of-the-secret>
+python3 -m server.fleet_migrate --state-dir <dir> --owner-email <email>
+```
+
+Then register the frame with `stub-server/fleet_cli.py`, pointed at the same
+`--state-dir` the server above is using (`firmware/provision.sh` prints the
+MAC and the SHA-256 for this command):
+
+```bash
+python3 stub-server/fleet_cli.py --state-dir <dir> devices add --mac aa:bb:cc:dd:ee:ff --secret-sha256 <64-hex-sha256-of-the-secret> --owner-email <email>
 ```
 
 Registration takes effect on the very next setup request — the server
-re-reads the registry every time, no restart needed.
+re-reads `fleet.db` every time, no restart needed. After re-provisioning a
+frame (a new secret), swap the stored hash with `devices replace-secret --mac
+<mac> --secret-sha256 <hash>`.
 
 ## Point the device at it
 

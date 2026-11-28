@@ -28,7 +28,7 @@ from skypane_live_state import seed_live_like_state as live_state_seed  # noqa: 
 from skypane_live_state import snapshot_dir  # noqa: E402
 from skypane_two_device_fleet import device_headers, seed_two_device_fleet  # noqa: E402
 
-from server import device_dirs, hardware, history_db, image_container, panel_format, poll_cycle  # noqa: E402
+from server import hardware, history_db, image_container, panel_format, poll_cycle  # noqa: E402
 
 FREEZE_PATH = os.path.join(HERE, "measured_fields_freeze.json")
 LIVE_PANEL_BYTES = 960000
@@ -161,7 +161,7 @@ def test_unknown_token_is_401(served):
 def test_mac_without_a_row_is_401_while_fleet_db_is_usable(fleet):
     args = SimpleNamespace(
         state_dir=fleet.live.state_dir, image=os.path.join(fleet.live.state_dir, "panel.bin"))
-    result = byos_server._device_context(args, None, "aa:bb:cc:dd:ee:ff")
+    result = byos_server._device_context(args, "aa:bb:cc:dd:ee:ff")
     assert result is byos_server._NO_DEVICE
 
 
@@ -254,41 +254,16 @@ def test_pre_fleet_install_serves_the_live_frame_unchanged(tmp_path):
 
 
 @pytest.mark.parametrize("damage", [_remove_fleet_db, _corrupt_fleet_db])
-def test_unavailable_fleet_db_refuses_a_non_live_device(fleet, damage):
+def test_unavailable_fleet_db_refuses_every_device(fleet, damage):
     damage(fleet.live.state_dir)
     before = snapshot_dir(fleet.live.state_dir)
-    status, doc = _display_once(fleet, fleet.dev_a, {"X-Battery-Mv": "3123"})
-    assert (status, doc) == (503, {"detail": "device state unavailable"})
-    assert "image_url" not in doc
+    for device in (fleet.dev_a, fleet.live):
+        status, doc = _display_once(fleet, device, {"X-Battery-Mv": "3123"})
+        assert (status, doc) == (401, {"detail": "unknown token"})
     after = snapshot_dir(fleet.live.state_dir)
     changed = {k for k in set(before) | set(after) if before.get(k) != after.get(k)}
     assert changed <= {"fleet_status.json", "byos.stdout.log"}
     assert "battery_state.json" not in changed
-
-
-def test_corrupt_fleet_db_still_serves_the_live_frame(fleet):
-    _corrupt_fleet_db(fleet.live.state_dir)
-    status, doc = _display_once(fleet, fleet.live, {"X-Battery-Mv": "3900"})
-    assert status == 200
-    digest = _live_digest(fleet)
-    assert doc["image_hash"] == "sha256:" + digest
-    assert doc["image_url"].endswith("/img/%s.bin" % digest)
-
-
-def test_unavailable_fleet_db_without_the_live_record_refuses_everyone(fleet):
-    _corrupt_fleet_db(fleet.live.state_dir)
-    os.remove(os.path.join(fleet.live.state_dir, device_dirs.LIVE_MACS_FILENAME))
-    assert _display_once(fleet, fleet.live)[0] == 503
-    assert _display_once(fleet, fleet.dev_a)[0] == 503
-
-
-def test_unavailable_fleet_db_with_an_unreadable_live_record_refuses_everyone(fleet):
-    _corrupt_fleet_db(fleet.live.state_dir)
-    record = os.path.join(fleet.live.state_dir, device_dirs.LIVE_MACS_FILENAME)
-    with open(record, "w", encoding="utf-8") as fh:
-        fh.write("{not json")
-    assert _display_once(fleet, fleet.live)[0] == 503
-    assert _display_once(fleet, fleet.dev_a)[0] == 503
 
 
 # ---- negotiation and geometry ---------------------------------------------
@@ -446,13 +421,15 @@ def test_authenticate_device_visits_every_candidate(monkeypatch):
         return real(a, b)
 
     monkeypatch.setattr(byos_server.hmac, "compare_digest", spy)
-    state = {"tokens": {"a": "t1", "b": "t2", "c": "t3"}}
+    monkeypatch.setattr(
+        byos_server, "effective_tokens",
+        lambda state_dir: {"a": "t1", "b": "t2", "c": "t3"})
     assert byos_server._authenticate_device(
-        {"Authorization": "Bearer t1"}, "/nonexistent-state-dir", state) == "a"
+        {"Authorization": "Bearer t1"}, "/nonexistent-state-dir") == "a"
     assert len(calls) == 3
     assert byos_server._authenticate_device(
-        {"Authorization": "Bearer zz"}, "/nonexistent-state-dir", state) is None
-    assert byos_server._authenticate_device({}, "/nonexistent-state-dir", state) is None
+        {"Authorization": "Bearer zz"}, "/nonexistent-state-dir") is None
+    assert byos_server._authenticate_device({}, "/nonexistent-state-dir") is None
 
 
 # ---- per-device /img route -------------------------------------------------------
@@ -560,7 +537,7 @@ def _context_for(fleet, device, monkeypatch, recover_mv=None):
 
     monkeypatch.setattr(byos_server.hardware, "get_profile", patched)
     args = SimpleNamespace(state_dir=fleet.live.state_dir, image=None)
-    return byos_server._device_context(args, None, device.mac)
+    return byos_server._device_context(args, device.mac)
 
 
 def test_fleet_device_recover_threshold_comes_from_its_profile(fleet, monkeypatch):

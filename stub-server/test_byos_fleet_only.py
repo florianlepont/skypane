@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Device-server identity outcomes for a migrated fleet.db.
+"""Device-server identity outcomes: fleet.db is the only source.
 
-Every state directory here holds identity in fleet.db only (the legacy
-devices.json and byos_state.json are removed after the import), so these
-outcomes are the same whether or not the server still has a legacy
-fallback. Everything runs against a real byos_server.py subprocess with
-synthetic MACs, secrets and tokens.
+Frames are registered in a migrated fleet.db (the legacy devices.json and
+byos_state.json are removed after the import, or written afterwards to prove
+they are ignored). An absent, unmigrated or unreadable fleet.db refuses every
+enrolment and poll. Everything runs against a real byos_server.py subprocess
+with synthetic MACs, secrets and tokens.
 """
 import json
 import os
@@ -154,3 +154,72 @@ def test_fleet_status_is_ok_while_the_database_answers(fleet, servers):
         status = json.load(fh)
     assert status["state"] == "ok"
     assert fleet.token not in json.dumps(status)
+
+
+# ---- legacy files are never a source --------------------------------------
+
+
+def _write_legacy(state_dir, mac, secret_hex, token):
+    with open(os.path.join(state_dir, "devices.json"), "w") as fh:
+        json.dump({"devices": {mac: {"secret_sha256": secret_hash(secret_hex)}}}, fh)
+    with open(os.path.join(state_dir, "byos_state.json"), "w") as fh:
+        json.dump({"tokens": {mac: token}}, fh)
+
+
+def _legacy_present(state_dir):
+    return [n for n in LEGACY_FILES if os.path.exists(os.path.join(state_dir, n))]
+
+
+def test_enrolment_creates_no_legacy_file(fleet, servers):
+    server = servers(fleet.state_dir)
+    assert server.setup(FRESH_MAC, FRESH_SECRET)[0] == 200
+    assert server.setup(fleet.mac, fleet.secret_hex)[0] == 200
+    assert server.setup(PENDING_MAC, PENDING_SECRET)[0] == 200
+    assert _legacy_present(fleet.state_dir) == []
+
+
+def test_stale_legacy_files_that_disagree_with_fleet_db_are_ignored(fleet, servers):
+    _write_legacy(fleet.state_dir, UNKNOWN_MAC, FRESH_SECRET, "stale-token-only-in-legacy")
+    server = servers(fleet.state_dir)
+    assert server.setup(UNKNOWN_MAC, FRESH_SECRET)[0] == 403
+    assert server.display("stale-token-only-in-legacy")[0] == 401
+    assert server.display(fleet.token)[0] == 200
+
+
+def _remove_fleet_db(state_dir):
+    for suffix in ("", "-wal", "-shm"):
+        path = os.path.join(state_dir, "fleet.db" + suffix)
+        if os.path.exists(path):
+            os.unlink(path)
+
+
+def _corrupt_fleet_db(state_dir):
+    _remove_fleet_db(state_dir)
+    with open(os.path.join(state_dir, "fleet.db"), "wb") as fh:
+        fh.write(b"this is not a sqlite database" * 100)
+
+
+def _unmarked_fleet_db(state_dir):
+    conn = fleet_db.connect(state_dir)
+    try:
+        conn.execute("DELETE FROM meta WHERE key = ?", (fleet_db.META_MIGRATED,))
+    finally:
+        conn.close()
+
+
+@pytest.mark.parametrize("damage", [_remove_fleet_db, _corrupt_fleet_db, _unmarked_fleet_db])
+def test_unreadable_fleet_db_refuses_even_with_valid_legacy_files(fleet, servers, damage):
+    damage(fleet.state_dir)
+    _write_legacy(fleet.state_dir, fleet.mac, fleet.secret_hex, fleet.token)
+    before = {n: open(os.path.join(fleet.state_dir, n), "rb").read() for n in LEGACY_FILES}
+    server = servers(fleet.state_dir)
+    # The same statuses an unregistered frame and an unknown token get.
+    assert server.setup(fleet.mac, fleet.secret_hex)[0] == 403
+    assert server.setup(UNKNOWN_MAC, FRESH_SECRET)[0] == 403
+    assert server.display(fleet.token)[0] == 401
+    assert server.display("tok-unknown")[0] == 401
+    log = server.stdout_text()
+    for value in (fleet.secret_hex, fleet.token, secret_hash(fleet.secret_hex)):
+        assert value not in log
+    after = {n: open(os.path.join(fleet.state_dir, n), "rb").read() for n in LEGACY_FILES}
+    assert after == before

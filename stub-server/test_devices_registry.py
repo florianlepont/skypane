@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Contract harness for byos_server.py's per-device enrolment registry and
-devices_cli.py, the operator CLI that manages it.
+"""Contract harness for byos_server.py's per-device enrolment registry,
+which lives in fleet.db.
 
 Every top-level test_* function below is a plain pytest test (plain
 `assert`, no return value) that takes pytest's `tmp_path` as its
@@ -15,34 +15,34 @@ Proves the enrolment rules:
       non-string provision_secret) is refused and the existing token
       keeps working
     - an unregistered MAC is refused and no state is created
-    - a missing, corrupt, or non-dict devices.json refuses every
+    - a missing, unmigrated or corrupt fleet.db refuses every
       enrolment (fail closed)
     - a malformed mac is rejected before any registry lookup; an
       uppercase mac in the request body matches its lowercase registry
       entry
-    - devices.json never contains the plaintext secret
+    - fleet.db never contains the plaintext secret
     - the retired --secret flag grants nothing
-    - devices_cli.py's add/remove/list/revoke-token subcommands
 
 Usage:
     python3 stub-server/test_devices_registry.py
 """
 import hashlib
-import importlib.util
 import json
 import os
 import socket
+import sqlite3
 import subprocess
 import sys
 import time
 import urllib.error
 import urllib.request
 
+import skypane_fleet_identity as fleet_identity
+from server import fleet_db
 from skypane_test_support import child_env
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SERVER_PATH = os.path.join(HERE, "byos_server.py")
-CLI_PATH = os.path.join(HERE, "devices_cli.py")
 MAKE_PANEL_PATH = os.path.join(HERE, "make_test_panel.py")
 STARTUP_DEADLINE_S = 10.0
 
@@ -55,21 +55,6 @@ OLD_SHARED_SECRET = "dev-setup-secret"
 
 def _sha256_hex(secret_hex):
     return hashlib.sha256(secret_hex.encode("ascii")).hexdigest()
-
-
-def load_byos_module():
-    """Load byos_server.py directly via importlib.util, matching
-    stub-server/test_poll_cycle.py's own pattern, so the registry
-    helpers (register_device, load_registry, load_state, save_state)
-    can be driven without going through HTTP. Safe because the module's
-    top level is constants and defs only - main() sits behind an
-    `if __name__ == "__main__"` guard.
-    """
-    spec = importlib.util.spec_from_file_location(
-        "byos_server_registry_under_test", SERVER_PATH)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
 
 
 def http_request(url, method="GET", headers=None, json_body=None, timeout=10):
@@ -116,17 +101,15 @@ class Harness:
     def base_url(self):
         return "http://127.0.0.1:%d" % self.port
 
-    def registry_path(self):
-        return os.path.join(self.tmpdir, "devices.json")
+    def fleet_db_path(self):
+        return os.path.join(self.tmpdir, "fleet.db")
 
     def register(self, mac, secret_hex):
-        """Register `mac` against this harness's own --state-dir before
-        the subprocess starts, via the same register_device() the
-        server and devices_cli.py both call - never hand-writes
-        devices.json's shape.
+        """Register `mac` in this harness's own --state-dir fleet.db before
+        the subprocess starts, through the fleet.db writers.
         """
-        module = load_byos_module()
-        module.register_device(self.tmpdir, mac, _sha256_hex(secret_hex), replace=True)
+        fleet_identity.register_device(
+            self.tmpdir, mac, _sha256_hex(secret_hex), replace=True)
 
     def start(self, extra_args=None):
         stdout_fh = open(self.stdout_path, "w")
@@ -184,14 +167,6 @@ class Harness:
                 return fh.read()
         except OSError:
             return ""
-
-
-def _run_cli(state_dir, *args):
-    result = subprocess.run(
-        [sys.executable, CLI_PATH, "--state-dir", state_dir] + list(args),
-        capture_output=True, text=True, env=child_env(),
-    )
-    return result.returncode, result.stdout, result.stderr
 
 
 # --- Enrolment rules, proven over real HTTP -------------------------------
@@ -295,50 +270,55 @@ def test_setup_with_unregistered_mac_returns_403_and_creates_no_state_entry(tmp_
         h.stop()
 
 
-def test_missing_registry_file_refuses_every_enrolment(tmp_path):
+def test_missing_fleet_db_refuses_every_enrolment(tmp_path):
     h = Harness(tmp_path)
     try:
-        assert not os.path.exists(h.registry_path())
+        assert not os.path.exists(h.fleet_db_path())
         h.start()
         status, _, _ = http_request(
             h.base_url() + "/device/v1/setup", method="POST",
             json_body={"mac": "aa:bb:cc:dd:ee:01", "hw_rev": "test",
                        "provision_secret": SECRET_A})
-        assert status == 403, "a missing devices.json must refuse enrolment, got %d" % status
+        assert status == 403, "a missing fleet.db must refuse enrolment, got %d" % status
     finally:
         h.stop()
 
 
-def test_corrupt_registry_file_refuses_every_enrolment(tmp_path):
+def test_corrupt_fleet_db_refuses_every_enrolment(tmp_path):
     h = Harness(tmp_path)
     try:
         h.register("aa:bb:cc:dd:ee:01", SECRET_A)
-        with open(h.registry_path(), "w") as fh:
-            fh.write("{not valid json")
+        for suffix in ("-wal", "-shm"):
+            if os.path.exists(h.fleet_db_path() + suffix):
+                os.unlink(h.fleet_db_path() + suffix)
+        with open(h.fleet_db_path(), "wb") as fh:
+            fh.write(b"{not a database}" * 64)
         h.start()
         status, _, _ = http_request(
             h.base_url() + "/device/v1/setup", method="POST",
             json_body={"mac": "aa:bb:cc:dd:ee:01", "hw_rev": "test",
                        "provision_secret": SECRET_A})
         assert status == 403, \
-            "a corrupt devices.json must fail closed, not fall back to open enrolment"
+            "a corrupt fleet.db must fail closed, not fall back to open enrolment"
     finally:
         h.stop()
 
 
-def test_non_dict_registry_file_refuses_every_enrolment(tmp_path):
+def test_unmigrated_fleet_db_refuses_every_enrolment(tmp_path):
     h = Harness(tmp_path)
     try:
         h.register("aa:bb:cc:dd:ee:01", SECRET_A)
-        with open(h.registry_path(), "w") as fh:
-            json.dump(["not", "a", "dict"], fh)
+        conn = sqlite3.connect(h.fleet_db_path())
+        conn.execute("DELETE FROM meta WHERE key = ?", (fleet_db.META_MIGRATED,))
+        conn.commit()
+        conn.close()
         h.start()
         status, _, _ = http_request(
             h.base_url() + "/device/v1/setup", method="POST",
             json_body={"mac": "aa:bb:cc:dd:ee:01", "hw_rev": "test",
                        "provision_secret": SECRET_A})
         assert status == 403, \
-            "a non-dict devices.json document must fail closed, got %d" % status
+            "an unmigrated fleet.db must fail closed, got %d" % status
     finally:
         h.stop()
 
@@ -371,7 +351,7 @@ def test_uppercase_mac_in_body_matches_its_lowercase_registry_entry(tmp_path):
         h.stop()
 
 
-def test_devices_json_never_contains_the_plaintext_secret(tmp_path):
+def test_fleet_db_never_contains_the_plaintext_secret(tmp_path):
     h = Harness(tmp_path)
     try:
         h.register("aa:bb:cc:dd:ee:01", SECRET_A)
@@ -381,10 +361,13 @@ def test_devices_json_never_contains_the_plaintext_secret(tmp_path):
             json_body={"mac": "aa:bb:cc:dd:ee:01", "hw_rev": "test",
                        "provision_secret": SECRET_A})
         assert status == 200
-        with open(h.registry_path()) as fh:
-            registry_text = fh.read()
-        assert SECRET_A not in registry_text, \
-            "the plaintext enrolment secret must never appear in devices.json"
+        conn = sqlite3.connect(h.fleet_db_path())
+        try:
+            rows = conn.execute("SELECT * FROM devices").fetchall()
+        finally:
+            conn.close()
+        assert SECRET_A not in repr(rows), \
+            "the plaintext enrolment secret must never appear in fleet.db"
     finally:
         h.stop()
 
@@ -401,99 +384,3 @@ def test_secret_flag_grants_nothing_to_an_unregistered_mac(tmp_path):
             "the retired --secret flag must not grant enrolment to an unregistered MAC"
     finally:
         h.stop()
-
-
-# --- devices_cli.py -------------------------------------------------------
-
-def test_devices_cli_add_list_remove_round_trip(tmp_path):
-    tmpdir = str(tmp_path)
-    secret_hash = _sha256_hex(SECRET_A)
-    code, _, err = _run_cli(
-        tmpdir, "add", "--mac", "aa:bb:cc:dd:ee:01", "--secret-sha256", secret_hash)
-    assert code == 0, "add failed: %s" % err
-
-    code, out, _ = _run_cli(tmpdir, "list")
-    assert code == 0
-    assert "aa:bb:cc:dd:ee:01" in out
-    assert secret_hash not in out, "devices_cli.py list must never print the full hash"
-
-    code, _, err = _run_cli(tmpdir, "remove", "--mac", "aa:bb:cc:dd:ee:01")
-    assert code == 0, "remove failed: %s" % err
-
-    module = load_byos_module()
-    registry = module.load_registry(tmpdir)
-    assert "aa:bb:cc:dd:ee:01" not in registry["devices"]
-
-
-def test_devices_cli_add_rejects_a_malformed_mac_or_non_hex_hash(tmp_path):
-    tmpdir = str(tmp_path)
-    code, _, _ = _run_cli(
-        tmpdir, "add", "--mac", "not-a-mac", "--secret-sha256", _sha256_hex(SECRET_A))
-    assert code != 0, "a malformed mac must be rejected"
-
-    code, _, _ = _run_cli(
-        tmpdir, "add", "--mac", "aa:bb:cc:dd:ee:01", "--secret-sha256", "not-64-hex-chars")
-    assert code != 0, "a non-64-hex hash must be rejected"
-
-
-def test_devices_cli_add_over_existing_mac_without_replace_exits_nonzero(tmp_path):
-    tmpdir = str(tmp_path)
-    secret_hash = _sha256_hex(SECRET_A)
-    code, _, err = _run_cli(
-        tmpdir, "add", "--mac", "aa:bb:cc:dd:ee:01", "--secret-sha256", secret_hash)
-    assert code == 0, "first add failed: %s" % err
-
-    code, _, _ = _run_cli(
-        tmpdir, "add", "--mac", "aa:bb:cc:dd:ee:01", "--secret-sha256", secret_hash)
-    assert code != 0, "re-adding an existing MAC without --replace must fail"
-
-    code, _, err = _run_cli(
-        tmpdir, "add", "--mac", "aa:bb:cc:dd:ee:01",
-        "--secret-sha256", _sha256_hex(SECRET_B), "--replace")
-    assert code == 0, "--replace must allow overwriting an existing MAC: %s" % err
-
-
-def test_devices_cli_remove_drops_only_that_macs_token(tmp_path):
-    tmpdir = str(tmp_path)
-    module = load_byos_module()
-    module.register_device(tmpdir, "aa:bb:cc:dd:ee:01", _sha256_hex(SECRET_A))
-    module.register_device(tmpdir, "aa:bb:cc:dd:ee:02", _sha256_hex(SECRET_A))
-    module.save_state(tmpdir, {"tokens": {
-        "aa:bb:cc:dd:ee:01": "token-one",
-        "aa:bb:cc:dd:ee:02": "token-two",
-    }})
-    code, _, err = _run_cli(tmpdir, "remove", "--mac", "aa:bb:cc:dd:ee:01")
-    assert code == 0, "remove failed: %s" % err
-    assert module.load_state(tmpdir)["tokens"] == {"aa:bb:cc:dd:ee:02": "token-two"}
-    assert "aa:bb:cc:dd:ee:01" not in module.load_registry(tmpdir)["devices"]
-
-
-def test_devices_cli_remove_without_a_token_leaves_the_state_file_untouched(tmp_path):
-    tmpdir = str(tmp_path)
-    module = load_byos_module()
-    module.register_device(tmpdir, "aa:bb:cc:dd:ee:01", _sha256_hex(SECRET_A))
-    module.save_state(tmpdir, {"tokens": {"aa:bb:cc:dd:ee:02": "token-two"}})
-    state_path = os.path.join(tmpdir, "byos_state.json")
-    with open(state_path, "rb") as fh:
-        before = fh.read()
-    code, _, err = _run_cli(tmpdir, "remove", "--mac", "aa:bb:cc:dd:ee:01")
-    assert code == 0, "remove failed: %s" % err
-    with open(state_path, "rb") as fh:
-        assert fh.read() == before
-
-
-def test_devices_cli_revoke_token_removes_only_that_macs_token(tmp_path):
-    tmpdir = str(tmp_path)
-    module = load_byos_module()
-    module.save_state(tmpdir, {"tokens": {
-        "aa:bb:cc:dd:ee:01": "token-one",
-        "aa:bb:cc:dd:ee:02": "token-two",
-    }})
-    code, _, err = _run_cli(tmpdir, "revoke-token", "--mac", "aa:bb:cc:dd:ee:01")
-    assert code == 0, "revoke-token failed: %s" % err
-    state = module.load_state(tmpdir)
-    assert "aa:bb:cc:dd:ee:01" not in state["tokens"], \
-        "revoke-token must remove the targeted MAC's token"
-    assert state["tokens"].get("aa:bb:cc:dd:ee:02") == "token-two", \
-        "revoke-token must leave every other MAC's token untouched"
-

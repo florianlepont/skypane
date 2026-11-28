@@ -182,8 +182,8 @@ def test_co_managers_do_not_change_what_the_byos_loaders_read(tmp_path, servers)
     live, _server = _live_frame(tmp_path, servers)
     device_id = _live_device_id(live)
     byos = _load_byos_module()
-    registry_before = byos.load_registry(live.state_dir)
-    state_before = byos.load_state(live.state_dir)
+    registry_before = byos.effective_registry(live.state_dir)
+    tokens_before = byos.effective_tokens(live.state_dir)
     raw_before = {
         name: _read_json(os.path.join(live.state_dir, name)) for name in LEGACY_FILES}
     bytes_before = {
@@ -191,14 +191,14 @@ def test_co_managers_do_not_change_what_the_byos_loaders_read(tmp_path, servers)
 
     _add_two_co_managers(live.state_dir, device_id)
 
-    assert byos.load_registry(live.state_dir) == registry_before
-    assert byos.load_state(live.state_dir) == state_before
+    assert byos.effective_registry(live.state_dir) == registry_before
+    assert byos.effective_tokens(live.state_dir) == tokens_before
     for name in LEGACY_FILES:
         path = os.path.join(live.state_dir, name)
         assert _file_bytes(path) == bytes_before[name], name
         assert _read_json(path) == raw_before[name], name
     assert byos.secret_matches(
-        byos.load_registry(live.state_dir), live.mac, live.secret_hex)
+        byos.effective_registry(live.state_dir), live.mac, live.secret_hex)
 
 
 def _file_bytes(path):

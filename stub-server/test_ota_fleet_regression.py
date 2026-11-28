@@ -68,11 +68,6 @@ def read_bytes(path):
         return fh.read()
 
 
-def seed_devices_json(state_dir, macs):
-    with open(os.path.join(state_dir, "devices.json"), "w") as fh:
-        json.dump({"devices": {mac: {"secret_sha256": "0" * 64} for mac in macs}}, fh)
-
-
 def seed_fleet(state_dir, devices):
     conn = fleet_db.connect(state_dir)
     try:
@@ -86,11 +81,11 @@ def seed_fleet(state_dir, devices):
         conn.close()
 
 
-def poll(byos_module, state_dir, token, tokens, fw_version="fw-v1.0.0", extra=None):
+def poll(byos_module, state_dir, token, fw_version="fw-v1.0.0", extra=None):
     headers = {"X-Fw-Version": fw_version, **(extra or {}),
                "Authorization": "Bearer %s" % token}
     return byos_module._record_device_report_and_offer(
-        state_dir, {"tokens": tokens}, headers, "http", "example.org")
+        state_dir, headers, "http", "example.org")
 
 
 def report_entry(state_dir, mac):
@@ -169,8 +164,7 @@ def legacy_registry_with_images(state_dir):
 def test_legacy_shaped_registry_loads_and_offers_unchanged(byos_module, tmp_path):
     state_dir = str(tmp_path)
     images, original = legacy_registry_with_images(state_dir)
-    seed_devices_json(state_dir, [LEGACY_MAC])
-    tokens = {LEGACY_MAC: LEGACY_TOKEN}
+    seed_fleet(state_dir, [(LEGACY_MAC, LEGACY_TOKEN, hardware.LEGACY_KEY)])
 
     registry = firmware_registry.load_registry(state_dir)
     assert [r["version"] for r in registry["releases"]] == ["fw-v1.0.0", "fw-v1.0.1", "fw-v1.0.2"]
@@ -183,7 +177,7 @@ def test_legacy_shaped_registry_loads_and_offers_unchanged(byos_module, tmp_path
     assert firmware_registry.schedule_release(
         state_dir, "fw-v1.0.1", "fw-v1.0.2") == "scheduled"
     sha, data = images["fw-v1.0.1"]
-    offer = poll(byos_module, state_dir, LEGACY_TOKEN, tokens, fw_version="fw-v1.0.2")
+    offer = poll(byos_module, state_dir, LEGACY_TOKEN, fw_version="fw-v1.0.2")
     assert offer == {
         "version": "fw-v1.0.1",
         "url": "http://example.org/fw/" + sha + ".bin",
@@ -191,13 +185,13 @@ def test_legacy_shaped_registry_loads_and_offers_unchanged(byos_module, tmp_path
         "size": len(data),
     }
     # A frame already on the scheduled version is offered nothing.
-    assert poll(byos_module, state_dir, LEGACY_TOKEN, tokens, fw_version="fw-v1.0.1") is None
+    assert poll(byos_module, state_dir, LEGACY_TOKEN, fw_version="fw-v1.0.1") is None
 
 
 def test_legacy_shaped_update_view_is_unchanged(tmp_path):
     state_dir = str(tmp_path)
     legacy_registry_with_images(state_dir)
-    seed_devices_json(state_dir, [LEGACY_MAC])
+    seed_fleet(state_dir, [(LEGACY_MAC, LEGACY_TOKEN, hardware.LEGACY_KEY)])
     report = {"schema": 1, "next_seq": 0, "devices": {
         LEGACY_MAC: {"fw_version": "fw-v1.0.2", "reported_at": "2026-10-01T00:00:00+00:00",
                      "events": []}}}
@@ -222,8 +216,7 @@ def test_legacy_shaped_update_view_is_unchanged(tmp_path):
 def test_pre_fleet_copy_is_byte_identical_and_written_once(byos_module, tmp_path):
     state_dir = str(tmp_path)
     images, original = legacy_registry_with_images(state_dir)
-    seed_devices_json(state_dir, [LEGACY_MAC])
-    tokens = {LEGACY_MAC: LEGACY_TOKEN}
+    seed_fleet(state_dir, [(LEGACY_MAC, LEGACY_TOKEN, hardware.LEGACY_KEY)])
     registry_file = firmware_registry.registry_path(state_dir)
     pre_fleet = registry_file + ".pre-fleet"
 
@@ -238,8 +231,8 @@ def test_pre_fleet_copy_is_byte_identical_and_written_once(byos_module, tmp_path
 
     assert firmware_registry.schedule_release(
         state_dir, "fw-v1.0.1", "fw-v1.0.2") == "scheduled"
-    assert poll(byos_module, state_dir, LEGACY_TOKEN, tokens, fw_version="fw-v1.0.2") is not None
-    poll(byos_module, state_dir, LEGACY_TOKEN, tokens, fw_version="fw-v1.0.1",
+    assert poll(byos_module, state_dir, LEGACY_TOKEN, fw_version="fw-v1.0.2") is not None
+    poll(byos_module, state_dir, LEGACY_TOKEN, fw_version="fw-v1.0.1",
          extra={"X-Ota-Result": "installed;fw-v1.0.1"})
     assert firmware_registry.apply_reconcile_all(state_dir) == [("installed", "fw-v1.0.1", None)]
     assert read_bytes(pre_fleet) == original
@@ -259,9 +252,6 @@ def test_pre_fleet_copy_is_byte_identical_and_written_once(byos_module, tmp_path
 def test_legacy_shaped_registry_is_served_over_fw_by_a_real_byos(tmp_path):
     state_dir = str(tmp_path)
     images, _ = legacy_registry_with_images(state_dir)
-    seed_devices_json(state_dir, [LEGACY_MAC])
-    with open(os.path.join(state_dir, "byos_state.json"), "w") as fh:
-        json.dump({"tokens": {LEGACY_MAC: LEGACY_TOKEN}}, fh)
     panel = os.path.join(state_dir, "panel.bin")
     with open(panel, "wb") as fh:
         fh.write(bytes([0x11]) * 960000)
@@ -297,12 +287,11 @@ def test_legacy_shaped_registry_is_served_over_fw_by_a_real_byos(tmp_path):
 def test_live_frame_report_entry_differs_only_by_the_hardware_type(byos_module, tmp_path):
     state_dir = str(tmp_path)
     legacy_registry_with_images(state_dir)
-    seed_devices_json(state_dir, [LEGACY_MAC])
-    tokens = {LEGACY_MAC: LEGACY_TOKEN}
+    seed_fleet(state_dir, [(LEGACY_MAC, LEGACY_TOKEN, hardware.LEGACY_KEY)])
     assert firmware_registry.schedule_release(
         state_dir, "fw-v1.0.1", "fw-v1.0.2") == "scheduled"
 
-    poll(byos_module, state_dir, LEGACY_TOKEN, tokens, fw_version="fw-v1.0.2")
+    poll(byos_module, state_dir, LEGACY_TOKEN, fw_version="fw-v1.0.2")
     entry = report_entry(state_dir, LEGACY_MAC)
 
     stamped = entry.pop("hardware_type", hardware.LEGACY_KEY)
@@ -311,25 +300,6 @@ def test_live_frame_report_entry_differs_only_by_the_hardware_type(byos_module, 
     assert entry["fw_version"] == "fw-v1.0.2"
     assert [e["kind"] for e in entry["events"]] == ["offered"]
     assert entry["events"][0]["version"] == "fw-v1.0.1"
-
-
-def test_legacy_frame_without_a_fleet_row_keeps_working_when_fleet_db_is_faulted(
-        byos_module, tmp_path, sim_gate):
-    state_dir = str(tmp_path)
-    legacy_registry_with_images(state_dir)
-    seed_devices_json(state_dir, [LEGACY_MAC])
-    assert firmware_registry.schedule_release(
-        state_dir, "fw-v1.0.1", "fw-v1.0.2") == "scheduled"
-    tokens = {LEGACY_MAC: LEGACY_TOKEN, CLONE_MAC: CLONE_TOKEN}
-    with open(os.path.join(state_dir, "fleet.db"), "wb") as fh:
-        fh.write(b"this is not a sqlite database")
-
-    legacy_offer = poll(byos_module, state_dir, LEGACY_TOKEN, tokens, fw_version="fw-v1.0.2")
-    fleet_only_offer = poll(byos_module, state_dir, CLONE_TOKEN, tokens, fw_version="fw-v1.0.2")
-
-    assert legacy_offer is not None and legacy_offer["version"] == "fw-v1.0.1"
-    assert fleet_only_offer is None
-    assert report_entry(state_dir, CLONE_MAC)["hardware_type"] == firmware_registry.UNRESOLVED_TYPE
 
 
 # --- Two simulated hardware types, end to end --------------------------------
@@ -360,7 +330,7 @@ def import_tags(state_dir, base, tags_by_key):
 
 
 def test_two_types_publish_schedule_and_poll_independently(byos_module, tmp_path, two_type_fleet):
-    state_dir, tokens = two_type_fleet
+    state_dir, _tokens = two_type_fleet
     base = str(tmp_path / "tags")
     code, out, err, shas = import_tags(
         state_dir, base,
@@ -379,9 +349,9 @@ def test_two_types_publish_schedule_and_poll_independently(byos_module, tmp_path
     assert firmware_registry.schedule_release(
         state_dir, "fw-v1.2.0", None, hardware_type=LAND) == "scheduled"
 
-    clone_offer = poll(byos_module, state_dir, CLONE_TOKEN, tokens)
-    land_offer = poll(byos_module, state_dir, LAND_TOKEN, tokens)
-    legacy_offer = poll(byos_module, state_dir, LEGACY_TOKEN, tokens)
+    clone_offer = poll(byos_module, state_dir, CLONE_TOKEN)
+    land_offer = poll(byos_module, state_dir, LAND_TOKEN)
+    legacy_offer = poll(byos_module, state_dir, LEGACY_TOKEN)
 
     assert clone_offer["version"] == "fw-v1.10.0"
     assert clone_offer["sha256"] == "sha256:" + shas[("fw-v1.10.0", CLONE)]
@@ -396,11 +366,11 @@ def test_two_types_publish_schedule_and_poll_independently(byos_module, tmp_path
     # refusal is per type: the legacy document has nothing to cancel.
     assert firmware_registry.cancel_schedule(state_dir, hardware_type=LAND) == "not_cancellable"
     assert firmware_registry.cancel_schedule(state_dir) == "none"
-    assert poll(byos_module, state_dir, CLONE_TOKEN, tokens)["version"] == "fw-v1.10.0"
+    assert poll(byos_module, state_dir, CLONE_TOKEN)["version"] == "fw-v1.10.0"
 
 
 def test_reconcile_moves_only_the_owning_types_schedule(byos_module, tmp_path, two_type_fleet):
-    state_dir, tokens = two_type_fleet
+    state_dir, _tokens = two_type_fleet
     code, _, err, _ = import_tags(
         state_dir, str(tmp_path / "tags"), [("fw-v1.2.0", [CLONE, LAND])])
     assert code == 0, err
@@ -411,9 +381,9 @@ def test_reconcile_moves_only_the_owning_types_schedule(byos_module, tmp_path, t
         state_dir, "fw-v1.0.1", "fw-v1.0.2") == "scheduled"
     legacy_before = read_bytes(firmware_registry.registry_path(state_dir))
     land_before = read_bytes(firmware_registry.registry_path(state_dir, LAND))
-    assert poll(byos_module, state_dir, CLONE_TOKEN, tokens) is not None
+    assert poll(byos_module, state_dir, CLONE_TOKEN) is not None
 
-    poll(byos_module, state_dir, CLONE_TOKEN, tokens, fw_version="fw-v1.2.0",
+    poll(byos_module, state_dir, CLONE_TOKEN, fw_version="fw-v1.2.0",
          extra={"X-Ota-Result": "installed;fw-v1.2.0"})
     outcomes = firmware_registry.apply_reconcile_all(state_dir)
 
@@ -469,7 +439,7 @@ def test_import_dir_is_idempotent(tmp_path, two_type_fleet):
 
 
 def test_each_type_image_is_served_by_fw_route_membership(byos_module, tmp_path, two_type_fleet):
-    state_dir, tokens = two_type_fleet
+    state_dir, _tokens = two_type_fleet
     code, _, err, shas = import_tags(
         state_dir, str(tmp_path / "tags"), [("fw-v1.2.0", [CLONE, LAND])])
     assert code == 0, err

@@ -8,7 +8,6 @@ sleep_s, the response key set and, with poll cycles run in-process on the
 same directory, the served image_hash over simulated time.
 """
 import hashlib
-import importlib.util
 import json
 import os
 import sys
@@ -29,6 +28,7 @@ import server.device_config as device_config  # noqa: E402
 import server.device_policy as device_policy  # noqa: E402
 import server.plane.enrich as enrich  # noqa: E402
 import server.poll_cycle as poll_cycle  # noqa: E402
+import skypane_fleet_identity as fleet_identity  # noqa: E402
 from skypane_frame_server import DEFAULT_SLEEP_S, FrameServer  # noqa: E402
 
 SERVER_PATH = os.path.join(HERE, "byos_server.py")
@@ -42,13 +42,6 @@ with open(os.path.join(HERE, "measured_fields_freeze.json"), encoding="utf-8") a
     FROZEN_DISPLAY_KEYS = sorted(json.load(_fh)["display_response_keys"]["keys"])
 
 
-def load_byos_module():
-    spec = importlib.util.spec_from_file_location("byos_server_check_interval", SERVER_PATH)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
 class Frame:
     """An enrolled frame talking to a byos subprocess."""
 
@@ -58,7 +51,7 @@ class Frame:
         self.token = None
 
     def start(self):
-        load_byos_module().register_device(
+        fleet_identity.register_device(
             self.state_dir, MAC, hashlib.sha256(SECRET.encode("ascii")).hexdigest(),
             replace=True)
         self.server.start()

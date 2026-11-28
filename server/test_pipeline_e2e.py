@@ -20,7 +20,6 @@ proves) or introducing inter-test ordering dependencies - one node id,
 one docstring line per check, is the faithful translation.
 """
 import hashlib
-import importlib.util
 import json
 import os
 import socket
@@ -62,6 +61,7 @@ import server.panel_format as panel_format  # noqa: E402
 import server.plane.render as render  # noqa: E402
 import server.poll_cycle as poll_cycle  # noqa: E402
 from server import screen_layouts  # noqa: E402
+import skypane_fleet_identity as fleet_identity  # noqa: E402
 from skypane_test_support import child_env  # noqa: E402
 
 
@@ -98,16 +98,6 @@ def http_request(url, method="GET", headers=None, json_body=None, timeout=10):
         return exc.code, dict(exc.headers or {}), exc.read()
 
 
-def load_byos_module():
-    """Import byos_server.py by path so BYOSHarness.start() can call
-    register_device() directly; its top level is constants and defs only."""
-    spec = importlib.util.spec_from_file_location(
-        "byos_server_pipeline_e2e_under_test", STUB_SERVER_PATH)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
 class BYOSHarness:
     """Owns a byos_server.py subprocess lifecycle for the download half of
     this test. Modeled on stub-server/test_poll_cycle.py's Harness class -
@@ -139,9 +129,8 @@ class BYOSHarness:
     def start(self):
         # Setup is registry-gated: register every fixture MAC against this
         # instance's --state-dir (replace=True: instances may share one).
-        byos_module = load_byos_module()
         for mac in HARNESS_MACS:
-            byos_module.register_device(
+            fleet_identity.register_device(
                 self.state_dir, mac,
                 hashlib.sha256(HARNESS_ENROL_SECRET.encode("ascii")).hexdigest(),
                 replace=True)
