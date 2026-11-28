@@ -220,7 +220,7 @@ applied on `main`. Sections 0 to 4 above stay as the detailed record.
 | R19 | Legacy files and per-frame copies are moved aside, never deleted | 2026-11-27 (D-12, D-13) | Owner-run `server.retire_legacy_state`: dry run first, `--apply` renames into `retired-legacy/<date>/`, never deletes or overwrites | Plans 19 and 20 (PRs 662, 664) |
 | R20 | Frame enrolment tooling | 2026-11-28 (gate G1) | `devices_cli` removed; `fleet_cli devices register-pending` and `replace-secret` take its place | Plan 19 (PR 662); docs in plan 23 (PR 668) |
 | R21 | Deploy stays manual and owner-run | 2026-11-27 (D-09, D-12) | Nothing in this phase was deployed by an agent. Production still runs a release older than plan 17, so `server.sqlite_migrations report` does not exist there yet | Owner-run steps in `deploy/README.md` (PR 668) |
-| R22 | OPEN: a separate PR for the stale drag-release velocity in `modal.js` and `toast.js` (a product observation, unchanged) | not recorded | OPEN, waiting for the owner | None; nothing changed in this phase |
+| R22 | A separate PR for the stale drag-release velocity in `modal.js` and `toast.js` (a product observation, unchanged) | 2026-11-28 | Decided: no separate PR, behaviour unchanged | None; nothing changed in this phase |
 
 Nothing was removed from sections 0 to 4. Open items at the end of the phase:
-R3 (plan 16), R5 (plan 25) and R22.
+R3 (plan 16) and R5 (plan 25). R22 was decided on 2026-11-28: no separate PR, behaviour unchanged.
