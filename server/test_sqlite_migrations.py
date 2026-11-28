@@ -25,6 +25,7 @@ if REPO_ROOT not in sys.path:
 
 import server.fleet_db as fleet_db  # noqa: E402
 import server.history_db as history_db  # noqa: E402
+import server.sqlite_migrations as sqlite_migrations  # noqa: E402
 
 FLEET_TABLES = {
     "users", "locations", "devices", "meta", "sessions", "pending_devices",
@@ -559,3 +560,204 @@ def test_history_busy_timeout_is_5000_ms(tmp_path):
         assert conn.execute("PRAGMA busy_timeout").fetchone()[0] == 5000
     finally:
         conn.close()
+
+
+# --- read-only report -------------------------------------------------------
+
+FAKE_TOKEN = "tok_FAKESECRETVALUE0123456789"
+FAKE_HASH = "f" * 64
+DEVICE_ID = "d_0a1b2c3d"
+
+
+def _tree_state(root):
+    """Every path under `root` with its content hash: detects a changed byte
+    and a created or removed file alike."""
+    state = {}
+    for dirpath, _dirs, files in os.walk(root):
+        for name in files:
+            if name.endswith("-shm"):
+                # The WAL index is shared memory every reader updates; it
+                # holds no database content, but its presence is checked.
+                state[name] = ""
+                continue
+            full = os.path.join(dirpath, name)
+            with open(full, "rb") as handle:
+                state[os.path.relpath(full, root)] = hashlib.sha256(
+                    handle.read()).hexdigest()
+    return state
+
+
+def _seed_secret_rows(path):
+    raw = sqlite3.connect(path, isolation_level=None)
+    raw.execute("INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)",
+                ("note", FAKE_TOKEN))
+    raw.execute("INSERT INTO users (email, role, created_at) VALUES (?, 'admin', 'now')",
+                ("%s@example.org" % FAKE_TOKEN.lower(),))
+    raw.execute(
+        "INSERT INTO sessions (id_hash, user_id, principal, created_at, "
+        "last_seen_at, expires_at) VALUES (?, 1, 'user', 1, 1, 2)", (FAKE_HASH,))
+    raw.close()
+
+
+def _report(state_dir, capsys):
+    code = sqlite_migrations.main(["report", "--state-dir", str(state_dir)])
+    return code, capsys.readouterr().out.splitlines()
+
+
+def test_report_current_files_exit_zero_and_one_line_each(tmp_path, capsys):
+    fleet_db.connect(str(tmp_path)).close()
+    _history_conn(tmp_path).close()
+    device_dir = tmp_path / "devices" / DEVICE_ID
+    device_dir.mkdir(parents=True)
+    history_db.connect(str(device_dir)).close()
+    before = _tree_state(tmp_path)
+
+    code, lines = _report(tmp_path, capsys)
+
+    assert code == 0
+    assert lines == [
+        "fleet.db ok current=4 target=4 pending=0",
+        "history.db ok current=1 target=1 pending=0",
+        "devices/%s/history.db ok current=1 target=1 pending=0" % DEVICE_ID,
+    ]
+    assert _tree_state(tmp_path) == before
+
+
+def test_report_older_fleet_lists_pending_steps_and_exits_three(tmp_path, capsys):
+    path = _fleet_at(str(tmp_path), 2)
+    _seed_secret_rows(path)
+    before = _tree_state(tmp_path)
+
+    code, lines = _report(tmp_path, capsys)
+
+    assert code == 3
+    assert len(lines) == 2  # fleet.db, plus the absent root history.db
+    fields = lines[0].split(" ")
+    assert fields[:5] == ["fleet.db", "pending", "current=2", "target=4", "pending=2"]
+    assert fields[5].startswith("step=3:") and fields[6].startswith("step=4:")
+    assert len(fields) == 7
+    assert lines[1] == "history.db absent"
+    assert _tree_state(tmp_path) == before
+
+
+def test_report_never_prints_row_contents(tmp_path, capsys):
+    fleet_db.connect(str(tmp_path)).close()
+    _seed_secret_rows(fleet_db.fleet_db_path(str(tmp_path)))
+    path = history_db.history_db_path(str(tmp_path))
+    _make_old_history(path)
+    raw = sqlite3.connect(path)
+    raw.execute("INSERT INTO runway_events (ts, callsign) VALUES ('t', ?)",
+                (FAKE_TOKEN,))
+    raw.commit()
+    raw.close()
+
+    code, lines = _report(tmp_path, capsys)
+
+    text = "\n".join(lines)
+    assert code == 3
+    assert FAKE_TOKEN not in text and FAKE_TOKEN.lower() not in text
+    assert FAKE_HASH not in text
+    # The old-shape fixture lacks four tables, the wake columns and two more.
+    assert lines[1] == (
+        "history.db pending current=0 target=1 pending=1 "
+        "step=1:initial-schema:creates-tables:4,adds-columns:%d"
+        % (len(history_db._WAKE_COLUMN_TYPES) + 2))
+
+
+def test_report_newer_fleet_is_flagged_not_pending(tmp_path, capsys):
+    path = fleet_db.fleet_db_path(str(tmp_path))
+    raw = sqlite3.connect(path)
+    raw.execute("PRAGMA user_version = 5")
+    raw.commit()
+    raw.close()
+    before = _tree_state(tmp_path)
+
+    code, lines = _report(tmp_path, capsys)
+
+    assert code == 0
+    assert lines[0] == "fleet.db newer current=5 target=4 pending=0"
+    assert _tree_state(tmp_path) == before
+
+
+def test_report_unreadable_file_exits_two_without_content(tmp_path, capsys):
+    (tmp_path / "fleet.db").write_bytes(b"this is not a database " * 200)
+    before = _tree_state(tmp_path)
+
+    code, lines = _report(tmp_path, capsys)
+
+    assert code == 2
+    assert lines[0] == "fleet.db unreadable"
+    assert _tree_state(tmp_path) == before
+
+
+def test_report_reads_a_live_wal_database_without_writing(tmp_path, capsys):
+    holder = history_db.connect(str(tmp_path))
+    holder.execute(
+        "INSERT INTO runway_events (ts, callsign) VALUES ('t', ?)", (FAKE_TOKEN,))
+    holder.commit()
+    assert os.path.exists(history_db.history_db_path(str(tmp_path)) + "-wal")
+    before = _tree_state(tmp_path)
+    try:
+        code, lines = _report(tmp_path, capsys)
+        after = _tree_state(tmp_path)
+    finally:
+        holder.close()
+    assert code == 0
+    assert "history.db ok current=1 target=1 pending=0" in lines
+    assert FAKE_TOKEN not in "\n".join(lines)
+    assert after == before
+
+
+def test_report_skips_linked_and_badly_named_device_directories(tmp_path, capsys):
+    devices = tmp_path / "devices"
+    devices.mkdir()
+    (devices / "not-a-device").mkdir()
+    history_db.connect(str(devices / "not-a-device")).close()
+    (devices / DEVICE_ID).symlink_to(devices / "not-a-device")
+
+    code, lines = _report(tmp_path, capsys)
+
+    assert code == 0
+    assert lines == ["fleet.db absent", "history.db absent"]
+
+
+def test_report_command_runs_as_a_module_and_writes_nothing(tmp_path):
+    _fleet_at(str(tmp_path), 3)
+    before = _tree_state(tmp_path)
+    proc = subprocess.run(
+        [sys.executable, "-m", "server.sqlite_migrations", "report",
+         "--state-dir", str(tmp_path)],
+        cwd=REPO_ROOT, capture_output=True, text=True, timeout=60)
+    assert proc.returncode == 3, proc.stderr
+    assert proc.stdout.splitlines()[0].startswith(
+        "fleet.db pending current=3 target=4 pending=1 step=4:device-co-managers:")
+    assert _tree_state(tmp_path) == before
+
+
+def test_pending_steps_lists_only_steps_above_the_stamp(tmp_path):
+    conn = sqlite3.connect(str(tmp_path / "x.db"), isolation_level=None)
+    conn.execute("PRAGMA user_version = 2")
+    names = [s.name for s in sqlite_migrations.pending_steps(conn, fleet_db.FLEET_STEPS)]
+    assert names == ["pending-devices-and-owned-locations", "device-co-managers"]
+    assert _version(conn) == 2
+    conn.close()
+
+
+def test_idempotent_policy_never_lowers_a_newer_stamp(tmp_path):
+    conn = sqlite3.connect(str(tmp_path / "x.db"))
+    conn.execute("PRAGMA user_version = 8")
+    calls = []
+    steps = (sqlite_migrations.Step(1, "one", lambda c: calls.append(1)),)
+    sqlite_migrations.apply_steps(
+        conn, steps, sqlite_migrations.Policy("idempotent", "keep"))
+    assert _version(conn) == 8 and calls == [1]
+    conn.close()
+
+
+def test_add_column_if_missing_is_idempotent(tmp_path):
+    conn = sqlite3.connect(str(tmp_path / "x.db"))
+    conn.execute("CREATE TABLE t (a INTEGER)")
+    sqlite_migrations.add_column_if_missing(conn, "t", "b", "TEXT")
+    sqlite_migrations.add_column_if_missing(conn, "t", "b", "TEXT")
+    assert _columns(conn, "t") == {"a", "b"}
+    conn.close()

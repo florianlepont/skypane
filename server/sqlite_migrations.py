@@ -169,7 +169,16 @@ def apply_steps(
 
 
 def _open_readonly(path: str) -> sqlite3.Connection:
+    """Open `path` so that nothing on disk can change, side files included.
+
+    A live WAL database (both side files present) is read with `mode=ro`,
+    which sees the log. Without both side files there is no log to read, and
+    a plain read-only open would create them, so the file is opened
+    `immutable` (no locking, no side files).
+    """
     uri = Path(os.path.abspath(path)).as_uri() + "?mode=ro"
+    if not (os.path.exists(path + "-wal") and os.path.exists(path + "-shm")):
+        uri += "&immutable=1"
     conn = sqlite3.connect(uri, uri=True, timeout=BUSY_TIMEOUT_MS / 1000)
     conn.execute("PRAGMA query_only=ON")
     return conn

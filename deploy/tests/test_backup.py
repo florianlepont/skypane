@@ -935,3 +935,78 @@ class TestDriftGuard:
             if item[2] not in backed_up and not skypane_backup._is_known_excluded(item[2])
         )
         assert unclassified == []
+
+
+class TestRestoreThenMigrate:
+    """A backup of a pre-migration state, restored into a scratch directory,
+    is reported read-only, migrates on connect, and migrates again without
+    changing a byte."""
+
+    @staticmethod
+    def _tree(root):
+        out = {}
+        for dirpath, _dirs, files in os.walk(root):
+            for name in files:
+                full = os.path.join(dirpath, name)
+                with open(full, "rb") as handle:
+                    out[os.path.relpath(full, root)] = hashlib.sha256(handle.read()).hexdigest()
+        return out
+
+    def test_old_backup_is_reported_migrated_and_stable(self, tmp_path):
+        import sqlite3
+
+        from server import sqlite_migrations
+
+        state_dir = tmp_path / "state"
+        _seed_minimal_state(state_dir)
+        fleet_path = fleet_db.fleet_db_path(str(state_dir))
+        raw = sqlite3.connect(fleet_path, isolation_level=None)
+        fleet_db.migrate_schema(raw, fleet_db.MIGRATIONS[:2])
+        raw.execute("INSERT INTO meta (key, value) VALUES ('probe', 'kept')")
+        raw.close()
+        ddir = _seed_device(state_dir, with_history=False)
+        old = sqlite3.connect(str(ddir / "history.db"))
+        old.execute(
+            "CREATE TABLE runway_events (id INTEGER PRIMARY KEY, ts TEXT NOT NULL, "
+            "hex TEXT, callsign TEXT)")
+        old.execute("INSERT INTO runway_events (ts, hex) VALUES ('t', 'abc123')")
+        old.commit()
+        old.close()
+
+        rc, archive_dir = _run_backup(tmp_path)
+        assert rc == 0
+        restored = tmp_path / "restored"
+        restored.mkdir()
+        with tarfile.open(archive_dir / _archive_names(archive_dir)[0], "r:gz") as tar:
+            tar.extractall(restored, filter="data")
+
+        before = self._tree(restored)
+        lines, code = sqlite_migrations.report(str(restored))
+        assert code == 3
+        assert lines[0].startswith("fleet.db pending current=2 target=4 pending=2 step=3:")
+        assert lines[1] == "history.db absent"
+        assert lines[2].startswith("devices/%s/history.db pending current=0 target=1" % _DEV)
+        assert self._tree(restored) == before
+
+        fleet_db.connect(str(restored)).close()
+        history_db.connect(str(restored / "devices" / _DEV)).close()
+        lines, code = sqlite_migrations.report(str(restored))
+        assert code == 0
+        assert lines[0] == "fleet.db ok current=4 target=4 pending=0"
+        assert lines[2] == "devices/%s/history.db ok current=1 target=1 pending=0" % _DEV
+
+        conn = fleet_db.connect_readonly(str(restored))
+        assert fleet_db.meta_get(conn, "probe") == "kept"
+        conn.close()
+        rconn = history_db.connect(str(restored / "devices" / _DEV))
+        assert rconn.execute("SELECT hex FROM runway_events").fetchone()[0] == "abc123"
+        rconn.close()
+
+        # Reopening once more clears the WAL side files the reads above left.
+        fleet_db.connect(str(restored)).close()
+        history_db.connect(str(restored / "devices" / _DEV)).close()
+        settled = self._tree(restored)
+        fleet_db.connect(str(restored)).close()
+        history_db._SCHEMA_READY.clear()
+        history_db.connect(str(restored / "devices" / _DEV)).close()
+        assert self._tree(restored) == settled
