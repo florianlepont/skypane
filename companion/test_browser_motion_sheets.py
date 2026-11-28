@@ -69,6 +69,16 @@ def _drag(page, start, dy, dx=0, steps=8, release=True):
         page.mouse.up()
 
 
+def _pause_then_release(page, x, y, ms=300):
+    """Hold a drag still, then let go. A real hand that stops sends one last tiny move, so the
+    release speed the page measures is the near-zero speed of that move; without it the page
+    keeps the speed of the last stepped move (a few px over one frame), which a stalled frame
+    can turn into a flick, so the test would sometimes see the sheet or toast dismissed."""
+    page.wait_for_timeout(ms)
+    page.mouse.move(x, y)
+    page.mouse.up()
+
+
 def _transform(page, selector):
     return page.locator(selector).evaluate("e => getComputedStyle(e).transform")
 
@@ -125,8 +135,7 @@ def test_a_short_drag_springs_back_and_the_sheet_stays_open(new_context, make_ap
         page.mouse.move(*start)
         page.mouse.down()
         page.mouse.move(start[0], start[1] + 30, steps=10)
-        page.wait_for_timeout(300)
-        page.mouse.up()
+        _pause_then_release(page, start[0], start[1] + 31)
         page.wait_for_function(
             "s => { const d = document.querySelector(s); return d.open"
             " && getComputedStyle(d).transform === 'none'"
@@ -346,8 +355,7 @@ def test_a_short_toast_swipe_springs_back_and_the_toast_stays(
         page.mouse.move(*start)
         page.mouse.down()
         page.mouse.move(start[0] + 40, start[1], steps=10)
-        page.wait_for_timeout(300)
-        page.mouse.up()
+        _pause_then_release(page, start[0] + 41, start[1])
         page.wait_for_function(
             "s => { const t = document.querySelector(s); return !!t"
             " && getComputedStyle(t).transform === 'none'"

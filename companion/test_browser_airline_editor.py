@@ -55,20 +55,16 @@ def _open(new_context, server, viewport, lang="en", path="/airlines/manage",
     page = context.new_page()
     _login(page, server.base_url())
     page.goto(server.base_url() + path)
-    _settle(page, ready)
+    _settle(page, ready, scripts=context_args.get("java_script_enabled", True))
     return context, page
 
 
-def _settle(page, selector):
+def _settle(page, selector, scripts=True):
     page.locator(selector).first.wait_for(state="visible")
-    page.wait_for_function(_SETTLED, timeout=15000)
+    animation_settle.wait_for_expression(page, _SETTLED, timeout=15000, scripts=scripts)
     page.locator(selector).first.evaluate("el => el.scrollIntoView({block: 'center'})")
-    page.wait_for_function(
-        "sel => { const el = document.querySelector(sel);"
-        " const r = el.getBoundingClientRect();"
-        " const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);"
-        " return !!hit && (hit === el || el.contains(hit) || hit.contains(el)); }",
-        arg=selector, timeout=10000)
+    animation_settle.wait_for_expression(
+        page, _OWNS_CENTRE, arg=selector, timeout=10000, scripts=scripts)
 
 
 @pytest.mark.parametrize("lang", ("en", "fr"))
