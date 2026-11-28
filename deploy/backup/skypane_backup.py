@@ -113,12 +113,8 @@ DEVICE_INCLUDE_FILES = (
     "calendar_rules.json",
     "calendar_url.secret",
     "colour_rules.json",
-    "manual_resolutions.json",
-    "airline_name_overrides.json",
-    "airline_default_types.json",
 )
 DEVICE_INCLUDE_DIRS = (
-    "illustration_overrides",
     "gallery",
 )
 DEVICE_SNAPSHOT_DBS = ("history.db",)

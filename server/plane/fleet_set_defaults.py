@@ -8,8 +8,7 @@ of its airframe type) and one type is the airline's default, the safety net
 shown when a flight has a type with no picture. This module gives each airline
 that has pictures and no stored default the default a person would have
 chosen, by fixed rules, at deploy time (`server.fleet_migrate`), after the
-per-frame merges and after the clearing of defaults without a picture
-(`fleet_default_types`). Nothing is left to an Editor flag.
+clearing of defaults without a picture (`fleet_default_types`). Nothing is left to an Editor flag.
 
 Rules, in order, for an airline with pictures and no stored default:
   a. it has a legacy `{airline}.png` whose airframe is known -> that type;
@@ -34,8 +33,7 @@ Invariants:
   frame directory, read-only, a sighting of an airline's built-in original
   counting for its renamed airline. A history that cannot be read counts as no
   sighting.
-- A dry run writes nothing and judges the fleet root as it is now (pictures or
-  defaults still waiting in the per-frame merge are not counted).
+- A dry run writes nothing and judges the fleet root as it is now.
 - Output names airline keys, type codes, rules and counts only.
 """
 from __future__ import annotations

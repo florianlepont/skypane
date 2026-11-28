@@ -756,7 +756,7 @@ class TestAirlineFiles:
         from fnmatch import fnmatch
         from server.plane import (
             airline_default_types, airline_suggest, manual_resolutions,
-            fleet_registries, name_overrides, shared_route_cache)
+            name_overrides, shared_route_cache)
 
         archived = {
             manual_resolutions.MANUAL_RESOLUTIONS_FILENAME,
@@ -765,10 +765,12 @@ class TestAirlineFiles:
         }
         for name in archived:
             assert name in skypane_backup.INCLUDE_FILES
-            assert name in skypane_backup.DEVICE_INCLUDE_FILES
+            # The registries live at the fleet root only: a copy in a frame
+            # directory is reported as drift, not archived.
+            assert name not in skypane_backup.DEVICE_INCLUDE_FILES
         # The merge marker and the suggestion cache live in the state root only.
-        assert fleet_registries.MARKER_FILENAME in skypane_backup.INCLUDE_FILES
-        assert fleet_registries.MARKER_FILENAME not in skypane_backup.DEVICE_INCLUDE_FILES
+        assert "airline_registry_migration.json" in skypane_backup.INCLUDE_FILES
+        assert "airline_registry_migration.json" not in skypane_backup.DEVICE_INCLUDE_FILES
         assert airline_suggest.CACHE_FILENAME in skypane_backup.INCLUDE_FILES
         assert airline_suggest.CACHE_FILENAME not in skypane_backup.DEVICE_INCLUDE_FILES
         cache = shared_route_cache.SHARED_CACHE_FILENAME
@@ -778,7 +780,7 @@ class TestAirlineFiles:
     def test_airline_files_reach_the_archive_without_drift(self, tmp_path, capsys):
         state_dir = tmp_path / "state"
         _seed_minimal_state(state_dir)
-        ddir = _seed_device(state_dir)
+        _seed_device(state_dir)
         for name in (
             "airline_name_overrides.json", "airline_default_types.json",
             "airline_suggestions.json", "airline_registry_migration.json",
@@ -788,8 +790,6 @@ class TestAirlineFiles:
             "adsbdb_shared_cache.json.lock",
         ):
             (state_dir / name).write_text("{}")
-        for name in ("manual_resolutions.json", "airline_name_overrides.json", "airline_default_types.json"):
-            (ddir / name).write_text("{}")
 
         rc, archive_dir = _run_backup(tmp_path)
         assert rc == 0
@@ -800,8 +800,8 @@ class TestAirlineFiles:
                      "airline_default_types_migration.json", "airline_default_types_cleared.json",
                      "airline_default_types_set_migration.json", "airline_default_types_set.json"):
             assert kept in members
-        for kept in ("manual_resolutions.json", "airline_name_overrides.json", "airline_default_types.json"):
-            assert base + kept in members
+        assert not [m for m in members if m.startswith(base) and m.endswith(
+            ("manual_resolutions.json", "airline_name_overrides.json", "airline_default_types.json"))]
         assert "adsbdb_shared_cache.json" not in members
         assert "not in include list" not in capsys.readouterr().out
 
@@ -858,22 +858,36 @@ class TestArtworkMergeBackup:
     def test_fleet_artwork_directories_and_marker_reach_the_archive_without_drift(self, tmp_path, capsys):
         state_dir = tmp_path / "state"
         _seed_minimal_state(state_dir)
-        ddir = _seed_device(state_dir)
+        _seed_device(state_dir)
         (state_dir / "illustration_overrides").mkdir()
         (state_dir / "illustration_overrides" / "ocn.png").write_bytes(b"o")
         (state_dir / "illustration_conflicts" / "live").mkdir(parents=True)
         (state_dir / "illustration_conflicts" / "live" / "ocn.png").write_bytes(b"c")
         (state_dir / "illustration_migration.json").write_text("{}")
-        (ddir / "illustration_overrides").mkdir()
-        (ddir / "illustration_overrides" / "ocn.png").write_bytes(b"d")
 
         rc, archive_dir = _run_backup(tmp_path)
         assert rc == 0
         members = _members(archive_dir / _archive_names(archive_dir)[0])
         for kept in ("illustration_overrides/ocn.png", "illustration_conflicts/live/ocn.png",
-                     "illustration_migration.json", "devices/" + _DEV + "/illustration_overrides/ocn.png"):
+                     "illustration_migration.json"):
             assert kept in members, kept
         assert "not in include list" not in capsys.readouterr().out
+
+    def test_a_per_frame_copy_is_reported_as_drift_and_not_archived(self, tmp_path, capsys):
+        state_dir = tmp_path / "state"
+        _seed_minimal_state(state_dir)
+        ddir = _seed_device(state_dir)
+        (ddir / "illustration_overrides").mkdir()
+        (ddir / "illustration_overrides" / "ocn.png").write_bytes(b"d")
+        (ddir / "manual_resolutions.json").write_text("{}")
+
+        rc, archive_dir = _run_backup(tmp_path)
+        assert rc == 0
+        members = _members(archive_dir / _archive_names(archive_dir)[0])
+        assert not [m for m in members if m.endswith(("ocn.png", "manual_resolutions.json"))]
+        out = capsys.readouterr().out
+        assert "not in include list: devices/%s/illustration_overrides" % _DEV in out
+        assert "not in include list: devices/%s/manual_resolutions.json" % _DEV in out
 
 
 class TestQuarantineBackup:
@@ -892,6 +906,28 @@ class TestQuarantineBackup:
         members = _members(archive_dir / _archive_names(archive_dir)[0])
         for name in retire_legacy_state.LEGACY_FILES:
             assert "%s/2030-01-02/%s" % (retire_legacy_state.QUARANTINE_DIRNAME, name) in members
+        assert "not in include list" not in capsys.readouterr().out
+
+    def test_quarantined_per_frame_copies_reach_the_archive_without_drift(self, tmp_path, capsys):
+        from server import retire_legacy_state
+
+        state_dir = tmp_path / "state"
+        _seed_minimal_state(state_dir)
+        ddir = _seed_device(state_dir)
+        (state_dir / "airline_registry_migration.json").write_text("{}")
+        (state_dir / "illustration_migration.json").write_text("{}")
+        (ddir / "manual_resolutions.json").write_text("{}")
+        (ddir / "illustration_overrides").mkdir()
+        (ddir / "illustration_overrides" / "ocn.png").write_bytes(b"d")
+        code, _lines = retire_legacy_state.run(str(state_dir), True, today="2030-01-02")
+        assert code == 0
+
+        rc, archive_dir = _run_backup(tmp_path)
+        assert rc == 0
+        members = _members(archive_dir / _archive_names(archive_dir)[0])
+        base = "retired-legacy/2030-01-02/devices/%s/" % _DEV
+        assert base + "manual_resolutions.json" in members
+        assert base + "illustration_overrides/ocn.png" in members
         assert "not in include list" not in capsys.readouterr().out
 
 
