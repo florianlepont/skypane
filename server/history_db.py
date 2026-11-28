@@ -40,6 +40,7 @@ _REPO_ROOT = os.path.dirname(_HERE)
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
+from server import sqlite_migrations  # noqa: E402
 from server.wake_stats import WAKE_COLUMNS, parse_wake_stats  # noqa: E402
 
 HISTORY_DB_FILENAME = "history.db"
@@ -143,15 +144,11 @@ def history_db_path(state_dir):
     return os.path.join(state_dir, HISTORY_DB_FILENAME)
 
 
-def init_schema(conn):
-    """Create all six tables with IF NOT EXISTS, safe to call on every
-    connection. A new table is free via IF NOT EXISTS, and an additive
-    nullable column is added by a guarded ALTER TABLE
+def _create_initial_schema(conn):
+    """Create all six tables with IF NOT EXISTS and add the additive
+    nullable columns by guarded ALTER TABLE
     (`_add_missing_wake_columns`, `_add_missing_runway_event_columns`).
-    Every step is idempotent and safe while another process uses the file;
-    the last step raises `PRAGMA user_version` to `HISTORY_SCHEMA_VERSION`
-    (see `_stamp_schema_version`), so a run interrupted before it simply
-    repeats the steps next time.
+    Idempotent and safe while another process uses the file.
     """
     conn.execute(
         "CREATE TABLE IF NOT EXISTS runway_events ("
@@ -240,8 +237,6 @@ def init_schema(conn):
     _create_route_lookups(conn)
     _add_missing_wake_columns(conn)
     _add_missing_runway_event_columns(conn)
-    conn.commit()
-    _stamp_schema_version(conn)
 
 
 def _create_route_lookups(conn):
@@ -259,33 +254,15 @@ def _create_route_lookups(conn):
     conn.execute("CREATE INDEX IF NOT EXISTS idx_route_lookups_ts ON route_lookups(ts)")
 
 
-def _stamp_schema_version(conn):
-    """Raise `PRAGMA user_version` to `HISTORY_SCHEMA_VERSION`. Never lowers
-    it: a file stamped by a newer release keeps its stamp. Two processes
-    stamping at once write the same value."""
-    current = conn.execute("PRAGMA user_version").fetchone()[0]
-    if current < HISTORY_SCHEMA_VERSION:
-        conn.execute("PRAGMA user_version = %d" % HISTORY_SCHEMA_VERSION)
-
-
 def _add_missing_wake_columns(conn):
     """Add each wake column `device_health` lacks. The companion and the
     poll oneshot can both reach this on the same file: a "duplicate column
     name" error means the other process added it between the column read
     and the ALTER, which counts as done. Any other error propagates.
     """
-    present = {row[1] for row in conn.execute("PRAGMA table_info(device_health)")}
     for column, sql_type in _WAKE_COLUMN_TYPES.items():
-        if column in present:
-            continue
-        try:
-            # Identifiers cannot be bound parameters; both come from the
-            # fixed `_WAKE_COLUMN_TYPES` table, never from input.
-            conn.execute(
-                "ALTER TABLE device_health ADD COLUMN " + column + " " + sql_type)
-        except sqlite3.OperationalError as exc:
-            if "duplicate column name" not in str(exc):
-                raise
+        sqlite_migrations.add_column_if_missing(
+            conn, "device_health", column, sql_type)
 
 
 _RUNWAY_EVENT_ADDED_COLUMNS = ("gallery_name", "route_directory")
@@ -295,16 +272,56 @@ def _add_missing_runway_event_columns(conn):
     """Add the `runway_events` columns a database created before them lacks
     (an existing row reads NULL, "unknown"). Same race handling as
     `_add_missing_wake_columns`."""
-    present = {row[1] for row in conn.execute("PRAGMA table_info(runway_events)")}
     for column in _RUNWAY_EVENT_ADDED_COLUMNS:
-        if column in present:
-            continue
-        try:
-            # The name comes from the fixed tuple above, never from input.
-            conn.execute("ALTER TABLE runway_events ADD COLUMN " + column + " TEXT")
-        except sqlite3.OperationalError as exc:
-            if "duplicate column name" not in str(exc):
-                raise
+        sqlite_migrations.add_column_if_missing(
+            conn, "runway_events", column, "TEXT")
+
+
+_HISTORY_TABLES = (
+    "runway_events", "device_health", "meta", "wake_epochs", "poll_cycles",
+    "route_lookups",
+)
+
+
+def _initial_schema_impact(conn):
+    """What `_create_initial_schema` would still change in `conn`'s file, as
+    counts (read-only, used by the schema report)."""
+    tables = {row[0] for row in conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table'")}
+    missing_tables = sum(1 for name in _HISTORY_TABLES if name not in tables)
+    missing_columns = 0
+    for table, wanted in (
+        ("device_health", tuple(_WAKE_COLUMN_TYPES)),
+        ("runway_events", _RUNWAY_EVENT_ADDED_COLUMNS),
+    ):
+        if table in tables:
+            # `table` comes from the fixed pairs above, never from input.
+            present = {row[1] for row in conn.execute(
+                "PRAGMA table_info(" + table + ")")}
+            missing_columns += sum(1 for name in wanted if name not in present)
+    return "creates-tables:%d,adds-columns:%d" % (missing_tables, missing_columns)
+
+
+HISTORY_STEPS = (
+    sqlite_migrations.Step(
+        HISTORY_SCHEMA_VERSION, "initial-schema", _create_initial_schema,
+        _initial_schema_impact),
+)
+
+# Idempotent and race-tolerant: the companion and the poll oneshot can open
+# a fresh file at the same moment, and a newer stamp is kept, never refused.
+HISTORY_POLICY = sqlite_migrations.Policy(
+    locking="idempotent", newer="keep", error=sqlite3.Error, label="history.db")
+
+
+def init_schema(conn):
+    """Create or complete the schema, safe to call on every connection.
+    Every step is idempotent and safe while another process uses the file;
+    the stamp `PRAGMA user_version` is raised to `HISTORY_SCHEMA_VERSION`
+    after the steps and never lowered, so a run interrupted before it simply
+    repeats the steps next time.
+    """
+    sqlite_migrations.apply_steps(conn, HISTORY_STEPS, HISTORY_POLICY)
 
 
 class _HistoryConnection(sqlite3.Connection):
@@ -338,7 +355,7 @@ def connect(state_dir, timeout=5.0):
     path = history_db_path(state_dir)
     conn = sqlite3.connect(path, timeout=timeout, factory=_HistoryConnection)
     conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA busy_timeout=5000")
+    sqlite_migrations.set_busy_timeout(conn)
 
     stat_result = os.stat(path)
     key = (os.path.realpath(path), stat_result.st_dev, stat_result.st_ino)
@@ -807,7 +824,7 @@ def export_device_health(state_dir, since, max_rows):
     uri = pathlib.Path(path).as_uri() + "?mode=ro"
     conn = sqlite3.connect(uri, uri=True, timeout=5.0)
     try:
-        conn.execute("PRAGMA busy_timeout=5000")
+        sqlite_migrations.set_busy_timeout(conn)
         conn.execute("PRAGMA query_only=ON")
         rows = _select_export_rows(conn, since, max_rows)
     finally:
@@ -839,7 +856,7 @@ _STATUS_META_KEYS = (
 def _open_read_only(state_dir):
     path = os.path.abspath(history_db_path(state_dir))
     conn = sqlite3.connect(pathlib.Path(path).as_uri() + "?mode=ro", uri=True, timeout=5.0)
-    conn.execute("PRAGMA busy_timeout=5000")
+    sqlite_migrations.set_busy_timeout(conn)
     conn.execute("PRAGMA query_only=ON")
     return conn
 
