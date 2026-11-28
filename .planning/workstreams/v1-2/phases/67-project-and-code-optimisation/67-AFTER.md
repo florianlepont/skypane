@@ -203,7 +203,7 @@ The full register is section 5 of `67-OWNER-DECISIONS.md`. Outcome at the end of
 - Applied: R1, R2, R4, R6 (nothing to apply), R7 to R21 as the register states, with the deletion of 40 remote branches done by the owner.
 - R3 (coverage floor): applied by this plan, see the ratchet section.
 - R5 (SPDX): applied by plan 25, see below.
-- R22 stays OPEN (see the defer list).
+- R22 decided 2026-11-28: no separate PR, behaviour unchanged (observed, intentionally left unchanged; see the defer list).
 
 ### Retirement gate results (D-12, `67-RETIREMENT-GATE.md`)
 
@@ -242,9 +242,10 @@ Final schema versions: `fleet.db` 5 (`SCHEMA_VERSION = len(MIGRATIONS)`, was 4),
 13. The 23 KEEP names of the test-only list.
 14. Plan 04 (flaky lightbox test fix): the code change is in; its 30-consecutive-CI-pass checkpoint was never recorded in a summary, so it is not verified here.
 
-### OPEN owner question (R22)
+15. R22, drag-release velocity in `companion/static/modal.js` and `companion/static/toast.js`: observed, intentionally left unchanged (owner decision 2026-11-28: no separate PR, behaviour unchanged).
+### Decided owner question (R22)
 
-The drag-release velocity in `companion/static/modal.js` and `companion/static/toast.js` is stale when the release event arrives after a pause; this is a product observation, nothing was changed in this phase, and it needs its own pull request if the owner wants it fixed.
+The drag-release velocity in `companion/static/modal.js` and `companion/static/toast.js` is stale when the release event arrives after a pause; this is a product observation, nothing was changed in this phase. Owner decision (2026-11-28): no separate PR, behaviour unchanged. Observed, intentionally left unchanged.
 
 ## Owner-side steps still to do
 
