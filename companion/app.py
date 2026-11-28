@@ -523,7 +523,8 @@ class Handler(
     def _resolve_principal(self):
         """The Principal behind this request's session cookie, or None.
         Role, disabled state and expiry are read fresh from fleet.db every
-        time; the session store never returns a legacy-admin row.
+        time; the session store never authenticates a row whose principal is
+        not 'user'.
         """
         token = auth.parse_cookies(self.headers.get("Cookie")).get(auth.SESSION_COOKIE_NAME)
         if not token:

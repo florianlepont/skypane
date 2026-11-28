@@ -45,10 +45,6 @@ _prune_lock = threading.Lock()
 _last_prune_at: int | None = None
 
 PRINCIPAL_USER = "user"
-# Rows written before the shared password was removed may still carry this
-# value. Such a row is invalid: lookup_session never authenticates it and
-# deletes it. Nothing creates one.
-PRINCIPAL_LEGACY_ADMIN = "legacy-admin"
 
 
 class SessionRecord(NamedTuple):
