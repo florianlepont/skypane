@@ -57,9 +57,9 @@ def seed_matrix_fleet(state_dir):
 
 def session_cookie_for(state_dir, principal_kind, user_id, now):
     """Write a real session row at the injected clock `now` and return the
-    "sp_session=<token>" cookie pair. `principal_kind` is normally
-    fleet_sessions.PRINCIPAL_USER; PRINCIPAL_LEGACY_ADMIN (with no user)
-    plants the invalid old-format row that must never authenticate.
+    "sp_session=<token>" cookie pair. `principal_kind` is
+    fleet_sessions.PRINCIPAL_USER; any other principal is refused by the
+    database itself (sqlite3.IntegrityError) and no row is written.
     """
     token = auth.new_session_token()
     conn = fleet_db.connect(state_dir)
@@ -67,6 +67,43 @@ def session_cookie_for(state_dir, principal_kind, user_id, now):
         fleet_sessions.create_session(
             conn, auth.hash_session_token(token),
             user_id=user_id, principal=principal_kind, now=now)
+    finally:
+        conn.close()
+    return "%s=%s" % (auth.SESSION_COOKIE_NAME, token)
+
+
+# The sessions table as schema 4 defined it, which allowed the retired
+# 'legacy-admin' principal. Only `plant_legacy_session_row` uses it.
+_SESSIONS_SCHEMA_4 = (
+    "CREATE TABLE sessions ("
+    " id_hash TEXT PRIMARY KEY,"
+    " user_id INTEGER REFERENCES users(id),"
+    " principal TEXT NOT NULL CHECK (principal IN ('user', 'legacy-admin')),"
+    " created_at INTEGER NOT NULL,"
+    " last_seen_at INTEGER NOT NULL,"
+    " expires_at INTEGER NOT NULL,"
+    " CHECK ((principal = 'user') = (user_id IS NOT NULL)))"
+)
+
+
+def plant_legacy_session_row(state_dir, now):
+    """Put the sessions table of `state_dir` back into its schema 4 shape
+    (empty), insert one valid-looking 'legacy-admin' row and return its
+    "sp_session=<token>" cookie pair. A schema 5 database cannot hold such a
+    row; this is the negative fixture proving the app still refuses it.
+    """
+    token = auth.new_session_token()
+    conn = fleet_db.connect(state_dir)
+    try:
+        with fleet_db.transaction(conn):
+            conn.execute("DROP TABLE sessions")
+            conn.execute(_SESSIONS_SCHEMA_4)
+            conn.execute("CREATE INDEX sessions_user ON sessions (user_id)")
+            conn.execute("CREATE INDEX sessions_expires ON sessions (expires_at)")
+            conn.execute(
+                "INSERT INTO sessions VALUES (?, NULL, 'legacy-admin', ?, ?, ?)",
+                (auth.hash_session_token(token), now, now,
+                 now + fleet_sessions.ABSOLUTE_LIFETIME_S))
     finally:
         conn.close()
     return "%s=%s" % (auth.SESSION_COOKIE_NAME, token)

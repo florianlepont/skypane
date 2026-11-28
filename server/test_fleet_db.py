@@ -471,7 +471,8 @@ def test_sessions_principal_user_id_check():
     with pytest.raises(sqlite3.IntegrityError):
         conn.execute(insert, ("h2", uid, "legacy-admin"))
     conn.execute(insert, ("h3", uid, "user"))
-    conn.execute(insert, ("h4", None, "legacy-admin"))
+    with pytest.raises(sqlite3.IntegrityError):
+        conn.execute(insert, ("h4", None, "legacy-admin"))
 
 
 def test_get_device_owner():

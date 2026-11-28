@@ -89,15 +89,15 @@ def _fleet_at(state_dir, upto):
 # --- fleet.db ---------------------------------------------------------------
 
 
-def test_fleet_target_version_is_four():
-    assert fleet_db.SCHEMA_VERSION == 4
-    assert len(fleet_db.MIGRATIONS) == 4
+def test_fleet_target_version_is_five():
+    assert fleet_db.SCHEMA_VERSION == 5
+    assert len(fleet_db.MIGRATIONS) == 5
 
 
 def test_fleet_fresh_file_ends_at_current_with_all_tables(tmp_path):
     conn = fleet_db.connect(str(tmp_path))
     try:
-        assert _version(conn) == 4
+        assert _version(conn) == 5
         assert _tables(conn) == FLEET_TABLES
         assert conn.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
         assert conn.execute("PRAGMA foreign_keys").fetchone()[0] == 1
@@ -116,7 +116,7 @@ def test_fleet_older_versions_end_at_current(tmp_path, start):
     _fleet_at(str(tmp_path), start)
     conn = fleet_db.connect(str(tmp_path))
     try:
-        assert _version(conn) == 4
+        assert _version(conn) == 5
         assert _tables(conn) == FLEET_TABLES
     finally:
         conn.close()
@@ -159,7 +159,7 @@ def test_fleet_current_file_reopen_changes_no_byte(tmp_path):
     path = fleet_db.fleet_db_path(str(tmp_path))
     first = _digest(path)
     again = fleet_db.connect(str(tmp_path))
-    assert _version(again) == 4
+    assert _version(again) == 5
     again.close()
     assert _digest(path) == first
 
@@ -168,7 +168,7 @@ def test_fleet_newer_file_is_refused_before_any_write(tmp_path):
     path = fleet_db.fleet_db_path(str(tmp_path))
     raw = sqlite3.connect(path)
     raw.execute("CREATE TABLE marker (x INTEGER)")
-    raw.execute("PRAGMA user_version = 5")
+    raw.execute("PRAGMA user_version = 6")
     raw.commit()
     raw.close()
     before = _digest(path)
@@ -176,14 +176,14 @@ def test_fleet_newer_file_is_refused_before_any_write(tmp_path):
 
     with pytest.raises(fleet_db.FleetDbTooNew) as excinfo:
         fleet_db.connect(str(tmp_path))
-    assert str(excinfo.value) == "fleet.db schema 5 is newer than supported 4"
+    assert str(excinfo.value) == "fleet.db schema 6 is newer than supported 5"
 
     assert _digest(path) == before
     assert os.stat(path).st_mode == mode_before
     assert not os.path.exists(path + "-wal")
     check = sqlite3.connect(path)
     assert check.execute("PRAGMA journal_mode").fetchone()[0] == "delete"
-    assert _version(check) == 5
+    assert _version(check) == 6
     assert _tables(check) == {"marker"}
     check.close()
 
@@ -193,7 +193,7 @@ def test_fleet_migrate_schema_refuses_newer_with_same_error(tmp_path):
     conn.execute("PRAGMA user_version = 9")
     with pytest.raises(fleet_db.FleetDbTooNew) as excinfo:
         fleet_db.migrate_schema(conn)
-    assert str(excinfo.value) == "fleet.db schema 9 is newer than supported 4"
+    assert str(excinfo.value) == "fleet.db schema 9 is newer than supported 5"
     assert _version(conn) == 9
     assert _tables(conn) == set()
     conn.close()
@@ -298,7 +298,7 @@ def test_fleet_two_threads_migrating_one_fresh_file_both_succeed(tmp_path):
     for t in threads:
         t.join()
     assert errors == []
-    assert versions == [4, 4]
+    assert versions == [5, 5]
     check = sqlite3.connect(path)
     assert _tables(check) == FLEET_TABLES
     check.close()
@@ -616,7 +616,7 @@ def test_report_current_files_exit_zero_and_one_line_each(tmp_path, capsys):
 
     assert code == 0
     assert lines == [
-        "fleet.db ok current=4 target=4 pending=0",
+        "fleet.db ok current=5 target=5 pending=0",
         "history.db ok current=1 target=1 pending=0",
         "devices/%s/history.db ok current=1 target=1 pending=0" % DEVICE_ID,
     ]
@@ -633,9 +633,10 @@ def test_report_older_fleet_lists_pending_steps_and_exits_three(tmp_path, capsys
     assert code == 3
     assert len(lines) == 2  # fleet.db, plus the absent root history.db
     fields = lines[0].split(" ")
-    assert fields[:5] == ["fleet.db", "pending", "current=2", "target=4", "pending=2"]
+    assert fields[:5] == ["fleet.db", "pending", "current=2", "target=5", "pending=3"]
     assert fields[5].startswith("step=3:") and fields[6].startswith("step=4:")
-    assert len(fields) == 7
+    assert fields[7].startswith("step=5:")
+    assert len(fields) == 8
     assert lines[1] == "history.db absent"
     assert _tree_state(tmp_path) == before
 
@@ -667,7 +668,7 @@ def test_report_never_prints_row_contents(tmp_path, capsys):
 def test_report_newer_fleet_is_flagged_not_pending(tmp_path, capsys):
     path = fleet_db.fleet_db_path(str(tmp_path))
     raw = sqlite3.connect(path)
-    raw.execute("PRAGMA user_version = 5")
+    raw.execute("PRAGMA user_version = 6")
     raw.commit()
     raw.close()
     before = _tree_state(tmp_path)
@@ -675,7 +676,7 @@ def test_report_newer_fleet_is_flagged_not_pending(tmp_path, capsys):
     code, lines = _report(tmp_path, capsys)
 
     assert code == 0
-    assert lines[0] == "fleet.db newer current=5 target=4 pending=0"
+    assert lines[0] == "fleet.db newer current=6 target=5 pending=0"
     assert _tree_state(tmp_path) == before
 
 
@@ -730,7 +731,7 @@ def test_report_command_runs_as_a_module_and_writes_nothing(tmp_path):
         cwd=REPO_ROOT, capture_output=True, text=True, timeout=60)
     assert proc.returncode == 3, proc.stderr
     assert proc.stdout.splitlines()[0].startswith(
-        "fleet.db pending current=3 target=4 pending=1 step=4:device-co-managers:")
+        "fleet.db pending current=3 target=5 pending=2 step=4:device-co-managers:")
     assert _tree_state(tmp_path) == before
 
 
@@ -738,7 +739,8 @@ def test_pending_steps_lists_only_steps_above_the_stamp(tmp_path):
     conn = sqlite3.connect(str(tmp_path / "x.db"), isolation_level=None)
     conn.execute("PRAGMA user_version = 2")
     names = [s.name for s in sqlite_migrations.pending_steps(conn, fleet_db.FLEET_STEPS)]
-    assert names == ["pending-devices-and-owned-locations", "device-co-managers"]
+    assert names == ["pending-devices-and-owned-locations", "device-co-managers",
+                     "sessions-user-principal-only"]
     assert _version(conn) == 2
     conn.close()
 

@@ -2,6 +2,7 @@
 """Tests for server/fleet_sessions.py: hash-only sessions with absolute and
 idle limits, fresh role/disabled reads, and invite-only identity linking."""
 import hashlib
+import sqlite3
 import threading
 
 import pytest
@@ -46,11 +47,25 @@ def test_create_stores_hash_and_lookup_by_hash_only(conn):
     assert stored == [_h("tok")]
 
 
-def test_legacy_admin_row_never_authenticates_and_is_deleted(conn):
-    fs.create_session(
-        conn, _h("l"), user_id=None, principal=fs.PRINCIPAL_LEGACY_ADMIN, now=T0)
-    assert _count(conn, "sessions") == 1
-    assert fs.lookup_session(conn, _h("l"), T0) is None
+def test_legacy_admin_row_never_authenticates_and_is_deleted():
+    # A schema 4 database could hold such a row; the lookup still refuses
+    # and deletes it, which keeps the defence independent of the CHECK.
+    v4 = sqlite3.connect(":memory:", isolation_level=None)
+    v4.row_factory = sqlite3.Row
+    fleet_db.migrate_schema(v4, fleet_db.MIGRATIONS[:4])
+    v4.execute(
+        "INSERT INTO sessions VALUES (?, NULL, 'legacy-admin', ?, ?, ?)",
+        (_h("l"), T0, T0, T0 + DAY))
+    assert _count(v4, "sessions") == 1
+    assert fs.lookup_session(v4, _h("l"), T0) is None
+    assert _count(v4, "sessions") == 0
+    v4.close()
+
+
+def test_a_legacy_admin_session_cannot_be_created(conn):
+    with pytest.raises(sqlite3.IntegrityError):
+        fs.create_session(
+            conn, _h("l"), user_id=None, principal="legacy-admin", now=T0)
     assert _count(conn, "sessions") == 0
 
 

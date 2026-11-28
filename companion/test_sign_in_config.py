@@ -14,7 +14,7 @@ import access_matrix_support
 import companion_app_server
 from companion import sign_in_config
 from companion_app_server import AppServer, http_request, login
-from server import fleet_db, fleet_sessions
+from server import fleet_db
 from skypane_test_support import child_env
 
 AUTH0_VARS = {
@@ -125,9 +125,8 @@ def test_a_legacy_session_row_never_authenticates_and_is_deleted(
     server = app_server_in_process
     conn = fleet_db.connect(server.state_dir)
     try:
-        cookie = access_matrix_support.session_cookie_for(
-            server.state_dir, fleet_sessions.PRINCIPAL_LEGACY_ADMIN, None,
-            int(time.time()))
+        cookie = access_matrix_support.plant_legacy_session_row(
+            server.state_dir, int(time.time()))
         assert conn.execute("SELECT COUNT(*) FROM sessions").fetchone()[0] == 1
         status, headers, body = http_request(server.url("/settings"), cookie=cookie)
         assert status == 303
