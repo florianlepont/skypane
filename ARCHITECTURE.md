@@ -860,8 +860,9 @@ report --state-dir <state-root>`. It prints one line per database
 (`fleet.db`, the root `history.db`, every `devices/<id>/history.db`) with the
 status (`ok`, `pending`, `newer`, `absent` or `unreadable`), the current and
 target version and the pending steps, and writes nothing. Exit status 0 means
-nothing is pending, 1 that a step is pending, 2 that a file could not be
-read. The retirement runbook in `deploy/README.md` uses it first.
+nothing is pending (an `absent` file and a `newer` file also exit 0), 3 that a
+step is pending, 2 that a file could not be read; the worst code wins, so an
+unreadable file beats a pending step. The retirement runbook in `deploy/README.md` uses it first.
 
 ### Duplicated or overlapping data
 
