@@ -4,9 +4,10 @@ One list of every decision left to the owner, with the provisional default
 for each. Nothing in this plan deletes anything. Generated on 2026-11-27
 against `main` at the time of the plan.
 
-Every "Owner answer" cell is empty on purpose: rows marked "provisional
-default, owner may override" stay at their default until the owner fills the
-cell.
+Rows marked "provisional default, owner may override" stayed at their
+default until the owner filled the cell. Section 5 is the complete register:
+one row per decision taken in this phase, with its outcome and where it is
+applied.
 
 ## 0. Decisions already answered (D-12, D-13)
 
@@ -141,9 +142,9 @@ column is empty until filled.
 |---|---|---|---|
 | 1 | Hide or drop the tested-but-unused API (about 30 functions that only tests call) | provisional default, owner may override: keep as test seams, list the names in the plan that owns the list | Delete the test-only functions together with their tests (owner, 2026-11-27); needs a new plan and one lowering of `MIN_EXECUTED` to the measured count |
 | 2 | SPDX headers on the 879 Python files | provisional default, owner may override: decision or CI gate only, no mass edit | Add `SPDX-License-Identifier: AGPL-3.0-only` to all Python files without a header (owner, 2026-11-27); files that already carry Apache-2.0, MIT or 0BSD keep theirs; plus a CI rule for new files |
-| 3 | How far server modules are regrouped | provisional default, owner may override (accepted as in the plans per D-13): three groups, `firmware_*`, polling-support, pairing; one group per PR with `sys.modules` alias shims; `fleet_db`, `history_db`, `device_config`, `poll_loop` stay where they are | |
+| 3 | How far server modules are regrouped | provisional default, owner may override (accepted as in the plans per D-13): three groups, `firmware_*`, polling-support, pairing; one group per PR with `sys.modules` alias shims; `fleet_db`, `history_db`, `device_config`, `poll_loop` stay where they are | Accepted as in the plans (owner, 2026-11-27, D-13); applied by plans 13 to 15 |
 | 4 | Ruff `B` rules | provisional default, owner may override: not adopted; the B023 findings are listed for a later review | Not adopted in this phase (owner, 2026-11-27) |
-| 5 | Function-size gate extension to companion, deploy and scripts | provisional default, owner may override (accepted per D-13): yes; plan 10 only tightens CI and edits one `ci.yml` step | |
+| 5 | Function-size gate extension to companion, deploy and scripts | provisional default, owner may override (accepted per D-13): yes; plan 10 only tightens CI and edits one `ci.yml` step | Accepted as in the plans (owner, 2026-11-27, D-13); applied by plan 10 |
 | 6 | Remote branch deletion | provisional default, owner may override: nothing deleted; only per-name approval in plan 12 | All 40 branches deleted by the owner on 2026-11-27 |
 | 7 | Planning-note cleanup (section 2) | provisional default, owner may override: nothing deleted; zero-reference candidates reviewed by the owner one by one | Decided one by one (owner, 2026-11-27); see section 2b |
 | 8 | README "Licence" and "Contributing" sections say the repository is private | provisional default, owner may override: left as written until the visibility change closes in Phase 70.1, then reworded in one change | Fixed now (owner, 2026-11-27): the README and CONTRIBUTING sections say the repository is currently public; to be reworded again when the visibility changes |
@@ -188,3 +189,38 @@ a guarantee.
 
 Recommendation: no upgrade is needed; re-run the lookup before each release
 and whenever `scripts/lock-deps.sh` regenerates the locks.
+
+## 5. Register of every owner decision in this phase
+
+One row per decision. "Date" is the date written in the phase documents;
+"not recorded" means no document gives it. "Applied" names the plan and the
+merged pull request where one exists; "pending" means decided but not yet
+applied on `main`. Sections 0 to 4 above stay as the detailed record.
+
+| # | Decision | Date | Outcome | Applied |
+|---|---|---|---|---|
+| R1 | Order of work: databases and persistent state first, then `ARCHITECTURE.md`, then tests and dead code, then the other roadmap items | 2026-11-27 (context gathered; the answer date itself is not recorded) | Accepted (D-01) | Plans 02, 03, 05, then 06 to 11 (PRs 636, 637, 641, 638, 642, 643, 644, 645, 646) |
+| R2 | Module moves allowed, one subpackage per PR, with `sys.modules` alias shims | 2026-11-27 (context) | Accepted (D-03, D-13): `server/firmware/`, `server/polling/`, `server/pairing/`; `fleet_db`, `history_db`, `device_config`, `poll_loop` stay | Plans 13, 14, 15 (PRs 653, 655, 657) |
+| R3 | Coverage floor raised at the end to the measured level, never below 93 and never below the previous value | 2026-11-27 (context) | Accepted (D-04). `fail_under` is still 93 on `main` | Plan 16: pending |
+| R4 | Test-only functions (27 found, not the estimated 30): delete with their tests | 2026-11-27 | Delete the 4 without a test that also covers other behaviour (`geofence_resolver`, `regularity_grid`, `sightings_across`, `step_b_trigger_html`), keep the other 23; no audited name ticked; `MIN_EXECUTED` lowered once, 17,598 to 17,591 | Plan 24 (PR 652) |
+| R5 | SPDX headers | 2026-11-27 | `AGPL-3.0-only` on every Python file without a header; Apache-2.0, MIT and 0BSD headers kept; a CI rule for new files. The files under `design-exploration/` are included and kept stamped (stated by the owner in the working session; the plan files do not list that directory, so the plan 25 exclusion list needs a check for it) | Plan 25: pending (no Python file on `main` carries the AGPL line yet) |
+| R6 | Ruff rule set `B` | 2026-11-27 | Not adopted now; the B023 findings stay listed for a later review | No change needed (row 4 above) |
+| R7 | Old remote branches | 2026-11-27 | The owner deleted all 40 non-main branches. Remote deletion was blocked for the agent by the proxy, so no agent deleted anything and no branch was touched by plan 12 | Plan 12 reduced to this record |
+| R8 | Planning notes, reviewed one by one | 2026-11-27 | Deleted five (section 2b); kept `.planning/MILESTONES.md` and SEED-016, 018, 019, 022; SEED-011 kept because ten documents cite it by identifier | PR 648 |
+| R9 | README and CONTRIBUTING licence wording | 2026-11-27 | Say the repository is currently public; reword again when the visibility changes | PR 649 |
+| R10 | `pyproject.toml` Python version comment | 2026-11-27 | Corrected in a comment-only change | PR 650 |
+| R11 | Dependencies | 2026-11-27 | No upgrades now; re-run the verification (advisory lookup) before each release instead of pinning more | Section 4; nothing to apply |
+| R12 | Two SQLite migration policies unified | 2026-11-27 (D-12) | One shared module `server/sqlite_migrations.py` keeps the concurrent-open safety of `history.db` and the refusal of a newer `fleet.db`; read-only `report` command | Plan 17 (PR 658) |
+| R13 | Duplicate rollback-era fallbacks retired (identity mirrors, per-frame registry and artwork copies, `legacy-admin` principal) | 2026-11-27 (D-12); gates 2026-11-28 | Retired, each behind its gate (R15 to R17) | Plans 19, 20, 21 (PRs 662, 664, 666) |
+| R14 | Leftovers without a writer retired (`META_LAST_POLL_TRIGGER`, three unused `fleet_db` location helpers) | 2026-11-27 (D-12); G5 2026-11-28 | Removed; no data or schema touched | Plan 22 (PR 667) |
+| R15 | Retirement gate G1 (identity mirror), G2 (per-frame copies), G5 (leftovers) | 2026-11-28 | APPROVED. G1 and G2 on the owner's pasted read-only results (both SAFE) | `67-RETIREMENT-GATE.md`; PRs 659, 661 |
+| R16 | Retirement gate G3 (`legacy-admin`, schema 5) | 2026-11-28 | Schema 5 accepted: the previous release then refuses `fleet.db`, recovery is the nightly backup. The pasted count showed no `legacy-admin` row | `67-RETIREMENT-GATE.md`; plan 21 (PR 666) |
+| R17 | Retirement gate G4 (`wake_epochs` table) and G6 (end of the rollback period) | G4 2026-11-27; G6 2026-11-28 | G4: KEPT, final (revisit only if the link between battery life and wake interval is abandoned). G6: rollback finished and schema 5 approved | Plan 22 skipped the table drop; plan 21 ran after G6 |
+| R18 | Device identity from `fleet.db` only | 2026-11-27 (D-13); G1 2026-11-28 | The device server fails closed when `fleet.db` cannot answer; `devices.json` and `byos_state.json` are neither read nor written | Plan 19 (PR 662) |
+| R19 | Legacy files and per-frame copies are moved aside, never deleted | 2026-11-27 (D-12, D-13) | Owner-run `server.retire_legacy_state`: dry run first, `--apply` renames into `retired-legacy/<date>/`, never deletes or overwrites | Plans 19 and 20 (PRs 662, 664) |
+| R20 | Frame enrolment tooling | 2026-11-28 (gate G1) | `devices_cli` removed; `fleet_cli devices register-pending` and `replace-secret` take its place | Plan 19 (PR 662); docs in plan 23 (PR 668) |
+| R21 | Deploy stays manual and owner-run | 2026-11-27 (D-09, D-12) | Nothing in this phase was deployed by an agent. Production still runs a release older than plan 17, so `server.sqlite_migrations report` does not exist there yet | Owner-run steps in `deploy/README.md` (PR 668) |
+| R22 | OPEN: a separate PR for the stale drag-release velocity in `modal.js` and `toast.js` (a product observation, unchanged) | not recorded | OPEN, waiting for the owner | None; nothing changed in this phase |
+
+Nothing was removed from sections 0 to 4. Open items at the end of the phase:
+R3 (plan 16), R5 (plan 25) and R22.
