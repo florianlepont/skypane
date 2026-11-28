@@ -40,7 +40,8 @@ _REPO_ROOT = os.path.dirname(_HERE)
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
-from server import atomic_io, device_dirs, hardware  # noqa: E402
+from server import atomic_io, device_dirs, hardware, sqlite_migrations  # noqa: E402
+from server.sqlite_migrations import Policy, Step  # noqa: E402
 
 FLEET_DB_FILENAME = "fleet.db"
 FLEET_STATUS_FILENAME = "fleet_status.json"
@@ -55,8 +56,6 @@ STATUS_ABSENT = "absent"
 STATUS_FAULT = "fault"
 
 ROLES = ("admin", "user")
-
-_BUSY_TIMEOUT_MS = 5000
 
 # Stored MAC form: lowercase, colon separated.
 _MAC_RE = re.compile(r"^[0-9a-f]{2}(:[0-9a-f]{2}){5}$")
@@ -256,6 +255,41 @@ def _migrate_v4(conn: sqlite3.Connection) -> None:
 MIGRATIONS: tuple[Migration, ...] = (_migrate_v1, _migrate_v2, _migrate_v3, _migrate_v4)
 SCHEMA_VERSION = len(MIGRATIONS)
 
+# Report text for each step above, in order: a name and what it adds. Words
+# only, no spaces, so a report line stays one space-separated record.
+_STEP_DETAILS: tuple[tuple[str, str], ...] = (
+    ("initial-schema", "creates-tables:users,locations,devices,meta"),
+    ("sessions", "creates-table:sessions,indexes:2"),
+    ("pending-devices-and-owned-locations",
+     "adds-column:locations.owner_user_id,creates-tables:pending_devices,audit_log,"
+     "index:1,triggers:2"),
+    ("device-co-managers", "creates-table:device_co_managers,index:1,triggers:2"),
+)
+
+FLEET_POLICY = Policy(
+    locking="immediate", newer="refuse", error=FleetDbTooNew, label="fleet.db"
+)
+
+
+def _fixed_impact(text: str) -> Callable[[sqlite3.Connection], str]:
+    def impact(_conn: sqlite3.Connection) -> str:
+        return text
+
+    return impact
+
+
+def _steps_for(migrations: tuple[Migration, ...]) -> tuple[Step, ...]:
+    """Number each plain step function by its position, 1-based."""
+    named = migrations is MIGRATIONS
+    steps = []
+    for index, migration in enumerate(migrations):
+        name, impact = _STEP_DETAILS[index] if named else (f"step-{index + 1}", "unknown")
+        steps.append(Step(index + 1, name, migration, _fixed_impact(impact)))
+    return tuple(steps)
+
+
+FLEET_STEPS: tuple[Step, ...] = _steps_for(MIGRATIONS)
+
 
 def utc_now_iso() -> str:
     """Timezone-aware UTC ISO-8601 string at seconds precision."""
@@ -273,17 +307,13 @@ def schema_version(conn: sqlite3.Connection) -> int:
 
 def _apply_pragmas(conn: sqlite3.Connection) -> None:
     conn.row_factory = sqlite3.Row
-    conn.execute(f"PRAGMA busy_timeout={_BUSY_TIMEOUT_MS}")
+    sqlite_migrations.set_busy_timeout(conn)
     # Per connection: SQLite does not persist this setting in the file.
     conn.execute("PRAGMA foreign_keys=ON")
 
 
 def _refuse_if_too_new(conn: sqlite3.Connection) -> None:
-    if schema_version(conn) > SCHEMA_VERSION:
-        raise FleetDbTooNew(
-            f"fleet.db schema {schema_version(conn)} is newer than "
-            f"supported {SCHEMA_VERSION}"
-        )
+    sqlite_migrations.refuse_if_newer(conn, FLEET_STEPS, FLEET_POLICY)
 
 
 def migrate_schema(
@@ -291,26 +321,7 @@ def migrate_schema(
     migrations: tuple[Migration, ...] = MIGRATIONS,
 ) -> None:
     """Apply pending steps, each atomically with its version bump."""
-    current = schema_version(conn)
-    if current > len(migrations):
-        raise FleetDbTooNew(
-            f"fleet.db schema {current} is newer than supported {len(migrations)}"
-        )
-    for index in range(current, len(migrations)):
-        conn.execute("BEGIN IMMEDIATE")
-        try:
-            # Another process may have applied this step while we waited
-            # for the write lock; re-read inside the lock and skip it.
-            if schema_version(conn) > index:
-                conn.execute("COMMIT")
-                continue
-            migrations[index](conn)
-            # PRAGMA cannot take bound parameters; the value is an int.
-            conn.execute("PRAGMA user_version = %d" % (index + 1))
-            conn.execute("COMMIT")
-        except BaseException:
-            conn.execute("ROLLBACK")
-            raise
+    sqlite_migrations.apply_steps(conn, _steps_for(migrations), FLEET_POLICY)
 
 
 def connect(
