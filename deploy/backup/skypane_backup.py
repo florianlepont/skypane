@@ -29,9 +29,9 @@ DEFAULT_STATE_DIR = "/opt/skypane/state"
 DEFAULT_ARCHIVE_DIR = "/var/lib/skypane-backup/archives"
 DEFAULT_KEEP = 14
 
-# Allow-list. devices.json is the per-device enrolment registry --
-# included when present; losing it would make byos refuse every
-# re-enrolment.
+# Allow-list. devices.json and byos_state.json are the retired enrolment
+# files, kept in the archive while present (identity now lives in fleet.db);
+# server/retire_legacy_state.py moves them into retired-legacy/.
 INCLUDE_FILES = (
     "byos_state.json",
     "devices.json",
@@ -58,6 +58,9 @@ INCLUDE_DIRS = (
     "illustration_conflicts",
     "gallery",
     "firmware",
+    # Where server/retire_legacy_state.py quarantines the retired identity
+    # files; never deleted, so kept in the archive.
+    "retired-legacy",
 )
 
 # Live WAL databases archived through snapshot_db().
