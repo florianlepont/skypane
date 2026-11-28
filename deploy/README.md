@@ -332,6 +332,40 @@ migration never runs at service start.
   (`ok`, `absent` or `fault`) for the companion's health signals (the
   navigation dot and the System view). It is derived, so it is not backed up.
 
+## Retiring the rollback-era data (owner runbook)
+
+The legacy identity files, the per-frame registry and artwork copies, the
+`legacy-admin` session principal and a few unused helpers are still in place.
+The owner has asked for them to be retired, but each retirement waits for
+read-only checks on the real state. Retiring ends the ability to put the
+previous release back on the current data; recovery is then the nightly
+backup (see "Backups" and "Restore"). `wake_epochs` is kept by decision.
+`ARCHITECTURE.md` ("Duplicated or overlapping data") describes what is still
+in place. Run these steps in order, on the VPS, as the service user:
+
+1. **Deploy the release that contains the report command.** It is the
+   release that carries `server/sqlite_migrations.py` with its `report`
+   command, through the normal manual production deploy (see "Production
+   deploy"). Until it is deployed, the checks below cannot run.
+2. **Run the `report` command** of `server.sqlite_migrations` against the
+   state directory, from the current release directory (the exact line is
+   "Step 0" of the gate document). It is read-only. If a line says
+   `unreadable`, or `fleet.db` says `newer`, stop and tell the developer.
+3. **Run the checks of the gate document**, in the order it gives
+   (`.planning/workstreams/v1-2/phases/67-project-and-code-optimisation/67-RETIREMENT-GATE.md`):
+   the `fleet_migrate` dry-run, the count comparison, the listing of
+   per-frame copies and the session-principal count. None of them writes.
+4. **Paste the results** into the gate document and set one decision per
+   item (APPROVED, NOT APPROVED or KEEP). Paste only counts and the words the
+   commands printed: never values, tokens, hashes, host names, addresses or
+   device MACs, because the repository is public.
+5. **What happens next.** Only items marked APPROVED are retired, each in its
+   own change that is reviewed and deployed by hand by the owner; the legacy
+   files are moved aside by an owner-run tool and never deleted, and a
+   backup and a `--dry-run` come first. Items not approved stay as they are.
+   After the last retirement lands, this section and the matching paragraphs
+   of `ARCHITECTURE.md` are rewritten to describe what was actually retired.
+
 ## Pairing, retiring and re-activating a frame
 
 A frame can be added to a user from the companion console (the Fleet page,
