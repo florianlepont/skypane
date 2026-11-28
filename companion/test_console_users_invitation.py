@@ -130,8 +130,15 @@ def test_the_link_is_held_nowhere_and_the_secret_is_in_no_output(rig, caplog):
     assert token not in dump and link not in dump
     for root, _dirs, files in os.walk(server.state_dir):
         for name in files:
-            with open(os.path.join(root, name), "rb") as handle:
-                assert token.encode() not in handle.read(), name
+            try:
+                with open(os.path.join(root, name), "rb") as handle:
+                    content = handle.read()
+            except FileNotFoundError:
+                # SQLite removes the write-ahead log when the last connection
+                # closes, so a listed file can vanish before it is opened; a
+                # vanished file cannot hold the secret.
+                continue
+            assert token.encode() not in content, name
     for row in _audit(server.state_dir, "user.invitation") + _audit(
             server.state_dir, "user.invite"):
         assert token not in _detail(row)
