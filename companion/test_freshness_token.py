@@ -605,6 +605,27 @@ def _wait_for_freshness_hit(page, recorded, timeout_s=5, since=0):
     page.wait_for_timeout(50)  # let the fetch's own .then() handler finish running
 
 
+def _count_refresh_cycles_finished(page):
+    """Start counting the page's `skypane-refresh-done` events (announced
+    after every finished refresh cycle) into window.__refreshDone."""
+    page.evaluate(
+        "() => {"
+        "  window.__refreshDone = 0;"
+        "  document.addEventListener('skypane-refresh-done',"
+        "    () => { window.__refreshDone += 1; });"
+        "}")
+
+
+def _wait_for_refresh_cycles_finished(page, expected, timeout_s=5):
+    """Poll (real wall-clock time) until the page has finished at least
+    `expected` refresh cycles since _count_refresh_cycles_finished()."""
+    deadline = time.time() + timeout_s
+    while time.time() < deadline and page.evaluate("() => window.__refreshDone") < expected:
+        page.wait_for_timeout(50)
+    assert page.evaluate("() => window.__refreshDone") >= expected, (
+        "expected the page to finish %d refresh cycle(s) within %ds" % (expected, timeout_s))
+
+
 @pytest.mark.browser
 def test_an_unchanged_tick_gets_a_304_with_no_swap_and_no_failure_badge(
         app_server_in_process, monkeypatch, page):
@@ -742,9 +763,15 @@ def test_a_304_updates_loaded_at_from_the_response_date_header(
     page.goto(server.base_url() + layout.FLIGHTS_ROUTE)
     page.wait_for_load_state("networkidle")
 
+    _count_refresh_cycles_finished(page)
     recorded.clear()
     page.clock.run_for(46000)
     _wait_for_freshness_hit(page, recorded)
+    # The server records the 304 when it sends it; loadedAtMs is only set
+    # (and the in-flight guard only cleared) when the page's own handler
+    # runs afterwards, which a fixed sleep cannot guarantee on a slow
+    # runner. The page announces every finished cycle: wait for that.
+    _wait_for_refresh_cycles_finished(page, 1)
     assert any(code == 304 and xrw == "freshness" for code, _inm, xrw in recorded), (
         "expected a 304 freshness tick carrying the forced stale Date header")
 
