@@ -601,10 +601,8 @@ class TestDeviceDirectories:
         state_dir = tmp_path / "state"
         _seed_minimal_state(state_dir)
         ddir = _seed_device(state_dir)
-        for name in ("calendar_rules.json", "calendar_url.secret", "colour_rules.json", "manual_resolutions.json"):
+        for name in ("calendar_rules.json", "calendar_url.secret", "colour_rules.json"):
             (ddir / name).write_text("x")
-        (ddir / "illustration_overrides").mkdir()
-        (ddir / "illustration_overrides" / "a.png").write_bytes(b"o")
         (ddir / "history.db-wal").write_bytes(b"wal")
         (ddir / "history.db-shm").write_bytes(b"shm")
         (ddir / "state.tmp").write_text("t")
@@ -616,7 +614,7 @@ class TestDeviceDirectories:
         for kept in (
             "device_config.json", "poll_state.json", "battery_state.json", "history.db",
             "gallery/x.png", "calendar_rules.json", "calendar_url.secret",
-            "colour_rules.json", "manual_resolutions.json", "illustration_overrides/a.png",
+            "colour_rules.json",
         ):
             assert base + kept in members
         for dropped in ("panel.bin", "img", "img/h.bin", "poll.lock", "history.db-wal", "history.db-shm", "state.tmp"):
