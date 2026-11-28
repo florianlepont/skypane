@@ -44,8 +44,10 @@ What it prints: one line per database, for example `fleet.db ok current=4 target
 Pasted output (Step 0):
 
 ```
-(paste here)
+No module named server.sqlite_migrations
 ```
+
+The production release predates the migration module, so the report command is not available yet (2026-11-28). It will be run after the next deploy. This is not a blocker for G1 to G3.
 
 ---
 
@@ -105,7 +107,7 @@ print('fleet devices:', n('SELECT COUNT(*) FROM devices'), ' fleet pending:', n(
 
 | Owner decision G1 | Pasted output |
 |---|---|
-| **APPROVED in principle, waiting for the check result** (owner, 2026-11-27). Final decision: APPROVED / NOT APPROVED (strike one) | Command 1:<br>`(paste here)`<br>Command 2:<br>`(paste here)` |
+| **APPROVED** (owner, 2026-11-28; both checks SAFE; the deploy remains manual and is done by the owner). | Command 1:<br>`nothing to do`<br>`skipped 1 token(s) for unregistered device(s)`<br>`airline default types: nothing to do`<br>`airline default types: nothing to do`<br>(no add, update, upgrade or mark line, no error line)<br>Command 2:<br>`legacy devices: 3  legacy tokens: 3`<br>`fleet devices: 2  fleet pending: 1  fleet devices with token: 2`<br>(3 <= 2 + 1 holds) |
 
 ---
 
@@ -149,7 +151,7 @@ sudo -u skypane /bin/sh -c 'cd <STATE_DIR> && find devices -mindepth 2 -maxdepth
 
 | Owner decision G2 | Pasted output |
 |---|---|
-| (not yet decided): APPROVED / NOT APPROVED | `(paste here: the airline names: and artwork: lines of the dry-run, and the listing)` |
+| **APPROVED** (owner, 2026-11-28; SAFE, nothing exists to retire in production; the deploy remains manual and is done by the owner). | The dry-run printed no `airline names:` or `artwork:` line and no `would merge` line.<br>Listing: no per-frame registry file listed (none of the three files under `devices/*`); pictures in per-frame illustration_overrides: 0; markers: both marker files absent (legitimate, no per-frame copies exist). |
 
 ---
 
@@ -194,7 +196,7 @@ It prints one tuple per principal: the principal word, how many rows, and how ma
 
 | Owner decision G3 | Pasted output |
 |---|---|
-| **APPROVED in principle, waiting for the pasted count and the G6 confirmation** (owner, 2026-11-27). Final decision: APPROVED / NOT APPROVED (strike one) | `(paste here)` |
+| **APPROVED** (owner, 2026-11-28; SAFE; G6 is APPROVED, so the condition that G3 waits for G6 is satisfied; the deploy remains manual and is done by the owner). | One row: principal `user`, total 8, still-valid 8. No `legacy-admin` row. |
 
 ---
 
@@ -250,7 +252,7 @@ It prints one tuple per principal: the principal word, how many rows, and how ma
 
 | Owner decision G5 | Pasted output |
 |---|---|
-| (not yet decided): APPROVED / NOT APPROVED | Not needed. |
+| **APPROVED** (owner, 2026-11-28; the deploy remains manual and is done by the owner). | Not needed. |
 
 ---
 
@@ -270,7 +272,7 @@ After G1 to G3 are deployed (G4 is KEEP, G5 changes no data), the previous relea
 
 | Owner decision G6 | Owner confirmation and date |
 |---|---|
-| (not yet confirmed): APPROVED / NOT APPROVED. G3 stays blocked until this says APPROVED. | `(write: "I confirm the rollback period is over" and the date)` |
+| **APPROVED** (owner, 2026-11-28). G3 was blocked until this said APPROVED; it now does. | I confirm the rollback period of fleet.db is over (2026-11-28). After the schema 5 deploy the previous release cannot open fleet.db and recovery means restoring the nightly backup. The deploy remains manual and is done by the owner. |
 
 ---
 
