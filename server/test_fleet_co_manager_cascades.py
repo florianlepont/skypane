@@ -157,7 +157,7 @@ def test_reassign_rollback_restores_the_co_manager_row(conn, root, owner, cm1, m
 
 
 def test_reassign_live_frame_to_a_co_manager_touches_no_files(conn, root, owner, cm1):
-    ns = live.seed_live_like_state(root)
+    ns = live.seed_live_like_state(root, migrated=False)
     did = fleet_db.add_device(conn, ns.mac, SECRET, HW, owner, token="live-tok")
     fleet_db.add_co_manager(conn, did, cm1, owner)
     snap = {k: v for k, v in live.snapshot_dir(root).items() if not k.startswith("fleet.db")}
