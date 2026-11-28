@@ -24,10 +24,10 @@ purpose.
         ▼                                         ▼
  ┌──────────────────────────────────────────────────────────────┐
  │  server/poll_loop.py  (systemd oneshot, every 30 s)            │
- │    -> server/fleet_cycle.py run_fleet(): devices from          │
+ │    -> server/polling/fleet_cycle.py run_fleet(): devices from  │
  │       fleet.db, grouped by exact polling zone; each zone is    │
- │       fetched once (server/zone_fetch.py) under the shared     │
- │       request ledger (server/request_budget.py)                │
+ │       fetched once (polling/zone_fetch.py) under the shared    │
+ │       request ledger (polling/request_budget.py)               │
  │    -> per device, server/poll_cycle.py run_once():             │
  │         detect     server/plane/detect.py, server/detection.py │
  │         direction  server/plane/runway_config.py               │
@@ -195,16 +195,16 @@ panel being visibly mid-redraw for roughly half a minute afterward.
 
 `server/poll_loop.py` is the single entrypoint, invoked as a systemd-timer
 oneshot every 30 seconds (comfortably inside both aggregators' 1 req/s limit, which
-`server/request_budget.py` enforces). It
+`server/polling/request_budget.py` enforces). It
 parses `argparse` arguments and hands the whole fleet to
-`server/fleet_cycle.py`'s `run_fleet()`, which lists the devices in
+`server/polling/fleet_cycle.py`'s `run_fleet()`, which lists the devices in
 `fleet.db` (the live frame alone when there is none), drops devices that
 cannot be rendered here or have not checked in for seven days, and groups
 the rest by exact polling zone. Held devices (battery critical, display
 off, quiet hours) join no zone and cost no request. Each zone is fetched
-once through `server/zone_fetch.py`: adsb.fi then adsb.lol, one after the
+once through `server/polling/zone_fetch.py`: adsb.fi then adsb.lol, one after the
 other, every request spending a slot from the shared
-`server/request_budget.py` ledger (`request_ledger.json` in the state
+`server/polling/request_budget.py` ledger (`request_ledger.json` in the state
 root: 1.1 s global spacing, a 60 s pause per failing provider, and each
 zone's last-served time, all behind a `flock`). Zones holding the live
 frame go first, then the oldest-served; no new zone or device starts
@@ -230,13 +230,13 @@ project.
 
 - `server/poll_loop.py`: the systemd-timer entrypoint (`argparse`/`main()`
   only).
-- `server/fleet_cycle.py`: `run_fleet()`, the per-zone fan-out described
-  above. `server/fleet_zones.py` holds the pure zone identity, capacity
+- `server/polling/fleet_cycle.py`: `run_fleet()`, the per-zone fan-out described
+  above. `server/polling/fleet_zones.py` holds the pure zone identity, capacity
   ordering and device activity rules (no I/O, no clock).
-- `server/zone_fetch.py` and `server/http_fetch.py`: one zone's provider
+- `server/polling/zone_fetch.py` and `server/polling/http_fetch.py`: one zone's provider
   queries, and the bounded outbound HTTP they go through (total wall-clock
   deadline, byte cap, pinned public address).
-- `server/request_budget.py`: the shared ADS-B request ledger.
+- `server/polling/request_budget.py`: the shared ADS-B request ledger.
 - `server/poll_cycle.py`: the cycle itself. `load_cycle_context` /
   `decide_hold` / `run_hold_cycle` or `detect_flight` / `load_display_slots` /
   `update_battery_low` / `advance_display_queue` / `render_and_publish` /
@@ -271,7 +271,7 @@ Detection and rendering:
   `status`, `split`, `icons`, `palette_check`). It is still importable as
   `server.plane.render`.
 - `server/screen_layouts.py` (the layout ids and the default),
-  `server/pairings.py` (the field/lettering pairings and the theme mapping),
+  `server/pairing/pairings.py` (the field/lettering pairings and the theme mapping),
   `server/themes.py` (theme registry), `server/visible_window.py` (drawing
   inside the part of a panel a mat leaves visible), `server/panel_format.py`
   and `server/image_container.py` (wire formats), `server/plane/dither.py`,
@@ -295,9 +295,22 @@ Fleet data:
 - `server/device_dirs.py`: the only code that turns a stored `state_path`
   into a directory. `server/device_config.py`: per-frame configuration.
 - `server/history_db.py`: `history.db`.
-- `server/hardware.py`: hardware profiles. `server/firmware_registry.py`,
-  `server/firmware_image.py` and `server/firmware_cli.py`: OTA.
-- `server/pairing_code.py` and `server/pairing_image.py`: the pairing flow.
+- `server/hardware.py`: hardware profiles. `server/firmware/` (`registry.py`,
+  `image.py`, `cli.py`): OTA.
+- `server/pairing/` (`pairings.py`, `code.py`, `image.py`): the pairing flow
+  and the field/lettering pairings.
+- `server/polling/` (`fleet_cycle.py`, `fleet_zones.py`, `zone_fetch.py`,
+  `http_fetch.py`, `request_budget.py`): the polling support described above.
+
+**Compatibility shims.** The three groups above moved out of the flat
+`server/` directory. The old flat paths (`server/firmware_registry.py`,
+`server/firmware_image.py`, `server/firmware_cli.py`,
+`server/request_budget.py`, `server/zone_fetch.py`, `server/http_fetch.py`,
+`server/fleet_zones.py`, `server/fleet_cycle.py`, `server/pairings.py`,
+`server/pairing_code.py`, `server/pairing_image.py`) are `sys.modules`
+aliases of the moved modules, kept so existing importers, tests and
+`monkeypatch` sites keep working. `server/poll_loop.py`, `server/poll_cycle.py`, `server/fleet_db.py`,
+`server/history_db.py` and `server/device_config.py` stay in place.
 
 Other processes: `stub-server/byos_server.py` (device protocol),
 `stub-server/devices_cli.py` and `stub-server/fleet_cli.py` (operator CLIs),
@@ -471,7 +484,7 @@ layout `b`. Three renderer families sit behind the dispatcher:
 - **Giant lettering** (`server/plane/render/giant/`): the layout ids `a`,
   `b`, `c` and `a_diagonal`. Oversized destination lettering set in Anton,
   with the aircraft placed over it, drawn in one of five colour pairings
-  (`server/pairings.py`, mapped from the stored theme id at read time so no
+  (`server/pairing/pairings.py`, mapped from the stored theme id at read time so no
   stored configuration is rewritten). Portrait and landscape canvases have
   their own compositors; a canvas size with none draws the classic picture.
   The hold states under a giant layout draw the calm status screens of
@@ -650,24 +663,24 @@ can withdraw an OTA offer, never select a type (`claim_contradicts()` in
 `stub-server/byos_server.py`).
 
 **Pairing.** A registered frame nobody has claimed shows a pairing code on its
-panel (`server/pairing_image.py`). A signed-in person types the code on the
+panel (`server/pairing/image.py`). A signed-in person types the code on the
 Add a frame page (`companion/user_pairing.py`); the claim is one
 `BEGIN IMMEDIATE` transaction in `server/fleet_ops.py` that deletes the
 pending row, creates the device, provisions its directory and writes the
-audit row. Codes are stored only as salted hashes (`server/pairing_code.py`),
+audit row. Codes are stored only as salted hashes (`server/pairing/code.py`),
 and wrong, expired and used codes give the same refusal. In-memory
 failure-count lockouts bound guessing (`companion/throttle.py`). A
 retired frame shows a FRAME RETIRED screen. Registration by MAC or enrolment
 secret stays under the administrator-only Fleet routes
 (`companion/console_pairing.py`).
 
-**OTA.** `server/firmware_registry.py` is the one definition of what has
+**OTA.** `server/firmware/registry.py` is the one definition of what has
 been published, what is scheduled for each hardware type and what the last
 attempts reported (`registry.json` in the state root's `firmware/` directory, one
 document per type, images content-addressed as `<sha256>.bin`). The device server composes the
 offer from `compute_offer()`, the poll process reconciles device reports,
 the companion's Update page schedules and cancels, and the deploy step
-imports published releases (`server/firmware_cli.py`). `server/firmware_image.py`
+imports published releases (`server/firmware/cli.py`). `server/firmware/image.py`
 parses and validates ESP application images; the RSA signature is checked
 by the device at boot, and the committed public key is
 `firmware/signing/skypane-signing-pubkey.pem` (key handling in
@@ -682,7 +695,7 @@ display off, battery empty, quiet hours) is documented at the call site in
 companion uses to decide that a frame has gone quiet.
 
 **Request budget.** The fleet sends at most one ADS-B request per second in
-total, whatever the provider, zone or process: `server/request_budget.py`
+total, whatever the provider, zone or process: `server/polling/request_budget.py`
 keeps the spacing, the per-provider pause and the per-zone last-served times
 in `request_ledger.json` behind a `flock`, and the lock is a leaf lock.
 
@@ -801,14 +814,14 @@ these stores is the Phase 66 audit (`66-AUDIT.md`) and is not repeated here.
 
 | Store | Where | Writers | Readers | Backed up | Notes |
 |-------|-------|---------|---------|-----------|-------|
-| `fleet.db` (SQLite, WAL, mode 0600, `user_version` 4) | root | companion (users, roles, sessions, audit, co-managers, pairing, frames); device server (token and enrolment-secret writes); `server/fleet_migrate.py` (deploy step) | companion; device server (read-only per request); poll process (`server/fleet_cycle.py`) | yes: online copy through the sqlite3 backup API, then an integrity check | tables `users`, `locations`, `devices`, `meta`, `sessions`, `pending_devices`, `audit_log`, `device_co_managers` |
+| `fleet.db` (SQLite, WAL, mode 0600, `user_version` 4) | root | companion (users, roles, sessions, audit, co-managers, pairing, frames); device server (token and enrolment-secret writes); `server/fleet_migrate.py` (deploy step) | companion; device server (read-only per request); poll process (`server/polling/fleet_cycle.py`) | yes: online copy through the sqlite3 backup API, then an integrity check | tables `users`, `locations`, `devices`, `meta`, `sessions`, `pending_devices`, `audit_log`, `device_co_managers` |
 | `history.db` (SQLite, WAL, `user_version` 1) | root (live frame) and `devices/<id>/` | poll process (runway events, poll cycles, route lookups, meta, battery readings tailed from the Caddy log); companion for the few runway-event rows written by `companion/airline_fleet_world.py` | companion (Health, History, Home, export); poll process | yes, the root file and every per-frame file | tables `runway_events`, `device_health`, `meta`, `wake_epochs`, `poll_cycles`, `route_lookups` |
 | `device_config.json`, `poll_state.json`, `battery_state.json` | root and `devices/<id>/` | companion (config); poll process (poll state); device server (latest battery reading) | all three processes | yes, root and per frame | atomic writes (`server/atomic_io.py`); the config has its own lock |
 | Fleet registries: `manual_resolutions.json`, `airline_name_overrides.json`, `airline_default_types.json`, `airline_suggestions.json`, `airline_default_types_set.json`, `airline_default_types_cleared.json`, `colour_rules.json`, `calendar_rules.json` with `calendar_url.secret` | fleet root (colour and calendar rules also per frame) | companion | poll process, companion | yes | the per-frame copies of the first three are leftovers, see below |
 | Migration markers: `airline_registry_migration.json`, `illustration_migration.json`, `airline_default_types_migration.json`, `airline_default_types_set_migration.json` | root | `server/fleet_migrate.py` and the `server/plane/fleet_*` merge modules | the same modules | yes | idempotency markers: restore them together with the data they guard |
 | `devices.json`, `byos_state.json` | root | `stub-server/devices_cli.py`; device server (mirror of tokens and secrets) | device server when `fleet.db` is absent or not yet migrated; `server/fleet_migrate.py` | yes | legacy identity files, see "Duplicated or overlapping data" |
 | `live_frame_macs.json` | root | `server/device_dirs.py` | device server | yes | the one record of which frame is the live one that survives an unreadable `fleet.db` |
-| `firmware/` (`registry.json`, `device_report.json`, images) | root | `server/firmware_cli.py`; device server (`device_report.json` only) | device server; companion Update page | yes, the directory (lock files excluded) | `registry.lock` serialises registry writers |
+| `firmware/` (`registry.json`, `device_report.json`, images) | root | `server/firmware/cli.py`; device server (`device_report.json` only) | device server; companion Update page | yes, the directory (lock files excluded) | `registry.lock` serialises registry writers |
 | `illustration_overrides/`, `illustration_conflicts/`, `gallery/` | root (overrides and gallery also per frame) | companion (overrides); poll process (gallery) | poll process, companion | yes | the per-frame override directories are leftovers after the merge |
 | Regenerable or short-lived: `panel.bin`, `fleet_status.json`, `request_ledger.json`, `adsbdb_shared_cache.json*`, `check_interval_experiment.json`, `pairing/`, `img/`, `theme_previews/`, `frame_previews/`, `*.lock`, `caddy-access*.log*` | root and per frame | various | various | no, by design | rebuilt by the next poll, or expire within hours |
 
@@ -863,7 +876,7 @@ Provisional default: document, do not retire; no schema change.
    `META_PROVIDER_LAST_CALL_PREFIX` and `META_LAST_POLL_TRIGGER` are only
    referenced by the status-key filter in `server/history_db.py`. The live
    record of ADS-B request spacing is `request_ledger.json`
-   (`server/request_budget.py`).
+   (`server/polling/request_budget.py`).
 4. **`wake_epochs`** (planned data). Written by the poll cycle, read only by
    `history_db` itself for de-duplication. It accrues data that no screen
    uses yet; a test pins that no companion file reads it.
